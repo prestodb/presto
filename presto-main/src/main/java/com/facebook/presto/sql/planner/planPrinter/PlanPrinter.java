@@ -25,6 +25,7 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.StageExecutionStats;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -51,11 +52,13 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.DynamicFilters;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
@@ -89,6 +92,8 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -106,6 +111,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -118,6 +124,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.sql.DynamicFilters.extractDynamicFilters;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.JsonRenderer.JsonPlanFragment;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
@@ -421,7 +428,10 @@ public class PlanPrinter
                         format("[%s]%s", Joiner.on(" AND ").join(joinExpressions), formatHash(node.getLeftHashVariable(), node.getRightHashVariable())));
             }
 
-            node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetails("Distribution: %s", distributionType));
+            node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
+            if (!node.getDynamicFilters().isEmpty()) {
+                nodeOutput.appendDetails("dynamicFilterAssignments = %s", printDynamicFilterAssignments(node.getDynamicFilters()));
+            }
             node.getSortExpressionContext(functionManager)
                     .ifPresent(sortContext -> nodeOutput.appendDetails("SortExpression[%s]", formatter.apply(sortContext.getSortExpression())));
             node.getLeft().accept(this, context);
@@ -777,7 +787,14 @@ public class PlanPrinter
             if (filterNode.isPresent()) {
                 operatorName += "Filter";
                 formatString += "filterPredicate = %s, ";
-                arguments.add(formatter.apply(filterNode.get().getPredicate()));
+                RowExpression predicate = filterNode.get().getPredicate();
+                DynamicFilters.ExtractResult extractResult = extractDynamicFilters(predicate);
+                LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager), functionManager);
+                arguments.add(logicalRowExpressions.combineConjuncts(extractResult.getStaticConjuncts()));
+                if (!extractResult.getDynamicConjuncts().isEmpty()) {
+                    formatString += "dynamicFilter = %s, ";
+                    arguments.add(printDynamicFilters(extractResult.getDynamicConjuncts()));
+                }
             }
 
             if (formatString.length() > 1) {
@@ -815,6 +832,20 @@ public class PlanPrinter
 
             sourceNode.accept(this, context);
             return null;
+        }
+
+        private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
+        {
+            return filters.stream()
+                    .map(filter -> filter.getId() + " -> " + filter.getInput())
+                    .collect(Collectors.joining(", ", "{", "}"));
+        }
+
+        private String printDynamicFilterAssignments(Map<String, Symbol> filters)
+        {
+            return filters.entrySet().stream()
+                    .map(filter -> filter.getValue() + " -> " + filter.getKey())
+                    .collect(Collectors.joining(", ", "{", "}"));
         }
 
         private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node, PlanNodeStats nodeStats)
