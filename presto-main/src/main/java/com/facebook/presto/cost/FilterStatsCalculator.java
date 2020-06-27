@@ -43,6 +43,7 @@ import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.InListExpression;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.IsNotNullPredicate;
@@ -74,6 +75,7 @@ import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
+import static com.facebook.presto.sql.DynamicFilters.isDynamicFilter;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -449,6 +451,15 @@ public class FilterStatsCalculator
 
             Optional<VariableReferenceExpression> rightVariable = right instanceof SymbolReference ? Optional.of(toVariable(right)) : Optional.empty();
             return estimateExpressionToExpressionComparison(input, leftStats, leftVariable, rightStats, rightVariable, operator);
+        }
+
+        @Override
+        protected PlanNodeStatsEstimate visitFunctionCall(FunctionCall node, Void context)
+        {
+            if (isDynamicFilter(node)) {
+                return process(BooleanLiteral.TRUE_LITERAL, context);
+            }
+            return PlanNodeStatsEstimate.unknown();
         }
 
         private Type getType(Expression expression)

@@ -69,9 +69,28 @@ public final class DynamicFilters
         return new ExtractResult(staticConjuncts.build(), dynamicConjuncts.build());
     }
 
-    public static boolean isDynamicFilter(RowExpression expression)
+    public static boolean isDynamicFilter(Expression expression)
     {
-        return getDescriptor(expression).isPresent();
+        if (!(expression instanceof FunctionCall)) {
+            return false;
+        }
+
+        FunctionCall functionCall = (FunctionCall) expression;
+
+        if (!functionCall.getName().getSuffix().equals(Function.NAME)) {
+            return false;
+        }
+
+        List<Expression> arguments = functionCall.getArguments();
+        if (arguments.size() != 2) {
+            return false;
+        }
+
+        Expression firstArgument = arguments.get(0);
+        if (!(firstArgument instanceof StringLiteral)) {
+            return false;
+        }
+        return true;
     }
 
     private static Optional<Descriptor> getDescriptor(RowExpression expression)
