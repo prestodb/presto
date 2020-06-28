@@ -55,15 +55,12 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
     private static final String ORIGINAL_NAME = "original-name";
-
-    public static final String SUPPORTS_PREDICATES = "supports-predicates";
 
     private final ElasticsearchClient client;
     private final String schemaName;
@@ -145,33 +142,10 @@ public class ElasticsearchMetadata
                 continue;
             }
 
-            result.add(makeColumnMetadata(field.getName(), type, supportsPredicates(field.getType())));
+            result.add(makeColumnMetadata(field.getName(), type));
         }
 
         return result.build();
-    }
-
-    private static boolean supportsPredicates(IndexMetadata.Type type)
-    {
-        if (type instanceof DateTimeType) {
-            return true;
-        }
-
-        if (type instanceof PrimitiveType) {
-            switch (((PrimitiveType) type).getName().toLowerCase(ENGLISH)) {
-                case "boolean":
-                case "byte":
-                case "short":
-                case "integer":
-                case "long":
-                case "double":
-                case "float":
-                case "keyword":
-                    return true;
-            }
-        }
-
-        return false;
     }
 
     private Type toPrestoType(IndexMetadata.Type type)
@@ -240,8 +214,7 @@ public class ElasticsearchMetadata
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             results.put(column.getName(), new ElasticsearchColumnHandle(
                     (String) column.getProperties().getOrDefault(ORIGINAL_NAME, column.getName()),
-                    column.getType(),
-                    (Boolean) column.getProperties().get(SUPPORTS_PREDICATES)));
+                    column.getType()));
         }
 
         return results.build();
@@ -251,7 +224,7 @@ public class ElasticsearchMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ElasticsearchColumnHandle handle = (ElasticsearchColumnHandle) columnHandle;
-        return makeColumnMetadata(handle.getName(), handle.getType(), handle.isSupportsPredicates());
+        return makeColumnMetadata(handle.getName(), handle.getType());
     }
 
     @Override
@@ -271,7 +244,7 @@ public class ElasticsearchMetadata
                 .collect(toImmutableMap(ConnectorTableMetadata::getTable, ConnectorTableMetadata::getColumns));
     }
 
-    private static ColumnMetadata makeColumnMetadata(String name, Type type, boolean supportsPredicates)
+    private static ColumnMetadata makeColumnMetadata(String name, Type type)
     {
         return new ColumnMetadata(
                 name,
@@ -279,8 +252,6 @@ public class ElasticsearchMetadata
                 null,
                 null,
                 false,
-                ImmutableMap.of(
-                        ORIGINAL_NAME, name,
-                        SUPPORTS_PREDICATES, supportsPredicates));
+                ImmutableMap.of(ORIGINAL_NAME, name));
     }
 }
