@@ -30,6 +30,7 @@ public final class ElasticsearchColumn
     private final Type type;
     private final String jsonPath;
     private final String jsonType;
+    private final boolean isList;
     private final int ordinalPosition;
 
     @JsonCreator
@@ -38,6 +39,7 @@ public final class ElasticsearchColumn
             @JsonProperty("type") Type type,
             @JsonProperty("jsonPath") String jsonPath,
             @JsonProperty("jsonType") String jsonType,
+            @JsonProperty("isList") boolean isList,
             @JsonProperty("ordinalPosition") int ordinalPosition)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or empty");
@@ -45,6 +47,7 @@ public final class ElasticsearchColumn
         this.type = requireNonNull(type, "type is null");
         this.jsonPath = requireNonNull(jsonPath, "jsonPath is null");
         this.jsonType = requireNonNull(jsonType, "jsonType is null");
+        this.isList = isList;
         this.ordinalPosition = ordinalPosition;
     }
 
@@ -73,6 +76,12 @@ public final class ElasticsearchColumn
     }
 
     @JsonProperty
+    public boolean isList()
+    {
+        return isList;
+    }
+
+    @JsonProperty
     public int getOrdinalPosition()
     {
         return ordinalPosition;
@@ -81,7 +90,7 @@ public final class ElasticsearchColumn
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, jsonPath, jsonType, ordinalPosition);
+        return Objects.hash(name, type, jsonPath, jsonType, isList, ordinalPosition);
     }
 
     @Override
@@ -99,6 +108,7 @@ public final class ElasticsearchColumn
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.jsonPath, other.jsonPath) &&
                 Objects.equals(this.jsonType, other.jsonType) &&
+                Objects.equals(this.isList, other.isList) &&
                 Objects.equals(this.ordinalPosition, other.ordinalPosition);
     }
 
@@ -110,6 +120,7 @@ public final class ElasticsearchColumn
                 .add("type", type)
                 .add("jsonPath", jsonPath)
                 .add("jsonType", jsonType)
+                .add("isList", isList)
                 .add("ordinalPosition", ordinalPosition)
                 .toString();
     }

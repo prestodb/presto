@@ -17,7 +17,7 @@ import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
@@ -36,19 +36,19 @@ public class ElasticsearchConnector
     private final LifeCycleManager lifeCycleManager;
     private final ElasticsearchMetadata metadata;
     private final ElasticsearchSplitManager splitManager;
-    private final ElasticsearchPageSourceProvider pageSourceProvider;
+    private final ElasticsearchRecordSetProvider recordSetProvider;
 
     @Inject
     public ElasticsearchConnector(
             LifeCycleManager lifeCycleManager,
             ElasticsearchMetadata metadata,
             ElasticsearchSplitManager splitManager,
-            ElasticsearchPageSourceProvider pageSourceProvider)
+            ElasticsearchRecordSetProvider recordSetProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
-        this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
     }
 
     @Override
@@ -71,9 +71,9 @@ public class ElasticsearchConnector
     }
 
     @Override
-    public ConnectorPageSourceProvider getPageSourceProvider()
+    public ConnectorRecordSetProvider getRecordSetProvider()
     {
-        return pageSourceProvider;
+        return recordSetProvider;
     }
 
     @Override

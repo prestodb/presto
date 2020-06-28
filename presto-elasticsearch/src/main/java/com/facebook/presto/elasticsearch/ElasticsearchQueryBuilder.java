@@ -48,11 +48,11 @@ public class ElasticsearchQueryBuilder
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
         for (ElasticsearchColumnHandle column : columns) {
             BoolQueryBuilder columnQueryBuilder = new BoolQueryBuilder();
-            Type type = column.getType();
+            Type type = column.getColumnType();
             if (constraint.getDomains().isPresent()) {
                 Domain domain = constraint.getDomains().get().get(column);
                 if (domain != null) {
-                    columnQueryBuilder.should(buildPredicate(column.getName(), domain, type));
+                    columnQueryBuilder.should(buildPredicate(column.getColumnJsonPath(), domain, type));
                 }
             }
             boolQueryBuilder.must(columnQueryBuilder);
