@@ -372,7 +372,7 @@ public class ElasticsearchClient
                 chosen = preferred.findFirst().get();
                 node = nodes.get(chosen.getShard() % nodes.size());
             }
-            shards.add(new Shard(chosen.getIndex(), chosen.getShard(), node.getAddress()));
+            shards.add(new Shard(chosen.getShard(), node.getAddress()));
         }
 
         return shards.build();
@@ -405,27 +405,6 @@ public class ElasticsearchClient
         });
     }
 
-    public List<String> getAliases()
-    {
-        return doRequest("/_aliases", body -> {
-            try {
-                ImmutableList.Builder<String> result = ImmutableList.builder();
-                JsonNode root = OBJECT_MAPPER.readTree(body);
-
-                Iterator<JsonNode> elements = root.elements();
-                while (elements.hasNext()) {
-                    JsonNode element = elements.next();
-                    JsonNode aliases = element.get("aliases");
-                    result.addAll(aliases.fieldNames());
-                }
-                return result.build();
-            }
-            catch (IOException e) {
-                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
-            }
-        });
-    }
-
     public IndexMetadata getIndexMetadata(String index)
     {
         String path = format("/%s/_mappings", index);
@@ -433,7 +412,7 @@ public class ElasticsearchClient
         return doRequest(path, body -> {
             try {
                 JsonNode mappings = OBJECT_MAPPER.readTree(body)
-                        .elements().next()
+                        .get(index)
                         .get("mappings");
 
                 if (!mappings.has("properties")) {

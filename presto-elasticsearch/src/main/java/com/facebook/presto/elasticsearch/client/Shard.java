@@ -19,20 +19,13 @@ import static java.util.Objects.requireNonNull;
 
 public class Shard
 {
-    private final String index;
     private final int id;
     private final Optional<String> address;
 
-    public Shard(String index, int id, Optional<String> address)
+    public Shard(int id, Optional<String> address)
     {
-        this.index = requireNonNull(index, "index is null");
         this.id = id;
         this.address = requireNonNull(address, "address is null");
-    }
-
-    public String getIndex()
-    {
-        return index;
     }
 
     public int getId()
@@ -48,6 +41,6 @@ public class Shard
     @Override
     public String toString()
     {
-        return index + ":" + id + "@" + address.orElse("<unknown>");
+        return id + "@" + address.orElse("<unknown>");
     }
 }
