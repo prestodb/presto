@@ -16,7 +16,6 @@ package com.facebook.presto.elasticsearch;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import org.elasticsearch.client.transport.TransportClient;
 
 import java.util.List;
 
@@ -28,13 +27,11 @@ public class ElasticsearchRecordSet
 {
     private final List<ElasticsearchColumnHandle> columnHandles;
     private final List<Type> columnTypes;
-    private final TransportClient client;
     private final ElasticsearchSplit split;
     private final ElasticsearchConfig config;
 
-    public ElasticsearchRecordSet(TransportClient client, ElasticsearchSplit split, ElasticsearchConfig config, List<ElasticsearchColumnHandle> columnHandles)
+    public ElasticsearchRecordSet(ElasticsearchSplit split, ElasticsearchConfig config, List<ElasticsearchColumnHandle> columnHandles)
     {
-        this.client = requireNonNull(client, "client is null");
         this.split = requireNonNull(split, "split is null");
         this.config = requireNonNull(config, "config is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
@@ -52,6 +49,6 @@ public class ElasticsearchRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new ElasticsearchRecordCursor(client, columnHandles, config, split);
+        return new ElasticsearchRecordCursor(columnHandles, config, split);
     }
 }
