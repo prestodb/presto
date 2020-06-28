@@ -32,6 +32,7 @@ import com.google.common.io.Closer;
 import io.airlift.units.Duration;
 import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsRequest;
 import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsResponse;
+import org.elasticsearch.action.admin.indices.get.GetIndexRequest;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
@@ -48,6 +49,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -175,8 +177,32 @@ public class ElasticsearchClient
                 table.getTableName(),
                 table.getSchemaName(),
                 table.getIndex(),
+                table.getIndexExactMatch(),
                 table.getType(),
                 Optional.of(buildColumns(table)));
+    }
+
+    public List<String> getIndices(ElasticsearchTableDescription tableDescription)
+    {
+        if (tableDescription.getIndexExactMatch()) {
+            return ImmutableList.of(tableDescription.getIndex());
+        }
+        try {
+            String[] result = retry()
+                    .maxAttempts(maxAttempts)
+                    .exponentialBackoff(maxRetryTime)
+                    .run("getIndices", () -> client.admin()
+                            .indices()
+                            .getIndex(new GetIndexRequest())
+                            .actionGet(requestTimeout.toMillis())
+                            .getIndices());
+            return Arrays.stream(result)
+                    .filter(index -> index.startsWith(tableDescription.getIndex()))
+                    .collect(toImmutableList());
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public ClusterSearchShardsResponse getSearchShards(String index)
@@ -220,41 +246,42 @@ public class ElasticsearchClient
     {
         List<ElasticsearchColumn> columns = new ArrayList<>();
         verifyNotNull(client, "client is null");
-        String index = tableDescription.getIndex();
-        GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(tableDescription.getType());
+        for (String index : getIndices(tableDescription)) {
+            GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(tableDescription.getType());
 
-        if (!isNullOrEmpty(index)) {
-            mappingsRequest.indices(index);
-        }
-        ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> mappings = getMappings(client, mappingsRequest);
-
-        Iterator<String> indexIterator = mappings.keysIt();
-        while (indexIterator.hasNext()) {
-            // TODO use io.airlift.json.JsonCodec
-            MappingMetaData mappingMetaData = mappings.get(indexIterator.next()).get(tableDescription.getType());
-            JsonNode rootNode;
-            try {
-                rootNode = objectMapper.readTree(mappingMetaData.source().uncompressed());
+            if (!isNullOrEmpty(index)) {
+                mappingsRequest.indices(index);
             }
-            catch (IOException e) {
-                throw new PrestoException(ELASTICSEARCH_CORRUPTED_MAPPING_METADATA, e);
-            }
-            // parse field mapping JSON: https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-get-field-mapping.html
-            JsonNode mappingNode = rootNode.get(tableDescription.getType());
-            JsonNode propertiesNode = mappingNode.get("properties");
+            ImmutableOpenMap<String, ImmutableOpenMap<String, MappingMetaData>> mappings = getMappings(client, mappingsRequest);
 
-            List<String> lists = new ArrayList<>();
-            JsonNode metaNode = mappingNode.get("_meta");
-            if (metaNode != null) {
-                JsonNode arrayNode = metaNode.get("lists");
-                if (arrayNode != null && arrayNode.isArray()) {
-                    ArrayNode arrays = (ArrayNode) arrayNode;
-                    for (int i = 0; i < arrays.size(); i++) {
-                        lists.add(arrays.get(i).textValue());
+            Iterator<String> indexIterator = mappings.keysIt();
+            while (indexIterator.hasNext()) {
+                // TODO use com.facebook.airlift.json.JsonCodec
+                MappingMetaData mappingMetaData = mappings.get(indexIterator.next()).get(tableDescription.getType());
+                JsonNode rootNode;
+                try {
+                    rootNode = objectMapper.readTree(mappingMetaData.source().uncompressed());
+                }
+                catch (IOException e) {
+                    throw new PrestoException(ELASTICSEARCH_CORRUPTED_MAPPING_METADATA, e);
+                }
+                // parse field mapping JSON: https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-get-field-mapping.html
+                JsonNode mappingNode = rootNode.get(tableDescription.getType());
+                JsonNode propertiesNode = mappingNode.get("properties");
+
+                List<String> lists = new ArrayList<>();
+                JsonNode metaNode = mappingNode.get("_meta");
+                if (metaNode != null) {
+                    JsonNode arrayNode = metaNode.get("lists");
+                    if (arrayNode != null && arrayNode.isArray()) {
+                        ArrayNode arrays = (ArrayNode) arrayNode;
+                        for (int i = 0; i < arrays.size(); i++) {
+                            lists.add(arrays.get(i).textValue());
+                        }
                     }
                 }
+                populateColumns(propertiesNode, lists, columns);
             }
-            populateColumns(propertiesNode, lists, columns);
         }
         return columns;
     }
