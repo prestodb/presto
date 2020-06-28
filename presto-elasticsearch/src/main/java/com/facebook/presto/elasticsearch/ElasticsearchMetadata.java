@@ -80,15 +80,8 @@ public class ElasticsearchMetadata
     {
         requireNonNull(tableName, "tableName is null");
         if (tableName.getSchemaName().equals(schemaName)) {
-            String[] parts = tableName.getTableName().split(":", 2);
-            String table = parts[0];
-            Optional<String> query = Optional.empty();
-            if (parts.length == 2) {
-                query = Optional.of(parts[1]);
-            }
-
-            if (listTables(session, Optional.of(schemaName)).contains(new SchemaTableName(schemaName, table))) {
-                return new ElasticsearchTableHandle(schemaName, table, query);
+            if (listTables(session, Optional.of(schemaName)).contains(tableName)) {
+                return new ElasticsearchTableHandle(schemaName, tableName.getTableName());
             }
         }
         return null;
