@@ -23,7 +23,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -34,13 +33,13 @@ public class ElasticsearchSplit
 {
     private final int shard;
     private final TupleDomain<ColumnHandle> tupleDomain;
-    private final Optional<String> address;
+    private final String address;
 
     @JsonCreator
     public ElasticsearchSplit(
             @JsonProperty("shard") int shard,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
-            @JsonProperty("address") Optional<String> address)
+            @JsonProperty("address") String address)
     {
         this.shard = shard;
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
@@ -54,7 +53,7 @@ public class ElasticsearchSplit
     }
 
     @JsonProperty
-    public Optional<String> getAddress()
+    public String getAddress()
     {
         return address;
     }
@@ -74,8 +73,7 @@ public class ElasticsearchSplit
     @Override
     public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
     {
-        return address.map(host -> ImmutableList.of(HostAddress.fromString(host)))
-                .orElseGet(ImmutableList::of);
+        return ImmutableList.of(HostAddress.fromString(address));
     }
 
     @Override
