@@ -37,7 +37,6 @@ import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
 import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.cluster.routing.ShardRouting;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.settings.Settings.Builder;
@@ -51,7 +50,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -60,7 +58,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -197,40 +194,15 @@ public class ElasticsearchClient
 
             ImmutableList.Builder<Shard> shards = ImmutableList.builder();
             DiscoveryNode[] nodes = result.getNodes();
-            Map<String, DiscoveryNode> nodeById = Arrays.stream(nodes)
-                    .collect(Collectors.toMap(DiscoveryNode::getId, node -> node));
-
             for (ClusterSearchShardsGroup group : result.getGroups()) {
-                Optional<ShardRouting> routing = Arrays.stream(group.getShards())
-                        .filter(ShardRouting::assignedToNode)
-                        .sorted(this::shardPreference)
-                        .findFirst();
-
-                DiscoveryNode node;
-                if (routing.isPresent()) {
-                    node = nodeById.get(routing.get().currentNodeId());
-                }
-                else {
-                    // pick an arbitrary node
-                    node = nodes[group.getShardId().getId() % nodes.length];
-                }
-
-                shards.add(new Shard(group.getShardId().getId(), node.getHostName(), node.getAddress().getPort()));
+                int nodeIndex = group.getShardId().getId() % nodes.length;
+                shards.add(new Shard(group.getShardId().getId(), nodes[nodeIndex].getHostName(), nodes[nodeIndex].getAddress().getPort()));
             }
             return shards.build();
         }
         catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private int shardPreference(ShardRouting left, ShardRouting right)
-    {
-        // Favor non-primary shards
-        if (left.primary() == right.primary()) {
-            return 0;
-        }
-        return left.primary() ? 1 : -1;
     }
 
     private List<ColumnMetadata> buildMetadata(List<ElasticsearchColumn> columns)
