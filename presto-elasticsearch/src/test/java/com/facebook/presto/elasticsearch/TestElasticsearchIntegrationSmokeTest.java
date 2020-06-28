@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.airlift.tpch.TpchTable;
-import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -38,7 +37,6 @@ import static com.facebook.presto.elasticsearch.EmbeddedElasticsearchNode.create
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
-import static org.elasticsearch.client.Requests.indexAliasesRequest;
 import static org.elasticsearch.client.Requests.refreshRequest;
 
 public class TestElasticsearchIntegrationSmokeTest
@@ -460,49 +458,6 @@ public class TestElasticsearchIntegrationSmokeTest
     public void testQueryStringError()
     {
         assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
-    }
-
-    @Test
-    public void testAlias()
-    {
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .aliases(indexAliasesRequest()
-                        .addAliasAction(IndicesAliasesRequest.AliasActions.add()
-                                .index("orders")
-                                .alias("orders_alias")))
-                .actionGet();
-
-        assertQuery(
-                "SELECT count(*) FROM orders_alias",
-                "SELECT count(*) FROM orders");
-    }
-
-    @Test
-    public void testMultiIndexAlias()
-    {
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .aliases(indexAliasesRequest()
-                        .addAliasAction(IndicesAliasesRequest.AliasActions.add()
-                                .index("nation")
-                                .alias("multi_alias")))
-                .actionGet();
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .aliases(indexAliasesRequest()
-                        .addAliasAction(IndicesAliasesRequest.AliasActions.add()
-                                .index("region")
-                                .alias("multi_alias")))
-                .actionGet();
-
-        assertQuery(
-                "SELECT count(*) FROM multi_alias",
-                "SELECT (SELECT count(*) FROM region) + (SELECT count(*) FROM nation)");
     }
 
     private void index(String indexName, Map<String, Object> document)
