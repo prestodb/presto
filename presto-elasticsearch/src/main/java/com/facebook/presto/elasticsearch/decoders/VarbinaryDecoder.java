@@ -38,7 +38,7 @@ public class VarbinaryDecoder
             VARBINARY.writeSlice(output, Slices.wrappedBuffer(Base64.getDecoder().decode(value.toString())));
         }
         else {
-            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected a string value for VARBINARY field");
+            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected a string value for VARCHAR field");
         }
     }
 }
