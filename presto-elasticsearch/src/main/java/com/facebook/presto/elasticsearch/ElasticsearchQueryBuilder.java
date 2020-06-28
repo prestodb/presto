@@ -69,7 +69,7 @@ public class ElasticsearchQueryBuilder
     private final String index;
     private final String type;
 
-    public ElasticsearchQueryBuilder(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConfig config, ElasticsearchSplit split)
+    public ElasticsearchQueryBuilder(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConnectorConfig config, ElasticsearchSplit split)
     {
         requireNonNull(columnHandles, "columnHandles is null");
         requireNonNull(config, "config is null");

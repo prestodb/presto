@@ -28,9 +28,9 @@ public class ElasticsearchRecordSet
     private final List<ElasticsearchColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private final ElasticsearchSplit split;
-    private final ElasticsearchConfig config;
+    private final ElasticsearchConnectorConfig config;
 
-    public ElasticsearchRecordSet(ElasticsearchSplit split, ElasticsearchConfig config, List<ElasticsearchColumnHandle> columnHandles)
+    public ElasticsearchRecordSet(ElasticsearchSplit split, ElasticsearchConnectorConfig config, List<ElasticsearchColumnHandle> columnHandles)
     {
         this.split = requireNonNull(split, "split is null");
         this.config = requireNonNull(config, "config is null");
