@@ -181,13 +181,19 @@ public class ElasticsearchClient
 
     public ClusterSearchShardsResponse getSearchShards(String index)
     {
+        verifyNotNull(client, "client is null");
+        return getSearchShardsResponse(client, new ClusterSearchShardsRequest(index));
+    }
+
+    private ClusterSearchShardsResponse getSearchShardsResponse(TransportClient client, ClusterSearchShardsRequest request)
+    {
         try {
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
                     .run("getSearchShardsResponse", () -> client.admin()
                             .cluster()
-                            .searchShards(new ClusterSearchShardsRequest(index))
+                            .searchShards(request)
                             .actionGet(requestTimeout.toMillis()));
         }
         catch (Exception e) {
