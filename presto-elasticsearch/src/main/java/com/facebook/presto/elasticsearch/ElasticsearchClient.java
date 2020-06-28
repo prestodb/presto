@@ -86,7 +86,6 @@ import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSE
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
@@ -301,7 +300,7 @@ public class ElasticsearchClient
 
     private Set<ElasticsearchNode> fetchNodes()
     {
-        NodesResponse nodesResponse = doRequest("/_nodes/http", NODES_RESPONSE_CODEC::fromJson);
+        NodesResponse nodesResponse = doRequest("_nodes/http", NODES_RESPONSE_CODEC::fromJson);
 
         ImmutableSet.Builder<ElasticsearchNode> result = ImmutableSet.builder();
         for (Map.Entry<String, NodesResponse.Node> entry : nodesResponse.getNodes().entrySet()) {
@@ -325,7 +324,7 @@ public class ElasticsearchClient
         Map<String, ElasticsearchNode> nodeById = getNodes().stream()
                 .collect(toImmutableMap(ElasticsearchNode::getId, Function.identity()));
 
-        SearchShardsResponse shardsResponse = doRequest(format("/%s/_search_shards", index), SEARCH_SHARDS_RESPONSE_CODEC::fromJson);
+        SearchShardsResponse shardsResponse = doRequest(format("%s/_search_shards", index), SEARCH_SHARDS_RESPONSE_CODEC::fromJson);
 
         ImmutableList.Builder<Shard> shards = ImmutableList.builder();
         List<ElasticsearchNode> nodes = ImmutableList.copyOf(nodeById.values());
@@ -367,7 +366,7 @@ public class ElasticsearchClient
 
     public List<String> getIndexes()
     {
-        return doRequest("/_cat/indices?h=index&format=json&s=index:asc", body -> {
+        return doRequest("_cat/indices?h=index&format=json&s=index:asc", body -> {
             try {
                 ImmutableList.Builder<String> result = ImmutableList.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
@@ -520,8 +519,6 @@ public class ElasticsearchClient
 
     private <T> T doRequest(String path, ResponseHandler<T> handler)
     {
-        checkArgument(path.startsWith("/"), "path must be an absolute path");
-
         Response response;
         try {
             response = client.getLowLevelClient()
