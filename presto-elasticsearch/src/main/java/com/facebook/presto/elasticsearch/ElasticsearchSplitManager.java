@@ -58,7 +58,7 @@ public class ElasticsearchSplitManager
         List<String> indices = client.getIndices(table);
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (String index : indices) {
-            ClusterSearchShardsResponse response = client.getSearchShards(index);
+            ClusterSearchShardsResponse response = client.getSearchShards(index, table);
             DiscoveryNode[] nodes = response.getNodes();
             for (ClusterSearchShardsGroup group : response.getGroups()) {
                 int nodeIndex = group.getShardId().getId() % nodes.length;
