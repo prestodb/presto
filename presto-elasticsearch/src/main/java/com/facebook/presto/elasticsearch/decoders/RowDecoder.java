@@ -23,19 +23,15 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
 import static com.facebook.presto.elasticsearch.ElasticsearchPageSource.getField;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class RowDecoder
         implements Decoder
 {
-    private final String path;
     private final List<String> fieldNames;
     private final List<Decoder> decoders;
 
-    public RowDecoder(String path, List<String> fieldNames, List<Decoder> decoders)
+    public RowDecoder(List<String> fieldNames, List<Decoder> decoders)
     {
-        this.path = requireNonNull(path, "path is null");
         this.fieldNames = fieldNames;
         this.decoders = decoders;
     }
@@ -57,7 +53,7 @@ public class RowDecoder
             output.closeEntry();
         }
         else {
-            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected object for field '%s' of type ROW: %s [%s]", path, data, data.getClass().getSimpleName()));
+            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected object for ROW field");
         }
     }
 }

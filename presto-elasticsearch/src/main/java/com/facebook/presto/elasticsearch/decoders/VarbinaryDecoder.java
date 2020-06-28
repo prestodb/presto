@@ -23,19 +23,10 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class VarbinaryDecoder
         implements Decoder
 {
-    private final String path;
-
-    public VarbinaryDecoder(String path)
-    {
-        this.path = requireNonNull(path, "path is null");
-    }
-
     @Override
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
@@ -47,7 +38,7 @@ public class VarbinaryDecoder
             VARBINARY.writeSlice(output, Slices.wrappedBuffer(Base64.getDecoder().decode(value.toString())));
         }
         else {
-            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected a string value for field '%s' of type VARBINARY: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected a string value for VARBINARY field");
         }
     }
 }

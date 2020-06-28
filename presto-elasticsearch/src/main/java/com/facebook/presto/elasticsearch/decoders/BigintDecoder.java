@@ -21,19 +21,10 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class BigintDecoder
         implements Decoder
 {
-    private final String path;
-
-    public BigintDecoder(String path)
-    {
-        this.path = requireNonNull(path, "path is null");
-    }
-
     @Override
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
@@ -45,7 +36,7 @@ public class BigintDecoder
             BIGINT.writeLong(output, ((Number) value).longValue());
         }
         else {
-            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected a numeric value for field %s of type BIGINT: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected a numeric value for BIGINT field");
         }
     }
 }

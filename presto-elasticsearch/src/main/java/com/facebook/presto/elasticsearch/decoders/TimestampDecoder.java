@@ -29,7 +29,6 @@ import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSE
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
-import static java.util.Objects.requireNonNull;
 
 public class TimestampDecoder
         implements Decoder
@@ -41,7 +40,7 @@ public class TimestampDecoder
 
     public TimestampDecoder(ConnectorSession session, String path)
     {
-        this.path = requireNonNull(path, "path is null");
+        this.path = path;
         this.zoneId = ZoneId.of(session.getSqlFunctionProperties().getTimeZoneKey().getId());
     }
 
@@ -53,7 +52,7 @@ public class TimestampDecoder
 
         if (documentField != null) {
             if (documentField.getValues().size() > 1) {
-                throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.getValues().size()));
+                throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, "Expected single value for column: " + path);
             }
             value = documentField.getValue();
         }
@@ -74,8 +73,7 @@ public class TimestampDecoder
             }
             else {
                 throw new PrestoException(NOT_SUPPORTED, format(
-                        "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]",
-                        path,
+                        "Unsupported representation for timestamp type: %s [%s]",
                         value.getClass().getSimpleName(),
                         value));
             }
