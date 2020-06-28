@@ -101,11 +101,11 @@ public class ElasticsearchClient
     private final Duration maxRetryTime;
 
     @Inject
-    public ElasticsearchClient(ElasticsearchTableDescriptionProvider descriptions, ElasticsearchConfig config)
+    public ElasticsearchClient(ElasticsearchTableDescriptionProvider descriptions, ElasticsearchConnectorConfig config)
             throws IOException
     {
         tableDescriptions = requireNonNull(descriptions, "description is null");
-        ElasticsearchConfig configuration = requireNonNull(config, "config is null");
+        ElasticsearchConnectorConfig configuration = requireNonNull(config, "config is null");
         requestTimeout = configuration.getRequestTimeout();
         maxAttempts = configuration.getMaxRequestRetries();
         maxRetryTime = configuration.getMaxRetryTime();
@@ -465,12 +465,12 @@ public class ElasticsearchClient
             return rightLength - leftLength;
         }
     }
-    static TransportClient createTransportClient(ElasticsearchConfig config, TransportAddress address)
+    static TransportClient createTransportClient(ElasticsearchConnectorConfig config, TransportAddress address)
     {
         return createTransportClient(config, address, Optional.empty());
     }
 
-    static TransportClient createTransportClient(ElasticsearchConfig config, TransportAddress address, Optional<String> clusterName)
+    static TransportClient createTransportClient(ElasticsearchConnectorConfig config, TransportAddress address, Optional<String> clusterName)
     {
         Settings settings;
         Builder builder;

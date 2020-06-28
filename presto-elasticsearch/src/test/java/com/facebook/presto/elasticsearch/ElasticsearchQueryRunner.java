@@ -90,7 +90,7 @@ public final class ElasticsearchQueryRunner
         JsonCodec<ElasticsearchTableDescription> codec = new CodecSupplier<>(ElasticsearchTableDescription.class, metadata).get();
 
         URL metadataUrl = getResource(ElasticsearchQueryRunner.class, "/queryrunner");
-        ElasticsearchConfig config = new ElasticsearchConfig()
+        ElasticsearchConnectorConfig config = new ElasticsearchConnectorConfig()
                 .setTableDescriptionDirectory(new File(metadataUrl.toURI()))
                 .setDefaultSchema(TPCH_SCHEMA);
         return new ElasticsearchTableDescriptionProvider(config, codec);

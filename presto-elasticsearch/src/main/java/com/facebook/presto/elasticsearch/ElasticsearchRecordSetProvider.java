@@ -30,10 +30,10 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
-    private final ElasticsearchConfig config;
+    private final ElasticsearchConnectorConfig config;
 
     @Inject
-    public ElasticsearchRecordSetProvider(ElasticsearchConfig config)
+    public ElasticsearchRecordSetProvider(ElasticsearchConnectorConfig config)
     {
         this.config = requireNonNull(config, "config is null");
     }
