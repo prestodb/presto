@@ -484,7 +484,6 @@ public class ElasticsearchClient
                     result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.DateTimeType(formats)));
                     break;
 
-                case "nested":
                 case "object":
                     if (value.has("properties")) {
                         result.add(new IndexMetadata.Field(isArray, name, parseType(value.get("properties"), metaNode)));
