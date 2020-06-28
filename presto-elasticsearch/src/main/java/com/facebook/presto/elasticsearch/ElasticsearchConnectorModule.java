@@ -16,7 +16,6 @@ package com.facebook.presto.elasticsearch;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.decoder.DecoderModule;
-import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
