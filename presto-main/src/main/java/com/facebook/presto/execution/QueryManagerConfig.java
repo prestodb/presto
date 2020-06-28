@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
@@ -26,6 +27,8 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
+
+import static io.airlift.units.DataSize.Unit.PETABYTE;
 
 @DefunctConfig({
         "query.max-pending-splits-per-node",
@@ -65,6 +68,8 @@ public class QueryManagerConfig
     private Duration queryMaxRunTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxExecutionTime = new Duration(100, TimeUnit.DAYS);
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
+
+    private DataSize queryMaxScanRawInputBytes = DataSize.succinctDataSize(1000, PETABYTE);
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
@@ -383,6 +388,18 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxCpuTime(Duration queryMaxCpuTime)
     {
         this.queryMaxCpuTime = queryMaxCpuTime;
+        return this;
+    }
+
+    public DataSize getQueryMaxScanRawInputBytes()
+    {
+        return this.queryMaxScanRawInputBytes;
+    }
+
+    @Config("query.max-scan-raw-input-bytes")
+    public QueryManagerConfig setQueryMaxScanRawInputBytes(DataSize queryMaxRawInputBytes)
+    {
+        this.queryMaxScanRawInputBytes = queryMaxRawInputBytes;
         return this;
     }
 

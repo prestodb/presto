@@ -33,6 +33,7 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_SCAN_RAW_BYTES_READ_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder.builder;
@@ -140,6 +141,20 @@ public class TestQueryManager
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
             assertEquals(queryInfo.getState(), FAILED);
             assertEquals(queryInfo.getErrorCode(), EXCEEDED_CPU_LIMIT.toErrorCode());
+        }
+    }
+
+    @Test(timeOut = 60_000L)
+    public void testQueryScanExceeded()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().setSingleExtraProperty("query.max-scan-raw-input-bytes", "0B").build()) {
+            QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT COUNT(*) FROM lineitem");
+            waitForQueryState(queryRunner, queryId, FAILED);
+            QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
+            BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
+            assertEquals(queryInfo.getState(), FAILED);
+            assertEquals(queryInfo.getErrorCode(), EXCEEDED_SCAN_RAW_BYTES_READ_LIMIT.toErrorCode());
         }
     }
 }

@@ -45,6 +45,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
@@ -90,6 +91,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
+    public static final String QUERY_MAX_SCAN_RAW_INPUT_BYTES = "query_max_scan_raw_input_bytes";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String SCALE_WRITERS = "scale_writers";
@@ -423,6 +425,11 @@ public final class SystemSessionProperties
                         RESOURCE_OVERCOMMIT,
                         "Use resources which are not guaranteed to be available to the query",
                         false,
+                        false),
+                dataSizeProperty(
+                        QUERY_MAX_SCAN_RAW_INPUT_BYTES,
+                        "Maximum scan raw input bytes of a query",
+                        queryManagerConfig.getQueryMaxScanRawInputBytes(),
                         false),
                 integerProperty(
                         QUERY_MAX_STAGE_COUNT,
@@ -1113,6 +1120,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_CPU_TIME, Duration.class);
+    }
+
+    public static DataSize getQueryMaxScanRawInputBytes(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_SCAN_RAW_INPUT_BYTES, DataSize.class);
     }
 
     public static boolean isSpillEnabled(Session session)

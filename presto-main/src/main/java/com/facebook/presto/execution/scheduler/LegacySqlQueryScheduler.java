@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -771,6 +772,15 @@ public class LegacySqlQueryScheduler
                 .mapToLong(stage -> stage.getStageExecution().getTotalCpuTime().toMillis())
                 .sum();
         return new Duration(millis, MILLISECONDS);
+    }
+
+    @Override
+    public DataSize getRawInputDataSize()
+    {
+        long datasize = stageExecutions.values().stream()
+                .mapToLong(stage -> stage.getStageExecution().getRawInputDataSize().toBytes())
+                .sum();
+        return DataSize.succinctBytes(datasize);
     }
 
     public BasicStageExecutionStats getBasicStageStats()
