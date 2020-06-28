@@ -34,9 +34,6 @@ public class TestElasticsearchConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ElasticsearchConfig.class)
-                .setHost(null)
-                .setPort(9300)
-                .setClusterName(null)
                 .setTableDescriptionDirectory(new File("etc/elasticsearch/"))
                 .setDefaultSchema("default")
                 .setScrollSize(1000)
@@ -60,9 +57,6 @@ public class TestElasticsearchConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("elasticsearch.host", "example.com")
-                .put("elasticsearch.port", "9999")
-                .put("elasticsearch.cluster-name", "test-cluster")
                 .put("elasticsearch.table-description-directory", "/etc/elasticsearch/")
                 .put("elasticsearch.default-schema-name", "test")
                 .put("elasticsearch.scroll-size", "4000")
@@ -83,9 +77,6 @@ public class TestElasticsearchConfig
                 .build();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
-                .setHost("example.com")
-                .setPort(9999)
-                .setClusterName("test-cluster")
                 .setTableDescriptionDirectory(new File("/etc/elasticsearch/"))
                 .setDefaultSchema("test")
                 .setScrollSize(4000)
