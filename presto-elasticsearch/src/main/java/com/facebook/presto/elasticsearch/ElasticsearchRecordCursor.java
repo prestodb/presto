@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.ArrayList;
@@ -69,9 +68,8 @@ public class ElasticsearchRecordCursor
     private long totalBytes;
     private List<Object> fields;
 
-    public ElasticsearchRecordCursor(TransportClient client, List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConfig config, ElasticsearchSplit split)
+    public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConfig config, ElasticsearchSplit split)
     {
-        requireNonNull(client, "client is null");
         requireNonNull(columnHandles, "columnHandle is null");
         requireNonNull(config, "config is null");
 
@@ -85,7 +83,7 @@ public class ElasticsearchRecordCursor
             jsonPathToIndex.put(columnHandles.get(i).getColumnJsonPath(), i);
         }
         this.builder = new ElasticsearchQueryBuilder(columnHandles, config, split);
-        this.searchHits = sendElasticsearchQuery(client, builder).iterator();
+        this.searchHits = sendElasticsearchQuery(builder).iterator();
     }
 
     @Override
@@ -181,17 +179,19 @@ public class ElasticsearchRecordCursor
         checkArgument(expectedTypes.contains(getType(field)), "Field %s has unexpected type %s", field, getType(field));
     }
 
+    @Override
     public void close()
     {
+        builder.close();
     }
 
-    private SearchResponse getSearchResponse(TransportClient client, ElasticsearchQueryBuilder queryBuilder)
+    private SearchResponse getSearchResponse(ElasticsearchQueryBuilder queryBuilder)
     {
         try {
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("searchRequest", () -> queryBuilder.buildScrollSearchRequest(client)
+                    .run("searchRequest", () -> queryBuilder.buildScrollSearchRequest()
                             .execute()
                             .actionGet(requestTimeout.toMillis()));
         }
@@ -200,13 +200,13 @@ public class ElasticsearchRecordCursor
         }
     }
 
-    private SearchResponse getScrollResponse(TransportClient client, ElasticsearchQueryBuilder queryBuilder, String scrollId)
+    private SearchResponse getScrollResponse(ElasticsearchQueryBuilder queryBuilder, String scrollId)
     {
         try {
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("scrollRequest", () -> queryBuilder.prepareSearchScroll(client, scrollId)
+                    .run("scrollRequest", () -> queryBuilder.prepareSearchScroll(scrollId)
                             .execute()
                             .actionGet(requestTimeout.toMillis()));
         }
@@ -215,9 +215,9 @@ public class ElasticsearchRecordCursor
         }
     }
 
-    private List<SearchHit> sendElasticsearchQuery(TransportClient client, ElasticsearchQueryBuilder queryBuilder)
+    private List<SearchHit> sendElasticsearchQuery(ElasticsearchQueryBuilder queryBuilder)
     {
-        SearchResponse response = getSearchResponse(client, queryBuilder);
+        SearchResponse response = getSearchResponse(queryBuilder);
 
         if (response.getHits().getTotalHits() > maxHits) {
             throw new PrestoException(ELASTICSEARCH_MAX_HITS_EXCEEDED,
@@ -229,7 +229,7 @@ public class ElasticsearchRecordCursor
             for (SearchHit hit : response.getHits().getHits()) {
                 result.add(hit);
             }
-            response = getScrollResponse(client, queryBuilder, response.getScrollId());
+            response = getScrollResponse(queryBuilder, response.getScrollId());
             if (response.getHits().getHits().length == 0) {
                 break;
             }
