@@ -40,27 +40,19 @@ public class SearchShardsResponse
 
     public static class Shard
     {
-        private final String index;
         private final boolean primary;
         private final String node;
         private final int shard;
 
         @JsonCreator
         public Shard(
-                @JsonProperty("index") String index,
                 @JsonProperty("shard") int shard,
                 @JsonProperty("primary") boolean primary,
                 @JsonProperty("node") String node)
         {
-            this.index = requireNonNull(index, "index is null");
             this.shard = shard;
             this.primary = primary;
             this.node = requireNonNull(node, "node is null");
-        }
-
-        public String getIndex()
-        {
-            return index;
         }
 
         public boolean isPrimary()
@@ -81,7 +73,7 @@ public class SearchShardsResponse
         @Override
         public String toString()
         {
-            return index + ":" + shard + "@" + node + (primary ? "[primary]" : "[replica]");
+            return shard + "@" + node + (primary ? "[primary]" : "[replica]");
         }
     }
 }

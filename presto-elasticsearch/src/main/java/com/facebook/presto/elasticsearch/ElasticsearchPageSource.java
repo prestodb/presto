@@ -124,7 +124,7 @@ public class ElasticsearchPageSource
 
         long start = System.nanoTime();
         SearchResponse searchResponse = client.beginSearch(
-                split.getIndex(),
+                table.getIndex(),
                 split.getShard(),
                 buildSearchQuery(session, split.getTupleDomain().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
