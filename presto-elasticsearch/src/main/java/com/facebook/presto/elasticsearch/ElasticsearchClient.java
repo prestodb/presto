@@ -112,14 +112,12 @@ public class ElasticsearchClient
     private final AtomicBoolean started = new AtomicBoolean();
     private final Duration refreshInterval;
     private final boolean tlsEnabled;
-    private final boolean ignorePublishAddress;
 
     @Inject
     public ElasticsearchClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
     {
         client = createClient(config, awsSecurityConfig);
 
-        this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
         this.scrollTimeout = config.getScrollTimeout();
         this.refreshInterval = config.getNodeRefreshInterval();
@@ -157,7 +155,7 @@ public class ElasticsearchClient
                     .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
                     .toArray(HttpHost[]::new);
 
-            if (hosts.length > 0 && !ignorePublishAddress) {
+            if (hosts.length > 0) {
                 client.getLowLevelClient().setHosts(hosts);
             }
             this.nodes.set(nodes);
