@@ -214,19 +214,3 @@ as part of the table name, separated by a colon. For example:
     SELECT * FROM "tweets: +presto DB^2"
 
 .. _full text query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
-
-
-AWS Authorization
------------------
-
-To enable AWS authorization using IAM policies, the ``elasticsearch.security`` option needs to be set to ``AWS``.
-Additionally, the following options need to be configured appropriately:
-
-================================================ ==================================================================
-Property Name                                    Description
-================================================ ==================================================================
-``elasticsearch.aws.region``                     AWS region or the Elasticsearch endpoint. This option is required.
-``elasticsearch.aws.access-key``                 AWS access key to use to connect to the Elasticsearch domain.
-``elasticsearch.aws.secret-key``                 AWS secret key to use to connect to the Elasticsearch domain.
-``elasticsearch.aws.use-instance-credentials``   Use the EC2 metadata service to retrieve API credentials.
-================================================ ==================================================================
