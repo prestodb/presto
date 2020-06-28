@@ -998,7 +998,7 @@ public class MetadataManager
             ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
             if (view != null) {
                 ViewDefinition definition = deserializeView(view.getViewData());
-                if (view.getOwner().isPresent()) {
+                if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
                     definition = definition.withOwner(view.getOwner().get());
                 }
                 return Optional.of(definition);

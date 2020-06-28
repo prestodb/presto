@@ -1707,7 +1707,8 @@ public class TestAnalyzer
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
-                        Optional.of("user")));
+                        Optional.of("user"),
+                        false));
         ConnectorTableMetadata viewMetadata1 = new ConnectorTableMetadata(
                 new SchemaTableName("s1", "v1"),
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
@@ -1720,7 +1721,8 @@ public class TestAnalyzer
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", VARCHAR)),
-                        Optional.of("user")));
+                        Optional.of("user"),
+                        false));
         ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
                 new SchemaTableName("s1", "v2"),
                 ImmutableList.of(new ColumnMetadata("a", VARCHAR)));
@@ -1733,7 +1735,8 @@ public class TestAnalyzer
                         Optional.of(SECOND_CATALOG),
                         Optional.of("s2"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
-                        Optional.of("owner")));
+                        Optional.of("owner"),
+                        false));
         ConnectorTableMetadata viewMetadata3 = new ConnectorTableMetadata(
                 new SchemaTableName("s3", "v3"),
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
@@ -1746,7 +1749,8 @@ public class TestAnalyzer
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
-                        Optional.of("user")));
+                        Optional.of("user"),
+                        false));
         ConnectorTableMetadata viewMetadata4 = new ConnectorTableMetadata(
                 new SchemaTableName("s1", "v4"),
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
@@ -1759,7 +1763,8 @@ public class TestAnalyzer
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
-                        Optional.of("user")));
+                        Optional.of("user"),
+                        false));
         ConnectorTableMetadata viewMetadata5 = new ConnectorTableMetadata(
                 new SchemaTableName("s1", "v5"),
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
