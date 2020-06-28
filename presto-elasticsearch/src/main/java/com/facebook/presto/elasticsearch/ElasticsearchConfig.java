@@ -22,31 +22,33 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
-import java.util.Optional;
 
+import static com.facebook.presto.elasticsearch.SearchGuardCertificateFormat.NONE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ElasticsearchConfig
 {
     private String host;
-    private int port = 9200;
+    private int port = 9300;
+    private String clusterName;
     private String defaultSchema = "default";
     private File tableDescriptionDirectory = new File("etc/elasticsearch/");
     private int scrollSize = 1_000;
     private Duration scrollTimeout = new Duration(1, SECONDS);
     private int maxHits = 1_000;
     private Duration requestTimeout = new Duration(100, MILLISECONDS);
-    private Duration connectTimeout = new Duration(1, SECONDS);
     private int maxRequestRetries = 5;
     private Duration maxRetryTime = new Duration(10, SECONDS);
-
-    private boolean tlsEnabled;
-    private File keystorePath;
-    private File trustStorePath;
-    private String keystorePassword;
-    private String truststorePassword;
-    private boolean verifyHostnames = true;
+    private SearchGuardCertificateFormat certificateFormat = NONE;
+    private File pemcertFilepath = new File("etc/elasticsearch/esnode.pem");
+    private File pemkeyFilepath = new File("etc/elasticsearch/esnode-key.pem");
+    private String pemkeyPassword = "";
+    private File pemtrustedcasFilepath = new File("etc/elasticsearch/root-ca.pem");
+    private File keystoreFilepath = new File("etc/elasticsearch/keystore.jks");
+    private String keystorePassword = "";
+    private File truststoreFilepath = new File("etc/elasticsearch/truststore.jks");
+    private String truststorePassword = "";
 
     @NotNull
     public String getHost()
@@ -70,6 +72,18 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setPort(int port)
     {
         this.port = port;
+        return this;
+    }
+
+    public String getClusterName()
+    {
+        return clusterName;
+    }
+
+    @Config("elasticsearch.cluster-name")
+    public ElasticsearchConfig setClusterName(String clusterName)
+    {
+        this.clusterName = clusterName;
         return this;
     }
 
@@ -159,20 +173,6 @@ public class ElasticsearchConfig
         return this;
     }
 
-    @NotNull
-    public Duration getConnectTimeout()
-    {
-        return connectTimeout;
-    }
-
-    @Config("elasticsearch.connect-timeout")
-    @ConfigDescription("Elasticsearch connect timeout")
-    public ElasticsearchConfig setConnectTimeout(Duration timeout)
-    {
-        this.connectTimeout = timeout;
-        return this;
-    }
-
     @Min(1)
     public int getMaxRequestRetries()
     {
@@ -201,77 +201,132 @@ public class ElasticsearchConfig
         return this;
     }
 
-    public boolean isTlsEnabled()
+    @NotNull
+    public SearchGuardCertificateFormat getCertificateFormat()
     {
-        return tlsEnabled;
+        return certificateFormat;
     }
 
-    @Config("elasticsearch.tls.enabled")
-    public ElasticsearchConfig setTlsEnabled(boolean tlsEnabled)
+    @Config("searchguard.ssl.transport.certificate_format")
+    @ConfigDescription("Certificate format")
+    public ElasticsearchConfig setCertificateFormat(SearchGuardCertificateFormat certificateFormat)
     {
-        this.tlsEnabled = tlsEnabled;
+        this.certificateFormat = certificateFormat;
         return this;
     }
 
-    public Optional<File> getKeystorePath()
+    @NotNull
+    public File getPemcertFilepath()
     {
-        return Optional.ofNullable(keystorePath);
+        return pemcertFilepath;
     }
 
-    @Config("elasticsearch.tls.keystore-path")
-    public ElasticsearchConfig setKeystorePath(File path)
+    @Config("searchguard.ssl.transport.pemcert_filepath")
+    @ConfigDescription("Path to the X.509 node certificate chain")
+    public ElasticsearchConfig setPemcertFilepath(File pemcertFilepath)
     {
-        this.keystorePath = path;
+        this.pemcertFilepath = pemcertFilepath;
         return this;
     }
 
-    public Optional<String> getKeystorePassword()
+    @NotNull
+    public File getPemkeyFilepath()
     {
-        return Optional.ofNullable(keystorePassword);
+        return pemkeyFilepath;
     }
 
-    @Config("elasticsearch.tls.keystore-password")
+    @Config("searchguard.ssl.transport.pemkey_filepath")
+    @ConfigDescription("Path to the certificates key file")
+    public ElasticsearchConfig setPemkeyFilepath(File pemkeyFilepath)
+    {
+        this.pemkeyFilepath = pemkeyFilepath;
+        return this;
+    }
+
+    @NotNull
+    public String getPemkeyPassword()
+    {
+        return pemkeyPassword;
+    }
+
+    @Config("searchguard.ssl.transport.pemkey_password")
+    @ConfigDescription("Key password. Omit this setting if the key has no password.")
     @ConfigSecuritySensitive
-    public ElasticsearchConfig setKeystorePassword(String password)
+    public ElasticsearchConfig setPemkeyPassword(String pemkeyPassword)
     {
-        this.keystorePassword = password;
+        this.pemkeyPassword = pemkeyPassword;
         return this;
     }
 
-    public Optional<File> getTrustStorePath()
+    @NotNull
+    public File getPemtrustedcasFilepath()
     {
-        return Optional.ofNullable(trustStorePath);
+        return pemtrustedcasFilepath;
     }
 
-    @Config("elasticsearch.tls.truststore-path")
-    public ElasticsearchConfig setTrustStorePath(File path)
+    @Config("searchguard.ssl.transport.pemtrustedcas_filepath")
+    @ConfigDescription("Path to the root CA(s) (PEM format)")
+    public ElasticsearchConfig setPemtrustedcasFilepath(File pemtrustedcasFilepath)
     {
-        this.trustStorePath = path;
+        this.pemtrustedcasFilepath = pemtrustedcasFilepath;
         return this;
     }
 
-    public Optional<String> getTruststorePassword()
+    @NotNull
+    public File getKeystoreFilepath()
     {
-        return Optional.ofNullable(truststorePassword);
+        return keystoreFilepath;
     }
 
-    @Config("elasticsearch.tls.truststore-password")
+    @Config("searchguard.ssl.transport.keystore_filepath")
+    @ConfigDescription("Path to the keystore file")
+    public ElasticsearchConfig setKeystoreFilepath(File keystoreFilepath)
+    {
+        this.keystoreFilepath = keystoreFilepath;
+        return this;
+    }
+
+    @NotNull
+    public String getKeystorePassword()
+    {
+        return keystorePassword;
+    }
+
+    @Config("searchguard.ssl.transport.keystore_password")
+    @ConfigDescription("Keystore password")
     @ConfigSecuritySensitive
-    public ElasticsearchConfig setTruststorePassword(String password)
+    public ElasticsearchConfig setKeystorePassword(String keystorePassword)
     {
-        this.truststorePassword = password;
+        this.keystorePassword = keystorePassword;
         return this;
     }
 
-    public boolean isVerifyHostnames()
+    @NotNull
+    public File getTruststoreFilepath()
     {
-        return verifyHostnames;
+        return truststoreFilepath;
     }
 
-    @Config("elasticsearch.tls.verify-hostnames")
-    public ElasticsearchConfig setVerifyHostnames(boolean verify)
+    @Config("searchguard.ssl.transport.truststore_filepath")
+    @ConfigDescription("Path to the truststore file")
+    public ElasticsearchConfig setTruststoreFilepath(File truststoreFilepath)
     {
-        this.verifyHostnames = verify;
+        this.truststoreFilepath = truststoreFilepath;
+        return this;
+    }
+
+    @NotNull
+    public String getTruststorePassword()
+    {
+        return truststorePassword;
+    }
+
+    @Config("searchguard.ssl.transport.truststore_password")
+    @ConfigDescription("Truststore password")
+    @ConfigSecuritySensitive
+    public ElasticsearchConfig setTruststorePassword(String truststorePassword)
+    {
+        this.truststorePassword = truststorePassword;
         return this;
     }
 }
