@@ -11,16 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.elasticsearch.client;
+package com.facebook.presto.elasticsearch;
 
 import static java.util.Objects.requireNonNull;
 
-public class ElasticsearchNode
+public class Node
 {
     private final String id;
     private final String address;
 
-    public ElasticsearchNode(String id, String address)
+    public Node(String id, String address)
     {
         this.id = requireNonNull(id, "id is null");
         this.address = requireNonNull(address, "address is null");
