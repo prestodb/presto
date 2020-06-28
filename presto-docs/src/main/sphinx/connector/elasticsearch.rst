@@ -249,6 +249,7 @@ A table definition file describes a table in JSON format.
         "tableName": ...,
         "schemaName": ...,
         "index": ...,
+        "indexExactMatch": ...,
         "type": ...
         "columns": [
             {
@@ -267,6 +268,7 @@ Field               Required  Type           Description
 ``tableName``       required  string         Name of the table.
 ``schemaName``      optional  string         Schema that contains the table. If omitted, the default schema name is used.
 ``index``           required  string         Elasticsearch index that is backing this table.
+``indexExactMatch`` optional  boolean        If set to true, the index specified with the ``index`` property is used. Otherwise, all indices starting with the prefix specified by the ``index`` property are used.
 ``type``            required  string         Elasticsearch `mapping type`_, which determines how the document are indexed (like "_doc").
 ``columns``         optional  list           List of column metadata information.
 =================== ========= ============== =============================
