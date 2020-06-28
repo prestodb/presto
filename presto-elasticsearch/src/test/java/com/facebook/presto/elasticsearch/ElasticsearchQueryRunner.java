@@ -103,7 +103,8 @@ public final class ElasticsearchQueryRunner
         URL metadataUrl = getResource(ElasticsearchQueryRunner.class, "/queryrunner");
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("elasticsearch.host", "localhost")
-                .put("elasticsearch.port", "9200")
+                .put("elasticsearch.port", "9300")
+                .put("elasticsearch.cluster-name", "test")
                 .put("elasticsearch.default-schema-name", TPCH_SCHEMA)
                 .put("elasticsearch.table-description-directory", metadataUrl.toURI().toString())
                 .put("elasticsearch.scroll-size", "1000")
