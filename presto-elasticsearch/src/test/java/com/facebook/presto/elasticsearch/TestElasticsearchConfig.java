@@ -23,7 +23,6 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static com.facebook.presto.elasticsearch.ElasticsearchConfig.Security.AWS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -48,8 +47,7 @@ public class TestElasticsearchConfig
                 .setKeystorePassword(null)
                 .setTrustStorePath(null)
                 .setTruststorePassword(null)
-                .setVerifyHostnames(true)
-                .setSecurity(null));
+                .setVerifyHostnames(true));
     }
 
     @Test
@@ -72,7 +70,6 @@ public class TestElasticsearchConfig
                 .put("elasticsearch.tls.truststore-path", "/tmp/truststore")
                 .put("elasticsearch.tls.truststore-password", "truststore-password")
                 .put("elasticsearch.tls.verify-hostnames", "false")
-                .put("elasticsearch.security", "AWS")
                 .build();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
@@ -91,8 +88,7 @@ public class TestElasticsearchConfig
                 .setKeystorePassword("keystore-password")
                 .setTrustStorePath(new File("/tmp/truststore"))
                 .setTruststorePassword("truststore-password")
-                .setVerifyHostnames(false)
-                .setSecurity(AWS);
+                .setVerifyHostnames(false);
 
         assertFullMapping(properties, expected);
     }
