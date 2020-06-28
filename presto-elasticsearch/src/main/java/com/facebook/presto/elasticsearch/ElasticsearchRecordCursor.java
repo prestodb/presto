@@ -14,19 +14,16 @@
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +31,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,77 +42,50 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_MAX_HITS_EXCEEDED;
-import static com.facebook.presto.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
 import static com.facebook.presto.elasticsearch.ElasticsearchUtils.serializeObject;
 import static com.facebook.presto.elasticsearch.RetryDriver.retry;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
-import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
-import static org.elasticsearch.search.sort.SortOrder.ASC;
 
-// TODO: clear scroll on close
 public class ElasticsearchRecordCursor
         implements RecordCursor
 {
     private static final JsonCodec<Object> VALUE_CODEC = jsonCodec(Object.class);
 
-    private final TransportClient client;
-    private final int scrollSize;
-    private final Duration scrollTimeout;
-    private final int maxAttempts;
-    private final Duration maxRetryTime;
-    private final Duration requestTimeout;
-
-    private final List<ElasticsearchColumnHandle> columns;
+    private final List<ElasticsearchColumnHandle> columnHandles;
     private final Map<String, Integer> jsonPathToIndex = new HashMap<>();
     private final int maxHits;
-    private final TupleDomain<ColumnHandle> constraint;
-    private final List<String> fieldsNames;
-    private final String type;
-    private final int shard;
-    private final String indices;
+    private final Iterator<SearchHit> searchHits;
+    private final Duration requestTimeout;
+    private final int maxAttempts;
+    private final Duration maxRetryTime;
+    private final ElasticsearchQueryBuilder builder;
 
     private long totalBytes;
-    private List<Object> values;
-    private SearchHits searchHits;
-    private String scrollId;
-    private int currentPosition;
+    private List<Object> fields;
 
-    public ElasticsearchRecordCursor(TransportClient client, List<ElasticsearchColumnHandle> columns, ElasticsearchConfig config, ElasticsearchSplit split)
+    public ElasticsearchRecordCursor(TransportClient client, List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConfig config, ElasticsearchSplit split)
     {
         requireNonNull(client, "client is null");
-        requireNonNull(columns, "columnHandle is null");
+        requireNonNull(columnHandles, "columnHandle is null");
         requireNonNull(config, "config is null");
 
-        this.client = client;
-        this.columns = columns;
-        this.type = split.getType();
-        this.shard = split.getShard();
-        this.constraint = split.getTupleDomain();
+        this.columnHandles = columnHandles;
         this.maxHits = config.getMaxHits();
-
-        this.scrollSize = config.getScrollSize();
-        this.scrollTimeout = config.getScrollTimeout();
+        this.requestTimeout = config.getRequestTimeout();
         this.maxAttempts = config.getMaxRequestRetries();
         this.maxRetryTime = config.getMaxRetryTime();
-        this.requestTimeout = config.getRequestTimeout();
 
-        for (int i = 0; i < columns.size(); i++) {
-            jsonPathToIndex.put(columns.get(i).getColumnJsonPath(), i);
+        for (int i = 0; i < columnHandles.size(); i++) {
+            jsonPathToIndex.put(columnHandles.get(i).getColumnJsonPath(), i);
         }
-
-        String index = split.getIndex();
-        this.indices = index != null && !index.isEmpty() ? index : "_all";
-
-        this.fieldsNames = columns.stream()
-                .map(ElasticsearchColumnHandle::getColumnName)
-                .collect(toList());
+        this.builder = new ElasticsearchQueryBuilder(columnHandles, config, split);
+        this.searchHits = sendElasticsearchQuery(client, builder).iterator();
     }
 
     @Override
@@ -132,39 +103,19 @@ public class ElasticsearchRecordCursor
     @Override
     public Type getType(int field)
     {
-        checkArgument(field < columns.size(), "Invalid field index");
-        return columns.get(field).getColumnType();
+        checkArgument(field < columnHandles.size(), "Invalid field index");
+        return columnHandles.get(field).getColumnType();
     }
 
     @Override
     public boolean advanceNextPosition()
     {
-        if (scrollId == null) {
-            SearchResponse response = begin();
-            scrollId = response.getScrollId();
-            searchHits = response.getHits();
-            currentPosition = 0;
-        }
-        else if (currentPosition == searchHits.getHits().length) {
-            SearchResponse response = nextPage();
-            scrollId = response.getScrollId();
-            searchHits = response.getHits();
-            currentPosition = 0;
-        }
-
-        if (currentPosition == searchHits.getHits().length) {
+        if (!searchHits.hasNext()) {
             return false;
         }
 
-        if (searchHits.getTotalHits() > maxHits) {
-            throw new PrestoException(ELASTICSEARCH_MAX_HITS_EXCEEDED,
-                    "The number of hits for the query (" + searchHits.getTotalHits() + ") exceeds the configured max hits (" + maxHits + ")");
-        }
-
-        SearchHit hit = searchHits.getAt(currentPosition);
-        currentPosition++;
-
-        values = new ArrayList<>(Collections.nCopies(columns.size(), null));
+        SearchHit hit = searchHits.next();
+        fields = new ArrayList<>(Collections.nCopies(columnHandles.size(), null));
 
         setFieldIfExists("_id", hit.getId());
         setFieldIfExists("_index", hit.getIndex());
@@ -215,13 +166,13 @@ public class ElasticsearchRecordCursor
     @Override
     public Object getObject(int field)
     {
-        return serializeObject(columns.get(field).getColumnType(), null, getFieldValue(field));
+        return serializeObject(columnHandles.get(field).getColumnType(), null, getFieldValue(field));
     }
 
     @Override
     public boolean isNull(int field)
     {
-        checkArgument(field < columns.size(), "Invalid field index");
+        checkArgument(field < columnHandles.size(), "Invalid field index");
         return getFieldValue(field) == null;
     }
 
@@ -234,56 +185,69 @@ public class ElasticsearchRecordCursor
     {
     }
 
-    private SearchResponse begin()
+    private SearchResponse getSearchResponse(TransportClient client, ElasticsearchQueryBuilder queryBuilder)
     {
         try {
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("searchRequest", () -> client.prepareSearch(indices)
-                            .setTypes(type)
-                            .setSearchType(QUERY_THEN_FETCH)
-                            .setFetchSource(fieldsNames.toArray(new String[0]), null)
-                            .setQuery(buildSearchQuery(constraint, columns))
-                            .setPreference("_shards:" + shard)
-                            .addSort("_doc", ASC)
-                            .setSize(scrollSize)
-                            .setScroll(new TimeValue(scrollTimeout.toMillis()))
+                    .run("searchRequest", () -> queryBuilder.buildScrollSearchRequest(client)
                             .execute()
                             .actionGet(requestTimeout.toMillis()));
         }
         catch (Exception e) {
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new RuntimeException(e);
         }
     }
 
-    private SearchResponse nextPage()
+    private SearchResponse getScrollResponse(TransportClient client, ElasticsearchQueryBuilder queryBuilder, String scrollId)
     {
         try {
             return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
-                    .run("scrollRequest", () -> client.prepareSearchScroll(scrollId)
-                            .setScroll(new TimeValue(scrollTimeout.toMillis()))
+                    .run("scrollRequest", () -> queryBuilder.prepareSearchScroll(client, scrollId)
                             .execute()
                             .actionGet(requestTimeout.toMillis()));
         }
         catch (Exception e) {
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new RuntimeException(e);
         }
+    }
+
+    private List<SearchHit> sendElasticsearchQuery(TransportClient client, ElasticsearchQueryBuilder queryBuilder)
+    {
+        SearchResponse response = getSearchResponse(client, queryBuilder);
+
+        if (response.getHits().getTotalHits() > maxHits) {
+            throw new PrestoException(ELASTICSEARCH_MAX_HITS_EXCEEDED,
+                    format("The number of hits for the query (%d) exceeds the configured max hits (%d)", response.getHits().getTotalHits(), maxHits));
+        }
+
+        ImmutableList.Builder<SearchHit> result = ImmutableList.builder();
+        while (true) {
+            for (SearchHit hit : response.getHits().getHits()) {
+                result.add(hit);
+            }
+            response = getScrollResponse(client, queryBuilder, response.getScrollId());
+            if (response.getHits().getHits().length == 0) {
+                break;
+            }
+        }
+        return result.build();
     }
 
     private void setFieldIfExists(String jsonPath, Object jsonValue)
     {
         if (jsonPathToIndex.containsKey(jsonPath)) {
-            values.set(jsonPathToIndex.get(jsonPath), jsonValue);
+            fields.set(jsonPathToIndex.get(jsonPath), jsonValue);
         }
     }
 
     private Object getFieldValue(int field)
     {
-        checkState(values != null, "Cursor has not been advanced yet");
-        return values.get(field);
+        checkState(fields != null, "Cursor has not been advanced yet");
+        return fields.get(field);
     }
 
     private void extractFromSource(SearchHit hit)
