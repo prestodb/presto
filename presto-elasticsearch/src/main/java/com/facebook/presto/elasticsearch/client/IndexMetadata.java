@@ -35,20 +35,13 @@ public class IndexMetadata
 
     public static class Field
     {
-        private final boolean isArray;
         private final String name;
         private final Type type;
 
-        public Field(boolean isArray, String name, Type type)
+        public Field(String name, Type type)
         {
-            this.isArray = isArray;
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
-        }
-
-        public boolean isArray()
-        {
-            return isArray;
         }
 
         public String getName()
