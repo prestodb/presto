@@ -60,8 +60,6 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
-    private static final String ORIGINAL_NAME = "original-name";
-
     private final ElasticsearchClient client;
     private final String schemaName;
 
@@ -142,7 +140,7 @@ public class ElasticsearchMetadata
                 continue;
             }
 
-            result.add(makeColumnMetadata(field.getName(), type));
+            result.add(new ColumnMetadata(field.getName(), type));
         }
 
         return result.build();
@@ -212,9 +210,7 @@ public class ElasticsearchMetadata
 
         ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
         for (ColumnMetadata column : tableMetadata.getColumns()) {
-            results.put(column.getName(), new ElasticsearchColumnHandle(
-                    (String) column.getProperties().getOrDefault(ORIGINAL_NAME, column.getName()),
-                    column.getType()));
+            results.put(column.getName(), new ElasticsearchColumnHandle(column.getName(), column.getType()));
         }
 
         return results.build();
@@ -224,7 +220,7 @@ public class ElasticsearchMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ElasticsearchColumnHandle handle = (ElasticsearchColumnHandle) columnHandle;
-        return makeColumnMetadata(handle.getName(), handle.getType());
+        return new ColumnMetadata(handle.getName(), handle.getType());
     }
 
     @Override
@@ -242,16 +238,5 @@ public class ElasticsearchMetadata
         return listTables(session, prefix.getSchemaName()).stream()
                 .map(name -> getTableMetadata(name.getSchemaName(), name.getTableName()))
                 .collect(toImmutableMap(ConnectorTableMetadata::getTable, ConnectorTableMetadata::getColumns));
-    }
-
-    private static ColumnMetadata makeColumnMetadata(String name, Type type)
-    {
-        return new ColumnMetadata(
-                name,
-                type,
-                null,
-                null,
-                false,
-                ImmutableMap.of(ORIGINAL_NAME, name));
     }
 }
