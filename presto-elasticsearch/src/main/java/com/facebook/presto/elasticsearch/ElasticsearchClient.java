@@ -148,14 +148,10 @@ public class ElasticsearchClient
 
             HttpHost[] hosts = nodes.stream()
                     .map(ElasticsearchNode::getAddress)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
                     .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
                     .toArray(HttpHost[]::new);
 
-            if (hosts.length > 0) {
-                client.getLowLevelClient().setHosts(hosts);
-            }
+            client.getLowLevelClient().setHosts(hosts);
             this.nodes.set(nodes);
         }
         catch (Throwable e) {
@@ -313,7 +309,7 @@ public class ElasticsearchClient
             NodesResponse.Node node = entry.getValue();
 
             if (node.getRoles().contains("data")) {
-                result.add(new ElasticsearchNode(nodeId, node.getAddress()));
+                result.add(new ElasticsearchNode(nodeId, node.getHttp().getAddress()));
             }
         }
         return result.build();
