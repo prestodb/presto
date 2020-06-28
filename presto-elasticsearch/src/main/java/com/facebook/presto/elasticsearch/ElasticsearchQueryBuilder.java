@@ -63,7 +63,7 @@ public final class ElasticsearchQueryBuilder
 
                 checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.getName());
                 if (!domain.isAll()) {
-                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(session, column.getName(), domain, column.getType())));
+                    queryBuilder.must(new BoolQueryBuilder().must(buildPredicate(session, column.getName(), domain, column.getType())));
                 }
             }
         }
@@ -108,10 +108,10 @@ public final class ElasticsearchQueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(getValue(session, type, range.getLow().getValue())));
+                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).gt(getValue(session, type, range.getLow().getValue())));
                             break;
                         case EXACTLY:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(getValue(session, type, range.getLow().getValue())));
+                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).gte(getValue(session, type, range.getLow().getValue())));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low marker should never use BELOW bound");
@@ -122,10 +122,10 @@ public final class ElasticsearchQueryBuilder
                 if (!range.getHigh().isUpperUnbounded()) {
                     switch (range.getHigh().getBound()) {
                         case EXACTLY:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(getValue(session, type, range.getHigh().getValue())));
+                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).lte(getValue(session, type, range.getHigh().getValue())));
                             break;
                         case BELOW:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(getValue(session, type, range.getHigh().getValue())));
+                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).lt(getValue(session, type, range.getHigh().getValue())));
                             break;
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
@@ -136,7 +136,7 @@ public final class ElasticsearchQueryBuilder
             }
 
             if (valuesToInclude.size() == 1) {
-                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, type, getOnlyElement(valuesToInclude))));
+                rangeQueryBuilder.must(new TermQueryBuilder(columnName, getValue(session, type, getOnlyElement(valuesToInclude))));
             }
             queryBuilder.should(rangeQueryBuilder);
         }
