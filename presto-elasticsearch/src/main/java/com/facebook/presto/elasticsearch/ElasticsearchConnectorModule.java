@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.decoder.DecoderModule;
@@ -21,25 +20,22 @@ import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
+import com.google.inject.Module;
 import com.google.inject.Scopes;
 
 import javax.inject.Inject;
 
-import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.elasticsearch.ElasticsearchConfig.Security.AWS;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Predicate.isEqual;
 
 public class ElasticsearchConnectorModule
-        extends AbstractConfigurationAwareModule
+        implements Module
 {
     @Override
-    protected void setup(Binder binder)
+    public void configure(Binder binder)
     {
         binder.bind(ElasticsearchConnector.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchMetadata.class).in(Scopes.SINGLETON);
@@ -53,15 +49,6 @@ public class ElasticsearchConnectorModule
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
 
         binder.install(new DecoderModule());
-
-        newOptionalBinder(binder, AwsSecurityConfig.class);
-
-        install(installModuleIf(
-                ElasticsearchConfig.class,
-                config -> config.getSecurity()
-                        .filter(isEqual(AWS))
-                        .isPresent(),
-                conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
     }
 
     private static final class TypeDeserializer
