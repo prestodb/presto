@@ -87,13 +87,7 @@ public class NodesSystemTable
             VARCHAR.writeString(nodeId, currentNode.getNodeIdentifier());
             VARCHAR.writeString(prestoAddress, currentNode.getHostAndPort().toString());
             VARCHAR.writeString(elasticsearchNodeId, node.getId());
-
-            if (node.getAddress().isPresent()) {
-                VARCHAR.writeString(elasticsearchAddress, node.getAddress().get());
-            }
-            else {
-                elasticsearchAddress.appendNull();
-            }
+            VARCHAR.writeString(elasticsearchAddress, node.getAddress());
         }
 
         return new FixedPageSource(ImmutableList.of(new Page(
