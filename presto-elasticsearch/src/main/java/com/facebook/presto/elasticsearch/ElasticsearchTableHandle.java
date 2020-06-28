@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -28,17 +27,14 @@ public final class ElasticsearchTableHandle
 {
     private final String schema;
     private final String index;
-    private final Optional<String> query;
 
     @JsonCreator
     public ElasticsearchTableHandle(
             @JsonProperty("schema") String schema,
-            @JsonProperty("index") String index,
-            @JsonProperty("query") Optional<String> query)
+            @JsonProperty("index") String index)
     {
         this.schema = requireNonNull(schema, "schema is null");
         this.index = requireNonNull(index, "index is null");
-        this.query = requireNonNull(query, "query is null");
     }
 
     @JsonProperty
@@ -53,16 +49,10 @@ public final class ElasticsearchTableHandle
         return schema;
     }
 
-    @JsonProperty
-    public Optional<String> getQuery()
-    {
-        return query;
-    }
-
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, index, query);
+        return Objects.hash(schema, index);
     }
 
     @Override
@@ -77,8 +67,7 @@ public final class ElasticsearchTableHandle
 
         ElasticsearchTableHandle other = (ElasticsearchTableHandle) obj;
         return Objects.equals(this.getSchema(), other.getSchema()) &&
-                Objects.equals(this.getIndex(), other.getIndex()) &&
-                Objects.equals(this.getQuery(), other.getQuery());
+                Objects.equals(this.getIndex(), other.getIndex());
     }
 
     @Override
@@ -87,7 +76,6 @@ public final class ElasticsearchTableHandle
         return toStringHelper(this)
                 .add("schema", getSchema())
                 .add("index", getIndex())
-                .add("query", getQuery())
                 .toString();
     }
 }

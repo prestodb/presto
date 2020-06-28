@@ -23,13 +23,11 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.ExistsQueryBuilder;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -45,7 +43,7 @@ public class ElasticsearchQueryBuilder
 {
     private ElasticsearchQueryBuilder() {}
 
-    public static QueryBuilder buildSearchQuery(TupleDomain<ColumnHandle> constraint, List<ElasticsearchColumnHandle> columns, Optional<String> query)
+    public static QueryBuilder buildSearchQuery(TupleDomain<ColumnHandle> constraint, List<ElasticsearchColumnHandle> columns)
     {
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
         for (ElasticsearchColumnHandle column : columns) {
@@ -59,10 +57,6 @@ public class ElasticsearchQueryBuilder
             }
             boolQueryBuilder.must(columnQueryBuilder);
         }
-
-        query.map(QueryStringQueryBuilder::new)
-                .ifPresent(boolQueryBuilder::must);
-
         if (boolQueryBuilder.hasClauses()) {
             return boolQueryBuilder;
         }

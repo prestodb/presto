@@ -186,15 +186,3 @@ _id     The Elasticsearch document ID
 _score  The document score returned by the Elasticsearch query
 _source The source of the original document
 ======= =======================================================
-
-Full Text Queries
------------------
-
-Presto SQL queries can be combined with Elasticsearch queries by providing the `full text query`_
-as part of the table name, separated by a colon. For example:
-
-.. code-block:: sql
-
-    SELECT * FROM "tweets: +presto DB^2"
-
-.. _full text query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
