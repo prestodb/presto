@@ -11,32 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto;
 
-package com.facebook.presto.execution.scheduler;
-
-import com.facebook.presto.execution.BasicStageExecutionStats;
-import com.facebook.presto.execution.StageId;
-import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 
-public interface SqlQuerySchedulerInterface
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_SCAN_RAW_BYTES_READ_LIMIT;
+
+public class ExceededScanLimitException
+        extends PrestoException
 {
-    void start();
-
-    long getUserMemoryReservation();
-
-    long getTotalMemoryReservation();
-
-    Duration getTotalCpuTime();
-
-    DataSize getRawInputDataSize();
-
-    BasicStageExecutionStats getBasicStageStats();
-
-    StageInfo getStageInfo();
-
-    void cancelStage(StageId stageId);
-
-    void abort();
+    public ExceededScanLimitException(DataSize limit)
+    {
+        super(EXCEEDED_SCAN_RAW_BYTES_READ_LIMIT, "Query has exceeded Scan Raw Bytes Read Limit of " + limit.toString());
+    }
 }

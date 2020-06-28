@@ -292,6 +292,20 @@ public class SqlQueryExecution
     }
 
     @Override
+    public DataSize getRawInputDataSize()
+    {
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
+        Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
+        if (finalQueryInfo.isPresent()) {
+            return finalQueryInfo.get().getQueryStats().getRawInputDataSize();
+        }
+        if (scheduler == null) {
+            return new DataSize(0, BYTE);
+        }
+        return scheduler.getRawInputDataSize();
+    }
+
+    @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
         return stateMachine.getFinalQueryInfo()

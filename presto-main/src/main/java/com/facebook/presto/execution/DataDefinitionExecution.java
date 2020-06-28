@@ -149,6 +149,12 @@ public class DataDefinitionExecution<T extends Statement>
     }
 
     @Override
+    public DataSize getRawInputDataSize()
+    {
+        return DataSize.succinctBytes(0);
+    }
+
+    @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
         return stateMachine.getFinalQueryInfo()
