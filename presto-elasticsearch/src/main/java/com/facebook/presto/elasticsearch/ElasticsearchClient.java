@@ -94,7 +94,7 @@ public class ElasticsearchClient
     private final ExecutorService executor = newFixedThreadPool(1, daemonThreadsNamed("elasticsearch-metadata-%s"));
     private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
     private final ElasticsearchTableDescriptionProvider tableDescriptions;
-    private final TransportClient client;
+    private final Map<String, TransportClient> clients = new HashMap<>();
     private final LoadingCache<ElasticsearchTableDescription, List<ColumnMetadata>> columnMetadataCache;
     private final Duration requestTimeout;
     private final int maxAttempts;
@@ -110,9 +110,13 @@ public class ElasticsearchClient
         maxAttempts = configuration.getMaxRequestRetries();
         maxRetryTime = configuration.getMaxRetryTime();
 
-        TransportAddress address = new TransportAddress(InetAddress.getByName(config.getHost()), config.getPort());
-        client = createTransportClient(config, address, Optional.of(config.getClusterName()));
-
+        for (ElasticsearchTableDescription tableDescription : tableDescriptions.getAllTableDescriptions()) {
+            if (!clients.containsKey(tableDescription.getClusterName())) {
+                TransportAddress address = new TransportAddress(InetAddress.getByName(tableDescription.getHost()), tableDescription.getPort());
+                TransportClient client = createTransportClient(config, address, Optional.of(tableDescription.getClusterName()));
+                clients.put(tableDescription.getClusterName(), client);
+            }
+        }
         this.columnMetadataCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(30, MINUTES)
                 .refreshAfterWrite(15, MINUTES)
@@ -124,8 +128,12 @@ public class ElasticsearchClient
     public void tearDown()
     {
         // Closer closes the resources in reverse order.
+        // Therefore, we first clear the clients map, then close each client.
         try (Closer closer = Closer.create()) {
-            closer.register(client);
+            closer.register(clients::clear);
+            for (Entry<String, TransportClient> entry : clients.entrySet()) {
+                closer.register(entry.getValue());
+            }
             closer.register(executor::shutdown);
         }
         catch (IOException e) {
@@ -176,6 +184,9 @@ public class ElasticsearchClient
         return new ElasticsearchTableDescription(
                 table.getTableName(),
                 table.getSchemaName(),
+                table.getHost(),
+                table.getPort(),
+                table.getClusterName(),
                 table.getIndex(),
                 table.getIndexExactMatch(),
                 table.getType(),
@@ -187,6 +198,7 @@ public class ElasticsearchClient
         if (tableDescription.getIndexExactMatch()) {
             return ImmutableList.of(tableDescription.getIndex());
         }
+        TransportClient client = clients.get(tableDescription.getClusterName());
         verify(client != null, "client is null");
         String[] indices = getIndices(client, new GetIndexRequest());
         return Arrays.stream(indices)
@@ -196,6 +208,7 @@ public class ElasticsearchClient
 
     public ClusterSearchShardsResponse getSearchShards(String index, ElasticsearchTableDescription tableDescription)
     {
+        TransportClient client = clients.get(tableDescription.getClusterName());
         verify(client != null, "client is null");
         return getSearchShardsResponse(client, new ClusterSearchShardsRequest(index));
     }
@@ -251,6 +264,7 @@ public class ElasticsearchClient
     private List<ElasticsearchColumn> buildColumns(ElasticsearchTableDescription tableDescription)
     {
         List<ElasticsearchColumn> columns = new ArrayList<>();
+        TransportClient client = clients.get(tableDescription.getClusterName());
         verify(client != null, "client is null");
         for (String index : getIndices(tableDescription)) {
             GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(tableDescription.getType());

@@ -1,6 +1,9 @@
 {
     "tableName": "data",
     "schemaName": "nested",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
     "index": "data",
     "type": "doc",
     "columns": [

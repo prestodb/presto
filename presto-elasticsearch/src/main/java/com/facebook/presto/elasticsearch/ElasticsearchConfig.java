@@ -29,9 +29,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ElasticsearchConfig
 {
-    private String host;
-    private int port = 9300;
-    private String clusterName;
     private String defaultSchema = "default";
     private File tableDescriptionDirectory = new File("etc/elasticsearch/");
     private int scrollSize = 1_000;
@@ -49,43 +46,6 @@ public class ElasticsearchConfig
     private String keystorePassword = "";
     private File truststoreFilepath = new File("etc/elasticsearch/truststore.jks");
     private String truststorePassword = "";
-
-    @NotNull
-    public String getHost()
-    {
-        return host;
-    }
-
-    @Config("elasticsearch.host")
-    public ElasticsearchConfig setHost(String host)
-    {
-        this.host = host;
-        return this;
-    }
-
-    public int getPort()
-    {
-        return port;
-    }
-
-    @Config("elasticsearch.port")
-    public ElasticsearchConfig setPort(int port)
-    {
-        this.port = port;
-        return this;
-    }
-
-    public String getClusterName()
-    {
-        return clusterName;
-    }
-
-    @Config("elasticsearch.cluster-name")
-    public ElasticsearchConfig setClusterName(String clusterName)
-    {
-        this.clusterName = clusterName;
-        return this;
-    }
 
     @NotNull
     public File getTableDescriptionDirectory()

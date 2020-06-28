@@ -1,6 +1,9 @@
 {
     "tableName": "orders",
     "schemaName": "tpch",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
     "index": "orders",
     "type": "doc",
     "columns": [

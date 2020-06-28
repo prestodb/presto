@@ -1,6 +1,9 @@
 {
     "tableName": "region",
     "schemaName": "tpch",
+    "host": "localhost",
+    "port": "9300",
+    "clusterName": "test",
     "index": "region",
     "type": "doc",
     "columns": [
