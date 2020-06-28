@@ -28,12 +28,12 @@ import static com.facebook.presto.elasticsearch.SearchGuardCertificateFormat.PEM
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestElasticsearchConfig
+public class TestElasticsearchConnectorConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(ElasticsearchConfig.class)
+        assertRecordedDefaults(recordDefaults(ElasticsearchConnectorConfig.class)
                 .setTableDescriptionDirectory(new File("etc/elasticsearch/"))
                 .setDefaultSchema("default")
                 .setScrollSize(1000)
@@ -76,7 +76,7 @@ public class TestElasticsearchConfig
                 .put("searchguard.ssl.transport.truststore_password", "333333")
                 .build();
 
-        ElasticsearchConfig expected = new ElasticsearchConfig()
+        ElasticsearchConnectorConfig expected = new ElasticsearchConnectorConfig()
                 .setTableDescriptionDirectory(new File("/etc/elasticsearch/"))
                 .setDefaultSchema("test")
                 .setScrollSize(4000)

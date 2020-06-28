@@ -46,7 +46,7 @@ public class ElasticsearchConnectorModule
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchRecordSetProvider.class).in(Scopes.SINGLETON);
 
-        configBinder(binder).bindConfig(ElasticsearchConfig.class);
+        configBinder(binder).bindConfig(ElasticsearchConnectorConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindJsonCodec(ElasticsearchTableDescription.class);
@@ -56,7 +56,7 @@ public class ElasticsearchConnectorModule
 
     @Singleton
     @Provides
-    public static ElasticsearchClient createElasticsearchClient(ElasticsearchConfig config, ElasticsearchTableDescriptionProvider elasticsearchTableDescriptionProvider)
+    public static ElasticsearchClient createElasticsearchClient(ElasticsearchConnectorConfig config, ElasticsearchTableDescriptionProvider elasticsearchTableDescriptionProvider)
             throws IOException
     {
         return new ElasticsearchClient(elasticsearchTableDescriptionProvider, config);
