@@ -451,7 +451,7 @@ final class ShowQueriesRewrite
                 }
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false), Optional.of(parameters)).trim();
+                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.empty()), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
 

@@ -40,6 +40,7 @@ import java.util.Optional;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.sql.SqlFormatterUtil.getFormattedSql;
+import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
@@ -95,7 +96,13 @@ public class CreateViewTask
                 .collect(toImmutableList());
 
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(name.asSchemaTableName(), columnMetadata);
-        String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns, Optional.of(session.getUser())));
+        // use DEFINER security by default
+        Optional<String> owner = Optional.of(session.getUser());
+        if (statement.getSecurity().orElse(null) == INVOKER) {
+            owner = Optional.empty();
+        }
+
+        String data = codec.toJson(new ViewDefinition(sql, session.getCatalog(), session.getSchema(), columns, owner, !owner.isPresent()));
 
         metadata.createView(session, name.getCatalogName(), viewMetadata, data, statement.isReplace());
 

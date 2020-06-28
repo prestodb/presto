@@ -413,11 +413,20 @@ class AstBuilder
     @Override
     public Node visitCreateView(SqlBaseParser.CreateViewContext context)
     {
+        Optional<CreateView.Security> security = Optional.empty();
+        if (context.DEFINER() != null) {
+            security = Optional.of(CreateView.Security.DEFINER);
+        }
+        else if (context.INVOKER() != null) {
+            security = Optional.of(CreateView.Security.INVOKER);
+        }
+
         return new CreateView(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
-                context.REPLACE() != null);
+                context.REPLACE() != null,
+                security);
     }
 
     @Override
