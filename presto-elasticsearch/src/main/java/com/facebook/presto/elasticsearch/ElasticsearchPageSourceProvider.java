@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;

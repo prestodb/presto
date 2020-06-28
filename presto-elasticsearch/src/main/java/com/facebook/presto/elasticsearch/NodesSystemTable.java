@@ -16,7 +16,6 @@ package com.facebook.presto.elasticsearch;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.facebook.presto.elasticsearch.client.ElasticsearchNode;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;

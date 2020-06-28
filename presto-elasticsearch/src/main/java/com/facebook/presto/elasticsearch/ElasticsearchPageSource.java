@@ -20,7 +20,6 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.facebook.presto.elasticsearch.decoders.BigintDecoder;
 import com.facebook.presto.elasticsearch.decoders.BooleanDecoder;
 import com.facebook.presto.elasticsearch.decoders.Decoder;
