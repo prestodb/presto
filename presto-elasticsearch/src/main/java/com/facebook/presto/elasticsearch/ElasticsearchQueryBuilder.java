@@ -19,11 +19,13 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchScrollRequestBuilder;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.ExistsQueryBuilder;
@@ -32,6 +34,8 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,9 +45,12 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.elasticsearch.ElasticsearchClient.createTransportClient;
+import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
@@ -55,6 +62,7 @@ public class ElasticsearchQueryBuilder
 
     private final Duration scrollTimeout;
     private final int scrollSize;
+    private final TransportClient client;
     private final int shard;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final List<ElasticsearchColumnHandle> columns;
@@ -72,11 +80,24 @@ public class ElasticsearchQueryBuilder
         index = split.getIndex();
         shard = split.getShard();
         type = split.getType();
+        InetAddress address;
+        try {
+            address = InetAddress.getByName(split.getSearchNode());
+        }
+        catch (UnknownHostException e) {
+            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, format("Error connecting to search node (%s:%d)", split.getSearchNode(), split.getPort()), e);
+        }
+        client = createTransportClient(config, new TransportAddress(address, split.getPort()));
         scrollTimeout = config.getScrollTimeout();
         scrollSize = config.getScrollSize();
     }
 
-    public SearchRequestBuilder buildScrollSearchRequest(TransportClient client)
+    public void close()
+    {
+        client.close();
+    }
+
+    public SearchRequestBuilder buildScrollSearchRequest()
     {
         String indices = index != null && !index.isEmpty() ? index : "_all";
         List<String> fields = columns.stream()
@@ -98,7 +119,7 @@ public class ElasticsearchQueryBuilder
         return searchRequestBuilder;
     }
 
-    public SearchScrollRequestBuilder prepareSearchScroll(TransportClient client, String scrollId)
+    public SearchScrollRequestBuilder prepareSearchScroll(String scrollId)
     {
         return client.prepareSearchScroll(scrollId)
                 .setScroll(new TimeValue(scrollTimeout.toMillis()));
