@@ -474,12 +474,6 @@ public class TestElasticsearchIntegrationSmokeTest
                                 .alias("orders_alias")))
                 .actionGet();
 
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest("orders_alias"))
-                .actionGet();
-
         assertQuery(
                 "SELECT count(*) FROM orders_alias",
                 "SELECT count(*) FROM orders");
@@ -504,12 +498,6 @@ public class TestElasticsearchIntegrationSmokeTest
                         .addAliasAction(IndicesAliasesRequest.AliasActions.add()
                                 .index("region")
                                 .alias("multi_alias")))
-                .actionGet();
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest("multi_alias"))
                 .actionGet();
 
         assertQuery(
