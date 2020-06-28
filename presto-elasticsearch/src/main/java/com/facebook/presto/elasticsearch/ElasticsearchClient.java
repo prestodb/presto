@@ -15,13 +15,12 @@ package com.facebook.presto.elasticsearch;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.security.pem.PemReader;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -41,7 +40,6 @@ import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 import javax.net.ssl.KeyManager;
@@ -67,30 +65,20 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.list;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class ElasticsearchClient
 {
-    private static final Logger LOG = Logger.get(ElasticsearchClient.class);
     private static final JsonCodec<SearchShardsResponse> SEARCH_SHARDS_RESPONSE_CODEC = jsonCodec(SearchShardsResponse.class);
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
@@ -99,12 +87,6 @@ public class ElasticsearchClient
     private final int scrollSize;
     private final Duration scrollTimeout;
 
-    private final AtomicReference<Set<Node>> nodes = new AtomicReference<>(ImmutableSet.of());
-    private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("NodeRefresher"));
-    private final AtomicBoolean started = new AtomicBoolean();
-    private final Duration refreshInterval;
-    private final boolean tlsEnabled;
-
     @Inject
     public ElasticsearchClient(ElasticsearchConfig config)
     {
@@ -112,47 +94,22 @@ public class ElasticsearchClient
 
         this.scrollSize = config.getScrollSize();
         this.scrollTimeout = config.getScrollTimeout();
-        this.refreshInterval = config.getNodeRefreshInterval();
-        this.tlsEnabled = config.isTlsEnabled();
-    }
 
-    @PostConstruct
-    public void initialize()
-    {
-        if (!started.getAndSet(true)) {
-            // do the first refresh eagerly
-            refreshNodes();
-            executor.scheduleWithFixedDelay(this::refreshNodes, refreshInterval.toMillis(), refreshInterval.toMillis(), TimeUnit.MILLISECONDS);
-        }
+        // discover other nodes in the cluster and add them to the client
+        // TODO: refresh periodically
+        HttpHost[] hosts = getNodes().values().stream()
+                .map(Node::getAddress)
+                .map(address -> HttpHost.create(format("%s://%s", config.isTlsEnabled() ? "https" : "http", address)))
+                .toArray(HttpHost[]::new);
+
+        client.getLowLevelClient().setHosts(hosts);
     }
 
     @PreDestroy
     public void close()
             throws IOException
     {
-        executor.shutdownNow();
         client.close();
-    }
-
-    private void refreshNodes()
-    {
-        // discover other nodes in the cluster and add them to the client
-        try {
-            Set<Node> nodes = fetchNodes();
-
-            HttpHost[] hosts = nodes.stream()
-                    .map(Node::getAddress)
-                    .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
-                    .toArray(HttpHost[]::new);
-
-            client.getLowLevelClient().setHosts(hosts);
-            this.nodes.set(nodes);
-        }
-        catch (Throwable e) {
-            // Catch all exceptions here since throwing an exception from executor#scheduleWithFixedDelay method
-            // suppresses all future scheduled invocations
-            LOG.error(e, "Error refreshing nodes");
-        }
     }
 
     private static RestHighLevelClient createClient(ElasticsearchConfig config)
@@ -293,31 +250,25 @@ public class ElasticsearchClient
         }
     }
 
-    private Set<Node> fetchNodes()
+    public Map<String, Node> getNodes()
     {
         NodesResponse nodesResponse = doRequest("_nodes/http", NODES_RESPONSE_CODEC::fromJson);
 
-        ImmutableSet.Builder<Node> result = ImmutableSet.builder();
+        ImmutableMap.Builder<String, Node> result = ImmutableMap.builder();
         for (Map.Entry<String, NodesResponse.Node> entry : nodesResponse.getNodes().entrySet()) {
             String nodeId = entry.getKey();
             NodesResponse.Node node = entry.getValue();
 
             if (node.getRoles().contains("data")) {
-                result.add(new Node(nodeId, node.getHttp().getAddress()));
+                result.put(nodeId, new Node(nodeId, node.getHttp().getAddress()));
             }
         }
         return result.build();
     }
 
-    public Set<Node> getNodes()
-    {
-        return nodes.get();
-    }
-
     public List<Shard> getSearchShards(String index)
     {
-        Map<String, Node> nodeById = getNodes().stream()
-                .collect(toImmutableMap(Node::getId, Function.identity()));
+        Map<String, Node> nodeById = getNodes();
 
         SearchShardsResponse shardsResponse = doRequest(format("%s/_search_shards", index), SEARCH_SHARDS_RESPONSE_CODEC::fromJson);
 

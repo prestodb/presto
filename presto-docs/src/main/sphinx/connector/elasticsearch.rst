@@ -48,7 +48,6 @@ Property Name                                 Description
 ``elasticsearch.request-timeout``             Timeout for Elasticsearch requests.
 ``elasticsearch.connect-timeout``             Timeout for connections to Elasticsearch hosts.
 ``elasticsearch.max-retry-time``              Maximum duration across all retry attempts for a single request.
-``elasticsearch.node-refresh-interval``       How often to refresh the list of available Elasticsearch nodes.
 ============================================= ==============================================================================
 
 ``elasticsearch.host``
@@ -119,13 +118,6 @@ This property is optional; the default is ``1s``.
 This property defines the maximum duration across all retry attempts for a single request to Elasticsearch.
 
 This property is optional; the default is ``20s``.
-
-``elasticsearch.node-refresh-interval``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-This property controls how often the list of available Elasticsearch nodes is refreshed.
-
-This property is optional; the default is ``1m``.
 
 TLS Security
 ------------
