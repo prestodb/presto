@@ -26,6 +26,7 @@ import javax.inject.Inject;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -39,12 +40,13 @@ public class ElasticsearchConnectorModule
         binder.bind(ElasticsearchConnector.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ElasticsearchPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ElasticsearchRecordSetProvider.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchClient.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(ElasticsearchConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+        jsonCodecBinder(binder).bindJsonCodec(ElasticsearchTableDescription.class);
 
         binder.install(new DecoderModule());
     }

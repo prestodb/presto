@@ -44,6 +44,11 @@
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
+            <artifactId>concurrent</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
 

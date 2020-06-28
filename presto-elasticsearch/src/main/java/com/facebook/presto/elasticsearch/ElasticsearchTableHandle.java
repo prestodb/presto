@@ -14,27 +14,37 @@
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ElasticsearchTableHandle
         implements ConnectorTableHandle
 {
-    private final String schema;
     private final String index;
+    private final Optional<String> type;
+    private final SchemaTableName schemaTableName;
 
     @JsonCreator
     public ElasticsearchTableHandle(
-            @JsonProperty("schema") String schema,
-            @JsonProperty("index") String index)
+            @JsonProperty("index") String index,
+            @JsonProperty("type") Optional<String> type,
+            @JsonProperty("schemaName") String schemaName,
+            @JsonProperty("tableName") String tableName)
     {
-        this.schema = requireNonNull(schema, "schema is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(tableName, "tableName is null");
+
         this.index = requireNonNull(index, "index is null");
+        this.type = requireNonNull(type, "type is null");
+        this.schemaTableName = new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH));
     }
 
     @JsonProperty
@@ -44,15 +54,32 @@ public final class ElasticsearchTableHandle
     }
 
     @JsonProperty
-    public String getSchema()
+    public Optional<String> getType()
     {
-        return schema;
+        return type;
+    }
+
+    @JsonProperty
+    public String getSchemaName()
+    {
+        return schemaTableName.getSchemaName();
+    }
+
+    @JsonProperty
+    public String getTableName()
+    {
+        return schemaTableName.getTableName();
+    }
+
+    public SchemaTableName getSchemaTableName()
+    {
+        return schemaTableName;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schema, index);
+        return Objects.hash(getSchemaName(), getTableName());
     }
 
     @Override
@@ -66,16 +93,19 @@ public final class ElasticsearchTableHandle
         }
 
         ElasticsearchTableHandle other = (ElasticsearchTableHandle) obj;
-        return Objects.equals(this.getSchema(), other.getSchema()) &&
-                Objects.equals(this.getIndex(), other.getIndex());
+        return Objects.equals(this.getSchemaName(), other.getSchemaName()) &&
+                Objects.equals(this.getTableName(), other.getTableName()) &&
+                Objects.equals(this.getIndex(), other.getIndex()) &&
+                Objects.equals(this.getType(), other.getType());
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("schema", getSchema())
                 .add("index", getIndex())
+                .add("type", getType())
+                .add("schemaTableName", getSchemaTableName())
                 .toString();
     }
 }

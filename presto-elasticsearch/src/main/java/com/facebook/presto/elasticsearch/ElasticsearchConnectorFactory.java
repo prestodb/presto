@@ -22,6 +22,7 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.inject.Injector;
+import com.google.inject.Scopes;
 
 import java.util.Map;
 
@@ -57,6 +58,7 @@ public class ElasticsearchConnectorFactory
                     binder -> {
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                        binder.bind(ElasticsearchTableDescriptionProvider.class).in(Scopes.SINGLETON);
                     });
 
             Injector injector = app.strictConfig()

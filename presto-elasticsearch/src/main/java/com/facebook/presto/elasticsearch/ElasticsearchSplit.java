@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -31,19 +32,37 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchSplit
         implements ConnectorSplit
 {
+    private final String index;
+    private final Optional<String> type;
     private final int shard;
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final String address;
 
     @JsonCreator
     public ElasticsearchSplit(
+            @JsonProperty("index") String index,
+            @JsonProperty("type") Optional<String> type,
             @JsonProperty("shard") int shard,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
             @JsonProperty("address") String address)
     {
+        this.index = requireNonNull(index, "index is null");
+        this.type = requireNonNull(type, "index is null");
         this.shard = shard;
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.address = requireNonNull(address, "address is null");
+    }
+
+    @JsonProperty
+    public String getIndex()
+    {
+        return index;
+    }
+
+    @JsonProperty
+    public Optional<String> getType()
+    {
+        return type;
     }
 
     @JsonProperty
@@ -86,6 +105,8 @@ public class ElasticsearchSplit
     public String toString()
     {
         return toStringHelper(this)
+                .addValue(index)
+                .addValue(type)
                 .addValue(shard)
                 .addValue(tupleDomain)
                 .addValue(address)
