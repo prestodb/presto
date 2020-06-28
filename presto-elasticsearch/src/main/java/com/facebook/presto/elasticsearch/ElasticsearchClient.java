@@ -92,7 +92,7 @@ public class ElasticsearchClient
     private static final Logger LOG = Logger.get(ElasticsearchClient.class);
 
     private final ExecutorService executor = newFixedThreadPool(1, daemonThreadsNamed("elasticsearch-metadata-%s"));
-    private final ObjectMapper objectMapper = new ObjectMapperProvider().get();
+    private final ObjectMapper objecMapper = new ObjectMapperProvider().get();
     private final ElasticsearchTableDescriptionProvider tableDescriptions;
     private final Map<String, TransportClient> clients = new HashMap<>();
     private final LoadingCache<ElasticsearchTableDescription, List<ColumnMetadata>> columnMetadataCache;
@@ -280,7 +280,7 @@ public class ElasticsearchClient
                 MappingMetaData mappingMetaData = mappings.get(indexIterator.next()).get(tableDescription.getType());
                 JsonNode rootNode;
                 try {
-                    rootNode = objectMapper.readTree(mappingMetaData.source().uncompressed());
+                    rootNode = objecMapper.readTree(mappingMetaData.source().uncompressed());
                 }
                 catch (IOException e) {
                     throw new PrestoException(ELASTICSEARCH_CORRUPTED_MAPPING_METADATA, e);
