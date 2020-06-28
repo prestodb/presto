@@ -264,28 +264,6 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
-    public void testEmptyObjectFields()
-    {
-        String indexName = "emptyobject";
-        index(indexName, ImmutableMap.<String, Object>builder()
-                .put("name", "stringfield")
-                .put("emptyobject", ImmutableMap.of())
-                .put("fields.fielda", 32)
-                .put("fields.fieldb", ImmutableMap.of())
-                .build());
-
-        embeddedElasticsearchNode.getClient()
-                .admin()
-                .indices()
-                .refresh(refreshRequest(indexName))
-                .actionGet();
-
-        assertQuery(
-                "SELECT name, fields.fielda FROM emptyobject",
-                "VALUES ('stringfield', 32)");
-    }
-
-    @Test
     public void testNestedFields()
     {
         String indexName = "data";
