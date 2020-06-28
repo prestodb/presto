@@ -30,13 +30,11 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.airlift.units.Duration;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsGroup;
 import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsRequest;
 import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsResponse;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
-import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.collect.ImmutableOpenMap;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.settings.Settings.Builder;
@@ -181,24 +179,16 @@ public class ElasticsearchClient
                 Optional.of(buildColumns(table)));
     }
 
-    public List<Shard> getSearchShards(String index)
+    public ClusterSearchShardsResponse getSearchShards(String index)
     {
         try {
-            ClusterSearchShardsResponse result = retry()
+            return retry()
                     .maxAttempts(maxAttempts)
                     .exponentialBackoff(maxRetryTime)
                     .run("getSearchShardsResponse", () -> client.admin()
                             .cluster()
                             .searchShards(new ClusterSearchShardsRequest(index))
                             .actionGet(requestTimeout.toMillis()));
-
-            ImmutableList.Builder<Shard> shards = ImmutableList.builder();
-            DiscoveryNode[] nodes = result.getNodes();
-            for (ClusterSearchShardsGroup group : result.getGroups()) {
-                int nodeIndex = group.getShardId().getId() % nodes.length;
-                shards.add(new Shard(group.getShardId().getId(), nodes[nodeIndex].getHostName(), nodes[nodeIndex].getAddress().getPort()));
-            }
-            return shards.build();
         }
         catch (Exception e) {
             throw new RuntimeException(e);
