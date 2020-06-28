@@ -15,10 +15,9 @@ package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.elasticsearch.client.IndexMetadata;
-import com.facebook.presto.elasticsearch.client.IndexMetadata.DateTimeType;
-import com.facebook.presto.elasticsearch.client.IndexMetadata.ObjectType;
-import com.facebook.presto.elasticsearch.client.IndexMetadata.PrimitiveType;
+import com.facebook.presto.elasticsearch.IndexMetadata.DateTimeType;
+import com.facebook.presto.elasticsearch.IndexMetadata.ObjectType;
+import com.facebook.presto.elasticsearch.IndexMetadata.PrimitiveType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
