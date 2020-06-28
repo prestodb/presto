@@ -27,7 +27,6 @@ import com.facebook.presto.elasticsearch.ElasticsearchConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -446,9 +445,7 @@ public class ElasticsearchClient
                     mappings = mappings.elements().next();
                 }
 
-                JsonNode metaNode = nullSafeNode(mappings, "_meta");
-
-                return new IndexMetadata(parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto")));
+                return new IndexMetadata(parseType(mappings.get("properties")));
             }
             catch (IOException e) {
                 throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
@@ -456,7 +453,7 @@ public class ElasticsearchClient
         });
     }
 
-    private IndexMetadata.ObjectType parseType(JsonNode properties, JsonNode metaProperties)
+    private IndexMetadata.ObjectType parseType(JsonNode properties)
     {
         Iterator<Map.Entry<String, JsonNode>> entries = properties.fields();
 
@@ -466,36 +463,26 @@ public class ElasticsearchClient
 
             String name = field.getKey();
             JsonNode value = field.getValue();
-
-            JsonNode metaNode = nullSafeNode(metaProperties, name);
-            boolean isArray = !metaNode.isNull() && metaNode.has("isArray") && metaNode.get("isArray").asBoolean();
             if (value.has("type")) {
                 String type = value.get("type").asText();
+
                 if (type.equals("date")) {
                     List<String> formats = ImmutableList.of();
                     if (value.has("format")) {
                         formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
                     }
-                    result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.DateTimeType(formats)));
+                    result.add(new IndexMetadata.Field(name, new IndexMetadata.DateTimeType(formats)));
                 }
                 else {
-                    result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.PrimitiveType(type)));
+                    result.add(new IndexMetadata.Field(name, new IndexMetadata.PrimitiveType(type)));
                 }
             }
             else if (value.has("properties")) {
-                result.add(new IndexMetadata.Field(isArray, name, parseType(value.get("properties"), metaNode)));
+                result.add(new IndexMetadata.Field(name, parseType(value.get("properties"))));
             }
         }
 
         return new IndexMetadata.ObjectType(result.build());
-    }
-
-    private JsonNode nullSafeNode(JsonNode jsonNode, String name)
-    {
-        if (jsonNode == null || jsonNode.isNull() || jsonNode.get(name) == null) {
-            return NullNode.getInstance();
-        }
-        return jsonNode.get(name);
     }
 
     public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort)

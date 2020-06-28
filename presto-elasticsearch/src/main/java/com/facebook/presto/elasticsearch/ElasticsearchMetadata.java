@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
@@ -141,7 +140,7 @@ public class ElasticsearchMetadata
         result.add(BuiltinColumns.SCORE.getMetadata());
 
         for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
-            Type type = toPrestoType(field);
+            Type type = toPrestoType(field.getType());
             if (type == null) {
                 continue;
             }
@@ -175,19 +174,9 @@ public class ElasticsearchMetadata
         return false;
     }
 
-    private Type toPrestoType(IndexMetadata.Field metaDataField)
+    private Type toPrestoType(IndexMetadata.Type type)
     {
-        return toPrestoType(metaDataField, metaDataField.isArray());
-    }
-
-    private Type toPrestoType(IndexMetadata.Field metaDataField, boolean isArray)
-    {
-        IndexMetadata.Type type = metaDataField.getType();
-        if (isArray) {
-            Type elementType = toPrestoType(metaDataField, false);
-            return new ArrayType(elementType);
-        }
-        else if (type instanceof PrimitiveType) {
+        if (type instanceof PrimitiveType) {
             switch (((PrimitiveType) type).getName()) {
                 case "float":
                     return REAL;
@@ -221,7 +210,7 @@ public class ElasticsearchMetadata
             ObjectType objectType = (ObjectType) type;
 
             List<Field> fields = objectType.getFields().stream()
-                    .map(field -> RowType.field(field.getName(), toPrestoType(field)))
+                    .map(field -> RowType.field(field.getName(), toPrestoType(field.getType())))
                     .collect(toImmutableList());
 
             return RowType.from(fields);
