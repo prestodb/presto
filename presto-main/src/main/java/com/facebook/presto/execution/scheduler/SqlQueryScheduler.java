@@ -50,6 +50,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -714,6 +715,16 @@ public class SqlQueryScheduler
                 .mapToLong(Duration::toMillis)
                 .sum();
         return new Duration(millis, MILLISECONDS);
+    }
+
+    @Override
+    public DataSize getRawInputDataSize()
+    {
+        long rawInputDataSize = getAllStagesExecutions()
+                .map(SqlStageExecution::getRawInputDataSize)
+                .mapToLong(DataSize::toBytes)
+                .sum();
+        return DataSize.succinctBytes(rawInputDataSize);
     }
 
     @Override

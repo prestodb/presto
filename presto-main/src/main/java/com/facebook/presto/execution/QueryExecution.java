@@ -57,6 +57,8 @@ public interface QueryExecution
 
     Duration getTotalCpuTime();
 
+    DataSize getRawInputDataSize();
+
     DataSize getUserMemoryReservation();
 
     DataSize getTotalMemoryReservation();

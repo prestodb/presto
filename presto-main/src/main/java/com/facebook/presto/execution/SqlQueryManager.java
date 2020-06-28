@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.ExceededCpuLimitException;
+import com.facebook.presto.ExceededScanLimitException;
 import com.facebook.presto.Session;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
@@ -29,6 +30,7 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -50,6 +52,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxScanRawInputBytes;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -69,6 +72,7 @@ public class SqlQueryManager
     private final QueryTracker<QueryExecution> queryTracker;
 
     private final Duration maxQueryCpuTime;
+    private final DataSize maxQueryScanPhysicalBytes;
 
     private final ScheduledExecutorService queryManagementExecutor;
     private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
@@ -83,6 +87,7 @@ public class SqlQueryManager
         this.embedVersion = requireNonNull(embedVersion, "embedVersion is null");
 
         this.maxQueryCpuTime = queryManagerConfig.getQueryMaxCpuTime();
+        this.maxQueryScanPhysicalBytes = queryManagerConfig.getQueryMaxScanRawInputBytes();
 
         this.queryManagementExecutor = Executors.newScheduledThreadPool(queryManagerConfig.getQueryManagerExecutorPoolSize(), threadsNamed("query-management-%s"));
         this.queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
@@ -107,6 +112,12 @@ public class SqlQueryManager
             }
             catch (Throwable e) {
                 log.error(e, "Error enforcing query CPU time limits");
+            }
+            try {
+                enforceScanLimits();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error enforcing query scan bytes limits");
             }
         }, 1, 1, TimeUnit.SECONDS);
     }
@@ -309,6 +320,21 @@ public class SqlQueryManager
             Duration limit = Ordering.natural().min(maxQueryCpuTime, sessionLimit);
             if (cpuTime.compareTo(limit) > 0) {
                 query.fail(new ExceededCpuLimitException(limit));
+            }
+        }
+    }
+
+    /**
+     * Enforce query scan physical bytes limits
+     */
+    private void enforceScanLimits()
+    {
+        for (QueryExecution query : queryTracker.getAllQueries()) {
+            DataSize rawInputSize = query.getRawInputDataSize();
+            DataSize sessionlimit = getQueryMaxScanRawInputBytes(query.getSession());
+            DataSize limit = Ordering.natural().min(maxQueryScanPhysicalBytes, sessionlimit);
+            if (rawInputSize.compareTo(limit) >= 0) {
+                query.fail(new ExceededScanLimitException(limit));
             }
         }
     }

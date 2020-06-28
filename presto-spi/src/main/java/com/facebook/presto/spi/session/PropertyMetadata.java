@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.session;
 
 import com.facebook.presto.common.type.Type;
+import io.airlift.units.DataSize;
 
 import java.util.function.Function;
 
@@ -198,5 +199,18 @@ public final class PropertyMetadata<T>
                 hidden,
                 String.class::cast,
                 object -> object);
+    }
+
+    public static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)
+    {
+        return new PropertyMetadata<>(
+                name,
+                description,
+                VARCHAR,
+                DataSize.class,
+                defaultValue,
+                hidden,
+                value -> DataSize.valueOf((String) value),
+                DataSize::toString);
     }
 }
