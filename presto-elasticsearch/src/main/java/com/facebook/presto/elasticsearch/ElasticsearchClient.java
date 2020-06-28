@@ -119,8 +119,7 @@ public class ElasticsearchClient
                 .setRequestConfigCallback(
                         configBuilder -> configBuilder
                                 .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
-                                .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis())))
-                .setMaxRetryTimeoutMillis((int) config.getMaxRetryTime().toMillis());
+                                .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis())));
 
         if (config.isTlsEnabled()) {
             builder.setHttpClientConfigCallback(clientBuilder -> {
