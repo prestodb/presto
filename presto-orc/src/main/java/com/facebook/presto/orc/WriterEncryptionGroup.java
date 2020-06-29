@@ -28,24 +28,15 @@ public class WriterEncryptionGroup
     // key metadata for encrypting the dataKeyMetadata
     private final Slice intermediateKeyMetadata;
 
-    // key metadata for encrypting hte data
-    private final Slice dataKeyMetadata;
-
-    public WriterEncryptionGroup(List<Integer> nodes, Slice intermediateKeyMetadata, Slice dataKeyMetadata)
+    public WriterEncryptionGroup(List<Integer> nodes, Slice intermediateKeyMetadata)
     {
         this.nodes = requireNonNull(nodes, "nodes is null");
-        this.dataKeyMetadata = requireNonNull(dataKeyMetadata, "dataKeyMetadata is null");
         this.intermediateKeyMetadata = requireNonNull(intermediateKeyMetadata, "intermediateKeyMetadata is null");
     }
 
     public List<Integer> getNodes()
     {
         return nodes;
-    }
-
-    public Slice getDataKeyMetadata()
-    {
-        return dataKeyMetadata;
     }
 
     public Slice getIntermediateKeyMetadata()

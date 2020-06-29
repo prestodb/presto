@@ -200,18 +200,22 @@ public class OrcWriter
                             .collect(toImmutableList()),
                     orcTypes);
             EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(dwrfWriterEncryption.get().getKeyProvider());
+            List<Slice> dataEncryptionKeys = writerEncryptionGroups.stream()
+                    .map(group -> encryptionLibrary.generateDataEncryptionKey(group.getIntermediateKeyMetadata()))
+                    .collect(toImmutableList());
             Map<Integer, DwrfDataEncryptor> dwrfEncryptors = IntStream.range(0, writerEncryptionGroups.size())
                     .boxed()
                     .collect(toImmutableMap(
                             groupId -> groupId,
-                            groupId -> new DwrfDataEncryptor(writerEncryptionGroups.get(groupId).getDataKeyMetadata(), encryptionLibrary)));
+                            groupId -> new DwrfDataEncryptor(dataEncryptionKeys.get(groupId), encryptionLibrary)));
 
-            List<Slice> encryptedKeyMetadatas = writerEncryptionGroups.stream()
-                    .map(group -> encryptionLibrary.encryptKey(
-                            group.getIntermediateKeyMetadata(),
-                            group.getDataKeyMetadata().getBytes(),
+            List<Slice> encryptedKeyMetadatas = IntStream.range(0, writerEncryptionGroups.size())
+                    .boxed()
+                    .map(groupId -> encryptionLibrary.encryptKey(
+                            writerEncryptionGroups.get(groupId).getIntermediateKeyMetadata(),
+                            dataEncryptionKeys.get(groupId).getBytes(),
                             0,
-                            group.getDataKeyMetadata().length()))
+                            dataEncryptionKeys.get(groupId).length()))
                     .collect(toImmutableList());
             this.dwrfEncryptionInfo = new DwrfEncryptionInfo(dwrfEncryptors, encryptedKeyMetadatas, nodeToGroupMap);
         }
