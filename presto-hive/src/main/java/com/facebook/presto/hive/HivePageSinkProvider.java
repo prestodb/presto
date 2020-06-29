@@ -165,7 +165,8 @@ public class HivePageSinkProvider
                 hiveSessionProperties,
                 hiveWriterStats,
                 orcFileWriterFactory,
-                commitRequired);
+                commitRequired,
+                handle.getEncryptionInformation());
 
         return new HivePageSink(
                 writerFactory,

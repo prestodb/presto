@@ -15,6 +15,7 @@ package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveFileWriter;
@@ -81,7 +82,14 @@ public class ParquetFileWriterFactory
     }
 
     @Override
-    public Optional<HiveFileWriter> createFileWriter(Path path, List<String> inputColumnNames, StorageFormat storageFormat, Properties schema, JobConf conf, ConnectorSession session)
+    public Optional<HiveFileWriter> createFileWriter(
+            Path path,
+            List<String> inputColumnNames,
+            StorageFormat storageFormat,
+            Properties schema,
+            JobConf conf,
+            ConnectorSession session,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         if (!isParquetOptimizedWriterEnabled(session)) {
             return Optional.empty();

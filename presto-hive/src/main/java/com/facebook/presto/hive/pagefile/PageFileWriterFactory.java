@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.pagefile;
 
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveFileWriter;
@@ -80,7 +81,8 @@ public class PageFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf configuration,
-            ConnectorSession session)
+            ConnectorSession session,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         if (!storageFormat.getOutputFormat().equals(PAGEFILE.getOutputFormat())) {
             return Optional.empty();

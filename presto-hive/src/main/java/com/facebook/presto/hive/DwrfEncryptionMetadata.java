@@ -144,19 +144,29 @@ public class DwrfEncryptionMetadata
 
     public Map<Integer, Slice> toKeyMap(List<OrcType> types, List<HiveColumnHandle> physicalColumnHandles)
     {
+        Map<String, Integer> columnIndexMap = physicalColumnHandles.stream()
+                .collect(toImmutableMap(HiveColumnHandle::getName, HiveColumnHandle::getHiveColumnIndex));
+        return toKeyMap(types, columnIndexMap);
+    }
+
+    public Map<Integer, Slice> toKeyMap(List<OrcType> types, Map<String, Integer> columnNamesToHiveIndex)
+    {
         if (fieldToKeyData.containsKey(TABLE_IDENTIFIER)) {
             return ImmutableMap.of(0, Slices.wrappedBuffer(fieldToKeyData.get(TABLE_IDENTIFIER)));
         }
 
         return fieldToKeyData.entrySet().stream()
-                .collect(toImmutableMap(entry -> toOrcColumnIndex(entry.getKey(), types, physicalColumnHandles), entry -> Slices.wrappedBuffer(entry.getValue())));
+                .collect(toImmutableMap(entry -> toOrcColumnIndex(entry.getKey(), types, columnNamesToHiveIndex), entry -> Slices.wrappedBuffer(entry.getValue())));
     }
 
-    public static int toOrcColumnIndex(String fieldString, List<OrcType> types, List<HiveColumnHandle> physicalColumnHandles)
+    private static int toOrcColumnIndex(String fieldString, List<OrcType> types, Map<String, Integer> columnNamesToHiveIndex)
     {
         ColumnEncryptionInformation.ColumnWithStructSubfield columnWithStructSubfield = ColumnEncryptionInformation.ColumnWithStructSubfield.valueOf(fieldString);
 
-        int columnRoot = getHiveColumnIndex(columnWithStructSubfield.getColumnName(), physicalColumnHandles);
+        if (!columnNamesToHiveIndex.containsKey(columnWithStructSubfield.getColumnName())) {
+            throw new PrestoException(HIVE_INVALID_ENCRYPTION_METADATA, format("no column found for encryption field %s", columnWithStructSubfield.getColumnName()));
+        }
+        int columnRoot = columnNamesToHiveIndex.get(columnWithStructSubfield.getColumnName());
         return getOrcColumnIndexRecursive(types, types.get(0).getFieldTypeIndex(columnRoot), columnWithStructSubfield.getChildField());
     }
 
@@ -182,15 +192,5 @@ public class DwrfEncryptionMetadata
             }
         }
         return columnId;
-    }
-
-    private static int getHiveColumnIndex(String columnName, List<HiveColumnHandle> columnHandles)
-    {
-        for (HiveColumnHandle columnHandle : columnHandles) {
-            if (columnName.equals(columnHandle.getName())) {
-                return columnHandle.getHiveColumnIndex();
-            }
-        }
-        throw new PrestoException(HIVE_INVALID_ENCRYPTION_METADATA, format("no column found for encryption field %s", columnName));
     }
 }
