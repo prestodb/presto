@@ -94,7 +94,8 @@ public class RcFileFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf configuration,
-            ConnectorSession session)
+            ConnectorSession session,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         if (!HiveSessionProperties.isRcfileOptimizedWriterEnabled(session)) {
             return Optional.empty();
