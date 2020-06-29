@@ -26,7 +26,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.LocalProperties;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.sanity.PlanSanityChecker.Checker;
+import com.facebook.presto.sql.planner.sanity.PlanChecker.Checker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 

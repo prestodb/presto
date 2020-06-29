@@ -23,15 +23,15 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 
 /**
- * It is going to be executed to verify logical planner correctness
+ * Perform checks on the plan that may generate warnings or errors.
  */
-public final class PlanSanityChecker
+public final class PlanChecker
 {
-    public static final PlanSanityChecker DISTRIBUTED_PLAN_SANITY_CHECKER = new PlanSanityChecker(false);
+    public static final PlanChecker DISTRIBUTED_PLAN_CHECKER = new PlanChecker(false);
 
     private final Multimap<Stage, Checker> checkers;
 
-    public PlanSanityChecker(boolean forceSingleNode)
+    public PlanChecker(boolean forceSingleNode)
     {
         checkers = ImmutableListMultimap.<Stage, Checker>builder()
                 .putAll(

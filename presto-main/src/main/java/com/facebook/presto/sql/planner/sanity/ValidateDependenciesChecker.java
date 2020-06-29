@@ -88,7 +88,7 @@ import static java.util.Objects.requireNonNull;
  * Ensures that all dependencies (i.e., symbols in expressions) for a plan node are provided by its source nodes
  */
 public final class ValidateDependenciesChecker
-        implements PlanSanityChecker.Checker
+        implements PlanChecker.Checker
 {
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)

@@ -40,7 +40,7 @@ import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpre
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class VerifyNoOriginalExpression
-        implements PlanSanityChecker.Checker
+        implements PlanChecker.Checker
 {
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
