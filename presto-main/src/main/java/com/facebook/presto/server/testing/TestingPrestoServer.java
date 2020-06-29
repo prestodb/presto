@@ -228,13 +228,7 @@ public class TestingPrestoServer
             coordinatorPort = "0";
         }
 
-        ImmutableMap.Builder<String, String> serverProperties = ImmutableMap.<String, String>builder()
-                .putAll(properties)
-                .put("coordinator", String.valueOf(coordinator))
-                .put("presto.version", "testversion")
-                .put("task.concurrency", "4")
-                .put("task.max-worker-threads", "4")
-                .put("exchange.client-threads", "4");
+        Map<String, String> serverProperties = getServerProperties(coordinator, properties, environment, discoveryUri);
 
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
@@ -269,7 +263,6 @@ public class TestingPrestoServer
 
         if (discoveryUri != null) {
             requireNonNull(environment, "environment required when discoveryUri is present");
-            serverProperties.put("discovery.uri", discoveryUri.toString());
             modules.add(new DiscoveryModule());
         }
         else {
@@ -288,7 +281,7 @@ public class TestingPrestoServer
         injector = app
                 .strictConfig()
                 .doNotInitializeLogging()
-                .setRequiredConfigurationProperties(serverProperties.build())
+                .setRequiredConfigurationProperties(serverProperties)
                 .setOptionalConfigurationProperties(optionalProperties)
                 .quiet()
                 .initialize();
@@ -345,6 +338,28 @@ public class TestingPrestoServer
         announcer.forceAnnounce();
 
         refreshNodes();
+    }
+
+    private Map<String, String> getServerProperties(boolean coordinator, Map<String, String> properties, String environment, URI discoveryUri)
+    {
+        Map<String, String> serverProperties = new HashMap<>();
+        serverProperties.put("coordinator", String.valueOf(coordinator));
+        serverProperties.put("presto.version", "testversion");
+        serverProperties.put("task.concurrency", "4");
+        serverProperties.put("task.max-worker-threads", "4");
+        serverProperties.put("exchange.client-threads", "4");
+        if (coordinator) {
+            // enabling failure detector in tests can make them flakey
+            serverProperties.put("failure-detector.enabled", "false");
+        }
+
+        if (discoveryUri != null) {
+            requireNonNull(environment, "environment required when discoveryUri is present");
+            serverProperties.put("discovery.uri", discoveryUri.toString());
+        }
+        // Add these last so explicitly specified properties override the defaults
+        serverProperties.putAll(properties);
+        return ImmutableMap.copyOf(serverProperties);
     }
 
     @Override
