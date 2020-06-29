@@ -29,7 +29,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public final class NoIdentifierLeftChecker
-        implements PlanSanityChecker.Checker
+        implements PlanChecker.Checker
 {
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)

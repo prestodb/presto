@@ -72,7 +72,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -166,7 +166,7 @@ public class PlanFragmenter
                 session,
                 metadata,
                 plan.getStatsAndCosts(),
-                new PlanSanityChecker(forceSingleNode),
+                new PlanChecker(forceSingleNode),
                 warningCollector,
                 sqlParser,
                 idAllocator,
@@ -343,7 +343,7 @@ public class PlanFragmenter
         private final PlanNodeIdAllocator idAllocator;
         private final PlanVariableAllocator variableAllocator;
         private final StatsAndCosts statsAndCosts;
-        private final PlanSanityChecker planSanityChecker;
+        private final PlanChecker planChecker;
         private final WarningCollector warningCollector;
         private final SqlParser sqlParser;
         private final Set<PlanNodeId> outputTableWriterNodeIds;
@@ -354,7 +354,7 @@ public class PlanFragmenter
                 Session session,
                 Metadata metadata,
                 StatsAndCosts statsAndCosts,
-                PlanSanityChecker planSanityChecker,
+                PlanChecker planChecker,
                 WarningCollector warningCollector,
                 SqlParser sqlParser,
                 PlanNodeIdAllocator idAllocator,
@@ -364,7 +364,7 @@ public class PlanFragmenter
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
-            this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
+            this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -393,7 +393,7 @@ public class PlanFragmenter
                     properties.getPartitionedSources());
 
             Set<VariableReferenceExpression> fragmentVariableTypes = extractOutputVariables(root);
-            planSanityChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.fromVariables(fragmentVariableTypes), warningCollector);
+            planChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.fromVariables(fragmentVariableTypes), warningCollector);
 
             Set<PlanNodeId> tableWriterNodeIds = getTableWriterNodeIds(root);
             boolean outputTableWriterFragment = tableWriterNodeIds.stream().anyMatch(outputTableWriterNodeIds::contains);
