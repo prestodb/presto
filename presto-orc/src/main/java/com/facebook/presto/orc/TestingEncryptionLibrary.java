@@ -29,6 +29,12 @@ public class TestingEncryptionLibrary
     private static final Decoder DECODER = Base64.getUrlDecoder();
 
     @Override
+    public Slice generateDataEncryptionKey(Slice intermediateKeyMetadata)
+    {
+        return intermediateKeyMetadata;
+    }
+
+    @Override
     public Slice encryptKey(Slice keyMetadata, byte[] input, int offset, int length)
     {
         return encrypt(keyMetadata, input, offset, length);
