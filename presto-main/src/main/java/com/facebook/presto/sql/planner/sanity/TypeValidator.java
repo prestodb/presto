@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
  * Ensures that all the expressions and FunctionCalls matches their output symbols
  */
 public final class TypeValidator
-        implements PlanSanityChecker.Checker
+        implements PlanChecker.Checker
 {
     public TypeValidator() {}
 

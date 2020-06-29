@@ -24,7 +24,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 
 public final class VerifyNoFilteredAggregations
-        implements PlanSanityChecker.Checker
+        implements PlanChecker.Checker
 {
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
