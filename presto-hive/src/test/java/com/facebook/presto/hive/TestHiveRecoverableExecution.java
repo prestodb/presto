@@ -102,6 +102,7 @@ public class TestHiveRecoverableExecution
 
         extraCoordinatorPropertiesBuilder
                 // decrease the heartbeat interval so we detect failed nodes faster
+                .put("failure-detector.enabled", "true")
                 .put("failure-detector.heartbeat-interval", "1s")
                 .put("failure-detector.http-client.request-timeout", "500ms")
                 .put("failure-detector.exponential-decay-seconds", "1")
