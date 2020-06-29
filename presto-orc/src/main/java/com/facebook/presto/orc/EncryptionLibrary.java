@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 
 public interface EncryptionLibrary
 {
+    Slice generateDataEncryptionKey(Slice intermediateKeyMetadata);
     Slice encryptKey(Slice keyMetadata, byte[] input, int offset, int length);
     Slice encryptData(Slice keyMetadata, byte[] input, int offset, int length);
 

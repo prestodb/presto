@@ -188,12 +188,11 @@ public class TestDecryption
         Type rowType = rowType(BIGINT, BIGINT, BIGINT);
         Slice iek1 = Slices.utf8Slice("iek1");
         Slice iek2 = Slices.utf8Slice("iek2");
-        Slice dek = Slices.utf8Slice("dek");
         DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
-                        new WriterEncryptionGroup(ImmutableList.of(2), iek1, dek),
-                        new WriterEncryptionGroup(ImmutableList.of(3), iek2, dek)));
+                        new WriterEncryptionGroup(ImmutableList.of(2), iek1),
+                        new WriterEncryptionGroup(ImmutableList.of(3), iek2)));
         List<Type> types = ImmutableList.of(rowType);
         List<Long> columnValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
                 .map(Number::longValue)
@@ -228,7 +227,7 @@ public class TestDecryption
         DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
-                        new WriterEncryptionGroup(ImmutableList.of(1), iek1, dek)));
+                        new WriterEncryptionGroup(ImmutableList.of(1), iek1)));
         List<Type> types = ImmutableList.of(rowType);
         List<Long> columnValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
                 .map(Number::longValue)
@@ -267,8 +266,8 @@ public class TestDecryption
         DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
-                        new WriterEncryptionGroup(ImmutableList.of(1), iek1, dek),
-                        new WriterEncryptionGroup(ImmutableList.of(2), iek2, dek)));
+                        new WriterEncryptionGroup(ImmutableList.of(1), iek1),
+                        new WriterEncryptionGroup(ImmutableList.of(2), iek2)));
         List<Integer> outputColumns = IntStream.range(0, types.size())
                 .boxed()
                 .collect(toImmutableList());
@@ -302,7 +301,7 @@ public class TestDecryption
         DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
-                        new WriterEncryptionGroup(ImmutableList.of(0), iek, dek)));
+                        new WriterEncryptionGroup(ImmutableList.of(0), iek)));
 
         List<Integer> outputColumns = IntStream.range(0, types.size())
                 .boxed()
@@ -331,8 +330,8 @@ public class TestDecryption
         DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
-                        new WriterEncryptionGroup(ImmutableList.of(2, 5), iek1, dek),
-                        new WriterEncryptionGroup(ImmutableList.of(3, 6), iek2, dek)));
+                        new WriterEncryptionGroup(ImmutableList.of(2, 5), iek1),
+                        new WriterEncryptionGroup(ImmutableList.of(3, 6), iek2)));
         List<Type> types = ImmutableList.of(rowType, BIGINT, BIGINT, BIGINT);
         List<Long> columnValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
                 .map(Number::longValue)

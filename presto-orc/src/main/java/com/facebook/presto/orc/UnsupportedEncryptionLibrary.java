@@ -19,6 +19,12 @@ public class UnsupportedEncryptionLibrary
         implements EncryptionLibrary
 {
     @Override
+    public Slice generateDataEncryptionKey(Slice intermediateKeyMetadata)
+    {
+        throw new UnsupportedOperationException("encryption not supported");
+    }
+
+    @Override
     public Slice encryptKey(Slice keyMetadata, byte[] input, int offset, int length)
     {
         throw new UnsupportedOperationException("encryption not supported");

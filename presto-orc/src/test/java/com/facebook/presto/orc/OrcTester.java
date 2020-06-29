@@ -649,7 +649,7 @@ public class OrcTester
                 // write presto read presto
                 if (dwrfEncryptionEnabled && format == DWRF && compression != NONE) {
                     try (TempFile tempFile = new TempFile()) {
-                        DwrfWriterEncryption dwrfWriterEncryption = generateWriterEncryption(writeTypes);
+                        DwrfWriterEncryption dwrfWriterEncryption = generateWriterEncryption();
                         writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.of(dwrfWriterEncryption), writeTypes, writeValues, stats);
 
                         ImmutableMap.Builder<Integer, Slice> intermediateKeysBuilder = ImmutableMap.builder();
@@ -1518,15 +1518,14 @@ public class OrcTester
                 true));
     }
 
-    private static DwrfWriterEncryption generateWriterEncryption(List<Type> types)
+    private static DwrfWriterEncryption generateWriterEncryption()
     {
         return new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
                         new WriterEncryptionGroup(
                                 ImmutableList.of(1),
-                                Slices.utf8Slice("intermediateEncryptionKey"),
-                                Slices.utf8Slice("dataEncryptionKey"))));
+                                Slices.utf8Slice("encryptionKey"))));
     }
 
     private static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReader(
