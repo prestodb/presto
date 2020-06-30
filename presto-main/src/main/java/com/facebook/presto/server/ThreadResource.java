@@ -43,6 +43,9 @@ public class ThreadResource
 
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (ThreadInfo info : mbean.getThreadInfo(mbean.getAllThreadIds(), Integer.MAX_VALUE)) {
+            if (info == null) {
+                continue;
+            }
             builder.add(new Info(
                     info.getThreadId(),
                     info.getThreadName(),
