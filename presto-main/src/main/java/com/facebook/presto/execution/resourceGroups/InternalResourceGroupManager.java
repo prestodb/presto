@@ -15,7 +15,6 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
-import com.facebook.presto.execution.ForQueryScheduling;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
@@ -30,7 +29,6 @@ import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
@@ -51,7 +49,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -69,7 +66,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 public final class InternalResourceGroupManager<C>
@@ -79,9 +75,7 @@ public final class InternalResourceGroupManager<C>
     private static final File RESOURCE_GROUPS_CONFIGURATION = new File("etc/resource-groups.properties");
     private static final String CONFIGURATION_MANAGER_PROPERTY_NAME = "resource-groups.configuration-manager";
 
-    private final ExecutorService refreshResourceGroupExecutor;
     private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
-    private final ScheduledExecutorService resourceGroupRefreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupRefreshManager"));
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
     private final AtomicReference<ResourceGroupConfigurationManager<C>> configurationManager;
@@ -101,8 +95,7 @@ public final class InternalResourceGroupManager<C>
             ClusterMemoryPoolManager memoryPoolManager,
             QueryManagerConfig queryManagerConfig,
             NodeInfo nodeInfo,
-            MBeanExporter exporter,
-            @ForQueryScheduling ExecutorService executorService)
+            MBeanExporter exporter)
     {
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
@@ -110,7 +103,6 @@ public final class InternalResourceGroupManager<C>
         this.legacyManager = requireNonNull(legacyManager, "legacyManager is null");
         this.configurationManager = new AtomicReference<>(cast(legacyManager));
         this.maxTotalRunningTaskCountToNotExecuteNewQuery = queryManagerConfig.getMaxTotalRunningTaskCountToNotExecuteNewQuery();
-        this.refreshResourceGroupExecutor = executorService;
     }
 
     @Override
@@ -132,7 +124,7 @@ public final class InternalResourceGroupManager<C>
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
         createGroupIfNecessary(selectionContext, executor);
-        groups.get(selectionContext.getResourceGroupId()).getLatest().run(queryExecution);
+        groups.get(selectionContext.getResourceGroupId()).run(queryExecution);
     }
 
     @Override
@@ -162,9 +154,6 @@ public final class InternalResourceGroupManager<C>
                     "Resource groups configuration %s does not contain %s", RESOURCE_GROUPS_CONFIGURATION.getAbsoluteFile(), CONFIGURATION_MANAGER_PROPERTY_NAME);
 
             setConfigurationManager(configurationManagerName, properties);
-            if (configurationManager.get().dynamicReloadSupported()) {
-                resourceGroupRefreshExecutor.scheduleWithFixedDelay(this::refreshInternalResourceGroups, 1, 1, SECONDS);
-            }
         }
     }
 
@@ -198,7 +187,6 @@ public final class InternalResourceGroupManager<C>
     public void destroy()
     {
         refreshExecutor.shutdownNow();
-        resourceGroupRefreshExecutor.shutdownNow();
     }
 
     @PostConstruct
@@ -236,149 +224,44 @@ public final class InternalResourceGroupManager<C>
         }
 
         for (RootInternalResourceGroup group : rootGroups) {
-            while (group != null) {
-                try {
-                    if (elapsedSeconds > 0) {
-                        group.generateCpuQuota(elapsedSeconds);
-                    }
+            try {
+                if (elapsedSeconds > 0) {
+                    group.generateCpuQuota(elapsedSeconds);
                 }
-                catch (RuntimeException e) {
-                    log.error(e, "Exception while generating cpu quota for %s", group);
-                }
-                try {
-                    group.setTaskLimitExceeded(taskLimitExceeded.get());
-                    group.processQueuedQueries();
-                }
-                catch (RuntimeException e) {
-                    log.error(e, "Exception while processing queued queries for %s version %s", group, group.getVersion());
-                }
-                if (group.getNext().isPresent()) {
-                    group = (RootInternalResourceGroup) group.getNext().get();
-                }
-                else {
-                    group = null;
-                }
+            }
+            catch (RuntimeException e) {
+                log.error(e, "Exception while generation cpu quota for %s", group);
+            }
+            try {
+                group.setTaskLimitExceeded(taskLimitExceeded.get());
+                group.processQueuedQueries();
+            }
+            catch (RuntimeException e) {
+                log.error(e, "Exception while processing queued queries for %s", group);
             }
         }
     }
 
-    @VisibleForTesting
-    public synchronized void refreshInternalResourceGroups()
+    private synchronized void createGroupIfNecessary(SelectionContext<C> context, Executor executor)
     {
-        boolean requeue = false;
-        boolean versionChanged = false;
-        int specVersion = configurationManager.get().getSpecVersion();
-        for (InternalResourceGroup rootGroup : rootGroups) {
-            if (rootGroup.getLatest().getVersion() < specVersion) {
-                versionChanged = true;
-                break;
-            }
-        }
-
-        if (!versionChanged) {
-            return;
-        }
-
-        for (ResourceGroupId id : groups.keySet()) {
-            InternalResourceGroup group = groups.get(id).getLatest();
-            if (group.getVersion() != specVersion) {
-                requeue = true;
-            }
-            createGroupIfNecessary(group, refreshResourceGroupExecutor, specVersion);
-        }
-
-        if (requeue) {
-            for (ResourceGroupId id : groups.keySet()) {
-                InternalResourceGroup group = groups.get(id).getLatest();
-                if (group.getPrev().isPresent()) {
-                    group.getPrev().get().requeueToNext();
-                }
-            }
-        }
-        //Clean up process to remove old versions if they no longer have running/queued queries
-        for (InternalResourceGroup group : rootGroups) {
-            while (group.getNext().isPresent()) {
-                group.purgeExpiredResourceGroups();
-                group = group.getNext().get();
-            }
-        }
-    }
-
-    @VisibleForTesting
-    public List<RootInternalResourceGroup> getRootGroups()
-    {
-        return ImmutableList.copyOf(rootGroups);
-    }
-
-    private void createGroupIfNecessary(InternalResourceGroup resourceGroup, Executor executor, int version)
-    {
-        synchronized (this) {
-            if (resourceGroup.getVersion() == version) {
-                return;
-            }
-
-            InternalResourceGroup newGroup;
-            ResourceGroupId resourceGroupId = resourceGroup.getId();
-            if (resourceGroupId.getParent().isPresent()) {
-                createGroupIfNecessary(groups.get(resourceGroupId.getParent().get()).getLatest(), executor, version);
-                InternalResourceGroup parent = groups.get(resourceGroupId.getParent().get()).getLatest();
-                newGroup = parent.getOrCreateSubGroup(resourceGroupId.getLastSegment(), resourceGroup.isStaticResourceGroup(), version);
+        ResourceGroupId id = context.getResourceGroupId();
+        if (!groups.containsKey(id)) {
+            InternalResourceGroup group;
+            if (id.getParent().isPresent()) {
+                createGroupIfNecessary(new SelectionContext<>(id.getParent().get(), context.getContext()), executor);
+                InternalResourceGroup parent = groups.get(id.getParent().get());
+                requireNonNull(parent, "parent is null");
+                // parent segments size equals to subgroup segment index
+                int subGroupSegmentIndex = parent.getId().getSegments().size();
+                group = parent.getOrCreateSubGroup(id.getLastSegment(), !context.getFirstDynamicSegmentPosition().equals(OptionalInt.of(subGroupSegmentIndex)));
             }
             else {
-                newGroup = new RootInternalResourceGroup(resourceGroup.getId().getSegments().get(0), this::exportGroup, executor, resourceGroup.getRoot(), version);
+                RootInternalResourceGroup root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
+                group = root;
+                rootGroups.add(root);
             }
-            configurationManager.get().configure(newGroup);
-            resourceGroup.setNext(newGroup);
-            newGroup.setPrev(resourceGroup);
-            groups.put(resourceGroupId, newGroup);
-        }
-    }
-
-    private void createGroupIfNecessary(SelectionContext<C> context, Executor executor)
-    {
-        synchronized (this) {
-            ResourceGroupId id = context.getResourceGroupId();
-            int specVersion = configurationManager.get().getSpecVersion();
-            if (!groups.containsKey(id)) {
-                InternalResourceGroup group;
-                if (id.getParent().isPresent()) {
-                    createGroupIfNecessary(new SelectionContext<>(id.getParent().get(), context.getContext()), executor);
-                    InternalResourceGroup parent = groups.get(id.getParent().get()).getLatest();
-                    requireNonNull(parent, "parent is null");
-                    // parent segments size equals to subgroup segment index
-                    int subGroupSegmentIndex = parent.getId().getSegments().size();
-                    group = parent.getOrCreateSubGroup(id.getLastSegment(), !context.getFirstDynamicSegmentPosition().equals(OptionalInt.of(subGroupSegmentIndex)), specVersion);
-                }
-                else {
-                    RootInternalResourceGroup root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, specVersion);
-                    group = root;
-                    rootGroups.add(root);
-                }
-                configurationManager.get().configure(group, context);
-                checkState(groups.put(id, group) == null, "Unexpected existing resource group");
-            }
-            else {
-                InternalResourceGroup group = groups.get(id).getLatest();
-
-                if (specVersion != group.getVersion()) {
-                    InternalResourceGroup newGroup;
-                    if (id.getParent().isPresent()) {
-                        createGroupIfNecessary(new SelectionContext<>(id.getParent().get(), context.getContext()), executor);
-                        InternalResourceGroup parent = groups.get(id.getParent().get()).getLatest();
-                        requireNonNull(parent, "parent is null");
-                        // parent segments size equals to subgroup segment index
-                        int subGroupSegmentIndex = parent.getId().getSegments().size();
-                        newGroup = parent.getOrCreateSubGroup(id.getLastSegment(), !context.getFirstDynamicSegmentPosition().equals(OptionalInt.of(subGroupSegmentIndex)), specVersion);
-                    }
-                    else {
-                        newGroup = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, group.getRoot(), specVersion);
-                    }
-                    configurationManager.get().configure(newGroup, context);
-                    group.setNext(newGroup);
-                    newGroup.setPrev(group);
-                    groups.put(id, newGroup);
-                }
-            }
+            configurationManager.get().configure(group, context);
+            checkState(groups.put(id, group) == null, "Unexpected existing resource group");
         }
     }
 
