@@ -16,7 +16,6 @@ package com.facebook.presto.execution.resourceGroups.db;
 import com.facebook.presto.Session;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryManager;
-import com.facebook.presto.execution.resourceGroups.InternalResourceGroup;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.resourceGroups.db.DbResourceGroupConfigurationManager;
 import com.facebook.presto.resourceGroups.db.H2ResourceGroupsDao;
@@ -32,7 +31,6 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -65,7 +63,6 @@ import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -126,20 +123,12 @@ public class TestQueuesDb
         // Update db to allow for 1 more running query in dashboard resource group
         dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
-        SECONDS.sleep(1);
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
-        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
-        dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
-        SECONDS.sleep(2);
         waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
         QueryId thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
         waitForRunningQueryCount(queryRunner, 2);
-
         // submit first non "dashboard" query
         QueryId firstNonDashboardQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
-        SECONDS.sleep(1);
         // wait for the first non "dashboard" query to start
         waitForQueryState(queryRunner, firstNonDashboardQuery, RUNNING);
         waitForRunningQueryCount(queryRunner, 3);
@@ -151,7 +140,6 @@ public class TestQueuesDb
         // cancel first "dashboard" query, the second "dashboard" query and second non "dashboard" query should start running
         cancelQuery(queryRunner, firstDashboardQuery);
         waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
-        SECONDS.sleep(5);
         waitForQueryState(queryRunner, thirdDashboardQuery, RUNNING);
         waitForRunningQueryCount(queryRunner, 4);
         waitForCompleteQueryCount(queryRunner, 1);
@@ -180,17 +168,15 @@ public class TestQueuesDb
         QueryId thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
 
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
-        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
-
         // Allow one more query to run and resubmit third query
         dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
+        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
+
         // Trigger reload to make the test more deterministic
         dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
-
         waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
         thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
@@ -198,7 +184,6 @@ public class TestQueuesDb
         // Lower running queries in dashboard resource groups and reload the config
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
 
         // Cancel query and verify that third query is still queued
         cancelQuery(queryRunner, firstDashboardQuery);
@@ -296,7 +281,6 @@ public class TestQueuesDb
         // set max running queries to 0 for the dashboard resource group so that new queries get queued immediately
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
         QueryId secondQuery = createQuery(
                 queryRunner,
                 testSessionBuilder()
@@ -315,7 +299,6 @@ public class TestQueuesDb
         // reconfigure the resource group to run the second query
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
         // cancel the first one and let the second one start
         dispatchManager.cancelQuery(firstQuery);
         // wait until the second one is FAILED
@@ -354,13 +337,13 @@ public class TestQueuesDb
                 .setSchema("sf100000")
                 .setSource("non-leaf")
                 .build();
+        QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
         int originalSize = getSelectors(queryRunner).size();
         // Add a selector for a non leaf group
         dao.insertSelector(3, 100, "user.*", "(?i).*non-leaf.*", null, null, null);
         dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
         while (getSelectors(queryRunner).size() != originalSize + 1) {
             MILLISECONDS.sleep(500);
         }
@@ -373,163 +356,6 @@ public class TestQueuesDb
         QueryId invalidResourceGroupQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, invalidResourceGroupQuery, FAILED);
         assertEquals(queryRunner.getCoordinator().getDispatchManager().getQueryInfo(invalidResourceGroupQuery).getErrorCode(), INVALID_RESOURCE_GROUP.toErrorCode());
-    }
-
-    @Test
-    public void testNonLeafToLeafTransition()
-            throws Exception
-    {
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
-                .setSource("leaf")
-                .build();
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
-        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
-        // Submit query with side effect of creating resource groups
-        QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
-        cancelQuery(queryRunner, firstDashboardQuery);
-        waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
-        //Removing leaf resource group and making non leaf resource group a leaf one
-        dao.deleteSelectors(4);
-        dao.deleteSelectors(5);
-        dao.deleteResourceGroup(4);
-        dao.deleteResourceGroup(5);
-        // Add a selector for a non leaf group
-        dao.insertSelector(3, 100, "user.*", "(?i).*leaf.*", null, null, null);
-        dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
-        // Submit a query to a leaf resource group
-        QueryId leafResourceGroupQuery = createQuery(queryRunner, session, LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, leafResourceGroupQuery, RUNNING);
-    }
-
-    @Test
-    public void testNonLeafToLeafTransitionShouldBumpSpecVersionOnlyOnce()
-            throws Exception
-    {
-        Session session = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
-                .setSource("leaf")
-                .build();
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
-        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
-        // Submit query with side effect of creating resource groups
-        QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
-        cancelQuery(queryRunner, firstDashboardQuery);
-        waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
-        //Removing leaf resource group and making non leaf resource group a leaf one
-        dao.deleteSelectors(4);
-        dao.deleteSelectors(5);
-        dao.deleteResourceGroup(4);
-        dao.deleteResourceGroup(5);
-        // Add a selector for a non leaf group
-        dao.insertSelector(3, 100, "user.*", "(?i).*leaf.*", null, null, null);
-        assertEquals(dbConfigurationManager.getSpecVersion(), 1);
-        dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
-        assertEquals(dbConfigurationManager.getSpecVersion(), 2);
-        dbConfigurationManager.load();
-        assertEquals(dbConfigurationManager.getSpecVersion(), 2);
-    }
-
-    @Test
-    public void testLeafToNonLeafTransition()
-            throws Exception
-    {
-        Session leafSession = testSessionBuilder()
-                .setCatalog("tpch")
-                .setSchema("sf100000")
-                .setSource("leaf")
-                .build();
-
-        QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
-
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 2, null, 2, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(8, "dashboard-${USER}-leaf", "1MB", 1, 1, 1, null, null, null, null, null, 5L, TEST_ENVIRONMENT);
-        dao.insertSelector(8, 100, "user.*", "(?i).*leaf.*", null, null, null);
-
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
-        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
-
-        dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
-
-        QueryId leafQuery = createQuery(queryRunner, leafSession, LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, leafQuery, RUNNING);
-
-        QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, secondDashboardQuery, FAILED);
-        assertEquals(queryRunner.getCoordinator().getDispatchManager().getFullQueryInfo(secondDashboardQuery).getErrorCode(), INVALID_RESOURCE_GROUP.toErrorCode());
-    }
-
-    @Test
-    public void testResourceGroupVersioning()
-            throws Exception
-    {
-        QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
-
-        QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
-
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
-        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
-
-        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
-
-        // Trigger reload to make the test more deterministic
-        dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
-
-        //Previously queued query start running due to new version being introduced with higher concurrency
-        waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
-
-        QueryId thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
-
-        QueryId forthDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, forthDashboardQuery, FAILED);
-    }
-
-    @Test
-    public void testOldResourceGroupVersionCleanup()
-            throws Exception
-    {
-        QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
-
-        QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
-        waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
-
-        cancelQuery(queryRunner, firstDashboardQuery);
-        waitForQueryState(queryRunner, firstDashboardQuery, FAILED);
-
-        cancelQuery(queryRunner, secondDashboardQuery);
-        waitForQueryState(queryRunner, secondDashboardQuery, FAILED);
-
-        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
-
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
-        DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
-
-        // Trigger reload to make the test more deterministic
-        dbConfigurationManager.load();
-        manager.refreshInternalResourceGroups();
-
-        List<InternalResourceGroup.RootInternalResourceGroup> rootGroups = manager.getRootGroups();
-
-        for (InternalResourceGroup.RootInternalResourceGroup rootGroup : rootGroups) {
-            assertEquals(rootGroup.subGroups().size(), 0);
-            assertEquals(rootGroup.getEligibleSubGroupsCount(), 0);
-            assertEquals(rootGroup.getDirtySubGroupsCount(), 0);
-        }
     }
 
     private void assertResourceGroupWithClientTags(Set<String> clientTags, ResourceGroupId expectedResourceGroup)

@@ -41,7 +41,6 @@ import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
-import com.facebook.presto.execution.ForQueryScheduling;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -295,7 +294,6 @@ public class PrestoSparkModule
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("presto-spark-executor-%s"));
         binder.bind(Executor.class).toInstance(executor);
         binder.bind(ExecutorService.class).toInstance(executor);
-        binder.bind(ExecutorService.class).annotatedWith(ForQueryScheduling.class).toInstance(executor);
         binder.bind(ScheduledExecutorService.class).toInstance(newScheduledThreadPool(0, daemonThreadsNamed("presto-spark-scheduled-executor-%s")));
 
         // task executor
