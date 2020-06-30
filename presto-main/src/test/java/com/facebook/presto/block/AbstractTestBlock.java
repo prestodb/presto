@@ -229,15 +229,30 @@ public abstract class AbstractTestBlock
         assertEquals(block.getSizeInBytes(), expectedBlockSize);
         assertEquals(block.getRegionSizeInBytes(0, block.getPositionCount()), expectedBlockSize);
 
+        long expectedLogicalBlockSize = copyBlockViaBlockSerde(block).getLogicalSizeInBytes();
+        assertEquals(block.getLogicalSizeInBytes(), expectedLogicalBlockSize);
+        assertEquals(block.getRegionLogicalSizeInBytes(0, block.getPositionCount()), expectedLogicalBlockSize);
+
         List<Block> splitBlock = splitBlock(block, 2);
         Block firstHalf = splitBlock.get(0);
+
         long expectedFirstHalfSize = copyBlockViaBlockSerde(firstHalf).getSizeInBytes();
         assertEquals(firstHalf.getSizeInBytes(), expectedFirstHalfSize);
         assertEquals(block.getRegionSizeInBytes(0, firstHalf.getPositionCount()), expectedFirstHalfSize);
+
+        long expectedFirstHalfLogicalSize = copyBlockViaBlockSerde(firstHalf).getLogicalSizeInBytes();
+        assertEquals(firstHalf.getLogicalSizeInBytes(), expectedFirstHalfLogicalSize);
+        assertEquals(firstHalf.getRegionLogicalSizeInBytes(0, firstHalf.getPositionCount()), expectedFirstHalfLogicalSize);
+
         Block secondHalf = splitBlock.get(1);
+
         long expectedSecondHalfSize = copyBlockViaBlockSerde(secondHalf).getSizeInBytes();
         assertEquals(secondHalf.getSizeInBytes(), expectedSecondHalfSize);
         assertEquals(block.getRegionSizeInBytes(firstHalf.getPositionCount(), secondHalf.getPositionCount()), expectedSecondHalfSize);
+
+        long expectedSecondHalfLogicalSize = copyBlockViaBlockSerde(secondHalf).getLogicalSizeInBytes();
+        assertEquals(secondHalf.getLogicalSizeInBytes(), expectedSecondHalfLogicalSize);
+        assertEquals(secondHalf.getRegionLogicalSizeInBytes(0, secondHalf.getPositionCount()), expectedSecondHalfLogicalSize);
 
         boolean[] positions = new boolean[block.getPositionCount()];
         fill(positions, 0, firstHalf.getPositionCount(), true);

@@ -193,6 +193,7 @@ public class MapBlock
         this.valueBlock = valueBlock;
         this.hashTables = hashTables;
         this.sizeInBytes = -1;
+        this.logicalSizeInBytes = -1;
 
         // We will add the hashtable size to the retained size even if it's not built yet. This could be overestimating
         // but is necessary to avoid reliability issues. Currently the memory counting framework only pull the retained
