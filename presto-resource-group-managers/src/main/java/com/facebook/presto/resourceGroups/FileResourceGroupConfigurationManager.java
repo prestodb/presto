@@ -109,17 +109,6 @@ public class FileResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ResourceGroup group)
-    {
-    }
-
-    @Override
-    public boolean dynamicReloadSupported()
-    {
-        return false;
-    }
-
-    @Override
     public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
     {
         return selectors.stream()
@@ -127,12 +116,6 @@ public class FileResourceGroupConfigurationManager
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
-    }
-
-    @Override
-    public int getSpecVersion()
-    {
-        return 0;
     }
 
     @VisibleForTesting
