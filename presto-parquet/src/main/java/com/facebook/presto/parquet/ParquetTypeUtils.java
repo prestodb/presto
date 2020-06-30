@@ -273,6 +273,10 @@ public final class ParquetTypeUtils
 
         ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
         org.apache.parquet.schema.Type parentType = getParquetTypeByName(subfield.getRootName(), baseType);
+        if (parentType == null) {
+            // column doesn't exist in the file
+            return new MessageType(subfield.getRootName(), ImmutableList.of());
+        }
         String rootName = parentType.getName();
 
         for (PathElement field : subfield.getPath()) {
