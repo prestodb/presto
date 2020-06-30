@@ -98,6 +98,9 @@ import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.sql.gen.BytecodeUtils.boxPrimitiveIfNecessary;
 import static com.facebook.presto.sql.gen.BytecodeUtils.invoke;
 import static com.facebook.presto.sql.gen.BytecodeUtils.unboxPrimitiveIfNecessary;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.CommonSubExpressionFields;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.CommonSubExpressionFields.declareCommonSubExpressionFields;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.CommonSubExpressionFields.initializeCommonSubExpressionFields;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.collectCSEByLevel;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.getExpressionsPartitionedByCSE;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
@@ -451,7 +454,7 @@ public class PageFunctionCompiler
                     MethodDefinition method = classDefinition.declareMethod(
                             a(PRIVATE),
                             "get" + cseVariable.getName(),
-                            type(cseFields.resultType),
+                            type(cseFields.getResultType()),
                             ImmutableList.<Parameter>builder()
                                     .add(properties)
                                     .add(page)
@@ -476,17 +479,17 @@ public class PageFunctionCompiler
                             sqlFunctionProperties,
                             compiledLambdaMap);
                     IfStatement ifStatement = new IfStatement()
-                            .condition(thisVariable.getField(cseFields.evaluatedField))
+                            .condition(thisVariable.getField(cseFields.getEvaluatedField()))
                             .ifFalse(new BytecodeBlock()
                                     .append(thisVariable)
                                     .append(cseCompiler.compile(cse, scope, Optional.empty()))
                                     .append(boxPrimitiveIfNecessary(scope, type))
-                                    .putField(cseFields.resultField)
-                                    .append(thisVariable.setField(cseFields.evaluatedField, constantBoolean(true))));
+                                    .putField(cseFields.getResultField())
+                                    .append(thisVariable.setField(cseFields.getEvaluatedField(), constantBoolean(true))));
 
                     body.append(ifStatement)
                             .append(thisVariable)
-                            .getField(cseFields.resultField)
+                            .getField(cseFields.getResultField())
                             .retObject();
 
                     methods.add(method);
@@ -529,7 +532,7 @@ public class PageFunctionCompiler
 
         declareBlockVariables(projections, page, scope, body);
         Variable wasNull = scope.declareVariable("wasNull", body, constantFalse());
-        cseFields.values().forEach(fields -> body.append(thisVariable.setField(fields.evaluatedField, constantBoolean(false))));
+        cseFields.values().forEach(fields -> body.append(thisVariable.setField(fields.getEvaluatedField(), constantBoolean(false))));
 
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 classDefinition,
@@ -744,7 +747,7 @@ public class PageFunctionCompiler
         Variable thisVariable = scope.getThis();
 
         declareBlockVariables(ImmutableList.of(filter), page, scope, body);
-        cseFields.values().forEach(fields -> body.append(thisVariable.setField(fields.evaluatedField, constantBoolean(false))));
+        cseFields.values().forEach(fields -> body.append(thisVariable.setField(fields.getEvaluatedField(), constantBoolean(false))));
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
         RowExpressionCompiler compiler = new RowExpressionCompiler(
@@ -764,33 +767,11 @@ public class PageFunctionCompiler
         return method;
     }
 
-    private static void initializeCommonSubExpressionFields(Collection<CommonSubExpressionFields> cseFields, Variable thisVariable, BytecodeBlock body)
-    {
-        cseFields.forEach(fields -> {
-            body.append(thisVariable.setField(fields.evaluatedField, constantBoolean(false)));
-            body.append(thisVariable.setField(fields.resultField, constantNull(fields.resultType)));
-        });
-    }
-
     private static void declareBlockVariables(List<RowExpression> expressions, Parameter page, Scope scope, BytecodeBlock body)
     {
         for (int channel : getInputChannels(expressions)) {
             scope.declareVariable("block_" + channel, body, page.invoke("getBlock", Block.class, constantInt(channel)));
         }
-    }
-
-    private static Map<VariableReferenceExpression, CommonSubExpressionFields> declareCommonSubExpressionFields(ClassDefinition classDefinition, Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel)
-    {
-        ImmutableMap.Builder<VariableReferenceExpression, CommonSubExpressionFields> fields = ImmutableMap.builder();
-        commonSubExpressionsByLevel.values().stream().map(Map::values).flatMap(Collection::stream).forEach(variable -> {
-            Class<?> type = Primitives.wrap(variable.getType().getJavaType());
-            fields.put(variable, new CommonSubExpressionFields(
-                    classDefinition.declareField(a(PRIVATE), variable.getName() + "Evaluated", boolean.class),
-                    classDefinition.declareField(a(PRIVATE), variable.getName() + "Result", type),
-                    type,
-                    "get" + variable.getName()));
-        });
-        return fields.build();
     }
 
     private static List<Integer> getInputChannels(Iterable<RowExpression> expressions)
@@ -811,22 +792,6 @@ public class PageFunctionCompiler
             array[i] = list.get(i);
         }
         return array;
-    }
-
-    private static class CommonSubExpressionFields
-    {
-        private final FieldDefinition evaluatedField;
-        private final FieldDefinition resultField;
-        private final Class<?> resultType;
-        private final String methodName;
-
-        public CommonSubExpressionFields(FieldDefinition evaluatedField, FieldDefinition resultField, Class<?> resultType, String methodName)
-        {
-            this.evaluatedField = evaluatedField;
-            this.resultField = resultField;
-            this.resultType = resultType;
-            this.methodName = methodName;
-        }
     }
 
     private static class FieldAndVariableReferenceCompiler
@@ -874,7 +839,7 @@ public class PageFunctionCompiler
         {
             CommonSubExpressionFields fields = variableMap.get(reference);
             return new BytecodeBlock()
-                    .append(thisVariable.invoke(fields.methodName, fields.resultType, context.getVariable("properties"), context.getVariable("page"), context.getVariable("position")))
+                    .append(thisVariable.invoke(fields.getMethodName(), fields.getResultType(), context.getVariable("properties"), context.getVariable("page"), context.getVariable("position")))
                     .append(unboxPrimitiveIfNecessary(context, Primitives.wrap(reference.getType().getJavaType())));
         }
 
