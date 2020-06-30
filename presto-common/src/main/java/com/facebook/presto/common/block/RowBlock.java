@@ -38,6 +38,7 @@ public class RowBlock
     private final Block[] fieldBlocks;
 
     private volatile long sizeInBytes;
+    private volatile long logicalSizeInBytes;
     private final long retainedSizeInBytes;
 
     /**
@@ -110,6 +111,7 @@ public class RowBlock
         this.fieldBlocks = fieldBlocks;
 
         this.sizeInBytes = -1;
+        this.logicalSizeInBytes = -1;
         long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlockOffsets) + sizeOf(rowIsNull);
         for (Block fieldBlock : fieldBlocks) {
             retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
@@ -157,6 +159,15 @@ public class RowBlock
         return sizeInBytes;
     }
 
+    @Override
+    public long getLogicalSizeInBytes()
+    {
+        if (logicalSizeInBytes < 0) {
+            calculateLogicalSize();
+        }
+        return logicalSizeInBytes;
+    }
+
     private void calculateSize()
     {
         int startFieldBlockOffset = fieldBlockOffsets[startOffset];
@@ -168,6 +179,19 @@ public class RowBlock
             sizeInBytes += fieldBlocks[i].getRegionSizeInBytes(startFieldBlockOffset, fieldBlockLength);
         }
         this.sizeInBytes = sizeInBytes;
+    }
+
+    private void calculateLogicalSize()
+    {
+        int startFieldBlockOffset = fieldBlockOffsets[startOffset];
+        int endFieldBlockOffset = fieldBlockOffsets[startOffset + positionCount];
+        int fieldBlockLength = endFieldBlockOffset - startFieldBlockOffset;
+
+        long sizeInBytes = (Integer.BYTES + Byte.BYTES) * (long) positionCount;
+        for (int i = 0; i < numFields; i++) {
+            sizeInBytes += fieldBlocks[i].getRegionLogicalSizeInBytes(startFieldBlockOffset, fieldBlockLength);
+        }
+        this.logicalSizeInBytes = sizeInBytes;
     }
 
     @Override
