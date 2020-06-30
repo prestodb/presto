@@ -100,6 +100,7 @@ public class MapBlockBuilder
         this.keyBlockBuilder = requireNonNull(keyBlockBuilder, "keyBlockBuilder is null");
         this.valueBlockBuilder = requireNonNull(valueBlockBuilder, "valueBlockBuilder is null");
         this.hashTables = new HashTables(Optional.of(requireNonNull(rawHashTables, "hashTables is null")), 0, rawHashTables.length);
+        this.logicalSizeInBytes = -1;
     }
 
     @Override

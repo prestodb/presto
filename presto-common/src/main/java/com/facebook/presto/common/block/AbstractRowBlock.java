@@ -114,6 +114,23 @@ public abstract class AbstractRowBlock
     }
 
     @Override
+    public long getRegionLogicalSizeInBytes(int position, int length)
+    {
+        int positionCount = getPositionCount();
+        checkValidRegion(positionCount, position, length);
+
+        int startFieldBlockOffset = getFieldBlockOffset(position);
+        int endFieldBlockOffset = getFieldBlockOffset(position + length);
+        int fieldBlockLength = endFieldBlockOffset - startFieldBlockOffset;
+
+        long regionLogicalSizeInBytes = (Integer.BYTES + Byte.BYTES) * (long) length;
+        for (int i = 0; i < numFields; i++) {
+            regionLogicalSizeInBytes += getRawFieldBlocks()[i].getRegionLogicalSizeInBytes(startFieldBlockOffset, fieldBlockLength);
+        }
+        return regionLogicalSizeInBytes;
+    }
+
+    @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
         checkValidPositions(positions, getPositionCount());
