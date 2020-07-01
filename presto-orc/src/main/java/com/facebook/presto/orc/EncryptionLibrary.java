@@ -13,17 +13,15 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.slice.Slice;
-
 public interface EncryptionLibrary
 {
-    Slice generateDataEncryptionKey(Slice intermediateKeyMetadata);
+    byte[] generateDataEncryptionKey(byte[] intermediateKeyMetadata);
 
-    Slice encryptKey(Slice keyMetadata, byte[] input, int offset, int length);
+    byte[] encryptKey(byte[] keyMetadata, byte[] input, int offset, int length);
 
-    byte[] encryptData(Slice keyMetadata, byte[] input, int offset, int length);
+    byte[] encryptData(byte[] keyMetadata, byte[] input, int offset, int length);
 
-    Slice decryptKey(Slice keyMetadata, byte[] input, int offset, int length);
+    byte[] decryptKey(byte[] keyMetadata, byte[] input, int offset, int length);
 
-    byte[] decryptData(Slice keyMetadata, byte[] input, int offset, int length);
+    byte[] decryptData(byte[] keyMetadata, byte[] input, int offset, int length);
 }

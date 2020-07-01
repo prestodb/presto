@@ -637,7 +637,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
 
         StripeInformation stripeInformation = stripes.get(currentStripe);
         validateWriteStripe(stripeInformation.getNumberOfRows());
-        List<Slice> stripeDecryptionKeyMetadata = getDecryptionKeyMetadata(currentStripe, stripes);
+        List<byte[]> stripeDecryptionKeyMetadata = getDecryptionKeyMetadata(currentStripe, stripes);
 
         // if there are encrypted columns and dwrfEncryptionInfo hasn't been set yet
         // or it has been set, but we have new decryption keys,
@@ -664,7 +664,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     }
 
     @VisibleForTesting
-    public static List<Slice> getDecryptionKeyMetadata(int currentStripe, List<StripeInformation> stripes)
+    public static List<byte[]> getDecryptionKeyMetadata(int currentStripe, List<StripeInformation> stripes)
     {
         // if this stripe has encryption keys, then those are used
         // otherwise look at nearest prior stripe that specifies encryption keys

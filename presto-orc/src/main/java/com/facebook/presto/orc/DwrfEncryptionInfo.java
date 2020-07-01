@@ -34,10 +34,10 @@ public class DwrfEncryptionInfo
 {
     public static final DwrfEncryptionInfo UNENCRYPTED = new DwrfEncryptionInfo(ImmutableMap.of(), ImmutableList.of(), ImmutableMap.of());
     private final Map<Integer, DwrfDataEncryptor> dwrfEncryptors;
-    private final List<Slice> encryptedKeyMetadatas;
+    private final List<byte[]> encryptedKeyMetadatas;
     private final Map<Integer, Integer> nodeToGroupMap;
 
-    public DwrfEncryptionInfo(Map<Integer, DwrfDataEncryptor> dwrfEncryptors, List<Slice> encryptedKeyMetadatas, Map<Integer, Integer> nodeToGroupMap)
+    public DwrfEncryptionInfo(Map<Integer, DwrfDataEncryptor> dwrfEncryptors, List<byte[]> encryptedKeyMetadatas, Map<Integer, Integer> nodeToGroupMap)
     {
         this.dwrfEncryptors = ImmutableMap.copyOf(requireNonNull(dwrfEncryptors, "dwrfDecryptors is null"));
         this.encryptedKeyMetadatas = ImmutableList.copyOf(requireNonNull(encryptedKeyMetadatas, "keyMetadatas is null"));
@@ -46,7 +46,7 @@ public class DwrfEncryptionInfo
 
     public static DwrfEncryptionInfo createDwrfEncryptionInfo(
             EncryptionLibrary encryptionLibrary,
-            List<Slice> encryptedKeyMetadatas,
+            List<byte[]> encryptedKeyMetadatas,
             Map<Integer, Slice> intermediateKeyMetadatas,
             Map<Integer, Integer> nodeToGroupMap)
     {
@@ -54,8 +54,8 @@ public class DwrfEncryptionInfo
         // create encryptors for the groups a user has IEKs for
         ImmutableMap.Builder<Integer, DwrfDataEncryptor> encryptorsBuilder = ImmutableMap.builder();
         for (Integer groupId : intermediateKeyMetadatas.keySet()) {
-            Slice encryptedDataKey = encryptedKeyMetadatas.get(groupId);
-            Slice decryptedKeyMetadata = encryptionLibrary.decryptKey(intermediateKeyMetadatas.get(groupId), encryptedDataKey.getBytes(), 0, encryptedDataKey.length());
+            byte[] encryptedDataKey = encryptedKeyMetadatas.get(groupId);
+            byte[] decryptedKeyMetadata = encryptionLibrary.decryptKey(intermediateKeyMetadatas.get(groupId).getBytes(), encryptedDataKey, 0, encryptedDataKey.length);
             encryptorsBuilder.put(groupId, new DwrfDataEncryptor(decryptedKeyMetadata, encryptionLibrary));
         }
 
@@ -120,7 +120,7 @@ public class DwrfEncryptionInfo
         return toIntExact(nodeToGroupMap.values().stream().filter(value -> value == group).count());
     }
 
-    public List<Slice> getEncryptedKeyMetadatas()
+    public List<byte[]> getEncryptedKeyMetadatas()
     {
         return encryptedKeyMetadatas;
     }
