@@ -153,8 +153,13 @@ public class FileMergeCacheManager
 
         this.cacheSizeCalculateExecutor.scheduleAtFixedRate(
                 () -> {
-                    cacheScopeFiles.keySet().forEach(cacheIdentifier -> cacheScopeSizeInBytes.put(cacheIdentifier, getCacheScopeSizeInBytes(cacheIdentifier)));
-                    cacheScopeSizeInBytes.keySet().removeIf(key -> !cacheScopeFiles.containsKey(key));
+                    try {
+                        cacheScopeFiles.keySet().forEach(cacheIdentifier -> cacheScopeSizeInBytes.put(cacheIdentifier, getCacheScopeSizeInBytes(cacheIdentifier)));
+                        cacheScopeSizeInBytes.keySet().removeIf(key -> !cacheScopeFiles.containsKey(key));
+                    }
+                    catch (Throwable t) {
+                        log.error(t, "Error calculating cache size");
+                    }
                 },
                 0,
                 15,
