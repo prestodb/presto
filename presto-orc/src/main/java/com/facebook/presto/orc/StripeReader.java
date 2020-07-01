@@ -30,7 +30,6 @@ import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
-import com.facebook.presto.orc.protobuf.InvalidProtocolBufferException;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.OrcInputStream;
@@ -161,7 +160,7 @@ public class StripeReader
         if (decryptors.isPresent()) {
             List<Slice> encryptedEncryptionGroups = stripeFooter.getStripeEncryptionGroups();
             for (Integer groupId : decryptors.get().getEncryptorGroupIds()) {
-                StripeEncryptionGroup stripeEncryptionGroup = getStripeEncryptionGroup(decryptors.get().getEncryptorByGroupId(groupId), encryptedEncryptionGroups.get(groupId), dwrfEncryptionGroupColumns.get(groupId));
+                StripeEncryptionGroup stripeEncryptionGroup = getStripeEncryptionGroup(decryptors.get().getEncryptorByGroupId(groupId), encryptedEncryptionGroups.get(groupId), dwrfEncryptionGroupColumns.get(groupId), systemMemoryUsage);
                 allStreams.addAll(stripeEncryptionGroup.getStreams());
                 addColumnEncodings(stripeEncryptionGroup.getColumnEncodings(), groupId, columnEncodings);
                 hasRowGroupDictionary = hasRowGroupDictionary || addIncludedStreams(stripeEncryptionGroup.getColumnEncodings(), stripeEncryptionGroup.getStreams(), includedStreams);
@@ -285,15 +284,17 @@ public class StripeReader
         }
     }
 
-    private StripeEncryptionGroup getStripeEncryptionGroup(DwrfDataEncryptor decryptor, Slice encryptedGroup, Collection<Integer> columns)
-            throws InvalidProtocolBufferException
+    private StripeEncryptionGroup getStripeEncryptionGroup(DwrfDataEncryptor decryptor, Slice encryptedGroup, Collection<Integer> columns, OrcAggregatedMemoryContext systemMemoryUsage)
+            throws IOException
     {
-        Slice decryptedBytes = decryptor.decrypt(encryptedGroup.getBytes(), 0, encryptedGroup.length());
-        List<OrcType> encryptionGroupTypes = columns.stream()
-                .sorted()
-                .map(types::get)
-                .collect(toImmutableList());
-        return toStripeEncryptionGroup(decryptedBytes.getBytes(), encryptionGroupTypes);
+        OrcInputStream orcInputStream = new OrcInputStream(
+                orcDataSource.getId(),
+                encryptedGroup.getInput(),
+                decompressor,
+                Optional.of(decryptor),
+                systemMemoryUsage,
+                encryptedGroup.length());
+        return toStripeEncryptionGroup(orcInputStream, types);
     }
 
     /**
@@ -341,13 +342,8 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
         for (Entry<StreamId, OrcDataSourceInput> entry : streamsData.entrySet()) {
             OrcDataSourceInput sourceInput = entry.getValue();
-            // if it's a dwrf file, and this column is encrypted create DecryptingDecompressor
-            Optional<OrcDecompressor> streamDecompressor = decompressor;
             Optional<DwrfDataEncryptor> dwrfDecryptor = createDwrfDecryptor(entry.getKey(), decryptors);
-            if (dwrfDecryptor.isPresent()) {
-                streamDecompressor = Optional.of(new DecryptingDecompressor(dwrfDecryptor.get(), decompressor.get()));
-            }
-            streamsBuilder.put(entry.getKey(), new OrcInputStream(orcDataSource.getId(), sourceInput.getInput(), streamDecompressor, systemMemoryUsage, sourceInput.getRetainedSizeInBytes()));
+            streamsBuilder.put(entry.getKey(), new OrcInputStream(orcDataSource.getId(), sourceInput.getInput(), decompressor, dwrfDecryptor, systemMemoryUsage, sourceInput.getRetainedSizeInBytes()));
         }
         return streamsBuilder.build();
     }

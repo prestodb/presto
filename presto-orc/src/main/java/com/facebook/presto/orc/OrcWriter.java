@@ -23,7 +23,6 @@ import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.DwrfEncryption;
-import com.facebook.presto.orc.metadata.DwrfMetadataWriter;
 import com.facebook.presto.orc.metadata.EncryptionGroup;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Metadata;
@@ -35,7 +34,6 @@ import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
-import com.facebook.presto.orc.protobuf.AbstractMessageLite;
 import com.facebook.presto.orc.stream.DataOutput;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.orc.writer.ColumnWriter;
@@ -47,6 +45,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -545,6 +544,7 @@ public class OrcWriter
     }
 
     private List<Slice> createEncryptedGroups(Multimap<Integer, Stream> encryptedStreams, Map<Integer, ColumnEncoding> encryptedColumnEncodings)
+            throws IOException
     {
         ImmutableList.Builder<Slice> encryptedGroups = ImmutableList.builder();
         for (int i = 0; i < encryptedStreams.keySet().size(); i++) {
@@ -552,14 +552,17 @@ public class OrcWriter
             Map<Integer, ColumnEncoding> groupColumnEncodings = encryptedColumnEncodings.entrySet().stream()
                     .filter(entry -> dwrfEncryptionInfo.getGroupByNodeId(entry.getKey()).orElseThrow(() -> new VerifyError("missing group for encryptedColumn")) == groupId)
                     .collect(toImmutableMap(Entry::getKey, Entry::getValue));
-
-            byte[] serializedEncryptionGroup = toStripeEncryptionGroup(
+            DwrfDataEncryptor dwrfDataEncryptor = dwrfEncryptionInfo.getEncryptorByGroupId(i);
+            OrcOutputBuffer buffer = new OrcOutputBuffer(compression, Optional.of(dwrfDataEncryptor), maxCompressionBufferSize);
+            toStripeEncryptionGroup(
                     new StripeEncryptionGroup(
                             ImmutableList.copyOf(encryptedStreams.get(i)),
                             toDenseList(groupColumnEncodings, dwrfEncryptionInfo.getNumberOfNodesInGroup(i))))
-                    .toByteArray();
-            Slice encryptedStripeEncryptionGroup = dwrfEncryptionInfo.getEncryptorByGroupId(i).encrypt(serializedEncryptionGroup, 0, serializedEncryptionGroup.length);
-            encryptedGroups.add(encryptedStripeEncryptionGroup);
+                    .writeTo(buffer);
+            buffer.close();
+            DynamicSliceOutput output = new DynamicSliceOutput(toIntExact(buffer.getOutputDataSize()));
+            buffer.writeDataTo(output);
+            encryptedGroups.add(output.slice());
         }
         return encryptedGroups.build();
     }
@@ -627,19 +630,19 @@ public class OrcWriter
             List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.get().getWriterEncryptionGroups();
             for (int i = 0; i < writerEncryptionGroups.size(); i++) {
                 WriterEncryptionGroup group = writerEncryptionGroups.get(i);
-                List<byte[]> columnStatistics = encryptedStats.get(i)
-                        .stream()
-                        .map(DwrfMetadataWriter::toColumnStatistics)
-                        .map(AbstractMessageLite::toByteArray)
-                        .collect(toImmutableList());
-
                 DwrfProto.FileStatistics fileStatistics = toFileStatistics(encryptedStats.get(i));
-                byte[] serializedStats = fileStatistics.toByteArray();
+                DwrfDataEncryptor dwrfDataEncryptor = dwrfEncryptionInfo.getEncryptorByGroupId(i);
+                OrcOutputBuffer buffer = new OrcOutputBuffer(compression, Optional.of(dwrfDataEncryptor), maxCompressionBufferSize);
+                fileStatistics.writeTo(buffer);
+                buffer.close();
+                DynamicSliceOutput output = new DynamicSliceOutput(toIntExact(buffer.getOutputDataSize()));
+                buffer.writeDataTo(output);
+
                 encryptionGroupBuilder.add(
                         new EncryptionGroup(
                                 group.getNodes(),
                                 Optional.empty(), // reader will just use key metadata from the stripe
-                                dwrfEncryptionInfo.getEncryptorByGroupId(i).encrypt(serializedStats, 0, serializedStats.length)));
+                                output.slice()));
             }
             dwrfEncryption = Optional.of(
                     new DwrfEncryption(
