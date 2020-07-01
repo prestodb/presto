@@ -14,9 +14,11 @@
 package com.facebook.presto.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -24,12 +26,12 @@ public class StripeEncryptionGroup
         implements Serializable
 {
     private final List<Stream> streams;
-    private final List<ColumnEncoding> columnEncodings;
+    private final Map<Integer, ColumnEncoding> columnEncodings;
 
-    public StripeEncryptionGroup(List<Stream> streams, List<ColumnEncoding> columnEncodings)
+    public StripeEncryptionGroup(List<Stream> streams, Map<Integer, ColumnEncoding> columnEncodings)
     {
         this.streams = requireNonNull(ImmutableList.copyOf(streams), "streams is null");
-        this.columnEncodings = requireNonNull(ImmutableList.copyOf(columnEncodings), "columnEncodings is null");
+        this.columnEncodings = requireNonNull(ImmutableMap.copyOf(columnEncodings), "columnEncodings is null");
     }
 
     public List<Stream> getStreams()
@@ -37,7 +39,7 @@ public class StripeEncryptionGroup
         return streams;
     }
 
-    public List<ColumnEncoding> getColumnEncodings()
+    public Map<Integer, ColumnEncoding> getColumnEncodings()
     {
         return columnEncodings;
     }

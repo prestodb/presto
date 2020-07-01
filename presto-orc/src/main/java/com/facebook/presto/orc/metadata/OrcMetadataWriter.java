@@ -272,8 +272,9 @@ public class OrcMetadataWriter
                 .addAllStreams(footer.getStreams().stream()
                         .map(OrcMetadataWriter::toStream)
                         .collect(toList()))
-                .addAllColumns(footer.getColumnEncodings().stream()
-                        .map(OrcMetadataWriter::toColumnEncoding)
+                .addAllColumns(footer.getColumnEncodings().entrySet().stream()
+                        .sorted(Entry.comparingByKey())
+                        .map(entry -> toColumnEncoding(entry.getValue()))
                         .collect(toList()))
                 .build();
 
