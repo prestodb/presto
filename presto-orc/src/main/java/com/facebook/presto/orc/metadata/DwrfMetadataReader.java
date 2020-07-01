@@ -26,7 +26,6 @@ import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
-import com.facebook.presto.orc.protobuf.InvalidProtocolBufferException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -506,10 +505,11 @@ public class DwrfMetadataReader
         }
     }
 
-    public static StripeEncryptionGroup toStripeEncryptionGroup(byte[] serializedGroup, List<OrcType> types)
-            throws InvalidProtocolBufferException
+    public static StripeEncryptionGroup toStripeEncryptionGroup(InputStream inputStream, List<OrcType> types)
+            throws IOException
     {
-        DwrfProto.StripeEncryptionGroup stripeEncryptionGroup = DwrfProto.StripeEncryptionGroup.parseFrom(serializedGroup);
+        CodedInputStream codedInputStream = CodedInputStream.newInstance(inputStream);
+        DwrfProto.StripeEncryptionGroup stripeEncryptionGroup = DwrfProto.StripeEncryptionGroup.parseFrom(codedInputStream);
         List<Stream> encryptedStreams = toStream(stripeEncryptionGroup.getStreamsList());
         return new StripeEncryptionGroup(
                 encryptedStreams,
