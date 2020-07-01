@@ -80,7 +80,6 @@ import static java.util.Collections.list;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.BAD_GATEWAY;
@@ -93,7 +92,6 @@ public class ProxyResource
     private static final Logger log = Logger.get(ProxyResource.class);
 
     private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
-    private static final Duration ASYNC_TIMEOUT = new Duration(2, MINUTES);
     private static final JsonFactory JSON_FACTORY = new JsonFactory().disable(CANONICALIZE_FIELD_NAMES);
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("proxy-%s"));
@@ -101,6 +99,7 @@ public class ProxyResource
     private final JsonWebTokenHandler jwtHandler;
     private final URI remoteUri;
     private final HashFunction hmac;
+    private final Duration asyncTimeout;
 
     @Inject
     public ProxyResource(@ForProxy HttpClient httpClient, JsonWebTokenHandler jwtHandler, ProxyConfig config)
@@ -109,6 +108,7 @@ public class ProxyResource
         this.jwtHandler = requireNonNull(jwtHandler, "jwtHandler is null");
         this.remoteUri = requireNonNull(config.getUri(), "uri is null");
         this.hmac = hmacSha256(loadSharedSecret(config.getSharedSecretFile()));
+        this.asyncTimeout = requireNonNull(config.getAsyncTimeout(), "asyncTimeout is null");
     }
 
     @PreDestroy
@@ -236,10 +236,10 @@ public class ProxyResource
     private void setupAsyncResponse(AsyncResponse asyncResponse, ListenableFuture<Response> future)
     {
         bindAsyncResponse(asyncResponse, future, executor)
-                .withTimeout(ASYNC_TIMEOUT, () -> Response
+                .withTimeout(asyncTimeout, () -> Response
                         .status(BAD_GATEWAY)
                         .type(TEXT_PLAIN_TYPE)
-                        .entity("Request to remote Presto server timed out after" + ASYNC_TIMEOUT)
+                        .entity("Request to remote Presto server timed out after" + asyncTimeout)
                         .build());
     }
 
@@ -296,7 +296,7 @@ public class ProxyResource
 
     private static Response responseWithHeaders(ResponseBuilder builder, ProxyResponse response)
     {
-        response.getHeaders().asMap().forEach((headerName, value) -> {
+        response.getHeaders().forEach((headerName, value) -> {
             String name = headerName.toString();
             if (isPrestoHeader(name) || name.equalsIgnoreCase(SET_COOKIE)) {
                 builder.header(name, value);

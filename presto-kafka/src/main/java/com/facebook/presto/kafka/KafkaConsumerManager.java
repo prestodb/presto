@@ -61,7 +61,7 @@ public class KafkaConsumerManager
         properties.put(ENABLE_AUTO_COMMIT_CONFIG, false);
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(KafkaPlugin.class.getClassLoader())) {
-            log.debug("Creating KafkaConsumer for thread %d broker %s", threadName, hostAddress.toString());
+            log.debug("Creating KafkaConsumer for thread %s broker %s", threadName, hostAddress.toString());
             return new KafkaConsumer<>(properties, new ByteBufferDeserializer(), new ByteBufferDeserializer());
         }
     }

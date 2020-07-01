@@ -167,10 +167,12 @@ public class TestJdbcConnection
     public void testSession()
             throws SQLException
     {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = createConnection("sessionProperties=query_max_run_time:2d;max_failed_task_percentage:0.6")) {
             assertThat(listSession(connection))
                     .contains("join_distribution_type|PARTITIONED|PARTITIONED")
-                    .contains("exchange_compression|false|false");
+                    .contains("exchange_compression|false|false")
+                    .contains("query_max_run_time|2d|100.00d")
+                    .contains("max_failed_task_percentage|0.6|0.3");
 
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SET SESSION join_distribution_type = 'BROADCAST'");

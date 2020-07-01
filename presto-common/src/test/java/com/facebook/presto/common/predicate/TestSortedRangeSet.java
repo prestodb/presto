@@ -33,8 +33,8 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestSortedRangeSet
 {
@@ -166,24 +166,13 @@ public class TestSortedRangeSet
     public void testGetSingleValue()
     {
         assertEquals(SortedRangeSet.of(BIGINT, 0L).getSingleValue(), 0L);
-        try {
-            SortedRangeSet.all(BIGINT).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThrows(IllegalStateException.class, () -> SortedRangeSet.all(BIGINT).getSingleValue());
     }
 
     @Test
     public void testSpan()
     {
-        try {
-            SortedRangeSet.none(BIGINT).getSpan();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
-
+        assertThrows(IllegalStateException.class, () -> SortedRangeSet.none(BIGINT).getSpan());
         assertEquals(SortedRangeSet.all(BIGINT).getSpan(), Range.all(BIGINT));
         assertEquals(SortedRangeSet.of(BIGINT, 0L).getSpan(), Range.equal(BIGINT, 0L));
         assertEquals(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).getSpan(), Range.range(BIGINT, 0L, true, 1L, true));

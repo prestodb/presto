@@ -18,14 +18,17 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.BucketAdaptation;
+import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCoercer;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -61,6 +64,7 @@ public class DwrfSelectivePageSourceFactory
     private final OrcFileTailSource orcFileTailSource;
     private final StripeMetadataSource stripeMetadataSource;
     private final TupleDomainFilterCache tupleDomainFilterCache;
+    private final DwrfEncryptionProvider dwrfEncryptionProvider;
 
     @Inject
     public DwrfSelectivePageSourceFactory(
@@ -72,7 +76,8 @@ public class DwrfSelectivePageSourceFactory
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
-            TupleDomainFilterCache tupleDomainFilterCache)
+            TupleDomainFilterCache tupleDomainFilterCache,
+            HiveDwrfEncryptionProvider dwrfEncryptionProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
@@ -83,6 +88,7 @@ public class DwrfSelectivePageSourceFactory
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
         this.tupleDomainFilterCache = requireNonNull(tupleDomainFilterCache, "tupleDomainFilterCache is null");
+        this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "dwrfEncryptionProvider is null").toDwrfEncryptionProvider();
     }
 
     @Override
@@ -102,7 +108,8 @@ public class DwrfSelectivePageSourceFactory
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
-            HiveFileContext hiveFileContext)
+            HiveFileContext hiveFileContext,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -139,6 +146,8 @@ public class DwrfSelectivePageSourceFactory
                 orcFileTailSource,
                 stripeMetadataSource,
                 hiveFileContext,
-                tupleDomainFilterCache));
+                tupleDomainFilterCache,
+                encryptionInformation,
+                dwrfEncryptionProvider));
     }
 }

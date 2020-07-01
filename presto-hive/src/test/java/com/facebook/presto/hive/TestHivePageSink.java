@@ -245,7 +245,8 @@ public class TestHivePageSink
                 Optional.empty(),
                 false,
                 Optional.empty(),
-                NO_CACHE_REQUIREMENT);
+                NO_CACHE_REQUIREMENT,
+                Optional.empty());
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),
                 new HiveTableHandle(SCHEMA_NAME, TABLE_NAME),
@@ -264,7 +265,8 @@ public class TestHivePageSink
                         Optional.empty(),
                         Optional.empty(),
                         false,
-                        "layout")));
+                        "layout",
+                        Optional.empty())));
         HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config, metastoreClientConfig), getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
         return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), NON_CACHEABLE);
     }

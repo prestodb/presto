@@ -58,7 +58,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
     {
         int partitionId = TaskContext.get().partitionId();
         int attemptNumber = TaskContext.get().attemptNumber();
-        return taskExecutorFactoryProvider.get(SparkProcessType.EXECUTOR).create(
+        return taskExecutorFactoryProvider.get().create(
                 partitionId,
                 attemptNumber,
                 serializedTaskDescriptor,

@@ -34,8 +34,8 @@ import static com.facebook.presto.common.type.TestingIdType.ID;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestDomain
 {
@@ -269,13 +269,7 @@ public class TestDomain
         assertEquals(domain.complement(), Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 0L), Range.greaterThan(BIGINT, 0L)), true));
         assertEquals(domain.getSingleValue(), 0L);
         assertEquals(domain.getNullableSingleValue(), 0L);
-
-        try {
-            Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 2L, true)), false).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThrows(IllegalStateException.class, () -> Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 2L, true)), false).getSingleValue());
     }
 
     @Test
@@ -295,13 +289,7 @@ public class TestDomain
         assertEquals(domain.complement(), Domain.create(ValueSet.of(ID, 0L).complement(), true));
         assertEquals(domain.getSingleValue(), 0L);
         assertEquals(domain.getNullableSingleValue(), 0L);
-
-        try {
-            Domain.create(ValueSet.of(ID, 0L, 1L), false).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThrows(IllegalStateException.class, () -> Domain.create(ValueSet.of(ID, 0L, 1L), false).getSingleValue());
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

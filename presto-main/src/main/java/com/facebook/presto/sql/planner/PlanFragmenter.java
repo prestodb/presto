@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -25,6 +26,7 @@ import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.PartitioningMetadata;
 import com.facebook.presto.metadata.TableLayout.TablePartitioning;
 import com.facebook.presto.metadata.TableLayoutResult;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -48,6 +50,7 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -59,6 +62,7 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
@@ -104,6 +108,7 @@ import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_P
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_REWINDABLE_SPLIT_SOURCE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
+import static com.facebook.presto.sql.planner.StatisticsAggregationPlanner.TableStatisticAggregation;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -343,6 +348,7 @@ public class PlanFragmenter
         private final SqlParser sqlParser;
         private final Set<PlanNodeId> outputTableWriterNodeIds;
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
+        private final StatisticsAggregationPlanner statisticsAggregationPlanner;
 
         public Fragmenter(
                 Session session,
@@ -364,6 +370,7 @@ public class PlanFragmenter
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.outputTableWriterNodeIds = ImmutableSet.copyOf(requireNonNull(outputTableWriterNodeIds, "outputTableWriterNodeIds is null"));
+            this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(variableAllocator, metadata);
         }
 
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
@@ -756,31 +763,53 @@ public class PlanFragmenter
                         partitioningScheme);
             }
 
-            TableWriterNode tableWriter = new TableWriterNode(
-                    idAllocator.getNextId(),
-                    writerSource,
-                    Optional.of(insertReference),
-                    variableAllocator.newVariable("partialrows", BIGINT),
-                    variableAllocator.newVariable("partialfragments", VARBINARY),
-                    variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
-                    outputs,
-                    outputColumnNames,
-                    Optional.of(partitioningScheme),
-                    Optional.empty(),
-                    Optional.empty());
+            String catalogName = tableHandle.getConnectorId().getCatalogName();
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
+            TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
+            TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable, false);
+            StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionManager());
+            PlanNode tableWriterMerge;
 
-            PlanNode tableWriterMerge = tableWriter;
+            // Disabled by default. Enable when the column statistics are essential for future runtime adaptive plan optimizations
+            boolean enableStatsCollectionForTemporaryTable = SystemSessionProperties.isEnableStatsCollectionForTemporaryTable(session);
+
             if (isTableWriterMergeOperatorEnabled(session)) {
+                StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(variableAllocator, metadata.getFunctionManager());
                 tableWriterMerge = new TableWriterMergeNode(
                         idAllocator.getNextId(),
                         gatheringExchange(
                                 idAllocator.getNextId(),
                                 LOCAL,
-                                tableWriter),
+                                new TableWriterNode(
+                                        idAllocator.getNextId(),
+                                        writerSource,
+                                        Optional.of(insertReference),
+                                        variableAllocator.newVariable("partialrows", BIGINT),
+                                        variableAllocator.newVariable("partialfragments", VARBINARY),
+                                        variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
+                                        outputs,
+                                        outputColumnNames,
+                                        Optional.of(partitioningScheme),
+                                        Optional.empty(),
+                                        enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getPartialAggregation()) : Optional.empty())),
                         variableAllocator.newVariable("intermediaterows", BIGINT),
                         variableAllocator.newVariable("intermediatefragments", VARBINARY),
                         variableAllocator.newVariable("intermediatetablecommitcontext", VARBINARY),
-                        Optional.empty());
+                        enableStatsCollectionForTemporaryTable ? Optional.of(localAggregations.getIntermediateAggregation()) : Optional.empty());
+            }
+            else {
+                tableWriterMerge = new TableWriterNode(
+                        idAllocator.getNextId(),
+                        writerSource,
+                        Optional.of(insertReference),
+                        variableAllocator.newVariable("partialrows", BIGINT),
+                        variableAllocator.newVariable("partialfragments", VARBINARY),
+                        variableAllocator.newVariable("partialtablecommitcontext", VARBINARY),
+                        outputs,
+                        outputColumnNames,
+                        Optional.of(partitioningScheme),
+                        Optional.empty(),
+                        enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getPartialAggregation()) : Optional.empty());
             }
 
             return new TableFinishNode(
@@ -791,8 +820,8 @@ public class PlanFragmenter
                             tableWriterMerge),
                     Optional.of(insertReference),
                     variableAllocator.newVariable("rows", BIGINT),
-                    Optional.empty(),
-                    Optional.empty());
+                    enableStatsCollectionForTemporaryTable ? Optional.of(aggregations.getFinalAggregation()) : Optional.empty(),
+                    enableStatsCollectionForTemporaryTable ? Optional.of(statisticsResult.getDescriptor()) : Optional.empty());
         }
 
         private SubPlan buildSubPlan(PlanNode node, FragmentProperties properties, RewriteContext<FragmentProperties> context)

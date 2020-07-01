@@ -63,7 +63,7 @@ public class MapSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
             throws IOException
     {
         ColumnEncodingKind kind = encoding.get(streamDescriptor.getStreamId())

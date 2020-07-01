@@ -77,7 +77,8 @@ public final class ShardStats
                 OrcPredicate.TRUE,
                 UTC,
                 new RaptorOrcAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE);
+                INITIAL_BATCH_SIZE,
+                ImmutableMap.of());
 
         if (type.equals(BOOLEAN)) {
             return indexBoolean(reader, columnIndex, columnId);

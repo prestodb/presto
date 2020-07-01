@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
+import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveCompressionCodec.SNAPPY;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -105,6 +107,7 @@ public class TestHiveClientConfig
                 .setSkipTargetCleanupOnRollback(false)
                 .setBucketExecutionEnabled(true)
                 .setIgnoreTableBucketing(false)
+                .setMinBucketCountToNotIgnoreTableBucketing(0)
                 .setMaxBucketsForGroupedExecution(1_000_000)
                 .setSortedWriteToTempPathEnabled(false)
                 .setSortedWriteTempPathSubdirectoryCount(10)
@@ -134,7 +137,8 @@ public class TestHiveClientConfig
                 .setFileStatusCacheTables("")
                 .setPageFileStripeMaxSize(new DataSize(24, Unit.MEGABYTE))
                 .setParquetBatchReaderVerificationEnabled(false)
-                .setParquetBatchReadOptimizationEnabled(false));
+                .setParquetBatchReadOptimizationEnabled(false)
+                .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE));
     }
 
     @Test
@@ -203,6 +207,7 @@ public class TestHiveClientConfig
                 .put("hive.bucket-execution", "false")
                 .put("hive.sorted-writing", "false")
                 .put("hive.ignore-table-bucketing", "true")
+                .put("hive.min-bucket-count-to-not-ignore-table-bucketing", "1024")
                 .put("hive.max-buckets-for-grouped-execution", "100")
                 .put("hive.sorted-write-to-temp-path-enabled", "true")
                 .put("hive.sorted-write-temp-path-subdirectory-count", "50")
@@ -232,6 +237,7 @@ public class TestHiveClientConfig
                 .put("hive.pagefile.writer.stripe-max-size", "1kB")
                 .put("hive.parquet-batch-read-optimization-enabled", "true")
                 .put("hive.enable-parquet-batch-reader-verification", "true")
+                .put("hive.bucket-function-type-for-exchange", "PRESTO_NATIVE")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -308,6 +314,7 @@ public class TestHiveClientConfig
                 .setHdfsWireEncryptionEnabled(true)
                 .setPartitionStatisticsSampleSize(1234)
                 .setIgnoreCorruptedStatistics(true)
+                .setMinBucketCountToNotIgnoreTableBucketing(1024)
                 .setCollectColumnStatisticsOnWrite(true)
                 .setCollectColumnStatisticsOnWrite(true)
                 .setS3SelectPushdownEnabled(true)
@@ -326,7 +333,8 @@ public class TestHiveClientConfig
                 .setFileStatusCacheExpireAfterWrite(new Duration(30, TimeUnit.MINUTES))
                 .setPageFileStripeMaxSize(new DataSize(1, Unit.KILOBYTE))
                 .setParquetBatchReaderVerificationEnabled(true)
-                .setParquetBatchReadOptimizationEnabled(true);
+                .setParquetBatchReadOptimizationEnabled(true)
+                .setBucketFunctionTypeForExchange(PRESTO_NATIVE);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

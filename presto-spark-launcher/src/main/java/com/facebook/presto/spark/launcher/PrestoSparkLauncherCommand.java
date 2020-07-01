@@ -59,7 +59,8 @@ public class PrestoSparkLauncherCommand
 
         String query = readFileUtf8(checkFile(new File(clientOptions.file)));
 
-        PrestoSparkRunner runner = new PrestoSparkRunner(distribution);
-        runner.run(clientOptions.catalog, clientOptions.schema, query, ImmutableMap.of(), ImmutableMap.of());
+        try (PrestoSparkRunner runner = new PrestoSparkRunner(distribution)) {
+            runner.run(clientOptions.catalog, clientOptions.schema, query, ImmutableMap.of(), ImmutableMap.of());
+        }
     }
 }

@@ -47,7 +47,7 @@ import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalys
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
-import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_MAIN;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnIndices;
@@ -246,7 +246,7 @@ class LimitQueryDeterminismAnalyzer
                 new TableSubquery(newLimitQuery));
 
         QueryResult<Long> result = callAndConsume(
-                () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS, resultSet -> Optional.of(resultSet.getLong(1))),
+                () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS_MAIN, resultSet -> Optional.of(resultSet.getLong(1))),
                 stats -> determinismAnalysisDetails.setLimitQueryAnalysisQueryId(stats.getQueryId()));
 
         long rowCountHigherLimit = getOnlyElement(result.getResults());
@@ -262,7 +262,7 @@ class LimitQueryDeterminismAnalyzer
     private LimitQueryDeterminismAnalysis analyzeLimitOrderBy(Query tieInspectorQuery, List<ColumnNameOrIndex> orderByKeys, long limit)
     {
         QueryResult<List<Object>> result = callAndConsume(
-                () -> prestoAction.execute(tieInspectorQuery, DETERMINISM_ANALYSIS, new TieInspector(limit)),
+                () -> prestoAction.execute(tieInspectorQuery, DETERMINISM_ANALYSIS_MAIN, new TieInspector(limit)),
                 stats -> determinismAnalysisDetails.setLimitQueryAnalysisQueryId(stats.getQueryId()));
         if (result.getResults().isEmpty()) {
             return FAILED_DATA_CHANGED;

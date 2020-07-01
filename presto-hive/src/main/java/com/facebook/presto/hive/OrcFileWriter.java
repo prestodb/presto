@@ -20,6 +20,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DataSink;
+import com.facebook.presto.orc.DwrfEncryptionProvider;
+import com.facebook.presto.orc.DwrfWriterEncryption;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -76,7 +78,9 @@ public class OrcFileWriter
             DateTimeZone hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
             OrcWriteValidationMode validationMode,
-            OrcWriterStats stats)
+            OrcWriterStats stats,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            Optional<DwrfWriterEncryption> dwrfWriterEncryption)
     {
         requireNonNull(dataSink, "dataSink is null");
 
@@ -87,6 +91,8 @@ public class OrcFileWriter
                     fileColumnTypes,
                     orcEncoding,
                     compression,
+                    dwrfWriterEncryption,
+                    dwrfEncryptionProvider,
                     options,
                     metadata,
                     hiveStorageTimeZone,

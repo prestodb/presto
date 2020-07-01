@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExternalBodyReference;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GrantRoles;
 import com.facebook.presto.sql.tree.GrantorSpecification;
@@ -614,6 +615,18 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitExternalBodyReference(ExternalBodyReference node, Integer indent)
+        {
+            append(indent, "EXTERNAL");
+            if (node.getIdentifier().isPresent()) {
+                builder.append(" NAME ");
+                builder.append(node.getIdentifier().get().toString());
+            }
+
+            return null;
+        }
+
+        @Override
         protected Void visitDropView(DropView node, Integer context)
         {
             builder.append("DROP VIEW ");
@@ -957,7 +970,7 @@ public final class SqlFormatter
         private String formatRoutineCharacteristics(RoutineCharacteristics characteristics)
         {
             return Joiner.on("\n").join(ImmutableList.of(
-                    "LANGUAGE " + formatRoutineCharacteristicName(characteristics.getLanguage()),
+                    "LANGUAGE " + characteristics.getLanguage(),
                     formatRoutineCharacteristicName(characteristics.getDeterminism()),
                     formatRoutineCharacteristicName(characteristics.getNullCallClause())));
         }

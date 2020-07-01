@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.hive.BucketAdaptation;
+import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
@@ -33,6 +34,7 @@ import com.facebook.presto.hive.HiveSelectivePageSourceFactory;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.FilterFunction;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcDataSource;
@@ -66,6 +68,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -112,6 +115,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isOrcBloomFiltersEn
 import static com.facebook.presto.hive.HiveSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.typedPartitionKey;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
@@ -205,7 +209,8 @@ public class OrcSelectivePageSourceFactory
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,
             DateTimeZone hiveStorageTimeZone,
-            HiveFileContext hiveFileContext)
+            HiveFileContext hiveFileContext,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -243,7 +248,9 @@ public class OrcSelectivePageSourceFactory
                 orcFileTailSource,
                 stripeMetadataSource,
                 hiveFileContext,
-                tupleDomainFilterCache));
+                tupleDomainFilterCache,
+                encryptionInformation,
+                NO_ENCRYPTION));
     }
 
     public static OrcSelectivePageSource createOrcPageSource(
@@ -273,7 +280,9 @@ public class OrcSelectivePageSourceFactory
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
             HiveFileContext hiveFileContext,
-            TupleDomainFilterCache tupleDomainFilterCache)
+            TupleDomainFilterCache tupleDomainFilterCache,
+            Optional<EncryptionInformation> encryptionInformation,
+            DwrfEncryptionProvider dwrfEncryptionProvider)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
@@ -308,7 +317,15 @@ public class OrcSelectivePageSourceFactory
 
         OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
         try {
-            OrcReader reader = new OrcReader(orcDataSource, orcEncoding, orcFileTailSource, stripeMetadataSource, systemMemoryUsage, orcReaderOptions, hiveFileContext.isCacheable());
+            OrcReader reader = new OrcReader(
+                    orcDataSource,
+                    orcEncoding,
+                    orcFileTailSource,
+                    stripeMetadataSource,
+                    systemMemoryUsage,
+                    orcReaderOptions,
+                    hiveFileContext.isCacheable(),
+                    dwrfEncryptionProvider);
 
             checkArgument(!domainPredicate.isNone(), "Unexpected NONE domain");
 
@@ -360,6 +377,11 @@ public class OrcSelectivePageSourceFactory
 
             List<FilterFunction> filterFunctions = toFilterFunctions(replaceExpression(remainingPredicate, variableToInput), bucketAdapter, session, rowExpressionService.getDeterminismEvaluator(), rowExpressionService.getPredicateCompiler());
 
+            Map<Integer, Slice> keyMap = ImmutableMap.of();
+            if (encryptionInformation.isPresent() && encryptionInformation.get().getDwrfEncryptionMetadata().isPresent()) {
+                keyMap = encryptionInformation.get().getDwrfEncryptionMetadata().get().toKeyMap(reader.getTypes(), physicalColumns);
+            }
+
             OrcSelectiveRecordReader recordReader = reader.createSelectiveRecordReader(
                     columnTypes,
                     outputIndices,
@@ -376,7 +398,8 @@ public class OrcSelectivePageSourceFactory
                     session.getSqlFunctionProperties().isLegacyMapSubscript(),
                     systemMemoryUsage,
                     Optional.empty(),
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    keyMap);
 
             return new OrcSelectivePageSource(
                     recordReader,

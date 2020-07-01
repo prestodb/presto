@@ -133,6 +133,7 @@ public class HivePageSourceProvider
 
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
+        Optional<EncryptionInformation> encryptionInformation = hiveSplit.getEncryptionInformation();
         if (hiveLayout.isPushdownFilterEnabled()) {
             Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(
                     selectivePageSourceFactories,
@@ -144,7 +145,8 @@ public class HivePageSourceProvider
                     hiveStorageTimeZone,
                     typeManager,
                     optimizedRowExpressionCache,
-                    splitContext);
+                    splitContext,
+                    encryptionInformation);
             if (selectivePageSource.isPresent()) {
                 return selectivePageSource.get();
             }
@@ -181,7 +183,8 @@ public class HivePageSourceProvider
                 new HiveFileContext(splitContext.isCacheable(), cacheQuota, hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
-                rowExpressionService);
+                rowExpressionService,
+                encryptionInformation);
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -216,7 +219,8 @@ public class HivePageSourceProvider
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             LoadingCache<RowExpressionCacheKey, RowExpression> rowExpressionCache,
-            SplitContext splitContext)
+            SplitContext splitContext,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
                 .addAll(layout.getPredicateColumns().values())
@@ -275,7 +279,8 @@ public class HivePageSourceProvider
                     layout.getDomainPredicate(),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
-                    new HiveFileContext(splitContext.isCacheable(), cacheQuota, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)));
+                    new HiveFileContext(splitContext.isCacheable(), cacheQuota, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
+                    encryptionInformation);
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
@@ -312,7 +317,8 @@ public class HivePageSourceProvider
             HiveFileContext hiveFileContext,
             RowExpression remainingPredicate,
             boolean isPushdownFilterEnabled,
-            RowExpressionService rowExpressionService)
+            RowExpressionService rowExpressionService,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         List<HiveColumnHandle> allColumns;
 
@@ -356,11 +362,13 @@ public class HivePageSourceProvider
                     length,
                     fileSize,
                     storage,
+                    tableName,
                     tableParameters,
                     toColumnHandles(regularAndInterimColumnMappings, true),
                     effectivePredicate,
                     hiveStorageTimeZone,
-                    hiveFileContext);
+                    hiveFileContext,
+                    encryptionInformation);
             if (pageSource.isPresent()) {
                 HivePageSource hivePageSource = new HivePageSource(
                         columnMappings,
@@ -547,10 +555,10 @@ public class HivePageSourceProvider
         }
 
         /**
-         * @param columns columns that need to be returned to engine
-         * @param requiredInterimColumns columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
+         * @param columns                   columns that need to be returned to engine
+         * @param requiredInterimColumns    columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
          * @param partitionSchemaDifference map from hive column index to hive type
-         * @param bucketNumber empty if table is not bucketed, a number within [0, # bucket in table) otherwise
+         * @param bucketNumber              empty if table is not bucketed, a number within [0, # bucket in table) otherwise
          */
         public static List<ColumnMapping> buildColumnMappings(
                 List<HivePartitionKey> partitionKeys,

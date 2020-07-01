@@ -17,11 +17,15 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateTimeEncoding;
+import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
@@ -282,6 +286,13 @@ public class PinotPushdownUtils
         }
         if (type instanceof VarcharType || type instanceof CharType) {
             return "'" + ((Slice) node.getValue()).toStringUtf8() + "'";
+        }
+        if (type instanceof TimestampType || type instanceof DateType) {
+            return node.getValue().toString();
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            Long millisUtc = DateTimeEncoding.unpackMillisUtc((Long) node.getValue());
+            return millisUtc.toString();
         }
         throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), String.format("Cannot handle the constant expression %s with value of type %s", node, type));
     }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
@@ -27,12 +28,17 @@ public class PrestoSparkService
 {
     private final PrestoSparkQueryExecutionFactory queryExecutionFactory;
     private final PrestoSparkTaskExecutorFactory taskExecutorFactory;
+    private final LifeCycleManager lifeCycleManager;
 
     @Inject
-    public PrestoSparkService(PrestoSparkQueryExecutionFactory queryExecutionFactory, PrestoSparkTaskExecutorFactory taskExecutorFactory)
+    public PrestoSparkService(
+            PrestoSparkQueryExecutionFactory queryExecutionFactory,
+            PrestoSparkTaskExecutorFactory taskExecutorFactory,
+            LifeCycleManager lifeCycleManager)
     {
         this.queryExecutionFactory = requireNonNull(queryExecutionFactory, "queryExecutionFactory is null");
         this.taskExecutorFactory = requireNonNull(taskExecutorFactory, "taskExecutorFactory is null");
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
     }
 
     @Override
@@ -45,5 +51,11 @@ public class PrestoSparkService
     public IPrestoSparkTaskExecutorFactory getTaskExecutorFactory()
     {
         return taskExecutorFactory;
+    }
+
+    @Override
+    public void close()
+    {
+        lifeCycleManager.stop();
     }
 }

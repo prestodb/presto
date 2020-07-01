@@ -14,8 +14,11 @@
 package com.facebook.presto.spark.classloader_interface;
 
 public interface IPrestoSparkService
+        extends AutoCloseable
 {
     IPrestoSparkQueryExecutionFactory getQueryExecutionFactory();
 
     IPrestoSparkTaskExecutorFactory getTaskExecutorFactory();
+
+    void close();
 }

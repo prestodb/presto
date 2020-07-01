@@ -14,6 +14,7 @@
 package com.facebook.presto.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.util.List;
 
@@ -24,10 +25,14 @@ public class StripeFooter
     private final List<Stream> streams;
     private final List<ColumnEncoding> columnEncodings;
 
-    public StripeFooter(List<Stream> streams, List<ColumnEncoding> columnEncodings)
+    // encrypted StripeEncryptionGroups
+    private final List<Slice> stripeEncryptionGroups;
+
+    public StripeFooter(List<Stream> streams, List<ColumnEncoding> columnEncodings, List<Slice> stripeEncryptionGroups)
     {
         this.streams = ImmutableList.copyOf(requireNonNull(streams, "streams is null"));
         this.columnEncodings = ImmutableList.copyOf(requireNonNull(columnEncodings, "columnEncodings is null"));
+        this.stripeEncryptionGroups = ImmutableList.copyOf(requireNonNull(stripeEncryptionGroups, "stripeEncryptionGroups is null"));
     }
 
     public List<ColumnEncoding> getColumnEncodings()
@@ -38,5 +43,10 @@ public class StripeFooter
     public List<Stream> getStreams()
     {
         return streams;
+    }
+
+    public List<Slice> getStripeEncryptionGroups()
+    {
+        return stripeEncryptionGroups;
     }
 }

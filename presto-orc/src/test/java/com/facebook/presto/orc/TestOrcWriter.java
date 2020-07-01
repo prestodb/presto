@@ -38,6 +38,7 @@ import java.util.Optional;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
@@ -63,6 +64,8 @@ public class TestOrcWriter
                     ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
                     ORC,
                     NONE,
+                    Optional.empty(),
+                    NO_ENCRYPTION,
                     new OrcWriterOptions()
                             .withStripeMinSize(new DataSize(0, MEGABYTE))
                             .withStripeMaxSize(new DataSize(32, MEGABYTE))
@@ -109,7 +112,8 @@ public class TestOrcWriter
                             dataSize,
                             dataSize,
                             false),
-                    false
+                    false,
+                    NO_ENCRYPTION
             ).getFooter();
 
             for (StripeInformation stripe : footer.getStripes()) {
@@ -146,6 +150,8 @@ public class TestOrcWriter
                 ImmutableList.of(VARCHAR),
                 ORC,
                 NONE,
+                Optional.empty(),
+                NO_ENCRYPTION,
                 new OrcWriterOptions()
                         .withStripeMinSize(new DataSize(0, MEGABYTE))
                         .withStripeMaxSize(new DataSize(32, MEGABYTE))

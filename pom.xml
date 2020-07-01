@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.238-SNAPSHOT</version>
+    <version>0.239-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -62,7 +62,7 @@
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>6.2.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
-        <dep.alluxio.version>2.2.0</dep.alluxio.version>
+        <dep.alluxio.version>2.2.2</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.17.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
@@ -560,7 +560,7 @@
             <dependency>
                 <groupId>com.facebook.presto.orc</groupId>
                 <artifactId>orc-protobuf</artifactId>
-                <version>7</version>
+                <version>10</version>
             </dependency>
 
             <dependency>
@@ -1474,7 +1474,7 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.3.5-4</version>
+                <version>1.4.5-4</version>
             </dependency>
 
             <dependency>

@@ -32,6 +32,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -50,6 +51,7 @@ public final class HiveTableLayoutHandle
     private final Optional<HiveBucketFilter> bucketFilter;
     private final boolean pushdownFilterEnabled;
     private final String layoutString;
+    private final Optional<Set<HiveColumnHandle>> requestedColumns;
 
     // coordinator-only properties
     @Nullable
@@ -68,7 +70,8 @@ public final class HiveTableLayoutHandle
             @JsonProperty("bucketHandle") Optional<HiveBucketHandle> bucketHandle,
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
             @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
-            @JsonProperty("layoutString") String layoutString)
+            @JsonProperty("layoutString") String layoutString,
+            @JsonProperty("requestedColumns") Optional<Set<HiveColumnHandle>> requestedColumns)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
@@ -83,6 +86,7 @@ public final class HiveTableLayoutHandle
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
         this.pushdownFilterEnabled = pushdownFilterEnabled;
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
+        this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
     }
 
     public HiveTableLayoutHandle(
@@ -98,7 +102,8 @@ public final class HiveTableLayoutHandle
             Optional<HiveBucketHandle> bucketHandle,
             Optional<HiveBucketFilter> bucketFilter,
             boolean pushdownFilterEnabled,
-            String layoutString)
+            String layoutString,
+            Optional<Set<HiveColumnHandle>> requestedColumns)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
@@ -113,6 +118,7 @@ public final class HiveTableLayoutHandle
         this.bucketFilter = requireNonNull(bucketFilter, "bucketFilter is null");
         this.pushdownFilterEnabled = pushdownFilterEnabled;
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
+        this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
     }
 
     @JsonProperty
@@ -196,6 +202,12 @@ public final class HiveTableLayoutHandle
     public String getLayoutString()
     {
         return layoutString;
+    }
+
+    @JsonProperty
+    public Optional<Set<HiveColumnHandle>> getRequestedColumns()
+    {
+        return requestedColumns;
     }
 
     @Override
