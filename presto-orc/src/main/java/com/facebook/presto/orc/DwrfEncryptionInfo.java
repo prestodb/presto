@@ -26,7 +26,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -108,16 +107,6 @@ public class DwrfEncryptionInfo
     public Set<Integer> getEncryptorGroupIds()
     {
         return dwrfEncryptors.keySet();
-    }
-
-    public int getNumberOfEncryptedNodes()
-    {
-        return nodeToGroupMap.keySet().size();
-    }
-
-    public int getNumberOfNodesInGroup(int group)
-    {
-        return toIntExact(nodeToGroupMap.values().stream().filter(value -> value == group).count());
     }
 
     public List<byte[]> getEncryptedKeyMetadatas()
