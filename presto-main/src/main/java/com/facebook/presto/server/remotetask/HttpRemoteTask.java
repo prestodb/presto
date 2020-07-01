@@ -139,6 +139,7 @@ public final class HttpRemoteTask
     private final RemoteTaskStats stats;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
+    private final ContinuousTaskListStatusFetcher taskListStatusFetcher;
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -213,7 +214,8 @@ public final class HttpRemoteTask
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled,
             TableWriteInfo tableWriteInfo,
-            int maxTaskUpdateSizeInBytes)
+            int maxTaskUpdateSizeInBytes,
+            ContinuousTaskListStatusFetcher taskListStatusFetcher)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -291,6 +293,19 @@ public final class HttpRemoteTask
                     stats,
                     isBinaryTransportEnabled);
 
+            this.taskListStatusFetcher = new ContinuousTaskListStatusFetcher(
+                    this::failTask,
+                    taskId,
+                    initialTask.getTaskStatus(),
+                    taskStatusRefreshMaxWait,
+                    taskStatusCodec,
+                    executor,
+                    httpClient,
+                    maxErrorDuration,
+                    errorScheduledExecutor,
+                    stats,
+                    isBinaryTransportEnabled);
+
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
                     initialTask,
@@ -306,7 +321,7 @@ public final class HttpRemoteTask
                     stats,
                     isBinaryTransportEnabled);
 
-            taskStatusFetcher.addStateChangeListener(newStatus -> {
+            taskListStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();
                 if (state.isDone()) {
                     cleanUpTask();
@@ -343,7 +358,7 @@ public final class HttpRemoteTask
     @Override
     public TaskStatus getTaskStatus()
     {
-        return taskStatusFetcher.getTaskStatus();
+        return taskListStatusFetcher.getTaskStatus();
     }
 
     @Override
@@ -359,7 +374,7 @@ public final class HttpRemoteTask
             // to start we just need to trigger an update
             scheduleUpdate();
 
-            taskStatusFetcher.start();
+            taskListStatusFetcher.start();
             taskInfoFetcher.start();
         }
     }
@@ -537,7 +552,7 @@ public final class HttpRemoteTask
     public void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener)
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            taskStatusFetcher.addStateChangeListener(stateChangeListener);
+            taskListStatusFetcher.addStateChangeListener(stateChangeListener);
         }
     }
 
@@ -604,7 +619,7 @@ public final class HttpRemoteTask
 
     private void updateTaskInfo(TaskInfo taskInfo)
     {
-        taskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
+        taskListStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
         taskInfoFetcher.updateTaskInfo(taskInfo);
     }
 
@@ -746,7 +761,7 @@ public final class HttpRemoteTask
             currentRequestStartNanos = 0;
         }
 
-        taskStatusFetcher.stop();
+        taskListStatusFetcher.stop();
 
         // The remote task is likely to get a delete from the PageBufferClient first.
         // We send an additional delete anyway to get the final TaskInfo
@@ -773,7 +788,7 @@ public final class HttpRemoteTask
         checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            taskStatusFetcher.updateTaskStatus(status);
+            taskListStatusFetcher.updateTaskStatus(status);
 
             // send abort to task
             HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
