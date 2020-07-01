@@ -615,7 +615,19 @@ public class OrcWriter
         ImmutableListMultimap.Builder<Integer, ColumnStatistics> encryptedStatsBuilder = ImmutableListMultimap.builder();
         for (int i = 0; i < fileStats.size(); i++) {
             if (dwrfEncryptionInfo.getGroupByNodeId(i).isPresent()) {
-                encryptedStatsBuilder.put(dwrfEncryptionInfo.getGroupByNodeId(i).get(), fileStats.get(i));
+                ColumnStatistics stats = fileStats.get(i);
+                encryptedStatsBuilder.put(dwrfEncryptionInfo.getGroupByNodeId(i).get(), stats);
+                unencryptedStatsBuilder.add(new ColumnStatistics(
+                        stats.getNumberOfValues(),
+                        stats.getMinAverageValueSizeInBytes(),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null));
             }
             else {
                 unencryptedStatsBuilder.add(fileStats.get(i));

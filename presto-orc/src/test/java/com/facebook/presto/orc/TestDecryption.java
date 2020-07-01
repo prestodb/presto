@@ -15,17 +15,28 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfEncryption;
+import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.EncryptionGroup;
 import com.facebook.presto.orc.metadata.Footer;
+import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.StripeInformation;
+import com.facebook.presto.orc.proto.DwrfProto;
+import com.facebook.presto.orc.protobuf.CodedInputStream;
+import com.facebook.presto.orc.stream.OrcInputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -35,6 +46,8 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.orc.AbstractOrcRecordReader.getDecryptionKeyMetadata;
 import static com.facebook.presto.orc.AbstractTestOrcReader.intsBetween;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
+import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
+import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcReader.validateEncryption;
 import static com.facebook.presto.orc.OrcTester.assertFileContentsPresto;
@@ -47,9 +60,12 @@ import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LIST;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.MAP;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestDecryption
 {
@@ -385,6 +401,47 @@ public class TestDecryption
                     readerIntermediateKeys,
                     includedColumns,
                     outputColumns);
+
+            validateFileStatistics(tempFile.getFile(), dwrfWriterEncryption);
         }
+    }
+
+    private void validateFileStatistics(File file, Optional<DwrfWriterEncryption> dwrfWriterEncryption)
+            throws IOException
+    {
+        OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+        DwrfMetadataReader metadataReader = new DwrfMetadataReader();
+        OrcFileTail orcFileTail = new StorageOrcFileTailSource().getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
+        Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), orcFileTail.getCompressionKind(), orcFileTail.getBufferSize(), false);
+        try (InputStream inputStream = new OrcInputStream(
+                orcDataSource.getId(),
+                orcFileTail.getFooterSlice().getInput(),
+                decompressor,
+                Optional.empty(),
+                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
+                orcFileTail.getFooterSize())) {
+            CodedInputStream input = CodedInputStream.newInstance(inputStream);
+            DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
+            List<DwrfProto.ColumnStatistics> fileStats = footer.getStatisticsList();
+
+            assertEquals(fileStats.size(), footer.getTypesCount());
+
+            if (dwrfWriterEncryption.isPresent()) {
+                dwrfWriterEncryption.get().getWriterEncryptionGroups()
+                        .stream()
+                        .map(WriterEncryptionGroup::getNodes)
+                        .flatMap(Collection::stream)
+                        .forEach(node -> assertTrue(hasNoTypeStats(fileStats.get(node)), format("file stats for node %s had type stats %s", node, fileStats.get(node))));
+            }
+        }
+    }
+
+    private boolean hasNoTypeStats(DwrfProto.ColumnStatistics columnStatistics)
+    {
+        return !columnStatistics.hasBinaryStatistics()
+                && !columnStatistics.hasBucketStatistics()
+                && !columnStatistics.hasDoubleStatistics()
+                && !columnStatistics.hasIntStatistics()
+                && !columnStatistics.hasStringStatistics();
     }
 }
