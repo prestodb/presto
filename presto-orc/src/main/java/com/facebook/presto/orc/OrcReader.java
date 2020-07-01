@@ -126,7 +126,7 @@ public class OrcReader
         this.decompressor = createOrcDecompressor(orcDataSource.getId(), compressionKind, bufferSize, orcReaderOptions.isOrcZstdJniDecompressionEnabled());
         this.hiveWriterVersion = orcFileTail.getHiveWriterVersion();
 
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getFooterSlice().getInput(), decompressor, aggregatedMemoryContext, orcFileTail.getFooterSize())) {
+        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getFooterSlice().getInput(), decompressor, Optional.empty(), aggregatedMemoryContext, orcFileTail.getFooterSize())) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
         }
         if (this.footer.getTypes().size() == 0) {
@@ -148,7 +148,7 @@ public class OrcReader
             this.encryptionLibrary = Optional.empty();
         }
 
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getMetadataSlice().getInput(), decompressor, aggregatedMemoryContext, orcFileTail.getMetadataSize())) {
+        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getMetadataSlice().getInput(), decompressor, Optional.empty(), aggregatedMemoryContext, orcFileTail.getMetadataSize())) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
         validateWrite(writeValidation, orcDataSource, validation -> validation.getColumnNames().equals(footer.getTypes().get(0).getFieldNames()), "Unexpected column names");

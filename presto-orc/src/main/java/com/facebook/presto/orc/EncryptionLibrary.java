@@ -18,11 +18,12 @@ import io.airlift.slice.Slice;
 public interface EncryptionLibrary
 {
     Slice generateDataEncryptionKey(Slice intermediateKeyMetadata);
+
     Slice encryptKey(Slice keyMetadata, byte[] input, int offset, int length);
-    Slice encryptData(Slice keyMetadata, byte[] input, int offset, int length);
+
+    byte[] encryptData(Slice keyMetadata, byte[] input, int offset, int length);
 
     Slice decryptKey(Slice keyMetadata, byte[] input, int offset, int length);
-    Slice decryptData(Slice keyMetadata, byte[] input, int offset, int length);
 
-    int getMaxEncryptedLength(Slice keyMetadata, int unencryptedLength);
+    byte[] decryptData(Slice keyMetadata, byte[] input, int offset, int length);
 }
