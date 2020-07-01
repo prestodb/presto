@@ -8446,11 +8446,11 @@ public abstract class AbstractTestQueries
     public void testAndInFilter()
     {
         assertQuery(
-                "SELECT count() from (select * from orders where orderkey < random(10)) where ((orderkey > 100 and custkey > 100) or (orderkey > 200 and custkey < 200))",
+                "SELECT count() from (select * from orders where orderkey < 10) where ((orderkey > 100 and custkey > 100) or (orderkey > 200 and custkey < 200))",
                 "values 0");
 
         assertQuery(
-                "SELECT ((orderkey > 100 and custkey > 100) or (orderkey > 200 and custkey < 200)) from (select * from orders where orderkey < random(10) limit 1)",
+                "SELECT ((orderkey > 100 and custkey > 100) or (orderkey > 200 and custkey < 200)) from (select * from orders where orderkey < 10 limit 1)",
                 "values false");
     }
 
