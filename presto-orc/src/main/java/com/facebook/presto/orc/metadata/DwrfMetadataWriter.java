@@ -118,7 +118,7 @@ public class DwrfMetadataWriter
                 .setDataLength(stripe.getDataLength())
                 .setFooterLength(stripe.getFooterLength())
                 .addAllKeyMetadata(stripe.getKeyMetadata().stream()
-                        .map(keyMetadata -> ByteString.copyFrom(keyMetadata.getBytes()))
+                        .map(ByteString::copyFrom)
                         .collect(toImmutableList()))
                 .build();
     }

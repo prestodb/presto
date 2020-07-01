@@ -13,37 +13,35 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.slice.Slice;
-
 public class UnsupportedEncryptionLibrary
         implements EncryptionLibrary
 {
     @Override
-    public Slice generateDataEncryptionKey(Slice intermediateKeyMetadata)
+    public byte[] generateDataEncryptionKey(byte[] intermediateKeyMetadata)
     {
         throw new UnsupportedOperationException("encryption not supported");
     }
 
     @Override
-    public Slice encryptKey(Slice keyMetadata, byte[] input, int offset, int length)
+    public byte[] encryptKey(byte[] keyMetadata, byte[] input, int offset, int length)
     {
         throw new UnsupportedOperationException("encryption not supported");
     }
 
     @Override
-    public byte[] encryptData(Slice keyMetadata, byte[] input, int offset, int length)
+    public byte[] encryptData(byte[] keyMetadata, byte[] input, int offset, int length)
     {
         throw new UnsupportedOperationException("encryption not supported");
     }
 
     @Override
-    public Slice decryptKey(Slice keyMetadata, byte[] input, int offset, int length)
+    public byte[] decryptKey(byte[] keyMetadata, byte[] input, int offset, int length)
     {
         throw new UnsupportedOperationException("encryption not supported");
     }
 
     @Override
-    public byte[] decryptData(Slice keyMetadata, byte[] input, int offset, int length)
+    public byte[] decryptData(byte[] keyMetadata, byte[] input, int offset, int length)
     {
         throw new UnsupportedOperationException("encryption not supported");
     }

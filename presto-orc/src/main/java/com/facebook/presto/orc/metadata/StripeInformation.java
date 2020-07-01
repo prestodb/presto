@@ -14,7 +14,6 @@
 package com.facebook.presto.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
 
 import java.util.List;
 
@@ -33,9 +32,9 @@ public class StripeInformation
     // Arbitrary binary representing key metadata. It could be identifier
     // of key in KMS, encrypted DEK or other form of user defined key metadata.
     // only set for run start, and reuse until next run
-    private final List<Slice> keyMetadata;
+    private final List<byte[]> keyMetadata;
 
-    public StripeInformation(int numberOfRows, long offset, long indexLength, long dataLength, long footerLength, List<Slice> keyMetadata)
+    public StripeInformation(int numberOfRows, long offset, long indexLength, long dataLength, long footerLength, List<byte[]> keyMetadata)
     {
         // dataLength can be zero when the stripe only contains empty flat maps.
         checkArgument(numberOfRows > 0, "Stripe must have at least one row");
@@ -91,7 +90,7 @@ public class StripeInformation
                 .toString();
     }
 
-    public List<Slice> getKeyMetadata()
+    public List<byte[]> getKeyMetadata()
     {
         return keyMetadata;
     }

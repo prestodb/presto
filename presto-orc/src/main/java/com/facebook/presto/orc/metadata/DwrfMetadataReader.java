@@ -25,6 +25,7 @@ import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
+import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -154,7 +155,7 @@ public class DwrfMetadataReader
                 stripeInformation.getDataLength(),
                 stripeInformation.getFooterLength(),
                 stripeInformation.getKeyMetadataList().stream()
-                        .map(OrcMetadataReader::byteStringToSlice)
+                        .map(ByteString::toByteArray)
                         .collect(toImmutableList()));
     }
 
