@@ -647,7 +647,7 @@ public class OrcTester
                     }
                 }
                 // write presto read presto
-                if (dwrfEncryptionEnabled && format == DWRF && compression != NONE) {
+                if (dwrfEncryptionEnabled && format == DWRF) {
                     try (TempFile tempFile = new TempFile()) {
                         DwrfWriterEncryption dwrfWriterEncryption = generateWriterEncryption();
                         writeOrcColumnsPresto(tempFile.getFile(), format, compression, Optional.of(dwrfWriterEncryption), writeTypes, writeValues, stats);

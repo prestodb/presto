@@ -58,7 +58,6 @@ public final class OrcInputStream
 
     private byte[] buffer;
     private byte[] compressedBuffer;
-    private byte[] encryptedBuffer;
     private byte[] decompressionResultBuffer;
     private int position;
     private int length;
@@ -91,7 +90,7 @@ public final class OrcInputStream
         checkArgument(sliceInputRetainedSizeInBytes >= 0, "sliceInputRetainedSizeInBytes is negative");
         systemMemoryContext.newOrcLocalMemoryContext(OrcInputStream.class.getSimpleName()).setBytes(sliceInputRetainedSizeInBytes);
 
-        if (!decompressor.isPresent()) {
+        if (!decompressor.isPresent() && !dwrfDecryptor.isPresent()) {
             int sliceInputPosition = toIntExact(sliceInput.position());
             int sliceInputRemaining = toIntExact(sliceInput.remaining());
             this.buffer = new byte[sliceInputRemaining];
@@ -208,8 +207,8 @@ public final class OrcInputStream
         int decompressedOffset = decodeDecompressedOffset(checkpoint);
         boolean discardedBuffer;
         if (compressedBlockOffset != currentCompressedBlockOffset) {
-            if (!decompressor.isPresent()) {
-                throw new OrcCorruptionException(orcDataSourceId, "Reset stream has a compressed block offset but stream is not compressed");
+            if (!decompressor.isPresent() && !dwrfDecryptor.isPresent()) {
+                throw new OrcCorruptionException(orcDataSourceId, "Reset stream has a block offset but stream is not compressed or encrypted");
             }
             compressedSliceInput.setPosition(compressedBlockOffset);
             buffer = new byte[0];
@@ -530,6 +529,7 @@ public final class OrcInputStream
                 .add("compressedOffset", compressedSliceInput.position())
                 .add("uncompressedOffset", buffer == null ? null : position)
                 .add("decompressor", decompressor.map(Object::toString).orElse("none"))
+                .add("decryptor", dwrfDecryptor.map(Object::toString).orElse("none"))
                 .toString();
     }
 }
