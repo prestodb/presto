@@ -104,7 +104,7 @@ public class KafkaSplitManager
                 long startTimestamp = layoutHandle.getStartOffsetTimestamp();
                 long endTimestamp = layoutHandle.getEndOffsetTimestamp();
 
-                if (startTimestamp > endTimestamp) {
+                if (startTimestamp != 0 && endTimestamp != 0 && startTimestamp > endTimestamp) {
                     throw new IllegalArgumentException(String.format("Invalid Kafka Offset start/end pair: %s - %s", startTimestamp, endTimestamp));
                 }
 
