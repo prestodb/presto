@@ -50,7 +50,7 @@ public class TestSqlFunctions
             DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                     .setCoordinatorProperties(ImmutableMap.of("list-built-in-functions-only", "false"))
                     .build();
-            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("testing", "example"), ImmutableMap.of("supported-function-languages", "sql, java"));
+            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("testing", "example"), ImmutableMap.of("supported-function-languages", "{\"sql\": \"SQL\", \"java\": \"THRIFT\"}"));
             queryRunner.createTestFunctionNamespace("testing", "common");
             queryRunner.createTestFunctionNamespace("testing", "test");
             queryRunner.createTestFunctionNamespace("example", "example");

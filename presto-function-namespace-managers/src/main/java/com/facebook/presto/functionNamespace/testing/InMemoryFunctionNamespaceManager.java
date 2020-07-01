@@ -99,7 +99,7 @@ public class InMemoryFunctionNamespaceManager
     {
         return fetchFunctionsDirect(functionHandle.getFunctionId().getFunctionName()).stream()
                 .filter(function -> function.getRequiredFunctionHandle().equals(functionHandle))
-                .map(AbstractSqlInvokedFunctionNamespaceManager::sqlInvokedFunctionToMetadata)
+                .map(this::sqlInvokedFunctionToMetadata)
                 .collect(onlyElement());
     }
 
@@ -108,7 +108,7 @@ public class InMemoryFunctionNamespaceManager
     {
         return fetchFunctionsDirect(functionHandle.getFunctionId().getFunctionName()).stream()
                 .filter(function -> function.getRequiredFunctionHandle().equals(functionHandle))
-                .map(AbstractSqlInvokedFunctionNamespaceManager::sqlInvokedFunctionToImplementation)
+                .map(this::sqlInvokedFunctionToImplementation)
                 .collect(onlyElement());
     }
 
