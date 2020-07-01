@@ -37,11 +37,11 @@ public class TestingEncryptionLibrary
     @Override
     public Slice encryptKey(Slice keyMetadata, byte[] input, int offset, int length)
     {
-        return encrypt(keyMetadata, input, offset, length);
+        return Slices.wrappedBuffer(encrypt(keyMetadata, input, offset, length));
     }
 
     @Override
-    public Slice encryptData(Slice keyMetadata, byte[] input, int offset, int length)
+    public byte[] encryptData(Slice keyMetadata, byte[] input, int offset, int length)
     {
         return encrypt(keyMetadata, input, offset, length);
     }
@@ -49,22 +49,16 @@ public class TestingEncryptionLibrary
     @Override
     public Slice decryptKey(Slice keyMetadata, byte[] input, int offset, int length)
     {
-        return decrypt(keyMetadata, input, offset, length);
+        return Slices.wrappedBuffer(decrypt(keyMetadata, input, offset, length));
     }
 
     @Override
-    public Slice decryptData(Slice keyMetadata, byte[] input, int offset, int length)
+    public byte[] decryptData(Slice keyMetadata, byte[] input, int offset, int length)
     {
         return decrypt(keyMetadata, input, offset, length);
     }
 
-    @Override
-    public int getMaxEncryptedLength(Slice keyMetadata, int unencryptedLength)
-    {
-        return keyMetadata.length() + 4 * (unencryptedLength + 2) / 3;
-    }
-
-    private Slice encrypt(Slice keyMetadata, byte[] input, int offset, int length)
+    private byte[] encrypt(Slice keyMetadata, byte[] input, int offset, int length)
     {
         ByteBuffer inputBuffer = ByteBuffer.wrap(input, offset, length);
         ByteBuffer encoded = ENCODER.encode(inputBuffer);
@@ -72,10 +66,12 @@ public class TestingEncryptionLibrary
         output.put(keyMetadata.toByteBuffer());
         output.put(encoded);
         output.flip();
-        return Slices.wrappedBuffer(output);
+        byte[] encrypted = new byte[output.remaining()];
+        output.get(encrypted);
+        return encrypted;
     }
 
-    private Slice decrypt(Slice keyMetadata, byte[] input, int offset, int length)
+    private byte[] decrypt(Slice keyMetadata, byte[] input, int offset, int length)
     {
         ByteBuffer inputBuffer = ByteBuffer.wrap(input, offset, length);
 
@@ -87,6 +83,8 @@ public class TestingEncryptionLibrary
         encoded.put(inputBuffer);
         encoded.flip();
         ByteBuffer decodedByteBuffer = DECODER.decode(encoded);
-        return Slices.wrappedBuffer(decodedByteBuffer);
+        byte[] decoded = new byte[decodedByteBuffer.remaining()];
+        decodedByteBuffer.get(decoded);
+        return decoded;
     }
 }

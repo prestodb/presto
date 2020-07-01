@@ -120,7 +120,7 @@ public class TestOrcWriter
                 // read the footer
                 byte[] tailBuffer = new byte[toIntExact(stripe.getFooterLength())];
                 orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), tailBuffer);
-                try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), tailBuffer.length)) {
+                try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), Slices.wrappedBuffer(tailBuffer).getInput(), Optional.empty(), Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), tailBuffer.length)) {
                     StripeFooter stripeFooter = ORC.createMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
 
                     int size = 0;
