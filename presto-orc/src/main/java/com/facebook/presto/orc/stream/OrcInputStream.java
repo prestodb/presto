@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
@@ -51,11 +52,13 @@ public final class OrcInputStream
     private final OrcDataSourceId orcDataSourceId;
     private final FixedLengthSliceInput compressedSliceInput;
     private final Optional<OrcDecompressor> decompressor;
+    private final Optional<DwrfDataEncryptor> dwrfDecryptor;
 
     private int currentCompressedBlockOffset;
 
     private byte[] buffer;
     private byte[] compressedBuffer;
+    private byte[] encryptedBuffer;
     private byte[] decompressionResultBuffer;
     private int position;
     private int length;
@@ -70,6 +73,7 @@ public final class OrcInputStream
             OrcDataSourceId orcDataSourceId,
             FixedLengthSliceInput sliceInput,
             Optional<OrcDecompressor> decompressor,
+            Optional<DwrfDataEncryptor> dwrfDecryptor,
             OrcAggregatedMemoryContext systemMemoryContext,
             long sliceInputRetainedSizeInBytes)
     {
@@ -78,6 +82,7 @@ public final class OrcInputStream
         requireNonNull(sliceInput, "sliceInput is null");
 
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
+        this.dwrfDecryptor = requireNonNull(dwrfDecryptor, "dwrfDecryptor is null");
 
         // memory reserved in the systemMemoryContext is never release and instead it is
         // expected that the context itself will be destroyed at the end of the read
@@ -462,11 +467,19 @@ public final class OrcInputStream
         if (isUncompressed) {
             buffer = ensureCapacity(buffer, chunkLength);
             length = compressedSliceInput.read(buffer, 0, chunkLength);
+            if (dwrfDecryptor.isPresent()) {
+                buffer = dwrfDecryptor.get().decrypt(buffer, 0, chunkLength);
+                length = buffer.length;
+            }
             position = 0;
         }
         else {
             compressedBuffer = ensureCapacity(compressedBuffer, chunkLength);
             int readCompressed = compressedSliceInput.read(compressedBuffer, 0, chunkLength);
+            if (dwrfDecryptor.isPresent()) {
+                compressedBuffer = dwrfDecryptor.get().decrypt(compressedBuffer, 0, chunkLength);
+                readCompressed = compressedBuffer.length;
+            }
 
             buffer = decompressionResultBuffer;
             OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()

@@ -31,7 +31,7 @@ public class UnsupportedEncryptionLibrary
     }
 
     @Override
-    public Slice encryptData(Slice keyMetadata, byte[] input, int offset, int length)
+    public byte[] encryptData(Slice keyMetadata, byte[] input, int offset, int length)
     {
         throw new UnsupportedOperationException("encryption not supported");
     }
@@ -43,13 +43,7 @@ public class UnsupportedEncryptionLibrary
     }
 
     @Override
-    public Slice decryptData(Slice keyMetadata, byte[] input, int offset, int length)
-    {
-        throw new UnsupportedOperationException("encryption not supported");
-    }
-
-    @Override
-    public int getMaxEncryptedLength(Slice keyMetadata, int unencryptedLength)
+    public byte[] decryptData(Slice keyMetadata, byte[] input, int offset, int length)
     {
         throw new UnsupportedOperationException("encryption not supported");
     }
