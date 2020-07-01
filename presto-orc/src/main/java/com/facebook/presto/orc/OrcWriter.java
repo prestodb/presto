@@ -516,14 +516,13 @@ public class OrcWriter
         Map<Integer, ColumnEncoding> unencryptedColumnEncodings = columnEncodings.entrySet().stream()
                 .filter(entry -> !dwrfEncryptionInfo.getGroupByNodeId(entry.getKey()).isPresent())
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
-        int unencryptedColumnSize = orcTypes.size() - dwrfEncryptionInfo.getNumberOfEncryptedNodes();
 
         Map<Integer, ColumnEncoding> encryptedColumnEncodings = columnEncodings.entrySet().stream()
                 .filter(entry -> dwrfEncryptionInfo.getGroupByNodeId(entry.getKey()).isPresent())
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
         List<Slice> encryptedGroups = createEncryptedGroups(encryptedStreams, encryptedColumnEncodings);
 
-        StripeFooter stripeFooter = new StripeFooter(unencryptedStreams, toDenseList(unencryptedColumnEncodings, unencryptedColumnSize), encryptedGroups);
+        StripeFooter stripeFooter = new StripeFooter(unencryptedStreams, unencryptedColumnEncodings, encryptedGroups);
         Slice footer = metadataWriter.writeStripeFooter(stripeFooter);
         outputData.add(createDataOutput(footer));
 
@@ -557,7 +556,7 @@ public class OrcWriter
             toStripeEncryptionGroup(
                     new StripeEncryptionGroup(
                             ImmutableList.copyOf(encryptedStreams.get(i)),
-                            toDenseList(groupColumnEncodings, dwrfEncryptionInfo.getNumberOfNodesInGroup(i))))
+                            groupColumnEncodings))
                     .writeTo(buffer);
             buffer.close();
             DynamicSliceOutput output = new DynamicSliceOutput(toIntExact(buffer.getOutputDataSize()));

@@ -237,8 +237,8 @@ public class DwrfMetadataWriter
                 .addAllStreams(footer.getStreams().stream()
                         .map(DwrfMetadataWriter::toStream)
                         .collect(toImmutableList()))
-                .addAllColumns(footer.getColumnEncodings().stream()
-                        .map(DwrfMetadataWriter::toColumnEncoding)
+                .addAllColumns(footer.getColumnEncodings().entrySet().stream()
+                        .map(entry -> toColumnEncoding(entry.getKey(), entry.getValue()))
                         .collect(toImmutableList()))
                 .addAllEncryptedGroups(footer.getStripeEncryptionGroups().stream()
                         .map(group -> ByteString.copyFrom(group.getBytes()))
@@ -281,19 +281,20 @@ public class DwrfMetadataWriter
         throw new IllegalArgumentException("Unsupported stream kind: " + streamKind);
     }
 
-    public static DwrfProto.ColumnEncoding toColumnEncoding(ColumnEncoding columnEncodings)
+    public static DwrfProto.ColumnEncoding toColumnEncoding(int columnId, ColumnEncoding columnEncoding)
     {
         checkArgument(
-                !columnEncodings.getAdditionalSequenceEncodings().isPresent(),
-                "DWRF writer doesn't support writing columns with non-zero sequence IDs: " + columnEncodings);
+                !columnEncoding.getAdditionalSequenceEncodings().isPresent(),
+                "DWRF writer doesn't support writing columns with non-zero sequence IDs: " + columnEncoding);
 
         return DwrfProto.ColumnEncoding.newBuilder()
-                .setKind(toColumnEncoding(columnEncodings.getColumnEncodingKind()))
-                .setDictionarySize(columnEncodings.getDictionarySize())
+                .setKind(toColumnEncodingKind(columnEncoding.getColumnEncodingKind()))
+                .setDictionarySize(columnEncoding.getDictionarySize())
+                .setColumn(columnId)
                 .build();
     }
 
-    private static DwrfProto.ColumnEncoding.Kind toColumnEncoding(ColumnEncodingKind columnEncodingKind)
+    private static DwrfProto.ColumnEncoding.Kind toColumnEncodingKind(ColumnEncodingKind columnEncodingKind)
     {
         switch (columnEncodingKind) {
             case DIRECT:
@@ -379,8 +380,9 @@ public class DwrfMetadataWriter
                 .addAllStreams(stripeEncryptionGroup.getStreams().stream()
                         .map(DwrfMetadataWriter::toStream)
                         .collect(toImmutableList()))
-                .addAllEncoding(stripeEncryptionGroup.getColumnEncodings().stream()
-                        .map(DwrfMetadataWriter::toColumnEncoding)
+                .addAllEncoding(stripeEncryptionGroup.getColumnEncodings().entrySet()
+                        .stream()
+                        .map(entry -> toColumnEncoding(entry.getKey(), entry.getValue()))
                         .collect(toImmutableList()))
                 .build();
     }
