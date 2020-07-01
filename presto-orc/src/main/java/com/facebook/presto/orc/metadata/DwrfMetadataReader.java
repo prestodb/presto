@@ -213,9 +213,10 @@ public class DwrfMetadataReader
         return Optional.of(additionalSequenceEncodings.build());
     }
 
-    private static List<ColumnEncoding> toColumnEncoding(List<OrcType> types, List<DwrfProto.ColumnEncoding> columnEncodings)
+    private static Map<Integer, ColumnEncoding> toColumnEncoding(List<OrcType> types, List<DwrfProto.ColumnEncoding> columnEncodings)
     {
         Map<Integer, List<DwrfProto.ColumnEncoding>> groupedColumnEncodings = new HashMap<>(columnEncodings.size());
+        ImmutableMap.Builder<Integer, ColumnEncoding> resultBuilder = ImmutableMap.builder();
 
         for (int i = 0; i < columnEncodings.size(); i++) {
             DwrfProto.ColumnEncoding columnEncoding = columnEncodings.get(i);
@@ -229,13 +230,12 @@ public class DwrfMetadataReader
             groupedColumnEncodings.computeIfAbsent(column, key -> new ArrayList<>()).add(columnEncoding);
         }
 
-        ImmutableList.Builder<ColumnEncoding> resultBuilder = ImmutableList.builder();
-
         for (Map.Entry<Integer, List<DwrfProto.ColumnEncoding>> entry : groupedColumnEncodings.entrySet()) {
             OrcType type = types.get(entry.getKey());
 
             DwrfProto.ColumnEncoding columnEncoding = entry.getValue().get(0);
-            resultBuilder.add(
+            resultBuilder.put(
+                    entry.getKey(),
                     new ColumnEncoding(
                             toColumnEncodingKind(type.getOrcTypeKind(), columnEncoding.getKind()),
                             columnEncoding.getDictionarySize(),

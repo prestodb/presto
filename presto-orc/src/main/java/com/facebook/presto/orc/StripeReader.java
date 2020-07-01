@@ -57,8 +57,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.SortedSet;
-import java.util.TreeSet;
 
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getStreamCheckpoints;
@@ -77,7 +75,6 @@ import static com.facebook.presto.orc.stream.CheckpointInputStreamSource.createC
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -154,15 +151,15 @@ public class StripeReader
 
         Map<Integer, ColumnEncoding> columnEncodings = new HashMap<>();
 
-        List<ColumnEncoding> stripeFooterEncodings = stripeFooter.getColumnEncodings();
-        addColumnEncodings(stripeFooterEncodings, -1, columnEncodings);
+        Map<Integer, ColumnEncoding> stripeFooterEncodings = stripeFooter.getColumnEncodings();
+        columnEncodings.putAll(stripeFooterEncodings);
         //  included columns may be encrypted
         if (decryptors.isPresent()) {
             List<Slice> encryptedEncryptionGroups = stripeFooter.getStripeEncryptionGroups();
             for (Integer groupId : decryptors.get().getEncryptorGroupIds()) {
                 StripeEncryptionGroup stripeEncryptionGroup = getStripeEncryptionGroup(decryptors.get().getEncryptorByGroupId(groupId), encryptedEncryptionGroups.get(groupId), dwrfEncryptionGroupColumns.get(groupId), systemMemoryUsage);
                 allStreams.addAll(stripeEncryptionGroup.getStreams());
-                addColumnEncodings(stripeEncryptionGroup.getColumnEncodings(), groupId, columnEncodings);
+                columnEncodings.putAll(stripeEncryptionGroup.getColumnEncodings());
                 hasRowGroupDictionary = hasRowGroupDictionary || addIncludedStreams(stripeEncryptionGroup.getColumnEncodings(), stripeEncryptionGroup.getStreams(), includedStreams);
             }
         }
@@ -274,16 +271,6 @@ public class StripeReader
         return new Stripe(stripe.getNumberOfRows(), columnEncodings, ImmutableList.of(rowGroup), dictionaryStreamSources);
     }
 
-    private void addColumnEncodings(List<ColumnEncoding> encodingsToAdd, int groupId, Map<Integer, ColumnEncoding> columnEncodingsMap)
-    {
-        SortedSet<Integer> columns = new TreeSet<>(dwrfEncryptionGroupColumns.get(groupId));
-        int encodingIndex = 0;
-        for (int column : columns) {
-            columnEncodingsMap.put(column, encodingsToAdd.get(encodingIndex));
-            encodingIndex++;
-        }
-    }
-
     private StripeEncryptionGroup getStripeEncryptionGroup(DwrfDataEncryptor decryptor, Slice encryptedGroup, Collection<Integer> columns, OrcAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
@@ -301,7 +288,7 @@ public class StripeReader
      * Add streams that are in includedOrcColumns to the includedStreams map,
      * and return whether there were any rowGroupDictionaries
      */
-    private boolean addIncludedStreams(List<ColumnEncoding> columnEncodings, List<Stream> streams, Map<StreamId, Stream> includedStreams)
+    private boolean addIncludedStreams(Map<Integer, ColumnEncoding> columnEncodings, List<Stream> streams, Map<StreamId, Stream> includedStreams)
     {
         boolean hasRowGroupDictionary = false;
         for (Stream stream : streams) {
@@ -466,12 +453,8 @@ public class StripeReader
 
         // read the footer
         Slice footerSlice = stripeMetadataSource.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, cacheable);
-        List<OrcType> unencryptedTypes = dwrfEncryptionGroupColumns.get(-1).stream()
-                .sorted()
-                .map(types::get)
-                .collect(toImmutableList());
-        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, systemMemoryUsage, footerLength)) {
-            return metadataReader.readStripeFooter(unencryptedTypes, inputStream);
+        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, Optional.empty(), systemMemoryUsage, footerLength)) {
+            return metadataReader.readStripeFooter(types, inputStream);
         }
     }
 
