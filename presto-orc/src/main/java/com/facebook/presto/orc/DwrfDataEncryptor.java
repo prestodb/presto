@@ -13,16 +13,14 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.slice.Slice;
-
 import static java.util.Objects.requireNonNull;
 
 public class DwrfDataEncryptor
 {
-    private final Slice keyMetadata;
+    private final byte[] keyMetadata;
     private final EncryptionLibrary encryptionLibrary;
 
-    public DwrfDataEncryptor(Slice keyMetadata, EncryptionLibrary encryptionLibrary)
+    public DwrfDataEncryptor(byte[] keyMetadata, EncryptionLibrary encryptionLibrary)
     {
         this.keyMetadata = requireNonNull(keyMetadata, "keyMetadata is null");
         this.encryptionLibrary = requireNonNull(encryptionLibrary, "encryptionLibrary is null");

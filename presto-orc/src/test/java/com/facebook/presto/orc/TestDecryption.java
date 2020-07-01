@@ -47,15 +47,14 @@ import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LIST;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.MAP;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
 public class TestDecryption
 {
-    private static final List<Slice> A_KEYS = ImmutableList.of(utf8Slice("key1a"), utf8Slice("key2a"));
-    private static final List<Slice> B_KEYS = ImmutableList.of(utf8Slice("key1b"), utf8Slice("key2b"));
+    private static final List<byte[]> A_KEYS = ImmutableList.of("key1a".getBytes(), "key2a".getBytes());
+    private static final List<byte[]> B_KEYS = ImmutableList.of("key1b".getBytes(), "key2b".getBytes());
     private static final StripeInformation A_STRIPE = new StripeInformation(1, 2, 3, 4, 5, A_KEYS);
     private static final StripeInformation NO_KEYS_STRIPE = new StripeInformation(1, 2, 3, 4, 5, ImmutableList.of());
     private static final StripeInformation B_STRIPE = new StripeInformation(1, 2, 3, 4, 5, B_KEYS);

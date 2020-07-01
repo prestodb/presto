@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.orc;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Base64.Decoder;
 
@@ -29,41 +27,41 @@ public class TestingEncryptionLibrary
     private static final Decoder DECODER = Base64.getUrlDecoder();
 
     @Override
-    public Slice generateDataEncryptionKey(Slice intermediateKeyMetadata)
+    public byte[] generateDataEncryptionKey(byte[] intermediateKeyMetadata)
     {
         return intermediateKeyMetadata;
     }
 
     @Override
-    public Slice encryptKey(Slice keyMetadata, byte[] input, int offset, int length)
-    {
-        return Slices.wrappedBuffer(encrypt(keyMetadata, input, offset, length));
-    }
-
-    @Override
-    public byte[] encryptData(Slice keyMetadata, byte[] input, int offset, int length)
+    public byte[] encryptKey(byte[] keyMetadata, byte[] input, int offset, int length)
     {
         return encrypt(keyMetadata, input, offset, length);
     }
 
     @Override
-    public Slice decryptKey(Slice keyMetadata, byte[] input, int offset, int length)
+    public byte[] encryptData(byte[] keyMetadata, byte[] input, int offset, int length)
     {
-        return Slices.wrappedBuffer(decrypt(keyMetadata, input, offset, length));
+        return encrypt(keyMetadata, input, offset, length);
     }
 
     @Override
-    public byte[] decryptData(Slice keyMetadata, byte[] input, int offset, int length)
+    public byte[] decryptKey(byte[] keyMetadata, byte[] input, int offset, int length)
     {
         return decrypt(keyMetadata, input, offset, length);
     }
 
-    private byte[] encrypt(Slice keyMetadata, byte[] input, int offset, int length)
+    @Override
+    public byte[] decryptData(byte[] keyMetadata, byte[] input, int offset, int length)
+    {
+        return decrypt(keyMetadata, input, offset, length);
+    }
+
+    private byte[] encrypt(byte[] keyMetadata, byte[] input, int offset, int length)
     {
         ByteBuffer inputBuffer = ByteBuffer.wrap(input, offset, length);
         ByteBuffer encoded = ENCODER.encode(inputBuffer);
-        ByteBuffer output = ByteBuffer.allocate(keyMetadata.length() + encoded.remaining());
-        output.put(keyMetadata.toByteBuffer());
+        ByteBuffer output = ByteBuffer.allocate(keyMetadata.length + encoded.remaining());
+        output.put(keyMetadata);
         output.put(encoded);
         output.flip();
         byte[] encrypted = new byte[output.remaining()];
@@ -71,13 +69,13 @@ public class TestingEncryptionLibrary
         return encrypted;
     }
 
-    private byte[] decrypt(Slice keyMetadata, byte[] input, int offset, int length)
+    private byte[] decrypt(byte[] keyMetadata, byte[] input, int offset, int length)
     {
         ByteBuffer inputBuffer = ByteBuffer.wrap(input, offset, length);
 
-        byte[] key = new byte[keyMetadata.length()];
+        byte[] key = new byte[keyMetadata.length];
         inputBuffer.get(key);
-        verify(keyMetadata.equals(Slices.wrappedBuffer(key)), "keys do not match");
+        verify(Arrays.equals(keyMetadata, key), "keys do not match");
 
         ByteBuffer encoded = ByteBuffer.allocate(inputBuffer.remaining());
         encoded.put(inputBuffer);

@@ -199,8 +199,8 @@ public class OrcWriter
                             .collect(toImmutableList()),
                     orcTypes);
             EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(dwrfWriterEncryption.get().getKeyProvider());
-            List<Slice> dataEncryptionKeys = writerEncryptionGroups.stream()
-                    .map(group -> encryptionLibrary.generateDataEncryptionKey(group.getIntermediateKeyMetadata()))
+            List<byte[]> dataEncryptionKeys = writerEncryptionGroups.stream()
+                    .map(group -> encryptionLibrary.generateDataEncryptionKey(group.getIntermediateKeyMetadata().getBytes()))
                     .collect(toImmutableList());
             Map<Integer, DwrfDataEncryptor> dwrfEncryptors = IntStream.range(0, writerEncryptionGroups.size())
                     .boxed()
@@ -208,13 +208,13 @@ public class OrcWriter
                             groupId -> groupId,
                             groupId -> new DwrfDataEncryptor(dataEncryptionKeys.get(groupId), encryptionLibrary)));
 
-            List<Slice> encryptedKeyMetadatas = IntStream.range(0, writerEncryptionGroups.size())
+            List<byte[]> encryptedKeyMetadatas = IntStream.range(0, writerEncryptionGroups.size())
                     .boxed()
                     .map(groupId -> encryptionLibrary.encryptKey(
-                            writerEncryptionGroups.get(groupId).getIntermediateKeyMetadata(),
-                            dataEncryptionKeys.get(groupId).getBytes(),
+                            writerEncryptionGroups.get(groupId).getIntermediateKeyMetadata().getBytes(),
+                            dataEncryptionKeys.get(groupId),
                             0,
-                            dataEncryptionKeys.get(groupId).length()))
+                            dataEncryptionKeys.get(groupId).length))
                     .collect(toImmutableList());
             this.dwrfEncryptionInfo = new DwrfEncryptionInfo(dwrfEncryptors, encryptedKeyMetadatas, nodeToGroupMap);
         }
