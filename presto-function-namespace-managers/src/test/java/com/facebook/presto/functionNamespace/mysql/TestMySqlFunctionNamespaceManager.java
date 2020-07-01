@@ -308,7 +308,7 @@ public class TestMySqlFunctionNamespaceManager
         assertGetFunctions(TANGENT, tangentV2);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower\\(double\\):double; unittest\\.memory\\.power_tower\\(integer\\):integer\\. Please specify parameter types\\.")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower(\\(integer\\):integer|\\(double\\):double); unittest\\.memory\\.power_tower(\\(double\\):double|\\(integer\\):integer)\\. Please specify parameter types\\.")
     public void testAlterFunctionAmbiguous()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
@@ -356,7 +356,7 @@ public class TestMySqlFunctionNamespaceManager
         dropFunction(POWER_TOWER, Optional.empty(), false);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower\\(double\\):double; unittest\\.memory\\.power_tower\\(integer\\):integer\\. Please specify parameter types\\.")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower(\\(integer\\):integer|\\(double\\):double); unittest\\.memory\\.power_tower(\\(double\\):double|\\(integer\\):integer)\\. Please specify parameter types\\.")
     public void testDropFunctionAmbiguous()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
