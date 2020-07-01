@@ -22,8 +22,12 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
+import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.testng.Assert.assertEquals;
 
 public class TestSqlInvokedFunctionNamespaceManagerConfig
 {
@@ -33,7 +37,7 @@ public class TestSqlInvokedFunctionNamespaceManagerConfig
         assertRecordedDefaults(recordDefaults(SqlInvokedFunctionNamespaceManagerConfig.class)
                 .setFunctionCacheExpiration(new Duration(5, MINUTES))
                 .setFunctionInstanceCacheExpiration(new Duration(8, HOURS))
-                .setSupportedFunctionLanguages("sql"));
+                .setSupportedFunctionLanguages("{\"sql\": \"SQL\"}"));
     }
 
     @Test
@@ -42,13 +46,16 @@ public class TestSqlInvokedFunctionNamespaceManagerConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("function-cache-expiration", "10m")
                 .put("function-instance-cache-expiration", "4h")
-                .put("supported-function-languages", "sql, hive")
+                .put("supported-function-languages", "{\"sql\": \"SQL\", \"hive\": \"THRIFT\"}")
                 .build();
         SqlInvokedFunctionNamespaceManagerConfig expected = new SqlInvokedFunctionNamespaceManagerConfig()
                 .setFunctionCacheExpiration(new Duration(10, MINUTES))
                 .setFunctionInstanceCacheExpiration(new Duration(4, HOURS))
-                .setSupportedFunctionLanguages("sql, hive");
+                .setSupportedFunctionLanguages("{\"sql\": \"SQL\", \"hive\": \"THRIFT\"}");
 
         assertFullMapping(properties, expected);
+        assertEquals(
+                expected.getSupportedFunctionLanguages(),
+                ImmutableMap.of(new Language("sql"), SQL, new Language("hive"), THRIFT));
     }
 }

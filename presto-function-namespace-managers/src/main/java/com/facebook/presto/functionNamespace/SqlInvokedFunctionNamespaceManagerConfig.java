@@ -14,25 +14,27 @@
 package com.facebook.presto.functionNamespace;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.presto.spi.function.RoutineCharacteristics;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableSet;
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
-import java.util.Set;
+import java.util.Map;
 
+import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class SqlInvokedFunctionNamespaceManagerConfig
 {
-    private static final Splitter LANGUAGE_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
+    private static final JsonCodec<Map<Language, FunctionImplementationType>> FUNCTION_LANGUAGES_CODEC = mapJsonCodec(Language.class, FunctionImplementationType.class);
 
     private Duration functionCacheExpiration = new Duration(5, MINUTES);
     private Duration functionInstanceCacheExpiration = new Duration(8, HOURS);
-    private Set<RoutineCharacteristics.Language> supportedFunctionLanguages = ImmutableSet.of(SQL);
+    private Map<Language, FunctionImplementationType> supportedFunctionLanguages = ImmutableMap.of(SQL, FunctionImplementationType.SQL);
 
     @MinDuration("0ns")
     public Duration getFunctionCacheExpiration()
@@ -60,7 +62,7 @@ public class SqlInvokedFunctionNamespaceManagerConfig
         return this;
     }
 
-    public Set<RoutineCharacteristics.Language> getSupportedFunctionLanguages()
+    public Map<Language, FunctionImplementationType> getSupportedFunctionLanguages()
     {
         return supportedFunctionLanguages;
     }
@@ -68,9 +70,7 @@ public class SqlInvokedFunctionNamespaceManagerConfig
     @Config("supported-function-languages")
     public SqlInvokedFunctionNamespaceManagerConfig setSupportedFunctionLanguages(String languages)
     {
-        ImmutableSet.Builder<RoutineCharacteristics.Language> languageBuilder = ImmutableSet.builder();
-        Splitter.on(',').omitEmptyStrings().trimResults().split(languages).forEach(language -> languageBuilder.add(new RoutineCharacteristics.Language(language)));
-        this.supportedFunctionLanguages = languageBuilder.build();
+        this.supportedFunctionLanguages = FUNCTION_LANGUAGES_CODEC.fromJson(languages);
         return this;
     }
 }
