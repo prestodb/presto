@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -139,14 +138,6 @@ public class SqlInvokedFunction
     public Optional<Long> getVersion()
     {
         return functionHandle.map(SqlFunctionHandle::getVersion);
-    }
-
-    public FunctionImplementationType getFunctionImplementationType()
-    {
-        if (routineCharacteristics.getLanguage().equals(SQL)) {
-            return FunctionImplementationType.SQL;
-        }
-        return FunctionImplementationType.THRIFT;
     }
 
     public SqlFunctionHandle getRequiredFunctionHandle()
