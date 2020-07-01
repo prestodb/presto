@@ -176,14 +176,20 @@ public class TaskInfoFetcher
     private synchronized void scheduleUpdate()
     {
         scheduledFuture = updateScheduledExecutor.scheduleWithFixedDelay(() -> {
-            synchronized (this) {
-                // if the previous request still running, don't schedule a new request
-                if (future != null && !future.isDone()) {
-                    return;
+            try {
+                synchronized (this) {
+                    // if the previous request still running, don't schedule a new request
+                    if (future != null && !future.isDone()) {
+                        return;
+                    }
+                }
+                if (nanosSince(lastUpdateNanos.get()).toMillis() >= updateIntervalMillis) {
+                    sendNextRequest();
                 }
             }
-            if (nanosSince(lastUpdateNanos.get()).toMillis() >= updateIntervalMillis) {
-                sendNextRequest();
+            catch (Throwable t) {
+                fatal(t);
+                throw t;
             }
         }, 0, 100, MILLISECONDS);
     }

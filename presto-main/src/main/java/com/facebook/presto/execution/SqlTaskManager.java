@@ -238,13 +238,13 @@ public class SqlTaskManager
                 removeOldTasks();
             }
             catch (Throwable e) {
-                log.warn(e, "Error removing old tasks");
+                log.error(e, "Error removing old tasks");
             }
             try {
                 failAbandonedTasks();
             }
             catch (Throwable e) {
-                log.warn(e, "Error canceling abandoned tasks");
+                log.error(e, "Error canceling abandoned tasks");
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
 
@@ -253,7 +253,7 @@ public class SqlTaskManager
                 updateStats();
             }
             catch (Throwable e) {
-                log.warn(e, "Error updating stats");
+                log.error(e, "Error updating stats");
             }
         }, 0, 1, TimeUnit.SECONDS);
     }
