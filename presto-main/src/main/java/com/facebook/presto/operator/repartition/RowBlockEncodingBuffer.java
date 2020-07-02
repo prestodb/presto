@@ -304,6 +304,24 @@ public class RowBlockEncodingBuffer
         }
     }
 
+    @Override
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @VisibleForTesting
+    int getEstimatedOffsetBufferMaxCapacity()
+    {
+        return estimatedOffsetBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    BlockEncodingBuffer[] getFieldBuffers()
+    {
+        return fieldBuffers;
+    }
+
     private void populateNestedPositions(ColumnarRow columnarRow)
     {
         // Reset nested level positions before checking positionCount. Failing to do so may result in elementsBuffers having stale values when positionCount is 0.

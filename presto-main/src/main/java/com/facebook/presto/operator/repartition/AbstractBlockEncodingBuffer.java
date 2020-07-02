@@ -240,6 +240,15 @@ public abstract class AbstractBlockEncodingBuffer
                 .toString();
     }
 
+    @VisibleForTesting
+    abstract int getEstimatedValueBufferMaxCapacity();
+
+    @VisibleForTesting
+    int getEstimatedNullsBufferMaxCapacity()
+    {
+        return estimatedNullsBufferMaxCapacity;
+    }
+
     protected void setEstimatedNullsBufferMaxCapacity(int estimatedNullsBufferMaxCapacity)
     {
         this.estimatedNullsBufferMaxCapacity = estimatedNullsBufferMaxCapacity;

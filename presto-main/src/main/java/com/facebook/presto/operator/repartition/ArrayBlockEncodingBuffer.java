@@ -207,6 +207,24 @@ public class ArrayBlockEncodingBuffer
     }
 
     @Override
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @VisibleForTesting
+    int getEstimatedOffsetBufferMaxCapacity()
+    {
+        return estimatedOffsetBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    BlockEncodingBuffer getValuesBuffers()
+    {
+        return valuesBuffers;
+    }
+
+    @Override
     protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
     {
         requireNonNull(decodedBlockNode, "decodedBlockNode is null");

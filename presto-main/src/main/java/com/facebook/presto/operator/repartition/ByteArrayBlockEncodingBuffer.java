@@ -146,6 +146,13 @@ public class ByteArrayBlockEncodingBuffer
                 .toString();
     }
 
+    @VisibleForTesting
+    @Override
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        return estimatedValueBufferMaxCapacity;
+    }
+
     @Override
     protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
     {
