@@ -291,6 +291,7 @@ public class DwrfMetadataWriter
                 .setKind(toColumnEncodingKind(columnEncoding.getColumnEncodingKind()))
                 .setDictionarySize(columnEncoding.getDictionarySize())
                 .setColumn(columnId)
+                .setSequence(0)
                 .build();
     }
 
