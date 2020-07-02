@@ -65,6 +65,9 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractBlockEncodingBuffer
         implements BlockEncodingBuffer
 {
+    @VisibleForTesting
+    public static final double GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY = 1.2f;
+
     // The allocator for internal buffers
     protected final ArrayAllocator bufferAllocator;
 

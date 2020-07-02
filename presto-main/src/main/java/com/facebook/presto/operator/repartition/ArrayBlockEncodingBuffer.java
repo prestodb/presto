@@ -239,8 +239,8 @@ public class ArrayBlockEncodingBuffer
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction *
                 (estimatedSerializedSizeInBytes - childrenEstimatedSerializedSizeInBytes) / estimatedSerializedSizeInBytes;
 
-        setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
-        estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE);
+        setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY));
+        estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY);
 
         populateNestedPositions(columnarArray);
 
