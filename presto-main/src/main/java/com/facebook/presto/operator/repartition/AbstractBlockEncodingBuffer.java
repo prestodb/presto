@@ -257,6 +257,11 @@ public abstract class AbstractBlockEncodingBuffer
         this.estimatedNullsBufferMaxCapacity = estimatedNullsBufferMaxCapacity;
     }
 
+    protected static int getEstimatedBufferMaxCapacity(double targetBufferSize, int unitSize, int positionSize)
+    {
+        return (int) (targetBufferSize * unitSize / positionSize * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY);
+    }
+
     /**
      * Map the positions for DictionaryBlock to its nested dictionaryBlock, and positions for RunLengthEncodedBlock
      * to its nested value block. For example, positions [0, 2, 5] on DictionaryBlock with dictionary block ['a', 'b', 'c']
