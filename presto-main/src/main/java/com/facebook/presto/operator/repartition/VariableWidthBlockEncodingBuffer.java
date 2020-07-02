@@ -213,14 +213,12 @@ public class VariableWidthBlockEncodingBuffer
         decodedBlock = (Block) mapPositionsToNestedBlock(decodedBlockNode).getDecodedBlock();
 
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
-        estimatedSliceBufferMaxCapacity = (int) (targetBufferSize * ((VariableWidthBlock) decodedBlock).getRawSlice(0).getRetainedSize() / decodedBlock.getRetainedSizeInBytes());
-        if (decodedBlock.mayHaveNull()) {
-            setEstimatedNullsBufferMaxCapacity((int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Byte.BYTES / POSITION_SIZE));
-            estimatedOffsetBufferMaxCapacity = (int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Integer.BYTES / POSITION_SIZE);
-        }
-        else {
-            estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize - estimatedSliceBufferMaxCapacity);
-        }
+
+        estimatedSliceBufferMaxCapacity = (int) (targetBufferSize *
+                (((VariableWidthBlock) decodedBlock).getPositionOffset(decodedBlock.getPositionCount()) - ((VariableWidthBlock) decodedBlock).getPositionOffset(0)) /
+                decodedBlock.getLogicalSizeInBytes());
+        setEstimatedNullsBufferMaxCapacity((int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Byte.BYTES / POSITION_SIZE));
+        estimatedOffsetBufferMaxCapacity = (int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Integer.BYTES / POSITION_SIZE);
     }
 
     @Override
