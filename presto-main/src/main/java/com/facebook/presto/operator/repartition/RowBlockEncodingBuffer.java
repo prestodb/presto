@@ -266,8 +266,8 @@ public class RowBlockEncodingBuffer
 
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction * (estimatedSerializedSizeInBytes - childrenEstimatedSerializedSizeInBytes) / estimatedSerializedSizeInBytes;
 
-        setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY));
-        estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY);
+        setEstimatedNullsBufferMaxCapacity(getEstimatedBufferMaxCapacity(targetBufferSize, Byte.BYTES, POSITION_SIZE));
+        estimatedOffsetBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Integer.BYTES, POSITION_SIZE);
     }
 
     @Override
