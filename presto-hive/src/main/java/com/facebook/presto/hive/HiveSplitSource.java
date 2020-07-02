@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -79,8 +78,7 @@ class HiveSplitSource
     private final String queryId;
     private final String databaseName;
     private final String tableName;
-    private final CacheQuotaScope cacheQuotaScope;
-    private final Optional<DataSize> configuredCacheQuota;
+    private final CacheQuotaRequirement cacheQuotaRequirement;
     private final PerBucket queues;
     private final AtomicInteger bufferedInternalSplitCount = new AtomicInteger();
     private final long maxOutstandingSplitsBytes;
@@ -102,8 +100,7 @@ class HiveSplitSource
             ConnectorSession session,
             String databaseName,
             String tableName,
-            CacheQuotaScope cacheQuotaScope,
-            Optional<DataSize> configuredCacheQuota,
+            CacheQuotaRequirement cacheQuotaRequirement,
             PerBucket queues,
             int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
@@ -114,8 +111,7 @@ class HiveSplitSource
         requireNonNull(session, "session is null");
         this.queryId = session.getQueryId();
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
-        this.cacheQuotaScope = requireNonNull(cacheQuotaScope, "tableCacheQuota is null");
-        this.configuredCacheQuota = requireNonNull(configuredCacheQuota, "configuredCacheQuota is null");
+        this.cacheQuotaRequirement = requireNonNull(cacheQuotaRequirement, "cacheQuotaRequirement is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.queues = requireNonNull(queues, "queues is null");
         this.maxOutstandingSplitsBytes = requireNonNull(maxOutstandingSplitsSize, "maxOutstandingSplitsSize is null").toBytes();
@@ -132,8 +128,7 @@ class HiveSplitSource
             ConnectorSession session,
             String databaseName,
             String tableName,
-            CacheQuotaScope cacheQuotaScope,
-            Optional<DataSize> configuredCacheQuota,
+            CacheQuotaRequirement cacheQuotaRequirement,
             int maxInitialSplits,
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
@@ -145,8 +140,7 @@ class HiveSplitSource
                 session,
                 databaseName,
                 tableName,
-                cacheQuotaScope,
-                configuredCacheQuota,
+                cacheQuotaRequirement,
                 new PerBucket()
                 {
                     private final AsyncQueue<InternalHiveSplit> queue = new AsyncQueue<>(maxOutstandingSplits, executor);
@@ -195,8 +189,7 @@ class HiveSplitSource
             ConnectorSession session,
             String databaseName,
             String tableName,
-            CacheQuotaScope cacheQuotaScope,
-            Optional<DataSize> configuredCacheQuota,
+            CacheQuotaRequirement cacheQuotaRequirement,
             int estimatedOutstandingSplitsPerBucket,
             int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
@@ -208,8 +201,7 @@ class HiveSplitSource
                 session,
                 databaseName,
                 tableName,
-                cacheQuotaScope,
-                configuredCacheQuota,
+                cacheQuotaRequirement,
                 new PerBucket()
                 {
                     private final Map<Integer, AsyncQueue<InternalHiveSplit>> queues = new ConcurrentHashMap<>();
@@ -278,8 +270,7 @@ class HiveSplitSource
             ConnectorSession session,
             String databaseName,
             String tableName,
-            CacheQuotaScope cacheQuotaScope,
-            Optional<DataSize> configuredCacheQuota,
+            CacheQuotaRequirement cacheQuotaRequirement,
             int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
@@ -290,8 +281,7 @@ class HiveSplitSource
                 session,
                 databaseName,
                 tableName,
-                cacheQuotaScope,
-                configuredCacheQuota,
+                cacheQuotaRequirement,
                 new PerBucket()
                 {
                     @GuardedBy("this")
@@ -503,7 +493,7 @@ class HiveSplitSource
                         internalSplit.getBucketConversion(),
                         internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getExtraFileInfo(),
-                        new CacheQuotaRequirement(cacheQuotaScope, configuredCacheQuota),
+                        cacheQuotaRequirement,
                         internalSplit.getEncryptionInformation()));
 
                 internalSplit.increaseStart(splitBytes);
