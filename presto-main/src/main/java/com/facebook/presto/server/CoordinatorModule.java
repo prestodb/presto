@@ -29,7 +29,6 @@ import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.dispatcher.DispatchQueryFactory;
 import com.facebook.presto.dispatcher.FailedDispatchQueryFactory;
 import com.facebook.presto.dispatcher.LocalDispatchQueryFactory;
-import com.facebook.presto.dispatcher.QueuedStatementResource;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.execution.AddColumnTask;
@@ -97,6 +96,8 @@ import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
+import com.facebook.presto.server.protocol.LocalQueryProvider;
+import com.facebook.presto.server.protocol.QueuedStatementResource;
 import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -230,6 +231,8 @@ public class CoordinatorModule
         newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
+
+        binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
 
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
