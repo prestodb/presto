@@ -56,6 +56,7 @@ public class MapBlockEncodingBuffer
     @VisibleForTesting
     static final int HASH_MULTIPLIER = 2;
 
+    private static final int POSITION_SIZE_WITH_HASHTABLE = SIZE_OF_INT + SIZE_OF_BYTE + SIZE_OF_INT * HASH_MULTIPLIER;
     private static final String NAME = "MAP";
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockEncodingBuffer.class).instanceSize();
 
@@ -314,21 +315,9 @@ public class MapBlockEncodingBuffer
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction *
                 (estimatedSerializedSizeInBytes - keyBufferEstimatedSerializedSizeInBytes - valueBufferEstimatedSerializedSizeInBytes) / estimatedSerializedSizeInBytes;
 
-        if (!noHashTables && columnarMap.getHashTables() != null) {
-            estimatedHashTableBufferMaxCapacity = (int) (targetBufferSize * columnarMap.getHashTables().length / columnarMap.getRetainedSizeInBytes());
-            targetBufferSize -= estimatedHashTableBufferMaxCapacity;
-        }
-        else {
-            estimatedHashTableBufferMaxCapacity = 0;
-        }
-
-        if (decodedBlock.mayHaveNull()) {
-            setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
-            estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE);
-        }
-        else {
-            estimatedOffsetBufferMaxCapacity = (int) targetBufferSize;
-        }
+        estimatedHashTableBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES * HASH_MULTIPLIER / POSITION_SIZE_WITH_HASHTABLE);
+        setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE_WITH_HASHTABLE));
+        estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE_WITH_HASHTABLE);
 
         populateNestedPositions();
 
