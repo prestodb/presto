@@ -217,8 +217,9 @@ public class VariableWidthBlockEncodingBuffer
         estimatedSliceBufferMaxCapacity = (int) (targetBufferSize *
                 (((VariableWidthBlock) decodedBlock).getPositionOffset(decodedBlock.getPositionCount()) - ((VariableWidthBlock) decodedBlock).getPositionOffset(0)) /
                 decodedBlock.getLogicalSizeInBytes());
-        setEstimatedNullsBufferMaxCapacity((int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Byte.BYTES / POSITION_SIZE));
-        estimatedOffsetBufferMaxCapacity = (int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Integer.BYTES / POSITION_SIZE);
+        setEstimatedNullsBufferMaxCapacity((int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Byte.BYTES / POSITION_SIZE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY));
+        estimatedOffsetBufferMaxCapacity = (int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Integer.BYTES / POSITION_SIZE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY);
+        estimatedSliceBufferMaxCapacity *= GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY;
     }
 
     @Override

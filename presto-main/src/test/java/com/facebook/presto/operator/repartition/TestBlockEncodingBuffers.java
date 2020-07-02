@@ -86,6 +86,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RowType.withDefaultFieldNames;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY;
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
 import static com.facebook.presto.operator.repartition.MapBlockEncodingBuffer.HASH_MULTIPLIER;
 import static com.facebook.presto.operator.repartition.OptimizedPartitionedOutputOperator.decodeBlock;
@@ -256,11 +257,11 @@ public class TestBlockEncodingBuffers
         blocks[1] = createStringsBlock(strings);
 
         List<Object> expectedMaxBufferCapacities = ImmutableList.of(
-                ImmutableList.of(POSITIONS_PER_BLOCK * SIZE_OF_BYTE, POSITIONS_PER_BLOCK * SIZE_OF_LONG),
+                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
                 ImmutableList.of(
-                        POSITIONS_PER_BLOCK * SIZE_OF_BYTE,   // nullsBuffer
-                        POSITIONS_PER_BLOCK * SIZE_OF_INT,    // offsetsBuffer
-                        POSITIONS_PER_BLOCK * STRING_VALUE.length()));  //sliceBuffer
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),   // nullsBuffer
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),    // offsetsBuffer
+                        (int) (POSITIONS_PER_BLOCK * STRING_VALUE.length() * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)));  //sliceBuffer
         assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
 
         // 0: LongArrayBlock 1: Rle(VariableWidthBlock)
@@ -282,14 +283,14 @@ public class TestBlockEncodingBuffers
         blocks[1] = fromElementBlock(POSITIONS_PER_BLOCK, Optional.of(nulls), offsets, createStringsBlock(strings));
 
         expectedMaxBufferCapacities = ImmutableList.of(
-                ImmutableList.of(POSITIONS_PER_BLOCK * SIZE_OF_BYTE, POSITIONS_PER_BLOCK * SIZE_OF_LONG),
+                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
                 ImmutableList.of(
-                        POSITIONS_PER_BLOCK * SIZE_OF_BYTE,  // nullsBuffer
-                        POSITIONS_PER_BLOCK * SIZE_OF_INT,   // offsetsBuffer
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),  // nullsBuffer
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),   // offsetsBuffer
                         ImmutableList.of(
-                                POSITIONS_PER_BLOCK * SIZE_OF_BYTE,   // nullsBuffer
-                                POSITIONS_PER_BLOCK * SIZE_OF_INT,    // offsetsBuffer
-                                POSITIONS_PER_BLOCK * STRING_VALUE.length())));  //sliceBuffer
+                                (int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),   // nullsBuffer
+                                (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),    // offsetsBuffer
+                                (int) (POSITIONS_PER_BLOCK * STRING_VALUE.length() * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY))));  //sliceBuffer
         assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
 
         // 0: Dictionary(LongArrayBlock) 1: Array(Dictionary(VariableWidthBlock))
@@ -304,28 +305,28 @@ public class TestBlockEncodingBuffers
         blocks[1] = mapType(BIGINT, mapType(BIGINT, BIGINT)).createBlockFromKeyValue(POSITIONS_PER_BLOCK, Optional.of(nulls), offsets, keyBlock, valueBlock);
 
         expectedMaxBufferCapacities = ImmutableList.of(
-                ImmutableList.of(POSITIONS_PER_BLOCK * SIZE_OF_BYTE, POSITIONS_PER_BLOCK * SIZE_OF_LONG),
+                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
                 ImmutableList.of(
-                        POSITIONS_PER_BLOCK * SIZE_OF_INT,
-                        POSITIONS_PER_BLOCK * SIZE_OF_INT * HASH_MULTIPLIER,
-                        ImmutableList.of(POSITIONS_PER_BLOCK * SIZE_OF_BYTE, POSITIONS_PER_BLOCK * SIZE_OF_LONG),
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * HASH_MULTIPLIER * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),
+                        ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
                         ImmutableList.of(
-                                POSITIONS_PER_BLOCK * SIZE_OF_INT,
-                                POSITIONS_PER_BLOCK * SIZE_OF_INT * HASH_MULTIPLIER,
-                                ImmutableList.of(POSITIONS_PER_BLOCK * SIZE_OF_BYTE, POSITIONS_PER_BLOCK * SIZE_OF_LONG),
-                                ImmutableList.of(POSITIONS_PER_BLOCK * SIZE_OF_BYTE, POSITIONS_PER_BLOCK * SIZE_OF_LONG))));
+                                (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),
+                                (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * HASH_MULTIPLIER * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),
+                                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
+                                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)))));
         assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
 
         // 0: Rle(LongArrayBlock) 1: Row(LongArrayBlock, Rle(LongArrayBlock))
         blocks[1] = fromFieldBlocks(POSITIONS_PER_BLOCK, Optional.of(nulls), new Block[] {createRandomLongsBlock(POSITIONS_PER_BLOCK, 0), createRLEBlock(1L, POSITIONS_PER_BLOCK)});
 
         expectedMaxBufferCapacities = ImmutableList.of(
-                ImmutableList.of(POSITIONS_PER_BLOCK * SIZE_OF_BYTE, POSITIONS_PER_BLOCK * SIZE_OF_LONG),
+                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
                 ImmutableList.of(
-                        POSITIONS_PER_BLOCK * SIZE_OF_BYTE,  // nullsBuffer
-                        POSITIONS_PER_BLOCK * SIZE_OF_INT,   // offsetsBuffer
-                        ImmutableList.of(POSITIONS_PER_BLOCK * SIZE_OF_BYTE, POSITIONS_PER_BLOCK * SIZE_OF_LONG),
-                        ImmutableList.of(POSITIONS_PER_BLOCK * SIZE_OF_BYTE, POSITIONS_PER_BLOCK * SIZE_OF_LONG)));
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),  // nullsBuffer
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),   // offsetsBuffer
+                        ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
+                        ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY))));
         assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
     }
 
