@@ -53,10 +53,11 @@ public class MapBlockEncodingBuffer
     @VisibleForTesting
     static final int POSITION_SIZE = SIZE_OF_INT + SIZE_OF_BYTE;
 
+    @VisibleForTesting
+    static final int HASH_MULTIPLIER = 2;
+
     private static final String NAME = "MAP";
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockEncodingBuffer.class).instanceSize();
-
-    private static final int HASH_MULTIPLIER = 2;
 
     // The buffer for the hashtables for all incoming blocks so far
     private byte[] hashTablesBuffer;
@@ -265,6 +266,36 @@ public class MapBlockEncodingBuffer
                 .add("keyBuffers", keyBuffers)
                 .add("valueBuffers", valueBuffers)
                 .toString();
+    }
+
+    @Override
+    protected int getEstimatedValueBufferMaxCapacity()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @VisibleForTesting
+    int getEstimatedOffsetBufferMaxCapacity()
+    {
+        return estimatedOffsetBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    int getEstimatedHashTableBufferMaxCapacity()
+    {
+        return estimatedHashTableBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    BlockEncodingBuffer getKeyBuffers()
+    {
+        return keyBuffers;
+    }
+
+    @VisibleForTesting
+    BlockEncodingBuffer getValueBuffers()
+    {
+        return valueBuffers;
     }
 
     @Override
