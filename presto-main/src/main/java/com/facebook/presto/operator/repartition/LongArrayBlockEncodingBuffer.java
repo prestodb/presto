@@ -138,8 +138,8 @@ public class LongArrayBlockEncodingBuffer
         decodedBlock = (Block) mapPositionsToNestedBlock(decodedBlockNode).getDecodedBlock();
 
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
-        setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
-        estimatedValueBufferMaxCapacity = (int) (targetBufferSize * Long.BYTES / POSITION_SIZE);
+        setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY));
+        estimatedValueBufferMaxCapacity = (int) (targetBufferSize * Long.BYTES / POSITION_SIZE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY);
     }
 
     @Override
