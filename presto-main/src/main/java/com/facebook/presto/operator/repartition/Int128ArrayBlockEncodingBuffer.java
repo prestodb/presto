@@ -139,6 +139,12 @@ public class Int128ArrayBlockEncodingBuffer
                 .toString();
     }
 
+    @VisibleForTesting
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        return estimatedValueBufferMaxCapacity;
+    }
+
     @Override
     protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
     {

@@ -188,6 +188,24 @@ public class VariableWidthBlockEncodingBuffer
                 .toString();
     }
 
+    @VisibleForTesting
+    int getEstimatedOffsetBufferMaxCapacity()
+    {
+        return estimatedOffsetBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    int getEstimatedSliceBufferMaxCapacity()
+    {
+        return estimatedSliceBufferMaxCapacity;
+    }
+
+    @Override
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
     {

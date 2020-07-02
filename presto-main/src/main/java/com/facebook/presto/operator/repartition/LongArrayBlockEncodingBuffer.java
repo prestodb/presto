@@ -125,6 +125,12 @@ public class LongArrayBlockEncodingBuffer
                 .toString();
     }
 
+    @VisibleForTesting
+    public int getEstimatedValueBufferMaxCapacity()
+    {
+        return estimatedValueBufferMaxCapacity;
+    }
+
     @Override
     protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
     {
