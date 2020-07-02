@@ -315,9 +315,9 @@ public class MapBlockEncodingBuffer
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction *
                 (estimatedSerializedSizeInBytes - keyBufferEstimatedSerializedSizeInBytes - valueBufferEstimatedSerializedSizeInBytes) / estimatedSerializedSizeInBytes;
 
-        estimatedHashTableBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES * HASH_MULTIPLIER / POSITION_SIZE_WITH_HASHTABLE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY);
-        setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE_WITH_HASHTABLE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY));
-        estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE_WITH_HASHTABLE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY);
+        estimatedHashTableBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Integer.BYTES * HASH_MULTIPLIER, POSITION_SIZE_WITH_HASHTABLE);
+        setEstimatedNullsBufferMaxCapacity(getEstimatedBufferMaxCapacity(targetBufferSize, Byte.BYTES, POSITION_SIZE_WITH_HASHTABLE));
+        estimatedOffsetBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Integer.BYTES, POSITION_SIZE_WITH_HASHTABLE);
 
         populateNestedPositions();
 
