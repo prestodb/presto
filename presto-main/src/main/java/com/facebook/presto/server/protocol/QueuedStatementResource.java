@@ -11,12 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.dispatcher;
+package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
+import com.facebook.presto.dispatcher.DispatchExecutor;
+import com.facebook.presto.dispatcher.DispatchInfo;
+import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.server.HttpRequestSessionContext;
@@ -26,8 +29,8 @@ import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -62,7 +65,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -70,8 +72,14 @@ import static com.facebook.presto.server.security.RoleType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.Futures.transformAsync;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -89,10 +97,12 @@ public class QueuedStatementResource
 {
     private static final Logger log = Logger.get(QueuedStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
+    private static final DataSize TARGET_RESULT_SIZE = new DataSize(1, MEGABYTE);
     private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
     private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
     private final DispatchManager dispatchManager;
+    private final LocalQueryProvider queryResultsProvider;
 
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -103,9 +113,11 @@ public class QueuedStatementResource
     @Inject
     public QueuedStatementResource(
             DispatchManager dispatchManager,
-            DispatchExecutor executor)
+            DispatchExecutor executor,
+            LocalQueryProvider queryResultsProvider)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
+        this.queryResultsProvider = queryResultsProvider;
 
         requireNonNull(dispatchManager, "dispatchManager is null");
         this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
@@ -155,10 +167,10 @@ public class QueuedStatementResource
         }
 
         SessionContext sessionContext = new HttpRequestSessionContext(servletRequest);
-        Query query = new Query(statement, sessionContext, dispatchManager);
+        Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, timeoutExecutor);
         queries.put(query.getQueryId(), query);
 
-        return Response.ok(query.getQueryResults(query.getLastToken(), uriInfo, xForwardedProto)).build();
+        return Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto)).build();
     }
 
     @GET
@@ -183,17 +195,11 @@ public class QueuedStatementResource
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        ListenableFuture<QueryResults> queryResultsFuture = Futures.transform(
+        ListenableFuture<Response> queryResultsFuture = transformAsync(
                 futureStateChange,
-                ignored -> query.getQueryResults(token, uriInfo, xForwardedProto),
+                ignored -> query.toResponse(token, uriInfo, xForwardedProto, WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait)),
                 responseExecutor);
-
-        // transform to Response
-        ListenableFuture<Response> response = Futures.transform(
-                queryResultsFuture,
-                queryResults -> Response.ok(queryResults).build(),
-                directExecutor());
-        bindAsyncResponse(asyncResponse, response, responseExecutor);
+        bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);
     }
 
     @DELETE
@@ -204,8 +210,7 @@ public class QueuedStatementResource
             @PathParam("token") long token,
             @QueryParam("slug") String slug)
     {
-        getQuery(queryId, slug)
-                .cancel();
+        getQuery(queryId, slug).cancel();
         return Response.noContent().build();
     }
 
@@ -287,6 +292,8 @@ public class QueuedStatementResource
         private final String query;
         private final SessionContext sessionContext;
         private final DispatchManager dispatchManager;
+        private final LocalQueryProvider queryProvider;
+        private final ScheduledExecutorService timeoutExecutor;
         private final QueryId queryId;
         private final String slug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
         private final AtomicLong lastToken = new AtomicLong();
@@ -294,11 +301,13 @@ public class QueuedStatementResource
         @GuardedBy("this")
         private ListenableFuture<?> querySubmissionFuture;
 
-        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager)
+        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, LocalQueryProvider queryResultsProvider, ScheduledExecutorService timeoutExecutor)
         {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
             this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
+            this.queryProvider = requireNonNull(queryResultsProvider, "queryExecutor is null");
+            this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
             this.queryId = dispatchManager.createQueryId();
         }
 
@@ -338,7 +347,18 @@ public class QueuedStatementResource
             return dispatchManager.waitForDispatched(queryId);
         }
 
-        public QueryResults getQueryResults(long token, UriInfo uriInfo, String xForwardedProto)
+        public synchronized QueryResults getInitialQueryResults(UriInfo uriInfo, String xForwardedProto)
+        {
+            verify(lastToken.get() == 0);
+            verify(querySubmissionFuture == null);
+            return createQueryResults(
+                    1,
+                    uriInfo,
+                    xForwardedProto,
+                    DispatchInfo.queued(NO_DURATION, NO_DURATION));
+        }
+
+        public ListenableFuture<Response> toResponse(long token, UriInfo uriInfo, String xForwardedProto, Duration maxWait)
         {
             long lastToken = this.lastToken.get();
             // token should be the last token or the next token
@@ -351,23 +371,40 @@ public class QueuedStatementResource
             synchronized (this) {
                 // if query submission has not finished, return simple empty result
                 if (querySubmissionFuture == null || !querySubmissionFuture.isDone()) {
-                    return createQueryResults(
+                    QueryResults queryResults = createQueryResults(
                             token + 1,
                             uriInfo,
                             xForwardedProto,
                             DispatchInfo.queued(NO_DURATION, NO_DURATION));
+                    return immediateFuture(Response.ok(queryResults).build());
                 }
             }
 
             Optional<DispatchInfo> dispatchInfo = dispatchManager.getDispatchInfo(queryId);
             if (!dispatchInfo.isPresent()) {
                 // query should always be found, but it may have just been determined to be abandoned
-                throw new WebApplicationException(Response
+                return immediateFailedFuture(new WebApplicationException(Response
                         .status(NOT_FOUND)
-                        .build());
+                        .build()));
             }
 
-            return createQueryResults(token + 1, uriInfo, xForwardedProto, dispatchInfo.get());
+            if (!waitForDispatched().isDone()) {
+                return immediateFuture(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, dispatchInfo.get())).build());
+            }
+
+            com.facebook.presto.server.protocol.Query query;
+            try {
+                query = queryProvider.getQuery(queryId, slug);
+            }
+            catch (WebApplicationException e) {
+                return immediateFuture(Response.ok(createQueryResults(token + 1, uriInfo, xForwardedProto, dispatchInfo.get())).build());
+            }
+            // If this future completes successfully, the next URI will redirect to the executing statement endpoint.
+            // Hence it is safe to hardcode the token to be 0.
+            return transform(
+                    query.waitForResults(0, uriInfo, getScheme(xForwardedProto, uriInfo), maxWait, TARGET_RESULT_SIZE),
+                    results -> QueryResourceUtil.toResponse(query, results),
+                    directExecutor());
         }
 
         public synchronized void cancel()
@@ -398,21 +435,7 @@ public class QueuedStatementResource
             if (dispatchInfo.getFailureInfo().isPresent()) {
                 return null;
             }
-            // if dispatched, redirect to new uri
-            return dispatchInfo.getCoordinatorLocation()
-                            .map(coordinatorLocation -> getRedirectUri(coordinatorLocation, uriInfo, xForwardedProto))
-                            .orElseGet(() -> getQueuedUri(queryId, slug, token, uriInfo, xForwardedProto));
-        }
-
-        private URI getRedirectUri(CoordinatorLocation coordinatorLocation, UriInfo uriInfo, String xForwardedProto)
-        {
-            URI coordinatorUri = coordinatorLocation.getUri(uriInfo, xForwardedProto);
-            return uriBuilderFrom(coordinatorUri)
-                    .appendPath("/v1/statement/executing")
-                    .appendPath(queryId.toString())
-                    .appendPath("0")
-                    .addParameter("slug", slug)
-                    .build();
+            return getQueuedUri(queryId, slug, token, uriInfo, xForwardedProto);
         }
 
         private QueryError toQueryError(ExecutionFailureInfo executionFailureInfo)
