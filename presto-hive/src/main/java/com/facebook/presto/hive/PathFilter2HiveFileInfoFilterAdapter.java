@@ -13,19 +13,23 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
-import com.facebook.presto.hive.metastore.Table;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 
-import java.util.Iterator;
+import static java.util.Objects.requireNonNull;
 
-public interface DirectoryLister
+public class PathFilter2HiveFileInfoFilterAdapter
+        implements HiveFileInfoFilter
 {
-    Iterator<HiveFileInfo> list(
-            ExtendedFileSystem fileSystem,
-            Table table,
-            Path path,
-            NamenodeStats namenodeStats,
-            HiveFileInfoFilter hiveFileInfoFilter,
-            HiveDirectoryContext hiveDirectoryContext);
+    private final PathFilter pathFilter;
+
+    public PathFilter2HiveFileInfoFilterAdapter(PathFilter pathFilter)
+    {
+        this.pathFilter = requireNonNull(pathFilter, "pathFilter is null");
+    }
+
+    @Override
+    public boolean accept(HiveFileInfo file)
+    {
+        return pathFilter.accept(file.getPath());
+    }
 }

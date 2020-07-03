@@ -14,7 +14,9 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.hive.HadoopDirectoryLister.HadoopFileInfoIterator;
+import com.facebook.presto.hive.HiveFileInfoFilter;
 import com.facebook.presto.hive.NamenodeStats;
+import com.facebook.presto.hive.PathFilter2HiveFileInfoFilterAdapter;
 import com.facebook.presto.hive.util.HiveFileIterator.ListDirectoryOperation;
 import com.google.common.collect.Iterators;
 import org.apache.hadoop.conf.Configuration;
@@ -76,8 +78,8 @@ public class TestHiveFileIterator
         createFiles(basePath, 3, true);
         createFiles(basePath, 5, false);
         Path rootPath = new Path("file://" + basePath + File.separator);
-        PathFilter pathFilter = path -> true;
-        HiveFileIterator hiveFileIterator = new HiveFileIterator(rootPath, listDirectoryOperation, new NamenodeStats(), IGNORED, pathFilter);
+        HiveFileInfoFilter hiveFileInfoFilter = path -> true;
+        HiveFileIterator hiveFileIterator = new HiveFileIterator(rootPath, listDirectoryOperation, new NamenodeStats(), IGNORED, hiveFileInfoFilter);
 
         int actualCount = Iterators.size(hiveFileIterator);
         assertEquals(actualCount, 8);
@@ -107,8 +109,8 @@ public class TestHiveFileIterator
         createFiles(dir2, 3, true);
         createFiles(dir2, 4, false);
         Path rootPath = new Path("file://" + basePath + File.separator);
-        PathFilter pathFilter = path -> true;
-        HiveFileIterator hiveFileIterator = new HiveFileIterator(rootPath, listDirectoryOperation, new NamenodeStats(), RECURSE, pathFilter);
+        HiveFileInfoFilter hiveFileInfoFilter = path -> true;
+        HiveFileIterator hiveFileIterator = new HiveFileIterator(rootPath, listDirectoryOperation, new NamenodeStats(), RECURSE, hiveFileInfoFilter);
 
         int actualCount = Iterators.size(hiveFileIterator);
         assertEquals(actualCount, 20);
@@ -129,7 +131,7 @@ public class TestHiveFileIterator
         createFiles(basePath, 5, false);
         Path rootPath = new Path("file://" + basePath + File.separator);
         PathFilter pathFilter = path -> path.getName().contains(PATH_FILTER_MATCHED_PREFIX);
-        HiveFileIterator hiveFileIterator = new HiveFileIterator(rootPath, listDirectoryOperation, new NamenodeStats(), IGNORED, pathFilter);
+        HiveFileIterator hiveFileIterator = new HiveFileIterator(rootPath, listDirectoryOperation, new NamenodeStats(), IGNORED, new PathFilter2HiveFileInfoFilterAdapter(pathFilter));
 
         int actualCount = Iterators.size(hiveFileIterator);
         assertEquals(actualCount, 3);
@@ -160,7 +162,7 @@ public class TestHiveFileIterator
         createFiles(dir2, 4, false);
         Path rootPath = new Path("file://" + basePath + File.separator);
         PathFilter pathFilter = path -> path.getName().contains(PATH_FILTER_MATCHED_PREFIX);
-        HiveFileIterator hiveFileIterator = new HiveFileIterator(rootPath, listDirectoryOperation, new NamenodeStats(), RECURSE, pathFilter);
+        HiveFileIterator hiveFileIterator = new HiveFileIterator(rootPath, listDirectoryOperation, new NamenodeStats(), RECURSE, new PathFilter2HiveFileInfoFilterAdapter(pathFilter));
 
         int actualCount = Iterators.size(hiveFileIterator);
         assertEquals(actualCount, 9);

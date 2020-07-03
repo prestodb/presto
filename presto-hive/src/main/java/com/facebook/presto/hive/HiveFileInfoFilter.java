@@ -13,19 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
-import com.facebook.presto.hive.metastore.Table;
-import org.apache.hadoop.fs.Path;
-
-import java.util.Iterator;
-
-public interface DirectoryLister
+public interface HiveFileInfoFilter
 {
-    Iterator<HiveFileInfo> list(
-            ExtendedFileSystem fileSystem,
-            Table table,
-            Path path,
-            NamenodeStats namenodeStats,
-            HiveFileInfoFilter hiveFileInfoFilter,
-            HiveDirectoryContext hiveDirectoryContext);
+    boolean accept(HiveFileInfo file);
 }

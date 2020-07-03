@@ -36,7 +36,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
@@ -378,7 +377,7 @@ public class BackgroundHiveSplitLoader
 
             return addSplitsToSource(splits, splitFactory);
         }
-        PathFilter pathFilter = isHudiInputFormat(inputFormat) ? hoodiePathFilterSupplier.get() : path1 -> true;
+        HiveFileInfoFilter hiveFileInfoFilter = isHudiInputFormat(inputFormat) ? new PathFilter2HiveFileInfoFilterAdapter(hoodiePathFilterSupplier.get()) : path1 -> true;
         // S3 Select pushdown works at the granularity of individual S3 objects,
         // therefore we must not split files when it is enabled.
         Properties schema = getHiveSchema(storage.getSerdeParameters(), table.getParameters());
@@ -392,12 +391,12 @@ public class BackgroundHiveSplitLoader
                 checkState(
                         tableBucketInfo.get().getTableBucketCount() == tableBucketInfo.get().getReadBucketCount(),
                         "Table and read bucket count should be the same for virtual bucket");
-                return hiveSplitSource.addToQueue(getVirtuallyBucketedSplits(path, fs, splitFactory, tableBucketInfo.get().getReadBucketCount(), splittable, pathFilter));
+                return hiveSplitSource.addToQueue(getVirtuallyBucketedSplits(path, fs, splitFactory, tableBucketInfo.get().getReadBucketCount(), splittable, hiveFileInfoFilter));
             }
-            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, splittable, pathFilter));
+            return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, splittable, hiveFileInfoFilter));
         }
 
-        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, pathFilter));
+        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, hiveFileInfoFilter));
         return COMPLETED_FUTURE;
     }
 
@@ -430,10 +429,10 @@ public class BackgroundHiveSplitLoader
                 .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, PathFilter pathFilter)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, HiveFileInfoFilter hiveFileInfoFilter)
     {
         HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, isUseListDirectoryCache(session));
-        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, pathFilter, hiveDirectoryContext))
+        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, hiveFileInfoFilter, hiveDirectoryContext))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -448,7 +447,7 @@ public class BackgroundHiveSplitLoader
             Optional<BucketConversion> bucketConversion,
             String partitionName,
             boolean splittable,
-            PathFilter pathFilter)
+            HiveFileInfoFilter hiveFileInfoFilter)
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
@@ -459,7 +458,7 @@ public class BackgroundHiveSplitLoader
         // list all files in the partition
         List<HiveFileInfo> fileInfos = new ArrayList<>(partitionBucketCount);
         try {
-            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, namenodeStats, pathFilter, new HiveDirectoryContext(FAIL, isUseListDirectoryCache(session))));
+            Iterators.addAll(fileInfos, directoryLister.list(fileSystem, table, path, namenodeStats, hiveFileInfoFilter, new HiveDirectoryContext(FAIL, isUseListDirectoryCache(session))));
         }
         catch (NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -524,11 +523,11 @@ public class BackgroundHiveSplitLoader
         return splitList;
     }
 
-    private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable, PathFilter pathFilter)
+    private List<InternalHiveSplit> getVirtuallyBucketedSplits(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, int bucketCount, boolean splittable, HiveFileInfoFilter hiveFileInfoFilter)
     {
         // List all files recursively in the partition and assign virtual bucket number to each of them
         HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, isUseListDirectoryCache(session));
-        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, pathFilter, hiveDirectoryContext))
+        return stream(directoryLister.list(fileSystem, table, path, namenodeStats, hiveFileInfoFilter, hiveDirectoryContext))
                 .map(fileInfo -> {
                     int virtualBucketNumber = getVirtualBucketNumber(bucketCount, fileInfo.getPath());
                     return splitFactory.createInternalHiveSplit(fileInfo, virtualBucketNumber, virtualBucketNumber, splittable);
