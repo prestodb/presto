@@ -74,7 +74,7 @@ public class KuduClientConfig
     }
 
     @Config("kudu.client.tablet-split-size-bytes")
-    public KuduClientConfig setSplitSizeBytes(long tabletSplitSizeBytes)
+    public KuduClientConfig setTabletSplitSizeBytes(long tabletSplitSizeBytes)
     {
         this.tabletSplitSizeBytes = tabletSplitSizeBytes;
         return this;
