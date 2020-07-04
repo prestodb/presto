@@ -26,7 +26,9 @@ import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.fs.Path;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 
@@ -63,7 +65,9 @@ public class ParquetPageSource
             MessageColumnIO messageColumnIO,
             TypeManager typeManager,
             List<HiveColumnHandle> columns,
-            boolean useParquetColumnNames)
+            boolean useParquetColumnNames,
+            SchemaTableName tableName,
+            Path path)
     {
         requireNonNull(columns, "columns is null");
         requireNonNull(fileSchema, "fileSchema is null");
@@ -81,7 +85,7 @@ public class ParquetPageSource
             namesBuilder.add(name);
             typesBuilder.add(type);
 
-            if (getParquetType(type, fileSchema, useParquetColumnNames, column).isPresent()) {
+            if (getParquetType(type, fileSchema, useParquetColumnNames, column, tableName, path).isPresent()) {
                 String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
                 fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
             }

@@ -46,6 +46,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.CoordinateSequence;
 import org.locationtech.jts.geom.Geometry;
@@ -414,7 +415,7 @@ public final class GeoFunctions
     {
         try {
             Geometry geometry = deserialize(input);
-            return utf8Slice(getGeometryInvalidReason(geometry));
+            return getGeometryInvalidReason(geometry).map(Slices::utf8Slice).orElse(null);
         }
         catch (PrestoException e) {
             if (e.getCause() instanceof TopologyException) {

@@ -505,7 +505,7 @@ To find the `ROC curve <https://en.wikipedia.org/wiki/Receiver_operating_charact
     .. math ::
 
         {
-            \sum_{i \;|\; x_i \leq t_j \bigwedge y_i = 0} \left[ w_i \right]
+            \sum_{i \;|\; x_i > t_j \bigwedge y_i = 0} \left[ w_i \right]
             \over
             \sum_{i \;|\; y_i = 0} \left[ w_i \right]
         },

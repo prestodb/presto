@@ -166,10 +166,4 @@ public class TestingResourceGroup
     {
         jmxExport = export;
     }
-
-    @Override
-    public int getVersion()
-    {
-        return 0;
-    }
 }

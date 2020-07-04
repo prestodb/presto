@@ -34,7 +34,9 @@ public class TestClassificationMissRateAggregation
         final ArrayList<Double> expected = new ArrayList<>();
         while (iterator.hasNext()) {
             final BucketResult result = iterator.next();
-            final double missRate = result.remainingFalseWeight / result.totalTrueWeight;
+            final double positive = result.totalTrueWeight;
+            final double falseNegative = result.totalTrueWeight - result.remainingTrueWeight;
+            final double missRate = falseNegative / positive;
             expected.add(missRate);
         }
         return expected;

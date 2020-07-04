@@ -136,6 +136,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
+    public static final String ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE = "enable_stats_collection_for_temporary_table";
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String PRINT_STATS_FOR_NON_JOIN_QUERY = "print_stats_for_non_join_query";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
@@ -157,6 +158,7 @@ public final class SystemSessionProperties
     public static final String PREFER_DISTRIBUTED_UNION = "prefer_distributed_union";
     public static final String WARNING_HANDLING = "warning_handling";
     public static final String OPTIMIZE_NULLS_IN_JOINS = "optimize_nulls_in_join";
+    public static final String TARGET_RESULT_SIZE = "target_result_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -673,6 +675,11 @@ public final class SystemSessionProperties
                         "Experimental: Enable statistics calculator",
                         featuresConfig.isEnableStatsCalculator(),
                         false),
+                booleanProperty(
+                        ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE,
+                        "Experimental: Enable statistics collection of temporary tables created for materialized exchange",
+                        featuresConfig.isEnableStatsCollectionForTemporaryTable(),
+                        false),
                 integerProperty(
                         MAX_TASKS_PER_STAGE,
                         "Maximum number of tasks for a non source distributed stage",
@@ -715,7 +722,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         PUSHDOWN_SUBFIELDS_ENABLED,
                         "Experimental: enable subfield pruning",
-                        featuresConfig.isPushdownSubfieldsEnabled(),
+                        true,
                         false),
                 booleanProperty(
                         TABLE_WRITER_MERGE_OPERATOR_ENABLED,
@@ -806,7 +813,16 @@ public final class SystemSessionProperties
                         OPTIMIZE_NULLS_IN_JOINS,
                         "Filter nulls from inner side of join",
                         featuresConfig.isOptimizeNullsInJoin(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        TARGET_RESULT_SIZE,
+                        "Target result size for results being streamed from coordinator",
+                        VARCHAR,
+                        DataSize.class,
+                        null,
+                        false,
+                        value -> value != null ? DataSize.valueOf((String) value) : null,
+                        value -> value != null ? value.toString() : null));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1267,6 +1283,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_STATS_CALCULATOR, Boolean.class);
     }
 
+    public static boolean isEnableStatsCollectionForTemporaryTable(Session session)
+    {
+        return session.getSystemProperty(ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE, Boolean.class);
+    }
+
     public static boolean isIgnoreStatsCalculatorFailures(Session session)
     {
         return session.getSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, Boolean.class);
@@ -1361,5 +1382,10 @@ public final class SystemSessionProperties
     public static boolean isOptimizeNullsInJoin(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_NULLS_IN_JOINS, Boolean.class);
+    }
+
+    public static Optional<DataSize> getTargetResultSize(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(TARGET_RESULT_SIZE, DataSize.class));
     }
 }

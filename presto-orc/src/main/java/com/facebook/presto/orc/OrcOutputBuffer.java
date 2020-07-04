@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,6 +64,7 @@ public class OrcOutputBuffer
     @Nullable
     private final Compressor compressor;
     private byte[] compressionBuffer = new byte[0];
+    private final Optional<DwrfDataEncryptor> dwrfEncryptor;
 
     private Slice slice;
     private byte[] buffer;
@@ -76,9 +78,10 @@ public class OrcOutputBuffer
      */
     private int bufferPosition;
 
-    public OrcOutputBuffer(CompressionKind compression, int maxBufferSize)
+    public OrcOutputBuffer(CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int maxBufferSize)
     {
         requireNonNull(compression, "compression is null");
+        requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         checkArgument(maxBufferSize > PAGE_HEADER_SIZE, "maximum buffer size should be greater than page header size");
 
         this.maxBufferSize = compression == CompressionKind.NONE ? maxBufferSize : maxBufferSize - PAGE_HEADER_SIZE;
@@ -105,6 +108,11 @@ public class OrcOutputBuffer
         }
         else {
             throw new IllegalArgumentException("Unsupported compression " + compression);
+        }
+
+        this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
+        if (dwrfEncryptor.isPresent() && compressor == null) {
+            throw new IllegalArgumentException("DWRF encryption not supported without compression");
         }
     }
 
@@ -448,6 +456,10 @@ public class OrcOutputBuffer
 
         int compressedSize = compressor.compress(chunk, offset, length, compressionBuffer, 0, compressionBuffer.length);
         if (compressedSize < length) {
+            if (dwrfEncryptor.isPresent()) {
+                compressionBuffer = dwrfEncryptor.get().encrypt(compressionBuffer, 0, compressedSize);
+                compressedSize = compressionBuffer.length;
+            }
             int chunkHeader = (compressedSize << 1);
             compressedOutputStream.write(chunkHeader & 0x00_00FF);
             compressedOutputStream.write((chunkHeader & 0x00_FF00) >> 8);
@@ -455,6 +467,10 @@ public class OrcOutputBuffer
             compressedOutputStream.writeBytes(compressionBuffer, 0, compressedSize);
         }
         else {
+            if (dwrfEncryptor.isPresent()) {
+                chunk = dwrfEncryptor.get().encrypt(chunk, 0, length);
+                length = chunk.length;
+            }
             int header = (length << 1) + 1;
             compressedOutputStream.write(header & 0x00_00FF);
             compressedOutputStream.write((header & 0x00_FF00) >> 8);

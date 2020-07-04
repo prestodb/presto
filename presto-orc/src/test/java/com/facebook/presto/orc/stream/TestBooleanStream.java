@@ -149,7 +149,7 @@ public class TestBooleanStream
     @Override
     protected BooleanOutputStream createValueOutputStream()
     {
-        return new BooleanOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new BooleanOutputStream(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE);
     }
 
     @Override
@@ -163,7 +163,7 @@ public class TestBooleanStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new BooleanInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
+        return new BooleanInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
     }
 
     @Override

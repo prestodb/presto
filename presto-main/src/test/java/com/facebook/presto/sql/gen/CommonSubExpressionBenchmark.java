@@ -16,6 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.SequencePageBuilder;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.type.Type;
@@ -23,7 +24,10 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.index.PageRecordSet;
+import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -66,6 +70,7 @@ import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZ
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.toList;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
@@ -82,9 +87,11 @@ public class CommonSubExpressionBenchmark
     private static final int POSITIONS = 1024;
 
     private PageProcessor pageProcessor;
+    private CursorProcessor cursorProcessor;
     private Page inputPage;
     private Map<String, Type> symbolTypes;
     private Map<VariableReferenceExpression, Integer> sourceLayout;
+    private List<Type> projectionTypes;
 
     @Param({"json", "bigint", "varchar"})
     String functionType;
@@ -107,13 +114,17 @@ public class CommonSubExpressionBenchmark
 
         List<RowExpression> projections = getProjections(this.functionType);
 
+        projectionTypes = projections.stream().map(RowExpression::getType).collect(toList());
+
         MetadataManager metadata = createTestMetadataManager();
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
-        pageProcessor = new ExpressionCompiler(metadata, pageFunctionCompiler).compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(getFilter(functionType)), projections, optimizeCommonSubExpression, Optional.empty()).get();
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, pageFunctionCompiler);
+        pageProcessor = expressionCompiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(getFilter(functionType)), projections, optimizeCommonSubExpression, Optional.empty()).get();
+        cursorProcessor = expressionCompiler.compileCursorProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(getFilter(functionType)), projections, "key", optimizeCommonSubExpression).get();
     }
 
     @Benchmark
-    public List<Optional<Page>> compute()
+    public List<Optional<Page>> computePage()
     {
         return ImmutableList.copyOf(
                 pageProcessor.process(
@@ -121,6 +132,22 @@ public class CommonSubExpressionBenchmark
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         inputPage));
+    }
+
+    @Benchmark
+    public Optional<Page> ComputeRecordSet()
+    {
+        List<Type> types = ImmutableList.of(TYPE_MAP.get(this.functionType));
+        PageBuilder pageBuilder = new PageBuilder(projectionTypes);
+        RecordSet recordSet = new PageRecordSet(types, inputPage);
+
+        cursorProcessor.process(
+                null,
+                new DriverYieldSignal(),
+                recordSet.cursor(),
+                pageBuilder);
+
+        return Optional.of(pageBuilder.build());
     }
 
     private RowExpression getFilter(String functionType)

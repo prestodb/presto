@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
@@ -116,7 +117,9 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -141,6 +144,11 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
+import static com.facebook.presto.hive.ColumnEncryptionInformation.ColumnWithStructSubfield;
+import static com.facebook.presto.hive.EncryptionProperties.DWRF_ENCRYPTION_ALGORITHM_KEY;
+import static com.facebook.presto.hive.EncryptionProperties.DWRF_ENCRYPTION_PROVIDER_KEY;
+import static com.facebook.presto.hive.EncryptionProperties.ENCRYPT_COLUMNS_KEY;
+import static com.facebook.presto.hive.EncryptionProperties.ENCRYPT_TABLE_KEY;
 import static com.facebook.presto.hive.HiveAnalyzeProperties.getPartitionList;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.HiveBasicStatistics.createZeroStatistics;
@@ -155,6 +163,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.updateRowIdHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_ENCRYPTION_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
@@ -188,6 +197,10 @@ import static com.facebook.presto.hive.HiveStorageFormat.values;
 import static com.facebook.presto.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
+import static com.facebook.presto.hive.HiveTableProperties.DWRF_ENCRYPTION_ALGORITHM;
+import static com.facebook.presto.hive.HiveTableProperties.DWRF_ENCRYPTION_PROVIDER;
+import static com.facebook.presto.hive.HiveTableProperties.ENCRYPT_COLUMNS;
+import static com.facebook.presto.hive.HiveTableProperties.ENCRYPT_TABLE;
 import static com.facebook.presto.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
@@ -197,6 +210,10 @@ import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getAvroSchemaUrl;
 import static com.facebook.presto.hive.HiveTableProperties.getBucketProperty;
+import static com.facebook.presto.hive.HiveTableProperties.getDwrfEncryptionAlgorithm;
+import static com.facebook.presto.hive.HiveTableProperties.getDwrfEncryptionProvider;
+import static com.facebook.presto.hive.HiveTableProperties.getEncryptColumns;
+import static com.facebook.presto.hive.HiveTableProperties.getEncryptTable;
 import static com.facebook.presto.hive.HiveTableProperties.getExternalLocation;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
 import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterColumns;
@@ -524,12 +541,33 @@ public class HiveMetadata
         }
 
         // Storage format property
+        HiveStorageFormat format = null;
         try {
-            HiveStorageFormat format = extractHiveStorageFormat(table.get());
+            format = extractHiveStorageFormat(table.get());
             properties.put(STORAGE_FORMAT_PROPERTY, format);
         }
         catch (PrestoException ignored) {
             // todo fail if format is not known
+        }
+
+        String encryptTable = table.get().getParameters().get(ENCRYPT_TABLE_KEY);
+        String encryptColumns = table.get().getParameters().get(ENCRYPT_COLUMNS_KEY);
+
+        if (encryptTable != null || encryptColumns != null) {
+            if (format != DWRF) {
+                throw new PrestoException(HIVE_INVALID_ENCRYPTION_METADATA, "Encryption is supported only with DWRF");
+            }
+
+            if (encryptTable != null) {
+                properties.put(ENCRYPT_TABLE, encryptTable);
+            }
+
+            if (encryptColumns != null) {
+                properties.put(ENCRYPT_COLUMNS, ColumnEncryptionInformation.fromHiveProperty(encryptColumns));
+            }
+
+            properties.put(DWRF_ENCRYPTION_ALGORITHM, table.get().getParameters().get(DWRF_ENCRYPTION_ALGORITHM_KEY));
+            properties.put(DWRF_ENCRYPTION_PROVIDER, table.get().getParameters().get(DWRF_ENCRYPTION_PROVIDER_KEY));
         }
 
         // Partitioning property
@@ -794,7 +832,8 @@ public class HiveMetadata
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         List<SortingColumn> preferredOrderingColumns = getPreferredOrderingColumns(tableMetadata.getProperties());
-        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, !partitionedBy.isEmpty(), new HdfsContext(session, schemaName, tableName));
+
+        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, partitionedBy, new HdfsContext(session, schemaName, tableName), hiveStorageFormat);
 
         validateColumns(hiveStorageFormat, columnHandles);
 
@@ -919,13 +958,25 @@ public class HiveMetadata
                         .setLocation(""))
                 .build();
 
+        List<String> partitionColumnNames = table.getPartitionColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table);
+        Map<String, Type> columnTypes = hiveColumnHandles.stream()
+                .filter(columnHandle -> !columnHandle.isHidden())
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
+        Map<String, Set<ColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
+                .filter(columnHandle -> !partitionColumnNames.contains(columnHandle.getName()))
+                .filter(column -> !column.isHidden())
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(typeManager.getType(column.getTypeSignature())))));
+
         metastore.createTable(
                 session,
                 table,
                 buildInitialPrivilegeSet(table.getOwner()),
                 Optional.empty(),
                 false,
-                new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
+                createEmptyPartitionStatistics(columnTypes, columnStatisticTypes));
 
         return new HiveTableHandle(schemaName, tableName);
     }
@@ -971,7 +1022,7 @@ public class HiveMetadata
         return (MapTypeInfo) typeInfo;
     }
 
-    private Map<String, String> getEmptyTableProperties(ConnectorTableMetadata tableMetadata, boolean partitioned, HdfsContext hdfsContext)
+    private Map<String, String> getEmptyTableProperties(ConnectorTableMetadata tableMetadata, List<String> partitionedBy, HdfsContext hdfsContext, HiveStorageFormat hiveStorageFormat)
     {
         Builder<String, String> tableProperties = ImmutableMap.builder();
 
@@ -988,7 +1039,6 @@ public class HiveMetadata
         // Avro specific properties
         String avroSchemaUrl = getAvroSchemaUrl(tableMetadata.getProperties());
         if (avroSchemaUrl != null) {
-            HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
             if (hiveStorageFormat != AVRO) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", AVRO_SCHEMA_URL, hiveStorageFormat));
             }
@@ -997,6 +1047,9 @@ public class HiveMetadata
 
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
+
+        // Encryption specific settings
+        tableProperties.putAll(getEncryptionTableProperties(tableMetadata, hiveStorageFormat, partitionedBy));
 
         return tableProperties.build();
     }
@@ -1285,7 +1338,7 @@ public class HiveMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, !partitionedBy.isEmpty(), new HdfsContext(session, schemaName, tableName));
+        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, partitionedBy, new HdfsContext(session, schemaName, tableName), tableStorageFormat);
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy), typeTranslator);
         HiveStorageFormat partitionStorageFormat = isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session);
 
@@ -2046,7 +2099,8 @@ public class HiveMetadata
                                 hiveBucketHandle,
                                 hivePartitionResult.getBucketFilter(),
                                 false,
-                                createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), hivePartitionResult.getBucketFilter(), TRUE_CONSTANT, domainPredicate))),
+                                createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), hivePartitionResult.getBucketFilter(), TRUE_CONSTANT, domainPredicate),
+                                desiredColumns.map(columns -> columns.stream().map(column -> (HiveColumnHandle) column).collect(toImmutableSet())))),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
@@ -2281,7 +2335,8 @@ public class HiveMetadata
                 Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
                 hiveLayoutHandle.getBucketFilter(),
                 hiveLayoutHandle.isPushdownFilterEnabled(),
-                hiveLayoutHandle.getLayoutString());
+                hiveLayoutHandle.getLayoutString(),
+                hiveLayoutHandle.getRequestedColumns());
     }
 
     @Override
@@ -2774,6 +2829,109 @@ public class HiveMetadata
         if (!allColumns.subList(allColumns.size() - partitionedBy.size(), allColumns.size()).equals(partitionedBy)) {
             throw new PrestoException(HIVE_COLUMN_ORDER_MISMATCH, "Partition keys must be the last columns in the table and in the same order as the table properties: " + partitionedBy);
         }
+    }
+
+    private static Map<String, String> getEncryptionTableProperties(ConnectorTableMetadata tableMetadata, HiveStorageFormat hiveStorageFormat, List<String> partitionedBy)
+    {
+        ColumnEncryptionInformation columnEncryptionInformation = getEncryptColumns(tableMetadata.getProperties());
+        String tableEncryptionReference = getEncryptTable(tableMetadata.getProperties());
+
+        if (tableEncryptionReference == null && (columnEncryptionInformation == null || !columnEncryptionInformation.hasEntries())) {
+            return ImmutableMap.of();
+        }
+
+        if (tableEncryptionReference != null && columnEncryptionInformation.hasEntries()) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Only one of %s or %s should be specified", ENCRYPT_TABLE, ENCRYPT_COLUMNS));
+        }
+
+        if (hiveStorageFormat != DWRF) {
+            throw new PrestoException(NOT_SUPPORTED, "Only DWRF file format supports encryption at this time");
+        }
+
+        // Change based on the file format as more file formats might support encryption
+        ImmutableMap.Builder<String, String> tableProperties = ImmutableMap.builder();
+        tableProperties.putAll(getDwrfEncryptionSettings(tableMetadata));
+
+        if (tableEncryptionReference != null) {
+            return tableProperties.put(ENCRYPT_TABLE_KEY, tableEncryptionReference).build();
+        }
+
+        partitionedBy.forEach(partitionColumn -> {
+            if (columnEncryptionInformation.getColumnToKeyReference().containsKey(ColumnWithStructSubfield.valueOf(partitionColumn))) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Partition column (%s) cannot be used as an encryption column", partitionColumn));
+            }
+        });
+
+        Map<String, ColumnMetadata> columnMetadata = tableMetadata.getColumns().stream().collect(toImmutableMap(ColumnMetadata::getName, identity()));
+        // Sorting to ensure that we can find cases of multiple referenceKeys within the same struct chain. Example - a.b and a.b.c
+        // By sorting we ensure that we have already seen a.b and can find that when we visit a.b.c
+        List<ColumnWithStructSubfield> sortedColumns = new ArrayList<>(columnEncryptionInformation.getColumnToKeyReference().keySet());
+        sortedColumns.sort(Comparator.comparing(ColumnWithStructSubfield::toString));
+
+        Set<String> seenColumns = new HashSet<>();
+        for (ColumnWithStructSubfield columnWithSubfield : sortedColumns) {
+            ColumnMetadata column = columnMetadata.get(columnWithSubfield.getColumnName());
+            if (column == null) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("In %s unable to find column %s", ENCRYPT_COLUMNS, columnWithSubfield.getColumnName()));
+            }
+
+            if (seenColumns.contains(columnWithSubfield.toString())) {
+                throw new PrestoException(INVALID_TABLE_PROPERTY, format("The same column/subfield cannot have 2 encryption keys"));
+            }
+
+            if (columnWithSubfield.getSubfieldPath().isPresent()) {
+                Iterable<String> subfieldPathFragments = Splitter.on(".").split(columnWithSubfield.getSubfieldPath().get());
+                Type columnType = column.getType();
+                String parentPath = columnWithSubfield.getColumnName();
+
+                for (String pathFragment : subfieldPathFragments) {
+                    if (!(columnType instanceof RowType)) {
+                        throw new PrestoException(
+                                INVALID_TABLE_PROPERTY,
+                                format("In %s subfields declared in %s, but %s has type %s", ENCRYPT_COLUMNS, columnWithSubfield.toString(), column.getName(), column.getType().getDisplayName()));
+                    }
+
+                    if (seenColumns.contains(parentPath)) {
+                        throw new PrestoException(
+                                INVALID_TABLE_PROPERTY,
+                                format("For (%s) found a keyReference at a higher level field (%s)", columnWithSubfield.toString(), parentPath));
+                    }
+
+                    RowType row = (RowType) columnType;
+                    columnType = row.getFields().stream()
+                            .filter(f -> f.getName().orElse("").equals(pathFragment))
+                            .findAny()
+                            .map(RowType.Field::getType)
+                            .orElseThrow(() -> new PrestoException(
+                                    INVALID_TABLE_PROPERTY,
+                                    format("In %s subfields declared in %s, but %s has type %s", ENCRYPT_COLUMNS, columnWithSubfield.toString(), column.getName(), column.getType().getDisplayName())));
+
+                    parentPath = format("%s.%s", parentPath, pathFragment);
+                }
+            }
+
+            seenColumns.add(columnWithSubfield.toString());
+        }
+
+        return tableProperties.put(ENCRYPT_COLUMNS_KEY, columnEncryptionInformation.toHiveProperty()).build();
+    }
+
+    private static Map<String, String> getDwrfEncryptionSettings(ConnectorTableMetadata tableMetadata)
+    {
+        String encryptionAlgorithm = getDwrfEncryptionAlgorithm(tableMetadata.getProperties());
+        String encryptionProvider = getDwrfEncryptionProvider(tableMetadata.getProperties());
+
+        if (encryptionAlgorithm == null) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s needs to be provided for DWRF encrypted tables", DWRF_ENCRYPTION_ALGORITHM));
+        }
+
+        if (encryptionProvider == null) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s needs to be provided for DWRF encrypted tables", DWRF_ENCRYPTION_PROVIDER));
+        }
+
+        return ImmutableMap.of(
+                DWRF_ENCRYPTION_ALGORITHM_KEY, encryptionAlgorithm,
+                DWRF_ENCRYPTION_PROVIDER_KEY, encryptionProvider);
     }
 
     private static List<HiveColumnHandle> getColumnHandles(ConnectorTableMetadata tableMetadata, Set<String> partitionColumnNames, TypeTranslator typeTranslator)

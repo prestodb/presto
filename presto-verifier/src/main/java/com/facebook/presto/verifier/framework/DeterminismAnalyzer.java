@@ -48,8 +48,9 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_COLUMNS;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_LIMIT_CLAUSE;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_ROW_COUNT;
-import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_SETUP;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -111,10 +112,10 @@ public class DeterminismAnalyzer
 
                 // Rerun setup and main query
                 queryBundle.getSetupQueries().forEach(query -> runAndConsume(
-                        () -> prestoAction.execute(query, DETERMINISM_ANALYSIS),
+                        () -> prestoAction.execute(query, DETERMINISM_ANALYSIS_SETUP),
                         queryStats -> run.addSetupQueryId(queryStats.getQueryId())));
                 runAndConsume(
-                        () -> prestoAction.execute(queryBundle.getQuery(), DETERMINISM_ANALYSIS),
+                        () -> prestoAction.execute(queryBundle.getQuery(), DETERMINISM_ANALYSIS_MAIN),
                         stats -> run.setQueryId(stats.getQueryId()));
 
                 // Run checksum query

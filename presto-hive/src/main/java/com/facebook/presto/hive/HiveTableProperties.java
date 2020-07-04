@@ -18,6 +18,7 @@ import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
@@ -50,6 +51,10 @@ public class HiveTableProperties
     public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
     public static final String AVRO_SCHEMA_URL = "avro_schema_url";
     public static final String PREFERRED_ORDERING_COLUMNS = "preferred_ordering_columns";
+    public static final String ENCRYPT_COLUMNS = "encrypt_columns";
+    public static final String ENCRYPT_TABLE = "encrypt_table";
+    public static final String DWRF_ENCRYPTION_ALGORITHM = "dwrf_encryption_algorithm";
+    public static final String DWRF_ENCRYPTION_PROVIDER = "dwrf_encryption_provider";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -141,7 +146,19 @@ public class HiveTableProperties
                         value -> ((Collection<?>) value).stream()
                                 .map(SortingColumn.class::cast)
                                 .map(SortingColumn::sortingColumnToString)
-                                .collect(toImmutableList())));
+                                .collect(toImmutableList())),
+                stringProperty(ENCRYPT_TABLE, "Key reference for encrypting the whole table", null, false),
+                stringProperty(DWRF_ENCRYPTION_ALGORITHM, "Algorithm used for encryption data in DWRF", null, false),
+                stringProperty(DWRF_ENCRYPTION_PROVIDER, "Provider for encryption keys in provider", null, false),
+                new PropertyMetadata<>(
+                        ENCRYPT_COLUMNS,
+                        "List of key references and columns being encrypted. Example: ARRAY['key1:col1,col2', 'key2:col3,col4']",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        ColumnEncryptionInformation.class,
+                        null,
+                        false,
+                        ColumnEncryptionInformation::fromTableProperty,
+                        ColumnEncryptionInformation::toTableProperty));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -228,5 +245,26 @@ public class HiveTableProperties
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must not be specified when %s is specified", PREFERRED_ORDERING_COLUMNS, BUCKETED_BY_PROPERTY));
         }
         return preferredOrderingColumns;
+    }
+
+    public static String getEncryptTable(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(ENCRYPT_TABLE);
+    }
+
+    public static String getDwrfEncryptionAlgorithm(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(DWRF_ENCRYPTION_ALGORITHM);
+    }
+
+    public static String getDwrfEncryptionProvider(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(DWRF_ENCRYPTION_PROVIDER);
+    }
+
+    public static ColumnEncryptionInformation getEncryptColumns(Map<String, Object> tableProperties)
+    {
+        return tableProperties.containsKey(ENCRYPT_COLUMNS) ? (ColumnEncryptionInformation) tableProperties.get(ENCRYPT_COLUMNS) :
+                ColumnEncryptionInformation.fromMap(ImmutableMap.of());
     }
 }

@@ -17,7 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.LongArrayBlockBuilder;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.raptor.metadata.DeltaInfoPair;
 import com.facebook.presto.raptor.metadata.ShardDeleteDelta;
 import com.facebook.presto.raptor.metadata.ShardInfo;
@@ -58,7 +58,7 @@ public class DeltaShardRewriter
     private final long transactionId;
     private final OptionalInt bucketNumber;
     private final OrcStorageManager orcStorageManager;
-    private final FileSystemContext fileSystemContext;
+    private final HdfsContext hdfsContext;
     private final FileSystem fileSystem;
 
     public DeltaShardRewriter(
@@ -69,7 +69,7 @@ public class DeltaShardRewriter
             long transactionId,
             OptionalInt bucketNumber,
             OrcStorageManager orcStorageManager,
-            FileSystemContext fileSystemContext,
+            HdfsContext hdfsContext,
             FileSystem fileSystem)
     {
         this.oldShardUuid = requireNonNull(oldShardUuid, "oldShardUuid is null");
@@ -79,7 +79,7 @@ public class DeltaShardRewriter
         this.transactionId = transactionId;
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.orcStorageManager = requireNonNull(orcStorageManager, "orcStorageManager is null");
-        this.fileSystemContext = requireNonNull(fileSystemContext, "fileSystemContext is null");
+        this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
     }
 
@@ -114,7 +114,7 @@ public class DeltaShardRewriter
             blockBuilder.writeLong(i);
         }
         // blockToDelete is LongArrayBlock
-        StoragePageSink pageSink = orcStorageManager.createStoragePageSink(fileSystemContext, transactionId, bucketNumber, ImmutableList.of(0L), ImmutableList.of(BIGINT), true);
+        StoragePageSink pageSink = orcStorageManager.createStoragePageSink(hdfsContext, transactionId, bucketNumber, ImmutableList.of(0L), ImmutableList.of(BIGINT), true);
         pageSink.appendPages(ImmutableList.of(new Page(blockBuilder.build())));
         List<ShardInfo> shardInfos = getFutureValue(pageSink.commit());
         // Guaranteed that shardInfos only has one element since we only call commit one time

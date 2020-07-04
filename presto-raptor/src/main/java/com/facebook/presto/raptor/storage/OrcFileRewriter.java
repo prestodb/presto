@@ -45,10 +45,12 @@ import java.util.BitSet;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcPredicate.TRUE;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -110,7 +112,8 @@ public final class OrcFileRewriter
                     stripeMetadataSource,
                     new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
-                    false);
+                    false,
+                    NO_ENCRYPTION);
 
             if (reader.getFooter().getNumberOfRows() < rowsToDelete.length()) {
                 throw new IOException("File has fewer rows than deletion vector");
@@ -178,7 +181,8 @@ public final class OrcFileRewriter
                             TRUE,
                             DEFAULT_STORAGE_TIMEZONE,
                             new RaptorOrcAggregatedMemoryContext(),
-                            INITIAL_BATCH_SIZE),
+                            INITIAL_BATCH_SIZE,
+                            ImmutableMap.of()),
                     OrcBatchRecordReader::close);
                     Closer<OrcWriter, IOException> writer = closer(new OrcWriter(
                                     orcDataEnvironment.createOrcDataSink(fileSystem, output),
@@ -186,6 +190,8 @@ public final class OrcFileRewriter
                                     writerStorageTypes,
                                     ORC,
                                     compression,
+                                    Optional.empty(),
+                                    NO_ENCRYPTION,
                                     DEFAULT_OPTION,
                                     userMetadata,
                                     DEFAULT_STORAGE_TIMEZONE,

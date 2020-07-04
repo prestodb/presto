@@ -55,7 +55,7 @@ public class TestByteArrayStream
     @Override
     protected ByteArrayOutputStream createValueOutputStream()
     {
-        return new ByteArrayOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new ByteArrayOutputStream(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE);
     }
 
     @Override
@@ -69,7 +69,7 @@ public class TestByteArrayStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new ByteArrayInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
+        return new ByteArrayInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
     }
 
     @Override

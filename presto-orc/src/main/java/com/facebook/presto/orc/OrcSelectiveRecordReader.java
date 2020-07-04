@@ -103,8 +103,10 @@ public class OrcSelectiveRecordReader
     // Optimal order of stream readers
     private int[] streamReaderOrder;                                  // elements are indices into hiveColumnIndices array
 
-    private List<FilterFunctionWithStats>[] filterFunctionsOrder;     // aligned with streamReaderOrder order; each filter function is placed
-                                                                      // into a list positioned at the last necessary input
+    // aligned with streamReaderOrder order; each filter function is placed
+    // into a list positioned at the last necessary input
+    private List<FilterFunctionWithStats>[] filterFunctionsOrder;
+
     private Set<Integer>[] filterFunctionInputs;                      // aligned with filterFunctionsOrder
     private boolean reorderFilters;
     private int[] reorderableColumns;                                 // values are hiveColumnIndices
@@ -157,6 +159,9 @@ public class OrcSelectiveRecordReader
             long length,
             List<OrcType> types,
             Optional<OrcDecompressor> decompressor,
+            Optional<EncryptionLibrary> encryptionLibrary,
+            Map<Integer, Integer> dwrfEncryptionGroupMap,
+            Map<Integer, Slice> intermediateKeyMetadata,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             boolean legacyMapSubscript,
@@ -196,6 +201,9 @@ public class OrcSelectiveRecordReader
                 length,
                 types,
                 decompressor,
+                encryptionLibrary,
+                dwrfEncryptionGroupMap,
+                intermediateKeyMetadata,
                 rowsInRowGroup,
                 hiveStorageTimeZone,
                 hiveWriterVersion,
