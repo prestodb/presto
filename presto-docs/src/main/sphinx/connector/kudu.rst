@@ -64,6 +64,10 @@ replacing the properties as appropriate:
        ## Disable Kudu client's collection of statistics.
        #kudu.client.disable-statistics = false
 
+       ## Sets the data size of key range. It is used to split tablet's primary key range into smaller ranges
+       ## this can improve scan perfromance significantly.
+       #kudu.client.tablet-split-size-bytes = 1048576
+
 
 Querying Data
 -------------
