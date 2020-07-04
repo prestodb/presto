@@ -77,13 +77,15 @@ public class KuduClientSession
     private final KuduClient client;
     private final SchemaEmulation schemaEmulation;
     private final boolean kerberosAuthEnabled;
+    private final long tabletSplitSizeBytes;
 
-    public KuduClientSession(KuduConnectorId connectorId, KuduClient client, SchemaEmulation schemaEmulation, boolean kerberosAuthEnabled)
+    public KuduClientSession(KuduConnectorId connectorId, KuduClient client, SchemaEmulation schemaEmulation, KuduClientConfig config)
     {
         this.connectorId = connectorId;
         this.client = client;
         this.schemaEmulation = schemaEmulation;
-        this.kerberosAuthEnabled = kerberosAuthEnabled;
+        this.kerberosAuthEnabled = config.isKerberosAuthEnabled();
+        this.tabletSplitSizeBytes = config.getTabletSplitSizeBytes();
     }
 
     public List<String> listSchemaNames()
@@ -154,6 +156,7 @@ public class KuduClientSession
         KuduTable table = tableHandle.getTable(this);
         final int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
+        builder.setSplitSizeBytes(tabletSplitSizeBytes);
 
         TupleDomain<ColumnHandle> constraintSummary = layoutHandle.getConstraintSummary();
         if (!addConstraintPredicates(table, builder, constraintSummary)) {

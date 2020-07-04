@@ -44,6 +44,7 @@ public class KuduClientConfig
     private String kerberosPrincipal;
     private String kerberosKeytab;
     private boolean kerberosAuthDebugEnabled;
+    private long tabletSplitSizeBytes = 1024L * 1024;
 
     @NotNull
     @Size(min = 1)
@@ -70,6 +71,18 @@ public class KuduClientConfig
     {
         this.defaultAdminOperationTimeout = timeout;
         return this;
+    }
+
+    @Config("kudu.client.tablet-split-size-bytes")
+    public KuduClientConfig setSplitSizeBytes(long tabletSplitSizeBytes)
+    {
+        this.tabletSplitSizeBytes = tabletSplitSizeBytes;
+        return this;
+    }
+
+    public long getTabletSplitSizeBytes()
+    {
+        return tabletSplitSizeBytes;
     }
 
     @MinDuration("1s")

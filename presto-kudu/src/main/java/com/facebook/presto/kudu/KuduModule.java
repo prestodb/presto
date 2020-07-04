@@ -107,6 +107,6 @@ public class KuduModule
         else {
             strategy = new NoSchemaEmulation();
         }
-        return new KuduClientSession(connectorId, client, strategy, config.isKerberosAuthEnabled());
+        return new KuduClientSession(connectorId, client, strategy, config);
     }
 }
