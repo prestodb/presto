@@ -45,6 +45,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitialize
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
@@ -337,6 +338,12 @@ public class PrestoSparkQueryRunner
     public StatsCalculator getStatsCalculator()
     {
         return statsCalculator;
+    }
+
+    @Override
+    public Optional<EventListener> getEventListener()
+    {
+        return Optional.empty();
     }
 
     @Override

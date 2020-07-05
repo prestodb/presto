@@ -116,6 +116,7 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -545,6 +546,12 @@ public class LocalQueryRunner
     public StatsCalculator getStatsCalculator()
     {
         return statsCalculator;
+    }
+
+    @Override
+    public Optional<EventListener> getEventListener()
+    {
+        return Optional.empty();
     }
 
     public CostCalculator getCostCalculator()
