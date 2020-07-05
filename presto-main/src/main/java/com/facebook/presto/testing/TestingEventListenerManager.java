@@ -58,4 +58,9 @@ public class TestingEventListenerManager
             configuredEventListener.get().get().splitCompleted(splitCompletedEvent);
         }
     }
+
+    public Optional<EventListener> getEventListener()
+    {
+        return configuredEventListener.get();
+    }
 }

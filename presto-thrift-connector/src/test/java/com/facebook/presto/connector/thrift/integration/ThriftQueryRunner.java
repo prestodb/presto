@@ -31,6 +31,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
@@ -47,6 +48,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
@@ -231,6 +233,12 @@ public final class ThriftQueryRunner
         public StatsCalculator getStatsCalculator()
         {
             return source.getStatsCalculator();
+        }
+
+        @Override
+        public Optional<EventListener> getEventListener()
+        {
+            return source.getEventListener();
         }
 
         @Override

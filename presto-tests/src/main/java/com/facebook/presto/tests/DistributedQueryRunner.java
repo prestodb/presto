@@ -33,6 +33,7 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -283,6 +284,12 @@ public class DistributedQueryRunner
     public StatsCalculator getStatsCalculator()
     {
         return coordinator.getStatsCalculator();
+    }
+
+    @Override
+    public Optional<EventListener> getEventListener()
+    {
+        return coordinator.getEventListener();
     }
 
     @Override

@@ -59,6 +59,7 @@ import com.facebook.presto.server.smile.SmileModule;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -136,6 +137,7 @@ public class TestingPrestoServer
     private final SqlParser sqlParser;
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
+    private final TestingEventListenerManager eventListenerManager;
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager<?>> resourceGroupManager;
@@ -311,6 +313,7 @@ public class TestingPrestoServer
             planOptimizerManager = injector.getInstance(ConnectorPlanOptimizerManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
+            eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
         }
         else {
             dispatchManager = null;
@@ -320,6 +323,7 @@ public class TestingPrestoServer
             planOptimizerManager = null;
             clusterMemoryManager = null;
             statsCalculator = null;
+            eventListenerManager = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -469,6 +473,12 @@ public class TestingPrestoServer
     {
         checkState(coordinator, "not a coordinator");
         return statsCalculator;
+    }
+
+    public Optional<EventListener> getEventListener()
+    {
+        checkState(coordinator, "not a coordinator");
+        return eventListenerManager.getEventListener();
     }
 
     public TestingAccessControlManager getAccessControl()
