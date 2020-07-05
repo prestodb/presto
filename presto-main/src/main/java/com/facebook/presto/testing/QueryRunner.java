@@ -19,6 +19,7 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
@@ -30,6 +31,7 @@ import org.intellij.lang.annotations.Language;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 
 public interface QueryRunner
@@ -55,6 +57,8 @@ public interface QueryRunner
     ConnectorPlanOptimizerManager getPlanOptimizerManager();
 
     StatsCalculator getStatsCalculator();
+
+    Optional<EventListener> getEventListener();
 
     TestingAccessControlManager getAccessControl();
 
