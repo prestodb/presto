@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
+import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
@@ -137,6 +138,7 @@ public final class HiveQueryRunner
                         .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.installPlugin(new TestingHiveEventListenerPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
