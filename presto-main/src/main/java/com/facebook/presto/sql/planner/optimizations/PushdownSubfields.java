@@ -621,8 +621,6 @@ public class PushdownSubfields
                 }
 
                 List<Subfield> matchingSubfields = findSubfields(variable.getName());
-                verify(!matchingSubfields.isEmpty(), "Missing variable: " + variable);
-
                 matchingSubfields.stream()
                         .map(Subfield::getPath)
                         .map(path -> new Subfield(otherVariable.getName(), path))

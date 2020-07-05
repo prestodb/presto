@@ -1106,6 +1106,53 @@ public class TestHivePushdownFilterQueries
                 "SELECT partkey FROM lineitem WHERE orderkey > 10");
     }
 
+    @Test
+    public void testMissingVariableWithPushdown()
+    {
+        assertQuerySucceeds("EXPLAIN\n" +
+                "WITH aggregation_table AS (\n" +
+                "    SELECT\n" +
+                "        shipdate,\n" +
+                "        returnflag,\n" +
+                "        RANK() OVER(\n" +
+                "            ORDER BY\n" +
+                "                total DESC,\n" +
+                "                DAY_OF_WEEK(shipdate) ASC\n" +
+                "        ) AS rnk\n" +
+                "    FROM (\n" +
+                "        SELECT\n" +
+                "            returnflag,\n" +
+                "            COUNT(*) AS total,\n" +
+                "            shipdate\n" +
+                "        FROM lineitem\n" +
+                "        GROUP BY\n" +
+                "            shipdate,\n" +
+                "            returnflag\n" +
+                "    )\n" +
+                "),\n" +
+                "test_table AS (\n" +
+                "    SELECT\n" +
+                "        orderdate,\n" +
+                "        'B' AS returnflag\n" +
+                "    FROM orders\n" +
+                "),\n" +
+                "join_table AS (\n" +
+                "    SELECT\n" +
+                "        m.orderdate,\n" +
+                "        m.returnflag\n" +
+                "    FROM aggregation_table a\n" +
+                "    LEFT JOIN test_table m\n" +
+                "        ON DAY_OF_WEEK(m.orderdate) = DAY_OF_WEEK(a.shipdate)\n" +
+                "    WHERE\n" +
+                "        a.rnk = 1\n" +
+                ")\n" +
+                "SELECT\n" +
+                "    *\n" +
+                "FROM join_table\n" +
+                "WHERE\n" +
+                "    returnflag = 'A'");
+    }
+
     private Path getPartitionDirectory(String tableName, String partitionClause)
     {
         String filePath = ((String) computeActual(noPushdownFilter(getSession()), format("SELECT \"$path\" FROM %s WHERE %s LIMIT 1", tableName, partitionClause)).getOnlyValue())
