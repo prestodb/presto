@@ -500,6 +500,12 @@ public class SqlQueryExecution
         requireNonNull(cause, "cause is null");
 
         stateMachine.transitionToFailed(cause);
+
+        // acquire reference to scheduler before checking finalQueryInfo, because
+        // state change listener sets finalQueryInfo and then clears scheduler when
+        // the query finishes.
+        SqlQuerySchedulerInterface scheduler = queryScheduler.get();
+        stateMachine.updateQueryInfo(Optional.ofNullable(scheduler).map(SqlQuerySchedulerInterface::getStageInfo));
     }
 
     @Override
