@@ -77,7 +77,7 @@ public class QueryExplainer
             PlanChecker planChecker)
     {
         this(
-                planOptimizers.get(),
+                planOptimizers.getPlanningTimeOptimizers(),
                 planFragmenter,
                 metadata,
                 accessControl,

@@ -167,6 +167,12 @@ public class PlanFragmenter
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
+        PlanVariableAllocator variableAllocator = new PlanVariableAllocator(plan.getTypes().allVariables());
+        return createSubPlans(session, plan, forceSingleNode, idAllocator, variableAllocator, warningCollector);
+    }
+
+    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, WarningCollector warningCollector)
+    {
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
@@ -175,7 +181,7 @@ public class PlanFragmenter
                 warningCollector,
                 sqlParser,
                 idAllocator,
-                new PlanVariableAllocator(plan.getTypes().allVariables()),
+                variableAllocator,
                 getTableWriterNodeIds(plan.getRoot()));
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
