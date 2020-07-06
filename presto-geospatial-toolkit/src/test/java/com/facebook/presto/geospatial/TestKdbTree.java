@@ -134,7 +134,7 @@ public class TestKdbTree
         assertPartitions(tree, new Rectangle(5, 1, 5, 1), ImmutableSet.of());
 
         // point on the border separating two partitions
-        assertPartitions(tree, new Rectangle(1, 4.5, 1, 4.5), ImmutableSet.of(0, 1));
+        assertPartitions(tree, new Rectangle(1, 4.5, 1, 4.5), ImmutableSet.of(1));
 
         // rectangles
         assertPartitions(tree, new Rectangle(1, 1, 2, 2), ImmutableSet.of(0));
