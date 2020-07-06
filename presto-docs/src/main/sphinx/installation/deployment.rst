@@ -207,6 +207,8 @@ The default minimum level is ``INFO``
 (thus the above example does not actually change anything).
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
 
+.. _catalog_properties:
+
 Catalog Properties
 ^^^^^^^^^^^^^^^^^^
 

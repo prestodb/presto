@@ -53,8 +53,20 @@ public class LazyAccumulatorFactoryBinder
             boolean distinct,
             JoinCompiler joinCompiler,
             List<LambdaProvider> lambdaProviders,
+            boolean spillEnabled,
             Session session)
     {
-        return binder.get().bind(argumentChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, lambdaProviders, session);
+        return binder.get().bind(
+                argumentChannels,
+                maskChannel,
+                sourceTypes,
+                orderByChannels,
+                orderings,
+                pagesIndexFactory,
+                distinct,
+                joinCompiler,
+                lambdaProviders,
+                spillEnabled,
+                session);
     }
 }

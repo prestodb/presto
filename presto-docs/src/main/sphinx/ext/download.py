@@ -24,6 +24,8 @@ ARTIFACTS = {
     'jdbc': ('presto-jdbc', 'jar', None),
     'verifier': ('presto-verifier', 'jar', 'executable'),
     'benchmark-driver': ('presto-benchmark-driver', 'jar', 'executable'),
+    'spark-package': ('presto-spark-package', 'tar.gz', None),
+    'spark-launcher': ('presto-spark-launcher', 'jar', None),
 }
 
 
