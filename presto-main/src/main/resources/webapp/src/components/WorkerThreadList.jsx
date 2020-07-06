@@ -65,7 +65,6 @@ export class WorkerThreadList extends React.Component {
         const result = {};
 
         result[ALL_THREADS] = threads;
-        result[QUERY_THREADS] = [];
 
         for (let i = 0; i < threads.length; i++) {
             const thread = threads[i];
