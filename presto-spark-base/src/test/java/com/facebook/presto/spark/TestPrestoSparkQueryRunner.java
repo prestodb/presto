@@ -30,6 +30,7 @@ public class TestPrestoSparkQueryRunner
     @Test
     public void testTableWrite()
     {
+        // some basic tests
         assertUpdate(
                 "CREATE TABLE hive.hive_test.hive_orders AS " +
                 "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
@@ -56,6 +57,27 @@ public class TestPrestoSparkQueryRunner
                         "UNION ALL " +
                         "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                         "FROM orders");
+
+        // 3-way union all with potentially non-flattened plan
+        // See https://github.com/prestodb/presto/issues/12625
+        //
+        // CreateTable is not supported yet, use CreateTableAsSelect
+        assertUpdate(
+                "CREATE TABLE hive.hive_test.test_table_write_with_union AS " +
+                        "SELECT orderkey, 'dummy' AS dummy " +
+                        "FROM orders",
+                15000);
+        assertUpdate(
+                "INSERT INTO hive.hive_test.test_table_write_with_union " +
+                        "SELECT orderkey, dummy " +
+                        "FROM (" +
+                        "   SELECT orderkey, 'a' AS dummy FROM orders " +
+                        "UNION ALL" +
+                        "   SELECT orderkey, 'bb' AS dummy FROM orders " +
+                        "UNION ALL" +
+                        "   SELECT orderkey, 'ccc' AS dummy FROM orders " +
+                        ")",
+                45000);
     }
 
     @Test
