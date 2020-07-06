@@ -53,6 +53,7 @@ import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -99,6 +100,7 @@ public class SqlQueryExecution
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
     private final List<PlanOptimizer> planOptimizers;
+    private final List<PlanOptimizer> runtimePlanOptimizers;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
     private final LocationFactory locationFactory;
@@ -114,6 +116,8 @@ public class SqlQueryExecution
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final PlanChecker planChecker;
+    private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+    private final AtomicReference<PlanVariableAllocator> variableAllocator = new AtomicReference<>();
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -124,6 +128,7 @@ public class SqlQueryExecution
             SqlParser sqlParser,
             SplitManager splitManager,
             List<PlanOptimizer> planOptimizers,
+            List<PlanOptimizer> runtimePlanOptimizers,
             PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
             LocationFactory locationFactory,
@@ -144,6 +149,7 @@ public class SqlQueryExecution
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
+            this.runtimePlanOptimizers = requireNonNull(runtimePlanOptimizers, "runtimePlanOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
             this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
@@ -374,7 +380,6 @@ public class SqlQueryExecution
         stateMachine.beginAnalysis();
 
         // plan query
-        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector(), planChecker);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
@@ -388,7 +393,9 @@ public class SqlQueryExecution
         stateMachine.setOutput(output);
 
         // fragment the plan
-        SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, stateMachine.getWarningCollector());
+        // the variableAllocator is finally passed to SqlQueryScheduler for runtime cost-based optimizations
+        variableAllocator.set(new PlanVariableAllocator(plan.getTypes().allVariables()));
+        SubPlan fragmentedPlan = planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, variableAllocator.get(), stateMachine.getWarningCollector());
 
         // record analysis time
         stateMachine.endAnalysis();
@@ -451,10 +458,15 @@ public class SqlQueryExecution
                         remoteTaskFactory,
                         splitSourceFactory,
                         stateMachine.getSession(),
+                        metadata.getFunctionManager(),
                         stateMachine,
                         outputStagePlan,
                         rootOutputBuffers,
-                        plan.isSummarizeTaskInfos()) :
+                        plan.isSummarizeTaskInfos(),
+                        runtimePlanOptimizers,
+                        stateMachine.getWarningCollector(),
+                        idAllocator,
+                        variableAllocator.get()) :
                 SqlQueryScheduler.createSqlQueryScheduler(
                         locationFactory,
                         executionPolicy,
@@ -467,7 +479,12 @@ public class SqlQueryExecution
                         stateMachine.getSession(),
                         stateMachine,
                         outputStagePlan,
-                        plan.isSummarizeTaskInfos());
+                        plan.isSummarizeTaskInfos(),
+                        metadata.getFunctionManager(),
+                        runtimePlanOptimizers,
+                        stateMachine.getWarningCollector(),
+                        idAllocator,
+                        variableAllocator.get());
 
         queryScheduler.set(scheduler);
 
@@ -627,6 +644,7 @@ public class SqlQueryExecution
         private final SqlParser sqlParser;
         private final SplitManager splitManager;
         private final List<PlanOptimizer> planOptimizers;
+        private final List<PlanOptimizer> runtimePlanOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
         private final QueryExplainer queryExplainer;
@@ -674,7 +692,8 @@ public class SqlQueryExecution
             this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
-            this.planOptimizers = planOptimizers.get();
+            this.planOptimizers = planOptimizers.getPlanningTimeOptimizers();
+            this.runtimePlanOptimizers = planOptimizers.getRuntimeOptimizers();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
@@ -701,6 +720,7 @@ public class SqlQueryExecution
                     sqlParser,
                     splitManager,
                     planOptimizers,
+                    runtimePlanOptimizers,
                     planFragmenter,
                     remoteTaskFactory,
                     locationFactory,

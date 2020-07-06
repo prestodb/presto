@@ -116,7 +116,7 @@ public class FeaturesConfig
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private boolean iterativeOptimizerEnabled = true;
-    private boolean runtimeOptimizerEnabled = true;
+    private boolean runtimeOptimizerEnabled;
     private boolean enableStatsCalculator = true;
     private boolean enableStatsCollectionForTemporaryTable;
     private boolean ignoreStatsCalculatorFailures = true;
