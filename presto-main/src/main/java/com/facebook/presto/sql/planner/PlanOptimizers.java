@@ -89,6 +89,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarAp
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
+import com.facebook.presto.sql.planner.iterative.rule.RuntimeReorderJoinSides;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
@@ -140,7 +141,8 @@ import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.Plan
 
 public class PlanOptimizers
 {
-    private final List<PlanOptimizer> optimizers;
+    private final List<PlanOptimizer> planningTimeOptimizers;
+    private final List<PlanOptimizer> runtimeOptimizers;
     private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
@@ -559,11 +561,26 @@ public class PlanOptimizers
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point
-        this.optimizers = builder.build();
+        this.planningTimeOptimizers = builder.build();
+
+        // Add runtime cost-based optimizers
+        ImmutableList.Builder<PlanOptimizer> runtimeBuilder = ImmutableList.builder();
+        runtimeBuilder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableList.of(),
+                ImmutableSet.of(new RuntimeReorderJoinSides())));
+        this.runtimeOptimizers = runtimeBuilder.build();
     }
 
-    public List<PlanOptimizer> get()
+    public List<PlanOptimizer> getPlanningTimeOptimizers()
     {
-        return optimizers;
+        return planningTimeOptimizers;
+    }
+
+    public List<PlanOptimizer> getRuntimeOptimizers()
+    {
+        return runtimeOptimizers;
     }
 }

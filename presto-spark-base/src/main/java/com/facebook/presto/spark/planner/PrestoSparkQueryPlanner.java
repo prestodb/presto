@@ -96,7 +96,7 @@ public class PrestoSparkQueryPlanner
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 false,
                 session,
-                optimizers.get(),
+                optimizers.getPlanningTimeOptimizers(),
                 idAllocator,
                 metadata,
                 sqlParser,
