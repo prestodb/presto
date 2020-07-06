@@ -54,6 +54,9 @@ public class PrestoSparkShuffleSerializer
     public static class PrestoSparkShuffleSerializerInstance
             extends SerializerInstance
     {
+        private final PrestoSparkMutableRow row = new PrestoSparkMutableRow();
+        private final Tuple2<MutablePartitionId, PrestoSparkMutableRow> tuple = new Tuple2<>(null, row);
+
         @Override
         public SerializationStream serializeStream(OutputStream outputStream)
         {
@@ -67,15 +70,25 @@ public class PrestoSparkShuffleSerializer
         }
 
         @Override
-        public <T> ByteBuffer serialize(T tuple, ClassTag<T> classTag)
+        public <T> ByteBuffer serialize(T input, ClassTag<T> classTag)
         {
-            throw new UnsupportedOperationException("this method is never used by shuffle");
+            Tuple2<MutablePartitionId, PrestoSparkMutableRow> tuple = (Tuple2<MutablePartitionId, PrestoSparkMutableRow>) input;
+            PrestoSparkMutableRow row = tuple._2;
+            return row.getBuffer();
         }
 
         @Override
         public <T> T deserialize(ByteBuffer buffer, ClassTag<T> classTag)
         {
             throw new UnsupportedOperationException("this method is never used by shuffle");
+        }
+
+        public <T> T deserialize(byte[] array, int offset, int length, ClassTag<T> classTag)
+        {
+            row.setArray(array);
+            row.setOffset(offset);
+            row.setLength(length);
+            return (T) tuple;
         }
 
         @Override
