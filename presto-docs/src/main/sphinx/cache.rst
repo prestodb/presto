@@ -5,4 +5,5 @@ Cache
 .. toctree::
     :maxdepth: 1
 
-    cache/alluxio
+    cache/local
+    cache/service
