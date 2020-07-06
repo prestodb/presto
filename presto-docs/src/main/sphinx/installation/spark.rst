@@ -2,9 +2,9 @@
 Executing Presto on Spark
 =========================
 
-When there is a need to execute long running queries, Presto offers
-an option to scale the resource management using Spark, as it doesn'f offer
-one currently by itself. This way Presto can be executed as a stand alone 
+When there is a need to execute long running or memory-intensive queries, Presto offers
+an option to scale the resource management by using Spark, as it doesn't offer
+one currently by itself. This way Presto can be executed as a standalone 
 application on Spark.
 
 Steps
@@ -32,22 +32,23 @@ synchronize with Spark submit parameters.
 
 To execute Presto on Spark, first start your Spark cluster, which we will 
 assume have the URL *spark://spark-master:7077*. Keep your 
-time consuming query in a file called, say, *query.sql*.
+time consuming query in a file called, say, *query.sql*. Run the spark submit
+command from the *example* directory created earlier:
 
-.. parsed-literal::
+.. parsed-literal:: 
 
-    /spark/bin/spark-submit \
-    --master spark://spark-master:7077 \
-    --executor-cores 4 \
-    --conf spark.task.cpus=4 \
-    --class com.facebook.presto.spark.launcher.PrestoSparkLauncher \
-      presto-spark-launcher-\ |version|\ .jar \
-    --package presto-spark-package-\ |version|\ .tar.gz \
-    --config /presto/etc/config.properties \
-    --catalogs /presto/etc/catalogs \
-    --catalog hive \
-    --schema default \
-    --file query.sql
+     /spark/bin/spark-submit \\
+     --master spark://spark-master:7077 \\
+     --executor-cores 4 \\
+     --conf spark.task.cpus=4 \\ 
+     --class com.facebook.presto.spark.launcher.PrestoSparkLauncher \\ 
+       presto-spark-launcher-\ |version|\ .jar \\
+     --package presto-spark-package-\ |version|\ .tar.gz \\ 
+     --config /presto/etc/config.properties \\ 
+     --catalogs /presto/etc/catalogs \\ 
+     --catalog hive \\
+     --schema default \\ 
+     --file query.sql 
 
 The details about configuring catalogs are at :ref:`catalog_properties`. In
 Spark submit arguments, note the values of *executor-cores* (number of cores per
