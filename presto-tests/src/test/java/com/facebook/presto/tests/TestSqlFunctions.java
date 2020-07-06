@@ -306,4 +306,15 @@ public class TestSqlFunctions
         assertQuery("SELECT testing.common.ARRAY_APPEND(Array, ITEM) FROM (VALUES (array[1, 2, 3], 4), (array[2, 3, 4], 5)) t(array, item)", "VALUES array[1, 2, 3, 4], array[2, 3, 4, 5]");
         assertQuery("SELECT testing.common.array_sum(Array) FROM (VALUES (array[1, 2, 3]), (array[4, 5, 6])) t(array)", "VALUES 6L, 15L");
     }
+
+    @Test
+    void testLambdaVariableScoping()
+    {
+        @Language("SQL") String createFunction = "CREATE FUNCTION testing.test.array_sum(x array<int>)\n" +
+                "RETURNS int \n" +
+                "RETURN reduce(x, 0, (s, x) -> s + x, s -> s)";
+        assertQuerySucceeds(createFunction);
+
+        assertQuery("SELECT testing.test.array_sum(array[1, 2, 3])", "VALUES 6L");
+    }
 }
