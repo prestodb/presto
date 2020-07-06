@@ -222,6 +222,7 @@ public class DataDefinitionExecution<T extends Statement>
     public void fail(Throwable cause)
     {
         stateMachine.transitionToFailed(cause);
+        stateMachine.updateQueryInfo(Optional.empty());
     }
 
     @Override
