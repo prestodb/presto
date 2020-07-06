@@ -81,7 +81,7 @@ public class SqlTask
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
     private final TaskExchangeClientManager taskExchangeClientManager;
 
-    private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
+    private final AtomicReference<Long> lastHeartbeat = new AtomicReference<>(System.currentTimeMillis());
     private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
@@ -218,7 +218,7 @@ public class SqlTask
 
     public void recordHeartbeat()
     {
-        lastHeartbeat.set(DateTime.now());
+        lastHeartbeat.set(System.currentTimeMillis());
     }
 
     public TaskInfo getTaskInfo()

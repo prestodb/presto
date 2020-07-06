@@ -55,7 +55,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -264,7 +263,7 @@ public class MockRemoteTaskFactory
                             0,
                             0,
                             0),
-                    DateTime.now(),
+                    System.currentTimeMillis(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
                     taskContext.getTaskStats(),

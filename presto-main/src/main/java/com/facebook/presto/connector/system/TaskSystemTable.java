@@ -139,7 +139,7 @@ public class TaskSystemTable
 
                     toTimeStamp(stats.getCreateTime()),
                     toTimeStamp(stats.getFirstStartTime()),
-                    toTimeStamp(taskInfo.getLastHeartbeat()),
+                    taskInfo.getLastHeartbeat(),
                     toTimeStamp(stats.getEndTime()));
         }
         return table.build().cursor();
