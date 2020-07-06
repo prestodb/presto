@@ -111,6 +111,16 @@ public final class Rectangle
                 && yMin <= y && y <= yMax;
     }
 
+    /**
+     * Returns if this Rectangle contains only a single point.
+     *
+     * @return if xMax==xMin and yMax==yMin
+     */
+    public boolean isPointlike()
+    {
+        return xMin == xMax && yMin == yMax;
+    }
+
     @Override
     public Rectangle getExtent()
     {

@@ -39,7 +39,6 @@ import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.google.common.base.Joiner;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1217,22 +1216,6 @@ public final class GeoFunctions
         Map<Integer, Rectangle> partitions = kdbTree.findIntersectingLeaves(envelope);
         if (partitions.isEmpty()) {
             return EMPTY_ARRAY_OF_INTS;
-        }
-
-        // For input rectangles that represent a single point, return at most one partition
-        // by excluding right and upper sides of partition rectangles. The logic that builds
-        // KDB tree needs to make sure to add some padding to the right and upper sides of the
-        // overall extent of the tree to avoid missing right-most and top-most points.
-        boolean point = (envelope.getWidth() == 0 && envelope.getHeight() == 0);
-        if (point) {
-            for (Map.Entry<Integer, Rectangle> partition : partitions.entrySet()) {
-                if (envelope.getXMin() < partition.getValue().getXMax() && envelope.getYMin() < partition.getValue().getYMax()) {
-                    BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(1);
-                    blockBuilder.writeInt(partition.getKey());
-                    return blockBuilder.build();
-                }
-            }
-            throw new VerifyException(format("Cannot find half-open partition extent for a point: (%s, %s)", envelope.getXMin(), envelope.getYMin()));
         }
 
         BlockBuilder blockBuilder = IntegerType.INTEGER.createFixedSizeBlockBuilder(partitions.size());
