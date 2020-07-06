@@ -20,6 +20,7 @@ import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
@@ -239,6 +240,16 @@ public final class SqlFunctionUtils
             }
             return RowExpressionTreeRewriter.rewriteWith(new RowExpressionRewriter<Map<String, RowExpression>>()
             {
+                @Override
+                public RowExpression rewriteLambda(LambdaDefinitionExpression lambda, Map<String, RowExpression> context, RowExpressionTreeRewriter<Map<String, RowExpression>> treeRewriter)
+                {
+                    ImmutableMap<String, RowExpression> lambdaContext = context.entrySet().stream()
+                            .filter(entry -> !lambda.getArguments().contains(entry.getKey()))
+                            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                    RowExpression body = treeRewriter.rewrite(lambda.getBody(), lambdaContext);
+                    return new LambdaDefinitionExpression(lambda.getArgumentTypes(), lambda.getArguments(), body);
+                }
+
                 @Override
                 public RowExpression rewriteVariableReference(VariableReferenceExpression variable, Map<String, RowExpression> context, RowExpressionTreeRewriter<Map<String, RowExpression>> treeRewriter)
                 {
