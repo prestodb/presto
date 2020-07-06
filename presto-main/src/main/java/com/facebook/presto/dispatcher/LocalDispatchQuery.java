@@ -15,6 +15,7 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryExecution;
@@ -63,6 +64,7 @@ public class LocalDispatchQuery
 
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
+            QueryMonitor queryMonitor,
             ListenableFuture<QueryExecution> queryExecutionFuture,
             ClusterSizeMonitor clusterSizeMonitor,
             Executor queryExecutor,
@@ -78,6 +80,9 @@ public class LocalDispatchQuery
         stateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 submitted.set(null);
+            }
+            if (state == FAILED) {
+                queryMonitor.queryCompletedEvent(getQueryInfo());
             }
         });
     }
