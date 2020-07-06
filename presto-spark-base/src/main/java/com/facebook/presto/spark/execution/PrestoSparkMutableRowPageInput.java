@@ -96,8 +96,16 @@ public class PrestoSparkMutableRowPageInput
                 Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> currentIterator = rowIterators.get(currentIteratorIndex);
                 if (currentIterator.hasNext()) {
                     PrestoSparkMutableRow row = currentIterator.next()._2;
-                    ByteBuffer buffer = row.getBuffer();
-                    output.writeBytes(buffer.array(), buffer.arrayOffset() + buffer.position(), buffer.remaining());
+                    if (row.getBuffer() != null) {
+                        ByteBuffer buffer = row.getBuffer();
+                        output.writeBytes(buffer.array(), buffer.arrayOffset() + buffer.position(), buffer.remaining());
+                    }
+                    else if (row.getArray() != null) {
+                        output.writeBytes(row.getArray(), row.getOffset(), row.getLength());
+                    }
+                    else {
+                        throw new IllegalArgumentException("Unexpected PrestoSparkMutableRow: 'buffer' and 'array' fields are both null");
+                    }
                     rowCount++;
                 }
                 else {

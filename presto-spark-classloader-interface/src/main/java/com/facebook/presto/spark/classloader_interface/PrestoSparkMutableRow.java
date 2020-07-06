@@ -28,6 +28,14 @@ public class PrestoSparkMutableRow
 {
     private ByteBuffer buffer;
 
+    // Can be backed either by the "buffer" or by the "array"
+    // Row is backed by the "array" only when deserialized
+    // with the PrestoSparkShuffleSerializerInstance#deserialize(byte[], int, int, ClassTag<T>)
+    private byte[] array;
+    // offset and length are meaningful only when the row is backed by the "array"
+    private int offset;
+    private int length;
+
     public ByteBuffer getBuffer()
     {
         return buffer;
@@ -36,6 +44,39 @@ public class PrestoSparkMutableRow
     public void setBuffer(ByteBuffer buffer)
     {
         this.buffer = buffer;
+    }
+
+    public byte[] getArray()
+    {
+        return array;
+    }
+
+    public PrestoSparkMutableRow setArray(byte[] array)
+    {
+        this.array = array;
+        return this;
+    }
+
+    public int getOffset()
+    {
+        return offset;
+    }
+
+    public PrestoSparkMutableRow setOffset(int offset)
+    {
+        this.offset = offset;
+        return this;
+    }
+
+    public int getLength()
+    {
+        return length;
+    }
+
+    public PrestoSparkMutableRow setLength(int length)
+    {
+        this.length = length;
+        return this;
     }
 
     @Override
