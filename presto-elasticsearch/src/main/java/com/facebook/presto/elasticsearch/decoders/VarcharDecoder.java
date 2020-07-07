@@ -42,11 +42,11 @@ public class VarcharDecoder
         if (value == null) {
             output.appendNull();
         }
-        else if (value instanceof String) {
+        else if (value instanceof String || value instanceof Number) {
             VARCHAR.writeSlice(output, Slices.utf8Slice(value.toString()));
         }
         else {
-            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected a string value for field '%s' of type VARCHAR: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new PrestoException(ELASTICSEARCH_TYPE_MISMATCH, format("Expected a string or numeric value for field '%s' of type VARCHAR: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 }
