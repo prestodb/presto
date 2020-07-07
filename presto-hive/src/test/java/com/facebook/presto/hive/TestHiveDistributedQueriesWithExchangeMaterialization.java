@@ -18,6 +18,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializingQueryRunner;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteMaterializedExchangesCount;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
@@ -44,6 +45,7 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     {
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "temporary_table_storage_format", "PAGEFILE")
+                .setSystemProperty(ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE, "true")
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_materialize_non_hive_types AS\n" +
@@ -68,6 +70,30 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
                         "    ON t1.nationkey = t2.nationkey",
                 25,
                 assertRemoteMaterializedExchangesCount(2));
+
+        assertUpdate("DROP TABLE IF EXISTS test_materialize_non_hive_types");
+
+        assertUpdate(session, "CREATE TABLE test_materialize_non_hive_types AS\n" +
+                        "WITH t1 AS (\n" +
+                        "    SELECT\n" +
+                        "        CAST('2000-01-01' AS DATE) date,\n" +
+                        "        nationkey\n" +
+                        "    FROM nation\n" +
+                        "),\n" +
+                        "t2 AS (\n" +
+                        "    SELECT\n" +
+                        "        FROM_ISO8601_TIMESTAMP('2020-02-25') time,\n" +
+                        "        nationkey\n" +
+                        "    FROM nation\n" +
+                        ")\n" +
+                        "SELECT\n" +
+                        "    t1.nationkey,\n" +
+                        "    t1.date,\n" +
+                        "    CAST(t2.time AS VARCHAR) time\n" +
+                        "FROM t1\n" +
+                        "JOIN t2\n" +
+                        "    ON t1.nationkey = t2.nationkey",
+                25);
 
         assertUpdate("DROP TABLE IF EXISTS test_materialize_non_hive_types");
     }
