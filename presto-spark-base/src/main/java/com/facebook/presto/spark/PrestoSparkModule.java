@@ -138,6 +138,7 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Statement;
@@ -317,6 +318,7 @@ public class PrestoSparkModule
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
 
         // parser
+        binder.bind(PlanChecker.class).in(Scopes.SINGLETON);
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
 

@@ -136,7 +136,8 @@ public class TestFeaturesConfig
                 .setUseLegacyScheduler(true)
                 .setOptimizeCommonSubExpressions(true)
                 .setPreferDistributedUnion(true)
-                .setOptimizeNullsInJoin(false));
+                .setOptimizeNullsInJoin(false)
+                .setWarnOnNoTableLayoutFilter(""));
     }
 
     @Test
@@ -229,6 +230,7 @@ public class TestFeaturesConfig
                 .put("optimize-common-sub-expressions", "false")
                 .put("prefer-distributed-union", "false")
                 .put("optimize-nulls-in-join", "true")
+                .put("warn-on-no-table-layout-filter", "ry@nlikestheyankees,ds")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -317,7 +319,8 @@ public class TestFeaturesConfig
                 .setUseLegacyScheduler(false)
                 .setOptimizeCommonSubExpressions(false)
                 .setPreferDistributedUnion(false)
-                .setOptimizeNullsInJoin(true);
+                .setOptimizeNullsInJoin(true)
+                .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds");
         assertFullMapping(properties, expected);
     }
 

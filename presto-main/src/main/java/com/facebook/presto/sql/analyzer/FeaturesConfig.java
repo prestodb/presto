@@ -156,6 +156,8 @@ public class FeaturesConfig
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
 
+    private String warnOnNoTableLayoutFilter = "";
+
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
 
     public enum PartitioningPrecisionStrategy
@@ -1288,6 +1290,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeNullsInJoin(boolean optimizeNullsInJoin)
     {
         this.optimizeNullsInJoin = optimizeNullsInJoin;
+        return this;
+    }
+
+    public String getWarnOnNoTableLayoutFilter()
+    {
+        return warnOnNoTableLayoutFilter;
+    }
+
+    @Config("warn-on-no-table-layout-filter")
+    public FeaturesConfig setWarnOnNoTableLayoutFilter(String warnOnNoTableLayoutFilter)
+    {
+        this.warnOnNoTableLayoutFilter = warnOnNoTableLayoutFilter;
         return this;
     }
 }

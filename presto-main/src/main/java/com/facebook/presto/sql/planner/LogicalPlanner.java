@@ -101,7 +101,6 @@ import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.CreateName;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import static com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
-import static com.facebook.presto.sql.planner.sanity.PlanChecker.DISTRIBUTED_PLAN_CHECKER;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.base.Preconditions.checkState;
@@ -141,9 +140,10 @@ public class LogicalPlanner
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanChecker planChecker)
     {
-        this(explain, session, planOptimizers, DISTRIBUTED_PLAN_CHECKER, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
+        this(explain, session, planOptimizers, planChecker, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
     }
 
     public LogicalPlanner(
