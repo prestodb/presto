@@ -196,7 +196,7 @@ public class PageFunctionCompiler
                     pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projection, classNameSuffix), new int[] {i}));
                 }
                 else {
-                    expressionsWithPositionBuilder.put(projections.get(i), i);
+                    expressionsWithPositionBuilder.put(projection, i);
                 }
             }
             Map<RowExpression, Integer> expressionsWithPosition = expressionsWithPositionBuilder.build();
