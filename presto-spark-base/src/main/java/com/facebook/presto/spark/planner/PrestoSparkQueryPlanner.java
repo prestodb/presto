@@ -34,6 +34,7 @@ import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -56,6 +57,7 @@ public class PrestoSparkQueryPlanner
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final AccessControl accessControl;
+    private final PlanChecker planChecker;
 
     @Inject
     public PrestoSparkQueryPlanner(
@@ -65,7 +67,8 @@ public class PrestoSparkQueryPlanner
             Metadata metadata,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            AccessControl accessControl)
+            AccessControl accessControl,
+            PlanChecker planChecker)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.optimizers = requireNonNull(optimizers, "optimizers is null");
@@ -74,6 +77,7 @@ public class PrestoSparkQueryPlanner
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
+        this.planChecker = requireNonNull(planChecker, "planChecker is null");
     }
 
     public PlanAndMore createQueryPlan(Session session, PreparedQuery preparedQuery, WarningCollector warningCollector)
@@ -98,7 +102,8 @@ public class PrestoSparkQueryPlanner
                 sqlParser,
                 statsCalculator,
                 costCalculator,
-                warningCollector);
+                warningCollector,
+                planChecker);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         Plan plan = logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED);

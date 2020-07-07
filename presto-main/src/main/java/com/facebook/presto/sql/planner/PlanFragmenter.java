@@ -51,6 +51,7 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -150,14 +151,18 @@ public class PlanFragmenter
     private final NodePartitioningManager nodePartitioningManager;
     private final QueryManagerConfig config;
     private final SqlParser sqlParser;
+    private final PlanChecker distributedPlanChecker;
+    private final PlanChecker singleNodePlanChecker;
 
     @Inject
-    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, SqlParser sqlParser)
+    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, SqlParser sqlParser, FeaturesConfig featuresConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.distributedPlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), false);
+        this.singleNodePlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), true);
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
@@ -166,7 +171,7 @@ public class PlanFragmenter
                 session,
                 metadata,
                 plan.getStatsAndCosts(),
-                new PlanChecker(forceSingleNode),
+                forceSingleNode ? singleNodePlanChecker : distributedPlanChecker,
                 warningCollector,
                 sqlParser,
                 idAllocator,
