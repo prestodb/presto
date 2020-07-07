@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -140,6 +142,12 @@ import java.util.stream.Stream;
 import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
@@ -244,6 +252,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_N
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.isNumericType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
@@ -267,6 +276,13 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_TRUE_VALUES;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -971,7 +987,7 @@ public class HiveMetadata
         Map<String, Set<ColumnStatisticType>> columnStatisticTypes = hiveColumnHandles.stream()
                 .filter(columnHandle -> !partitionColumnNames.contains(columnHandle.getName()))
                 .filter(column -> !column.isHidden())
-                .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(typeManager.getType(column.getTypeSignature())))));
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(getSupportedColumnStatisticsForTemporaryTable(typeManager.getType(column.getTypeSignature())))));
 
         metastore.createTable(
                 session,
@@ -982,6 +998,29 @@ public class HiveMetadata
                 createEmptyPartitionStatistics(columnTypes, columnStatisticTypes));
 
         return new HiveTableHandle(schemaName, tableName);
+    }
+
+    private Set<ColumnStatisticType> getSupportedColumnStatisticsForTemporaryTable(Type type)
+    {
+        // Temporary table statistics are not committed to metastore, so no need to call metastore for supported
+        // column statistics, instead locally determine.
+        if (type.equals(BOOLEAN)) {
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
+        }
+        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
+            return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
+        }
+        if (isVarcharType(type) || isCharType(type)) {
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_DISTINCT_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
+        }
+        if (type.equals(VARBINARY)) {
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES, MAX_VALUE_SIZE_IN_BYTES);
+        }
+        if (type instanceof ArrayType || type instanceof RowType || type instanceof MapType) {
+            return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES);
+        }
+        // Default column statistics for unknown data types.
+        return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, TOTAL_SIZE_IN_BYTES);
     }
 
     private void validateColumns(HiveStorageFormat hiveStorageFormat, List<HiveColumnHandle> handles)
@@ -2639,22 +2678,23 @@ public class HiveMetadata
             return TableStatisticsMetadata.empty();
         }
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
-        return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, false);
+        Optional<Table> table = metastore.getTable(tableMetadata.getTable().getSchemaName(), tableMetadata.getTable().getTableName());
+        return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, false, table.isPresent() && table.get().getTableType() == TEMPORARY_TABLE);
     }
 
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
-        return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, true);
+        return getStatisticsCollectionMetadata(tableMetadata.getColumns(), partitionedBy, true, false);
     }
 
-    private TableStatisticsMetadata getStatisticsCollectionMetadata(List<ColumnMetadata> columns, List<String> partitionedBy, boolean includeRowCount)
+    private TableStatisticsMetadata getStatisticsCollectionMetadata(List<ColumnMetadata> columns, List<String> partitionedBy, boolean includeRowCount, boolean isTemporaryTable)
     {
         Set<ColumnStatisticMetadata> columnStatistics = columns.stream()
                 .filter(column -> !partitionedBy.contains(column.getName()))
                 .filter(column -> !column.isHidden())
-                .map(this::getColumnStatisticMetadata)
+                .map(isTemporaryTable ? this::getColumnStatisticMetadataForTemporaryTable : this::getColumnStatisticMetadata)
                 .flatMap(List::stream)
                 .collect(toImmutableSet());
 
@@ -2665,6 +2705,11 @@ public class HiveMetadata
     private List<ColumnStatisticMetadata> getColumnStatisticMetadata(ColumnMetadata columnMetadata)
     {
         return getColumnStatisticMetadata(columnMetadata.getName(), metastore.getSupportedColumnStatistics(columnMetadata.getType()));
+    }
+
+    private List<ColumnStatisticMetadata> getColumnStatisticMetadataForTemporaryTable(ColumnMetadata columnMetadata)
+    {
+        return getColumnStatisticMetadata(columnMetadata.getName(), getSupportedColumnStatisticsForTemporaryTable(columnMetadata.getType()));
     }
 
     private List<ColumnStatisticMetadata> getColumnStatisticMetadata(String columnName, Set<ColumnStatisticType> statisticTypes)
