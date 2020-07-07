@@ -688,6 +688,37 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    public void testNumericKeyword()
+            throws IOException
+    {
+        String indexName = "numeric_keyword";
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .prepareCreate(indexName)
+                .addMapping("doc",
+                        "numeric_column", "type=keyword")
+                .get();
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("numeric_column", 20)
+                .build());
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQuery(
+                "SELECT numeric_column FROM numeric_keyword",
+                "VALUES 20");
+        assertQuery(
+                "SELECT numeric_column FROM numeric_keyword where numeric_column = '20'",
+                "VALUES 20");
+    }
+
+    @Test
     public void testQueryStringError()
     {
         assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
