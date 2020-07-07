@@ -22,7 +22,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.server.remotetask.ContinuousTaskListStatusFetcher;
+import com.facebook.presto.server.remotetask.ContinuousBatchTaskStatusFetcher;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -135,7 +135,7 @@ public final class SqlStageExecution
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
     @GuardedBy("this")
-    private ContinuousTaskListStatusFetcher taskListStatusFetcher = new ContinuousTaskListStatusFetcher();
+    private ContinuousBatchTaskStatusFetcher taskListStatusFetcher = new ContinuousBatchTaskStatusFetcher();
 
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,
@@ -205,7 +205,7 @@ public final class SqlStageExecution
         }
         this.exchangeSources = fragmentToExchangeSource.build();
         this.totalLifespans = planFragment.getStageExecutionDescriptor().getTotalLifespans();
-        this.taskListStatusFetcher = new ContinuousTaskListStatusFetcher();
+        this.taskListStatusFetcher = new ContinuousBatchTaskStatusFetcher();
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction

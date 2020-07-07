@@ -179,7 +179,7 @@ public class HttpRemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
-            ContinuousTaskListStatusFetcher taskListStatusFetcher)
+            ContinuousBatchTaskStatusFetcher taskListStatusFetcher)
     {
         return new HttpRemoteTask(
                 session,

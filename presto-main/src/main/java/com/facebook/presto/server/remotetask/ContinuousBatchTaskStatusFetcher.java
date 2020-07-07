@@ -32,8 +32,9 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -54,8 +55,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class ContinuousTaskListStatusFetcher
-        implements SimpleHttpResponseCallback<TaskStatus>
+public class ContinuousBatchTaskStatusFetcher
 {
     private class Task {
         TaskId taskId;
@@ -68,66 +68,23 @@ public class ContinuousTaskListStatusFetcher
         RequestErrorTracker errorTracker;
         RemoteTaskStats stats;
         boolean isBinaryTransportEnabled;
+
+        AtomicLong currentRequestStartNanos = new AtomicLong();
+
+        @GuardedBy("this")
+        private boolean running;
     }
 
-    private List<Task> taskList;
+    // String(URI(TaskStatus.getSelf()) (get worker id))) -> List<Task>
+    private ConcurrentHashMap<String, List<Task>> workerTaskMap;
 
-    private static final Logger log = Logger.get(ContinuousTaskListStatusFetcher.class);
-
-    private final TaskId taskId;
-    private final Consumer<Throwable> onFail;
-    private final StateMachine<TaskStatus> taskStatus;
-    private final Codec<TaskStatus> taskStatusCodec;
-
-    private final Duration refreshMaxWait;
-    private final Executor executor;
-    private final HttpClient httpClient;
-    private final RequestErrorTracker errorTracker;
-    private final RemoteTaskStats stats;
-    private final boolean isBinaryTransportEnabled;
-
-    private final AtomicLong currentRequestStartNanos = new AtomicLong();
-
-    @GuardedBy("this")
-    private boolean running;
+    private static final Logger log = Logger.get(ContinuousBatchTaskStatusFetcher.class);
 
     @GuardedBy("this")
     private ListenableFuture<BaseResponse<TaskStatus>> future;
 
-    public ContinuousTaskListStatusFetcher() {
-        taskList = new Vector<>(); // Vector for concurrency
-        taskId = null; onFail = null; taskStatus = null; taskStatusCodec = null; refreshMaxWait = null; executor = null;
-        httpClient = null; errorTracker = null; stats = null; isBinaryTransportEnabled = false;
-    }
-
-    public ContinuousTaskListStatusFetcher(
-            Consumer<Throwable> onFail,
-            TaskId taskId,
-            TaskStatus initialTaskStatus,
-            Duration refreshMaxWait,
-            Codec<TaskStatus> taskStatusCodec,
-            Executor executor,
-            HttpClient httpClient,
-            Duration maxErrorDuration,
-            ScheduledExecutorService errorScheduledExecutor,
-            RemoteTaskStats stats,
-            boolean isBinaryTransportEnabled)
-    {
-        requireNonNull(initialTaskStatus, "initialTaskStatus is null");
-
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        this.onFail = requireNonNull(onFail, "onFail is null");
-        this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
-
-        this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
-        this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
-
-        this.executor = requireNonNull(executor, "executor is null");
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
-
-        this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
-        this.stats = requireNonNull(stats, "stats is null");
-        this.isBinaryTransportEnabled = isBinaryTransportEnabled;
+    public ContinuousBatchTaskStatusFetcher() {
+        workerTaskMap = new ConcurrentHashMap<>();
     }
 
     public void addTask(
@@ -156,11 +113,16 @@ public class ContinuousTaskListStatusFetcher
         newTask.executor = requireNonNull(executor, "executor is null");
         newTask.httpClient = requireNonNull(httpClient, "httpClient is null");
 
-        newTask.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
+        newTask.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(),
+                maxErrorDuration, errorScheduledExecutor, "getting task status");
         newTask.stats = requireNonNull(stats, "stats is null");
         newTask.isBinaryTransportEnabled = isBinaryTransportEnabled;
 
-        taskList.add(newTask);
+        String worker = initialTaskStatus.getSelf().getHost();
+        if (!workerTaskMap.containsKey(worker)) {
+            workerTaskMap.put(worker, new ArrayList<>());
+        }
+        workerTaskMap.get(worker).add(newTask);
     }
 
     public synchronized void start()
@@ -308,7 +270,8 @@ public class ContinuousTaskListStatusFetcher
             // This will also set the task status to FAILED state directly.
             // Additionally, this will issue a DELETE for the task to the worker.
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
-            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
+            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)",
+                    REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
         }
     }
 
