@@ -17,21 +17,28 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
+
+import javax.inject.Inject;
 
 /**
  * Perform checks on the plan that may generate warnings or errors.
  */
 public final class PlanChecker
 {
-    public static final PlanChecker DISTRIBUTED_PLAN_CHECKER = new PlanChecker(false);
-
     private final Multimap<Stage, Checker> checkers;
 
-    public PlanChecker(boolean forceSingleNode)
+    @Inject
+    public PlanChecker(FeaturesConfig featuresConfig)
+    {
+        this(featuresConfig, false);
+    }
+
+    public PlanChecker(FeaturesConfig featuresConfig, boolean forceSingleNode)
     {
         checkers = ImmutableListMultimap.<Stage, Checker>builder()
                 .putAll(
@@ -62,7 +69,8 @@ public final class PlanChecker
                         new VerifyNoFilteredAggregations(),
                         new ValidateAggregationsWithDefaultValues(forceSingleNode),
                         new ValidateStreamingAggregations(),
-                        new VerifyNoOriginalExpression())
+                        new VerifyNoOriginalExpression(),
+                        new WarnOnScanWithoutPartitionPredicate(featuresConfig))
                 .build();
     }
 

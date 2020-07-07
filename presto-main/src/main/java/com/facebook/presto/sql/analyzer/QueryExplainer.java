@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.tree.ExplainType.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
@@ -61,6 +62,7 @@ public class QueryExplainer
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
+    private final PlanChecker planChecker;
 
     @Inject
     public QueryExplainer(
@@ -71,7 +73,8 @@ public class QueryExplainer
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
+            PlanChecker planChecker)
     {
         this(
                 planOptimizers.get(),
@@ -81,7 +84,8 @@ public class QueryExplainer
                 sqlParser,
                 statsCalculator,
                 costCalculator,
-                dataDefinitionTask);
+                dataDefinitionTask,
+                planChecker);
     }
 
     public QueryExplainer(
@@ -92,7 +96,8 @@ public class QueryExplainer
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
+            PlanChecker planChecker)
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
@@ -102,6 +107,7 @@ public class QueryExplainer
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
+        this.planChecker = requireNonNull(planChecker, "planChecker is null");
     }
 
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
@@ -188,7 +194,17 @@ public class QueryExplainer
         // analyze statement
         Analysis analysis = analyze(session, statement, parameters, warningCollector);
         // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(true, session, planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(
+                true,
+                session,
+                planOptimizers,
+                idAllocator,
+                metadata,
+                sqlParser,
+                statsCalculator,
+                costCalculator,
+                warningCollector,
+                planChecker);
         return logicalPlanner.plan(analysis);
     }
 

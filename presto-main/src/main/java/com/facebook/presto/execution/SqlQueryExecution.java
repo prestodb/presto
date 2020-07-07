@@ -57,6 +57,7 @@ import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.tree.Explain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -112,6 +113,7 @@ public class SqlQueryExecution
     private final Analysis analysis;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final PlanChecker planChecker;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -133,7 +135,8 @@ public class SqlQueryExecution
             SplitSchedulerStats schedulerStats,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanChecker planChecker)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -151,6 +154,7 @@ public class SqlQueryExecution
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
+            this.planChecker = requireNonNull(planChecker, "planChecker is null");
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -371,7 +375,7 @@ public class SqlQueryExecution
 
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector());
+        LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector(), planChecker);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -633,6 +637,7 @@ public class SqlQueryExecution
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
+        private final PlanChecker planChecker;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -651,7 +656,8 @@ public class SqlQueryExecution
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
-                CostCalculator costCalculator)
+                CostCalculator costCalculator,
+                PlanChecker planChecker)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -671,6 +677,7 @@ public class SqlQueryExecution
             this.planOptimizers = planOptimizers.get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
+            this.planChecker = requireNonNull(planChecker, "planChecker is null");
         }
 
         @Override
@@ -705,7 +712,8 @@ public class SqlQueryExecution
                     schedulerStats,
                     statsCalculator,
                     costCalculator,
-                    warningCollector);
+                    warningCollector,
+                    planChecker);
 
             return execution;
         }
