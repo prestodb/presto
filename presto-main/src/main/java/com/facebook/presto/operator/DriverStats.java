@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -38,9 +37,9 @@ public class DriverStats
 {
     private final Lifespan lifespan;
 
-    private final DateTime createTime;
-    private final DateTime startTime;
-    private final DateTime endTime;
+    private final long createTime;
+    private final long startTime;
+    private final long endTime;
 
     private final Duration queuedTime;
     private final Duration elapsedTime;
@@ -75,9 +74,9 @@ public class DriverStats
     {
         this.lifespan = null;
 
-        this.createTime = DateTime.now();
-        this.startTime = null;
-        this.endTime = null;
+        this.createTime = System.currentTimeMillis();
+        this.startTime = 0;
+        this.endTime = 0;
         this.queuedTime = new Duration(0, MILLISECONDS);
         this.elapsedTime = new Duration(0, MILLISECONDS);
 
@@ -112,9 +111,9 @@ public class DriverStats
     public DriverStats(
             @JsonProperty("lifespan") Lifespan lifespan,
 
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("startTime") DateTime startTime,
-            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("createTime") long createTime,
+            @JsonProperty("startTime") long startTime,
+            @JsonProperty("endTime") long endTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
 
@@ -146,7 +145,7 @@ public class DriverStats
     {
         this.lifespan = lifespan;
 
-        this.createTime = requireNonNull(createTime, "createTime is null");
+        this.createTime = createTime;
         this.startTime = startTime;
         this.endTime = endTime;
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
@@ -189,21 +188,21 @@ public class DriverStats
     }
 
     @JsonProperty
-    public DateTime getCreateTime()
+    public long getCreateTime()
     {
         return createTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getStartTime()
+    public long getStartTime()
     {
         return startTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getEndTime()
+    public long getEndTime()
     {
         return endTime;
     }

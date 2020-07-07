@@ -407,7 +407,7 @@ public class PipelineContext
         }
 
         Set<DriverStats> runningDriverStats = drivers.stream()
-                .filter(driver -> driver.getEndTime() == null && driver.getStartTime() != null)
+                .filter(driver -> driver.getEndTime() == 0 && driver.getStartTime() != 0)
                 .collect(toImmutableSet());
         ImmutableSet<BlockedReason> blockedReasons = runningDriverStats.stream()
                 .flatMap(driver -> driver.getBlockedReasons().stream())

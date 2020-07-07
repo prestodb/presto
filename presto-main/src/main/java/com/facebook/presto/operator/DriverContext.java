@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -61,7 +60,7 @@ public class DriverContext
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
-    private final DateTime createdTime = DateTime.now();
+    private final long createdTime = System.currentTimeMillis();
     private final long createNanos = System.nanoTime();
 
     private final AtomicLong startNanos = new AtomicLong();
@@ -72,8 +71,8 @@ public class DriverContext
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
-    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
+    private final AtomicLong executionStartTime = new AtomicLong();
+    private final AtomicLong executionEndTime = new AtomicLong();
 
     private final MemoryTrackingContext driverMemoryContext;
 
@@ -140,7 +139,7 @@ public class DriverContext
     {
         if (startNanos.compareAndSet(0, System.nanoTime())) {
             pipelineContext.start();
-            executionStartTime.set(DateTime.now());
+            executionStartTime.set(System.currentTimeMillis());
         }
     }
 
@@ -169,7 +168,7 @@ public class DriverContext
             // already finished
             return;
         }
-        executionEndTime.set(DateTime.now());
+        executionEndTime.set(System.currentTimeMillis());
         endNanos.set(System.nanoTime());
 
         pipelineContext.driverFinished(this);
@@ -298,7 +297,7 @@ public class DriverContext
 
     public boolean isExecutionStarted()
     {
-        return executionStartTime.get() != null;
+        return executionStartTime.get() != 0L;
     }
 
     public boolean isFullyBlocked()

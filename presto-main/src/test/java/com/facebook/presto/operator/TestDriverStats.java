@@ -19,13 +19,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 public class TestDriverStats
@@ -33,9 +31,9 @@ public class TestDriverStats
     public static final DriverStats EXPECTED = new DriverStats(
             Lifespan.driverGroup(21),
 
-            new DateTime(1),
-            new DateTime(2),
-            new DateTime(3),
+            1,
+            2,
+            3,
 
             new Duration(4, NANOSECONDS),
             new Duration(5, NANOSECONDS),
@@ -81,9 +79,9 @@ public class TestDriverStats
     {
         assertEquals(actual.getLifespan(), Lifespan.driverGroup(21));
 
-        assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
-        assertEquals(actual.getStartTime(), new DateTime(2, UTC));
-        assertEquals(actual.getEndTime(), new DateTime(3, UTC));
+        assertEquals(actual.getCreateTime(), 1);
+        assertEquals(actual.getStartTime(), 2);
+        assertEquals(actual.getEndTime(), 3);
         assertEquals(actual.getQueuedTime(), new Duration(4, NANOSECONDS));
         assertEquals(actual.getElapsedTime(), new Duration(5, NANOSECONDS));
 
