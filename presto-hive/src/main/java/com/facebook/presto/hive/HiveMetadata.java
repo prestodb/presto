@@ -66,6 +66,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -275,6 +276,9 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static com.facebook.presto.spi.TableLayoutFilterCoverage.COVERED;
+import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
+import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_COVERED;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
@@ -3153,6 +3157,21 @@ public class HiveMetadata
     public void commit()
     {
         metastore.commit();
+    }
+
+    @Override
+    public TableLayoutFilterCoverage getTableLayoutFilterCoverage(ConnectorTableLayoutHandle connectorTableLayoutHandle, Set<String> relevantPartitionColumns)
+    {
+        HiveTableLayoutHandle tableHandle = (HiveTableLayoutHandle) connectorTableLayoutHandle;
+        Set<String> relevantColumns = tableHandle.getPartitionColumns().stream()
+                .map(HiveColumnHandle::getName)
+                .filter(relevantPartitionColumns::contains)
+                .collect(toImmutableSet());
+        if (relevantColumns.isEmpty()) {
+            return NOT_APPLICABLE;
+        }
+
+        return Sets.intersection(tableHandle.getPredicateColumns().keySet(), relevantColumns).isEmpty() ? NOT_COVERED : COVERED;
     }
 
     public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)
