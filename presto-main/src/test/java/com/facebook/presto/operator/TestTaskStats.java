@@ -30,11 +30,11 @@ import static org.testng.Assert.assertEquals;
 public class TestTaskStats
 {
     private static final TaskStats EXPECTED = new TaskStats(
-            new DateTime(1),
-            new DateTime(2),
-            new DateTime(100),
-            new DateTime(101),
-            new DateTime(3),
+            1,
+            2,
+            100,
+            101,
+            3,
             new Duration(4, NANOSECONDS),
             new Duration(5, NANOSECONDS),
 

@@ -25,6 +25,7 @@ import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import io.airlift.units.DataSize;
+import org.joda.time.DateTime;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -206,7 +207,7 @@ public class GcStatusMonitor
                                 task.getQueryContext().getQueryId().toString(),
                                 task.getTaskId().toString(),
                                 taskStatus.getState().toString(),
-                                taskStats.getCreateTime().toString(),
+                                new DateTime(taskStats.getCreateTime()).toString(),
                                 taskStats.getUserMemoryReservation().toString(),
                                 taskStats.getSystemMemoryReservation().toString(),
                                 Long.toString(taskIOStats.getInputDataSize().getTotalCount()),

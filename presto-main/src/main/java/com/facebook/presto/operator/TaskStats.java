@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 
@@ -34,11 +33,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TaskStats
 {
-    private final DateTime createTime;
-    private final DateTime firstStartTime;
-    private final DateTime lastStartTime;
-    private final DateTime lastEndTime;
-    private final DateTime endTime;
+    private final long createTime;
+    private final long firstStartTime;
+    private final long lastStartTime;
+    private final long lastEndTime;
+    private final long endTime;
 
     private final Duration elapsedTime;
     private final Duration queuedTime;
@@ -81,12 +80,12 @@ public class TaskStats
 
     private final List<PipelineStats> pipelines;
 
-    public TaskStats(DateTime createTime, DateTime endTime)
+    public TaskStats(long createTime, long endTime)
     {
         this(createTime,
-                null,
-                null,
-                null,
+                0,
+                0,
+                0,
                 endTime,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -122,11 +121,11 @@ public class TaskStats
 
     @JsonCreator
     public TaskStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("firstStartTime") DateTime firstStartTime,
-            @JsonProperty("lastStartTime") DateTime lastStartTime,
-            @JsonProperty("lastEndTime") DateTime lastEndTime,
-            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("createTime") long createTime,
+            @JsonProperty("firstStartTime") long firstStartTime,
+            @JsonProperty("lastStartTime") long lastStartTime,
+            @JsonProperty("lastEndTime") long lastEndTime,
+            @JsonProperty("endTime") long endTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("queuedTime") Duration queuedTime,
 
@@ -168,7 +167,7 @@ public class TaskStats
 
             @JsonProperty("pipelines") List<PipelineStats> pipelines)
     {
-        this.createTime = requireNonNull(createTime, "createTime is null");
+        this.createTime = createTime;
         this.firstStartTime = firstStartTime;
         this.lastStartTime = lastStartTime;
         this.lastEndTime = lastEndTime;
@@ -230,35 +229,35 @@ public class TaskStats
     }
 
     @JsonProperty
-    public DateTime getCreateTime()
+    public long getCreateTime()
     {
         return createTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getFirstStartTime()
+    public long getFirstStartTime()
     {
         return firstStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastStartTime()
+    public long getLastStartTime()
     {
         return lastStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastEndTime()
+    public long getLastEndTime()
     {
         return lastEndTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getEndTime()
+    public long getEndTime()
     {
         return endTime;
     }

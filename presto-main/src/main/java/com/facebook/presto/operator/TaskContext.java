@@ -512,11 +512,11 @@ public class TaskContext
         boolean fullyBlocked = !runningPipelineStats.isEmpty() && runningPipelineStats.stream().allMatch(PipelineStats::isFullyBlocked);
 
         return new TaskStats(
-                taskStateMachine.getCreatedTime(),
-                executionStartTime.get(),
-                lastExecutionStartTime.get(),
-                lastExecutionEndTime == 0 ? null : new DateTime(lastExecutionEndTime),
-                executionEndTime.get(),
+                taskStateMachine.getCreatedTime().getMillis(),
+                executionStartTime.get().getMillis(),
+                lastExecutionStartTime.get().getMillis(),
+                lastExecutionEndTime,
+                executionEndTime.get().getMillis(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 totalDrivers,

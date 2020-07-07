@@ -456,8 +456,8 @@ public class SqlTaskManager
         for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
             TaskId taskId = taskInfo.getTaskId();
             try {
-                DateTime endTime = taskInfo.getStats().getEndTime();
-                if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
+                long endTime = taskInfo.getStats().getEndTime();
+                if (endTime != 0 && endTime < oldestAllowedTask.getMillis()) {
                     tasks.asMap().remove(taskId);
                 }
             }

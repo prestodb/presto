@@ -40,7 +40,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 
@@ -313,8 +312,8 @@ public class SqlTask
             return taskExecution.getTaskContext().getTaskStats();
         }
         // if the task completed without creation, set end time
-        DateTime endTime = taskStateMachine.getState().isDone() ? DateTime.now() : null;
-        return new TaskStats(taskStateMachine.getCreatedTime(), endTime);
+        long endTime = taskStateMachine.getState().isDone() ? System.currentTimeMillis() : 0;
+        return new TaskStats(taskStateMachine.getCreatedTime().getMillis(), endTime);
     }
 
     private static Set<PlanNodeId> getNoMoreSplits(TaskHolder taskHolder)

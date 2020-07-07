@@ -69,6 +69,7 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonDistri
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
 import static java.time.Instant.ofEpochMilli;
@@ -442,19 +443,16 @@ public class QueryMonitor
                 for (TaskInfo taskInfo : stage.getLatestAttemptExecutionInfo().getTasks()) {
                     TaskStats taskStats = taskInfo.getStats();
 
-                    DateTime firstStartTime = taskStats.getFirstStartTime();
-                    if (firstStartTime != null) {
-                        firstTaskStartTime = Math.min(firstStartTime.getMillis(), firstTaskStartTime);
+                    if (taskStats.getFirstStartTime() != 0) {
+                        firstTaskStartTime = min(taskStats.getFirstStartTime(), firstTaskStartTime);
                     }
 
-                    DateTime lastStartTime = taskStats.getLastStartTime();
-                    if (lastStartTime != null) {
-                        lastTaskStartTime = max(lastStartTime.getMillis(), lastTaskStartTime);
+                    if (taskStats.getLastStartTime() != 0) {
+                        lastTaskStartTime = max(taskStats.getLastStartTime(), lastTaskStartTime);
                     }
 
-                    DateTime endTime = taskStats.getEndTime();
-                    if (endTime != null) {
-                        lastTaskEndTime = max(endTime.getMillis(), lastTaskEndTime);
+                    if (taskStats.getEndTime() != 0) {
+                        lastTaskEndTime = max(taskStats.getEndTime(), lastTaskEndTime);
                     }
                 }
             }
