@@ -41,6 +41,7 @@ import static java.lang.String.format;
 import static org.elasticsearch.client.Requests.indexAliasesRequest;
 import static org.elasticsearch.client.Requests.refreshRequest;
 
+@Test(singleThreaded = true)
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
