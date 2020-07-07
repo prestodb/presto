@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -44,7 +43,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -72,9 +70,9 @@ public class PipelineContext
     private final AtomicInteger totalSplits = new AtomicInteger();
     private final AtomicInteger completedDrivers = new AtomicInteger();
 
-    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionEndTime = new AtomicReference<>();
+    private final AtomicLong executionStartTime = new AtomicLong();
+    private final AtomicLong lastExecutionStartTime = new AtomicLong();
+    private final AtomicLong lastExecutionEndTime = new AtomicLong();
 
     private final Distribution queuedTime = new Distribution();
     private final Distribution elapsedTime = new Distribution();
@@ -176,7 +174,7 @@ public class PipelineContext
         }
 
         // always update last execution end time
-        lastExecutionEndTime.set(DateTime.now());
+        lastExecutionEndTime.set(System.currentTimeMillis());
 
         DriverStats driverStats = driverContext.getDriverStats();
 
@@ -212,8 +210,8 @@ public class PipelineContext
 
     public void start()
     {
-        DateTime now = DateTime.now();
-        executionStartTime.compareAndSet(null, now);
+        long now = System.currentTimeMillis();
+        executionStartTime.compareAndSet(0L, now);
         // always update last execution start time
         lastExecutionStartTime.set(now);
 
@@ -327,10 +325,10 @@ public class PipelineContext
     {
         // check for end state to avoid callback ordering problems
         if (taskContext.getState().isDone()) {
-            DateTime now = DateTime.now();
-            executionStartTime.compareAndSet(null, now);
-            lastExecutionStartTime.compareAndSet(null, now);
-            lastExecutionEndTime.compareAndSet(null, now);
+            long now = System.currentTimeMillis();
+            executionStartTime.compareAndSet(0L, now);
+            lastExecutionStartTime.compareAndSet(0L, now);
+            lastExecutionEndTime.compareAndSet(0L, now);
         }
 
         int completedDrivers = this.completedDrivers.get();

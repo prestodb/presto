@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -37,9 +36,9 @@ public class PipelineStats
 {
     private final int pipelineId;
 
-    private final DateTime firstStartTime;
-    private final DateTime lastStartTime;
-    private final DateTime lastEndTime;
+    private final long firstStartTime;
+    private final long lastStartTime;
+    private final long lastEndTime;
 
     private final boolean inputPipeline;
     private final boolean outputPipeline;
@@ -85,9 +84,9 @@ public class PipelineStats
     public PipelineStats(
             @JsonProperty("pipelineId") int pipelineId,
 
-            @JsonProperty("firstStartTime") DateTime firstStartTime,
-            @JsonProperty("lastStartTime") DateTime lastStartTime,
-            @JsonProperty("lastEndTime") DateTime lastEndTime,
+            @JsonProperty("firstStartTime") long firstStartTime,
+            @JsonProperty("lastStartTime") long lastStartTime,
+            @JsonProperty("lastEndTime") long lastEndTime,
 
             @JsonProperty("inputPipeline") boolean inputPipeline,
             @JsonProperty("outputPipeline") boolean outputPipeline,
@@ -194,21 +193,21 @@ public class PipelineStats
 
     @Nullable
     @JsonProperty
-    public DateTime getFirstStartTime()
+    public long getFirstStartTime()
     {
         return firstStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastStartTime()
+    public long getLastStartTime()
     {
         return lastStartTime;
     }
 
     @Nullable
     @JsonProperty
-    public DateTime getLastEndTime()
+    public long getLastEndTime()
     {
         return lastEndTime;
     }
