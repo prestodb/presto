@@ -238,7 +238,6 @@ public class TestDecryption
     {
         Type rowType = rowType(BIGINT, BIGINT, BIGINT);
         Slice iek1 = Slices.utf8Slice("iek1");
-        Slice dek = Slices.utf8Slice("dek");
         DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
@@ -277,7 +276,6 @@ public class TestDecryption
         List<List<?>> values = ImmutableList.of(columnValues, columnValues);
         Slice iek1 = Slices.utf8Slice("iek1");
         Slice iek2 = Slices.utf8Slice("iek2");
-        Slice dek = Slices.utf8Slice("dek");
         DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
@@ -312,7 +310,6 @@ public class TestDecryption
                 .collect(toList()));
 
         Slice iek = Slices.utf8Slice("iek");
-        Slice dek = Slices.utf8Slice("dek");
         DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
@@ -341,7 +338,6 @@ public class TestDecryption
         Type rowType = rowType(BIGINT, BIGINT, BIGINT);
         Slice iek1 = Slices.utf8Slice("iek1");
         Slice iek2 = Slices.utf8Slice("iek2");
-        Slice dek = Slices.utf8Slice("dek");
         DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
@@ -374,7 +370,7 @@ public class TestDecryption
                 ImmutableList.of(0, 1, 3));
     }
 
-    private void testDecryptionRoundTrip(
+    private static void testDecryptionRoundTrip(
             List<Type> types,
             List<List<?>> writtenalues,
             List<List<?>> readValues,
@@ -406,7 +402,7 @@ public class TestDecryption
         }
     }
 
-    private void validateFileStatistics(File file, Optional<DwrfWriterEncryption> dwrfWriterEncryption)
+    private static void validateFileStatistics(File file, Optional<DwrfWriterEncryption> dwrfWriterEncryption)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -436,7 +432,7 @@ public class TestDecryption
         }
     }
 
-    private boolean hasNoTypeStats(DwrfProto.ColumnStatistics columnStatistics)
+    private static boolean hasNoTypeStats(DwrfProto.ColumnStatistics columnStatistics)
     {
         return !columnStatistics.hasBinaryStatistics()
                 && !columnStatistics.hasBucketStatistics()
