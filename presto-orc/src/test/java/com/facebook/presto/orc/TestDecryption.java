@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.AbstractOrcRecordReader.getDecryptionKeyMetadata;
 import static com.facebook.presto.orc.AbstractTestOrcReader.intsBetween;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
@@ -89,11 +90,11 @@ public class TestDecryption
                 new EncryptionGroup(
                         ImmutableList.of(1, 3),
                         Optional.empty(),
-                        Slices.EMPTY_SLICE),
+                        ImmutableList.of(Slices.EMPTY_SLICE, Slices.EMPTY_SLICE)),
                 new EncryptionGroup(
                         ImmutableList.of(4),
                         Optional.empty(),
-                        Slices.EMPTY_SLICE));
+                        ImmutableList.of(Slices.EMPTY_SLICE)));
 
         Optional<DwrfEncryption> encryption = Optional.of(new DwrfEncryption(UNKNOWN, encryptionGroups));
 
@@ -115,11 +116,11 @@ public class TestDecryption
                 new EncryptionGroup(
                         ImmutableList.of(1, 3),
                         Optional.empty(),
-                        Slices.EMPTY_SLICE),
+                        ImmutableList.of(Slices.EMPTY_SLICE, Slices.EMPTY_SLICE)),
                 new EncryptionGroup(
                         ImmutableList.of(4),
                         Optional.empty(),
-                        Slices.EMPTY_SLICE));
+                        ImmutableList.of(Slices.EMPTY_SLICE)));
 
         Optional<DwrfEncryption> encryption = Optional.of(new DwrfEncryption(UNKNOWN, encryptionGroups));
         Footer footer = createFooterWithEncryption(ImmutableList.of(NO_KEYS_STRIPE), encryption);
@@ -133,7 +134,7 @@ public class TestDecryption
                 new EncryptionGroup(
                         ImmutableList.of(1, 3),
                         Optional.empty(),
-                        Slices.EMPTY_SLICE));
+                        ImmutableList.of(Slices.EMPTY_SLICE, Slices.EMPTY_SLICE)));
 
         Optional<DwrfEncryption> encryption = Optional.of(new DwrfEncryption(UNKNOWN, encryptionGroups));
         Footer footer = createFooterWithEncryption(ImmutableList.of(A_STRIPE), encryption);
@@ -261,6 +262,62 @@ public class TestDecryption
                 Optional.of(dwrfWriterEncryption),
                 ImmutableMap.of(1, iek1),
                 ImmutableMap.of(0, rowType),
+                ImmutableMap.of(),
+                outputColumns);
+    }
+
+    @Test
+    public void testMultipleEncryptionGroupsMultipleColumns()
+            throws Exception
+    {
+        Type rowType = rowType(BIGINT, BIGINT, BIGINT);
+        Slice iek1 = Slices.utf8Slice("iek1");
+        Slice iek2 = Slices.utf8Slice("iek2");
+        DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
+                UNKNOWN,
+                ImmutableList.of(
+                        new WriterEncryptionGroup(ImmutableList.of(1, 8), iek1),
+                        new WriterEncryptionGroup(ImmutableList.of(5, 9, 10), iek2)));
+        List<Type> types = ImmutableList.of(rowType, BIGINT, VARCHAR, VARCHAR, BIGINT, VARCHAR, BIGINT, BIGINT);
+        List<Long> columnValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
+                .map(Number::longValue)
+                .collect(toList());
+        List<String> varcharValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
+                .map(String::valueOf)
+                .collect(toList());
+
+        List<List<?>> rowValues = columnValues.stream()
+                .map(OrcTester::toHiveStruct)
+                .collect(toList());
+        List<List<?>> values = ImmutableList.of(
+                rowValues,
+                columnValues,
+                varcharValues,
+                varcharValues,
+                columnValues,
+                varcharValues,
+                columnValues,
+                columnValues);
+        List<Integer> outputColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableList());
+
+        testDecryptionRoundTrip(
+                types,
+                values,
+                values,
+                Optional.of(dwrfWriterEncryption),
+                ImmutableMap.of(1, iek1, 5, iek2, 8, iek1, 9, iek2, 10, iek2),
+                ImmutableMap.<Integer, Type>builder()
+                        .put(0, rowType)
+                        .put(1, BIGINT)
+                        .put(2, VARCHAR)
+                        .put(3, VARCHAR)
+                        .put(4, BIGINT)
+                        .put(5, VARCHAR)
+                        .put(6, BIGINT)
+                        .put(7, BIGINT)
+                        .build(),
                 ImmutableMap.of(),
                 outputColumns);
     }
@@ -456,6 +513,8 @@ public class TestDecryption
                         .map(WriterEncryptionGroup::getNodes)
                         .flatMap(Collection::stream)
                         .forEach(node -> assertTrue(hasNoTypeStats(fileStats.get(node)), format("file stats for node %s had type stats %s", node, fileStats.get(node))));
+                footer.getEncryption().getEncryptionGroupsList()
+                        .forEach(group -> assertEquals(group.getNodesCount(), group.getStatisticsCount()));
             }
         }
     }

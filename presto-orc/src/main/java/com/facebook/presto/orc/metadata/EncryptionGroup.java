@@ -31,9 +31,9 @@ public class EncryptionGroup
     // this is optional and can use first keyMetadata from stripe
     private final Optional<Slice> keyMetadata;
     // encrypted columns stats (serialized FileStatistics)
-    private final Slice statistics;
+    private final List<Slice> statistics;
 
-    public EncryptionGroup(List<Integer> nodes, Optional<Slice> keyMetadata, Slice statistics)
+    public EncryptionGroup(List<Integer> nodes, Optional<Slice> keyMetadata, List<Slice> statistics)
     {
         this.nodes = ImmutableList.copyOf(requireNonNull(nodes, "nodes is null"));
         this.keyMetadata = requireNonNull(keyMetadata, "keyMetadata is null");
@@ -50,7 +50,7 @@ public class EncryptionGroup
         return keyMetadata;
     }
 
-    public Slice getStatistics()
+    public List<Slice> getStatistics()
     {
         return statistics;
     }
