@@ -371,7 +371,9 @@ public class DwrfMetadataWriter
     {
         return DwrfProto.EncryptionGroup.newBuilder()
                 .addAllNodes(encryptionGroup.getNodes())
-                .setStatistics(ByteString.copyFrom(encryptionGroup.getStatistics().getBytes()))
+                .addAllStatistics(encryptionGroup.getStatistics().stream()
+                        .map(statsSlice -> ByteString.copyFrom(statsSlice.getBytes()))
+                        .collect(toImmutableList()))
                 .build();
     }
 
