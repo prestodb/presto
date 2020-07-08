@@ -40,10 +40,8 @@ import com.facebook.presto.orc.writer.ColumnWriter;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -611,49 +609,20 @@ public class OrcWriter
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
                 .collect(Collectors.toMap(Entry::getKey, entry -> utf8Slice(entry.getValue())));
 
-        ImmutableList.Builder<ColumnStatistics> unencryptedStatsBuilder = ImmutableList.builder();
-        ImmutableListMultimap.Builder<Integer, ColumnStatistics> encryptedStatsBuilder = ImmutableListMultimap.builder();
-        for (int i = 0; i < fileStats.size(); i++) {
-            if (dwrfEncryptionInfo.getGroupByNodeId(i).isPresent()) {
-                ColumnStatistics stats = fileStats.get(i);
-                encryptedStatsBuilder.put(dwrfEncryptionInfo.getGroupByNodeId(i).get(), stats);
-                unencryptedStatsBuilder.add(new ColumnStatistics(
-                        stats.getNumberOfValues(),
-                        stats.getMinAverageValueSizeInBytes(),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null));
-            }
-            else {
-                unencryptedStatsBuilder.add(fileStats.get(i));
-            }
-        }
-        List<ColumnStatistics> unencryptedStats = unencryptedStatsBuilder.build();
-        ListMultimap<Integer, ColumnStatistics> encryptedStats = encryptedStatsBuilder.build();
+        List<ColumnStatistics> unencryptedStats = new ArrayList<>();
+        Map<Integer, List<Slice>> encryptedStats = new HashMap<>();
+        addStatsRecursive(fileStats, 0, new HashMap<>(), unencryptedStats, encryptedStats);
         Optional<DwrfEncryption> dwrfEncryption;
         if (dwrfWriterEncryption.isPresent()) {
             ImmutableList.Builder<EncryptionGroup> encryptionGroupBuilder = ImmutableList.builder();
             List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.get().getWriterEncryptionGroups();
             for (int i = 0; i < writerEncryptionGroups.size(); i++) {
                 WriterEncryptionGroup group = writerEncryptionGroups.get(i);
-                DwrfProto.FileStatistics fileStatistics = toFileStatistics(encryptedStats.get(i));
-                DwrfDataEncryptor dwrfDataEncryptor = dwrfEncryptionInfo.getEncryptorByGroupId(i);
-                OrcOutputBuffer buffer = new OrcOutputBuffer(compression, Optional.of(dwrfDataEncryptor), maxCompressionBufferSize);
-                fileStatistics.writeTo(buffer);
-                buffer.close();
-                DynamicSliceOutput output = new DynamicSliceOutput(toIntExact(buffer.getOutputDataSize()));
-                buffer.writeDataTo(output);
-
                 encryptionGroupBuilder.add(
                         new EncryptionGroup(
                                 group.getNodes(),
                                 Optional.empty(), // reader will just use key metadata from the stripe
-                                output.slice()));
+                                encryptedStats.get(i)));
             }
             dwrfEncryption = Optional.of(
                     new DwrfEncryption(
@@ -671,7 +640,7 @@ public class OrcWriter
                         .map(ClosedStripe::getStripeInformation)
                         .collect(toList()),
                 orcTypes,
-                unencryptedStats,
+                ImmutableList.copyOf(unencryptedStats),
                 userMetadata,
                 dwrfEncryption);
 
@@ -686,6 +655,59 @@ public class OrcWriter
         outputData.add(createDataOutput(postscriptSlice));
         outputData.add(createDataOutput(Slices.wrappedBuffer((byte) postscriptSlice.length())));
         return outputData;
+    }
+
+    private void addStatsRecursive(List<ColumnStatistics> allStats, int index, Map<Integer, List<ColumnStatistics>> nodeAndSubNodeStats, List<ColumnStatistics> unencryptedStats, Map<Integer, List<Slice>> encryptedStats)
+            throws IOException
+    {
+        if (allStats.isEmpty()) {
+            return;
+        }
+        ColumnStatistics columnStatistics = allStats.get(index);
+        if (dwrfEncryptionInfo.getGroupByNodeId(index).isPresent()) {
+            int group = dwrfEncryptionInfo.getGroupByNodeId(index).get();
+            boolean isRootNode = dwrfWriterEncryption.get().getWriterEncryptionGroups().get(group).getNodes().contains(index);
+            verify(isRootNode && nodeAndSubNodeStats.isEmpty() || nodeAndSubNodeStats.size() == 1 && nodeAndSubNodeStats.get(group) != null,
+                    "nodeAndSubNodeStats should only be present for subnodes of a group");
+            nodeAndSubNodeStats.computeIfAbsent(group, x -> new ArrayList<>()).add(columnStatistics);
+            unencryptedStats.add(new ColumnStatistics(
+                    columnStatistics.getNumberOfValues(),
+                    columnStatistics.getMinAverageValueSizeInBytes(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null));
+            for (Integer fieldIndex : orcTypes.get(index).getFieldTypeIndexes()) {
+                addStatsRecursive(allStats, fieldIndex, nodeAndSubNodeStats, unencryptedStats, encryptedStats);
+            }
+            if (isRootNode) {
+                Slice encryptedFileStatistics = toEncryptedFileStatistics(nodeAndSubNodeStats.get(group), group);
+                encryptedStats.computeIfAbsent(group, x -> new ArrayList<>()).add(encryptedFileStatistics);
+            }
+        }
+        else {
+            unencryptedStats.add(columnStatistics);
+            for (Integer fieldIndex : orcTypes.get(index).getFieldTypeIndexes()) {
+                addStatsRecursive(allStats, fieldIndex, new HashMap<>(), unencryptedStats, encryptedStats);
+            }
+        }
+    }
+
+    private Slice toEncryptedFileStatistics(List<ColumnStatistics> statsFromRoot, int groupId)
+            throws IOException
+    {
+        DwrfProto.FileStatistics fileStatistics = toFileStatistics(statsFromRoot);
+        DwrfDataEncryptor dwrfDataEncryptor = dwrfEncryptionInfo.getEncryptorByGroupId(groupId);
+        OrcOutputBuffer buffer = new OrcOutputBuffer(compression, Optional.of(dwrfDataEncryptor), maxCompressionBufferSize);
+        fileStatistics.writeTo(buffer);
+        buffer.close();
+        DynamicSliceOutput output = new DynamicSliceOutput(toIntExact(buffer.getOutputDataSize()));
+        buffer.writeDataTo(output);
+        return output.slice();
     }
 
     private void recordValidation(Consumer<OrcWriteValidationBuilder> task)

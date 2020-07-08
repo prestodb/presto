@@ -126,7 +126,9 @@ public class DwrfMetadataReader
             encryptionGroupBuilder.add(new EncryptionGroup(
                     dwrfEncryptionGroup.getNodesList(),
                     dwrfEncryptionGroup.hasKeyMetadata() ? Optional.of(byteStringToSlice(dwrfEncryptionGroup.getKeyMetadata())) : Optional.empty(),
-                    byteStringToSlice(dwrfEncryptionGroup.getStatistics())));
+                    dwrfEncryptionGroup.getStatisticsList().stream()
+                            .map(OrcMetadataReader::byteStringToSlice)
+                            .collect(toImmutableList())));
         }
         return encryptionGroupBuilder.build();
     }
