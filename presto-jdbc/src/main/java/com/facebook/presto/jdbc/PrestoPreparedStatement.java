@@ -100,8 +100,8 @@ public class PrestoPreparedStatement
         super(connection);
         this.statementName = requireNonNull(statementName, "statementName is null");
         this.originalSql = requireNonNull(sql, "sql is null");
-        for (int i=1; i<=parameters.size(); i++) {
-            setParameter(i, parameters.get(i-1));
+        for (int i = 1; i <= parameters.size(); i++) {
+            setParameter(i, parameters.get(i - 1));
         }
         if (execute) {
             execute();
