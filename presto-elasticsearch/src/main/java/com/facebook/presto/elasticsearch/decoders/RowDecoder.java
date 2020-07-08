@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_TYPE_MISMATCH;
-import static com.facebook.presto.elasticsearch.ElasticsearchPageSource.getField;
+import static com.facebook.presto.elasticsearch.ScanQueryPageSource.getField;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
