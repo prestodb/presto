@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -62,10 +63,6 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
-    private static final String ORIGINAL_NAME = "original-name";
-
-    public static final String SUPPORTS_PREDICATES = "supports-predicates";
-
     private final ElasticsearchClient client;
     private final String schemaName;
 
@@ -125,30 +122,68 @@ public class ElasticsearchMetadata
 
     private ConnectorTableMetadata getTableMetadata(String schemaName, String tableName)
     {
-        IndexMetadata metadata = client.getIndexMetadata(tableName);
-
-        return new ConnectorTableMetadata(
-                new SchemaTableName(schemaName, tableName),
-                toColumnMetadata(metadata));
+        InternalTableMetadata internalTableMetadata = makeInternalTableMetadata(schemaName, tableName);
+        return new ConnectorTableMetadata(new SchemaTableName(schemaName, tableName), internalTableMetadata.getColumnMetadata());
     }
 
-    private List<ColumnMetadata> toColumnMetadata(IndexMetadata metadata)
+    private InternalTableMetadata makeInternalTableMetadata(ConnectorTableHandle table)
     {
-        ImmutableList.Builder<ColumnMetadata> result = ImmutableList.builder();
+        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        return makeInternalTableMetadata(handle.getSchema(), handle.getIndex());
+    }
 
-        result.add(BuiltinColumns.ID.getMetadata());
-        result.add(BuiltinColumns.SOURCE.getMetadata());
-        result.add(BuiltinColumns.SCORE.getMetadata());
+    private InternalTableMetadata makeInternalTableMetadata(String schema, String tableName)
+    {
+        IndexMetadata metadata = client.getIndexMetadata(tableName);
+        List<IndexMetadata.Field> fields = getColumnFields(metadata);
+        return new InternalTableMetadata(new SchemaTableName(schema, tableName), makeColumnMetadata(fields), makeColumnHandles(fields));
+    }
+
+    private List<IndexMetadata.Field> getColumnFields(IndexMetadata metadata)
+    {
+        ImmutableList.Builder<IndexMetadata.Field> result = ImmutableList.builder();
+
+        Map<String, Long> counts = metadata.getSchema()
+                .getFields().stream()
+                .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
 
         for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
             Type type = toPrestoType(field);
-            if (type == null) {
+            if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
                 continue;
             }
+            result.add(field);
+        }
+        return result.build();
+    }
 
-            result.add(makeColumnMetadata(field.getName(), type, supportsPredicates(field.getType())));
+    private List<ColumnMetadata> makeColumnMetadata(List<IndexMetadata.Field> fields)
+    {
+        ImmutableList.Builder<ColumnMetadata> result = ImmutableList.builder();
+
+        for (BuiltinColumns builtinColumn : BuiltinColumns.values()) {
+            result.add(builtinColumn.getMetadata());
         }
 
+        for (IndexMetadata.Field field : fields) {
+            result.add(new ColumnMetadata(field.getName(), toPrestoType(field)));
+        }
+        return result.build();
+    }
+
+    private Map<String, ColumnHandle> makeColumnHandles(List<IndexMetadata.Field> fields)
+    {
+        ImmutableMap.Builder<String, ColumnHandle> result = ImmutableMap.builder();
+        for (BuiltinColumns builtinColumn : BuiltinColumns.values()) {
+            result.put(builtinColumn.getName(), builtinColumn.getColumnHandle());
+        }
+
+        for (IndexMetadata.Field field : fields) {
+            result.put(field.getName(), new ElasticsearchColumnHandle(
+                    field.getName(),
+                    toPrestoType(field),
+                    supportsPredicates(field.getType())));
+        }
         return result.build();
     }
 
@@ -253,24 +288,15 @@ public class ElasticsearchMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> results = ImmutableMap.builder();
-
-        ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
-        for (ColumnMetadata column : tableMetadata.getColumns()) {
-            results.put(column.getName(), new ElasticsearchColumnHandle(
-                    (String) column.getProperties().getOrDefault(ORIGINAL_NAME, column.getName()),
-                    column.getType(),
-                    (Boolean) column.getProperties().get(SUPPORTS_PREDICATES)));
-        }
-
-        return results.build();
+        InternalTableMetadata tableMetadata = makeInternalTableMetadata(tableHandle);
+        return tableMetadata.getColumnHandles();
     }
 
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         ElasticsearchColumnHandle handle = (ElasticsearchColumnHandle) columnHandle;
-        return makeColumnMetadata(handle.getName(), handle.getType(), handle.isSupportsPredicates());
+        return new ColumnMetadata(handle.getName(), handle.getType());
     }
 
     @Override
@@ -290,16 +316,35 @@ public class ElasticsearchMetadata
                 .collect(toImmutableMap(ConnectorTableMetadata::getTable, ConnectorTableMetadata::getColumns));
     }
 
-    private static ColumnMetadata makeColumnMetadata(String name, Type type, boolean supportsPredicates)
+    private static class InternalTableMetadata
     {
-        return new ColumnMetadata(
-                name,
-                type,
-                null,
-                null,
-                false,
-                ImmutableMap.of(
-                        ORIGINAL_NAME, name,
-                        SUPPORTS_PREDICATES, supportsPredicates));
+        private final SchemaTableName tableName;
+        private final List<ColumnMetadata> columnMetadata;
+        private final Map<String, ColumnHandle> columnHandles;
+
+        public InternalTableMetadata(
+                SchemaTableName tableName,
+                List<ColumnMetadata> columnMetadata,
+                Map<String, ColumnHandle> columnHandles)
+        {
+            this.tableName = tableName;
+            this.columnMetadata = columnMetadata;
+            this.columnHandles = columnHandles;
+        }
+
+        public SchemaTableName getTableName()
+        {
+            return tableName;
+        }
+
+        public List<ColumnMetadata> getColumnMetadata()
+        {
+            return columnMetadata;
+        }
+
+        public Map<String, ColumnHandle> getColumnHandles()
+        {
+            return columnHandles;
+        }
     }
 }
