@@ -14,15 +14,14 @@
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.Arrays;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.elasticsearch.ElasticsearchMetadata.SUPPORTS_PREDICATES;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 enum BuiltinColumns
@@ -58,6 +57,11 @@ enum BuiltinColumns
 
     public ColumnMetadata getMetadata()
     {
-        return new ColumnMetadata(name, type, "", null, true, ImmutableMap.of(SUPPORTS_PREDICATES, supportsPredicates));
+        return new ColumnMetadata(name, type, "", null, true);
+    }
+
+    public ColumnHandle getColumnHandle()
+    {
+        return new ElasticsearchColumnHandle(name, type, supportsPredicates);
     }
 }
