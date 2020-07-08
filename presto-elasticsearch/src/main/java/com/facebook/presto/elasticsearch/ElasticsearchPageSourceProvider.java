@@ -53,11 +53,16 @@ public class ElasticsearchPageSourceProvider
         requireNonNull(split, "split is null");
         requireNonNull(layout, "layout is null");
         ElasticsearchTableLayoutHandle layoutHandle = (ElasticsearchTableLayoutHandle) layout;
-        return new ElasticsearchPageSource(
+        ElasticsearchSplit elasticsearchSplit = (ElasticsearchSplit) split;
+
+        if (columns.isEmpty()) {
+            return new CountQueryPageSource(client, session, layoutHandle.getTable(), elasticsearchSplit);
+        }
+        return new ScanQueryPageSource(
                 client,
                 session,
                 layoutHandle.getTable(),
-                (ElasticsearchSplit) split,
+                elasticsearchSplit,
                 columns.stream()
                         .map(ElasticsearchColumnHandle.class::cast)
                         .collect(toImmutableList()));
