@@ -95,6 +95,15 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    public void testCountAll()
+    {
+        assertQuery("SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT count(*) FROM orders WHERE orderkey > 10");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM orders LIMIT 10)");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM orders WHERE orderkey > 10 LIMIT 10)");
+    }
+
+    @Test
     public void testMultipleRangesPredicate()
     {
         assertQuery("" +
@@ -721,6 +730,7 @@ public class TestElasticsearchIntegrationSmokeTest
     @Test
     public void testQueryStringError()
     {
+        assertQueryFails("SELECT orderkey FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
         assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
     }
 
