@@ -35,8 +35,11 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.ElasticsearchStatusException;
@@ -182,13 +185,26 @@ public class ElasticsearchClient
     {
         RestClientBuilder builder = RestClient.builder(
                 new HttpHost(config.getHost(), config.getPort(), config.isTlsEnabled() ? "https" : "http"))
-                .setRequestConfigCallback(
-                        configBuilder -> configBuilder
-                                .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
-                                .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis())))
                 .setMaxRetryTimeoutMillis((int) config.getMaxRetryTime().toMillis());
 
-        builder.setHttpClientConfigCallback(clientBuilder -> {
+        builder.setHttpClientConfigCallback(ignored -> {
+            RequestConfig requestConfig = RequestConfig.custom()
+                    .setConnectTimeout(toIntExact(config.getConnectTimeout().toMillis()))
+                    .setSocketTimeout(toIntExact(config.getRequestTimeout().toMillis()))
+                    .build();
+
+            IOReactorConfig reactorConfig = IOReactorConfig.custom()
+                    .setIoThreadCount(config.getHttpThreadCount())
+                    .build();
+
+            // the client builder passed to the call-back is configured to use system properties, which makes it
+            // impossible to configure concurrency settings, so we need to build a new one from scratch
+            HttpAsyncClientBuilder clientBuilder = HttpAsyncClientBuilder.create()
+                    .setDefaultRequestConfig(requestConfig)
+                    .setDefaultIOReactorConfig(reactorConfig)
+                    .setMaxConnPerRoute(config.getMaxHttpConnections())
+                    .setMaxConnTotal(config.getMaxHttpConnections());
+
             if (config.isTlsEnabled()) {
                 buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword())
                         .ifPresent(clientBuilder::setSSLContext);

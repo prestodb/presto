@@ -45,6 +45,8 @@ public class ElasticsearchConfig
     private Duration connectTimeout = new Duration(1, SECONDS);
     private Duration maxRetryTime = new Duration(30, SECONDS);
     private Duration nodeRefreshInterval = new Duration(1, MINUTES);
+    private int maxHttpConnections = 25;
+    private int httpThreadCount = Runtime.getRuntime().availableProcessors();
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -193,6 +195,34 @@ public class ElasticsearchConfig
     {
         this.nodeRefreshInterval = nodeRefreshInterval;
         return this;
+    }
+
+    @Config("elasticsearch.max-http-connections")
+    @ConfigDescription("Maximum number of persistent HTTP connections to Elasticsearch")
+    public ElasticsearchConfig setMaxHttpConnections(int size)
+    {
+        this.maxHttpConnections = size;
+        return this;
+    }
+
+    @NotNull
+    public int getMaxHttpConnections()
+    {
+        return maxHttpConnections;
+    }
+
+    @Config("elasticsearch.http-thread-count")
+    @ConfigDescription("Number of threads handling HTTP connections to Elasticsearch")
+    public ElasticsearchConfig setHttpThreadCount(int count)
+    {
+        this.httpThreadCount = count;
+        return this;
+    }
+
+    @NotNull
+    public int getHttpThreadCount()
+    {
+        return httpThreadCount;
     }
 
     public boolean isTlsEnabled()
