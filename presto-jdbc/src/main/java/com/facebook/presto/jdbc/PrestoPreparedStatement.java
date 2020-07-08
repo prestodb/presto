@@ -81,7 +81,31 @@ public class PrestoPreparedStatement
         super(connection);
         this.statementName = requireNonNull(statementName, "statementName is null");
         this.originalSql = requireNonNull(sql, "sql is null");
-        super.execute(format("PREPARE %s FROM %s", statementName, sql));
+    }
+
+    PrestoPreparedStatement(PrestoConnection connection, String statementName, String sql, boolean execute)
+            throws SQLException
+    {
+        super(connection);
+        this.statementName = requireNonNull(statementName, "statementName is null");
+        this.originalSql = requireNonNull(sql, "sql is null");
+        if (execute) {
+            super.execute(format("PREPARE %s FROM %s", statementName, sql));
+        }
+    }
+
+    PrestoPreparedStatement(PrestoConnection connection, String statementName, String sql, List<String> parameters, boolean execute)
+            throws SQLException
+    {
+        super(connection);
+        this.statementName = requireNonNull(statementName, "statementName is null");
+        this.originalSql = requireNonNull(sql, "sql is null");
+        for (int i=1; i<=parameters.size(); i++) {
+            setParameter(i, parameters.get(i-1));
+        }
+        if (execute) {
+            execute();
+        }
     }
 
     @Override
