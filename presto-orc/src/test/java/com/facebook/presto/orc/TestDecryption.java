@@ -370,6 +370,29 @@ public class TestDecryption
                 ImmutableList.of(0, 1, 3));
     }
 
+    @Test
+    public void testReadsEmptyFile()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        List<List<?>> values = ImmutableList.of(ImmutableList.of(), ImmutableList.of());
+        Slice iek1 = Slices.utf8Slice("iek1");
+        Slice iek2 = Slices.utf8Slice("iek2");
+        List<Integer> outputColumns = ImmutableList.of(0, 1);
+        // empty files don't specify encryption groups
+        testDecryptionRoundTrip(
+                types,
+                values,
+                values,
+                Optional.empty(),
+                ImmutableMap.of(
+                        1, iek1,
+                        2, iek2),
+                ImmutableMap.of(0, BIGINT, 1, BIGINT),
+                ImmutableMap.of(),
+                outputColumns);
+    }
+
     private static void testDecryptionRoundTrip(
             List<Type> types,
             List<List<?>> writtenalues,
@@ -420,7 +443,12 @@ public class TestDecryption
             DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
             List<DwrfProto.ColumnStatistics> fileStats = footer.getStatisticsList();
 
-            assertEquals(fileStats.size(), footer.getTypesCount());
+            if (footer.getStripesList().isEmpty()) {
+                assertEquals(fileStats.size(), 0);
+            }
+            else {
+                assertEquals(fileStats.size(), footer.getTypesCount());
+            }
 
             if (dwrfWriterEncryption.isPresent()) {
                 dwrfWriterEncryption.get().getWriterEncryptionGroups()
