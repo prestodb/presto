@@ -199,9 +199,9 @@ public class ElasticsearchConfig
 
     @Config("elasticsearch.max-http-connections")
     @ConfigDescription("Maximum number of persistent HTTP connections to Elasticsearch")
-    public ElasticsearchConfig setMaxHttpConnections(int size)
+    public ElasticsearchConfig setMaxHttpConnections(int maxHttpConnections)
     {
-        this.maxHttpConnections = size;
+        this.maxHttpConnections = maxHttpConnections;
         return this;
     }
 
@@ -213,9 +213,9 @@ public class ElasticsearchConfig
 
     @Config("elasticsearch.http-thread-count")
     @ConfigDescription("Number of threads handling HTTP connections to Elasticsearch")
-    public ElasticsearchConfig setHttpThreadCount(int count)
+    public ElasticsearchConfig setHttpThreadCount(int httpThreadCount)
     {
-        this.httpThreadCount = count;
+        this.httpThreadCount = httpThreadCount;
         return this;
     }
 
