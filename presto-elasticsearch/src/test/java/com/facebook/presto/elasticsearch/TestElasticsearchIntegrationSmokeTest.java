@@ -38,6 +38,7 @@ import static com.facebook.presto.elasticsearch.EmbeddedElasticsearchNode.create
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.elasticsearch.client.Requests.indexAliasesRequest;
 import static org.elasticsearch.client.Requests.refreshRequest;
 
@@ -135,6 +136,23 @@ public class TestElasticsearchIntegrationSmokeTest
                 .row("totalprice", "real", "", "")
                 .build();
         assertEquals(actualResult, expectedColumns, format("%s != %s", actualResult, expectedColumns));
+    }
+
+    @Test
+    public void testShowCreateTable()
+    {
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE elasticsearch.tpch.orders (\n" +
+                        "   clerk varchar,\n" +
+                        "   comment varchar,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderdate timestamp,\n" +
+                        "   orderkey bigint,\n" +
+                        "   orderpriority varchar,\n" +
+                        "   orderstatus varchar,\n" +
+                        "   shippriority bigint,\n" +
+                        "   totalprice real\n" +
+                        ")");
     }
 
     @Test
