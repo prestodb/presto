@@ -118,11 +118,20 @@ public class CursorProcessorCompiler
 
         generateProcessMethod(classDefinition, projections.size(), cseFields);
 
-        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, cseFields);
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                fieldReferenceCompiler(cseFields),
+                metadata,
+                sqlFunctionProperties,
+                compiledLambdaMap);
+
+        generateFilterMethod(classDefinition, compiler, filter);
 
         for (int i = 0; i < projections.size(); i++) {
             String methodName = "project_" + i;
-            generateProjectMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, methodName, projections.get(i), cseFields);
+            generateProjectMethod(classDefinition, compiler, methodName, projections.get(i));
         }
 
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
@@ -257,13 +266,9 @@ public class CursorProcessorCompiler
     }
 
     private void generateFilterMethod(
-            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
-            RowExpression filter,
-            Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields)
+            RowExpressionCompiler compiler,
+            RowExpression filter)
     {
         Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
@@ -275,14 +280,6 @@ public class CursorProcessorCompiler
         BytecodeBlock body = method.getBody();
 
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
-                classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                fieldReferenceCompiler(cseFields),
-                metadata,
-                sqlFunctionProperties,
-                compiledLambdaMap);
 
         LabelNode end = new LabelNode("end");
         body.comment("boolean wasNull = false;")
@@ -299,14 +296,10 @@ public class CursorProcessorCompiler
     }
 
     private void generateProjectMethod(
-            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            RowExpressionCompiler compiler,
             String methodName,
-            RowExpression projection,
-            Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields)
+            RowExpression projection)
     {
         Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
@@ -316,14 +309,6 @@ public class CursorProcessorCompiler
         method.comment("Projection: %s", projection.toString());
 
         Scope scope = method.getScope();
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
-                classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                fieldReferenceCompiler(cseFields),
-                metadata,
-                sqlFunctionProperties,
-                compiledLambdaMap);
 
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
         method.getBody()
