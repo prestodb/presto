@@ -106,7 +106,12 @@ public abstract class AbstractDwrfEncryptionInformationSource
 
         Map<String, String> fieldToKeyReference;
         if (encryptTable.isPresent()) {
-            fieldToKeyReference = ImmutableMap.of(DwrfEncryptionMetadata.TABLE_IDENTIFIER, encryptTable.get());
+            if (!requestedColumns.isPresent() || !requestedColumns.get().isEmpty()) {
+                fieldToKeyReference = ImmutableMap.of(DwrfEncryptionMetadata.TABLE_IDENTIFIER, encryptTable.get());
+            }
+            else {
+                fieldToKeyReference = ImmutableMap.of();
+            }
         }
         else if (columnEncryptionInformation.isPresent()) {
             Map<ColumnWithStructSubfield, String> allFieldsToKeyReference = columnEncryptionInformation.get().getColumnToKeyReference();

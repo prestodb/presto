@@ -120,6 +120,26 @@ public class TestAbstractDwrfEncryptionInformationSource
     }
 
     @Test
+    public void testGetReadEncryptionInformationForPartitionedTableWithTableLevelEncryptionAndNoRequestedColumns()
+    {
+        Table table = createTable(DWRF, Optional.of(forTable("key1", "algo", "provider")), true);
+        Optional<Map<String, EncryptionInformation>> encryptionInformation = encryptionInformationSource.getReadEncryptionInformation(
+                SESSION,
+                table,
+                Optional.of(ImmutableSet.of()),
+                ImmutableMap.of(
+                        "ds=2020-01-01", new Partition("dbName", "tableName", ImmutableList.of("2020-01-01"), table.getStorage(), table.getDataColumns(), ImmutableMap.of()),
+                        "ds=2020-01-02", new Partition("dbName", "tableName", ImmutableList.of("2020-01-02"), table.getStorage(), table.getDataColumns(), ImmutableMap.of())));
+
+        assertTrue(encryptionInformation.isPresent());
+        assertEquals(
+                encryptionInformation.get(),
+                ImmutableMap.of(
+                        "ds=2020-01-01", EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(ImmutableMap.of(), ImmutableMap.of(TEST_EXTRA_METADATA, "ds=2020-01-01"), "algo", "provider")),
+                        "ds=2020-01-02", EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(ImmutableMap.of(), ImmutableMap.of(TEST_EXTRA_METADATA, "ds=2020-01-02"), "algo", "provider"))));
+    }
+
+    @Test
     public void testGetReadEncryptionInformationForPartitionedTableWithColumnLevelEncryption()
     {
         Table table = createTable(DWRF, Optional.of(forPerColumn(fromHiveProperty("key1:col_string,col_struct.b.b2;key2:col_bigint,col_struct.a"), "algo", "provider")), true);
