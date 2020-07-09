@@ -284,8 +284,9 @@ public class PrestoSparkTaskExecutorFactory
                 maxSpillMemory,
                 spillSpaceTracker);
 
+        TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
         TaskContext taskContext = queryContext.addTaskContext(
-                new TaskStateMachine(taskId, notificationExecutor),
+                taskStateMachine,
                 session,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
@@ -357,7 +358,6 @@ public class PrestoSparkTaskExecutorFactory
                 taskDescriptor.getTableWriteInfo(),
                 true);
 
-        TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 outputBuffer.setNoMoreRows();

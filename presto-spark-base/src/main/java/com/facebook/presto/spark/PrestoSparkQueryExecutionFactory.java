@@ -15,6 +15,7 @@ package com.facebook.presto.spark;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.Distribution;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
@@ -25,6 +26,14 @@ import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.QueryStateTimer;
+import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.StageExecutionId;
+import com.facebook.presto.execution.StageExecutionInfo;
+import com.facebook.presto.execution.StageExecutionState;
+import com.facebook.presto.execution.StageId;
+import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.StreamingPlanSection;
@@ -33,6 +42,7 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.QuerySessionSupplier;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
@@ -53,13 +63,15 @@ import com.facebook.presto.spark.execution.PrestoSparkExecutionExceptionFactory;
 import com.facebook.presto.spark.execution.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
-import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndUpdateType;
+import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner.PlanAndMore;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
+import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -67,9 +79,11 @@ import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkException;
@@ -77,11 +91,13 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
+import org.joda.time.DateTime;
 import scala.Some;
 import scala.Tuple2;
 
 import javax.inject.Inject;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -92,6 +108,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.FINISHED;
+import static com.facebook.presto.execution.QueryState.PLANNING;
+import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collectScalaIterator;
@@ -106,10 +126,13 @@ import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
+import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
+import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.max;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -189,7 +212,12 @@ public class PrestoSparkQueryExecutionFactory
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
 
+        QueryStateTimer queryStateTimer = new QueryStateTimer(systemTicker());
+
+        queryStateTimer.beginPlanning();
+
         QueryId queryId = queryIdGenerator.createNextQueryId();
+        log.info("Starting execution for presto query: %s", queryId);
         SessionContext sessionContext = PrestoSparkSessionContext.createFromSessionInfo(
                 prestoSparkSession,
                 credentialsProviders,
@@ -198,25 +226,38 @@ public class PrestoSparkQueryExecutionFactory
         // TODO: implement warning collection
         WarningCollector warningCollector = WarningCollector.NOOP;
 
-        // TODO: implement query monitor
-        // queryMonitor.queryCreatedEvent();
-
         Session session = sessionSupplier.createSession(queryId, sessionContext);
         settingsRequirements.verify(sparkContext, session);
 
         TransactionId transactionId = transactionManager.beginTransaction(true);
         session = session.beginTransactionId(transactionId, transactionManager, accessControl);
 
+        queryMonitor.queryCreatedEvent(
+                new BasicQueryInfo(createQueryInfo(
+                        session,
+                        sql,
+                        PLANNING,
+                        Optional.empty(),
+                        Optional.empty(),
+                        queryStateTimer,
+                        Optional.empty(),
+                        warningCollector)));
+
+        PlanAndMore planAndMore = null;
         try {
+            queryStateTimer.beginAnalyzing();
+
             PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, sql, warningCollector);
-            PlanAndUpdateType planAndUpdateType = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
-            SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndUpdateType.getPlan(), warningCollector);
+            planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
+            SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector);
             log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionManager(), session, true));
             TableWriteInfo tableWriteInfo = getTableWriteInfo(session, fragmentedPlan);
 
             JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
             taskInfoCollector.register(sparkContext, new Some<>("taskInfoCollector"), false);
+
+            queryStateTimer.endAnalysis();
 
             return new PrestoSparkQueryExecution(
                     javaSparkContext,
@@ -225,8 +266,11 @@ public class PrestoSparkQueryExecutionFactory
                     taskInfoCollector,
                     prestoSparkTaskExecutorFactory,
                     executorFactoryProvider,
+                    queryStateTimer,
+                    warningCollector,
+                    sql,
+                    planAndMore,
                     fragmentedPlan,
-                    planAndUpdateType.getUpdateType(),
                     taskInfoJsonCodec,
                     sparkTaskDescriptorJsonCodec,
                     rddFactory,
@@ -235,26 +279,41 @@ public class PrestoSparkQueryExecutionFactory
                     new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()), executionExceptionFactory);
         }
         catch (RuntimeException executionFailure) {
+            queryStateTimer.beginFinishing();
             try {
                 rollback(session, transactionManager);
             }
             catch (RuntimeException rollbackFailure) {
                 log.error(rollbackFailure, "Encountered error when performing rollback");
             }
+            queryStateTimer.endQuery();
+
+            Optional<ExecutionFailureInfo> failureInfo = Optional.empty();
+            if (executionFailure instanceof PrestoSparkExecutionException) {
+                failureInfo = executionExceptionFactory.extractExecutionFailureInfo((PrestoSparkExecutionException) executionFailure);
+                verify(failureInfo.isPresent());
+            }
+            if (!failureInfo.isPresent()) {
+                failureInfo = Optional.of(toFailure(executionFailure));
+            }
+
             try {
-                // TODO: implement query monitor
-                // queryMonitor.queryImmediateFailureEvent();
+                QueryInfo queryInfo = createQueryInfo(
+                        session,
+                        sql,
+                        FAILED,
+                        Optional.ofNullable(planAndMore),
+                        failureInfo,
+                        queryStateTimer,
+                        Optional.empty(),
+                        warningCollector);
+                queryMonitor.queryCompletedEvent(queryInfo);
             }
             catch (RuntimeException eventFailure) {
                 log.error(eventFailure, "Error publishing query immediate failure event");
             }
 
-            if (executionFailure instanceof PrestoSparkExecutionException) {
-                Optional<ExecutionFailureInfo> executionFailureInfo = executionExceptionFactory.extractExecutionFailureInfo((PrestoSparkExecutionException) executionFailure);
-                verify(executionFailureInfo.isPresent());
-                throw executionFailureInfo.get().toFailure();
-            }
-            throw executionFailure;
+            throw failureInfo.get().toFailure();
         }
     }
 
@@ -310,6 +369,122 @@ public class PrestoSparkQueryExecutionFactory
         return transaction.get();
     }
 
+    private static QueryInfo createQueryInfo(
+            Session session,
+            String query,
+            QueryState queryState,
+            Optional<PlanAndMore> planAndMore,
+            Optional<ExecutionFailureInfo> failureInfo,
+            QueryStateTimer queryStateTimer,
+            Optional<StageInfo> rootStage,
+            WarningCollector warningCollector)
+    {
+        checkArgument(failureInfo.isPresent() || queryState != FAILED, "unexpected query state: %s", queryState);
+
+        int peakRunningTasks = 0;
+        long peakUserMemoryReservationInBytes = 0;
+        long peakTotalMemoryReservationInBytes = 0;
+        long peakTaskUserMemoryInBytes = 0;
+        long peakTaskTotalMemoryInBytes = 0;
+
+        for (StageInfo stageInfo : getAllStages(rootStage)) {
+            StageExecutionInfo stageExecutionInfo = stageInfo.getLatestAttemptExecutionInfo();
+            for (TaskInfo taskInfo : stageExecutionInfo.getTasks()) {
+                // there's no way to know how many tasks were running in parallel in Spark
+                // for now let's assume that all the tasks were running in parallel
+                peakRunningTasks++;
+                long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservation().toBytes();
+                long taskPeakTotalMemoryInBytes = taskInfo.getStats().getPeakTotalMemoryInBytes();
+                peakUserMemoryReservationInBytes += taskPeakUserMemoryInBytes;
+                peakTotalMemoryReservationInBytes += taskPeakTotalMemoryInBytes;
+                peakTaskUserMemoryInBytes = max(peakTaskUserMemoryInBytes, taskPeakUserMemoryInBytes);
+                peakTaskTotalMemoryInBytes = max(peakTaskTotalMemoryInBytes, taskPeakTotalMemoryInBytes);
+            }
+        }
+
+        QueryStats queryStats = QueryStats.create(
+                queryStateTimer,
+                rootStage,
+                peakRunningTasks,
+                succinctBytes(peakUserMemoryReservationInBytes),
+                succinctBytes(peakTotalMemoryReservationInBytes),
+                succinctBytes(peakTaskUserMemoryInBytes),
+                succinctBytes(peakTaskTotalMemoryInBytes));
+
+        return new QueryInfo(
+                session.getQueryId(),
+                session.toSessionRepresentation(),
+                queryState,
+                new MemoryPoolId("spark-memory-pool"),
+                queryStats.isScheduled(),
+                URI.create("http://fake.invalid/query/" + session.getQueryId()),
+                planAndMore.map(PlanAndMore::getFieldNames).orElse(ImmutableList.of()),
+                query,
+                queryStats,
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableSet.of(),
+                Optional.empty(),
+                false,
+                planAndMore.flatMap(PlanAndMore::getUpdateType).orElse(null),
+                rootStage,
+                failureInfo.orElse(null),
+                failureInfo.map(ExecutionFailureInfo::getErrorCode).orElse(null),
+                warningCollector.getWarnings(),
+                planAndMore.map(PlanAndMore::getInputs).orElse(ImmutableSet.of()),
+                planAndMore.flatMap(PlanAndMore::getOutput),
+                true,
+                Optional.empty(),
+                planAndMore.flatMap(PlanAndMore::getQueryType),
+                Optional.empty());
+    }
+
+    private static StageInfo createStageInfo(QueryId queryId, SubPlan plan, List<TaskInfo> taskInfos)
+    {
+        ListMultimap<PlanFragmentId, TaskInfo> taskInfoMap = ArrayListMultimap.create();
+        for (TaskInfo taskInfo : taskInfos) {
+            PlanFragmentId fragmentId = new PlanFragmentId(taskInfo.getTaskId().getStageExecutionId().getStageId().getId());
+            taskInfoMap.put(fragmentId, taskInfo);
+        }
+        return createStageInfo(queryId, plan, taskInfoMap);
+    }
+
+    private static StageInfo createStageInfo(QueryId queryId, SubPlan plan, ListMultimap<PlanFragmentId, TaskInfo> taskInfoMap)
+    {
+        PlanFragmentId planFragmentId = plan.getFragment().getId();
+        StageId stageId = new StageId(queryId, planFragmentId.getId());
+        List<TaskInfo> taskInfos = taskInfoMap.get(planFragmentId);
+        long peakUserMemoryReservationInBytes = 0;
+        for (TaskInfo taskInfo : taskInfos) {
+            long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservation().toBytes();
+            peakUserMemoryReservationInBytes += taskPeakUserMemoryInBytes;
+        }
+        StageExecutionInfo stageExecutionInfo = StageExecutionInfo.create(
+                new StageExecutionId(stageId, 0),
+                // TODO: figure out a way to know what exactly stage has caused a failure
+                StageExecutionState.FINISHED,
+                Optional.empty(),
+                taskInfos,
+                DateTime.now(),
+                new Distribution().snapshot(),
+                succinctBytes(peakUserMemoryReservationInBytes),
+                1,
+                1);
+        return new StageInfo(
+                stageId,
+                URI.create("http://fake.invalid/stage/" + stageId),
+                Optional.of(plan.getFragment()),
+                stageExecutionInfo,
+                ImmutableList.of(),
+                plan.getChildren().stream()
+                        .map(child -> createStageInfo(queryId, child, taskInfoMap))
+                        .collect(toImmutableList()));
+    }
+
     public static class PrestoSparkQueryExecution
             implements IPrestoSparkQueryExecution
     {
@@ -321,8 +496,11 @@ public class PrestoSparkQueryExecutionFactory
         private final PrestoSparkTaskExecutorFactory taskExecutorFactory;
         // used to create tasks on executor, serializable
         private final PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider;
-        private final SubPlan plan;
-        private final Optional<String> updateType;
+        private final QueryStateTimer queryStateTimer;
+        private final WarningCollector warningCollector;
+        private final String query;
+        private final PlanAndMore planAndMore;
+        private final SubPlan fragmentedPlan;
         private final JsonCodec<TaskInfo> taskInfoJsonCodec;
         private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
         private final PrestoSparkRddFactory rddFactory;
@@ -338,8 +516,11 @@ public class PrestoSparkQueryExecutionFactory
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
                 PrestoSparkTaskExecutorFactory taskExecutorFactory,
                 PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
-                SubPlan plan,
-                Optional<String> updateType,
+                QueryStateTimer queryStateTimer,
+                WarningCollector warningCollector,
+                String query,
+                PlanAndMore planAndMore,
+                SubPlan fragmentedPlan,
                 JsonCodec<TaskInfo> taskInfoJsonCodec,
                 JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
                 PrestoSparkRddFactory rddFactory,
@@ -354,8 +535,11 @@ public class PrestoSparkQueryExecutionFactory
             this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
             this.taskExecutorFactory = requireNonNull(taskExecutorFactory, "taskExecutorFactory is null");
             this.taskExecutorFactoryProvider = requireNonNull(taskExecutorFactoryProvider, "taskExecutorFactoryProvider is null");
-            this.plan = requireNonNull(plan, "plan is null");
-            this.updateType = updateType;
+            this.queryStateTimer = requireNonNull(queryStateTimer, "queryStateTimer is null");
+            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.query = requireNonNull(query, "query is null");
+            this.planAndMore = requireNonNull(planAndMore, "planAndMore is null");
+            this.fragmentedPlan = requireNonNull(fragmentedPlan, "fragmentedPlan is null");
             this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
             this.sparkTaskDescriptorJsonCodec = requireNonNull(sparkTaskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
             this.rddFactory = requireNonNull(rddFactory, "rddFactory is null");
@@ -368,12 +552,17 @@ public class PrestoSparkQueryExecutionFactory
         @Override
         public List<List<Object>> execute()
         {
+            queryStateTimer.beginRunning();
+
             List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> rddResults;
             try {
-                rddResults = doExecute(plan);
+                rddResults = doExecute(fragmentedPlan);
+                queryStateTimer.beginFinishing();
                 commit(session, transactionManager);
+                queryStateTimer.endQuery();
             }
             catch (Exception executionFailure) {
+                queryStateTimer.beginFinishing();
                 try {
                     rollback(session, transactionManager);
                 }
@@ -381,35 +570,39 @@ public class PrestoSparkQueryExecutionFactory
                     log.error(rollbackFailure, "Encountered error when performing rollback");
                 }
 
+                Optional<ExecutionFailureInfo> failureInfo = Optional.empty();
+                if (executionFailure instanceof SparkException) {
+                    failureInfo = executionExceptionFactory.extractExecutionFailureInfo((SparkException) executionFailure);
+                }
+                if (!failureInfo.isPresent() && executionFailure instanceof PrestoSparkExecutionException) {
+                    failureInfo = executionExceptionFactory.extractExecutionFailureInfo((PrestoSparkExecutionException) executionFailure);
+                }
+                if (!failureInfo.isPresent()) {
+                    failureInfo = Optional.of(toFailure(executionFailure));
+                }
+
+                queryStateTimer.endQuery();
+
                 try {
-                    queryCompletedEvent(Optional.of(executionFailure));
+                    queryCompletedEvent(failureInfo);
                 }
                 catch (RuntimeException eventFailure) {
                     log.error(eventFailure, "Error publishing query completed event");
                 }
 
-                if (executionFailure instanceof SparkException) {
-                    Optional<ExecutionFailureInfo> executionFailureInfo = executionExceptionFactory.extractExecutionFailureInfo((SparkException) executionFailure);
-                    if (executionFailureInfo.isPresent()) {
-                        throw executionFailureInfo.get().toFailure();
-                    }
-                    throw toFailure(executionFailure).toFailure();
-                }
-
-                if (executionFailure instanceof PrestoSparkExecutionException) {
-                    Optional<ExecutionFailureInfo> executionFailureInfo = executionExceptionFactory.extractExecutionFailureInfo((PrestoSparkExecutionException) executionFailure);
-                    verify(executionFailureInfo.isPresent());
-                    throw executionFailureInfo.get().toFailure();
-                }
-
-                throw toFailure(executionFailure).toFailure();
+                throw failureInfo.get().toFailure();
             }
 
             // successfully finished
-            queryCompletedEvent(Optional.empty());
+            try {
+                queryCompletedEvent(Optional.empty());
+            }
+            catch (RuntimeException eventFailure) {
+                log.error(eventFailure, "Error publishing query completed event");
+            }
 
             ConnectorSession connectorSession = session.toConnectorSession();
-            List<Type> types = plan.getFragment().getTypes();
+            List<Type> types = fragmentedPlan.getFragment().getTypes();
             ImmutableList.Builder<List<Object>> result = ImmutableList.builder();
             for (Tuple2<MutablePartitionId, PrestoSparkSerializedPage> tuple : rddResults) {
                 Page page = pagesSerde.deserialize(toSerializedPage(tuple._2));
@@ -427,12 +620,12 @@ public class PrestoSparkQueryExecutionFactory
 
         public List<Type> getOutputTypes()
         {
-            return plan.getFragment().getTypes();
+            return fragmentedPlan.getFragment().getTypes();
         }
 
         public Optional<String> getUpdateType()
         {
-            return updateType;
+            return planAndMore.getUpdateType();
         }
 
         private List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>> doExecute(SubPlan root)
@@ -512,22 +705,28 @@ public class PrestoSparkQueryExecutionFactory
             return new RddAndMore<>(rdd, broadcastDependencies.build());
         }
 
-        private void queryCompletedEvent(Optional<Throwable> failure)
+        private void queryCompletedEvent(Optional<ExecutionFailureInfo> failureInfo)
         {
-            // TODO: implement query monitor and collect query info
-            // QueryInfo queryInfo = createQueryInfo(failure);
-            // queryMonitor.queryCompletedEvent(queryInfo);
-        }
+            List<SerializedTaskInfo> serializedTaskInfos = taskInfoCollector.value();
+            List<TaskInfo> taskInfos = serializedTaskInfos.stream()
+                    .map(SerializedTaskInfo::getBytes)
+                    .map(PrestoSparkUtils::decompress)
+                    .map(taskInfoJsonCodec::fromJson)
+                    .collect(toImmutableList());
+            StageInfo stageInfo = createStageInfo(session.getQueryId(), fragmentedPlan, taskInfos);
+            QueryState queryState = failureInfo.isPresent() ? FAILED : FINISHED;
 
-        private QueryInfo createQueryInfo(Optional<Throwable> failure)
-        {
-//            List<SerializedTaskInfo> serializedTaskInfos = taskInfoCollector.value();
-//            List<TaskStats> taskStats = serializedTaskInfos.stream()
-//                    .map(SerializedTaskInfo::getBytes)
-//                    .map(taskInfoJsonCodec::fromJson)
-//                    .collect(toImmutableList());
-//            // TODO: create query info
-            return null;
+            QueryInfo queryInfo = createQueryInfo(
+                    session,
+                    query,
+                    queryState,
+                    Optional.of(planAndMore),
+                    failureInfo,
+                    queryStateTimer,
+                    Optional.of(stageInfo),
+                    warningCollector);
+
+            queryMonitor.queryCompletedEvent(queryInfo);
         }
 
         private static <T> void waitFor(Collection<Future<T>> futures)
