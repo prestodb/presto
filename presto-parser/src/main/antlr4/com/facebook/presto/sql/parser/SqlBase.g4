@@ -209,7 +209,7 @@ externalRoutineName
 queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
-      (LIMIT limit=(INTEGER_VALUE | ALL))?
+      (LIMIT limit=(INTEGER_VALUE | ALL | PREPARE_PARAM))?
     ;
 
 queryTerm
@@ -701,6 +701,7 @@ PARTITIONS: 'PARTITIONS';
 POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
 PREPARE: 'PREPARE';
+PREPARE_PARAM: '?';
 PRIVILEGES: 'PRIVILEGES';
 PROPERTIES: 'PROPERTIES';
 RANGE: 'RANGE';
