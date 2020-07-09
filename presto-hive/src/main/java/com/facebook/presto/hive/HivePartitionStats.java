@@ -13,27 +13,23 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.common.Page;
+import com.facebook.airlift.stats.DistributionStat;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
-import java.util.Optional;
-
-public interface HiveFileWriter
+public class HivePartitionStats
 {
-    long getWrittenBytes();
+    private final DistributionStat manifestSizeInBytes = new DistributionStat();
 
-    long getSystemMemoryUsage();
-
-    void appendRows(Page dataPage);
-
-    // Page returned by commit should have fileSize as first channel
-    Optional<Page> commit();
-
-    void rollback();
-
-    long getValidationCpuNanos();
-
-    default Optional<Runnable> getVerificationTask()
+    public void addManifestSizeInBytes(long bytes)
     {
-        return Optional.empty();
+        manifestSizeInBytes.add(bytes);
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getManifestSizeInBytes()
+    {
+        return manifestSizeInBytes;
     }
 }

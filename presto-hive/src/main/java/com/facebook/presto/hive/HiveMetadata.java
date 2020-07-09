@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
@@ -24,7 +25,6 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.LocationService.WriteInfo;
 import com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import com.facebook.presto.hive.metastore.Column;
@@ -148,6 +148,7 @@ import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
@@ -177,6 +178,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_ENCRYPTION_OPERATION;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveManifestUtils.createPartitionManifest;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatiblePartitioningHandle;
 import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoNativePartitioningHandle;
@@ -351,6 +353,7 @@ public class HiveMetadata
     private final ZeroRowFileCreator zeroRowFileCreator;
     private final PartitionObjectBuilder partitionObjectBuilder;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
+    private final HivePartitionStats hivePartitionStats;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -374,7 +377,8 @@ public class HiveMetadata
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
             PartitionObjectBuilder partitionObjectBuilder,
-            HiveEncryptionInformationProvider encryptionInformationProvider)
+            HiveEncryptionInformationProvider encryptionInformationProvider,
+            HivePartitionStats hivePartitionStats)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -399,6 +403,7 @@ public class HiveMetadata
         this.zeroRowFileCreator = requireNonNull(zeroRowFileCreator, "zeroRowFileCreator is null");
         this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
+        this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -472,7 +477,7 @@ public class HiveMetadata
         }
         Map<String, String> sortedTableParameters = ImmutableSortedMap.copyOf(table.get().getParameters());
         List<ColumnMetadata> columns = sortedTableParameters.keySet().stream()
-                .map(key -> new ColumnMetadata(key, VarcharType.VARCHAR))
+                .map(key -> new ColumnMetadata(key, VARCHAR))
                 .collect(toImmutableList());
         List<Type> types = columns.stream()
                 .map(ColumnMetadata::getType)
@@ -1590,7 +1595,7 @@ public class HiveMetadata
                     locationHandle.getWritePath(),
                     locationHandle.getTargetPath(),
                     fileNamesForMissingBuckets.stream()
-                            .map(fileName -> new FileWriteInfo(fileName, fileName))
+                            .map(fileName -> new FileWriteInfo(fileName, fileName, Optional.empty()))
                             .collect(toImmutableList()),
                     0,
                     0,
@@ -1613,7 +1618,7 @@ public class HiveMetadata
                     partitionUpdate.getWritePath(),
                     partitionUpdate.getTargetPath(),
                     fileNamesForMissingBuckets.stream()
-                            .map(fileName -> new FileWriteInfo(fileName, fileName))
+                            .map(fileName -> new FileWriteInfo(fileName, fileName, Optional.empty()))
                             .collect(toImmutableList()),
                     0,
                     0,
@@ -1836,6 +1841,12 @@ public class HiveMetadata
                 Map<String, String> extraPartitionMetadata = handle.getEncryptionInformation()
                         .map(encryptionInfo -> encryptionInfo.getDwrfEncryptionMetadata().map(DwrfEncryptionMetadata::getExtraMetadata).orElseGet(ImmutableMap::of))
                         .orElseGet(ImmutableMap::of);
+
+                // TODO: Put the manifest blob in partition parameters
+                // Track the manifest blob size
+                Optional<Page> manifestBlob = createPartitionManifest(partitionUpdate);
+                manifestBlob.ifPresent(manifest -> hivePartitionStats.addManifestSizeInBytes(manifest.getRetainedSizeInBytes()));
+
                 // insert into new partition or overwrite existing partition
                 Partition partition = partitionObjectBuilder.buildPartitionObject(
                         session,

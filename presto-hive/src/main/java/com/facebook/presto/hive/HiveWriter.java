@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.hive.HiveManifestUtils.getFileSize;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -37,6 +38,7 @@ public class HiveWriter
 
     private long rowCount;
     private long inputSizeInBytes;
+    private Optional<Page> fileStatistics = Optional.empty();
 
     public HiveWriter(
             HiveFileWriter fileWriter,
@@ -84,7 +86,7 @@ public class HiveWriter
 
     public void commit()
     {
-        fileWriter.commit();
+        fileStatistics = fileWriter.commit();
         onCommit.accept(this);
     }
 
@@ -110,7 +112,7 @@ public class HiveWriter
                 updateMode,
                 writePath,
                 targetPath,
-                ImmutableList.of(fileWriteInfo),
+                ImmutableList.of(new FileWriteInfo(fileWriteInfo.getWriteFileName(), fileWriteInfo.getTargetFileName(), fileStatistics.map(statisticsPage -> getFileSize(statisticsPage, 0)))),
                 rowCount,
                 inputSizeInBytes,
                 fileWriter.getWrittenBytes());

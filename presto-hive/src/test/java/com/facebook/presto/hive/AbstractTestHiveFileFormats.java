@@ -101,6 +101,9 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveManifestUtils.getFileSize;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
@@ -543,9 +546,21 @@ public abstract class AbstractTestHiveFileFormats
 
         HiveFileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
         hiveFileWriter.appendRows(page);
-        hiveFileWriter.commit();
+        Optional<Page> fileStatistics = hiveFileWriter.commit();
+
+        assertFileStatistics(fileStatistics, hiveFileWriter.getWrittenBytes(), storageFormat);
 
         return new FileSplit(new Path(filePath), 0, new File(filePath).length(), new String[0]);
+    }
+
+    private static void assertFileStatistics(Optional<Page> fileStatistics, long writtenBytes, HiveStorageFormat storageFormat)
+    {
+        if (storageFormat == ORC || storageFormat == DWRF) {
+            assertTrue(fileStatistics.isPresent());
+            Page statisticsPage = fileStatistics.get();
+            assertEquals(statisticsPage.getPositionCount(), 1);
+            assertEquals(writtenBytes, getFileSize(statisticsPage, 0));
+        }
     }
 
     public static FileSplit createTestFile(
