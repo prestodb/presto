@@ -35,7 +35,7 @@ public class TestPrestoClusterConfig
         assertRecordedDefaults(recordDefaults(PrestoClusterConfig.class)
                 .setHost(null)
                 .setJdbcPort(0)
-                .setHttpPort(0)
+                .setHttpPort(null)
                 .setJdbcUrlParameters(null)
                 .setQueryTimeout(new Duration(60, MINUTES))
                 .setMetadataTimeout(new Duration(3, MINUTES))

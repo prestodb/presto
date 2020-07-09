@@ -11,23 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.prestoaction;
+package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import org.testng.annotations.Test;
 
-public class TestHttpNodeResourceClient
+import static org.testng.Assert.assertEquals;
+
+public class TestClusterSizeFetcher
 {
     private final TestingPrestoServer server;
-    private final HttpNodeResourceClient client;
+    private final ClusterSizeFetcher client;
 
-    public TestHttpNodeResourceClient()
+    public TestClusterSizeFetcher()
             throws Exception
     {
         server = new TestingPrestoServer();
-        client = new HttpNodeResourceClient(
+        client = new ClusterSizeFetcher(
                 new JettyHttpClient(),
                 new PrestoClusterConfig()
                         .setHost(server.getAddress().getHost())
@@ -38,6 +41,6 @@ public class TestHttpNodeResourceClient
     @Test
     public void testNodeResource()
     {
-        client.getClusterSize("/v1/node");
+        assertEquals(client.getClusterSize(), 0);
     }
 }

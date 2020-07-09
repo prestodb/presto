@@ -26,6 +26,7 @@ import javax.validation.constraints.NotNull;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -34,7 +35,7 @@ public class PrestoClusterConfig
 {
     private String host;
     private int jdbcPort;
-    private int httpPort;
+    private Optional<Integer> httpPort = Optional.empty();
     private Map<String, String> jdbcUrlParameters = ImmutableMap.of();
 
     private Duration queryTimeout = new Duration(60, MINUTES);
@@ -71,17 +72,16 @@ public class PrestoClusterConfig
     }
 
     @Override
-    @Min(0)
-    @Max(65535)
-    public int getHttpPort()
+    @NotNull
+    public Optional<Integer> getHttpPort()
     {
         return httpPort;
     }
 
     @Config("http-port")
-    public PrestoClusterConfig setHttpPort(int httpPort)
+    public PrestoClusterConfig setHttpPort(Integer httpPort)
     {
-        this.httpPort = httpPort;
+        this.httpPort = Optional.ofNullable(httpPort);
         return this;
     }
 
