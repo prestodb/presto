@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-class QueryStateTimer
+public class QueryStateTimer
 {
     private final Ticker ticker;
 
