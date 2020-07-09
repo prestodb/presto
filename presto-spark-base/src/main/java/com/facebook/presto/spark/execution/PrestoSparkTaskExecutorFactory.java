@@ -82,6 +82,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -374,7 +375,7 @@ public class PrestoSparkTaskExecutorFactory
         ImmutableList.Builder<TaskSource> result = ImmutableList.builder();
         while (serializedTaskSources.hasNext()) {
             SerializedPrestoSparkTaskSource serializedTaskSource = serializedTaskSources.next();
-            result.add(taskSourceJsonCodec.fromJson(serializedTaskSource.getBytes()));
+            result.add(taskSourceJsonCodec.fromJson(decompress(serializedTaskSource.getBytes())));
         }
         return result.build();
     }

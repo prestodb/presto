@@ -34,6 +34,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskSourceRdd;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskSource;
 import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
+import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PrestoException;
@@ -392,8 +393,8 @@ public class PrestoSparkRddFactory
     private List<SerializedPrestoSparkTaskSource> serializeTaskSources(Collection<TaskSource> taskSources)
     {
         return taskSources.stream()
-                // TODO: consider compression
                 .map(taskSourceJsonCodec::toJsonBytes)
+                .map(PrestoSparkUtils::compress)
                 .map(SerializedPrestoSparkTaskSource::new)
                 .collect(toImmutableList());
     }
