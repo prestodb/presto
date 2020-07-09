@@ -564,7 +564,6 @@ public class PagesIndex
         };
     }
 
-    // TODO: This is similar to what OrderByOperator does, look into reusing this logic in OrderByOperator as well.
     public Iterator<Page> getSortedPages()
     {
         return new AbstractIterator<Page>()
