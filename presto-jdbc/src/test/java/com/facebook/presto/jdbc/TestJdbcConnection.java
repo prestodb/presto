@@ -291,9 +291,8 @@ public class TestJdbcConnection
         }
 
         try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT source FROM system.runtime.queries WHERE query_id = ? LIMIT ?")) {
+                "SELECT source FROM system.runtime.queries WHERE query_id = ?")) {
             statement.setString(1, queryId);
-            statement.setString(2, "ALL");
             try (ResultSet rs = statement.executeQuery()) {
                 assertTrue(rs.next());
                 assertThat(rs.getString("source")).isEqualTo(expectedSource);
