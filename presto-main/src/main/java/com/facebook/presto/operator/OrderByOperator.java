@@ -14,7 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -22,9 +22,11 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 
+import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 public class OrderByOperator
@@ -108,8 +110,7 @@ public class OrderByOperator
 
     private final PagesIndex pageIndex;
 
-    private final PageBuilder pageBuilder;
-    private int currentPosition;
+    private Iterator<Page> sortedPages;
 
     private State state = State.NEEDS_INPUT;
 
@@ -131,8 +132,6 @@ public class OrderByOperator
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
 
         this.pageIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
-
-        this.pageBuilder = new PageBuilder(toTypes(sourceTypes, outputChannels));
     }
 
     @Override
@@ -147,8 +146,9 @@ public class OrderByOperator
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
 
-            // sort the index
             pageIndex.sort(sortChannels, sortOrder);
+            WorkProcessor<Page> resultPages = WorkProcessor.fromIterator(pageIndex.getSortedPages());
+            sortedPages = resultPages.iterator();
         }
     }
 
@@ -171,11 +171,7 @@ public class OrderByOperator
         requireNonNull(page, "page is null");
 
         pageIndex.addPage(page);
-
-        if (!localUserMemoryContext.trySetBytes(pageIndex.getEstimatedSize().toBytes())) {
-            pageIndex.compact();
-            localUserMemoryContext.setBytes(pageIndex.getEstimatedSize().toBytes());
-        }
+        updateMemoryUsage();
     }
 
     @Override
@@ -185,37 +181,32 @@ public class OrderByOperator
             return null;
         }
 
-        if (currentPosition >= pageIndex.getPositionCount()) {
+        verify(sortedPages != null, "sortedPages is null");
+        if (!sortedPages.hasNext()) {
             state = State.FINISHED;
             return null;
         }
 
-        // iterate through the positions sequentially until we have one full page
-        pageBuilder.reset();
-        currentPosition = pageIndex.buildPage(currentPosition, outputChannels, pageBuilder);
-
-        // output the page if we have any data
-        if (pageBuilder.isEmpty()) {
-            state = State.FINISHED;
-            return null;
+        Page nextPage = sortedPages.next();
+        Block[] blocks = new Block[outputChannels.length];
+        for (int i = 0; i < outputChannels.length; i++) {
+            blocks[i] = nextPage.getBlock(outputChannels[i]);
         }
+        return new Page(nextPage.getPositionCount(), blocks);
+    }
 
-        Page page = pageBuilder.build();
-        return page;
+    private void updateMemoryUsage()
+    {
+        if (!localUserMemoryContext.trySetBytes(pageIndex.getEstimatedSize().toBytes())) {
+            pageIndex.compact();
+            localUserMemoryContext.setBytes(pageIndex.getEstimatedSize().toBytes());
+        }
     }
 
     @Override
     public void close()
     {
         pageIndex.clear();
-    }
-
-    private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels)
-    {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (int channel : outputChannels) {
-            types.add(sourceTypes.get(channel));
-        }
-        return types.build();
+        sortedPages = null;
     }
 }
