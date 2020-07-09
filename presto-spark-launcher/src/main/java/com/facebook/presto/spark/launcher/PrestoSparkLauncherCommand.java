@@ -23,6 +23,7 @@ import org.apache.spark.SparkContext;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.util.Optional;
 
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkFile;
 import static com.facebook.presto.spark.launcher.LauncherUtils.loadCatalogProperties;
@@ -55,7 +56,8 @@ public class PrestoSparkLauncherCommand
                 sparkContext,
                 packageSupplier,
                 loadProperties(checkFile(new File(clientOptions.config))),
-                loadCatalogProperties(new File(clientOptions.catalogs)));
+                loadCatalogProperties(new File(clientOptions.catalogs)),
+                Optional.empty());
 
         String query = readFileUtf8(checkFile(new File(clientOptions.file)));
 

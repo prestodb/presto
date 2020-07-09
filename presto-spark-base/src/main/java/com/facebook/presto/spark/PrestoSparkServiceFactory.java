@@ -41,6 +41,7 @@ public class PrestoSparkServiceFactory
                 sparkProcessType,
                 properties.build(),
                 configuration.getCatalogProperties(),
+                configuration.getEventListenerProperties(),
                 getAdditionalModules());
 
         Injector injector = prestoSparkInjectorFactory.create();

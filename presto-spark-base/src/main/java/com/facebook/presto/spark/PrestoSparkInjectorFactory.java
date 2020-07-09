@@ -46,6 +46,7 @@ public class PrestoSparkInjectorFactory
     private final SparkProcessType sparkProcessType;
     private final Map<String, String> configProperties;
     private final Map<String, Map<String, String>> catalogProperties;
+    private final Optional<Map<String, String>> eventListenerProperties;
     private final List<Module> additionalModules;
     private final Optional<Module> accessControlModuleOverride;
 
@@ -53,15 +54,17 @@ public class PrestoSparkInjectorFactory
             SparkProcessType sparkProcessType,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
+            Optional<Map<String, String>> eventListenerProperties,
             List<Module> additionalModules)
     {
-        this(sparkProcessType, configProperties, catalogProperties, additionalModules, Optional.empty());
+        this(sparkProcessType, configProperties, catalogProperties, eventListenerProperties, additionalModules, Optional.empty());
     }
 
     public PrestoSparkInjectorFactory(
             SparkProcessType sparkProcessType,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
+            Optional<Map<String, String>> eventListenerProperties,
             List<Module> additionalModules,
             Optional<Module> accessControlModuleOverride)
     {
@@ -69,6 +72,7 @@ public class PrestoSparkInjectorFactory
         this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
+        this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null").map(ImmutableMap::copyOf);
         this.additionalModules = ImmutableList.copyOf(requireNonNull(additionalModules, "additionalModules is null"));
         this.accessControlModuleOverride = requireNonNull(accessControlModuleOverride, "accessControlModuleOverride is null");
     }
@@ -116,7 +120,7 @@ public class PrestoSparkInjectorFactory
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
-            injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
+            eventListenerProperties.ifPresent(properties -> injector.getInstance(EventListenerManager.class).loadConfiguredEventListener(properties));
 
             if (initializeAccessControl) {
                 injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
