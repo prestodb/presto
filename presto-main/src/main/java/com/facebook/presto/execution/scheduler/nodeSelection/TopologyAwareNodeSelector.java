@@ -62,6 +62,7 @@ public class TopologyAwareNodeSelector
     private static final Logger log = Logger.get(TopologyAwareNodeSelector.class);
 
     private final InternalNodeManager nodeManager;
+    private final NodeSelectionStats nodeSelectionStats;
     private final NodeTaskMap nodeTaskMap;
     private final boolean includeCoordinator;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
@@ -74,6 +75,7 @@ public class TopologyAwareNodeSelector
 
     public TopologyAwareNodeSelector(
             InternalNodeManager nodeManager,
+            NodeSelectionStats nodeSelectionStats,
             NodeTaskMap nodeTaskMap,
             boolean includeCoordinator,
             Supplier<NodeMap> nodeMap,
@@ -85,6 +87,7 @@ public class TopologyAwareNodeSelector
             NetworkLocationCache networkLocationCache)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.includeCoordinator = includeCoordinator;
         this.nodeMap = new AtomicReference<>(nodeMap);
@@ -232,7 +235,7 @@ public class TopologyAwareNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
-        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, bucketNodeMap);
+        return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsPerNode, maxPendingSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
     }
 
     @Nullable
