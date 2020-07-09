@@ -342,7 +342,12 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         Map<Integer, Slice> intermediateKeys = new HashMap<>(dwrfEncryptionGroupMap.values().size());
         for (Map.Entry<Integer, Slice> entry : columnsToKeys.entrySet()) {
             Slice key = entry.getValue();
-            int group = dwrfEncryptionGroupMap.get(entry.getKey());
+            int orcColumn = entry.getKey();
+            if (!dwrfEncryptionGroupMap.containsKey(orcColumn)) {
+                // ignore columns that don't have encryption groups
+                continue;
+            }
+            int group = dwrfEncryptionGroupMap.get(orcColumn);
             Slice previous = intermediateKeys.putIfAbsent(group, key);
             if (previous != null && !key.equals(previous)) {
                 throw new OrcCorruptionException(dataSourceId, "intermediate keys mapping does not match encryption groups");

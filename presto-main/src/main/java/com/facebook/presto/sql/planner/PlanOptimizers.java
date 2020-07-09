@@ -253,7 +253,10 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                new SimplifyRowExpressions(metadata).rules());
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(new SimplifyRowExpressions(metadata).rules())
+                        .add(new PruneRedundantProjectionAssignments())
+                        .build());
 
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser));
         PlanOptimizer rowExpressionPredicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new RowExpressionPredicatePushDown(metadata, sqlParser));
@@ -546,7 +549,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         costCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments())));
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 

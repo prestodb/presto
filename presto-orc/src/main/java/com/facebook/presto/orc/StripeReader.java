@@ -160,7 +160,8 @@ public class StripeReader
                 StripeEncryptionGroup stripeEncryptionGroup = getStripeEncryptionGroup(decryptors.get().getEncryptorByGroupId(groupId), encryptedEncryptionGroups.get(groupId), dwrfEncryptionGroupColumns.get(groupId), systemMemoryUsage);
                 allStreams.addAll(stripeEncryptionGroup.getStreams());
                 columnEncodings.putAll(stripeEncryptionGroup.getColumnEncodings());
-                hasRowGroupDictionary = hasRowGroupDictionary || addIncludedStreams(stripeEncryptionGroup.getColumnEncodings(), stripeEncryptionGroup.getStreams(), includedStreams);
+                boolean encryptedHasRowGroupDictionary = addIncludedStreams(stripeEncryptionGroup.getColumnEncodings(), stripeEncryptionGroup.getStreams(), includedStreams);
+                hasRowGroupDictionary = encryptedHasRowGroupDictionary || hasRowGroupDictionary;
             }
         }
 
