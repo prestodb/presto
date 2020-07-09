@@ -19,11 +19,18 @@ import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.zip.DeflaterInputStream;
+import java.util.zip.InflaterOutputStream;
 
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.io.ByteStreams.toByteArray;
 
 public class PrestoSparkUtils
 {
@@ -67,5 +74,27 @@ public class PrestoSparkUtils
                 return element;
             }
         };
+    }
+
+    public static byte[] compress(byte[] bytes)
+    {
+        try (DeflaterInputStream decompressor = new DeflaterInputStream(new ByteArrayInputStream(bytes))) {
+            return toByteArray(decompressor);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    public static byte[] decompress(byte[] bytes)
+    {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (InflaterOutputStream compressor = new InflaterOutputStream(output)) {
+            compressor.write(bytes);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return output.toByteArray();
     }
 }
