@@ -387,7 +387,7 @@ public class HiveWriterFactory
                 hiveFileWriter,
                 partitionName,
                 writerParameters.getUpdateMode(),
-                new FileWriteInfo(writeFileName, targetFileName),
+                new FileWriteInfo(writeFileName, targetFileName, Optional.empty()),
                 writerParameters.getWriteInfo().getWritePath().toString(),
                 writerParameters.getWriteInfo().getTargetPath().toString(),
                 createCommitEventListener(path, partitionName, hiveFileWriter, writerParameters),
