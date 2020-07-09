@@ -22,6 +22,7 @@ import com.facebook.presto.orc.metadata.EncryptionGroup;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.OrcType;
+import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
@@ -54,12 +55,16 @@ import static com.facebook.presto.orc.OrcReader.validateEncryption;
 import static com.facebook.presto.orc.OrcTester.assertFileContentsPresto;
 import static com.facebook.presto.orc.OrcTester.rowType;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnsPresto;
+import static com.facebook.presto.orc.StripeReader.getDiskRanges;
+import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.orc.metadata.KeyProvider.UNKNOWN;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.INT;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LIST;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.MAP;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
+import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
@@ -195,6 +200,46 @@ public class TestDecryption
         List<StripeInformation> unencryptedStripes = ImmutableList.of(NO_KEYS_STRIPE, NO_KEYS_STRIPE);
         assertEquals(getDecryptionKeyMetadata(0, unencryptedStripes), ImmutableList.of());
         assertEquals(getDecryptionKeyMetadata(1, unencryptedStripes), ImmutableList.of());
+    }
+
+    @Test
+    public void testGetDiskRanges()
+    {
+        List<Stream> unencryptedStreams = ImmutableList.of(
+                new Stream(3, ROW_INDEX, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(15L)),
+                new Stream(4, ROW_INDEX, 5, true),
+                new Stream(3, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(45L)),
+                new Stream(4, DATA, 5, true));
+
+        List<Stream> group1Streams = ImmutableList.of(
+                new Stream(0, ROW_INDEX, 5, true),
+                new Stream(5, ROW_INDEX, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(25L)),
+                new Stream(0, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(30L)),
+                new Stream(5, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(55L)));
+
+        List<Stream> group2Streams = ImmutableList.of(
+                new Stream(1, ROW_INDEX, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(5L)),
+                new Stream(2, ROW_INDEX, 5, true),
+                new Stream(1, DATA, 5, true, DEFAULT_SEQUENCE_ID, Optional.of(35L)),
+                new Stream(2, DATA, 5, true));
+
+        Map<StreamId, DiskRange> actual = getDiskRanges(ImmutableList.of(unencryptedStreams, group1Streams, group2Streams));
+
+        Map<StreamId, DiskRange> expected = ImmutableMap.<StreamId, DiskRange>builder()
+                .put(new StreamId(0, DEFAULT_SEQUENCE_ID, ROW_INDEX), new DiskRange(0, 5))
+                .put(new StreamId(1, DEFAULT_SEQUENCE_ID, ROW_INDEX), new DiskRange(5, 5))
+                .put(new StreamId(2, DEFAULT_SEQUENCE_ID, ROW_INDEX), new DiskRange(10, 5))
+                .put(new StreamId(3, DEFAULT_SEQUENCE_ID, ROW_INDEX), new DiskRange(15, 5))
+                .put(new StreamId(4, DEFAULT_SEQUENCE_ID, ROW_INDEX), new DiskRange(20, 5))
+                .put(new StreamId(5, DEFAULT_SEQUENCE_ID, ROW_INDEX), new DiskRange(25, 5))
+                .put(new StreamId(0, DEFAULT_SEQUENCE_ID, DATA), new DiskRange(30, 5))
+                .put(new StreamId(1, DEFAULT_SEQUENCE_ID, DATA), new DiskRange(35, 5))
+                .put(new StreamId(2, DEFAULT_SEQUENCE_ID, DATA), new DiskRange(40, 5))
+                .put(new StreamId(3, DEFAULT_SEQUENCE_ID, DATA), new DiskRange(45, 5))
+                .put(new StreamId(4, DEFAULT_SEQUENCE_ID, DATA), new DiskRange(50, 5))
+                .put(new StreamId(5, DEFAULT_SEQUENCE_ID, DATA), new DiskRange(55, 5))
+                .build();
+        assertEquals(actual, expected);
     }
 
     @Test
