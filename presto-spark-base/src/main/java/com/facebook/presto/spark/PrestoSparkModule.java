@@ -46,6 +46,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
@@ -79,7 +80,6 @@ import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
-import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
@@ -206,7 +206,7 @@ public class PrestoSparkModule
 
         // json codecs
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
-        jsonCodecBinder(binder).bindJsonCodec(TaskStats.class);
+        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkTaskDescriptor.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskSource.class);
         jsonCodecBinder(binder).bindJsonCodec(TableCommitContext.class);
