@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.prestoaction;
+package com.facebook.presto.verifier.resolver;
 
-public interface NodeResourceClient
+public interface ClusterSizeSupplier
 {
-    int getClusterSize(String path);
+    int getClusterSize();
 }

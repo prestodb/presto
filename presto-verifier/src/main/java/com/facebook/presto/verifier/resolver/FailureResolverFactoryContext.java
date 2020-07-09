@@ -14,7 +14,6 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 
 import static java.util.Objects.requireNonNull;
@@ -23,16 +22,13 @@ public class FailureResolverFactoryContext
 {
     private final SqlParser sqlParser;
     private final PrestoAction prestoAction;
-    private final NodeResourceClient testResourceClient;
 
     public FailureResolverFactoryContext(
             SqlParser sqlParser,
-            PrestoAction prestoAction,
-            NodeResourceClient testResourceClient)
+            PrestoAction prestoAction)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
-        this.testResourceClient = requireNonNull(testResourceClient, "testResourceClient is null");
     }
 
     public SqlParser getSqlParser()
@@ -43,10 +39,5 @@ public class FailureResolverFactoryContext
     public PrestoAction getPrestoAction()
     {
         return prestoAction;
-    }
-
-    public NodeResourceClient getTestResourceClient()
-    {
-        return testResourceClient;
     }
 }

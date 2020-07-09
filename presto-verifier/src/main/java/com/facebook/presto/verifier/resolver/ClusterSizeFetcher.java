@@ -11,18 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.prestoaction;
+package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
+import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.retry.RetryDriver;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.google.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
@@ -30,40 +32,40 @@ import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.google.common.base.Preconditions.checkState;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.Response.Status.OK;
 
-public class HttpNodeResourceClient
-        implements NodeResourceClient
+public class ClusterSizeFetcher
+        implements ClusterSizeSupplier
 {
+    private static final String PATH = "/v1/node";
+
     private final HttpClient httpClient;
-    private final PrestoAddress prestoAddress;
+    private final URI nodeResourceUri;
     private final RetryDriver<RuntimeException> networkRetry;
 
-    @Inject
-    public HttpNodeResourceClient(
+    public ClusterSizeFetcher(
             HttpClient httpClient,
             PrestoClusterConfig prestoAddress,
             RetryConfig networkRetryConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
-        this.prestoAddress = requireNonNull(prestoAddress, "prestoAddress is null");
+        this.nodeResourceUri = requireNonNull(prestoAddress.getHttpUri(PATH), "nodeResourceUri is null");
         this.networkRetry = new RetryDriver<>(networkRetryConfig, PrestoExceptionClassifier::isClusterConnectionException, RuntimeException.class, e -> {});
     }
 
     @Override
-    public int getClusterSize(String path)
+    public int getClusterSize()
     {
-        return networkRetry.run(format("getJsonResponse()", path), () -> getClusterSizeOnce(path));
+        return networkRetry.run("fetchClusterSize", this::fetchClusterSize);
     }
 
-    private int getClusterSizeOnce(String path)
+    private int fetchClusterSize()
     {
         Request request = prepareGet()
-                .setUri(prestoAddress.getHttpUri(path))
+                .setUri(nodeResourceUri)
                 .setHeader(CONTENT_TYPE, APPLICATION_JSON)
                 .build();
 
