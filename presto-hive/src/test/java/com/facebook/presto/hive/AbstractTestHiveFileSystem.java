@@ -206,7 +206,8 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
                 new NodeVersion("test_version"),
                 new HivePartitionObjectBuilder(),
-                new HiveEncryptionInformationProvider(ImmutableList.of()));
+                new HiveEncryptionInformationProvider(ImmutableList.of()),
+                new HivePartitionStats());
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,

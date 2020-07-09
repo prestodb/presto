@@ -125,7 +125,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HiveZeroRowFileCreator(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
                 TEST_SERVER_VERSION,
                 new HivePartitionObjectBuilder(),
-                new HiveEncryptionInformationProvider(ImmutableList.of(new TestDwrfEncryptionInformationSource())));
+                new HiveEncryptionInformationProvider(ImmutableList.of(new TestDwrfEncryptionInformationSource())),
+                new HivePartitionStats());
 
         metastore.createDatabase(Database.builder()
                 .setDatabaseName(TEST_DB_NAME)
