@@ -17,12 +17,12 @@ import java.io.Serializable;
 
 import static java.util.Objects.requireNonNull;
 
-public class SerializedTaskStats
+public class SerializedTaskInfo
         implements Serializable
 {
     private final byte[] bytes;
 
-    public SerializedTaskStats(byte[] bytes)
+    public SerializedTaskInfo(byte[] bytes)
     {
         this.bytes = requireNonNull(bytes, "bytes is null");
     }

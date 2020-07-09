@@ -33,7 +33,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskRdd;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskSourceRdd;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskSource;
-import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
+import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -132,7 +132,7 @@ public class PrestoSparkRddFactory
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
             Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             TableWriteInfo tableWriteInfo,
             Class<T> outputType)
     {
@@ -187,7 +187,7 @@ public class PrestoSparkRddFactory
                     session,
                     fragment,
                     executorFactoryProvider,
-                    taskStatsCollector,
+                    taskInfoCollector,
                     tableWriteInfo,
                     partitionedInputs,
                     broadcastInputs,
@@ -244,7 +244,7 @@ public class PrestoSparkRddFactory
             Session session,
             PlanFragment fragment,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             TableWriteInfo tableWriteInfo,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
             Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
@@ -280,7 +280,7 @@ public class PrestoSparkRddFactory
         PrestoSparkTaskProcessor<T> taskProcessor = new PrestoSparkTaskProcessor<>(
                 executorFactoryProvider,
                 serializedTaskDescriptor,
-                taskStatsCollector,
+                taskInfoCollector,
                 toTaskProcessorBroadcastInputs(broadcastInputs),
                 outputType);
 

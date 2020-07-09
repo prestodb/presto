@@ -22,6 +22,7 @@ import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
@@ -34,7 +35,6 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
@@ -46,7 +46,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskSource;
-import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
+import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spark.execution.PrestoSparkPageOutputOperator.PrestoSparkPageOutputFactory;
 import com.facebook.presto.spark.execution.PrestoSparkRowBatch.RowTupleSupplier;
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
@@ -100,7 +100,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final JsonCodec<TaskSource> taskSourceJsonCodec;
-    private final JsonCodec<TaskStats> taskStatsJsonCodec;
+    private final JsonCodec<TaskInfo> taskInfoJsonCodec;
 
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -129,7 +129,7 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingManager blockEncodingManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskSource> taskSourceJsonCodec,
-            JsonCodec<TaskStats> taskStatsJsonCodec,
+            JsonCodec<TaskInfo> taskInfoJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             LocalExecutionPlanner localExecutionPlanner,
@@ -146,7 +146,7 @@ public class PrestoSparkTaskExecutorFactory
                 blockEncodingManager,
                 taskDescriptorJsonCodec,
                 taskSourceJsonCodec,
-                taskStatsJsonCodec,
+                taskInfoJsonCodec,
                 notificationExecutor,
                 yieldExecutor,
                 localExecutionPlanner,
@@ -169,7 +169,7 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingManager blockEncodingManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskSource> taskSourceJsonCodec,
-            JsonCodec<TaskStats> taskStatsJsonCodec,
+            JsonCodec<TaskInfo> taskInfoJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             LocalExecutionPlanner localExecutionPlanner,
@@ -190,7 +190,7 @@ public class PrestoSparkTaskExecutorFactory
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
         this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
-        this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
+        this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.localExecutionPlanner = requireNonNull(localExecutionPlanner, "localExecutionPlanner is null");
@@ -215,11 +215,11 @@ public class PrestoSparkTaskExecutorFactory
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             Class<T> outputType)
     {
         try {
-            return doCreate(partitionId, attemptNumber, serializedTaskDescriptor, serializedTaskSources, inputs, taskStatsCollector, outputType);
+            return doCreate(partitionId, attemptNumber, serializedTaskDescriptor, serializedTaskSources, inputs, taskInfoCollector, outputType);
         }
         catch (RuntimeException e) {
             throw executionExceptionFactory.toPrestoSparkExecutionException(e);
@@ -232,7 +232,7 @@ public class PrestoSparkTaskExecutorFactory
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             Class<T> outputType)
     {
         PrestoSparkTaskDescriptor taskDescriptor = taskDescriptorJsonCodec.fromJson(serializedTaskDescriptor.getBytes());
@@ -365,8 +365,8 @@ public class PrestoSparkTaskExecutorFactory
                 taskContext,
                 taskStateMachine,
                 output.getOutputSupplier(),
-                taskStatsJsonCodec,
-                taskStatsCollector,
+                taskInfoJsonCodec,
+                taskInfoCollector,
                 executionExceptionFactory);
     }
 
@@ -410,8 +410,8 @@ public class PrestoSparkTaskExecutorFactory
         private final TaskContext taskContext;
         private final TaskStateMachine taskStateMachine;
         private final OutputSupplier<T> outputSupplier;
-        private final JsonCodec<TaskStats> taskStatsJsonCodec;
-        private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
+        private final JsonCodec<TaskInfo> taskInfoJsonCodec;
+        private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
 
         private Tuple2<MutablePartitionId, T> next;
@@ -420,15 +420,15 @@ public class PrestoSparkTaskExecutorFactory
                 TaskContext taskContext,
                 TaskStateMachine taskStateMachine,
                 OutputSupplier<T> outputSupplier,
-                JsonCodec<TaskStats> taskStatsJsonCodec,
-                CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+                JsonCodec<TaskInfo> taskInfoJsonCodec,
+                CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory)
         {
             this.taskContext = requireNonNull(taskContext, "taskContext is null");
             this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
             this.outputSupplier = requireNonNull(outputSupplier, "outputSupplier is null");
-            this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
-            this.taskStatsCollector = requireNonNull(taskStatsCollector, "taskStatsCollector is null");
+            this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
+            this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
             this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
         }
 
@@ -480,7 +480,7 @@ public class PrestoSparkTaskExecutorFactory
 
             //  TODO: Implement task stats collection
             //  TaskStats taskStats = taskContext.getTaskStats();
-            //  byte[] taskStatsSerialized = taskStatsJsonCodec.toJsonBytes(taskStats);
+            //  byte[] taskStatsSerialized = taskInfoJsonCodec.toJsonBytes(taskStats);
             //  taskStatsCollector.add(new SerializedTaskStats(taskStatsSerialized));
 
             // task finished
