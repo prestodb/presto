@@ -20,15 +20,25 @@ import static java.util.Objects.requireNonNull;
 public class SerializedTaskInfo
         implements Serializable
 {
+    private final int fragmentId;
+    private final int taskId;
     private final byte[] bytes;
 
-    public SerializedTaskInfo(byte[] bytes)
+    public SerializedTaskInfo(int fragmentId, int taskId, byte[] bytes)
     {
+        this.fragmentId = fragmentId;
+        this.taskId = taskId;
         this.bytes = requireNonNull(bytes, "bytes is null");
     }
 
     public byte[] getBytes()
     {
         return bytes;
+    }
+
+    @Override
+    public String toString()
+    {
+        return fragmentId + "." + taskId;
     }
 }

@@ -69,6 +69,12 @@ public class PrestoSparkRowBatch
         return retainedSizeInBytes;
     }
 
+    @Override
+    public int getPositionCount()
+    {
+        return rowCount;
+    }
+
     public static PrestoSparkRowBatchBuilder builder(int partitionCount)
     {
         return new PrestoSparkRowBatchBuilder(partitionCount, DEFAULT_TARGET_SIZE, DEFAULT_EXPECTED_ROWS_COUNT);
