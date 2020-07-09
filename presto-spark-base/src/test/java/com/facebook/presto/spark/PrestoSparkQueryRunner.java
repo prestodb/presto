@@ -205,6 +205,7 @@ public class PrestoSparkQueryRunner
                         "query.hash-partition-count", Integer.toString(NODE_COUNT * 2),
                         "prefer-distributed-union", "false"),
                 ImmutableMap.of(),
+                Optional.empty(),
                 ImmutableList.of(),
                 Optional.of(new TestingAccessControlModule()));
 
