@@ -17,6 +17,7 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
@@ -334,7 +335,8 @@ public abstract class AbstractVerification
                 millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getCpuTimeMillis)),
                 millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getWallTimeMillis)),
                 queryContext.getMainQueryStats().map(QueryStats::getPeakTotalMemoryBytes),
-                queryContext.getMainQueryStats().map(QueryStats::getPeakTaskTotalMemoryBytes));
+                queryContext.getMainQueryStats().map(QueryStats::getPeakTaskTotalMemoryBytes),
+                queryContext.getMainQueryStats().map(QueryStatsEvent::new));
     }
 
     protected static String formatSql(Statement statement)
