@@ -60,13 +60,4 @@ same as some of the ``config.properties`` settings discussed above. This is to e
 a single Presto on Spark task is run in a single Spark executor (This limitation may be
 temporary and is introduced to avoid duplicating broadcasted hash tables for every
 task).
-
-Following are the sample screenshots of Spark's rendered output and web ui respectively
-
-.. figure:: ../../resources/images/sparkoutput.png
-   :align: center
   
-   
-.. figure:: ../../resources/images/webui.png
-   :align: center
-   
