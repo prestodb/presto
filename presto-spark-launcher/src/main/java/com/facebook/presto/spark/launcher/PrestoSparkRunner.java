@@ -30,6 +30,7 @@ import java.io.File;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,7 +67,8 @@ public class PrestoSparkRunner
             String schema,
             String query,
             Map<String, String> sessionProperties,
-            Map<String, Map<String, String>> catalogSessionProperties)
+            Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<Path> queryInfoOutputPath)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
         PrestoSparkSession session = createSessionInfo(catalog, schema, sessionProperties, catalogSessionProperties);
@@ -74,7 +76,8 @@ public class PrestoSparkRunner
                 distribution.getSparkContext(),
                 session,
                 query,
-                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution));
+                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
+                queryInfoOutputPath);
 
         List<List<Object>> results = queryExecution.execute();
 

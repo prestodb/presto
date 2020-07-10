@@ -97,7 +97,11 @@ import scala.Tuple2;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -133,6 +137,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
+import static java.nio.file.Files.notExists;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -151,6 +156,7 @@ public class PrestoSparkQueryExecutionFactory
     private final QueryMonitor queryMonitor;
     private final JsonCodec<TaskInfo> taskInfoJsonCodec;
     private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
+    private final JsonCodec<QueryInfo> queryInfoJsonCodec;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
@@ -173,6 +179,7 @@ public class PrestoSparkQueryExecutionFactory
             QueryMonitor queryMonitor,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
             JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
+            JsonCodec<QueryInfo> queryInfoJsonCodec,
             TransactionManager transactionManager,
             AccessControl accessControl,
             Metadata metadata,
@@ -192,6 +199,7 @@ public class PrestoSparkQueryExecutionFactory
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
         this.sparkTaskDescriptorJsonCodec = requireNonNull(sparkTaskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
+        this.queryInfoJsonCodec = requireNonNull(queryInfoJsonCodec, "queryInfoJsonCodec is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -208,9 +216,12 @@ public class PrestoSparkQueryExecutionFactory
             SparkContext sparkContext,
             PrestoSparkSession prestoSparkSession,
             String sql,
-            PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider)
+            PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
+            Optional<Path> queryInfoOutputPath)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
+
+        queryInfoOutputPath.ifPresent(path -> checkArgument(notExists(path), "File already exist: %s", path));
 
         QueryStateTimer queryStateTimer = new QueryStateTimer(systemTicker());
 
@@ -273,10 +284,13 @@ public class PrestoSparkQueryExecutionFactory
                     fragmentedPlan,
                     taskInfoJsonCodec,
                     sparkTaskDescriptorJsonCodec,
+                    queryInfoJsonCodec,
                     rddFactory,
                     tableWriteInfo,
                     transactionManager,
-                    new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()), executionExceptionFactory);
+                    new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()),
+                    executionExceptionFactory,
+                    queryInfoOutputPath);
         }
         catch (RuntimeException executionFailure) {
             queryStateTimer.beginFinishing();
@@ -308,6 +322,7 @@ public class PrestoSparkQueryExecutionFactory
                         Optional.empty(),
                         warningCollector);
                 queryMonitor.queryCompletedEvent(queryInfo);
+                queryInfoOutputPath.ifPresent(path -> writeQueryInfo(path, queryInfo, queryInfoJsonCodec));
             }
             catch (RuntimeException eventFailure) {
                 log.error(eventFailure, "Error publishing query immediate failure event");
@@ -485,6 +500,16 @@ public class PrestoSparkQueryExecutionFactory
                         .collect(toImmutableList()));
     }
 
+    private static void writeQueryInfo(Path queryInfoOutputPath, QueryInfo queryInfo, JsonCodec<QueryInfo> queryInfoJsonCodec)
+    {
+        try {
+            Files.write(queryInfoOutputPath, queryInfoJsonCodec.toJsonBytes(queryInfo));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     public static class PrestoSparkQueryExecution
             implements IPrestoSparkQueryExecution
     {
@@ -503,11 +528,13 @@ public class PrestoSparkQueryExecutionFactory
         private final SubPlan fragmentedPlan;
         private final JsonCodec<TaskInfo> taskInfoJsonCodec;
         private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
+        private final JsonCodec<QueryInfo> queryInfoJsonCodec;
         private final PrestoSparkRddFactory rddFactory;
         private final TableWriteInfo tableWriteInfo;
         private final TransactionManager transactionManager;
         private final PagesSerde pagesSerde;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
+        private final Optional<Path> queryInfoOutputPath;
 
         private PrestoSparkQueryExecution(
                 JavaSparkContext sparkContext,
@@ -523,11 +550,13 @@ public class PrestoSparkQueryExecutionFactory
                 SubPlan fragmentedPlan,
                 JsonCodec<TaskInfo> taskInfoJsonCodec,
                 JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
+                JsonCodec<QueryInfo> queryInfoJsonCodec,
                 PrestoSparkRddFactory rddFactory,
                 TableWriteInfo tableWriteInfo,
                 TransactionManager transactionManager,
                 PagesSerde pagesSerde,
-                PrestoSparkExecutionExceptionFactory executionExceptionFactory)
+                PrestoSparkExecutionExceptionFactory executionExceptionFactory,
+                Optional<Path> queryInfoOutputPath)
         {
             this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
             this.session = requireNonNull(session, "session is null");
@@ -542,11 +571,13 @@ public class PrestoSparkQueryExecutionFactory
             this.fragmentedPlan = requireNonNull(fragmentedPlan, "fragmentedPlan is null");
             this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
             this.sparkTaskDescriptorJsonCodec = requireNonNull(sparkTaskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
+            this.queryInfoJsonCodec = requireNonNull(queryInfoJsonCodec, "queryInfoJsonCodec is null");
             this.rddFactory = requireNonNull(rddFactory, "rddFactory is null");
             this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
             this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
+            this.queryInfoOutputPath = requireNonNull(queryInfoOutputPath, "queryInfoOutputPath is null");
         }
 
         @Override
@@ -727,6 +758,7 @@ public class PrestoSparkQueryExecutionFactory
                     warningCollector);
 
             queryMonitor.queryCompletedEvent(queryInfo);
+            queryInfoOutputPath.ifPresent(path -> writeQueryInfo(path, queryInfo, queryInfoJsonCodec));
         }
 
         private static <T> void waitFor(Collection<Future<T>> futures)
