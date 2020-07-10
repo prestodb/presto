@@ -87,7 +87,6 @@ public class TestDeterminismAnalyzer
                 queryRewriter,
                 checksumValidator,
                 typeManager,
-                verificationContext,
                 new DeterminismAnalyzerConfig().setNonDeterministicCatalogs(mutableCatalogPattern));
     }
 }

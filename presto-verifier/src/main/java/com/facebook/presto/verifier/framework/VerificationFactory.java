@@ -87,7 +87,6 @@ public class VerificationFactory
                         queryRewriter,
                         checksumValidator,
                         typeManager,
-                        verificationContext,
                         determinismAnalyzerConfig);
                 FailureResolverManager failureResolverManager = failureResolverManagerFactory.create(new FailureResolverFactoryContext(
                         sqlParser,

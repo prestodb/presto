@@ -138,7 +138,6 @@ public class TestDataVerification
                         queryRewriter,
                         checksumValidator,
                         typeManager,
-                        verificationContext,
                         determinismAnalyzerConfig),
                 new FailureResolverManager(ImmutableSet.of(
                         new ExceededGlobalMemoryLimitFailureResolver(),
