@@ -160,6 +160,7 @@ public final class SystemSessionProperties
     public static final String WARNING_HANDLING = "warning_handling";
     public static final String OPTIMIZE_NULLS_IN_JOINS = "optimize_nulls_in_join";
     public static final String TARGET_RESULT_SIZE = "target_result_size";
+    public static final String PUSHDOWN_DEREFERENCE_ENABLED = "pushdown_dereference_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -729,6 +730,11 @@ public final class SystemSessionProperties
                         PUSHDOWN_SUBFIELDS_ENABLED,
                         "Experimental: enable subfield pruning",
                         featuresConfig.isPushdownSubfieldsEnabled(),
+                        false),
+                booleanProperty(
+                        PUSHDOWN_DEREFERENCE_ENABLED,
+                        "Experimental: enable dereference pushdown",
+                        featuresConfig.isPushdownDereferenceEnabled(),
                         false),
                 booleanProperty(
                         TABLE_WRITER_MERGE_OPERATOR_ENABLED,
@@ -1327,6 +1333,11 @@ public final class SystemSessionProperties
     public static boolean isPushdownSubfieldsEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPushdownDereferenceEnabled(Session session)
+    {
+        return session.getSystemProperty(PUSHDOWN_DEREFERENCE_ENABLED, Boolean.class);
     }
 
     public static boolean isTableWriterMergeOperatorEnabled(Session session)
