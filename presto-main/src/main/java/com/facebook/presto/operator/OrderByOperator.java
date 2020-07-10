@@ -21,6 +21,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -52,10 +53,12 @@ public class OrderByOperator
         private final int expectedPositions;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
-        private boolean closed;
         private final PagesIndex.Factory pagesIndexFactory;
         private final boolean spillEnabled;
         private final Optional<SpillerFactory> spillerFactory;
+        private final OrderingCompiler orderingCompiler;
+
+        private boolean closed;
 
         public OrderByOperatorFactory(
                 int operatorId,
@@ -67,7 +70,8 @@ public class OrderByOperator
                 List<SortOrder> sortOrder,
                 PagesIndex.Factory pagesIndexFactory,
                 boolean spillEnabled,
-                Optional<SpillerFactory> spillerFactory)
+                Optional<SpillerFactory> spillerFactory,
+                OrderingCompiler orderingCompiler)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -80,6 +84,7 @@ public class OrderByOperator
             this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
             this.spillEnabled = spillEnabled;
             this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
+            this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             checkArgument(!spillEnabled || spillerFactory.isPresent(), "Spiller Factory is not present when spill is enabled");
         }
 
@@ -98,7 +103,8 @@ public class OrderByOperator
                     sortOrder,
                     pagesIndexFactory,
                     spillEnabled,
-                    spillerFactory);
+                    spillerFactory,
+                    orderingCompiler);
         }
 
         @Override
@@ -120,7 +126,8 @@ public class OrderByOperator
                     sortOrder,
                     pagesIndexFactory,
                     spillEnabled,
-                    spillerFactory);
+                    spillerFactory,
+                    orderingCompiler);
         }
     }
 
@@ -144,6 +151,7 @@ public class OrderByOperator
 
     private final boolean spillEnabled;
     private final Optional<SpillerFactory> spillerFactory;
+    private final OrderingCompiler orderingCompiler;
 
     private Optional<Spiller> spiller = Optional.empty();
     private ListenableFuture<?> spillInProgress = immediateFuture(null);
@@ -162,7 +170,8 @@ public class OrderByOperator
             List<SortOrder> sortOrder,
             PagesIndex.Factory pagesIndexFactory,
             boolean spillEnabled,
-            Optional<SpillerFactory> spillerFactory)
+            Optional<SpillerFactory> spillerFactory,
+            OrderingCompiler orderingCompiler)
     {
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
@@ -177,6 +186,7 @@ public class OrderByOperator
         this.pageIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
         this.spillEnabled = spillEnabled;
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
+        this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         checkArgument(!spillEnabled || spillerFactory.isPresent(), "Spiller Factory is not present when spill is enabled");
     }
 
@@ -324,8 +334,7 @@ public class OrderByOperator
 
         return mergeSortedPages(
                 sortedStreams,
-                // TODO use compiled comparator, like PagesIndex's OrderingCompiler
-                new SimplePageWithPositionComparator(sourceTypes, sortChannels, sortOrder),
+                orderingCompiler.compilePageWithPositionComparator(sourceTypes, sortChannels, sortOrder),
                 sourceTypes,
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.getDriverContext().getYieldSignal());
