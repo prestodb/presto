@@ -156,6 +156,7 @@ public class FeaturesConfig
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
+    private boolean pushdownDereferenceEnabled;
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -1168,6 +1169,19 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldsEnabled()
     {
         return pushdownSubfieldsEnabled;
+    }
+
+    @Config("experimental.pushdown-dereference-enabled")
+    @ConfigDescription("Experimental: enable dereference pushdown")
+    public FeaturesConfig setPushdownDereferenceEnabled(boolean pushdownDereferenceEnabled)
+    {
+        this.pushdownDereferenceEnabled = pushdownDereferenceEnabled;
+        return this;
+    }
+
+    public boolean isPushdownDereferenceEnabled()
+    {
+        return pushdownDereferenceEnabled;
     }
 
     public boolean isTableWriterMergeOperatorEnabled()
