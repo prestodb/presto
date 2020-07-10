@@ -16,6 +16,7 @@ package com.facebook.presto.verifier.prestoaction;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.retry.RetryConfig;
+import io.airlift.units.Duration;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,17 +27,23 @@ public class JdbcPrestoActionFactory
     private final PrestoActionConfig prestoActionConfig;
     private final RetryConfig networkRetryConfig;
     private final RetryConfig prestoRetryConfig;
+    private final Duration metadataTimeout;
+    private final Duration checksumTimeout;
 
     public JdbcPrestoActionFactory(
             SqlExceptionClassifier exceptionClassifier,
             PrestoActionConfig prestoActionConfig,
             RetryConfig networkRetryConfig,
-            RetryConfig prestoRetryConfig)
+            RetryConfig prestoRetryConfig,
+            Duration metadataTimeout,
+            Duration checksumTimeout)
     {
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.prestoActionConfig = requireNonNull(prestoActionConfig, "prestoClusterConfig is null");
         this.networkRetryConfig = requireNonNull(networkRetryConfig, "networkRetryConfig is null");
         this.prestoRetryConfig = requireNonNull(prestoRetryConfig, "prestoRetryConfig is null");
+        this.metadataTimeout = requireNonNull(metadataTimeout, "metadataTimeout is null");
+        this.checksumTimeout = requireNonNull(checksumTimeout, "checksumTimeout is null");
     }
 
     @Override
@@ -47,6 +54,8 @@ public class JdbcPrestoActionFactory
                 queryConfiguration,
                 verificationContext,
                 prestoActionConfig,
+                metadataTimeout,
+                checksumTimeout,
                 networkRetryConfig,
                 prestoRetryConfig);
     }

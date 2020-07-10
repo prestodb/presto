@@ -37,9 +37,7 @@ public class TestPrestoActionConfig
                 .setJdbcPort(0)
                 .setHttpPort(null)
                 .setJdbcUrlParameters(null)
-                .setQueryTimeout(new Duration(60, MINUTES))
-                .setMetadataTimeout(new Duration(3, MINUTES))
-                .setChecksumTimeout(new Duration(30, MINUTES)));
+                .setQueryTimeout(new Duration(60, MINUTES)));
     }
 
     @Test
@@ -51,17 +49,13 @@ public class TestPrestoActionConfig
                 .put("http-port", "7777")
                 .put("jdbc-url-parameters", "{\"SSL\": false}")
                 .put("query-timeout", "2h")
-                .put("metadata-timeout", "1h")
-                .put("checksum-timeout", "3h")
                 .build();
         PrestoActionConfig expected = new PrestoActionConfig()
                 .setHost("proxy.presto.fbinfra.net")
                 .setJdbcPort(7778)
                 .setHttpPort(7777)
                 .setJdbcUrlParameters("{\"SSL\": false}")
-                .setQueryTimeout(new Duration(2, HOURS))
-                .setMetadataTimeout(new Duration(1, HOURS))
-                .setChecksumTimeout(new Duration(3, HOURS));
+                .setQueryTimeout(new Duration(2, HOURS));
 
         assertFullMapping(properties, expected);
     }

@@ -23,6 +23,7 @@ import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableMap;
@@ -64,12 +65,15 @@ public class TestDeterminismAnalyzer
         VerificationContext verificationContext = VerificationContext.create();
         VerifierConfig verifierConfig = new VerifierConfig().setTestId("test-id");
         RetryConfig retryConfig = new RetryConfig();
+        QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 configuration,
                 verificationContext,
                 new PrestoActionConfig(),
+                queryActionsConfig.getMetadataTimeout(),
+                queryActionsConfig.getChecksumTimeout(),
                 retryConfig,
                 retryConfig);
         QueryRewriter queryRewriter = new QueryRewriter(

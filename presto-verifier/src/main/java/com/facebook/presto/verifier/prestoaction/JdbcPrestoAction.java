@@ -70,6 +70,8 @@ public class JdbcPrestoAction
             QueryConfiguration queryConfiguration,
             VerificationContext verificationContext,
             PrestoActionConfig prestoActionConfig,
+            Duration metadataTimeout,
+            Duration checksumTimeout,
             @ForClusterConnection RetryConfig networkRetryConfig,
             @ForPresto RetryConfig prestoRetryConfig)
     {
@@ -78,8 +80,8 @@ public class JdbcPrestoAction
 
         this.jdbcUrl = requireNonNull(prestoActionConfig.getJdbcUrl(), "jdbcUrl is null");
         this.queryTimeout = requireNonNull(prestoActionConfig.getQueryTimeout(), "queryTimeout is null");
-        this.metadataTimeout = requireNonNull(prestoActionConfig.getMetadataTimeout(), "metadataTimeout is null");
-        this.checksumTimeout = requireNonNull(prestoActionConfig.getChecksumTimeout(), "checksumTimeout is null");
+        this.metadataTimeout = requireNonNull(metadataTimeout, "metadataTimeout is null");
+        this.checksumTimeout = requireNonNull(checksumTimeout, "checksumTimeout is null");
 
         this.networkRetry = new RetryDriver<>(
                 networkRetryConfig,
