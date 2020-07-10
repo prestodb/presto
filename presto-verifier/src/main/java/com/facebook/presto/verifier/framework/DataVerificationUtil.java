@@ -15,13 +15,13 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.QueryAction;
 import com.google.common.collect.ImmutableList;
@@ -47,7 +47,7 @@ public class DataVerificationUtil
 
     private DataVerificationUtil() {}
 
-    public static void teardownSafely(QueryAction queryAction, Optional<QueryBundle> bundle, Consumer<QueryStats> queryStatsConsumer)
+    public static void teardownSafely(QueryAction queryAction, Optional<QueryBundle> bundle, Consumer<QueryStatsEvent> queryStatsConsumer)
     {
         if (!bundle.isPresent()) {
             return;

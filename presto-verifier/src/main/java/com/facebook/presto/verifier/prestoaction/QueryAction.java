@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.QueryStage;
 
 public interface QueryAction
 {
-    QueryStats execute(Statement statement, QueryStage queryStage);
+    QueryStatsEvent execute(Statement statement, QueryStage queryStage);
 }

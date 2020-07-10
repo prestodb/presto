@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
@@ -55,7 +55,7 @@ import static org.testng.Assert.assertTrue;
 public class TestPrestoExceptionClassifier
 {
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
-    private static final QueryStats QUERY_STATS = new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, Optional.empty());
+    private static final QueryStatsEvent QUERY_STATS = new QueryStatsEvent("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, Optional.empty());
 
     private final SqlExceptionClassifier classifier = PrestoExceptionClassifier.defaultBuilder().build();
 
@@ -146,7 +146,7 @@ public class TestPrestoExceptionClassifier
             QueryException queryException,
             Optional<ErrorCodeSupplier> errorCode,
             boolean retryable,
-            Optional<QueryStats> queryStats,
+            Optional<QueryStatsEvent> queryStats,
             QueryStage queryStage)
     {
         assertTrue(queryException instanceof PrestoQueryException);
