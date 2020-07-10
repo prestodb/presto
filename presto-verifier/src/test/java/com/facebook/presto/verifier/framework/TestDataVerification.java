@@ -28,6 +28,7 @@ import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
+import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
 import com.facebook.presto.verifier.resolver.ChecksumExceededTimeLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.ExceededGlobalMemoryLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.ExceededTimeLimitFailureResolver;
@@ -111,6 +112,7 @@ public class TestDataVerification
         VerificationContext verificationContext = VerificationContext.create();
         VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         RetryConfig retryConfig = new RetryConfig();
+        QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> {
             return new JdbcPrestoAction(
@@ -120,6 +122,8 @@ public class TestDataVerification
                     new PrestoActionConfig()
                             .setHost(queryRunner.getServer().getAddress().getHost())
                             .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
+                    queryActionsConfig.getMetadataTimeout(),
+                    queryActionsConfig.getChecksumTimeout(),
                     retryConfig,
                     retryConfig);
         });

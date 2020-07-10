@@ -14,14 +14,21 @@
 package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.airlift.configuration.Config;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class QueryActionsConfig
 {
     private String controlQueryActionType = JdbcPrestoAction.QUERY_ACTION_TYPE;
     private String testQueryActionType = JdbcPrestoAction.QUERY_ACTION_TYPE;
     private boolean runHelperQueriesOnControl = true;
+
+    private Duration metadataTimeout = new Duration(3, MINUTES);
+    private Duration checksumTimeout = new Duration(30, MINUTES);
 
     @NotNull
     public String getControlQueryActionType()
@@ -58,6 +65,32 @@ public class QueryActionsConfig
     public QueryActionsConfig setRunHelperQueriesOnControl(boolean runHelperQueriesOnControl)
     {
         this.runHelperQueriesOnControl = runHelperQueriesOnControl;
+        return this;
+    }
+
+    @MinDuration("1s")
+    public Duration getMetadataTimeout()
+    {
+        return metadataTimeout;
+    }
+
+    @Config("metadata-timeout")
+    public QueryActionsConfig setMetadataTimeout(Duration metadataTimeout)
+    {
+        this.metadataTimeout = metadataTimeout;
+        return this;
+    }
+
+    @MinDuration("1s")
+    public Duration getChecksumTimeout()
+    {
+        return checksumTimeout;
+    }
+
+    @Config("checksum-timeout")
+    public QueryActionsConfig setChecksumTimeout(Duration checksumTimeout)
+    {
+        this.checksumTimeout = checksumTimeout;
         return this;
     }
 }

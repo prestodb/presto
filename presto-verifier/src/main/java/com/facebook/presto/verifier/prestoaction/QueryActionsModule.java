@@ -106,11 +106,14 @@ public class QueryActionsModule
         @Override
         public PrestoActionFactory get()
         {
+            QueryActionsConfig queryActionsConfig = injector.getInstance(QueryActionsConfig.class);
             return new JdbcPrestoActionFactory(
                     injector.getInstance(SqlExceptionClassifier.class),
                     injector.getInstance(Key.get(PrestoActionConfig.class, annotationClass)),
                     injector.getInstance(Key.get(RetryConfig.class, ForClusterConnection.class)),
-                    injector.getInstance(Key.get(RetryConfig.class, ForPresto.class)));
+                    injector.getInstance(Key.get(RetryConfig.class, ForPresto.class)),
+                    queryActionsConfig.getMetadataTimeout(),
+                    queryActionsConfig.getChecksumTimeout());
         }
     }
 }

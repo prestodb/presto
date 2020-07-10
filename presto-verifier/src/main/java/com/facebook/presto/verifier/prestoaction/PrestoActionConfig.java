@@ -37,10 +37,7 @@ public class PrestoActionConfig
     private int jdbcPort;
     private Optional<Integer> httpPort = Optional.empty();
     private Map<String, String> jdbcUrlParameters = ImmutableMap.of();
-
     private Duration queryTimeout = new Duration(60, MINUTES);
-    private Duration metadataTimeout = new Duration(3, MINUTES);
-    private Duration checksumTimeout = new Duration(30, MINUTES);
 
     @Override
     @NotNull
@@ -118,32 +115,6 @@ public class PrestoActionConfig
     public PrestoActionConfig setQueryTimeout(Duration queryTimeout)
     {
         this.queryTimeout = queryTimeout;
-        return this;
-    }
-
-    @MinDuration("1s")
-    public Duration getMetadataTimeout()
-    {
-        return metadataTimeout;
-    }
-
-    @Config("metadata-timeout")
-    public PrestoActionConfig setMetadataTimeout(Duration metadataTimeout)
-    {
-        this.metadataTimeout = metadataTimeout;
-        return this;
-    }
-
-    @MinDuration("1s")
-    public Duration getChecksumTimeout()
-    {
-        return checksumTimeout;
-    }
-
-    @Config("checksum-timeout")
-    public PrestoActionConfig setChecksumTimeout(Duration checksumTimeout)
-    {
-        this.checksumTimeout = checksumTimeout;
         return this;
     }
 }

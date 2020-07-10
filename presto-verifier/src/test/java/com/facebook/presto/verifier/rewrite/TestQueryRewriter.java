@@ -28,6 +28,7 @@ import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
@@ -78,6 +79,8 @@ public class TestQueryRewriter
                 new PrestoActionConfig()
                         .setHost(queryRunner.getServer().getAddress().getHost())
                         .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
+                new QueryActionsConfig().getMetadataTimeout(),
+                new QueryActionsConfig().getChecksumTimeout(),
                 new RetryConfig(),
                 new RetryConfig());
     }
