@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.prestoaction;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -21,6 +22,8 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestQueryActionsConfig
 {
@@ -30,7 +33,9 @@ public class TestQueryActionsConfig
         assertRecordedDefaults(recordDefaults(QueryActionsConfig.class)
                 .setControlQueryActionType(JdbcPrestoAction.QUERY_ACTION_TYPE)
                 .setTestQueryActionType(JdbcPrestoAction.QUERY_ACTION_TYPE)
-                .setRunHelperQueriesOnControl(true));
+                .setRunHelperQueriesOnControl(true)
+                .setMetadataTimeout(new Duration(3, MINUTES))
+                .setChecksumTimeout(new Duration(30, MINUTES)));
     }
 
     @Test
@@ -40,11 +45,15 @@ public class TestQueryActionsConfig
                 .put("control.query-action-type", "control-action")
                 .put("test.query-action-type", "test-action")
                 .put("run-helper-queries-on-control", "false")
+                .put("metadata-timeout", "1h")
+                .put("checksum-timeout", "3h")
                 .build();
         QueryActionsConfig expected = new QueryActionsConfig()
                 .setControlQueryActionType("control-action")
                 .setTestQueryActionType("test-action")
-                .setRunHelperQueriesOnControl(false);
+                .setRunHelperQueriesOnControl(false)
+                .setMetadataTimeout(new Duration(1, HOURS))
+                .setChecksumTimeout(new Duration(3, HOURS));
 
         assertFullMapping(properties, expected);
     }

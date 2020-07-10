@@ -71,6 +71,7 @@ public class TestJdbcPrestoAction
     @BeforeMethod
     public void setup()
     {
+        QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
         verificationContext = VerificationContext.create();
         prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.defaultBuilder().build(),
@@ -79,6 +80,8 @@ public class TestJdbcPrestoAction
                 new PrestoActionConfig()
                         .setHost(queryRunner.getServer().getAddress().getHost())
                         .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
+                queryActionsConfig.getMetadataTimeout(),
+                queryActionsConfig.getChecksumTimeout(),
                 new RetryConfig(),
                 new RetryConfig());
     }
