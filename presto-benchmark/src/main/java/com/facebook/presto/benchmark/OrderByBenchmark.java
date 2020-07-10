@@ -23,6 +23,7 @@ import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
@@ -53,7 +54,9 @@ public class OrderByBenchmark
                 ROWS,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST),
-                new PagesIndex.TestingFactory(false));
+                new PagesIndex.TestingFactory(false),
+                false,
+                Optional.empty());
 
         return ImmutableList.of(tableScanOperator, limitOperator, orderByOperator);
     }
