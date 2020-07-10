@@ -367,7 +367,8 @@ public class PrestoSparkQueryRunner
                 sparkContext,
                 createSessionInfo(session),
                 sql,
-                new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId));
+                new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
+                Optional.empty());
         List<List<Object>> results = execution.execute();
         List<MaterializedRow> rows = results.stream()
                 .map(result -> new MaterializedRow(DEFAULT_PRECISION, result))
