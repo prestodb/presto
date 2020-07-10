@@ -51,6 +51,8 @@ import static java.util.Objects.requireNonNull;
 public class JdbcPrestoAction
         implements PrestoAction
 {
+    public static final String QUERY_ACTION_TYPE = "presto-jdbc";
+
     private final SqlExceptionClassifier exceptionClassifier;
     private final QueryConfiguration queryConfiguration;
 
@@ -66,17 +68,17 @@ public class JdbcPrestoAction
             SqlExceptionClassifier exceptionClassifier,
             QueryConfiguration queryConfiguration,
             VerificationContext verificationContext,
-            PrestoClusterConfig prestoClusterConfig,
+            PrestoActionConfig prestoActionConfig,
             @ForClusterConnection RetryConfig networkRetryConfig,
             @ForPresto RetryConfig prestoRetryConfig)
     {
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.queryConfiguration = requireNonNull(queryConfiguration, "queryConfiguration is null");
 
-        this.jdbcUrl = requireNonNull(prestoClusterConfig.getJdbcUrl(), "jdbcUrl is null");
-        this.queryTimeout = requireNonNull(prestoClusterConfig.getQueryTimeout(), "queryTimeout is null");
-        this.metadataTimeout = requireNonNull(prestoClusterConfig.getMetadataTimeout(), "metadataTimeout is null");
-        this.checksumTimeout = requireNonNull(prestoClusterConfig.getChecksumTimeout(), "checksumTimeout is null");
+        this.jdbcUrl = requireNonNull(prestoActionConfig.getJdbcUrl(), "jdbcUrl is null");
+        this.queryTimeout = requireNonNull(prestoActionConfig.getQueryTimeout(), "queryTimeout is null");
+        this.metadataTimeout = requireNonNull(prestoActionConfig.getMetadataTimeout(), "metadataTimeout is null");
+        this.checksumTimeout = requireNonNull(prestoActionConfig.getChecksumTimeout(), "checksumTimeout is null");
 
         this.networkRetry = new RetryDriver<>(
                 networkRetryConfig,

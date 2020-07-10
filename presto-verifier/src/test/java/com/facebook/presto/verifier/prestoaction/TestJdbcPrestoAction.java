@@ -76,7 +76,7 @@ public class TestJdbcPrestoAction
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 CONFIGURATION,
                 verificationContext,
-                new PrestoClusterConfig()
+                new PrestoActionConfig()
                         .setHost(queryRunner.getServer().getAddress().getHost())
                         .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
                 new RetryConfig(),

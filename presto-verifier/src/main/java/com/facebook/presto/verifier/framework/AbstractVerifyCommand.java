@@ -17,6 +17,7 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.verifier.event.EventClientModule;
+import com.facebook.presto.verifier.prestoaction.QueryActionsModule;
 import com.facebook.presto.verifier.source.SourceQueryModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
@@ -43,10 +44,10 @@ public abstract class AbstractVerifyCommand
         Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
                 .add(new VerifierModule(
                         getSqlParserOptions(),
-                        getCustomQueryFilterClasses(),
-                        getSqlExceptionClassifier()))
+                        getCustomQueryFilterClasses()))
                 .add(new SourceQueryModule(getCustomSourceQuerySupplierTypes()))
                 .add(new EventClientModule(getCustomEventClientTypes()))
+                .add(new QueryActionsModule(getSqlExceptionClassifier(), getCustomQueryActionTypes()))
                 .addAll(getAdditionalModules())
                 .build());
         Injector injector = null;

@@ -16,7 +16,7 @@ package com.facebook.presto.verifier.resolver;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
+import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.retry.RetryDriver;
@@ -48,7 +48,7 @@ public class ClusterSizeFetcher
 
     public ClusterSizeFetcher(
             HttpClient httpClient,
-            PrestoClusterConfig prestoAddress,
+            PrestoActionConfig prestoAddress,
             RetryConfig networkRetryConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");

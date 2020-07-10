@@ -16,9 +16,7 @@ package com.facebook.presto.verifier.prestoaction;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.VerificationContext;
 
-public interface PrestoActionFactory
-        extends QueryActionFactory
+public interface QueryActionFactory
 {
-    @Override
-    PrestoAction create(QueryConfiguration queryConfiguration, VerificationContext verificationContext);
+    QueryAction create(QueryConfiguration queryConfiguration, VerificationContext verificationContext);
 }

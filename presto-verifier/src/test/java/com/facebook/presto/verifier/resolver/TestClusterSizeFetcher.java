@@ -15,7 +15,7 @@ package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
+import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import org.testng.annotations.Test;
 
@@ -32,7 +32,7 @@ public class TestClusterSizeFetcher
         server = new TestingPrestoServer();
         client = new ClusterSizeFetcher(
                 new JettyHttpClient(),
-                new PrestoClusterConfig()
+                new PrestoActionConfig()
                         .setHost(server.getAddress().getHost())
                         .setHttpPort(server.getAddress().getPort()),
                 new RetryConfig());
