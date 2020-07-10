@@ -17,6 +17,7 @@ import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.OrderByOperator.OrderByOperatorFactory;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -97,7 +98,8 @@ public class TestOrderByOperator
                 ImmutableList.of(ASC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                Optional.of(new DummySpillerFactory()));
+                Optional.of(new DummySpillerFactory()),
+                new OrderingCompiler());
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE)
                 .row(-0.1)
@@ -130,7 +132,8 @@ public class TestOrderByOperator
                 ImmutableList.of(ASC_NULLS_LAST, DESC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                Optional.of(new DummySpillerFactory()));
+                Optional.of(new DummySpillerFactory()),
+                new OrderingCompiler());
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("a", 4L)
@@ -163,7 +166,8 @@ public class TestOrderByOperator
                 ImmutableList.of(DESC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                Optional.of(new DummySpillerFactory()));
+                Optional.of(new DummySpillerFactory()),
+                new OrderingCompiler());
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(4L)
@@ -200,7 +204,8 @@ public class TestOrderByOperator
                 ImmutableList.of(ASC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 false,
-                Optional.of(new DummySpillerFactory()));
+                Optional.of(new DummySpillerFactory()),
+                new OrderingCompiler());
 
         toPages(operatorFactory, driverContext, input);
     }

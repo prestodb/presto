@@ -1070,7 +1070,8 @@ public class LocalExecutionPlanner
                     sortOrder.build(),
                     pagesIndexFactory,
                     spillEnabled,
-                    Optional.of(spillerFactory));
+                    Optional.of(spillerFactory),
+                    orderingCompiler);
 
             return new PhysicalOperation(operator, source.getLayout(), context, source);
         }
