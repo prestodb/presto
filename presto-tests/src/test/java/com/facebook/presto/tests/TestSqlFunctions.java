@@ -115,6 +115,56 @@ public class TestSqlFunctions
     }
 
     @Test
+    public void testCreateFunctionWithCoercion()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.return_double() RETURNS DOUBLE RETURN 1");
+        String createFunctionReturnDoubleFormatted = "CREATE FUNCTION testing.test.return_double ()\n" +
+                "RETURNS DOUBLE\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN CAST(1 AS double)";
+
+        MaterializedResult rows = computeActual("SHOW CREATE FUNCTION testing.test.return_double()");
+        assertEquals(rows.getMaterializedRows().get(0).getFields(), ImmutableList.of(createFunctionReturnDoubleFormatted, ""));
+
+        rows = computeActual("SELECT testing.test.return_double() + 1");
+        assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), 2.0);
+
+        assertQuerySucceeds("CREATE FUNCTION testing.test.return_varchar() RETURNS VARCHAR RETURN 'ABC'");
+        String createFunctionReturnVarcharFormatted = "CREATE FUNCTION testing.test.return_varchar ()\n" +
+                "RETURNS varchar\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN CAST('ABC' AS varchar)";
+
+        rows = computeActual("SHOW CREATE FUNCTION testing.test.return_varchar()");
+        assertEquals(rows.getMaterializedRows().get(0).getFields(), ImmutableList.of(createFunctionReturnVarcharFormatted, ""));
+
+        rows = computeActual("SELECT lower(testing.test.return_varchar())");
+        assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), "abc");
+
+        // no explicit cast added
+        assertQuerySucceeds("CREATE FUNCTION testing.test.return_int() RETURNS INTEGER RETURN 1");
+        String createFunctionReturnIntFormatted = "CREATE FUNCTION testing.test.return_int ()\n" +
+                "RETURNS INTEGER\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN 1";
+
+        rows = computeActual("SHOW CREATE FUNCTION testing.test.return_int()");
+        assertEquals(rows.getMaterializedRows().get(0).getFields(), ImmutableList.of(createFunctionReturnIntFormatted, ""));
+
+        rows = computeActual("SELECT testing.test.return_int() + 3");
+        assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), 4);
+    }
+
+    @Test
     public void testAlterFunctionInvalidFunctionName()
     {
         assertQueryFails(
