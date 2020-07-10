@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.matching.Capture;
@@ -59,6 +60,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.isPushdownDereferenceEnabled;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
@@ -139,6 +141,12 @@ public class PushDownDereferences
         ExtractProjectDereferences(Class<N> planNodeClass)
         {
             this.planNodeClass = planNodeClass;
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isPushdownDereferenceEnabled(session);
         }
 
         @Override
@@ -245,6 +253,12 @@ public class PushDownDereferences
         protected PushdownDereferencesInProject(Pattern<N> targetPattern)
         {
             this.targetPattern = requireNonNull(targetPattern, "targetPattern is null");
+        }
+
+        @Override
+        public boolean isEnabled(Session session)
+        {
+            return isPushdownDereferenceEnabled(session);
         }
 
         @Override

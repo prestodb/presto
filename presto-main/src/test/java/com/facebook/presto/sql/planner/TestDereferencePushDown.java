@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -21,6 +20,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -46,7 +47,7 @@ public class TestDereferencePushDown
 {
     public TestDereferencePushDown()
     {
-        super(ImmutableMap.of(SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED, "true"));
+        super(ImmutableMap.of(PUSHDOWN_SUBFIELDS_ENABLED, "true", PUSHDOWN_DEREFERENCE_ENABLED, "true"));
     }
 
     @Test
