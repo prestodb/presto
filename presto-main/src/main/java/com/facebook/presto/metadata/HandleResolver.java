@@ -65,7 +65,7 @@ public class HandleResolver
         requireNonNull(name, "name is null");
         requireNonNull(resolver, "resolver is null");
         MaterializedHandleResolver existingResolver = handleResolvers.putIfAbsent(name, new MaterializedHandleResolver(resolver));
-        checkState(existingResolver == null || existingResolver.equals(resolver),
+        checkState(existingResolver == null || existingResolver.equals(new MaterializedHandleResolver(resolver)),
                 "Connector '%s' is already assigned to resolver: %s", name, existingResolver);
     }
 
@@ -74,7 +74,7 @@ public class HandleResolver
         requireNonNull(name, "name is null");
         requireNonNull(resolver, "resolver is null");
         MaterializedFunctionHandleResolver existingResolver = functionHandleResolvers.putIfAbsent(name, new MaterializedFunctionHandleResolver(resolver));
-        checkState(existingResolver == null || existingResolver.equals(resolver), "Name %s is already assigned to function resolver: %s", name, existingResolver);
+        checkState(existingResolver == null || existingResolver.equals(new MaterializedFunctionHandleResolver(resolver)), "Name %s is already assigned to function resolver: %s", name, existingResolver);
     }
 
     public String getId(ConnectorTableHandle tableHandle)

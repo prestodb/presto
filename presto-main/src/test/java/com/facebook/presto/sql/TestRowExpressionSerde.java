@@ -45,6 +45,8 @@ import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.transaction.NoOpTransactionManager;
+import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -247,6 +249,7 @@ public class TestRowExpressionSerde
             configBinder(binder).bindConfig(FeaturesConfig.class);
 
             binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+            binder.bind(TransactionManager.class).to(NoOpTransactionManager.class).in(Scopes.SINGLETON);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             newSetBinder(binder, Type.class);
 

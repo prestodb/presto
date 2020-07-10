@@ -28,7 +28,10 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionNamespaceLoader;
+import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogType;
 import com.facebook.presto.type.setdigest.SetDigestType;
 import com.google.common.annotations.VisibleForTesting;
@@ -47,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -76,6 +80,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
 import static com.facebook.presto.type.ColorType.COLOR;
@@ -100,6 +105,7 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class TypeRegistry
+        extends FunctionNamespaceLoader
         implements TypeManager
 {
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
@@ -113,12 +119,13 @@ public final class TypeRegistry
     @VisibleForTesting
     public TypeRegistry()
     {
-        this(ImmutableSet.of(), new FeaturesConfig());
+        this(ImmutableSet.of(), new FeaturesConfig(), createTestTransactionManager(), new HandleResolver());
     }
 
     @Inject
-    public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig)
+    public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig, TransactionManager transactionManager, HandleResolver handleResolver)
     {
+        super(transactionManager, handleResolver);
         requireNonNull(types, "types is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
 
@@ -182,6 +189,7 @@ public final class TypeRegistry
     public Type getType(TypeSignature signature)
     {
         Type type = types.get(signature);
+
         if (type == null) {
             try {
                 return parametricTypeCache.getUnchecked(signature);
@@ -210,6 +218,13 @@ public final class TypeRegistry
         }
 
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
+        if (parametricType == null) {
+            parametricType = functionNamespaceManagers.values().stream()
+                    .map(manager -> manager.getParametricType(signature))
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+        }
         if (parametricType == null) {
             throw new IllegalArgumentException("Unknown type " + signature);
         }

@@ -32,7 +32,6 @@ import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
-import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
@@ -64,11 +63,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
@@ -101,15 +98,12 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class FunctionManager
+        extends FunctionNamespaceLoader
         implements FunctionMetadataManager
 {
     private final TypeManager typeManager;
-    private final TransactionManager transactionManager;
     private final BuiltInFunctionNamespaceManager builtInFunctionNamespaceManager;
     private final FunctionInvokerProvider functionInvokerProvider;
-    private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
-    private final HandleResolver handleResolver;
-    private final Map<String, FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManagers = new ConcurrentHashMap<>();
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
     private final CacheStatsMBean cacheStatsMBean;
 
@@ -121,12 +115,11 @@ public class FunctionManager
             FeaturesConfig featuresConfig,
             HandleResolver handleResolver)
     {
+        super(transactionManager, handleResolver);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.builtInFunctionNamespaceManager = new BuiltInFunctionNamespaceManager(typeManager, blockEncodingSerde, featuresConfig, this);
         this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
-        this.handleResolver = handleResolver;
         if (typeManager instanceof TypeRegistry) {
             ((TypeRegistry) typeManager).setFunctionManager(this);
         }
@@ -153,42 +146,9 @@ public class FunctionManager
         return cacheStatsMBean;
     }
 
-    public void loadFunctionNamespaceManager(
-            String functionNamespaceManagerName,
-            String catalogName,
-            Map<String, String> properties)
-    {
-        requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
-        FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
-        checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
-        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties);
-
-        transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
-        if (functionNamespaceManagers.putIfAbsent(catalogName, functionNamespaceManager) != null) {
-            throw new IllegalArgumentException(format("Function namespace manager is already registered for catalog [%s]", catalogName));
-        }
-    }
-
-    @VisibleForTesting
-    public void addFunctionNamespace(String catalogName, FunctionNamespaceManager functionNamespaceManager)
-    {
-        transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
-        if (functionNamespaceManagers.putIfAbsent(catalogName, functionNamespaceManager) != null) {
-            throw new IllegalArgumentException(format("Function namespace manager is already registered for catalog [%s]", catalogName));
-        }
-    }
-
     public FunctionInvokerProvider getFunctionInvokerProvider()
     {
         return functionInvokerProvider;
-    }
-
-    public void addFunctionNamespaceFactory(FunctionNamespaceManagerFactory factory)
-    {
-        if (functionNamespaceManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
-            throw new IllegalArgumentException(format("Resource group configuration manager '%s' is already registered", factory.getName()));
-        }
-        handleResolver.addFunctionNamespace(factory.getName(), factory.getHandleResolver());
     }
 
     public void registerBuiltInFunctions(List<? extends SqlFunction> functions)

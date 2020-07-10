@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
@@ -35,13 +36,15 @@ public class StaticFunctionNamespaceStore
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private final FunctionManager functionManager;
+    private final TypeRegistry typeRegistry;
     private final File configDir;
     private final AtomicBoolean functionNamespaceLoading = new AtomicBoolean();
 
     @Inject
-    public StaticFunctionNamespaceStore(FunctionManager functionManager, StaticFunctionNamespaceStoreConfig config)
+    public StaticFunctionNamespaceStore(FunctionManager functionManager, StaticFunctionNamespaceStoreConfig config, TypeRegistry typeRegistry)
     {
         this.functionManager = functionManager;
+        this.typeRegistry = typeRegistry;
         this.configDir = config.getFunctionNamespaceConfigurationDir();
     }
 
@@ -70,6 +73,7 @@ public class StaticFunctionNamespaceStore
         checkState(functionNamespaceManagerName != null, "Function namespace configuration %s does not contain function-namespace-manager.name", file.getAbsoluteFile());
 
         functionManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        typeRegistry.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
         log.info("-- Added function namespace manager [%s] --", catalogName);
     }
 

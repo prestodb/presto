@@ -621,6 +621,7 @@ public class LocalQueryRunner
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
         metadata.getFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        typeRegistry.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
     }
 
     public LocalQueryRunner printPlan()

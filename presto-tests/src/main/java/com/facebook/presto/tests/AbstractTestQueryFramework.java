@@ -36,10 +36,12 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -52,6 +54,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
@@ -63,6 +66,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -239,6 +243,19 @@ public abstract class AbstractTestQueryFramework
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
     {
         QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
+    }
+
+    protected void assertQueryResultUnordered(@Language("SQL") String query, List<List<Object>> expectedRows)
+    {
+        MaterializedResult rows = computeActual(query);
+        assertEquals(
+                ImmutableSet.copyOf(rows.getMaterializedRows()),
+                expectedRows.stream().map(row -> new MaterializedRow(1, row)).collect(Collectors.toSet()));
+    }
+
+    protected void assertSingleValue(@Language("SQL") String expression, Object expectedResult)
+    {
+        assertQueryResultUnordered("SELECT " + expression, singletonList(singletonList(expectedResult)));
     }
 
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)

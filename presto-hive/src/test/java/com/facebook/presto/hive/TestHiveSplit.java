@@ -31,6 +31,8 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.transaction.NoOpTransactionManager;
+import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -132,6 +134,8 @@ public class TestHiveSplit
             binder.install(new JsonModule());
             binder.install(new HandleJsonModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
+
+            binder.bind(TransactionManager.class).to(NoOpTransactionManager.class).in(Scopes.SINGLETON);
 
             binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);

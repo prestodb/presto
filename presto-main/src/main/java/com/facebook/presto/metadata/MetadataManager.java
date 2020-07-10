@@ -213,7 +213,7 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
     {
-        TypeManager typeManager = new TypeRegistry(ImmutableSet.of(), featuresConfig);
+        TypeManager typeManager = new TypeRegistry(ImmutableSet.of(), featuresConfig, transactionManager, new HandleResolver());
         return new MetadataManager(
                 featuresConfig,
                 typeManager,
