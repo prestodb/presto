@@ -19,6 +19,8 @@ import com.facebook.presto.jdbc.QueryStats;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -43,8 +45,9 @@ public class QueryStatsEvent
     private final long peakMemoryBytes;
     private final long peakTotalMemoryBytes;
     private final long peakTaskTotalMemoryBytes;
+    private final String extraData;
 
-    public QueryStatsEvent(QueryStats stats)
+    public QueryStatsEvent(QueryStats stats, Optional<String> extraData)
     {
         this(
                 stats.getQueryId(),
@@ -64,7 +67,8 @@ public class QueryStatsEvent
                 stats.getProcessedBytes(),
                 stats.getPeakMemoryBytes(),
                 stats.getPeakTotalMemoryBytes(),
-                stats.getPeakTaskTotalMemoryBytes());
+                stats.getPeakTaskTotalMemoryBytes(),
+                extraData);
     }
 
     public QueryStatsEvent(
@@ -85,7 +89,8 @@ public class QueryStatsEvent
             long processedBytes,
             long peakMemoryBytes,
             long peakTotalMemoryBytes,
-            long peakTaskTotalMemoryBytes)
+            long peakTaskTotalMemoryBytes,
+            Optional<String> extraData)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.state = requireNonNull(state, "state is null");
@@ -105,6 +110,7 @@ public class QueryStatsEvent
         this.peakMemoryBytes = peakMemoryBytes;
         this.peakTotalMemoryBytes = peakTotalMemoryBytes;
         this.peakTaskTotalMemoryBytes = peakTaskTotalMemoryBytes;
+        this.extraData = extraData.orElse(null);
     }
 
     @EventField
@@ -213,5 +219,11 @@ public class QueryStatsEvent
     public long getPeakTaskTotalMemoryBytes()
     {
         return peakTaskTotalMemoryBytes;
+    }
+
+    @EventField
+    public String getExtraData()
+    {
+        return extraData;
     }
 }

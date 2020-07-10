@@ -16,9 +16,9 @@ package com.facebook.presto.verifier.framework;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -44,25 +44,25 @@ public class VerifierUtil
         return new Identifier(name, true);
     }
 
-    public static void runAndConsume(Callable<QueryStats> callable, Consumer<QueryStats> queryStatsConsumer)
+    public static void runAndConsume(Callable<QueryStatsEvent> callable, Consumer<QueryStatsEvent> queryStatsConsumer)
     {
         runAndConsume(callable, queryStatsConsumer, e -> {});
     }
 
-    public static void runAndConsume(Callable<QueryStats> callable, Consumer<QueryStats> queryStatsConsumer, Consumer<QueryException> queryExceptionConsumer)
+    public static void runAndConsume(Callable<QueryStatsEvent> callable, Consumer<QueryStatsEvent> queryStatsConsumer, Consumer<QueryException> queryExceptionConsumer)
     {
         callAndConsume(callable, identity(), queryStatsConsumer, queryExceptionConsumer);
     }
 
-    public static <V> QueryResult<V> callAndConsume(Callable<QueryResult<V>> callable, Consumer<QueryStats> queryStatsConsumer)
+    public static <V> QueryResult<V> callAndConsume(Callable<QueryResult<V>> callable, Consumer<QueryStatsEvent> queryStatsConsumer)
     {
         return callAndConsume(callable, QueryResult::getQueryStats, queryStatsConsumer, e -> {});
     }
 
     private static <V> V callAndConsume(
             Callable<V> callable,
-            Function<V, QueryStats> queryStatsTransformer,
-            Consumer<QueryStats> queryStatsConsumer,
+            Function<V, QueryStatsEvent> queryStatsTransformer,
+            Consumer<QueryStatsEvent> queryStatsConsumer,
             Consumer<QueryException> queryExceptionConsumer)
     {
         try {

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.verifier.event.QueryFailure;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 
 import java.util.Optional;
 
@@ -58,7 +58,7 @@ public abstract class QueryException
                         : Optional.empty(),
                 retryable,
                 this instanceof PrestoQueryException
-                        ? ((PrestoQueryException) this).getQueryStats().map(QueryStats::getQueryId)
+                        ? ((PrestoQueryException) this).getQueryStats().map(QueryStatsEvent::getQueryId)
                         : Optional.empty(),
                 getStackTraceAsString(this));
     }

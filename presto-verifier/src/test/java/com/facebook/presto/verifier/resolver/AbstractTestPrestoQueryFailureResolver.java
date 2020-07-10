@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import org.testng.annotations.Test;
@@ -32,7 +32,7 @@ public class AbstractTestPrestoQueryFailureResolver
 {
     protected static final long CONTROL_CPU_TIME_MILLIS = 100000;
     protected static final long CONTROL_PEAK_TOTAL_MEMORY_BYTES = 600L * 1024 * 1024 * 1024;
-    protected static final QueryStats CONTROL_QUERY_STATS = createQueryStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_TOTAL_MEMORY_BYTES);
+    protected static final QueryStatsEvent CONTROL_QUERY_STATS = createQueryStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_TOTAL_MEMORY_BYTES);
 
     private final FailureResolver failureResolver;
 
@@ -101,8 +101,8 @@ public class AbstractTestPrestoQueryFailureResolver
         return failureResolver;
     }
 
-    protected static QueryStats createQueryStats(long cpuTimeMillls, long peakTotalMemoryBytes)
+    protected static QueryStatsEvent createQueryStats(long cpuTimeMillls, long peakTotalMemoryBytes)
     {
-        return new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, cpuTimeMillls, 7, 8, 9, 10, 11, 12, peakTotalMemoryBytes, 13, Optional.empty());
+        return new QueryStatsEvent("id", "", false, false, 1, 2, 3, 4, 5, cpuTimeMillls, 7, 8, 9, 10, 11, 12, peakTotalMemoryBytes, 13, Optional.empty());
     }
 }

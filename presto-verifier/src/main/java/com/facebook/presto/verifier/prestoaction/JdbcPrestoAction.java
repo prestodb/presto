@@ -17,6 +17,7 @@ import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
@@ -93,7 +94,7 @@ public class JdbcPrestoAction
     }
 
     @Override
-    public QueryStats execute(Statement statement, QueryStage queryStage)
+    public QueryStatsEvent execute(Statement statement, QueryStage queryStage)
     {
         return execute(statement, queryStage, new NoResultStatementExecutor<>());
     }
@@ -195,9 +196,9 @@ public class JdbcPrestoAction
             this.queryStats = Optional.of(requireNonNull(queryStats, "queryStats is null"));
         }
 
-        public synchronized Optional<QueryStats> getLastQueryStats()
+        public synchronized Optional<QueryStatsEvent> getLastQueryStats()
         {
-            return queryStats;
+            return queryStats.map(stats -> new QueryStatsEvent(stats, Optional.empty()));
         }
     }
 
@@ -242,12 +243,12 @@ public class JdbcPrestoAction
     }
 
     private static class NoResultStatementExecutor<R>
-            implements StatementExecutor<QueryStats>
+            implements StatementExecutor<QueryStatsEvent>
     {
         private final ProgressMonitor progressMonitor = new ProgressMonitor();
 
         @Override
-        public QueryStats execute(PrestoStatement statement, String query)
+        public QueryStatsEvent execute(PrestoStatement statement, String query)
                 throws SQLException
         {
             boolean moreResults = statement.execute(query);
