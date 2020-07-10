@@ -21,7 +21,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
+import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
@@ -69,7 +69,7 @@ public class TestDeterminismAnalyzer
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 configuration,
                 verificationContext,
-                new PrestoClusterConfig(),
+                new PrestoActionConfig(),
                 retryConfig,
                 retryConfig);
         QueryRewriter queryRewriter = new QueryRewriter(

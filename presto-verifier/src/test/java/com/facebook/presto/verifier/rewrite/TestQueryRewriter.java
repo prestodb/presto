@@ -26,7 +26,7 @@ import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
+import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
@@ -75,7 +75,7 @@ public class TestQueryRewriter
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 CONFIGURATION,
                 VerificationContext.create(),
-                new PrestoClusterConfig()
+                new PrestoActionConfig()
                         .setHost(queryRunner.getServer().getAddress().getHost())
                         .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
                 new RetryConfig(),

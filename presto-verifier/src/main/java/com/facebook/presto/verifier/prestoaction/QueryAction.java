@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import com.facebook.presto.verifier.framework.QueryConfiguration;
-import com.facebook.presto.verifier.framework.VerificationContext;
+import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.framework.QueryStage;
 
-public interface PrestoActionFactory
-        extends QueryActionFactory
+public interface QueryAction
 {
-    @Override
-    PrestoAction create(QueryConfiguration queryConfiguration, VerificationContext verificationContext);
+    QueryStats execute(Statement statement, QueryStage queryStage);
 }

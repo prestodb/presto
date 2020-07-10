@@ -27,12 +27,12 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class TestPrestoClusterConfig
+public class TestPrestoActionConfig
 {
     @Test
     public void testDefault()
     {
-        assertRecordedDefaults(recordDefaults(PrestoClusterConfig.class)
+        assertRecordedDefaults(recordDefaults(PrestoActionConfig.class)
                 .setHost(null)
                 .setJdbcPort(0)
                 .setHttpPort(null)
@@ -54,7 +54,7 @@ public class TestPrestoClusterConfig
                 .put("metadata-timeout", "1h")
                 .put("checksum-timeout", "3h")
                 .build();
-        PrestoClusterConfig expected = new PrestoClusterConfig()
+        PrestoActionConfig expected = new PrestoActionConfig()
                 .setHost("proxy.presto.fbinfra.net")
                 .setJdbcPort(7778)
                 .setHttpPort(7777)
@@ -69,7 +69,7 @@ public class TestPrestoClusterConfig
     @Test
     public void testJdbcUrl()
     {
-        PrestoClusterConfig config = new PrestoClusterConfig()
+        PrestoActionConfig config = new PrestoActionConfig()
                 .setHost("proxy.presto.fbinfra.net")
                 .setJdbcPort(7778)
                 .setJdbcUrlParameters("{\"SSL\": true, \"SSLTrustStorePath\": \"trust-store\", \"SSLKeyStorePath\": \"key-store\"}")
@@ -80,7 +80,7 @@ public class TestPrestoClusterConfig
     @Test
     public void testHttpUri()
     {
-        PrestoClusterConfig config = new PrestoClusterConfig()
+        PrestoActionConfig config = new PrestoActionConfig()
                 .setHost("proxy.presto.fbinfra.net")
                 .setJdbcPort(7778)
                 .setHttpPort(7777)

@@ -40,12 +40,7 @@ import com.facebook.presto.verifier.checksum.MapColumnValidator;
 import com.facebook.presto.verifier.checksum.RowColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.framework.Column.Category;
-import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
-import com.facebook.presto.verifier.prestoaction.VerificationPrestoActionModule;
 import com.facebook.presto.verifier.resolver.FailureResolverModule;
-import com.facebook.presto.verifier.retry.ForClusterConnection;
-import com.facebook.presto.verifier.retry.ForPresto;
-import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.VerificationQueryRewriterModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
@@ -83,16 +78,13 @@ public class VerifierModule
 {
     private final SqlParserOptions sqlParserOptions;
     private final List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses;
-    private final SqlExceptionClassifier exceptionClassifier;
 
     public VerifierModule(
             SqlParserOptions sqlParserOptions,
-            List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses,
-            SqlExceptionClassifier exceptionClassifier)
+            List<Class<? extends Predicate<SourceQuery>>> customQueryFilterClasses)
     {
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.customQueryFilterClasses = ImmutableList.copyOf(customQueryFilterClasses);
-        this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
     }
 
     protected final void setup(Binder binder)
@@ -103,9 +95,6 @@ public class VerifierModule
         configBinder(binder).bindConfig(QueryConfigurationOverridesConfig.class, ForTest.class, "test");
         binder.bind(QueryConfigurationOverrides.class).annotatedWith(ForControl.class).to(Key.get(QueryConfigurationOverridesConfig.class, ForControl.class)).in(SINGLETON);
         binder.bind(QueryConfigurationOverrides.class).annotatedWith(ForTest.class).to(Key.get(QueryConfigurationOverridesConfig.class, ForTest.class)).in(SINGLETON);
-
-        configBinder(binder).bindConfig(RetryConfig.class, ForClusterConnection.class, "cluster-connection");
-        configBinder(binder).bindConfig(RetryConfig.class, ForPresto.class, "presto");
 
         for (Class<? extends Predicate<SourceQuery>> customQueryFilterClass : customQueryFilterClasses) {
             binder.bind(customQueryFilterClass).in(SINGLETON);
@@ -137,7 +126,6 @@ public class VerifierModule
         newSetBinder(binder, Type.class);
 
         // verifier
-        install(new VerificationPrestoActionModule(exceptionClassifier));
         install(new VerificationQueryRewriterModule());
         install(FailureResolverModule.BUILT_IN);
         binder.bind(VerificationManager.class).in(SINGLETON);

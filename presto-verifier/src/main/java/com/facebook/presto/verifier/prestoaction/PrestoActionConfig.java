@@ -30,7 +30,7 @@ import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class PrestoClusterConfig
+public class PrestoActionConfig
         implements PrestoAddress
 {
     private String host;
@@ -50,7 +50,7 @@ public class PrestoClusterConfig
     }
 
     @Config("host")
-    public PrestoClusterConfig setHost(String host)
+    public PrestoActionConfig setHost(String host)
     {
         this.host = host;
         return this;
@@ -65,7 +65,7 @@ public class PrestoClusterConfig
     }
 
     @Config("jdbc-port")
-    public PrestoClusterConfig setJdbcPort(int jdbcPort)
+    public PrestoActionConfig setJdbcPort(int jdbcPort)
     {
         this.jdbcPort = jdbcPort;
         return this;
@@ -79,7 +79,7 @@ public class PrestoClusterConfig
     }
 
     @Config("http-port")
-    public PrestoClusterConfig setHttpPort(Integer httpPort)
+    public PrestoActionConfig setHttpPort(Integer httpPort)
     {
         this.httpPort = Optional.ofNullable(httpPort);
         return this;
@@ -93,7 +93,7 @@ public class PrestoClusterConfig
     }
 
     @Config("jdbc-url-parameters")
-    public PrestoClusterConfig setJdbcUrlParameters(String jdbcUrlParameters)
+    public PrestoActionConfig setJdbcUrlParameters(String jdbcUrlParameters)
     {
         if (jdbcUrlParameters == null) {
             return this;
@@ -115,7 +115,7 @@ public class PrestoClusterConfig
     }
 
     @Config("query-timeout")
-    public PrestoClusterConfig setQueryTimeout(Duration queryTimeout)
+    public PrestoActionConfig setQueryTimeout(Duration queryTimeout)
     {
         this.queryTimeout = queryTimeout;
         return this;
@@ -128,7 +128,7 @@ public class PrestoClusterConfig
     }
 
     @Config("metadata-timeout")
-    public PrestoClusterConfig setMetadataTimeout(Duration metadataTimeout)
+    public PrestoActionConfig setMetadataTimeout(Duration metadataTimeout)
     {
         this.metadataTimeout = metadataTimeout;
         return this;
@@ -141,7 +141,7 @@ public class PrestoClusterConfig
     }
 
     @Config("checksum-timeout")
-    public PrestoClusterConfig setChecksumTimeout(Duration checksumTimeout)
+    public PrestoActionConfig setChecksumTimeout(Duration checksumTimeout)
     {
         this.checksumTimeout = checksumTimeout;
         return this;
