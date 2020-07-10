@@ -17,7 +17,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
-import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
@@ -39,7 +39,7 @@ public class DataVerification
     private final ChecksumValidator checksumValidator;
 
     public DataVerification(
-            PrestoAction prestoAction,
+            QueryActions queryActions,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
             DeterminismAnalyzer determinismAnalyzer,
@@ -50,7 +50,7 @@ public class DataVerification
             TypeManager typeManager,
             ChecksumValidator checksumValidator)
     {
-        super(prestoAction, sourceQuery, queryRewriter, determinismAnalyzer, failureResolverManager, exceptionClassifier, verificationContext, verifierConfig);
+        super(queryActions, sourceQuery, queryRewriter, determinismAnalyzer, failureResolverManager, exceptionClassifier, verificationContext, verifierConfig);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
     }
@@ -58,8 +58,8 @@ public class DataVerification
     @Override
     public MatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext)
     {
-        List<Column> controlColumns = getColumns(getPrestoAction(), typeManager, control.getTableName());
-        List<Column> testColumns = getColumns(getPrestoAction(), typeManager, test.getTableName());
+        List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getTableName());
+        List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getTableName());
 
         Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getTableName(), controlColumns);
         Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getTableName(), testColumns);
@@ -68,10 +68,10 @@ public class DataVerification
         testContext.setChecksumQuery(formatSql(testChecksumQuery));
 
         QueryResult<ChecksumResult> controlChecksum = callAndConsume(
-                () -> getPrestoAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
+                () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
                 stats -> controlContext.setChecksumQueryId(stats.getQueryId()));
         QueryResult<ChecksumResult> testChecksum = callAndConsume(
-                () -> getPrestoAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
+                () -> getHelperAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
                 stats -> testContext.setChecksumQueryId(stats.getQueryId()));
 
         return match(checksumValidator, controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));

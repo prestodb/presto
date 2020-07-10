@@ -27,6 +27,7 @@ import java.util.Optional;
 import static java.util.Collections.unmodifiableList;
 
 public interface PrestoAction
+        extends QueryAction
 {
     @FunctionalInterface
     interface ResultSetConverter<R>

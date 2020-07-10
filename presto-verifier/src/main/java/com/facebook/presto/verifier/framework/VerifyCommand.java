@@ -32,6 +32,8 @@ public interface VerifyCommand
 
     Set<String> getCustomEventClientTypes();
 
+    Set<String> getCustomQueryActionTypes();
+
     List<Class<? extends Predicate<SourceQuery>>> getCustomQueryFilterClasses();
 
     SqlExceptionClassifier getSqlExceptionClassifier();

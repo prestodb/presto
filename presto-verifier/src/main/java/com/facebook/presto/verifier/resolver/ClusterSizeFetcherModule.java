@@ -15,7 +15,7 @@ package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.presto.verifier.annotation.ForTest;
-import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
+import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.inject.Binder;
@@ -39,9 +39,9 @@ public class ClusterSizeFetcherModule
     @Singleton
     public ClusterSizeSupplier providesTestClusterSizeSupplier(
             @ForTest HttpClient httpClient,
-            @ForTest PrestoClusterConfig prestoClusterConfig,
+            @ForTest PrestoActionConfig prestoActionConfig,
             @ForClusterConnection RetryConfig networkRetryConfig)
     {
-        return new ClusterSizeFetcher(httpClient, prestoClusterConfig, networkRetryConfig);
+        return new ClusterSizeFetcher(httpClient, prestoActionConfig, networkRetryConfig);
     }
 }
