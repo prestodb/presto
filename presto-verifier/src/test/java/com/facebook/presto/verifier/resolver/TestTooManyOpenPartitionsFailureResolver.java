@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.parser.IdentifierSymbol;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -22,6 +21,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.TestingResultSetMetaData;
 import com.facebook.presto.verifier.TestingResultSetMetaData.ColumnInfo;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
@@ -62,7 +62,7 @@ public class TestTooManyOpenPartitionsFailureResolver
         }
 
         @Override
-        public QueryStats execute(Statement statement, QueryStage queryStage)
+        public QueryStatsEvent execute(Statement statement, QueryStage queryStage)
         {
             throw new UnsupportedOperationException();
         }

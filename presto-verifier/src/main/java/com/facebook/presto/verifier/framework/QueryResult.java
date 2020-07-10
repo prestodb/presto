@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.google.common.collect.ImmutableList;
 
 import java.sql.ResultSetMetaData;
@@ -25,9 +25,9 @@ public class QueryResult<R>
 {
     private final List<R> results;
     private final ResultSetMetaData metadata;
-    private final QueryStats queryStats;
+    private final QueryStatsEvent queryStats;
 
-    public QueryResult(List<R> results, ResultSetMetaData metadata, QueryStats queryStats)
+    public QueryResult(List<R> results, ResultSetMetaData metadata, QueryStatsEvent queryStats)
     {
         this.results = ImmutableList.copyOf(results);
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -44,7 +44,7 @@ public class QueryResult<R>
         return metadata;
     }
 
-    public QueryStats getQueryStats()
+    public QueryStatsEvent getQueryStats()
     {
         return queryStats;
     }

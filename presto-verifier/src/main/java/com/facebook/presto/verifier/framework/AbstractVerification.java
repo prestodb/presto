@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
-import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.event.QueryInfo;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
@@ -335,7 +334,7 @@ public abstract class AbstractVerification
                 configuration.getCatalog(),
                 configuration.getSchema(),
                 originalQuery,
-                queryContext.getMainQueryStats().map(QueryStats::getQueryId),
+                queryContext.getMainQueryStats().map(QueryStatsEvent::getQueryId),
                 queryContext.getSetupQueryIds(),
                 queryContext.getTeardownQueryIds(),
                 checksumQueryContext.getChecksumQueryId(),
@@ -343,11 +342,11 @@ public abstract class AbstractVerification
                 queryBundle.map(QueryBundle::getSetupQueries).map(AbstractVerification::formatSqls),
                 queryBundle.map(QueryBundle::getTeardownQueries).map(AbstractVerification::formatSqls),
                 checksumQueryContext.getChecksumQuery(),
-                millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getCpuTimeMillis)),
-                millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getWallTimeMillis)),
-                queryContext.getMainQueryStats().map(QueryStats::getPeakTotalMemoryBytes),
-                queryContext.getMainQueryStats().map(QueryStats::getPeakTaskTotalMemoryBytes),
-                queryContext.getMainQueryStats().map(QueryStatsEvent::new));
+                millisToSeconds(queryContext.getMainQueryStats().map(QueryStatsEvent::getCpuTimeMillis)),
+                millisToSeconds(queryContext.getMainQueryStats().map(QueryStatsEvent::getWallTimeMillis)),
+                queryContext.getMainQueryStats().map(QueryStatsEvent::getPeakTotalMemoryBytes),
+                queryContext.getMainQueryStats().map(QueryStatsEvent::getPeakTaskTotalMemoryBytes),
+                queryContext.getMainQueryStats());
     }
 
     protected static String formatSql(Statement statement)
@@ -431,17 +430,17 @@ public abstract class AbstractVerification
 
     private static class QueryContext
     {
-        private Optional<QueryStats> mainQueryStats = Optional.empty();
+        private Optional<QueryStatsEvent> mainQueryStats = Optional.empty();
         private Optional<QueryState> state = Optional.empty();
         private ImmutableList.Builder<String> setupQueryIds = ImmutableList.builder();
         private ImmutableList.Builder<String> teardownQueryIds = ImmutableList.builder();
 
-        public Optional<QueryStats> getMainQueryStats()
+        public Optional<QueryStatsEvent> getMainQueryStats()
         {
             return mainQueryStats;
         }
 
-        public void setMainQueryStats(QueryStats mainQueryStats)
+        public void setMainQueryStats(QueryStatsEvent mainQueryStats)
         {
             checkState(!this.mainQueryStats.isPresent(), "mainQueryStats is already set", mainQueryStats);
             this.mainQueryStats = Optional.of(mainQueryStats);
@@ -468,7 +467,7 @@ public abstract class AbstractVerification
             return setupQueryIds.build();
         }
 
-        public void addSetupQuery(QueryStats queryStats)
+        public void addSetupQuery(QueryStatsEvent queryStats)
         {
             setupQueryIds.add(queryStats.getQueryId());
         }
@@ -478,7 +477,7 @@ public abstract class AbstractVerification
             return teardownQueryIds.build();
         }
 
-        public void addTeardownQuery(QueryStats queryStats)
+        public void addTeardownQuery(QueryStatsEvent queryStats)
         {
             teardownQueryIds.add(queryStats.getQueryId());
         }

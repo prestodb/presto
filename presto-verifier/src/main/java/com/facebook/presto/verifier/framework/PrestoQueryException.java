@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 
 import java.util.Optional;
 
@@ -26,14 +26,14 @@ public class PrestoQueryException
         extends QueryException
 {
     private final Optional<ErrorCodeSupplier> errorCode;
-    private final Optional<QueryStats> queryStats;
+    private final Optional<QueryStatsEvent> queryStats;
 
     public PrestoQueryException(
             Throwable cause,
             boolean retryable,
             QueryStage queryStage,
             Optional<ErrorCodeSupplier> errorCode,
-            Optional<QueryStats> queryStats)
+            Optional<QueryStatsEvent> queryStats)
     {
         super(cause, retryable, queryStage);
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
@@ -45,7 +45,7 @@ public class PrestoQueryException
         return errorCode;
     }
 
-    public Optional<QueryStats> getQueryStats()
+    public Optional<QueryStatsEvent> getQueryStats()
     {
         return queryStats;
     }
