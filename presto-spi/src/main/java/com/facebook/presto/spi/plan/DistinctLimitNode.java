@@ -11,27 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class DistinctLimitNode
-        extends InternalPlanNode
+public final class DistinctLimitNode
+        extends PlanNode
 {
     private final PlanNode source;
     private final long limit;
@@ -53,7 +51,7 @@ public class DistinctLimitNode
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
         this.partial = partial;
-        this.distinctVariables = ImmutableList.copyOf(distinctVariables);
+        this.distinctVariables = unmodifiableList(distinctVariables);
         this.hashVariable = requireNonNull(hashVariable, "hashVariable is null");
         checkArgument(!hashVariable.isPresent() || !distinctVariables.contains(hashVariable.get()), "distinctVariables should not contain hash variable");
     }
@@ -61,7 +59,7 @@ public class DistinctLimitNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of(source);
+        return unmodifiableList(Collections.singletonList(source));
     }
 
     @JsonProperty
@@ -97,14 +95,13 @@ public class DistinctLimitNode
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
-        ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
-        outputVariables.addAll(distinctVariables);
+        ArrayList<VariableReferenceExpression> outputVariables = new ArrayList<>(distinctVariables);
         hashVariable.ifPresent(outputVariables::add);
-        return outputVariables.build();
+        return unmodifiableList(outputVariables);
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitDistinctLimit(this, context);
     }
@@ -112,6 +109,14 @@ public class DistinctLimitNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new DistinctLimitNode(getId(), Iterables.getOnlyElement(newChildren), limit, partial, distinctVariables, hashVariable);
+        checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
+        return new DistinctLimitNode(getId(), newChildren.get(0), limit, partial, distinctVariables, hashVariable);
+    }
+
+    private static void checkArgument(boolean condition, String message)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(message);
+        }
     }
 }
