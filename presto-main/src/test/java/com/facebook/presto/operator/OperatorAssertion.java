@@ -102,13 +102,16 @@ public final class OperatorAssertion
             if (handledBlocked(operator)) {
                 continue;
             }
-            handleMemoryRevoking(operator);
+
             operator.finish();
             Page outputPage = operator.getOutput();
             if (outputPage != null && outputPage.getPositionCount() != 0) {
                 outputPages.add(outputPage);
                 loopsSinceLastPage = 0;
             }
+
+            // revoke memory when output pages have started being produced
+            handleMemoryRevoking(operator);
         }
 
         assertEquals(operator.isFinished(), true, "Operator did not finish");
