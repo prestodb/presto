@@ -21,6 +21,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.net.URI;
+import java.util.List;
 
 public interface RemoteTask
 {
@@ -54,7 +55,7 @@ public interface RemoteTask
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener);
+    void addStateChangeListener(StateChangeListener<List<TaskStatus>> stateChangeListener);
 
     /**
      * Add a listener for the final task info.  This notification is guaranteed to be fired only once.

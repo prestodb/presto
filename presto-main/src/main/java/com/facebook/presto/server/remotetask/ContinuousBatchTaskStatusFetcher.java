@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
@@ -57,7 +58,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ContinuousBatchTaskStatusFetcher
 {
-    private class Task {
+    public class Task {
         TaskId taskId;
         Consumer<Throwable> onFail;
         StateMachine<TaskStatus> taskStatus;
@@ -70,23 +71,29 @@ public class ContinuousBatchTaskStatusFetcher
         boolean isBinaryTransportEnabled;
 
         AtomicLong currentRequestStartNanos = new AtomicLong();
-
-        @GuardedBy("this")
-        private boolean running;
     }
 
-    // String(URI(TaskStatus.getSelf()) (get worker id))) -> List<Task>
-    private ConcurrentHashMap<String, List<Task>> workerTaskMap;
+    // TaskId -> WorkerId (String(URI(TaskStatus.getSelf() (get worker id)))
+    private final ConcurrentHashMap<TaskId, String> idWorkerMap;
+    // String(URI(TaskStatus.getSelf() (get worker id))) -> WorkerTaskStatusFetcher (List<Task>)
+    private final ConcurrentHashMap<String, WorkerTaskStatusFetcher> workerTaskMap;
 
     private static final Logger log = Logger.get(ContinuousBatchTaskStatusFetcher.class);
+
+    private final AtomicLong currentRequestStartNanos = new AtomicLong();
+
+    @GuardedBy("this")
+    private boolean running;
 
     @GuardedBy("this")
     private ListenableFuture<BaseResponse<TaskStatus>> future;
 
     public ContinuousBatchTaskStatusFetcher() {
+        idWorkerMap = new ConcurrentHashMap<>();
         workerTaskMap = new ConcurrentHashMap<>();
     }
 
+    @PostConstruct
     public void addTask(
             Consumer<Throwable> onFail,
             TaskId taskId,
@@ -120,14 +127,15 @@ public class ContinuousBatchTaskStatusFetcher
 
         String worker = initialTaskStatus.getSelf().getHost();
         if (!workerTaskMap.containsKey(worker)) {
-            workerTaskMap.put(worker, new ArrayList<>());
+            workerTaskMap.put(worker, new WorkerTaskStatusFetcher());
         }
-        workerTaskMap.get(worker).add(newTask);
+        workerTaskMap.get(worker).addTask(taskId, newTask);
     }
 
+    @PostConstruct
     public synchronized void start()
     {
-        if (running) {
+        if (running) { // We have already called start
             // already running
             return;
         }
@@ -147,137 +155,21 @@ public class ContinuousBatchTaskStatusFetcher
 
     private synchronized void scheduleNextRequest()
     {
-        // stopped or done?
-        TaskStatus taskStatus = getTaskStatus();
-        if (!running || taskStatus.getState().isDone()) {
-            return;
-        }
-
-        // outstanding request?
-        if (future != null && !future.isDone()) {
-            // this should never happen
-            log.error("Can not reschedule update because an update is already running");
-            return;
-        }
-
-        // if throttled due to error, asynchronously wait for timeout and try again
-        ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
-        if (!errorRateLimit.isDone()) {
-            errorRateLimit.addListener(this::scheduleNextRequest, executor);
-            return;
-        }
-
-        Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet())
-                .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
-                .setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
-                .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
-                .build();
-
-        ResponseHandler responseHandler;
-        if (isBinaryTransportEnabled) {
-            responseHandler = createFullSmileResponseHandler((SmileCodec<TaskStatus>) taskStatusCodec);
-        }
-        else {
-            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskStatusCodec));
-        }
-
-        errorTracker.startRequest();
-        future = httpClient.executeAsync(request, responseHandler);
-        currentRequestStartNanos.set(System.nanoTime());
-        Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri(), stats), executor);
-    }
-
-    TaskStatus getTaskStatus()
-    {
-        return taskStatus.get();
-    }
-
-    @Override
-    public void success(TaskStatus value)
-    {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskListStatusFetcher-%s", taskId)) {
-            updateStats(currentRequestStartNanos.get());
-            try {
-                updateTaskStatus(value);
-                errorTracker.requestSucceeded();
-            }
-            finally {
-                scheduleNextRequest();
-            }
+        for (WorkerTaskStatusFetcher workerTaskStatusFetcher: workerTaskMap.values()) {
+            workerTaskStatusFetcher.scheduleNextRequest();
         }
     }
 
-    @Override
-    public void failed(Throwable cause)
+    TaskStatus getTaskStatus(TaskId taskId)
     {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskListStatusFetcher-%s", taskId)) {
-            updateStats(currentRequestStartNanos.get());
-            try {
-                // if task not already done, record error
-                TaskStatus taskStatus = getTaskStatus();
-                if (!taskStatus.getState().isDone()) {
-                    errorTracker.requestFailed(cause);
-                }
-            }
-            catch (Error e) {
-                onFail.accept(e);
-                throw e;
-            }
-            catch (RuntimeException e) {
-                onFail.accept(e);
-            }
-            finally {
-                scheduleNextRequest();
-            }
-        }
-    }
-
-    @Override
-    public void fatal(Throwable cause)
-    {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskListStatusFetcher-%s", taskId)) {
-            updateStats(currentRequestStartNanos.get());
-            onFail.accept(cause);
-        }
-    }
-
-    void updateTaskStatus(TaskStatus newValue)
-    {
-        // change to new value if old value is not changed and new value has a newer version
-        AtomicBoolean taskMismatch = new AtomicBoolean();
-        taskStatus.setIf(newValue, oldValue -> {
-            // did the task instance id change
-            boolean isEmpty = oldValue.getTaskInstanceIdLeastSignificantBits() == 0 && oldValue.getTaskInstanceIdMostSignificantBits() == 0;
-            if (!isEmpty &&
-                    !(oldValue.getTaskInstanceIdLeastSignificantBits() == newValue.getTaskInstanceIdLeastSignificantBits() &&
-                            oldValue.getTaskInstanceIdMostSignificantBits() == newValue.getTaskInstanceIdMostSignificantBits())) {
-                taskMismatch.set(true);
-                return false;
-            }
-
-            if (oldValue.getState().isDone()) {
-                // never update if the task has reached a terminal state
-                return false;
-            }
-            if (newValue.getVersion() < oldValue.getVersion()) {
-                // don't update to an older version (same version is ok)
-                return false;
-            }
-            return true;
-        });
-
-        if (taskMismatch.get()) {
-            // This will also set the task status to FAILED state directly.
-            // Additionally, this will issue a DELETE for the task to the worker.
-            // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
-            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)",
-                    REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
-        }
+        WorkerTaskStatusFetcher worker = workerTaskMap.get(idWorkerMap.get(taskId));
+        return worker.getTaskStatus(taskId);
     }
 
     public synchronized boolean isRunning()
     {
-        return running;
+        // [OLD] return running;
+        return workerTaskMap.size() > 0;  // There is at least one worker running a task
     }
 
     /**
@@ -285,13 +177,9 @@ public class ContinuousBatchTaskStatusFetcher
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
+    public void addStateChangeListener(StateMachine.StateChangeListener<List<TaskStatus>> stateChangeListener)
     {
-        taskStatus.addStateChangeListener(stateChangeListener);
-    }
-
-    private void updateStats(long currentRequestStartNanos)
-    {
-        stats.statusRoundTripMillis(nanosSince(currentRequestStartNanos).toMillis());
+        // [NEW] worker.addStateChangeListener(stateChangeListener);
+        // [OLD] taskStatus.addStateChangeListener(stateChangeListener);
     }
 }

@@ -135,7 +135,7 @@ public final class SqlStageExecution
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
     @GuardedBy("this")
-    private ContinuousBatchTaskStatusFetcher taskListStatusFetcher = new ContinuousBatchTaskStatusFetcher();
+    private ContinuousBatchTaskStatusFetcher taskListStatusFetcher;
 
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,

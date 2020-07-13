@@ -214,7 +214,7 @@ public final class HttpRemoteTask
             boolean isBinaryTransportEnabled,
             TableWriteInfo tableWriteInfo,
             int maxTaskUpdateSizeInBytes,
-            ContinuousBatchTaskStatusFetcher taskListStatusFetcher)
+            ContinuousBatchTaskStatusFetcher batchTaskStatusFetcher)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -279,7 +279,7 @@ public final class HttpRemoteTask
 
             TaskInfo initialTask = createInitialTask(taskId, location, bufferStates, new TaskStats(DateTime.now(), null));
 
-            this.batchTaskStatusFetcher = new ContinuousBatchTaskStatusFetcher();
+            this.batchTaskStatusFetcher = batchTaskStatusFetcher;
 
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::failTask,
@@ -296,7 +296,18 @@ public final class HttpRemoteTask
                     stats,
                     isBinaryTransportEnabled);
 
-            batchTaskStatusFetcher.addStateChangeListener(newStatus -> {
+            batchTaskStatusFetcher.addStateChangeListener(workerTaskMap -> {
+                int size = workerTaskMap.size();
+                if (size == 0) {
+                    cleanUpTask();
+                }
+                else {
+                    partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+                    updateSplitQueueSpace();
+                }
+            });
+
+            /* batchTaskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();
                 if (state.isDone()) {
                     cleanUpTask();
@@ -305,7 +316,7 @@ public final class HttpRemoteTask
                     partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
                     updateSplitQueueSpace();
                 }
-            });
+            }) ;*/
 
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
@@ -524,7 +535,7 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener)
+    public void addStateChangeListener(StateChangeListener<List<TaskStatus>> stateChangeListener)
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             batchTaskStatusFetcher.addStateChangeListener(stateChangeListener);

@@ -34,6 +34,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,13 +58,15 @@ import static java.util.Objects.requireNonNull;
 class WorkerTaskStatusFetcher
         implements SimpleHttpResponseCallback<List<TaskStatus>>
 {
+    private final ConcurrentHashMap<TaskId, ContinuousBatchTaskStatusFetcher.Task> idTaskMap;
+
     private static final Logger log = Logger.get(ContinuousTaskStatusFetcher.class);
 
-    private final TaskId taskId;
-    private final Consumer<Throwable> onFail;
-    private final StateMachine<TaskStatus> taskStatus;
-    private final Codec<TaskStatus> taskStatusCodec;
+    private final TaskId taskId; // TODO: Remove after removing references
+    private final StateMachine<TaskStatus> taskStatus; // TODO: Remove after removing references
 
+    private final Consumer<Throwable> onFail;
+    private final Codec<TaskStatus> taskStatusCodec;
     private final Duration refreshMaxWait;
     private final Executor executor;
     private final HttpClient httpClient;
@@ -79,6 +82,11 @@ class WorkerTaskStatusFetcher
     @GuardedBy("this")
     private ListenableFuture<BaseResponse<TaskStatus>> future;
 
+    public WorkerTaskStatusFetcher() {
+        this(null, null, null, null, null, null, null, null, null, null, false);
+    }
+
+    // TODO: We don't need all the parameters here and the logic should be in CBTSF
     public WorkerTaskStatusFetcher(
             Consumer<Throwable> onFail,
             TaskId taskId,
@@ -92,11 +100,13 @@ class WorkerTaskStatusFetcher
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled)
     {
-        requireNonNull(initialTaskStatus, "initialTaskStatus is null");
+        idTaskMap = new ConcurrentHashMap<>();
+
+        //requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
         this.taskId = requireNonNull(taskId, "taskId is null");
-        this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
+        this.onFail = requireNonNull(onFail, "onFail is null");
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
         this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
@@ -109,27 +119,17 @@ class WorkerTaskStatusFetcher
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;
     }
 
-    public synchronized void start()
-    {
-        if (running) {
-            // already running
-            return;
-        }
-        running = true;
-        scheduleNextRequest();
+    public void addTask(TaskId taskId, ContinuousBatchTaskStatusFetcher.Task task) {
+        idTaskMap.put(taskId, task);
     }
 
-    public synchronized void stop()
+    TaskStatus getTaskStatus(TaskId taskId)
     {
-        running = false;
-        if (future != null) {
-            // do not terminate if the request is already running to avoid closing pooled connections
-            future.cancel(false);
-            future = null;
-        }
+        return idTaskMap.get(taskId).taskStatus.get();
     }
 
-    private synchronized void scheduleNextRequest()
+    // TODO: Schedule request per worker
+    public synchronized void scheduleNextRequest()
     {
         // stopped or done?
         TaskStatus taskStatus = getTaskStatus();
@@ -159,10 +159,7 @@ class WorkerTaskStatusFetcher
 
         ResponseHandler responseHandler;
         if (isBinaryTransportEnabled) {
-            ArrayList<SmileCodec<TaskStatus>> toPass = new ArrayList<>();
-            toPass.add((SmileCodec<TaskStatus>) taskStatusCodec);
-
-            responseHandler = createFullSmileResponseHandler((SmileCodec<List<TaskStatus>>) toPass);
+            responseHandler = createFullSmileResponseHandler((SmileCodec<TaskStatus>) taskStatusCodec);
         }
         else {
             responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskStatusCodec));
@@ -174,22 +171,17 @@ class WorkerTaskStatusFetcher
         Futures.addCallback(future, new SimpleHttpResponseHandler<>(this, request.getUri(), stats), executor);
     }
 
-    TaskStatus getTaskStatus()
-    {
-        return taskStatus.get();
-    }
-
     @Override
-    public void success(TaskStatus value)
+    public void success(List<TaskStatus> value)
     {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("ContinuousBatchTaskStatusFetcher-%s", taskId)) {
             updateStats(currentRequestStartNanos.get());
             try {
-                updateTaskStatus(value);
+                updateAllTaskStatus(value);
                 errorTracker.requestSucceeded();
             }
             finally {
-                scheduleNextRequest();
+                // Signal to CBTSF we're done
             }
         }
     }
@@ -201,7 +193,7 @@ class WorkerTaskStatusFetcher
             updateStats(currentRequestStartNanos.get());
             try {
                 // if task not already done, record error
-                TaskStatus taskStatus = getTaskStatus();
+                TaskStatus taskStatus = getTaskStatus(taskId); // TODO: taskId isn't a thing. Fix.
                 if (!taskStatus.getState().isDone()) {
                     errorTracker.requestFailed(cause);
                 }
@@ -214,7 +206,7 @@ class WorkerTaskStatusFetcher
                 onFail.accept(e);
             }
             finally {
-                scheduleNextRequest();
+                // Signal to CBTSF we're done
             }
         }
     }
@@ -228,6 +220,14 @@ class WorkerTaskStatusFetcher
         }
     }
 
+    void updateAllTaskStatus(List<TaskStatus> newValues)
+    {
+        for (TaskStatus newValue: newValues) {
+            updateTaskStatus(newValue);
+        }
+    }
+
+    // TODO: Update logic to handle response list instead of individual TaskStatus
     void updateTaskStatus(TaskStatus newValue)
     {
         // change to new value if old value is not changed and new value has a newer version
@@ -257,7 +257,7 @@ class WorkerTaskStatusFetcher
             // This will also set the task status to FAILED state directly.
             // Additionally, this will issue a DELETE for the task to the worker.
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
-            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
+            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus(taskId).getSelf()))));
         }
     }
 

@@ -45,5 +45,5 @@ public interface RemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
-            ContinuousBatchTaskStatusFetcher taskListStatusFetcher);
+            ContinuousBatchTaskStatusFetcher batchTaskStatusFetcher);
 }

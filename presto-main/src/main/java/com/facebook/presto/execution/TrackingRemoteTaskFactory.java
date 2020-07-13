@@ -41,6 +41,7 @@ public class TrackingRemoteTaskFactory
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
     }
 
+    @Override
     public RemoteTask createRemoteTask(Session session,
             TaskId taskId,
             InternalNode node,
@@ -51,7 +52,7 @@ public class TrackingRemoteTaskFactory
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
-        RemoteTask task = remoteTaskFactory.createRemoteTask(session,
+        return createRemoteTask(session,
                 taskId,
                 node,
                 fragment,
@@ -61,11 +62,9 @@ public class TrackingRemoteTaskFactory
                 summarizeTaskInfo,
                 tableWriteInfo,
                 null);
-
-        task.addStateChangeListener(new UpdateQueryStats(stateMachine));
-        return task;
     }
 
+    @Override
     public RemoteTask createRemoteTask(Session session,
             TaskId taskId,
             InternalNode node,
@@ -75,7 +74,7 @@ public class TrackingRemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
-            ContinuousBatchTaskStatusFetcher taskListStatusFetcher)
+            ContinuousBatchTaskStatusFetcher batchTaskStatusFetcher)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,
@@ -86,7 +85,7 @@ public class TrackingRemoteTaskFactory
                 partitionedSplitCountTracker,
                 summarizeTaskInfo,
                 tableWriteInfo,
-                taskListStatusFetcher);
+                batchTaskStatusFetcher);
 
         task.addStateChangeListener(new UpdateQueryStats(stateMachine));
         return task;
