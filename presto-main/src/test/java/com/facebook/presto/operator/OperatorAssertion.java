@@ -254,12 +254,26 @@ public final class OperatorAssertion
             Optional<Integer> hashChannel,
             boolean revokeMemoryWhenAddingPages)
     {
-        List<Page> pages = toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
+        assertPagesEqualIgnoreOrder(
+                driverContext,
+                toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages),
+                expected,
+                hashEnabled,
+                hashChannel);
+    }
+
+    public static void assertPagesEqualIgnoreOrder(
+            DriverContext driverContext,
+            List<Page> actualPages,
+            MaterializedResult expected,
+            boolean hashEnabled,
+            Optional<Integer> hashChannel)
+    {
         if (hashEnabled && hashChannel.isPresent()) {
             // Drop the hashChannel for all pages
-            pages = dropChannel(pages, ImmutableList.of(hashChannel.get()));
+            actualPages = dropChannel(actualPages, ImmutableList.of(hashChannel.get()));
         }
-        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), actualPages);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
