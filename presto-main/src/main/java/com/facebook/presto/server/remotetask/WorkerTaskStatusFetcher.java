@@ -66,7 +66,7 @@ class WorkerTaskStatusFetcher
     private final StateMachine<TaskStatus> taskStatus; // TODO: Remove after removing references
 
     private final Consumer<Throwable> onFail;
-    private final Codec<TaskStatus> taskStatusCodec;
+    private final Codec<List<TaskStatus>> taskListStatusCodec;
     private final Duration refreshMaxWait;
     private final Executor executor;
     private final HttpClient httpClient;
@@ -92,7 +92,7 @@ class WorkerTaskStatusFetcher
             TaskId taskId,
             TaskStatus initialTaskStatus,
             Duration refreshMaxWait,
-            Codec<TaskStatus> taskStatusCodec,
+            Codec<List<TaskStatus>> taskListStatusCodec,
             Executor executor,
             HttpClient httpClient,
             Duration maxErrorDuration,
@@ -109,7 +109,7 @@ class WorkerTaskStatusFetcher
         this.onFail = requireNonNull(onFail, "onFail is null");
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
-        this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
+        this.taskListStatusCodec = requireNonNull(taskListStatusCodec, "taskStatusCodec is null");
 
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -132,8 +132,7 @@ class WorkerTaskStatusFetcher
     public synchronized void scheduleNextRequest()
     {
         // stopped or done?
-        TaskStatus taskStatus = getTaskStatus();
-        if (!running || taskStatus.getState().isDone()) {
+        if (!running) {
             return;
         }
 
@@ -152,17 +151,17 @@ class WorkerTaskStatusFetcher
         }
 
         Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet())
-                .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
-                .setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
+                .setUri(uriBuilderFrom(worker.getSelf()).appendPath("all_status").build())
+                .setHeader(PRESTO_CURRENT_STATE, worker.getState().toString())
                 .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
                 .build();
 
         ResponseHandler responseHandler;
         if (isBinaryTransportEnabled) {
-            responseHandler = createFullSmileResponseHandler((SmileCodec<TaskStatus>) taskStatusCodec);
+            responseHandler = createFullSmileResponseHandler((SmileCodec<List<TaskStatus>>) taskListStatusCodec);
         }
         else {
-            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskStatusCodec));
+            responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskListStatusCodec));
         }
 
         errorTracker.startRequest();
@@ -174,7 +173,7 @@ class WorkerTaskStatusFetcher
     @Override
     public void success(List<TaskStatus> value)
     {
-        try (SetThreadName ignored = new SetThreadName("ContinuousBatchTaskStatusFetcher-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("ContinuousBatchTaskStatusFetcher-%s", idTaskMap)) {
             updateStats(currentRequestStartNanos.get());
             try {
                 updateAllTaskStatus(value);
@@ -189,13 +188,15 @@ class WorkerTaskStatusFetcher
     @Override
     public void failed(Throwable cause)
     {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", idTaskMap)) {
             updateStats(currentRequestStartNanos.get());
             try {
-                // if task not already done, record error
-                TaskStatus taskStatus = getTaskStatus(taskId); // TODO: taskId isn't a thing. Fix.
-                if (!taskStatus.getState().isDone()) {
-                    errorTracker.requestFailed(cause);
+                for (ContinuousBatchTaskStatusFetcher.Task task: idTaskMap.values()) {
+                    // if task not already done, record error
+                    TaskStatus taskStatus = task.taskStatus.get();
+                    if (!taskStatus.getState().isDone()) {
+                        errorTracker.requestFailed(cause);
+                    }
                 }
             }
             catch (Error e) {
@@ -214,7 +215,7 @@ class WorkerTaskStatusFetcher
     @Override
     public void fatal(Throwable cause)
     {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", taskId)) {
+        try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", idTaskMap)) {
             updateStats(currentRequestStartNanos.get());
             onFail.accept(cause);
         }
