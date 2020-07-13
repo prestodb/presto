@@ -44,6 +44,7 @@ public class TestHiveMetadata
             TypeSignature.parseTypeSignature("varchar"),
             0,
             HiveColumnHandle.ColumnType.PARTITION_KEY,
+            Optional.empty(),
             Optional.empty());
 
     @Test(timeOut = 5000)
