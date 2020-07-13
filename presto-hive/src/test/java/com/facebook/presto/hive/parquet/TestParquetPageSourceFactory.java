@@ -24,6 +24,8 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
@@ -34,6 +36,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveTestUtils.METADATA;
 import static org.testng.Assert.assertFalse;
 
 public class TestParquetPageSourceFactory
@@ -41,13 +44,14 @@ public class TestParquetPageSourceFactory
     private static final String PARQUET_HIVE_SERDE = "parquet.hive.serde.ParquetHiveSerDe";
 
     private ParquetPageSourceFactory parquetPageSourceFactory;
+    private final StandardFunctionResolution functionResolution = new FunctionResolution(METADATA.getFunctionManager());
 
     @BeforeClass
     public void setUp()
     {
         HiveHdfsConfiguration hiveHdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveClientConfig(), new MetastoreClientConfig()), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hiveHdfsConfiguration, new MetastoreClientConfig(), new NoHdfsAuthentication());
-        parquetPageSourceFactory = new ParquetPageSourceFactory(new TestingTypeManager(), hdfsEnvironment, new FileFormatDataSourceStats());
+        parquetPageSourceFactory = new ParquetPageSourceFactory(new TestingTypeManager(), functionResolution, hdfsEnvironment, new FileFormatDataSourceStats());
     }
 
     @AfterClass(alwaysRun = true)

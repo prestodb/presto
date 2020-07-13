@@ -161,6 +161,10 @@ public class HivePageSource
                     case INTERIM:
                         // interim columns don't show up in output
                         break;
+                    case AGGREGATED:
+                        // aggregated columns only produce one page with the required value from header/footer
+                        // do not require data read and do not show up in output
+                        break;
                     default:
                         throw new UnsupportedOperationException();
                 }

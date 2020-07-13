@@ -109,7 +109,7 @@ public class TestBackgroundHiveSplitLoader
     private static final List<Column> PARTITION_COLUMNS = ImmutableList.of(
             new Column("partitionColumn", HIVE_INT, Optional.empty()));
     private static final List<HiveColumnHandle> BUCKET_COLUMN_HANDLES = ImmutableList.of(
-            new HiveColumnHandle("col1", HIVE_INT, INTEGER.getTypeSignature(), 0, ColumnType.REGULAR, Optional.empty()));
+            new HiveColumnHandle("col1", HIVE_INT, INTEGER.getTypeSignature(), 0, ColumnType.REGULAR, Optional.empty(), Optional.empty()));
 
     private static final Optional<HiveBucketProperty> BUCKET_PROPERTY = Optional.of(
             new HiveBucketProperty(ImmutableList.of("col1"), BUCKET_COUNT, ImmutableList.of(), HIVE_COMPATIBLE, Optional.empty()));
@@ -477,6 +477,7 @@ public class TestBackgroundHiveSplitLoader
                 EXECUTOR,
                 2,
                 false,
+                false,
                 false);
     }
 
@@ -509,6 +510,7 @@ public class TestBackgroundHiveSplitLoader
                 EXECUTOR,
                 2,
                 false,
+                false,
                 false);
     }
 
@@ -528,6 +530,7 @@ public class TestBackgroundHiveSplitLoader
                 new CachingDirectoryLister(new HadoopDirectoryLister(), new HiveClientConfig()),
                 directExecutor(),
                 2,
+                false,
                 false,
                 false);
     }

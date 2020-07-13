@@ -151,9 +151,9 @@ public final class HiveTestUtils
         HdfsEnvironment testHdfsEnvironment = createTestHdfsEnvironment(hiveClientConfig, metastoreClientConfig);
         return ImmutableSet.<HiveBatchPageSourceFactory>builder()
                 .add(new RcFilePageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
-                .add(new OrcBatchPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()))
-                .add(new DwrfBatchPageSourceFactory(TYPE_MANAGER, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), NO_ENCRYPTION))
-                .add(new ParquetPageSourceFactory(TYPE_MANAGER, testHdfsEnvironment, stats))
+                .add(new OrcBatchPageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource()))
+                .add(new DwrfBatchPageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, hiveClientConfig, testHdfsEnvironment, stats, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), NO_ENCRYPTION))
+                .add(new ParquetPageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, testHdfsEnvironment, stats))
                 .add(new PageFilePageSourceFactory(testHdfsEnvironment, new BlockEncodingManager(TYPE_MANAGER)))
                 .build();
     }

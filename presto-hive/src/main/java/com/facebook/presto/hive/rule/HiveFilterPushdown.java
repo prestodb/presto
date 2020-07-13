@@ -282,7 +282,8 @@ public class HiveFilterPushdown
                                         hivePartitionResult.getBucketFilter(),
                                         decomposedFilter.getRemainingExpression(),
                                         domainPredicate),
-                                currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty()))),
+                                currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty()),
+                                false)),
                 dynamicFilterExpression);
     }
 

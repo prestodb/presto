@@ -107,6 +107,8 @@ public final class HiveSessionProperties
     private static final String BUCKET_FUNCTION_TYPE_FOR_EXCHANGE = "bucket_function_type_for_exchange";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
     public static final String IGNORE_UNREADABLE_PARTITION = "ignore_unreadable_partition";
+    public static final String PARTIAL_AGGREGATION_PUSHDOWN_ENABLED = "partial_aggregation_pushdown_enabled";
+    public static final String PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED = "partial_aggregation_pushdown_for_variable_length_datatypes_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -496,6 +498,16 @@ public final class HiveSessionProperties
                         PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
                         "Is dereference pushdown expression pushdown into Parquet reader enabled?",
                         hiveClientConfig.isParquetDereferencePushdownEnabled(),
+                        false),
+                booleanProperty(
+                        PARTIAL_AGGREGATION_PUSHDOWN_ENABLED,
+                        "Is partial aggregation pushdown enabled for Hive file formats",
+                        hiveClientConfig.isPartialAggregationPushdownEnabled(),
+                        false),
+                booleanProperty(
+                        PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED,
+                        "Is partial aggregation pushdown enabled for variable length datatypes",
+                        hiveClientConfig.isPartialAggregationPushdownForVariableLengthDatatypesEnabled(),
                         false));
     }
 
@@ -865,5 +877,15 @@ public final class HiveSessionProperties
     public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPartialAggregationPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARTIAL_AGGREGATION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED, Boolean.class);
     }
 }

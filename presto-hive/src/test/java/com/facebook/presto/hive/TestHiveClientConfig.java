@@ -141,7 +141,9 @@ public class TestHiveClientConfig
                 .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE)
                 .setParquetDereferencePushdownEnabled(false)
                 .setIgnoreUnreadablePartition(false)
-                .setMaxMetadataUpdaterThreads(100));
+                .setMaxMetadataUpdaterThreads(100)
+                .setPartialAggregationPushdownEnabled(false)
+                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false));
     }
 
     @Test
@@ -244,6 +246,8 @@ public class TestHiveClientConfig
                 .put("hive.enable-parquet-dereference-pushdown", "true")
                 .put("hive.ignore-unreadable-partition", "true")
                 .put("hive.max-metadata-updater-threads", "1000")
+                .put("hive.partial_aggregation_pushdown_enabled", "true")
+                .put("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -343,7 +347,9 @@ public class TestHiveClientConfig
                 .setBucketFunctionTypeForExchange(PRESTO_NATIVE)
                 .setParquetDereferencePushdownEnabled(true)
                 .setIgnoreUnreadablePartition(true)
-                .setMaxMetadataUpdaterThreads(1000);
+                .setMaxMetadataUpdaterThreads(1000)
+                .setPartialAggregationPushdownEnabled(true)
+                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

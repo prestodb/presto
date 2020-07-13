@@ -43,6 +43,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -61,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -85,6 +87,7 @@ public class OrcBatchPageSourceFactory
         implements HiveBatchPageSourceFactory
 {
     private final TypeManager typeManager;
+    private final StandardFunctionResolution functionResolution;
     private final boolean useOrcColumnNames;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
@@ -95,6 +98,7 @@ public class OrcBatchPageSourceFactory
     @Inject
     public OrcBatchPageSourceFactory(
             TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
             HiveClientConfig config,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
@@ -103,6 +107,7 @@ public class OrcBatchPageSourceFactory
     {
         this(
                 typeManager,
+                functionResolution,
                 requireNonNull(config, "hiveClientConfig is null").isUseOrcColumnNames(),
                 hdfsEnvironment,
                 stats,
@@ -113,6 +118,7 @@ public class OrcBatchPageSourceFactory
 
     public OrcBatchPageSourceFactory(
             TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
             boolean useOrcColumnNames,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
@@ -121,6 +127,7 @@ public class OrcBatchPageSourceFactory
             StripeMetadataSource stripeMetadataSource)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.useOrcColumnNames = useOrcColumnNames;
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
@@ -169,6 +176,7 @@ public class OrcBatchPageSourceFactory
                 effectivePredicate,
                 hiveStorageTimeZone,
                 typeManager,
+                functionResolution,
                 getOrcMaxBufferSize(session),
                 getOrcStreamBufferSize(session),
                 getOrcLazyReadSmallRanges(session),
@@ -187,7 +195,7 @@ public class OrcBatchPageSourceFactory
                 NO_ENCRYPTION));
     }
 
-    public static OrcBatchPageSource createOrcPageSource(
+    public static ConnectorPageSource createOrcPageSource(
             OrcEncoding orcEncoding,
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
@@ -201,6 +209,7 @@ public class OrcBatchPageSourceFactory
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
             DataSize maxBufferSize,
             DataSize streamBufferSize,
             boolean lazyReadSmallRanges,
@@ -259,6 +268,10 @@ public class OrcBatchPageSourceFactory
                     includedColumns.put(column.getHiveColumnIndex(), type);
                     columnReferences.add(new ColumnReference<>(column, column.getHiveColumnIndex(), type));
                 }
+            }
+
+            if (!physicalColumns.isEmpty() && physicalColumns.get(0).getColumnType() == AGGREGATED) {
+                return new AggregatedOrcPageSource(physicalColumns, reader.getFooter(), typeManager, functionResolution);
             }
 
             OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), orcBloomFiltersEnabled, Optional.of(domainCompactionThreshold));
