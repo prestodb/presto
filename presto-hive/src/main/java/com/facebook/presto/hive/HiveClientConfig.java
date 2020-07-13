@@ -177,6 +177,9 @@ public class HiveClientConfig
 
     private int maxMetadataUpdaterThreads = 100;
 
+    private boolean isPartialAggregationPushdownEnabled;
+    private boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1466,5 +1469,31 @@ public class HiveClientConfig
     {
         this.maxMetadataUpdaterThreads = maxMetadataUpdaterThreads;
         return this;
+    }
+
+    @Config("hive.partial_aggregation_pushdown_enabled")
+    @ConfigDescription("enable partial aggregation pushdown")
+    public HiveClientConfig setPartialAggregationPushdownEnabled(boolean partialAggregationPushdownEnabled)
+    {
+        this.isPartialAggregationPushdownEnabled = partialAggregationPushdownEnabled;
+        return this;
+    }
+
+    public boolean isPartialAggregationPushdownEnabled()
+    {
+        return this.isPartialAggregationPushdownEnabled;
+    }
+
+    @Config("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled")
+    @ConfigDescription("enable partial aggregation pushdown for variable length datatypes")
+    public HiveClientConfig setPartialAggregationPushdownForVariableLengthDatatypesEnabled(boolean partialAggregationPushdownForVariableLengthDatatypesEnabled)
+    {
+        this.isPartialAggregationPushdownForVariableLengthDatatypesEnabled = partialAggregationPushdownForVariableLengthDatatypesEnabled;
+        return this;
+    }
+
+    public boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled()
+    {
+        return this.isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
     }
 }

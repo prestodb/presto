@@ -51,8 +51,8 @@ public class TestDwrfEncryptionMetadata
                 "test_provider");
 
         List<HiveColumnHandle> columnHandleList = ImmutableList.of(
-                new HiveColumnHandle("c1", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 0, HiveColumnHandle.ColumnType.REGULAR, Optional.empty()),
-                new HiveColumnHandle("c3", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 2, HiveColumnHandle.ColumnType.REGULAR, Optional.empty()));
+                new HiveColumnHandle("c1", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 0, HiveColumnHandle.ColumnType.REGULAR, Optional.empty(), Optional.empty()),
+                new HiveColumnHandle("c3", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 2, HiveColumnHandle.ColumnType.REGULAR, Optional.empty(), Optional.empty()));
 
         List<OrcType> orcTypes = ImmutableList.of(
                 new OrcType(OrcType.OrcTypeKind.STRUCT, ImmutableList.of(1, 2, 4), ImmutableList.of("c1", "c2,", "c3"), Optional.empty(), Optional.empty(), Optional.empty()),
@@ -83,8 +83,8 @@ public class TestDwrfEncryptionMetadata
                 "test_provider");
 
         List<HiveColumnHandle> columnHandleList = ImmutableList.of(
-                new HiveColumnHandle("c1", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 0, HiveColumnHandle.ColumnType.REGULAR, Optional.empty()),
-                new HiveColumnHandle("c2", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 2, HiveColumnHandle.ColumnType.REGULAR, Optional.empty()));
+                new HiveColumnHandle("c1", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 0, HiveColumnHandle.ColumnType.REGULAR, Optional.empty(), Optional.empty()),
+                new HiveColumnHandle("c2", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 2, HiveColumnHandle.ColumnType.REGULAR, Optional.empty(), Optional.empty()));
 
         List<OrcType> orcTypes = ImmutableList.of(
                 new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty()),
@@ -100,7 +100,7 @@ public class TestDwrfEncryptionMetadata
         DwrfEncryptionMetadata dwrfEncryptionMetadata = new DwrfEncryptionMetadata(ImmutableMap.of("c1", "abcd".getBytes()), ImmutableMap.of(), "test_algo", "test_provider");
 
         List<HiveColumnHandle> columnHandleList = ImmutableList.of(
-                new HiveColumnHandle("column1", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 0, HiveColumnHandle.ColumnType.REGULAR, Optional.empty()));
+                new HiveColumnHandle("column1", HIVE_INT, TypeSignature.parseTypeSignature(BIGINT), 0, HiveColumnHandle.ColumnType.REGULAR, Optional.empty(), Optional.empty()));
 
         List<OrcType> orcTypes = ImmutableList.of(
                 new OrcType(OrcType.OrcTypeKind.STRUCT, ImmutableList.of(1), ImmutableList.of("column1"), Optional.empty(), Optional.empty(), Optional.empty()),
