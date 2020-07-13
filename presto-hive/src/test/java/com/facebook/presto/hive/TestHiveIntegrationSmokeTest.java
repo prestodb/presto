@@ -4786,6 +4786,236 @@ public class TestHiveIntegrationSmokeTest
         }
     }
 
+    @Test
+    public void testPartialAggregatePushdownORC()
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_orc_table (" +
+                " _boolean BOOLEAN" +
+                ", _tinyint TINYINT" +
+                ", _smallint SMALLINT" +
+                ", _integer INTEGER" +
+                ", _bigint BIGINT" +
+                ", _real REAL" +
+                ", _double DOUBLE" +
+                ", _shortdecimal DECIMAL(8,3)" +
+                ", _longdecimal DECIMAL(25,2)" +
+                ", _string VARCHAR" +
+                ", _varchar VARCHAR(10)" +
+                ", _singlechar CHAR" +
+                ", _char CHAR(10)" +
+                ", _varbinary VARBINARY" +
+                ", _date DATE" +
+                ", _timestamp TIMESTAMP" +
+                ")" +
+                "WITH (format = 'orc')";
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "partial_aggregation_pushdown_enabled", "true")
+                .setCatalogSessionProperty(catalog, "partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
+                .build();
+        try {
+            assertUpdate(session, createTable);
+
+            TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_orc_table");
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.ORC);
+
+            assertUpdate(session, "INSERT INTO test_orc_table VALUES (" +
+                    "true" +
+                    ", cast(1 as tinyint)" +
+                    ", cast(2 as smallint)" +
+                    ", 3" +
+                    ", 4" +
+                    ", 1.2" +
+                    ", 2.3" +
+                    ", 4.5" +
+                    ", 55555555555555.32" +
+                    ", 'abc'" +
+                    ", 'def'" +
+                    ", 'g'" +
+                    ", 'hij'" +
+                    ", cast('klm' as varbinary)" +
+                    ", cast('2020-05-01' as date)" +
+                    ", cast('2020-06-04 16:55:40.777' as timestamp)" +
+                    ")", 1);
+
+            assertUpdate(session, "INSERT INTO test_orc_table VALUES (" +
+                    "false" +
+                    ", cast(10 as tinyint)" +
+                    ", cast(20 as smallint)" +
+                    ", 30" +
+                    ", 40" +
+                    ", 10.25" +
+                    ", 25.334" +
+                    ", 465.523" +
+                    ", 88888888555555.91" +
+                    ", 'foo'" +
+                    ", 'bar'" +
+                    ", 'b'" +
+                    ", 'baz'" +
+                    ", cast('qux' as varbinary)" +
+                    ", cast('2020-06-02' as date)" +
+                    ", cast('2020-05-01 18:34:23.88' as timestamp)" +
+                    ")", 1);
+            String rowCount = "SELECT 2";
+
+            assertQuery(session, "SELECT COUNT(*) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_boolean) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_tinyint) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_smallint) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_integer) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_bigint) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_real) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_double) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_shortdecimal) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_longdecimal) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_string) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_varchar) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_singlechar) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_char) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_varbinary) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_date) FROM test_orc_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_timestamp) FROM test_orc_table", rowCount);
+
+            assertQuery(session, "SELECT MIN(_boolean), MAX(_boolean) FROM test_orc_table", "select false, true");
+            assertQuery(session, "SELECT MIN(_tinyint), MAX(_tinyint) FROM test_orc_table", "select 1, 10");
+            assertQuery(session, "SELECT MIN(_smallint), MAX(_smallint) FROM test_orc_table", "select 2, 20");
+            assertQuery(session, "SELECT MIN(_integer), MAX(_integer) FROM test_orc_table", "select 3, 30");
+            assertQuery(session, "SELECT MIN(_bigint), MAX(_bigint) FROM test_orc_table", "select 4, 40");
+            assertQuery(session, "SELECT MIN(_real), MAX(_real) FROM test_orc_table", "select 1.2, 10.25");
+            assertQuery(session, "SELECT MIN(_double), MAX(_double) FROM test_orc_table", "select 2.3, 25.334");
+            assertQuery(session, "SELECT MIN(_shortdecimal), MAX(_shortdecimal) FROM test_orc_table", "select 4.5, 465.523");
+            assertQuery(session, "SELECT MIN(_longdecimal), MAX(_longdecimal) FROM test_orc_table", "select 55555555555555.32, 88888888555555.91");
+            assertQuery(session, "SELECT MIN(_string), MAX(_string) FROM test_orc_table", "select 'abc', 'foo'");
+            assertQuery(session, "SELECT MIN(_varchar), MAX(_varchar) FROM test_orc_table", "select 'bar', 'def'");
+            assertQuery(session, "SELECT MIN(_singlechar), MAX(_singlechar) FROM test_orc_table", "select 'b', 'g'");
+            assertQuery(session, "SELECT MIN(_char), MAX(_char) FROM test_orc_table", "select 'baz', 'hij'");
+            assertQuery(session, "SELECT MIN(_varbinary), MAX(_varbinary) FROM test_orc_table", "select X'6b6c6d', X'717578'");
+            assertQuery(session, "SELECT MIN(_date), MAX(_date) FROM test_orc_table", "select cast('2020-05-01' as date), cast('2020-06-02' as date)");
+            assertQuery(session, "SELECT MIN(_timestamp), MAX(_timestamp) FROM test_orc_table", "select cast('2020-05-01 18:34:23.88' as timestamp), cast('2020-06-04 16:55:40.777' as timestamp)");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE test_orc_table");
+        }
+        assertFalse(getQueryRunner().tableExists(session, "test_orc_table"));
+    }
+
+    @Test
+    public void testPartialAggregatePushdownParquet()
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_parquet_table (" +
+                " _boolean BOOLEAN" +
+                ", _tinyint TINYINT" +
+                ", _smallint SMALLINT" +
+                ", _integer INTEGER" +
+                ", _bigint BIGINT" +
+                ", _real REAL" +
+                ", _double DOUBLE" +
+                ", _shortdecimal DECIMAL(8,3)" +
+                ", _longdecimal DECIMAL(25,2)" +
+                ", _string VARCHAR" +
+                ", _varchar VARCHAR(10)" +
+                ", _singlechar CHAR" +
+                ", _char CHAR(10)" +
+                ", _varbinary VARBINARY" +
+                ", _date DATE" +
+                ", _timestamp TIMESTAMP" +
+                ")" +
+                "WITH (format = 'parquet')";
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "partial_aggregation_pushdown_enabled", "true")
+                .setCatalogSessionProperty(catalog, "partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
+                .build();
+        try {
+            assertUpdate(session, createTable);
+
+            TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_parquet_table");
+            assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.PARQUET);
+
+            assertUpdate(session, "INSERT INTO test_parquet_table VALUES (" +
+                    "true" +
+                    ", cast(1 as tinyint)" +
+                    ", cast(2 as smallint)" +
+                    ", 3" +
+                    ", 4" +
+                    ", 1.2" +
+                    ", 2.3" +
+                    ", 4.5" +
+                    ", 55555555555555.32" +
+                    ", 'abc'" +
+                    ", 'def'" +
+                    ", 'g'" +
+                    ", 'hij'" +
+                    ", cast('klm' as varbinary)" +
+                    ", cast('2020-05-01' as date)" +
+                    ", cast('2020-06-04 16:55:40.777' as timestamp)" +
+                    ")", 1);
+
+            assertUpdate(session, "INSERT INTO test_parquet_table VALUES (" +
+                    "false" +
+                    ", cast(10 as tinyint)" +
+                    ", cast(20 as smallint)" +
+                    ", 30" +
+                    ", 40" +
+                    ", 10.25" +
+                    ", 25.334" +
+                    ", 465.523" +
+                    ", 88888888555555.91" +
+                    ", 'foo'" +
+                    ", 'bar'" +
+                    ", 'b'" +
+                    ", 'baz'" +
+                    ", cast('qux' as varbinary)" +
+                    ", cast('2020-06-02' as date)" +
+                    ", cast('2020-05-01 18:34:23.88' as timestamp)" +
+                    ")", 1);
+            String rowCount = "SELECT 2";
+
+            assertQuery(session, "SELECT COUNT(*) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_boolean) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_tinyint) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_smallint) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_integer) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_bigint) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_real) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_double) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_shortdecimal) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_longdecimal) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_string) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_varchar) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_singlechar) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_char) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_varbinary) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_date) FROM test_parquet_table", rowCount);
+            assertQuery(session, "SELECT COUNT(_timestamp) FROM test_parquet_table", rowCount);
+
+            assertQuery(session, "SELECT MIN(_boolean), MAX(_boolean) FROM test_parquet_table", "select false, true");
+            assertQuery(session, "SELECT MIN(_tinyint), MAX(_tinyint) FROM test_parquet_table", "select 1, 10");
+            assertQuery(session, "SELECT MIN(_smallint), MAX(_smallint) FROM test_parquet_table", "select 2, 20");
+            assertQuery(session, "SELECT MIN(_integer), MAX(_integer) FROM test_parquet_table", "select 3, 30");
+            assertQuery(session, "SELECT MIN(_bigint), MAX(_bigint) FROM test_parquet_table", "select 4, 40");
+            assertQuery(session, "SELECT MIN(_real), MAX(_real) FROM test_parquet_table", "select 1.2, 10.25");
+            assertQuery(session, "SELECT MIN(_double), MAX(_double) FROM test_parquet_table", "select 2.3, 25.334");
+
+            assertQuery(session, "SELECT MIN(_shortdecimal), MAX(_shortdecimal) FROM test_parquet_table", "select 4.5, 465.523");
+            assertQuery(session, "SELECT MIN(_longdecimal), MAX(_longdecimal) FROM test_parquet_table", "select 55555555555555.32, 88888888555555.91");
+            assertQuery(session, "SELECT MIN(_string), MAX(_string) FROM test_parquet_table", "select 'abc', 'foo'");
+            assertQuery(session, "SELECT MIN(_varchar), MAX(_varchar) FROM test_parquet_table", "select 'bar', 'def'");
+            assertQuery(session, "SELECT MIN(_singlechar), MAX(_singlechar) FROM test_parquet_table", "select 'b', 'g'");
+            assertQuery(session, "SELECT MIN(_char), MAX(_char) FROM test_parquet_table", "select 'baz', 'hij'");
+            assertQuery(session, "SELECT MIN(_varbinary), MAX(_varbinary) FROM test_parquet_table", "select X'6b6c6d', X'717578'");
+
+            assertQuery(session, "SELECT MIN(_date), MAX(_date) FROM test_parquet_table", "select cast('2020-05-01' as date), cast('2020-06-02' as date)");
+            assertQuery(session, "SELECT MIN(_timestamp), MAX(_timestamp) FROM test_parquet_table", "select cast('2020-05-01 18:34:23.88' as timestamp), cast('2020-06-04 16:55:40.777' as timestamp)");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE test_parquet_table");
+        }
+        assertFalse(getQueryRunner().tableExists(session, "test_parquet_table"));
+    }
+
     private void testPageFileCompression(String compression)
     {
         Session testSession = Session.builder(getQueryRunner().getDefaultSession())

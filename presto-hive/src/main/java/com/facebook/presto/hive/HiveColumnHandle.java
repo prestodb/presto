@@ -27,11 +27,13 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -60,6 +62,7 @@ public class HiveColumnHandle
         PARTITION_KEY,
         REGULAR,
         SYNTHESIZED,
+        AGGREGATED,
     }
 
     private final String name;
@@ -69,6 +72,7 @@ public class HiveColumnHandle
     private final ColumnType columnType;
     private final Optional<String> comment;
     private final List<Subfield> requiredSubfields;
+    private final Optional<Aggregation> partialAggregation;
 
     @JsonCreator
     public HiveColumnHandle(
@@ -78,16 +82,19 @@ public class HiveColumnHandle
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("columnType") ColumnType columnType,
             @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields)
+            @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields,
+            @JsonProperty("partialAggregation") Optional<Aggregation> partialAggregation)
     {
         this.name = requireNonNull(name, "name is null");
-        checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "hiveColumnIndex is negative");
+        checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED || columnType == AGGREGATED, "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
         this.hiveType = requireNonNull(hiveType, "hiveType is null");
         this.typeName = requireNonNull(typeSignature, "type is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.requiredSubfields = requireNonNull(requiredSubfields, "requiredSubfields is null");
+        this.partialAggregation = requireNonNull(partialAggregation, "partialAggregation is null");
+        checkArgument(columnType != AGGREGATED || partialAggregation.isPresent(), "Aggregated column does not have aggregate function");
     }
 
     public HiveColumnHandle(
@@ -96,9 +103,10 @@ public class HiveColumnHandle
             TypeSignature typeSignature,
             int hiveColumnIndex,
             ColumnType columnType,
-            Optional<String> comment)
+            Optional<String> comment,
+            Optional<Aggregation> partialAggregation)
     {
-        this(name, hiveType, typeSignature, hiveColumnIndex, columnType, comment, ImmutableList.of());
+        this(name, hiveType, typeSignature, hiveColumnIndex, columnType, comment, ImmutableList.of(), partialAggregation);
     }
 
     @JsonProperty
@@ -141,6 +149,12 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
+    public Optional<Aggregation> getPartialAggregation()
+    {
+        return partialAggregation;
+    }
+
+    @JsonProperty
     public TypeSignature getTypeSignature()
     {
         return typeName;
@@ -165,7 +179,8 @@ public class HiveColumnHandle
             // This column is already a pushed down subfield column
             return this;
         }
-        return new HiveColumnHandle(name, hiveType, typeName, hiveColumnIndex, columnType, comment, subfields);
+
+        return new HiveColumnHandle(name, hiveType, typeName, hiveColumnIndex, columnType, comment, subfields, partialAggregation);
     }
 
     @Override
@@ -210,12 +225,12 @@ public class HiveColumnHandle
         // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
         // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
 
-        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, SYNTHESIZED, Optional.empty(), ImmutableList.of());
+        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()
     {
-        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of());
+        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
     }
 
     /**
@@ -225,7 +240,7 @@ public class HiveColumnHandle
      */
     public static HiveColumnHandle bucketColumnHandle()
     {
-        return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of());
+        return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)

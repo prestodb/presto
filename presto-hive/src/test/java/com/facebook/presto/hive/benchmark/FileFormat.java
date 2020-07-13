@@ -80,6 +80,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveType.toHiveType;
@@ -154,6 +155,7 @@ public enum FileFormat
         {
             HiveBatchPageSourceFactory pageSourceFactory = new OrcBatchPageSourceFactory(
                     TYPE_MANAGER,
+                    FUNCTION_RESOLUTION,
                     false,
                     hdfsEnvironment,
                     new FileFormatDataSourceStats(),
@@ -187,6 +189,7 @@ public enum FileFormat
         {
             HiveBatchPageSourceFactory pageSourceFactory = new DwrfBatchPageSourceFactory(
                     TYPE_MANAGER,
+                    FUNCTION_RESOLUTION,
                     HIVE_CLIENT_CONFIG,
                     hdfsEnvironment,
                     new FileFormatDataSourceStats(),
@@ -256,7 +259,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats());
+            HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, hdfsEnvironment, new FileFormatDataSourceStats());
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
         }
 
@@ -363,7 +366,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(TYPE_MANAGER, hdfsEnvironment, new FileFormatDataSourceStats());
+            HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(TYPE_MANAGER, FUNCTION_RESOLUTION, hdfsEnvironment, new FileFormatDataSourceStats());
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
         }
 
@@ -420,7 +423,7 @@ public enum FileFormat
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
+            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
         }
 
         RecordCursor recordCursor = cursorProvider
@@ -455,7 +458,7 @@ public enum FileFormat
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty()));
+            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
         }
 
         SchemaTableName tableName = new SchemaTableName("hive", "testtable");
