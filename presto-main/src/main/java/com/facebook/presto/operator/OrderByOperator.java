@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.airlift.concurrent.MoreFutures.checkSuccess;
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -207,9 +208,20 @@ public class OrderByOperator
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
 
-            // transition the revocable memory to regular memory, since we no longer can give the memory back
-            // TODO when we have more memory than fits in regular memory, we should spill instead
-            updateMemoryUsage();
+            // Convert revocable memory to user memory as sortedPages holds on to memory so we no longer can revoke.
+            if (revocableMemoryContext.getBytes() > 0) {
+                long currentRevocableBytes = revocableMemoryContext.getBytes();
+                revocableMemoryContext.setBytes(0);
+                if (!localUserMemoryContext.trySetBytes(localUserMemoryContext.getBytes() + currentRevocableBytes)) {
+                    // TODO: this might fail (even though we have just released memory), but we don't
+                    // have a proper way to atomically convert memory reservations
+                    revocableMemoryContext.setBytes(currentRevocableBytes);
+                    // spill since revocable memory could not be converted to user memory immediately
+                    // TODO: this should be asynchronous
+                    getFutureValue(spillToDisk());
+                    finishMemoryRevoke.run();
+                }
+            }
 
             pageIndex.sort(sortChannels, sortOrder);
             Iterator<Page> sortedPagesIndex = pageIndex.getSortedPages();
@@ -276,17 +288,19 @@ public class OrderByOperator
     @Override
     public ListenableFuture<?> startMemoryRevoke()
     {
+        verify(state == State.NEEDS_INPUT || revocableMemoryContext.getBytes() == 0, "Cannot spill in state: %s", state);
+        return spillToDisk();
+    }
+
+    private ListenableFuture<?> spillToDisk()
+    {
         checkSuccess(spillInProgress, "spilling failed");
 
         if (revocableMemoryContext.getBytes() == 0) {
-            // This must be stale revoke request
-
             verify(pageIndex.getPositionCount() == 0 || state == State.HAS_OUTPUT);
             finishMemoryRevoke = () -> {};
             return immediateFuture(null);
         }
-
-        verify(state == State.NEEDS_INPUT, "Cannot spill in %s state", state);
 
         // TODO try pageIndex.compact(); before spilling, as in com.facebook.presto.operator.HashBuilderOperator.startMemoryRevoke
 

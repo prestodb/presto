@@ -211,12 +211,34 @@ public final class OperatorAssertion
 
     public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, MaterializedResult expected)
     {
-        assertOperatorEquals(operatorFactory, driverContext, input, expected, false, ImmutableList.of());
+        assertOperatorEquals(operatorFactory, driverContext, input, expected, true);
+    }
+
+    public static void assertOperatorEquals(
+            OperatorFactory operatorFactory,
+            DriverContext driverContext,
+            List<Page> input,
+            MaterializedResult expected,
+            boolean revokeMemoryWhenAddingPages)
+    {
+        assertOperatorEquals(operatorFactory, driverContext, input, expected, false, ImmutableList.of(), revokeMemoryWhenAddingPages);
     }
 
     public static void assertOperatorEquals(OperatorFactory operatorFactory, DriverContext driverContext, List<Page> input, MaterializedResult expected, boolean hashEnabled, List<Integer> hashChannels)
     {
-        List<Page> pages = toPages(operatorFactory, driverContext, input);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected, hashEnabled, hashChannels, true);
+    }
+
+    public static void assertOperatorEquals(
+            OperatorFactory operatorFactory,
+            DriverContext driverContext,
+            List<Page> input,
+            MaterializedResult expected,
+            boolean hashEnabled,
+            List<Integer> hashChannels,
+            boolean revokeMemoryWhenAddingPages)
+    {
+        List<Page> pages = toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
         if (hashEnabled && !hashChannels.isEmpty()) {
             // Drop the hashChannel for all pages
             pages = dropChannel(pages, hashChannels);
