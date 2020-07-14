@@ -20,6 +20,7 @@ import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
@@ -32,7 +33,9 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 
-import java.util.ArrayList;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -62,9 +65,7 @@ class WorkerTaskStatusFetcher
 
     private static final Logger log = Logger.get(ContinuousTaskStatusFetcher.class);
 
-    private final TaskId taskId; // TODO: Remove after removing references
-    private final StateMachine<TaskStatus> taskStatus; // TODO: Remove after removing references
-
+    private final String worker;
     private final Consumer<Throwable> onFail;
     private final Codec<List<TaskStatus>> taskListStatusCodec;
     private final Duration refreshMaxWait;
@@ -80,17 +81,11 @@ class WorkerTaskStatusFetcher
     private boolean running;
 
     @GuardedBy("this")
-    private ListenableFuture<BaseResponse<TaskStatus>> future;
+    private ListenableFuture<BaseResponse<List<TaskStatus>>> future;
 
-    public WorkerTaskStatusFetcher() {
-        this(null, null, null, null, null, null, null, null, null, null, false);
-    }
-
-    // TODO: We don't need all the parameters here and the logic should be in CBTSF
     public WorkerTaskStatusFetcher(
+            String worker,
             Consumer<Throwable> onFail,
-            TaskId taskId,
-            TaskStatus initialTaskStatus,
             Duration refreshMaxWait,
             Codec<List<TaskStatus>> taskListStatusCodec,
             Executor executor,
@@ -100,12 +95,11 @@ class WorkerTaskStatusFetcher
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled)
     {
+        this.worker = worker;
         idTaskMap = new ConcurrentHashMap<>();
 
         //requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
         this.onFail = requireNonNull(onFail, "onFail is null");
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
@@ -114,13 +108,14 @@ class WorkerTaskStatusFetcher
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
+        // TODO: Create new ErrorTracker
         this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;
     }
 
-    public void addTask(TaskId taskId, ContinuousBatchTaskStatusFetcher.Task task) {
-        idTaskMap.put(taskId, task);
+    public void addTask(ContinuousBatchTaskStatusFetcher.Task task) {
+        idTaskMap.put(task.taskId, task);
     }
 
     TaskStatus getTaskStatus(TaskId taskId)
@@ -150,9 +145,21 @@ class WorkerTaskStatusFetcher
             return;
         }
 
+        URI uri;
+        try {
+            uri = uriBuilderFrom(new URI(worker)).appendPath("/tasks/status").build();
+        } catch (URISyntaxException e) {
+            uri = null;
+        }
+
+        HashMap<TaskId, TaskState> idStateMap = new HashMap<>(); // Maybe we need to make this JSON instead?
+        for (ContinuousBatchTaskStatusFetcher.Task task: idTaskMap.values()) {
+            idStateMap.put(task.taskId, task.taskStatus.get().getState());
+        }
+
         Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet())
-                .setUri(uriBuilderFrom(worker.getSelf()).appendPath("all_status").build())
-                .setHeader(PRESTO_CURRENT_STATE, worker.getState().toString())
+                .setUri(uri)
+                .setHeader(PRESTO_CURRENT_STATE, idStateMap.toString())
                 .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
                 .build();
 
@@ -181,6 +188,7 @@ class WorkerTaskStatusFetcher
             }
             finally {
                 // Signal to CBTSF we're done
+                scheduleNextRequest();
             }
         }
     }
@@ -208,6 +216,7 @@ class WorkerTaskStatusFetcher
             }
             finally {
                 // Signal to CBTSF we're done
+                scheduleNextRequest();
             }
         }
     }
@@ -258,7 +267,7 @@ class WorkerTaskStatusFetcher
             // This will also set the task status to FAILED state directly.
             // Additionally, this will issue a DELETE for the task to the worker.
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
-            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus(taskId).getSelf()))));
+            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(newValue.getSelf()))));
         }
     }
 
@@ -272,9 +281,9 @@ class WorkerTaskStatusFetcher
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
+    public void addStateChangeListener(StateMachine.StateChangeListener<List<TaskStatus>> stateChangeListener)
     {
-        taskStatus.addStateChangeListener(stateChangeListener);
+        // taskStatus.addStateChangeListener(stateChangeListener);
     }
 
     private void updateStats(long currentRequestStartNanos)
