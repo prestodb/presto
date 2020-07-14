@@ -178,10 +178,12 @@ public class PrestoSparkModule
         extends AbstractConfigurationAwareModule
 {
     private final SparkProcessType sparkProcessType;
+    private final SqlParserOptions sqlParserOptions;
 
-    public PrestoSparkModule(SparkProcessType sparkProcessType)
+    public PrestoSparkModule(SparkProcessType sparkProcessType, SqlParserOptions sqlParserOptions)
     {
         this.sparkProcessType = requireNonNull(sparkProcessType, "sparkProcessType is null");
+        this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
     }
 
     @Override
@@ -316,7 +318,7 @@ public class PrestoSparkModule
 
         // parser
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
-        binder.bind(SqlParserOptions.class).toInstance(new SqlParserOptions());
+        binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);

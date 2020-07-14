@@ -26,6 +26,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
@@ -47,6 +48,7 @@ public class PrestoSparkInjectorFactory
     private final Map<String, String> configProperties;
     private final Map<String, Map<String, String>> catalogProperties;
     private final Optional<Map<String, String>> eventListenerProperties;
+    private final SqlParserOptions sqlParserOptions;
     private final List<Module> additionalModules;
     private final Optional<Module> accessControlModuleOverride;
 
@@ -55,9 +57,17 @@ public class PrestoSparkInjectorFactory
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
             Optional<Map<String, String>> eventListenerProperties,
+            SqlParserOptions sqlParserOptions,
             List<Module> additionalModules)
     {
-        this(sparkProcessType, configProperties, catalogProperties, eventListenerProperties, additionalModules, Optional.empty());
+        this(
+                sparkProcessType,
+                configProperties,
+                catalogProperties,
+                eventListenerProperties,
+                sqlParserOptions,
+                additionalModules,
+                Optional.empty());
     }
 
     public PrestoSparkInjectorFactory(
@@ -65,6 +75,7 @@ public class PrestoSparkInjectorFactory
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
             Optional<Map<String, String>> eventListenerProperties,
+            SqlParserOptions sqlParserOptions,
             List<Module> additionalModules,
             Optional<Module> accessControlModuleOverride)
     {
@@ -73,6 +84,7 @@ public class PrestoSparkInjectorFactory
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null").map(ImmutableMap::copyOf);
+        this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.additionalModules = ImmutableList.copyOf(requireNonNull(additionalModules, "additionalModules is null"));
         this.accessControlModuleOverride = requireNonNull(accessControlModuleOverride, "accessControlModuleOverride is null");
     }
@@ -87,7 +99,7 @@ public class PrestoSparkInjectorFactory
         modules.add(
                 new JsonModule(),
                 new EventListenerModule(),
-                new PrestoSparkModule(sparkProcessType));
+                new PrestoSparkModule(sparkProcessType, sqlParserOptions));
 
         boolean initializeAccessControl = false;
         if (accessControlModuleOverride.isPresent()) {

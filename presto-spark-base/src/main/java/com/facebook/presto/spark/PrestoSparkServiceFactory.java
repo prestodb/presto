@@ -18,6 +18,7 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkServiceFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
@@ -42,6 +43,7 @@ public class PrestoSparkServiceFactory
                 properties.build(),
                 configuration.getCatalogProperties(),
                 configuration.getEventListenerProperties(),
+                getSqlParserOptions(),
                 getAdditionalModules());
 
         Injector injector = prestoSparkInjectorFactory.create();
@@ -53,5 +55,10 @@ public class PrestoSparkServiceFactory
     protected List<Module> getAdditionalModules()
     {
         return ImmutableList.of();
+    }
+
+    protected SqlParserOptions getSqlParserOptions()
+    {
+        return new SqlParserOptions();
     }
 }
