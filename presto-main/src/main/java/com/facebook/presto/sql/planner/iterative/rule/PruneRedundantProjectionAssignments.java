@@ -17,6 +17,7 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -46,7 +47,7 @@ public class PruneRedundantProjectionAssignments
     public Result apply(ProjectNode node, Captures captures, Context context)
     {
         Map<Boolean, List<Map.Entry<VariableReferenceExpression, RowExpression>>> projections = node.getAssignments().entrySet().stream()
-                .collect(Collectors.partitioningBy(entry -> entry.getValue() instanceof VariableReferenceExpression));
+                .collect(Collectors.partitioningBy(entry -> entry.getValue() instanceof VariableReferenceExpression || entry.getValue() instanceof ConstantExpression));
         Map<RowExpression, ImmutableMap<VariableReferenceExpression, RowExpression>> uniqueProjections = projections.get(false).stream()
                 .collect(Collectors.groupingBy(Map.Entry::getValue, toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
         if (uniqueProjections.size() == projections.get(false).size()) {
