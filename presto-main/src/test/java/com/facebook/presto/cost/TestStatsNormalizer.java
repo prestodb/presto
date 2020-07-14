@@ -53,10 +53,12 @@ public class TestStatsNormalizer
         VariableReferenceExpression a = new VariableReferenceExpression("a", BIGINT);
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(30)
+                .setTotalSize(120)
                 .addVariableStatistics(a, VariableStatsEstimate.builder().setDistinctValuesCount(20).build())
                 .build();
 
         assertNormalized(estimate)
+                .totalSize(120)
                 .variableStats(a, variableAssert -> variableAssert.distinctValuesCount(20));
     }
 
@@ -68,12 +70,14 @@ public class TestStatsNormalizer
         VariableReferenceExpression c = new VariableReferenceExpression("c", BIGINT);
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(40)
+                .setTotalSize(160)
                 .addVariableStatistics(a, VariableStatsEstimate.builder().setDistinctValuesCount(20).build())
                 .addVariableStatistics(b, VariableStatsEstimate.builder().setDistinctValuesCount(30).build())
                 .addVariableStatistics(c, VariableStatsEstimate.unknown())
                 .build();
 
         PlanNodeStatsAssertion.assertThat(normalizer.normalize(estimate, ImmutableList.of(b, c)))
+                .totalSize(160)
                 .variablesWithKnownStats(b)
                 .variableStats(b, variableAssert -> variableAssert.distinctValuesCount(30));
     }
@@ -89,9 +93,11 @@ public class TestStatsNormalizer
                 .addVariableStatistics(b, VariableStatsEstimate.builder().setNullsFraction(0.4).setDistinctValuesCount(20).build())
                 .addVariableStatistics(c, VariableStatsEstimate.unknown())
                 .setOutputRowCount(10)
+                .setTotalSize(40)
                 .build();
 
         assertNormalized(estimate)
+                .totalSize(40)
                 .variableStats(a, variableAssert -> variableAssert.distinctValuesCount(10))
                 .variableStats(b, variableAssert -> variableAssert.distinctValuesCount(8))
                 .variableStats(c, VariableStatsAssertion::distinctValuesCountUnknown);
@@ -138,9 +144,11 @@ public class TestStatsNormalizer
                 .build();
         PlanNodeStatsEstimate estimate = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(10000000000L)
+                .setTotalSize(40000000000L)
                 .addVariableStatistics(variable, symbolStats).build();
 
         assertNormalized(estimate)
+                .totalSize(40000000000L)
                 .variableStats(variable, variableAssert -> variableAssert.distinctValuesCount(expectedNormalizedNdv));
     }
 

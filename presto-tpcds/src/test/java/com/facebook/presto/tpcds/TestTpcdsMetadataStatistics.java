@@ -189,6 +189,9 @@ public class TestTpcdsMetadataStatistics
                 "  \"rowCount\" : {\n" +
                 "    \"value\" : 30.0\n" +
                 "  },\n" +
+                "  \"totalSize\" : {\n" +
+                "    \"value\" : \"NaN\"\n" +
+                "  },\n" +
                 "  \"columnStatistics\" : {\n" +
                 "    \"tpcds:web_site_sk\" : {\n" +
                 "      \"nullsFraction\" : {\n" +
