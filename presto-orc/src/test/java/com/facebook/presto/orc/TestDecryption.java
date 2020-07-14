@@ -432,7 +432,7 @@ public class TestDecryption
     }
 
     @Test
-    public void testReadUnencryptedColumnsWithoutKeys()
+    public void testReadPermittedColumnsWithoutAllKeys()
             throws Exception
     {
         Subfield subfield1 = new Subfield("c.field_0");
@@ -440,11 +440,13 @@ public class TestDecryption
         Type rowType = rowType(BIGINT, BIGINT, BIGINT);
         Slice iek1 = Slices.utf8Slice("iek1");
         Slice iek2 = Slices.utf8Slice("iek2");
+        Slice iek3 = Slices.utf8Slice("iek3");
         DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
                 UNKNOWN,
                 ImmutableList.of(
-                        new WriterEncryptionGroup(ImmutableList.of(2, 5), iek1),
-                        new WriterEncryptionGroup(ImmutableList.of(3, 6), iek2)));
+                        new WriterEncryptionGroup(ImmutableList.of(2), iek1),
+                        new WriterEncryptionGroup(ImmutableList.of(3, 6), iek2),
+                        new WriterEncryptionGroup(ImmutableList.of(5), iek3)));
         List<Type> types = ImmutableList.of(rowType, BIGINT, BIGINT, BIGINT);
         List<Long> columnValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
                 .map(Number::longValue)
@@ -466,7 +468,7 @@ public class TestDecryption
                 writtenValues,
                 readValues,
                 Optional.of(dwrfWriterEncryption),
-                ImmutableMap.of(2, iek1, 5, iek1),
+                ImmutableMap.of(2, iek1, 5, iek3),
                 ImmutableMap.of(0, rowType, 1, BIGINT, 3, BIGINT),
                 ImmutableMap.of(0, ImmutableList.of(subfield1, subfield3)),
                 ImmutableList.of(0, 1, 3));
@@ -497,7 +499,7 @@ public class TestDecryption
 
     private static void testDecryptionRoundTrip(
             List<Type> types,
-            List<List<?>> writtenalues,
+            List<List<?>> writtenValues,
             List<List<?>> readValues,
             Optional<DwrfWriterEncryption> dwrfWriterEncryption,
             Map<Integer, Slice> readerIntermediateKeys,
@@ -507,7 +509,7 @@ public class TestDecryption
             throws Exception
     {
         try (TempFile tempFile = new TempFile()) {
-            writeOrcColumnsPresto(tempFile.getFile(), OrcTester.Format.DWRF, ZSTD, dwrfWriterEncryption, types, writtenalues, new OrcWriterStats());
+            writeOrcColumnsPresto(tempFile.getFile(), OrcTester.Format.DWRF, ZSTD, dwrfWriterEncryption, types, writtenValues, new OrcWriterStats());
 
             assertFileContentsPresto(
                     types,
