@@ -87,7 +87,7 @@ public class DwrfEncryptionInfo
 
     public DwrfDataEncryptor getEncryptorByGroupId(int groupId)
     {
-        verify(groupId < dwrfEncryptors.size(), "groupId %s exceeds the size of dwrfDecryptors %s", groupId, dwrfEncryptors.size());
+        verify(dwrfEncryptors.containsKey(groupId), "no encryptor available for group %s", groupId);
         return dwrfEncryptors.get(groupId);
     }
 
