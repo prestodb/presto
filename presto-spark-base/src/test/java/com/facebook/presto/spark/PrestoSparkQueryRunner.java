@@ -49,6 +49,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.testing.MaterializedResult;
@@ -206,6 +207,7 @@ public class PrestoSparkQueryRunner
                         "prefer-distributed-union", "false"),
                 ImmutableMap.of(),
                 Optional.empty(),
+                new SqlParserOptions(),
                 ImmutableList.of(),
                 Optional.of(new TestingAccessControlModule()));
 
