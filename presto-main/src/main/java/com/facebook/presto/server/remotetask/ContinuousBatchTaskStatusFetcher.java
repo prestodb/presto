@@ -38,13 +38,8 @@ public class ContinuousBatchTaskStatusFetcher
 {
     public class Task {
         TaskId taskId;
-        Consumer<Throwable> onFail;
         StateMachine<TaskStatus> taskStatus;
-        Codec<TaskStatus> taskStatusCodec;
-        Executor executor;
-        RequestErrorTracker errorTracker;
-        RemoteTaskStats stats;
-        boolean isBinaryTransportEnabled;
+        Codec<List<TaskStatus>> taskListStatusCodec;
     }
 
     // TaskId -> WorkerId (String(URI(TaskStatus.getSelf() (get worker id)))
@@ -54,6 +49,11 @@ public class ContinuousBatchTaskStatusFetcher
 
     private static final Logger log = Logger.get(ContinuousBatchTaskStatusFetcher.class);
 
+    private final Consumer<Throwable> onFail;
+    private final Executor executor;
+    private final RemoteTaskStats stats;
+    private final boolean isBinaryTransportEnabled;
+
     private final Duration refreshMaxWait;
     private final HttpClient httpClient;
 
@@ -61,46 +61,45 @@ public class ContinuousBatchTaskStatusFetcher
     private ListenableFuture<BaseResponse<TaskStatus>> future;
 
     public ContinuousBatchTaskStatusFetcher(
-            Duration refreshMaxWait,
-            HttpClient httpClient) {
-        idWorkerMap = new ConcurrentHashMap<>();
-        workerTaskMap = new ConcurrentHashMap<>();
-
-        this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
-    }
-
-    public void addTask(
             Consumer<Throwable> onFail,
-            TaskId taskId,
-            TaskStatus initialTaskStatus,
-            Codec<TaskStatus> taskStatusCodec,
+            Duration refreshMaxWait,
             Executor executor,
+            HttpClient httpClient,
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
-            boolean isBinaryTransportEnabled)
+            boolean isBinaryTransportEnabled) {
+        idWorkerMap = new ConcurrentHashMap<>();
+        workerTaskMap = new ConcurrentHashMap<>();
+
+        this.onFail = requireNonNull(onFail, "onFail is null");
+
+        this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
+
+        this.executor = requireNonNull(executor, "executor is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+
+        this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status"); //TODO: Fix
+        this.stats = requireNonNull(stats, "stats is null");
+        this.isBinaryTransportEnabled = isBinaryTransportEnabled;
+    }
+
+    public void addTask(
+            TaskId taskId,
+            TaskStatus initialTaskStatus,
+            Codec<List<TaskStatus>> taskListStatusCodec)
     {
         Task newTask = new Task();
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
         newTask.taskId = requireNonNull(taskId, "taskId is null");
-        newTask.onFail = requireNonNull(onFail, "onFail is null");
         newTask.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
-
-        newTask.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
-        newTask.executor = requireNonNull(executor, "executor is null");
-
-        newTask.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(),
-                maxErrorDuration, errorScheduledExecutor, "getting task status");
-        newTask.stats = requireNonNull(stats, "stats is null");
-        newTask.isBinaryTransportEnabled = isBinaryTransportEnabled;
-
+        newTask.taskListStatusCodec = requireNonNull(taskListStatusCodec, "taskListStatusCodec is null")
 
         String worker = initialTaskStatus.getSelf().getHost();
         idWorkerMap.put(taskId, worker);
         if (!workerTaskMap.containsKey(worker)) {
-            workerTaskMap.put(worker, new WorkerTaskStatusFetcher(worker, refreshMaxWait, httpClient));
+            workerTaskMap.put(worker, new WorkerTaskStatusFetcher(worker, onFail, refreshMaxWait, taskListStatusCodec, executor, httpClient, stats, isBinaryTransportEnabled));
         }
         workerTaskMap.get(worker).addTask(newTask);
     }

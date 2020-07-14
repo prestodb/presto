@@ -90,8 +90,6 @@ class WorkerTaskStatusFetcher
             Codec<List<TaskStatus>> taskListStatusCodec,
             Executor executor,
             HttpClient httpClient,
-            Duration maxErrorDuration,
-            ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled)
     {
