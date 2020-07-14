@@ -44,6 +44,7 @@ public class TestExchangeStatsRule
                         .addSource(pb.values(pb.variable("i21", BIGINT), pb.variable("i22", BIGINT), pb.variable("i23", BIGINT), pb.variable("i24", BIGINT)))))
                 .withSourceStats(0, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(10)
+                        .setTotalSize(40)
                         .addVariableStatistics(new VariableReferenceExpression("i11", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(1)
                                 .setHighValue(10)
@@ -71,6 +72,7 @@ public class TestExchangeStatsRule
                         .build())
                 .withSourceStats(1, PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(20)
+                        .setTotalSize(80)
                         .addVariableStatistics(new VariableReferenceExpression("i21", BIGINT), VariableStatsEstimate.builder()
                                 .setLowValue(11)
                                 .setHighValue(20)
@@ -94,6 +96,7 @@ public class TestExchangeStatsRule
                         .build())
                 .check(check -> check
                         .outputRowsCount(30)
+                        .totalSize(120)
                         .variableStats(new VariableReferenceExpression("o1", BIGINT), assertion -> assertion
                                 .lowValue(1)
                                 .highValue(20)

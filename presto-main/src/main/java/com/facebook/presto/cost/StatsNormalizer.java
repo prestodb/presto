@@ -56,7 +56,8 @@ public class StatsNormalizer
             return PlanNodeStatsEstimate.unknown();
         }
 
-        PlanNodeStatsEstimate.Builder normalized = PlanNodeStatsEstimate.buildFrom(stats);
+        PlanNodeStatsEstimate.Builder normalized = PlanNodeStatsEstimate.buildFrom(stats)
+                .setTotalSize(stats.getOutputSizeInBytes());
 
         Predicate<VariableReferenceExpression> variableFilter = outputVariables
                 .map(ImmutableSet::copyOf)
