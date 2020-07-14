@@ -8489,7 +8489,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testRedundantLambda()
+    public void testRedundantProjection()
     {
         assertQuery(
                 "SELECT x, reduce(x, 0, (s, x) -> s + x, s -> s), reduce(x, 0, (s, x) -> s + x, s -> s) FROM (VALUES (array[1, 2, 3])) t(x)",
@@ -8497,6 +8497,8 @@ public abstract class AbstractTestQueries
         assertQuery(
                 "SELECT x, filter(x, v -> date(v) BETWEEN date'2020-01-01' AND date'2020-06-30'), filter(x, v -> date(v) BETWEEN date'2020-01-01' AND date_add('day', 2, date'2020-06-28')) FROM (VALUES (array['2020-03-01', '2020-07-01'])) t(x)",
                 "SELECT array['2020-03-01', '2020-07-01'], array['2020-03-01'], array['2020-03-01']");
+        assertQuerySucceeds(
+                "SELECT DISTINCT null AS a, NULL AS b, orderstatus FROM (SELECT orderstatus FROM orders GROUP BY orderstatus)");
     }
 
     protected Session noJoinReordering()
