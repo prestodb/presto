@@ -66,9 +66,25 @@ public class RuntimeReorderJoinSides
             return Result.empty();
         }
 
+        double leftOutputSizeInBytes = Double.NaN;
+        double rightOutputSizeInBytes = Double.NaN;
         StatsProvider statsProvider = context.getStatsProvider();
-        double leftOutputSizeInBytes = statsProvider.getStats(joinNode.getLeft()).getOutputSizeInBytes(joinNode.getLeft().getOutputVariables());
-        double rightOutputSizeInBytes = statsProvider.getStats(joinNode.getRight()).getOutputSizeInBytes(joinNode.getRight().getOutputVariables());
+        if (searchFrom(joinNode, context.getLookup())
+                .where(node -> !(node instanceof TableScanNode) && !(node instanceof ExchangeNode))
+                .findAll().size() == 1) {
+            // Simple plan is characterized as Join directly on tableScanNodes only with exchangeNode in between.
+            // For simple plans, directly fetch the overall table sizes as the size of the join sides to have
+            // accurate input bytes statistics and meanwhile avoid non-negligible cost of collecting and processing
+            // per-column statistics.
+            leftOutputSizeInBytes = statsProvider.getStats(joinNode.getLeft()).getOutputSizeInBytes();
+            rightOutputSizeInBytes = statsProvider.getStats(joinNode.getRight()).getOutputSizeInBytes();
+        }
+        if (Double.isNaN(leftOutputSizeInBytes) || Double.isNaN(rightOutputSizeInBytes)) {
+            // Per-column estimate left and right output size for complex plans or when size statistics is unavailable.
+            leftOutputSizeInBytes = statsProvider.getStats(joinNode.getLeft()).getOutputSizeInBytes(joinNode.getLeft().getOutputVariables());
+            rightOutputSizeInBytes = statsProvider.getStats(joinNode.getRight()).getOutputSizeInBytes(joinNode.getRight().getOutputVariables());
+        }
+
         if (Double.isNaN(leftOutputSizeInBytes) || Double.isNaN(rightOutputSizeInBytes)) {
             return Result.empty();
         }

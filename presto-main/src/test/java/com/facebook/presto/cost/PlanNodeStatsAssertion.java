@@ -44,6 +44,12 @@ public class PlanNodeStatsAssertion
         return this;
     }
 
+    public PlanNodeStatsAssertion totalSize(double expected)
+    {
+        assertEstimateEquals(actual.getOutputSizeInBytes(), expected, "totalSize mismatch");
+        return this;
+    }
+
     public PlanNodeStatsAssertion outputRowsCountUnknown()
     {
         assertTrue(Double.isNaN(actual.getOutputRowCount()), "expected unknown outputRowsCount but got " + actual.getOutputRowCount());
