@@ -20,6 +20,7 @@ import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.PluginManager;
@@ -27,10 +28,12 @@ import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.testing.TestingAccessControlManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 
 import java.util.HashMap;
 import java.util.List;
@@ -50,25 +53,7 @@ public class PrestoSparkInjectorFactory
     private final Optional<Map<String, String>> eventListenerProperties;
     private final SqlParserOptions sqlParserOptions;
     private final List<Module> additionalModules;
-    private final Optional<Module> accessControlModuleOverride;
-
-    public PrestoSparkInjectorFactory(
-            SparkProcessType sparkProcessType,
-            Map<String, String> configProperties,
-            Map<String, Map<String, String>> catalogProperties,
-            Optional<Map<String, String>> eventListenerProperties,
-            SqlParserOptions sqlParserOptions,
-            List<Module> additionalModules)
-    {
-        this(
-                sparkProcessType,
-                configProperties,
-                catalogProperties,
-                eventListenerProperties,
-                sqlParserOptions,
-                additionalModules,
-                Optional.empty());
-    }
+    private final boolean isForTesting;
 
     public PrestoSparkInjectorFactory(
             SparkProcessType sparkProcessType,
@@ -77,7 +62,7 @@ public class PrestoSparkInjectorFactory
             Optional<Map<String, String>> eventListenerProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules,
-            Optional<Module> accessControlModuleOverride)
+            boolean isForTesting)
     {
         this.sparkProcessType = requireNonNull(sparkProcessType, "sparkProcessType is null");
         this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
@@ -86,7 +71,7 @@ public class PrestoSparkInjectorFactory
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null").map(ImmutableMap::copyOf);
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.additionalModules = ImmutableList.copyOf(requireNonNull(additionalModules, "additionalModules is null"));
-        this.accessControlModuleOverride = requireNonNull(accessControlModuleOverride, "accessControlModuleOverride is null");
+        this.isForTesting = isForTesting;
     }
 
     public Injector create()
@@ -101,9 +86,14 @@ public class PrestoSparkInjectorFactory
                 new EventListenerModule(),
                 new PrestoSparkModule(sparkProcessType, sqlParserOptions));
 
+        // access control module
         boolean initializeAccessControl = false;
-        if (accessControlModuleOverride.isPresent()) {
-            modules.add(accessControlModuleOverride.get());
+        if (isForTesting) {
+            modules.add(binder -> {
+                binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
+            });
         }
         else {
             modules.add(new AccessControlModule());

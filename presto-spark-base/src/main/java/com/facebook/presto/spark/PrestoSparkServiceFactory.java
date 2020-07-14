@@ -44,7 +44,8 @@ public class PrestoSparkServiceFactory
                 configuration.getCatalogProperties(),
                 configuration.getEventListenerProperties(),
                 getSqlParserOptions(),
-                getAdditionalModules());
+                getAdditionalModules(),
+                false);
 
         Injector injector = prestoSparkInjectorFactory.create();
         PrestoSparkService prestoSparkService = injector.getInstance(PrestoSparkService.class);
