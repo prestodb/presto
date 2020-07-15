@@ -15,10 +15,28 @@ package com.facebook.presto.spark;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import io.airlift.units.DataSize;
+
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 
 public class PrestoSparkConfig
 {
+    private boolean sparkPartitionCountAutoTuneEnabled = true;
     private int initialSparkPartitionCount = 16;
+    private DataSize maxSplitsDataSizePerSparkPartition = new DataSize(2, GIGABYTE);
+
+    public boolean isSparkPartitionCountAutoTuneEnabled()
+    {
+        return sparkPartitionCountAutoTuneEnabled;
+    }
+
+    @Config("spark.partition-count-auto-tune-enabled")
+    @ConfigDescription("Automatic tuning of spark partition count based on max splits data size per partition")
+    public PrestoSparkConfig setSparkPartitionCountAutoTuneEnabled(boolean sparkPartitionCountAutoTuneEnabled)
+    {
+        this.sparkPartitionCountAutoTuneEnabled = sparkPartitionCountAutoTuneEnabled;
+        return this;
+    }
 
     public int getInitialSparkPartitionCount()
     {
@@ -30,6 +48,19 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setInitialSparkPartitionCount(int initialPartitionCount)
     {
         this.initialSparkPartitionCount = initialPartitionCount;
+        return this;
+    }
+
+    public DataSize getMaxSplitsDataSizePerSparkPartition()
+    {
+        return maxSplitsDataSizePerSparkPartition;
+    }
+
+    @Config("spark.max-splits-data-size-per-partition")
+    @ConfigDescription("Maximal size in bytes for splits assigned to one partition")
+    public PrestoSparkConfig setMaxSplitsDataSizePerSparkPartition(DataSize maxSplitsDataSizePerSparkPartition)
+    {
+        this.maxSplitsDataSizePerSparkPartition = maxSplitsDataSizePerSparkPartition;
         return this;
     }
 }
