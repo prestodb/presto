@@ -802,7 +802,8 @@ public class LocalQueryRunner
                 joinCompiler,
                 new LookupJoinOperators(),
                 new OrderingCompiler(),
-                jsonCodec(TableCommitContext.class));
+                jsonCodec(TableCommitContext.class),
+                new RowExpressionDeterminismEvaluator(metadata));
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();

@@ -15,8 +15,11 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.expressions.DynamicFilters;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionNodeInliner;
 import com.facebook.presto.metadata.FunctionManager;
@@ -59,8 +62,10 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.airlift.slice.Slices;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -73,6 +78,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -454,11 +460,6 @@ public class RowExpressionPredicatePushDown
                 newJoinPredicate = buildEqualsExpression(functionManager, constant(0L, BIGINT), constant(1L, BIGINT));
             }
 
-            PlanNode leftSource = context.rewrite(node.getLeft(), leftPredicate);
-            PlanNode rightSource = context.rewrite(node.getRight(), rightPredicate);
-
-            PlanNode output = node;
-
             // Create identity projections for all existing symbols
             Assignments.Builder leftProjections = Assignments.builder()
                     .putAll(identityAssignments(node.getLeft().getOutputVariables()));
@@ -500,6 +501,22 @@ public class RowExpressionPredicatePushDown
                 }
             }
 
+            DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, session, idAllocator, metadata.getFunctionManager());
+            Map<String, VariableReferenceExpression> dynamicFilters = dynamicFiltersResult.getDynamicFilters();
+            leftPredicate = logicalRowExpressions.combineConjuncts(leftPredicate, logicalRowExpressions.combineConjuncts(dynamicFiltersResult.getPredicates()));
+
+            PlanNode leftSource;
+            PlanNode rightSource;
+            boolean equiJoinClausesUnmodified = ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()));
+            if (!equiJoinClausesUnmodified) {
+                leftSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getLeft(), leftProjections.build()), leftPredicate);
+                rightSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getRight(), rightProjections.build()), rightPredicate);
+            }
+            else {
+                leftSource = context.rewrite(node.getLeft(), leftPredicate);
+                rightSource = context.rewrite(node.getRight(), rightPredicate);
+            }
+
             Optional<RowExpression> newJoinFilter = Optional.of(logicalRowExpressions.combineConjuncts(joinFilterBuilder.build()));
             if (newJoinFilter.get() == TRUE_CONSTANT) {
                 newJoinFilter = Optional.empty();
@@ -518,10 +535,12 @@ public class RowExpressionPredicatePushDown
                     newJoinFilter.isPresent() == node.getFilter().isPresent() &&
                             (!newJoinFilter.isPresent() || areExpressionsEquivalent(newJoinFilter.get(), node.getFilter().get()));
 
+            PlanNode output = node;
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
                     !filtersEquivalent ||
-                    !ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()))) {
+                    !dynamicFilters.equals(node.getDynamicFilters()) ||
+                    !equiJoinClausesUnmodified) {
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build(), leftLocality);
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build(), rightLocality);
 
@@ -550,7 +569,8 @@ public class RowExpressionPredicatePushDown
                         newJoinFilter,
                         node.getLeftHashVariable(),
                         node.getRightHashVariable(),
-                        distributionType);
+                        distributionType,
+                        dynamicFilters);
             }
 
             if (!postJoinPredicate.equals(TRUE_CONSTANT)) {
@@ -562,6 +582,66 @@ public class RowExpressionPredicatePushDown
             }
 
             return output;
+        }
+
+        private static DynamicFiltersResult createDynamicFilters(
+                JoinNode node,
+                List<JoinNode.EquiJoinClause> equiJoinClauses,
+                Session session,
+                PlanNodeIdAllocator idAllocator,
+                FunctionManager functionManager)
+        {
+            Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
+            List<RowExpression> predicates = ImmutableList.of();
+            if (node.getType() == INNER && isEnableDynamicFiltering(session)) {
+                // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
+                // Since we use PredicatePushdown to push dynamic filters themselves,
+                // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
+                // Even if equiJoinClauses.equals(node.getCriteria), current dynamic filters may not match equiJoinClauses
+                ImmutableMap.Builder<String, VariableReferenceExpression> dynamicFiltersBuilder = ImmutableMap.builder();
+                ImmutableList.Builder<RowExpression> predicatesBuilder = ImmutableList.builder();
+                for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
+                    VariableReferenceExpression probeSymbol = clause.getLeft();
+                    VariableReferenceExpression buildSymbol = clause.getRight();
+                    String id = idAllocator.getNextId().toString();
+                    predicatesBuilder.add(createDynamicFilterExpression(id, probeSymbol, functionManager));
+                    dynamicFiltersBuilder.put(id, buildSymbol);
+                }
+                dynamicFilters = dynamicFiltersBuilder.build();
+                predicates = predicatesBuilder.build();
+            }
+            return new DynamicFiltersResult(dynamicFilters, predicates);
+        }
+
+        private static RowExpression createDynamicFilterExpression(String id, VariableReferenceExpression input, FunctionManager functionManager)
+        {
+            return call(
+                    functionManager,
+                    DynamicFilters.DynamicFilterPlaceholderFunction.NAME,
+                    BooleanType.BOOLEAN,
+                    ImmutableList.of(new ConstantExpression(Slices.utf8Slice(id), VarcharType.VARCHAR), input));
+        }
+
+        private static class DynamicFiltersResult
+        {
+            private final Map<String, VariableReferenceExpression> dynamicFilters;
+            private final List<RowExpression> predicates;
+
+            public DynamicFiltersResult(Map<String, VariableReferenceExpression> dynamicFilters, List<RowExpression> predicates)
+            {
+                this.dynamicFilters = dynamicFilters;
+                this.predicates = predicates;
+            }
+
+            public Map<String, VariableReferenceExpression> getDynamicFilters()
+            {
+                return dynamicFilters;
+            }
+
+            public List<RowExpression> getPredicates()
+            {
+                return predicates;
+            }
         }
 
         private static RowExpression getLeft(RowExpression expression)
@@ -960,11 +1040,32 @@ public class RowExpressionPredicatePushDown
                     return node;
                 }
                 if (canConvertToLeftJoin && canConvertToRightJoin) {
-                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+                    return new JoinNode(
+                            node.getId(),
+                            INNER,
+                            node.getLeft(),
+                            node.getRight(),
+                            node.getCriteria(),
+                            node.getOutputVariables(),
+                            node.getFilter(),
+                            node.getLeftHashVariable(),
+                            node.getRightHashVariable(),
+                            node.getDistributionType(),
+                            node.getDynamicFilters());
                 }
                 else {
-                    return new JoinNode(node.getId(), canConvertToLeftJoin ? LEFT : RIGHT,
-                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+                    return new JoinNode(
+                            node.getId(),
+                            canConvertToLeftJoin ? LEFT : RIGHT,
+                            node.getLeft(),
+                            node.getRight(),
+                            node.getCriteria(),
+                            node.getOutputVariables(),
+                            node.getFilter(),
+                            node.getLeftHashVariable(),
+                            node.getRightHashVariable(),
+                            node.getDistributionType(),
+                            node.getDynamicFilters());
                 }
             }
 
@@ -972,7 +1073,18 @@ public class RowExpressionPredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputVariables(), inheritedPredicate)) {
                 return node;
             }
-            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+            return new JoinNode(
+                    node.getId(),
+                    JoinNode.Type.INNER,
+                    node.getLeft(),
+                    node.getRight(),
+                    node.getCriteria(),
+                    node.getOutputVariables(),
+                    node.getFilter(),
+                    node.getLeftHashVariable(),
+                    node.getRightHashVariable(),
+                    node.getDistributionType(),
+                    node.getDynamicFilters());
         }
 
         private boolean canConvertOuterToInner(List<VariableReferenceExpression> innerVariablesForOuterJoin, RowExpression inheritedPredicate)

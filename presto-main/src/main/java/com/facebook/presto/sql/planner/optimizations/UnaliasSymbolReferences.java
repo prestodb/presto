@@ -544,7 +544,8 @@ public class UnaliasSymbolReferences
                     canonicalFilter,
                     canonicalLeftHashVariable,
                     canonicalRightHashVariable,
-                    node.getDistributionType());
+                    node.getDistributionType(),
+                    node.getDynamicFilters());
         }
 
         @Override
@@ -757,6 +758,19 @@ public class UnaliasSymbolReferences
                 VariableReferenceExpression canonical = canonicalize(variable);
                 if (added.add(canonical)) {
                     builder.add(canonical);
+                }
+            }
+            return builder.build();
+        }
+
+        private Map<String, Symbol> canonicalizeAndDistinct(Map<String, Symbol> dynamicFilters)
+        {
+            Set<Symbol> added = new HashSet<>();
+            ImmutableMap.Builder<String, Symbol> builder = ImmutableMap.builder();
+            for (Map.Entry<String, Symbol> entry : dynamicFilters.entrySet()) {
+                Symbol canonical = canonicalize(entry.getValue());
+                if (added.add(canonical)) {
+                    builder.put(entry.getKey(), canonical);
                 }
             }
             return builder.build();
