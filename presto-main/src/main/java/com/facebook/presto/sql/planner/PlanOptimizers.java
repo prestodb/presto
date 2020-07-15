@@ -410,20 +410,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
-                new MetadataQueryOptimizer(metadata),
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new EliminateCrossJoins())), // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
-                predicatePushDown,
-                simplifyOptimizer, // Should be always run after PredicatePushDown
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        new PickTableLayout(metadata, sqlParser).rules()));
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -433,6 +420,24 @@ public class PlanOptimizers
                 costCalculator,
                 new TranslateExpressions(metadata, sqlParser).rules()));
         // After this point, all planNodes should not contain OriginalExpression
+
+        builder.add(new MetadataQueryOptimizer(metadata));
+
+        // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+        builder.add(
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new EliminateCrossJoins())),
+                rowExpressionPredicatePushDown,
+                simplifyRowExpressionOptimizer); // Should always run simplifyOptimizer after rowExpressionPredicatePushDown
+
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                new PickTableLayout(metadata, sqlParser).rules()));
 
         // PlanRemoteProjections only handles RowExpression so this need to run after TranslateExpressions
         // Rules applied after this need to handle locality of ProjectNode properly.
