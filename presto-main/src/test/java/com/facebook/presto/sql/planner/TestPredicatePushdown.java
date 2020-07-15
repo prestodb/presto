@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.assignUniqueId;
@@ -54,6 +55,11 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 public class TestPredicatePushdown
         extends BasePlanTest
 {
+    TestPredicatePushdown()
+    {
+        super(ImmutableMap.of(ENABLE_DYNAMIC_FILTERING, "true"));
+    }
+
     @Test
     public void testNonStraddlingJoinExpression()
     {
