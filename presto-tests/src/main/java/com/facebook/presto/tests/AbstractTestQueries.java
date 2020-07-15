@@ -8512,6 +8512,40 @@ public abstract class AbstractTestQueries
                 "ON t1.orderkey=t2.orderkey");
     }
 
+    @Test
+    public void testSetUnion()
+    {
+        // sanity
+        assertQuery(
+                "select set_union(x) from (values array[1, 2], array[3, 4], array[5, 6]) as t(x)",
+                "select array[1, 2, 3, 4, 5, 6]");
+        assertQuery(
+                "select set_union(x) from (values array[1, 2, 3], array[2, 3, 4], array[7, 8]) as t(x)",
+                "select array[1, 2, 3, 4, 7, 8]");
+        assertQuery(
+                "select group_id, set_union(numbers) from (values (1, array[1, 2]), (1, array[2, 3]), (2, array[4, 5]), (2, array[5, 6])) as t(group_id, numbers) group by group_id",
+                "select group_id, numbers from (values (1, array[1, 2, 3]), (2, array[4, 5, 6])) as t(group_id, numbers)");
+        assertQuery(
+                "select group_id, set_union(numbers) from (values (1, array[1, 2]), (2, array[2, 3]), (3, array[4, 5]), (4, array[5, 6])) as t(group_id, numbers) group by group_id",
+                "select group_id, numbers from (values (1, array[1, 2]), (2, array[2, 3]), (3, array[4, 5]), (4, array[5, 6])) as t(group_id, numbers)");
+        // all nulls should return empty array to match behavior of array_distinct(flatten(array_agg(x)))
+        assertQuery(
+                "select set_union(x) from (values null, null, null) as t(x)",
+                "select array[]");
+        // nulls inside arrays should be captured while pure nulls should be ignored
+        assertQuery(
+                "select set_union(x) from (values null, array[null], null) as t(x)",
+                "select array[null]");
+        // null inside arrays should be captured
+        assertQuery(
+                "select set_union(x) from (values array[1, 2, 3], array[null], null) as t(x)",
+                "select array[1, 2, 3, null]");
+        // return null for empty rows
+        assertQuery(
+                "select set_union(x) from (values null, array[null], null) as t(x) where x != null",
+                "select null");
+    }
+
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())
