@@ -18,14 +18,18 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
+import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -46,14 +50,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.sql.planner.RowExpressionInterpreter.evaluateConstantRowExpression;
+import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -67,6 +76,11 @@ public class MetadataQueryOptimizer
             QualifiedFunctionName.of(DEFAULT_NAMESPACE, "max"),
             QualifiedFunctionName.of(DEFAULT_NAMESPACE, "min"),
             QualifiedFunctionName.of(DEFAULT_NAMESPACE, "approx_distinct"));
+
+    // Min/Max could be folded into LEAST/GREATEST
+    private static final Map<QualifiedFunctionName, QualifiedFunctionName> AGGREGATION_SCALAR_MAPPING = ImmutableMap.of(
+            QualifiedFunctionName.of(DEFAULT_NAMESPACE, "max"), QualifiedFunctionName.of(DEFAULT_NAMESPACE, "greatest"),
+            QualifiedFunctionName.of(DEFAULT_NAMESPACE, "min"), QualifiedFunctionName.of(DEFAULT_NAMESPACE, "least"));
 
     private final Metadata metadata;
 
@@ -151,31 +165,121 @@ public class MetadataQueryOptimizer
                 return context.defaultRewrite(node);
             }
 
+            if (isReducible(node)) {
+                // Fold min/max aggregations to a constant value
+                return reduce(node, inputs, columns, context, predicates);
+            }
+
             ImmutableList.Builder<List<RowExpression>> rowsBuilder = ImmutableList.builder();
             for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
-                if (!domain.isNone()) {
-                    Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
-
-                    ImmutableList.Builder<RowExpression> rowBuilder = ImmutableList.builder();
-                    // for each input column, add a literal expression using the entry value
-                    for (VariableReferenceExpression input : inputs) {
-                        ColumnHandle column = columns.get(input);
-                        NullableValue value = entries.get(column);
-                        if (value == null) {
-                            // partition key does not have a single value, so bail out to be safe
-                            return context.defaultRewrite(node);
-                        }
-                        else {
-                            rowBuilder.add(constant(value.getValue(), input.getType()));
-                        }
-                    }
-                    rowsBuilder.add(rowBuilder.build());
+                if (domain.isNone()) {
+                    continue;
                 }
+                Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
+
+                ImmutableList.Builder<RowExpression> rowBuilder = ImmutableList.builder();
+                // for each input column, add a literal expression using the entry value
+                for (VariableReferenceExpression input : inputs) {
+                    ColumnHandle column = columns.get(input);
+                    NullableValue value = entries.get(column);
+                    if (value == null) {
+                        // partition key does not have a single value, so bail out to be safe
+                        return context.defaultRewrite(node);
+                    }
+                    else {
+                        rowBuilder.add(constant(value.getValue(), input.getType()));
+                    }
+                }
+                rowsBuilder.add(rowBuilder.build());
             }
 
             // replace the tablescan node with a values node
-            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), inputs, rowsBuilder.build());
-            return SimplePlanRewriter.rewriteWith(new Replacer(valuesNode), node);
+            return SimplePlanRewriter.rewriteWith(new Replacer(new ValuesNode(idAllocator.getNextId(), inputs, rowsBuilder.build())), node);
+        }
+
+        private boolean isReducible(AggregationNode node)
+        {
+            if (node.getAggregations().isEmpty() || !(node.getSource() instanceof TableScanNode)) {
+                return false;
+            }
+            for (Aggregation aggregation : node.getAggregations().values()) {
+                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle());
+                if (!AGGREGATION_SCALAR_MAPPING.containsKey(functionMetadata.getName()) || functionMetadata.getArgumentTypes().size() > 1) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private PlanNode reduce(
+                AggregationNode node,
+                List<VariableReferenceExpression> inputs,
+                Map<VariableReferenceExpression, ColumnHandle> columns,
+                RewriteContext<Void> context,
+                DiscretePredicates predicates)
+        {
+            // Fold min/max aggregations to a constant value
+            ImmutableList.Builder<RowExpression> scalarsBuilder = ImmutableList.builder();
+            for (int i = 0; i < inputs.size(); i++) {
+                ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
+                ColumnHandle column = columns.get(inputs.get(i));
+                // for each input column, add a literal expression using the entry value
+                for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
+                    if (domain.isNone()) {
+                        continue;
+                    }
+                    Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
+                    NullableValue value = entries.get(column);
+                    if (value == null) {
+                        // partition key does not have a single value, so bail out to be safe
+                        return context.defaultRewrite(node);
+                    }
+                    // min/max ignores null value
+                    else if (value.getValue() != null) {
+                        Type type = inputs.get(i).getType();
+                        arguments.add(constant(value.getValue(), type));
+                    }
+                }
+                scalarsBuilder.add(evaluateMinMax(
+                        metadata.getFunctionManager().getFunctionMetadata(node.getAggregations().get(node.getOutputVariables().get(i)).getFunctionHandle()),
+                        arguments.build()));
+            }
+            List<RowExpression> scalars = scalarsBuilder.build();
+
+            Assignments.Builder assignments = Assignments.builder();
+            for (int i = 0; i < node.getOutputVariables().size(); i++) {
+                assignments.put(node.getOutputVariables().get(i), scalars.get(i));
+            }
+            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), inputs, ImmutableList.of(scalars));
+            return new ProjectNode(idAllocator.getNextId(), valuesNode, assignments.build());
+        }
+
+        private RowExpression evaluateMinMax(FunctionMetadata aggregationFunctionMetadata, List<RowExpression> arguments)
+        {
+            Type returnType = metadata.getTypeManager().getType(aggregationFunctionMetadata.getReturnType());
+            if (arguments.isEmpty()) {
+                return constant(null, returnType);
+            }
+
+            String scalarFunctionName = AGGREGATION_SCALAR_MAPPING.get(aggregationFunctionMetadata.getName()).getFunctionName();
+            ConnectorSession connectorSession = session.toConnectorSession();
+            while (arguments.size() > 1) {
+                List<RowExpression> reducedArguments = new ArrayList<>();
+                // We fold for every 100 values because GREATEST/LEAST has argument count limit
+                for (List<RowExpression> partitionedArguments : Lists.partition(arguments, 100)) {
+                    Object reducedValue = evaluateConstantRowExpression(
+                            call(
+                                    metadata.getFunctionManager(),
+                                    scalarFunctionName,
+                                    returnType,
+                                    partitionedArguments),
+                            metadata,
+                            connectorSession);
+                    reducedArguments.add(constant(reducedValue, returnType));
+                }
+                arguments = reducedArguments;
+            }
+            return getOnlyElement(arguments);
         }
 
         private static Optional<TableScanNode> findTableScan(PlanNode source, RowExpressionDeterminismEvaluator determinismEvaluator)
