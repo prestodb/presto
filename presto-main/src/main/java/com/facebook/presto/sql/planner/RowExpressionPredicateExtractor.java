@@ -31,6 +31,7 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -154,6 +155,15 @@ public class RowExpressionPredicateExtractor
                 }
                 return mappings.entrySet();
             });
+        }
+
+        @Override
+        public RowExpression visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
+        {
+            if (node.getSource() instanceof ProjectNode) {
+                return node.getSource().accept(this, context);
+            }
+            return TRUE_CONSTANT;
         }
 
         @Override
