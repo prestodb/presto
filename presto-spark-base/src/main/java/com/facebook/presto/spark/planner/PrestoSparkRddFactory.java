@@ -48,6 +48,7 @@ import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -73,13 +74,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSplitsDataSizePerSparkPartition;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkInitialPartitionCount;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isSparkPartitionCountAutoTuneEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -379,14 +383,85 @@ public class PrestoSparkRddFactory
         return assignPartitionedSplits(session, partitioning, splits);
     }
 
-    private static SetMultimap<Integer, ScheduledSplit> assignSourceDistributionSplits(Session session, List<ScheduledSplit> splits)
+    @VisibleForTesting
+    public static SetMultimap<Integer, ScheduledSplit> assignSourceDistributionSplits(Session session, List<ScheduledSplit> splits)
     {
-        int taskCount = getSparkInitialPartitionCount(session);
-        checkArgument(taskCount > 0, "taskCount must be greater then zero: %s", taskCount);
         ImmutableSetMultimap.Builder<Integer, ScheduledSplit> result = ImmutableSetMultimap.builder();
-        for (int splitIndex = 0; splitIndex < splits.size(); splitIndex++) {
-            result.put(splitIndex % taskCount, splits.get(splitIndex));
+
+        long maxSplitsSizeInBytesPerPartition = getMaxSplitsDataSizePerSparkPartition(session).toBytes();
+        checkArgument(maxSplitsSizeInBytesPerPartition > 0,
+                "maxSplitsSizeInBytesPerPartition must be greater than zero: %s", maxSplitsSizeInBytesPerPartition);
+        int initialPartitionCount = getSparkInitialPartitionCount(session);
+        checkArgument(initialPartitionCount > 0,
+                "initialPartitionCount must be greater then zero: %s", initialPartitionCount);
+
+        boolean splitsDataSizeAvailable = splits.stream()
+                .allMatch(split -> split.getSplit().getConnectorSplit().getSplitSizeInBytes().isPresent());
+        if (!splitsDataSizeAvailable) {
+            for (int splitIndex = 0; splitIndex < splits.size(); splitIndex++) {
+                result.put(splitIndex % initialPartitionCount, splits.get(splitIndex));
+            }
+            return result.build();
         }
+
+        splits.sort((ScheduledSplit o1, ScheduledSplit o2) -> {
+            long size1 = o1.getSplit().getConnectorSplit().getSplitSizeInBytes().getAsLong();
+            long size2 = o2.getSplit().getConnectorSplit().getSplitSizeInBytes().getAsLong();
+            return size1 == size2 ? 0 : size1 > size2 ? -1 : 1;
+        });
+
+        PriorityQueue<SparkPartition> queue = new PriorityQueue();
+        int partitionCount = 0;
+        boolean autoTunePartitionCount = isSparkPartitionCountAutoTuneEnabled(session);
+        if (autoTunePartitionCount) {
+            for (int splitIndex = 0; splitIndex < splits.size(); splitIndex++) {
+                int partitionId;
+                long splitSizeInBytes = splits.get(splitIndex).getSplit().getConnectorSplit().getSplitSizeInBytes().getAsLong();
+
+                if (!queue.isEmpty() &&
+                        queue.peek().getSplitsInBytes() + splitSizeInBytes <= maxSplitsSizeInBytesPerPartition) {
+                    SparkPartition partition = queue.poll();
+                    partitionId = partition.getPartitionId();
+                    partition.assignSplitWithSize(splitSizeInBytes);
+                    if (partition.getSplitsInBytes() < maxSplitsSizeInBytesPerPartition) {
+                        queue.add(partition);
+                    }
+                }
+                else {
+                    partitionId = partitionCount++;
+                    if (splitSizeInBytes < maxSplitsSizeInBytesPerPartition) {
+                        SparkPartition newPartition = new SparkPartition(partitionId);
+                        newPartition.assignSplitWithSize(splitSizeInBytes);
+                        queue.add(newPartition);
+                    }
+                }
+
+                result.put(partitionId, splits.get(splitIndex));
+            }
+        }
+        else {
+            // partition count is fixed
+            for (int splitIndex = 0; splitIndex < splits.size(); splitIndex++) {
+                int partitionId;
+                long splitSizeInBytes = splits.get(splitIndex).getSplit().getConnectorSplit().getSplitSizeInBytes().getAsLong();
+
+                if (partitionCount < initialPartitionCount) {
+                    partitionId = partitionCount++;
+                    SparkPartition newPartition = new SparkPartition(partitionId);
+                    newPartition.assignSplitWithSize(splitSizeInBytes);
+                    queue.add(newPartition);
+                }
+                else {
+                    SparkPartition partition = queue.poll();
+                    partitionId = partition.getPartitionId();
+                    partition.assignSplitWithSize(splitSizeInBytes);
+                    queue.add(partition);
+                }
+
+                result.put(partitionId, splits.get(splitIndex));
+            }
+        }
+
         return result.build();
     }
 
@@ -475,5 +550,40 @@ public class PrestoSparkRddFactory
     private static <T> ClassTag<T> classTag(Class<T> clazz)
     {
         return scala.reflect.ClassTag$.MODULE$.apply(clazz);
+    }
+
+    private static class SparkPartition
+            implements Comparable<SparkPartition>
+    {
+        private final int partitionId;
+        private long splitsInBytes;
+
+        public SparkPartition(int partitionId)
+        {
+            this.partitionId = partitionId;
+        }
+
+        @Override
+        public int compareTo(SparkPartition o)
+        {
+            return splitsInBytes == o.splitsInBytes ?
+                    0 :
+                    splitsInBytes < o.splitsInBytes ? -1 : 1;
+        }
+
+        public int getPartitionId()
+        {
+            return partitionId;
+        }
+
+        public void assignSplitWithSize(long splitSizeInBytes)
+        {
+            splitsInBytes += splitSizeInBytes;
+        }
+
+        public long getSplitsInBytes()
+        {
+            return splitsInBytes;
+        }
     }
 }
