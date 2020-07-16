@@ -764,19 +764,7 @@ public class LocalQueryRunner
             System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), plan.getStatsAndCosts(), session, 0, false));
         }
 
-        SubPlan subplan = planFragmenter.createSubPlans(
-                session,
-                plan,
-                true,
-                new PlanNodeIdAllocator()
-                {
-                    @Override
-                    public PlanNodeId getNextId()
-                    {
-                        throw new UnsupportedOperationException();
-                    }
-                },
-                WarningCollector.NOOP);
+        SubPlan subplan = createSubPlans(session, plan, true);
         if (!subplan.getChildren().isEmpty()) {
             throw new AssertionError("Expected subplan to have no children");
         }
@@ -900,6 +888,23 @@ public class LocalQueryRunner
             return GROUPED_SCHEDULING;
         }
         return UNGROUPED_SCHEDULING;
+    }
+
+    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
+    {
+        return planFragmenter.createSubPlans(
+                session,
+                plan,
+                forceSingleNode,
+                new PlanNodeIdAllocator()
+                {
+                    @Override
+                    public PlanNodeId getNextId()
+                    {
+                        throw new UnsupportedOperationException();
+                    }
+                },
+                WarningCollector.NOOP);
     }
 
     @Override
