@@ -30,6 +30,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Joiner;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -83,10 +84,12 @@ public class DynamicFilterMatcher
                 metadata.getFunctionManager());
         boolean staticFilterMatches = expectedStaticFilter.map(filter -> {
             RowExpressionVerifier verifier = new RowExpressionVerifier(symbolAliases, metadata, session);
-            RowExpression staticFilter = logicalRowExpressions.combineConjuncts(extractDynamicFilters(filterNode.getPredicate()).getStaticConjuncts());
+            List<RowExpression> conjuncts = extractDynamicFilters(filterNode.getPredicate()).getStaticConjuncts();
+            RowExpression staticFilter = logicalRowExpressions.combineConjuncts();
 
-            // TODO: figure out translation
             // return verifier.process(staticFilter, filter);
+
+            // TODO: fix this
             return true;
         }).orElse(true);
 
@@ -115,7 +118,7 @@ public class DynamicFilterMatcher
             return false;
         }
 
-        Map<VariableReferenceExpression, VariableReferenceExpression> actual = new HashMap<>();
+        Map<Symbol, Symbol> actual = new HashMap<>();
         for (Map.Entry<String, VariableReferenceExpression> idToProbeSymbol : idToProbeSymbolMap.entrySet()) {
             String id = idToProbeSymbol.getKey();
             VariableReferenceExpression probe = idToProbeSymbol.getValue();
@@ -123,7 +126,7 @@ public class DynamicFilterMatcher
             if (build == null) {
                 return false;
             }
-            actual.put(probe, build);
+            actual.put(new Symbol(probe.getName()), new Symbol(build.getName()));
         }
 
         Map<Symbol, Symbol> expected = expectedDynamicFilters.entrySet().stream()

@@ -465,11 +465,15 @@ public class TestPredicatePushdown
                                         ImmutableList.of(),
                                         Optional.empty(),
                                         Optional.of(REPLICATED),
-                                        project(
-                                                filter("a1=1",
-                                                        values("a1"))),
-                                        project(
-                                                filter("1=b1",
-                                                        values("b1"))))));
+                                        anyTree(
+                                                project(
+                                                        filter(
+                                                                "a1=1",
+                                                                values("a1")))),
+                                        anyTree(
+                                                project(
+                                                        filter(
+                                                                "1=b1",
+                                                                values("b1")))))));
     }
 }
