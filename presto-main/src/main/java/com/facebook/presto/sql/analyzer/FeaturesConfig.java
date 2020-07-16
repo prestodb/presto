@@ -134,6 +134,8 @@ public class FeaturesConfig
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private boolean enableDynamicFiltering;
+    private int dynamicFilteringMaxPerDriverRowCount = 100;
+    private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
 
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -946,6 +948,31 @@ public class FeaturesConfig
     public FeaturesConfig setEnableDynamicFiltering(boolean value)
     {
         this.enableDynamicFiltering = value;
+        return this;
+    }
+
+    public int getDynamicFilteringMaxPerDriverRowCount()
+    {
+        return dynamicFilteringMaxPerDriverRowCount;
+    }
+
+    @Config("experimental.dynamic-filtering-max-per-driver-row-count")
+    public FeaturesConfig setDynamicFilteringMaxPerDriverRowCount(int dynamicFilteringMaxPerDriverRowCount)
+    {
+        this.dynamicFilteringMaxPerDriverRowCount = dynamicFilteringMaxPerDriverRowCount;
+        return this;
+    }
+
+    @MaxDataSize("1MB")
+    public DataSize getDynamicFilteringMaxPerDriverSize()
+    {
+        return dynamicFilteringMaxPerDriverSize;
+    }
+
+    @Config("experimental.dynamic-filtering-max-per-driver-size")
+    public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
+    {
+        this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
         return this;
     }
 

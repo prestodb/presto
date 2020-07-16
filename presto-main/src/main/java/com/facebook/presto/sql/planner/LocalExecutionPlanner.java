@@ -23,6 +23,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
@@ -49,6 +50,7 @@ import com.facebook.presto.operator.AssignUniqueIdOperator;
 import com.facebook.presto.operator.DeleteOperator.DeleteOperatorFactory;
 import com.facebook.presto.operator.DevNullOperator.DevNullOperatorFactory;
 import com.facebook.presto.operator.DriverFactory;
+import com.facebook.presto.operator.DynamicFilterSourceOperator;
 import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator;
@@ -228,13 +230,17 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
+import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
+import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
@@ -601,6 +607,10 @@ public class LocalExecutionPlanner
         private final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
+        // the collector is shared with all subContexts to allow local dynamic filtering
+        // with multiple table scans (e.g. co-located joins).
+        private final LocalDynamicFiltersCollector dynamicFiltersCollector;
+
         // this is shared with all subContexts
         private final AtomicInteger nextPipelineId;
         private final TableWriteInfo tableWriteInfo;
@@ -611,19 +621,21 @@ public class LocalExecutionPlanner
 
         public LocalExecutionPlanContext(TaskContext taskContext, TableWriteInfo tableWriteInfo)
         {
-            this(taskContext, new ArrayList<>(), Optional.empty(), new AtomicInteger(0), tableWriteInfo);
+            this(taskContext, new ArrayList<>(), Optional.empty(), new LocalDynamicFiltersCollector(), new AtomicInteger(0), tableWriteInfo);
         }
 
         private LocalExecutionPlanContext(
                 TaskContext taskContext,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
+                LocalDynamicFiltersCollector dynamicFiltersCollector,
                 AtomicInteger nextPipelineId,
                 TableWriteInfo tableWriteInfo)
         {
             this.taskContext = taskContext;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
+            this.dynamicFiltersCollector = dynamicFiltersCollector;
             this.nextPipelineId = nextPipelineId;
             this.tableWriteInfo = tableWriteInfo;
         }
@@ -662,6 +674,11 @@ public class LocalExecutionPlanner
             return indexSourceContext;
         }
 
+        public LocalDynamicFiltersCollector getDynamicFiltersCollector()
+        {
+            return dynamicFiltersCollector;
+        }
+
         private int getNextPipelineId()
         {
             return nextPipelineId.getAndIncrement();
@@ -690,12 +707,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, nextPipelineId, tableWriteInfo);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, dynamicFiltersCollector, nextPipelineId, tableWriteInfo);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), nextPipelineId, tableWriteInfo);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), dynamicFiltersCollector, nextPipelineId, tableWriteInfo);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -1298,8 +1315,11 @@ public class LocalExecutionPlanner
 
             // TODO: Execution must be plugged in here
             Optional<List<DynamicFilterPlaceholder>> dynamicFilters = extractDynamicFilterResult.map(DynamicFilterExtractResult::getDynamicConjuncts);
-            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
-                // translate filter function
+            Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier = Optional.empty();
+            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty() && sourceNode instanceof TableScanNode) {
+                TableScanNode tableScanNode = (TableScanNode) sourceNode;
+                LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
+                dynamicFilterSupplier = Optional.of(() -> collector.get(tableScanNode));
             }
 
             // compiler uses inputs instead of variables, so rewrite the expressions first
@@ -1322,7 +1342,7 @@ public class LocalExecutionPlanner
                             pageProcessor,
                             table,
                             columns,
-                            projections.stream().map(RowExpression::getType).collect(toImmutableList()),
+                            projections.stream().map(RowExpression::getType).collect(toImmutableList()), dynamicFilterSupplier,
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
@@ -2145,10 +2165,17 @@ public class LocalExecutionPlanner
                             buildChannels.stream()
                                     .map(buildSource.getTypes()::get)
                                     .collect(toImmutableList()),
-                            buildContext.getDriverInstanceCount().orElse(1),
+                            partitionCount,
                             buildSource.getLayout(),
                             buildOuter),
                     buildOutputTypes);
+
+            ImmutableList.Builder<OperatorFactory> factoriesBuilder = new ImmutableList.Builder<>();
+            factoriesBuilder.addAll(buildSource.getOperatorFactories());
+
+            createDynamicFilter(node, context, partitionCount).ifPresent(
+                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node, buildSource, buildContext)));
+
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
@@ -2165,17 +2192,58 @@ public class LocalExecutionPlanner
                     singleStreamSpillerFactory,
                     isBroadcastJoin);
 
+            factoriesBuilder.add(hashBuilderOperatorFactory);
+
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(hashBuilderOperatorFactory)
-                            .build(),
+                    factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
             return lookupSourceFactoryManager;
+        }
+
+        private DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory createDynamicFilterSourceOperatorFactory(
+                LocalDynamicFilter dynamicFilter,
+                JoinNode node,
+                PhysicalOperation buildSource,
+                LocalExecutionPlanContext context)
+        {
+            List<DynamicFilterSourceOperator.Channel> filterBuildChannels = dynamicFilter.getBuildChannels().entrySet().stream()
+                    .map(entry -> {
+                        String filterId = entry.getKey();
+                        int index = entry.getValue();
+                        Type type = buildSource.getTypes().get(index);
+                        return new DynamicFilterSourceOperator.Channel(filterId, type, index);
+                    })
+                    .collect(Collectors.toList());
+            return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    dynamicFilter.getTupleDomainConsumer(),
+                    filterBuildChannels,
+                    getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
+                    getDynamicFilteringMaxPerDriverSize(context.getSession()));
+        }
+
+        private Optional<LocalDynamicFilter> createDynamicFilter(JoinNode node, LocalExecutionPlanContext context, int partitionCount)
+        {
+            if (!isEnableDynamicFiltering(context.getSession())) {
+                return Optional.empty();
+            }
+            if (node.getDynamicFilters().isEmpty()) {
+                return Optional.empty();
+            }
+            LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
+            return LocalDynamicFilter
+                    .create(node, partitionCount)
+                    .map(filter -> {
+                        // Intersect dynamic filters' predicates when they become ready,
+                        // in order to support multiple join nodes in the same plan fragment.
+                        addSuccessCallback(filter.getResultFuture(), collector::intersect);
+                        return filter;
+                    });
         }
 
         private JoinFilterFunctionFactory compileJoinFilterFunction(
