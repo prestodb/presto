@@ -73,6 +73,7 @@ public class NodeScheduler
     private final boolean includeCoordinator;
     private final int maxSplitsPerNode;
     private final int maxPendingSplitsPerTask;
+    private final NodeSelectionHashFunction nodeSelectionHashFunction;
     private final NodeTaskMap nodeTaskMap;
     private final boolean useNetworkTopology;
     private final Duration nodeMapRefreshInterval;
@@ -102,6 +103,7 @@ public class NodeScheduler
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
         this.useNetworkTopology = !config.getNetworkTopology().equals(NetworkTopologyType.LEGACY);
+        this.nodeSelectionHashFunction = config.getNodeSelectionHashFunction();
 
         ImmutableList.Builder<CounterStat> builder = ImmutableList.builder();
         if (useNetworkTopology) {
@@ -156,10 +158,21 @@ public class NodeScheduler
                     maxPendingSplitsPerTask,
                     topologicalSplitCounters,
                     networkLocationSegmentNames,
-                    networkLocationCache);
+                    networkLocationCache,
+                    nodeSelectionHashFunction);
         }
         else {
-            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxTasksPerStage);
+            return new SimpleNodeSelector(
+                    nodeManager,
+                    nodeSelectionStats,
+                    nodeTaskMap,
+                    includeCoordinator,
+                    nodeMap,
+                    minCandidates,
+                    maxSplitsPerNode,
+                    maxPendingSplitsPerTask,
+                    maxTasksPerStage,
+                    nodeSelectionHashFunction);
         }
     }
 

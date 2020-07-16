@@ -21,6 +21,8 @@ import org.testng.annotations.Test;
 import java.util.Map;
 
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.facebook.presto.execution.scheduler.NodeSelectionHashFunction.CONSISTENT_HASHING;
+import static com.facebook.presto.execution.scheduler.NodeSelectionHashFunction.MODULAR;
 
 public class TestNodeSchedulerConfig
 {
@@ -32,6 +34,7 @@ public class TestNodeSchedulerConfig
                 .setMinCandidates(10)
                 .setMaxSplitsPerNode(100)
                 .setMaxPendingSplitsPerTask(10)
+                .setNodeSelectionHashFunction(MODULAR)
                 .setIncludeCoordinator(true));
     }
 
@@ -43,6 +46,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.min-candidates", "11")
                 .put("node-scheduler.include-coordinator", "false")
                 .put("node-scheduler.max-pending-splits-per-task", "11")
+                .put("node-scheduler.node-selection-hash-function", "CONSISTENT_HASHING")
                 .put("node-scheduler.max-splits-per-node", "101")
                 .build();
 
@@ -51,6 +55,7 @@ public class TestNodeSchedulerConfig
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(101)
                 .setMaxPendingSplitsPerTask(11)
+                .setNodeSelectionHashFunction(CONSISTENT_HASHING)
                 .setMinCandidates(11);
 
         ConfigAssertions.assertFullMapping(properties, expected);

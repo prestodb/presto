@@ -14,12 +14,19 @@
 package com.facebook.presto.execution.scheduler.nodeSelection;
 
 import com.facebook.presto.execution.scheduler.NodeMap;
+import com.facebook.presto.execution.scheduler.NodeSelectionHashFunction;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.spi.ConsistentHashingNodeProvider;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.ModularHashingNodeProvider;
+import com.facebook.presto.spi.NodeProvider;
+import com.facebook.presto.spi.PrestoException;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 
 public class NodeSelectionUtils
@@ -31,5 +38,18 @@ public class NodeSelectionUtils
         return nodeMap.getNodesByHostAndPort().values().stream()
                 .sorted(comparing(InternalNode::getNodeIdentifier)).map(InternalNode::getHostAndPort)
                 .collect(toImmutableList());
+    }
+
+    static NodeProvider getNodeProvider(NodeSelectionHashFunction nodeSelectionHashFunction, NodeMap nodeMap)
+    {
+        switch (nodeSelectionHashFunction) {
+            case MODULAR:
+                // todo identify if sorting will cause bottleneck
+                return new ModularHashingNodeProvider<>(sortedNodes(nodeMap));
+            case CONSISTENT_HASHING:
+                return new ConsistentHashingNodeProvider<>(nodeMap.getHostAndAddress());
+            default:
+                throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection hash function %s", nodeSelectionHashFunction.name()));
+        }
     }
 }

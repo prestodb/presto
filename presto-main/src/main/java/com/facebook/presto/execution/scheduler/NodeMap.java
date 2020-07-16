@@ -67,4 +67,9 @@ public class NodeMap
     {
         return coordinatorNodeIds;
     }
+
+    public Set<HostAddress> getHostAndAddress()
+    {
+        return nodesByHostAndPort.keySet();
+    }
 }

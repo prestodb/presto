@@ -20,6 +20,8 @@ import com.facebook.airlift.configuration.LegacyConfig;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
+import static com.facebook.presto.execution.scheduler.NodeSelectionHashFunction.MODULAR;
+
 @DefunctConfig({"node-scheduler.location-aware-scheduling-enabled", "node-scheduler.multiple-tasks-per-node-enabled"})
 public class NodeSchedulerConfig
 {
@@ -34,6 +36,7 @@ public class NodeSchedulerConfig
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
     private int maxPendingSplitsPerTask = 10;
+    private NodeSelectionHashFunction nodeSelectionHashFunction = MODULAR;
     private String networkTopology = NetworkTopologyType.LEGACY;
 
     @NotNull
@@ -96,6 +99,18 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
     {
         this.maxSplitsPerNode = maxSplitsPerNode;
+        return this;
+    }
+
+    public NodeSelectionHashFunction getNodeSelectionHashFunction()
+    {
+        return nodeSelectionHashFunction;
+    }
+
+    @Config("node-scheduler.node-selection-hash-function")
+    public NodeSchedulerConfig setNodeSelectionHashFunction(NodeSelectionHashFunction nodeSelectionHashFunction)
+    {
+        this.nodeSelectionHashFunction = nodeSelectionHashFunction;
         return this;
     }
 }
