@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
@@ -280,6 +281,12 @@ public class HiveSplit
                 .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .put("cacheQuotaRequirement", cacheQuotaRequirement)
                 .build();
+    }
+
+    @Override
+    public OptionalLong getSplitSizeInBytes()
+    {
+        return OptionalLong.of(getLength());
     }
 
     @Override
