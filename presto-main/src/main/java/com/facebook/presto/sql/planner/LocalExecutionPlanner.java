@@ -1319,7 +1319,10 @@ public class LocalExecutionPlanner
             if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty() && sourceNode instanceof TableScanNode) {
                 TableScanNode tableScanNode = (TableScanNode) sourceNode;
                 LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
-                dynamicFilterSupplier = Optional.of(() -> collector.get(tableScanNode));
+                dynamicFilterSupplier = Optional.of(() -> {
+                    TupleDomain<VariableReferenceExpression> predicate = collector.getPredicate();
+                    return predicate.transform(tableScanNode.getAssignments()::get);
+                });
             }
 
             // compiler uses inputs instead of variables, so rewrite the expressions first

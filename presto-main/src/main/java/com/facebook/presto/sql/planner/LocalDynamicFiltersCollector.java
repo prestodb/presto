@@ -14,11 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-
-import java.util.Map;
 
 public class LocalDynamicFiltersCollector
 {
@@ -28,20 +24,18 @@ public class LocalDynamicFiltersCollector
      */
     private TupleDomain<VariableReferenceExpression> predicate;
 
-    LocalDynamicFiltersCollector()
+    public LocalDynamicFiltersCollector()
     {
         this.predicate = TupleDomain.all();
     }
 
-    synchronized void intersect(TupleDomain<VariableReferenceExpression> predicate)
+    public synchronized TupleDomain<VariableReferenceExpression> getPredicate()
     {
-        this.predicate = this.predicate.intersect(predicate);
+        return predicate;
     }
 
-    synchronized TupleDomain<ColumnHandle> get(TableScanNode tableScan)
+    public synchronized void intersect(TupleDomain<VariableReferenceExpression> predicate)
     {
-        Map<VariableReferenceExpression, ColumnHandle> assignments = tableScan.getAssignments();
-        // Skips symbols irrelevant to this table scan node.
-        return predicate.transform(assignments::get);
+        this.predicate = this.predicate.intersect(predicate);
     }
 }

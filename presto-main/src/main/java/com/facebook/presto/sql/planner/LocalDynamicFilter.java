@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -166,5 +167,16 @@ public class LocalDynamicFilter
     public Consumer<TupleDomain<String>> getTupleDomainConsumer()
     {
         return this::addPartition;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("probeVariables", probeVariables)
+                .add("buildChannels", buildChannels)
+                .add("result", result)
+                .add("partitionsLeft", partitionsLeft)
+                .toString();
     }
 }
