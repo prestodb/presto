@@ -472,6 +472,19 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testScalarSubqueryJoinFilterPushdown()
+    {
+        assertPlan(
+                "SELECT * FROM orders WHERE orderkey = (SELECT 1)",
+                anyTree(
+                        join(INNER, ImmutableList.of(),
+                                filter("orderkey = BIGINT '1'",
+                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))),
+                                anyTree(
+                                        project(ImmutableMap.of("orderkey", expression("1")), any())))));
+    }
+
+    @Test
     public void testSameScalarSubqueryIsAppliedOnlyOnce()
     {
         // three subqueries with two duplicates (coerced to two different types), only two scalar joins should be in plan
@@ -1103,9 +1116,9 @@ public class TestLogicalPlanner
                                 LEFT,
                                 ImmutableList.of(equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
                                 anyTree(
-                                            tableScan(
-                                                    "nation",
-                                                    ImmutableMap.of("NATION_REGIONKEY", "regionkey"))),
+                                        tableScan(
+                                                "nation",
+                                                ImmutableMap.of("NATION_REGIONKEY", "regionkey"))),
                                 anyTree(
                                         filter("region_REGIONKEY IS NOT NULL",
                                                 tableScan(
@@ -1128,6 +1141,6 @@ public class TestLogicalPlanner
                                         tableScan(
                                                 "region",
                                                 ImmutableMap.of(
-                                                "REGION_REGIONKEY", "regionkey"))))));
+                                                        "REGION_REGIONKEY", "regionkey"))))));
     }
 }

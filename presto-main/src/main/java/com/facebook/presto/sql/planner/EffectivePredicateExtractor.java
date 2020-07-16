@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -158,6 +159,15 @@ public class EffectivePredicateExtractor
                 }
                 return mappings.entrySet();
             });
+        }
+
+        @Override
+        public Expression visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
+        {
+            if (node.getSource() instanceof ProjectNode) {
+                return node.getSource().accept(this, context);
+            }
+            return TRUE_LITERAL;
         }
 
         @Override
