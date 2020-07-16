@@ -2320,7 +2320,7 @@ public abstract class AbstractTestQueries
                         condition.of("true IN (SELECT x = y)")));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testJoinWithMultipleScalarSubqueryClauses()
     {
         QueryTemplate.Parameter type = parameter("type").of("");
