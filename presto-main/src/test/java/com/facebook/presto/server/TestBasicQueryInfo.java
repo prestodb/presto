@@ -128,6 +128,7 @@ public class TestBasicQueryInfo
                         false,
                         Optional.empty(),
                         Optional.of(QueryType.INSERT),
+                        Optional.empty(),
                         Optional.empty()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");

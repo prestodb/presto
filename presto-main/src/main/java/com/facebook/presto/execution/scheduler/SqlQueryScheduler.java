@@ -55,6 +55,7 @@ import io.airlift.units.Duration;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -130,6 +131,7 @@ public class SqlQueryScheduler
     private final WarningCollector warningCollector;
     private final PlanNodeIdAllocator idAllocator;
     private final PlanVariableAllocator variableAllocator;
+    private final Set<StageId> runtimeOptimizedStages = Collections.synchronizedSet(new HashSet<>());
 
     private final StreamingPlanSection sectionedPlan;
     private final boolean summarizeTaskInfo;
@@ -433,6 +435,8 @@ public class SqlQueryScheduler
         if (oldToNewFragment.isEmpty()) {
             return section;
         }
+
+        oldToNewFragment.forEach((oldFragment, newFragment) -> runtimeOptimizedStages.add(getStageId(oldFragment.getId())));
 
         // Update SubPlan so that getStageInfo will reflect the latest optimized plan when query is finished.
         updatePlan(oldToNewFragment);
@@ -758,7 +762,8 @@ public class SqlQueryScheduler
                 previousAttemptInfos,
                 subPlan.getChildren().stream()
                         .map(plan -> buildStageInfo(plan, stageExecutions))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                runtimeOptimizedStages.contains(stageId));
     }
 
     private ListMultimap<StageId, SqlStageExecution> getStageExecutions()
