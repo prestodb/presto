@@ -17,7 +17,7 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -31,7 +31,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
-import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -186,20 +185,10 @@ public class HiveSplit
     }
 
     @Override
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(NodeProvider<HostAddress> nodeProvider)
     {
-        if (sortedCandidates == null || sortedCandidates.isEmpty()) {
-            throw new PrestoException(NO_NODES_AVAILABLE, "sortedCandidates is null or empty for HiveSplit");
-        }
-
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            // Use + 1 as secondary hash for now, would always get a different position from the first hash.
-            int size = sortedCandidates.size();
-            int mod = path.hashCode() % size;
-            int position = mod < 0 ? mod + size : mod;
-            return ImmutableList.of(
-                    sortedCandidates.get(position),
-                    sortedCandidates.get((position + 1) % size));
+            return nodeProvider.get(path, 2);
         }
         return addresses;
     }

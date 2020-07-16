@@ -37,9 +37,6 @@ public class ModularHashingNodeProvider<T>
      * Use key's hashcode to mode node candidates size as the target position and get the corresponding node from the list
      * If target count is larger than one, sequentially get the rest of the nodes following the target node
      *
-     * @param key
-     * @param count
-     * @return Optional<List < T>>
      */
     @Override
     public List<T> get(Object key, int count)

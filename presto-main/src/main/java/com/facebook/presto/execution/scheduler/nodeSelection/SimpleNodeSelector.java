@@ -25,6 +25,8 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.ModularHashingNodeProvider;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
 import com.google.common.base.Function;
@@ -130,16 +132,18 @@ public class SimpleNodeSelector
 
         // todo identify if sorting will cause bottleneck
         List<HostAddress> sortedCandidates = sortedNodes(nodeMap);
+        NodeProvider<HostAddress> nodeProvider = new ModularHashingNodeProvider<>(sortedCandidates);
+
         OptionalInt preferredNodeCount = OptionalInt.empty();
         for (Split split : splits) {
             List<InternalNode> candidateNodes;
             switch (split.getNodeSelectionStrategy()) {
                 case HARD_AFFINITY:
-                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     break;
                 case SOFT_AFFINITY:
-                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
+                    candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     candidateNodes = ImmutableList.<InternalNode>builder().addAll(candidateNodes).addAll(randomNodeSelection.pickNodes(split)).build();
                     break;

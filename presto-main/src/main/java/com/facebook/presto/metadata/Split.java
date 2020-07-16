@@ -17,6 +17,7 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
@@ -94,9 +95,9 @@ public final class Split
         return connectorSplit.getInfo();
     }
 
-    public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+    public List<HostAddress> getPreferredNodes(NodeProvider<HostAddress> nodeProvider)
     {
-        return connectorSplit.getPreferredNodes(sortedCandidates);
+        return connectorSplit.getPreferredNodes(nodeProvider);
     }
 
     public NodeSelectionStrategy getNodeSelectionStrategy()

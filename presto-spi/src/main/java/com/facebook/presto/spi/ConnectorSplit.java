@@ -34,8 +34,9 @@ public interface ConnectorSplit
      * 2. Otherwise, the scheduler will prioritize the provided nodes if the strategy is SOFT_AFFINITY.
      * But there is no guarantee that the scheduler will pick them if the provided nodes are busy.
      * 3. Empty list indicates no preference.
+     * @param nodeProvider
      */
-    List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates);
+    List<HostAddress> getPreferredNodes(NodeProvider<HostAddress> nodeProvider);
 
     Object getInfo();
 

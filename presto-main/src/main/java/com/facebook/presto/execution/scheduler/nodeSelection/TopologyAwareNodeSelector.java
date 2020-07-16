@@ -28,6 +28,8 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.ModularHashingNodeProvider;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -138,9 +140,11 @@ public class TopologyAwareNodeSelector
 
         // todo identify if sorting will cause bottleneck
         List<HostAddress> sortedCandidates = sortedNodes(nodeMap);
+        NodeProvider<HostAddress> nodeProvider = new ModularHashingNodeProvider<>(sortedCandidates);
+
         for (Split split : splits) {
             if (split.getNodeSelectionStrategy() == HARD_AFFINITY) {
-                List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(sortedCandidates), includeCoordinator);
+                List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
                 if (candidateNodes.isEmpty()) {
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
                     throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
@@ -161,7 +165,7 @@ public class TopologyAwareNodeSelector
             int depth = networkLocationSegmentNames.size();
             int chosenDepth = 0;
             Set<NetworkLocation> locations = new HashSet<>();
-            for (HostAddress host : split.getPreferredNodes(sortedCandidates)) {
+            for (HostAddress host : split.getPreferredNodes(nodeProvider)) {
                 locations.add(networkLocationCache.get(host));
             }
             if (locations.isEmpty()) {

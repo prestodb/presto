@@ -29,6 +29,8 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.ModularHashingNodeProvider;
+import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -127,7 +129,7 @@ public class TestNodeScheduler
         Set<Split> splits = ImmutableSet.of(split);
 
         Map.Entry<InternalNode, Split> assignment = Iterables.getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments().entries());
-        assertEquals(assignment.getKey().getHostAndPort(), split.getPreferredNodes(ImmutableList.of()).get(0));
+        assertEquals(assignment.getKey().getHostAndPort(), split.getPreferredNodes(new ModularHashingNodeProvider<>(ImmutableList.of(HostAddress.fromParts("DUMMY", 88)))).get(0));
         assertEquals(assignment.getValue(), split);
     }
 
@@ -245,7 +247,8 @@ public class TestNodeScheduler
         int rack1 = 0;
         int rack2 = 0;
         for (Split split : unassigned) {
-            String rack = topology.locate(split.getPreferredNodes(ImmutableList.of()).get(0)).getSegments().get(0);
+            String rack = topology.locate(
+                    split.getPreferredNodes(new ModularHashingNodeProvider<>(ImmutableList.of(HostAddress.fromParts("DUMMY", 88)))).get(0)).getSegments().get(0);
             switch (rack) {
                 case "rack1":
                     rack1++;
@@ -619,7 +622,7 @@ public class TestNodeScheduler
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(NodeProvider<HostAddress> nodeProvider)
         {
             return ImmutableList.of(HostAddress.fromString("127.0.0.1:11"));
         }
@@ -653,7 +656,7 @@ public class TestNodeScheduler
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(NodeProvider<HostAddress> nodeProvider)
         {
             return hosts;
         }
@@ -683,9 +686,9 @@ public class TestNodeScheduler
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(NodeProvider<HostAddress> nodeProvider)
         {
-            return ImmutableList.of(sortedCandidates.get(scheduleIdentifierId % sortedCandidates.size()));
+            return nodeProvider.get(scheduleIdentifierId, 1);
         }
     }
 
@@ -704,9 +707,9 @@ public class TestNodeScheduler
         }
 
         @Override
-        public List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates)
+        public List<HostAddress> getPreferredNodes(NodeProvider<HostAddress> nodeProvider)
         {
-            return ImmutableList.of(sortedCandidates.get(new Random().nextInt(sortedCandidates.size())));
+            return nodeProvider.get(new Random(), 1);
         }
     }
 
