@@ -180,6 +180,7 @@ public class MockManagedQueryExecution
                 false,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
