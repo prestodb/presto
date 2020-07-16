@@ -461,6 +461,7 @@ public class PrestoSparkQueryExecutionFactory
                 true,
                 sparkQueueName.map(ResourceGroupId::new),
                 planAndMore.flatMap(PlanAndMore::getQueryType),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -503,7 +504,8 @@ public class PrestoSparkQueryExecutionFactory
                 ImmutableList.of(),
                 plan.getChildren().stream()
                         .map(child -> createStageInfo(queryId, child, taskInfoMap))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                false);
     }
 
     private static void writeQueryInfo(Path queryInfoOutputPath, QueryInfo queryInfo, JsonCodec<QueryInfo> queryInfoJsonCodec)

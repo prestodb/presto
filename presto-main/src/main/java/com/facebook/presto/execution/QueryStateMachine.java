@@ -411,6 +411,7 @@ public class QueryStateMachine
             failedTasks = Optional.empty();
         }
 
+        List<StageId> runtimeOptimizedStages = getAllStages(rootStage).stream().filter(StageInfo::isRuntimeOptimized).map(StageInfo::getStageId).collect(toImmutableList());
         QueryStats queryStats = getQueryStats(rootStage);
         return new QueryInfo(
                 queryId,
@@ -441,7 +442,8 @@ public class QueryStateMachine
                 completeInfo,
                 Optional.of(resourceGroup),
                 queryType,
-                failedTasks);
+                failedTasks,
+                runtimeOptimizedStages.isEmpty() ? Optional.empty() : Optional.of(runtimeOptimizedStages));
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)
@@ -836,7 +838,8 @@ public class QueryStateMachine
                 Optional.empty(), // Remove the plan
                 pruneStageExecutionInfo(outputStage.getLatestAttemptExecutionInfo()),
                 ImmutableList.of(), // Remove failed attempts
-                ImmutableList.of())); // Remove the substages
+                ImmutableList.of(),
+                outputStage.isRuntimeOptimized())); // Remove the substages
 
         QueryInfo prunedQueryInfo = new QueryInfo(
                 queryInfo.getQueryId(),
@@ -867,7 +870,8 @@ public class QueryStateMachine
                 queryInfo.isCompleteInfo(),
                 queryInfo.getResourceGroupId(),
                 queryInfo.getQueryType(),
-                queryInfo.getFailedTasks());
+                queryInfo.getFailedTasks(),
+                queryInfo.getRuntimeOptimizedStages());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

@@ -127,7 +127,8 @@ public class QueryMonitor
                                 queryInfo.getSelf(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty())));
+                                Optional.empty(),
+                                ImmutableList.of())));
     }
 
     public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
@@ -141,7 +142,8 @@ public class QueryMonitor
                         queryInfo.getSelf(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty()),
+                        Optional.empty(),
+                        ImmutableList.of()),
                 new QueryStatistics(
                         ofMillis(0),
                         ofMillis(0),
@@ -232,7 +234,10 @@ public class QueryMonitor
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo),
                 createJsonQueryPlan(queryInfo),
-                queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)));
+                queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)),
+                queryInfo.getRuntimeOptimizedStages().orElse(ImmutableList.of()).stream()
+                        .map(stageId -> String.valueOf(stageId.getId()))
+                        .collect(toImmutableList()));
     }
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
