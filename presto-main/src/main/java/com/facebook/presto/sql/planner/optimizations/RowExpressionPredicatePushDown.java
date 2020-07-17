@@ -137,6 +137,15 @@ public class RowExpressionPredicatePushDown
                 TRUE_CONSTANT);
     }
 
+    public static RowExpression createDynamicFilterExpression(String id, VariableReferenceExpression input, FunctionManager functionManager)
+    {
+        return call(
+                functionManager,
+                DynamicFilters.DynamicFilterPlaceholderFunction.NAME,
+                BooleanType.BOOLEAN,
+                ImmutableList.of(new ConstantExpression(Slices.utf8Slice(id), VarcharType.VARCHAR), input));
+    }
+
     private static class Rewriter
             extends SimplePlanRewriter<RowExpression>
     {
@@ -611,15 +620,6 @@ public class RowExpressionPredicatePushDown
                 predicates = predicatesBuilder.build();
             }
             return new DynamicFiltersResult(dynamicFilters, predicates);
-        }
-
-        private static RowExpression createDynamicFilterExpression(String id, VariableReferenceExpression input, FunctionManager functionManager)
-        {
-            return call(
-                    functionManager,
-                    DynamicFilters.DynamicFilterPlaceholderFunction.NAME,
-                    BooleanType.BOOLEAN,
-                    ImmutableList.of(new ConstantExpression(Slices.utf8Slice(id), VarcharType.VARCHAR), input));
         }
 
         private static class DynamicFiltersResult
