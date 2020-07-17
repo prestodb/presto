@@ -8501,6 +8501,17 @@ public abstract class AbstractTestQueries
                 "SELECT DISTINCT null AS a, NULL AS b, orderstatus FROM (SELECT orderstatus FROM orders GROUP BY orderstatus)");
     }
 
+    @Test
+    public void testComparisonWithLike()
+    {
+        assertQuery("SELECT t1.custkey, t2.comment " +
+                "FROM " +
+                "(SELECT * FROM orders WHERE (comment LIKE '%shipping_onsite%') = FALSE) t1 " +
+                "JOIN " +
+                "(SELECT * FROM orders WHERE (comment LIKE '%shipping_onsite%') = FALSE) t2 " +
+                "ON t1.orderkey=t2.orderkey");
+    }
+
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())
