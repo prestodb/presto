@@ -66,7 +66,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
-import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -468,7 +467,17 @@ class HiveSplitSource
                 InternalHiveBlock block = internalSplit.currentBlock();
                 long splitBytes;
                 if (internalSplit.isSplittable()) {
-                    splitBytes = min(maxSplitBytes, block.getEnd() - internalSplit.getStart());
+                    long remainingBlockBytes = block.getEnd() - internalSplit.getStart();
+                    if (remainingBlockBytes <= maxSplitBytes) {
+                        splitBytes = remainingBlockBytes;
+                    }
+                    else if (maxSplitBytes * 2 >= remainingBlockBytes) {
+                        //  Second to last split in this block, generate two evenly sized splits
+                        splitBytes = remainingBlockBytes / 2;
+                    }
+                    else {
+                        splitBytes = maxSplitBytes;
+                    }
                 }
                 else {
                     splitBytes = internalSplit.getEnd() - internalSplit.getStart();
