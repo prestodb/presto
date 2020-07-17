@@ -160,6 +160,7 @@
         <module>presto-spark-testing</module>
         <module>presto-druid</module>
         <module>presto-common</module>
+        <module>presto-thrift-testing-udf-server</module>
     </modules>
 
     <dependencyManagement>
@@ -593,6 +594,12 @@
                 <artifactId>presto-thrift-connector</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-thrift-testing-udf-server</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
