@@ -36,16 +36,13 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
-import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_RUN_TIME;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_MAIN;
+import static com.facebook.presto.verifier.prestoaction.QueryActionUtil.mangleSessionProperties;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -150,17 +147,7 @@ public class JdbcPrestoAction
             // Do nothing
         }
 
-        // configure session properties
-        Map<String, String> sessionProperties = queryStage.isMain() || queryStage == DETERMINISM_ANALYSIS_MAIN
-                ? new HashMap<>(queryConfiguration.getSessionProperties())
-                : new HashMap<>();
-
-        // Add or override query max execution time to enforce the timeout.
-        sessionProperties.put(QUERY_MAX_EXECUTION_TIME, getTimeout(queryStage).toString());
-
-        // Remove query max run time to respect execution time limit.
-        sessionProperties.remove(QUERY_MAX_RUN_TIME);
-
+        Map<String, String> sessionProperties = mangleSessionProperties(queryConfiguration.getSessionProperties(), queryStage, getTimeout(queryStage));
         for (Entry<String, String> entry : sessionProperties.entrySet()) {
             connection.setSessionProperty(entry.getKey(), entry.getValue());
         }
