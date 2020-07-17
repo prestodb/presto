@@ -19,7 +19,7 @@
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-thrift-connector-api</artifactId>
+            <artifactId>presto-thrift-api</artifactId>
         </dependency>
 
         <dependency>
