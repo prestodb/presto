@@ -161,7 +161,7 @@ public final class DynamicFilters
         }
     }
 
-    @ScalarFunction(value = DynamicFilterPlaceholderFunction.NAME, visibility = HIDDEN, deterministic = false)
+    @ScalarFunction(value = DynamicFilterPlaceholderFunction.NAME, visibility = HIDDEN)
     public static final class DynamicFilterPlaceholderFunction
     {
         private DynamicFilterPlaceholderFunction() {}
