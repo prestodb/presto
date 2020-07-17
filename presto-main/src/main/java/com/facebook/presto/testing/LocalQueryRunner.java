@@ -337,6 +337,8 @@ public class LocalQueryRunner
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
 
         this.blockEncodingManager = new BlockEncodingManager(typeRegistry);
+        featuresConfig.setIgnoreStatsCalculatorFailures(false);
+
         this.metadata = new MetadataManager(
                 featuresConfig,
                 typeRegistry,
