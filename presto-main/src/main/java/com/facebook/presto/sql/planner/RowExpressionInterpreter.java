@@ -846,11 +846,12 @@ public class RowExpressionInterpreter
             checkArgument(resolution.isLikeFunction(callExpression.getFunctionHandle()));
             checkArgument(callExpression.getArguments().size() == 2);
             RowExpression likePatternExpression = callExpression.getArguments().get(1);
-            checkArgument(
-                    (likePatternExpression instanceof CallExpression &&
-                            (((CallExpression) likePatternExpression).getFunctionHandle().equals(resolution.likePatternFunction()) ||
-                                    (resolution.isCastFunction(((CallExpression) likePatternExpression).getFunctionHandle())))),
-                    "expect a like_pattern function or a cast function");
+            if (!(likePatternExpression instanceof CallExpression &&
+                    (((CallExpression) likePatternExpression).getFunctionHandle().equals(resolution.likePatternFunction()) ||
+                            (resolution.isCastFunction(((CallExpression) likePatternExpression).getFunctionHandle()))))) {
+                // expression was already optimized
+                return notChanged();
+            }
             Object value = argumentValues.get(0);
             Object possibleCompiledPattern = argumentValues.get(1);
 
