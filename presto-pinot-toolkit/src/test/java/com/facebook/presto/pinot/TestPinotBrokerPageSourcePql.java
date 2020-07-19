@@ -177,6 +177,44 @@ public class TestPinotBrokerPageSourcePql
         };
     }
 
+    @Test
+    public void testPinotBrokerRequest()
+    {
+        PinotQueryGenerator.GeneratedPinotQuery generatedPinotQuery = new PinotQueryGenerator.GeneratedPinotQuery(
+                pinotTable.getTableName(),
+                "SELECT * FROM myTable",
+                PinotQueryGenerator.PinotQueryFormat.PQL,
+                ImmutableList.of(),
+                0,
+                false,
+                false);
+
+        PinotBrokerPageSourcePql pageSource = new PinotBrokerPageSourcePql(
+                pinotConfig,
+                new TestingConnectorSession(ImmutableList.of(
+                        booleanProperty(
+                                "mark_data_fetch_exceptions_as_retriable",
+                                "Retry Pinot query on data fetch exceptions",
+                                pinotConfig.isMarkDataFetchExceptionsAsRetriable(),
+                                false))),
+                generatedPinotQuery,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                new MockPinotClusterInfoFetcher(pinotConfig),
+                objectMapper);
+        assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"pql\":\"SELECT * FROM myTable\"}");
+
+        generatedPinotQuery = new PinotQueryGenerator.GeneratedPinotQuery(
+                pinotTable.getTableName(),
+                "SELECT * FROM myTable WHERE jsonStr = '\"{\"abc\" : \"def\"}\"'",
+                PinotQueryGenerator.PinotQueryFormat.PQL,
+                ImmutableList.of(),
+                0,
+                false,
+                false);
+        assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"pql\":\"SELECT * FROM myTable WHERE jsonStr = '\\\"{\\\"abc\\\" : \\\"def\\\"}\\\"'\"}");
+    }
+
     @Test(dataProvider = "pqlResponses")
     public void testPopulateFromPql(
             String pql,

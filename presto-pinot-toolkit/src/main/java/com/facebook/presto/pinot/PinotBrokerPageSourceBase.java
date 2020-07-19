@@ -32,9 +32,11 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -48,6 +50,7 @@ import java.util.Optional;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_REQUEST_GENERATOR_FAILURE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNEXPECTED_RESPONSE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static com.facebook.presto.pinot.PinotUtils.doWithRetries;
@@ -64,6 +67,7 @@ public abstract class PinotBrokerPageSourceBase
     private static final String PINOT_NEGATIVE_INFINITY = "-" + PINOT_INFINITY;
     private static final Double PRESTO_INFINITY = Double.POSITIVE_INFINITY;
     private static final Double PRESTO_NEGATIVE_INFINITY = Double.NEGATIVE_INFINITY;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     protected final PinotConfig pinotConfig;
     protected final List<PinotColumnHandle> columnHandles;
@@ -251,7 +255,6 @@ public abstract class PinotBrokerPageSourceBase
 
     protected static String asText(JsonNode node)
     {
-        checkState(node.isValueNode());
         if (node.isArray()) {
             String[] results = new String[node.size()];
             for (int i = 0; i < node.size(); i++) {
@@ -259,6 +262,7 @@ public abstract class PinotBrokerPageSourceBase
             }
             return Arrays.toString(results);
         }
+        checkState(node.isValueNode());
         return node.isNull() ? null : node.asText();
     }
 
@@ -293,16 +297,31 @@ public abstract class PinotBrokerPageSourceBase
             Request.Builder builder = Request.Builder
                     .preparePost()
                     .setUri(URI.create(String.format(getQueryUrlTemplate(), queryHost)));
-            String body = clusterInfoFetcher.doHttpActionWithHeaders(builder, Optional.of(String.format(getRequestPayloadTemplate(), pinotQuery.getQuery())), rpcService);
+            String body = clusterInfoFetcher.doHttpActionWithHeaders(builder, Optional.of(getRequestPayload(pinotQuery)), rpcService);
             return populateFromQueryResults(pinotQuery, blockBuilders, types, body);
         });
+    }
+
+    String getRequestPayload(PinotQueryGenerator.GeneratedPinotQuery pinotQuery)
+    {
+        ImmutableMap<String, String> pinotRequest = ImmutableMap.of(getRequestPayloadKey(), pinotQuery.getQuery());
+        try {
+            return OBJECT_MAPPER.writeValueAsString(pinotRequest);
+        }
+        catch (JsonProcessingException e) {
+            throw new PinotException(
+                    PINOT_REQUEST_GENERATOR_FAILURE,
+                    Optional.of(pinotQuery.getQuery()),
+                    "Unable to Jsonify request: " + Arrays.toString(pinotRequest.entrySet().toArray()),
+                    e);
+        }
     }
 
     // Get the broker query endpoint url template.
     abstract String getQueryUrlTemplate();
 
-    // Get the broker request payload template to set query inside.
-    abstract String getRequestPayloadTemplate();
+    // Get the broker request payload key.
+    abstract String getRequestPayloadKey();
 
     // Set Pinot Response from query response json string.
     abstract int populateFromQueryResults(PinotQueryGenerator.GeneratedPinotQuery pinotQuery, List<BlockBuilder> blockBuilders, List<Type> types, String responseJsonString);
