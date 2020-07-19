@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class PinotBrokerPageSourcePql
         extends PinotBrokerPageSourceBase
 {
-    private static final String REQUEST_PAYLOAD_TEMPLATE = "{\"pql\" : \"%s\" }";
+    private static final String REQUEST_PAYLOAD_KEY = "pql";
     private static final String QUERY_URL_TEMPLATE = "http://%s/query";
 
     private final GeneratedPinotQuery brokerPql;
@@ -205,9 +205,9 @@ public class PinotBrokerPageSourcePql
     }
 
     @Override
-    String getRequestPayloadTemplate()
+    String getRequestPayloadKey()
     {
-        return REQUEST_PAYLOAD_TEMPLATE;
+        return REQUEST_PAYLOAD_KEY;
     }
 
     @Override
