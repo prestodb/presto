@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static org.testng.Assert.assertEquals;
 
 public class TestPinotBrokerPageSourceSql
@@ -141,6 +142,42 @@ public class TestPinotBrokerPageSourceSql
                     ImmutableList.of(0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
                     Optional.empty()}
         };
+    }
+    @Test
+    public void testPinotBrokerRequest()
+    {
+        PinotQueryGenerator.GeneratedPinotQuery generatedPinotQuery = new PinotQueryGenerator.GeneratedPinotQuery(
+                pinotTable.getTableName(),
+                "SELECT * FROM myTable",
+                PinotQueryGenerator.PinotQueryFormat.SQL,
+                ImmutableList.of(),
+                0,
+                false,
+                false);
+
+        PinotBrokerPageSourceSql pageSource = new PinotBrokerPageSourceSql(
+                pinotConfig,
+                new TestingConnectorSession(ImmutableList.of(
+                        booleanProperty(
+                                "mark_data_fetch_exceptions_as_retriable",
+                                "Retry Pinot query on data fetch exceptions",
+                                pinotConfig.isMarkDataFetchExceptionsAsRetriable(),
+                                false))),
+                generatedPinotQuery,
+                ImmutableList.of(),
+                new MockPinotClusterInfoFetcher(pinotConfig),
+                objectMapper);
+        assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable\"}");
+
+        generatedPinotQuery = new PinotQueryGenerator.GeneratedPinotQuery(
+                pinotTable.getTableName(),
+                "SELECT * FROM myTable WHERE jsonStr = '\"{\"abc\" : \"def\"}\"'",
+                PinotQueryGenerator.PinotQueryFormat.SQL,
+                ImmutableList.of(),
+                0,
+                false,
+                false);
+        assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable WHERE jsonStr = '\\\"{\\\"abc\\\" : \\\"def\\\"}\\\"'\"}");
     }
 
     @Test(dataProvider = "sqlResponses")
