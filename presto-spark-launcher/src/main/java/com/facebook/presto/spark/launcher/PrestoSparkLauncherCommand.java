@@ -65,6 +65,7 @@ public class PrestoSparkLauncherCommand
             runner.run(
                     clientOptions.catalog,
                     clientOptions.schema,
+                    "test",
                     query,
                     ImmutableMap.of(),
                     ImmutableMap.of(),

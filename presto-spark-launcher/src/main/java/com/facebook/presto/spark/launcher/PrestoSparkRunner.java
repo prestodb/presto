@@ -65,13 +65,14 @@ public class PrestoSparkRunner
     public void run(
             String catalog,
             String schema,
+            String user,
             String query,
             Map<String, String> sessionProperties,
             Map<String, Map<String, String>> catalogSessionProperties,
             Optional<Path> queryInfoOutputPath)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
-        PrestoSparkSession session = createSessionInfo(catalog, schema, sessionProperties, catalogSessionProperties);
+        PrestoSparkSession session = createSessionInfo(catalog, schema, user, sessionProperties, catalogSessionProperties);
         IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
                 distribution.getSparkContext(),
                 session,
@@ -94,12 +95,13 @@ public class PrestoSparkRunner
     private static PrestoSparkSession createSessionInfo(
             String catalog,
             String schema,
+            String user,
             Map<String, String> sessionProperties,
             Map<String, Map<String, String>> catalogSessionProperties)
     {
         // TODO: add all important session parameters to client options
         return new PrestoSparkSession(
-                "test",
+                user,
                 Optional.empty(),
                 ImmutableMap.of(),
                 Optional.ofNullable(catalog),
