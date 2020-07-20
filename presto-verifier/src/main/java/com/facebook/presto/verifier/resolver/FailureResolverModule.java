@@ -64,6 +64,8 @@ public class FailureResolverModule
         configBinder(binder).bindConfig(FailureResolverConfig.class);
         binder.bind(FailureResolverManagerFactory.class).in(SINGLETON);
         if (!buildConfigObject(FailureResolverConfig.class).isEnabled()) {
+            newSetBinder(binder, FailureResolver.class);
+            newSetBinder(binder, FailureResolverFactory.class);
             return;
         }
 
