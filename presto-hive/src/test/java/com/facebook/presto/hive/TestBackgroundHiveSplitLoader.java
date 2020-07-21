@@ -57,6 +57,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -312,6 +313,40 @@ public class TestBackgroundHiveSplitLoader
         {
             throw new UnsupportedOperationException();
         }
+    }
+
+    @Test
+    public void testTextInputHeaderFooterSplitCounts()
+            throws Exception
+    {
+        DataSize fileSize = new DataSize(2, GIGABYTE);
+        assertTextFileSplitCount(fileSize, ImmutableMap.of(), 33);
+        assertTextFileSplitCount(fileSize, ImmutableMap.of("skip.header.line.count", "1"), 33);
+        assertTextFileSplitCount(fileSize, ImmutableMap.of("skip.header.line.count", "2"), 1);
+        assertTextFileSplitCount(fileSize, ImmutableMap.of("skip.footer.line.count", "1"), 1);
+        assertTextFileSplitCount(fileSize, ImmutableMap.of("skip.header.line.count", "1", "skip.footer.line.count", "1"), 1);
+    }
+
+    private void assertTextFileSplitCount(DataSize fileSize, Map<String, String> tableProperties, int expectedSplitCount)
+            throws Exception
+    {
+        Table.Builder tableBuilder = Table.builder(SIMPLE_TABLE)
+                .setParameters(ImmutableMap.copyOf(tableProperties));
+        tableBuilder.getStorageBuilder()
+                .setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.TEXTFILE));
+        Table table = tableBuilder.build();
+
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), fileSize.toBytes())),
+                Optional.empty(),
+                Optional.empty(),
+                table,
+                Optional.empty());
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        assertEquals(drainSplits(hiveSplitSource).size(), expectedSplitCount);
     }
 
     private void testCachingDirectoryLister(CachingDirectoryLister cachingDirectoryLister, String fileStatusCacheTables)
