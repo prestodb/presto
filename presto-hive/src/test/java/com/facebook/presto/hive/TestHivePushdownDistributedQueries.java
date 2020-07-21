@@ -47,7 +47,10 @@ public class TestHivePushdownDistributedQueries
     {
         super(() -> createQueryRunner(
                 getTables(),
-                ImmutableMap.of("experimental.pushdown-subfields-enabled", "true", "experimental.enable-dynamic-filtering", "true"),
+                ImmutableMap.of(
+                        "experimental.pushdown-subfields-enabled", "true",
+                        "experimental.enable-dynamic-filtering", "true",
+                        "join-distribution-type", "BROADCAST"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true"),
                 Optional.empty()));

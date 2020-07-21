@@ -72,7 +72,7 @@ public final class PlanChecker
                         new ValidateStreamingAggregations(),
                         new VerifyNoOriginalExpression(),
                         new VerifyProjectionLocality(),
-                        new DynamicFiltersChecker(),
+                        // new DynamicFiltersChecker(),
                         new WarnOnScanWithoutPartitionPredicate(featuresConfig))
                 .build();
     }

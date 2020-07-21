@@ -134,6 +134,7 @@ public final class HiveTableLayoutHandle
         return partitionColumns;
     }
 
+    @Override
     public void withDynamicFilterPredicate(TupleDomain<ColumnHandle> dynamicFilterPredicate)
     {
         this.dynamicFilterPredicate = dynamicFilterPredicate;
@@ -141,6 +142,7 @@ public final class HiveTableLayoutHandle
 
     public TupleDomain<ColumnHandle> getDynamicFilterPredicate()
     {
+        System.out.println("james ========== " + dynamicFilterPredicate);
         return dynamicFilterPredicate;
     }
 
