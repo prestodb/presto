@@ -13,6 +13,15 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+
 public interface ConnectorTableLayoutHandle
 {
+    default RowExpression getRemainingPredicate()
+    {
+        return new ConstantExpression(true, BOOLEAN);
+    }
 }

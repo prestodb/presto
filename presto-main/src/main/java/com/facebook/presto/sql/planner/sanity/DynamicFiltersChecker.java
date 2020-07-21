@@ -18,8 +18,10 @@ import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.expressions.DynamicFilters;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -95,6 +97,21 @@ public class DynamicFiltersChecker
                         .map(DynamicFilterPlaceholder::getId)
                         .forEach(consumed::add);
                 consumed.addAll(node.getSource().accept(this, context));
+                return consumed.build();
+            }
+
+            @Override
+            public Set<String> visitTableScan(TableScanNode node, Void context)
+            {
+                Optional<ConnectorTableLayoutHandle> handle = node.getTable().getLayout();
+                if (!handle.isPresent()) {
+                    return ImmutableSet.of();
+                }
+
+                ImmutableSet.Builder<String> consumed = ImmutableSet.builder();
+                extractDynamicPredicates(handle.get().getRemainingPredicate()).stream()
+                        .map(DynamicFilterPlaceholder::getId)
+                        .forEach(consumed::add);
                 return consumed.build();
             }
         }, null);
