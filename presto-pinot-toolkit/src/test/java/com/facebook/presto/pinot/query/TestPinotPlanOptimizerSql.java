@@ -13,8 +13,17 @@
  */
 package com.facebook.presto.pinot.query;
 
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.testing.assertions.Assert;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
+
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 
 public class TestPinotPlanOptimizerSql
         extends TestPinotPlanOptimizer
@@ -29,5 +38,45 @@ public class TestPinotPlanOptimizerSql
     public void assertUsingSqlSyntax()
     {
         Assert.assertEquals(defaultSessionHolder.getConnectorSession().getProperty("use_pinot_sql_for_broker_queries", Boolean.class).booleanValue(), true);
+    }
+
+    @Test
+    public void testDistinctLimitPushdown()
+    {
+        PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
+        PlanNode originalPlan = distinctLimit(
+                planBuilder,
+                ImmutableList.of(new VariableReferenceExpression("regionid", BIGINT)),
+                50L,
+                tableScan(planBuilder, pinotTable, regionId));
+        PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
+        assertPlanMatch(
+                optimized,
+                PinotTableScanMatcher.match(
+                        pinotTable,
+                        Optional.of("SELECT regionId FROM hybrid GROUP BY regionId LIMIT 50"),
+                        Optional.of(false),
+                        originalPlan.getOutputVariables(),
+                        useSqlSyntax()),
+                typeProvider);
+
+        planBuilder = createPlanBuilder(defaultSessionHolder);
+        originalPlan = distinctLimit(
+                planBuilder,
+                ImmutableList.of(
+                        new VariableReferenceExpression("regionid", BIGINT),
+                        new VariableReferenceExpression("city", VARCHAR)),
+                50L,
+                tableScan(planBuilder, pinotTable, regionId, city));
+        optimized = getOptimizedPlan(planBuilder, originalPlan);
+        assertPlanMatch(
+                optimized,
+                PinotTableScanMatcher.match(
+                        pinotTable,
+                        Optional.of("SELECT regionId, city FROM hybrid GROUP BY regionId, city LIMIT 50"),
+                        Optional.of(false),
+                        originalPlan.getOutputVariables(),
+                        useSqlSyntax()),
+                typeProvider);
     }
 }

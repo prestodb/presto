@@ -211,4 +211,10 @@ public class TestPinotQueryGeneratorSql
                 defaultSessionHolder,
                 ImmutableMap.of());
     }
+
+    @Override
+    protected String getExpectedDistinctOutput(String groupKeys)
+    {
+        return groupKeys;
+    }
 }

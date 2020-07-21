@@ -30,6 +30,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -488,10 +489,7 @@ public class PinotQueryGenerator
             // In Pql mode, the generated pql is `SELECT count(*) FROM myTable GROUP BY A, B`;
             // In Sql mode, the generated sql is still `SELECT A, B FROM myTable GROUP BY A, B`.
             if (!useSqlSyntax && groupByExists && aggregations == 0) {
-                VariableReferenceExpression hidden = new VariableReferenceExpression(UUID.randomUUID().toString(), BigintType.BIGINT);
-                newSelections.put(hidden, new Selection("count(*)", DERIVED));
-                outputs.add(hidden);
-                hiddenColumnSet.add(hidden);
+                setHiddenField(newSelections, outputs, hiddenColumnSet);
                 aggregations++;
             }
             return context.withAggregation(newSelections, outputs, groupByColumns, aggregations, hiddenColumnSet);
@@ -515,6 +513,41 @@ public class PinotQueryGenerator
             checkSupported(!forbidBrokerQueries, "Cannot push topn in segment mode");
             checkSupported(node.getStep().equals(TopNNode.Step.SINGLE), "Can only push single logical topn in");
             return context.withTopN(getOrderingScheme(node), node.getCount()).withOutputColumns(node.getOutputVariables());
+        }
+
+        @Override
+        public PinotQueryGeneratorContext visitDistinctLimit(DistinctLimitNode node, PinotQueryGeneratorContext context)
+        {
+            context = node.getSource().accept(this, context);
+            requireNonNull(context, "context is null");
+            checkSupported(!forbidBrokerQueries, "Cannot push distinctLimit in segment mode");
+            LinkedHashSet<VariableReferenceExpression> groupByColumns = new LinkedHashSet<>(node.getDistinctVariables());
+            if (!useSqlSyntax) {
+                // Handling PQL by adding hidden expression: count(*)
+                // E.g. `SELECT DISTINCT A, B FROM myTable LIMIT 10`
+                // In Pql mode, the generated pql is `SELECT count(*) FROM myTable GROUP BY A, B LIMIT 10`.
+                checkSupported(!context.hasAggregation(), "Aggregation already exists. Pinot doesn't support DistinctLimit with existing Aggregation");
+                checkSupported(!context.hasGroupBy(), "GroupBy already exists. Pinot doesn't support DistinctLimit with existing GroupBy");
+                Map<VariableReferenceExpression, Selection> newSelections = new HashMap<>(context.getSelections());
+                LinkedHashSet<VariableReferenceExpression> newOutputs = new LinkedHashSet<>(groupByColumns);
+                Set<VariableReferenceExpression> hiddenColumnSet = new HashSet<>();
+                setHiddenField(newSelections, newOutputs, hiddenColumnSet);
+                return context.withAggregation(newSelections, newOutputs, groupByColumns, 1, hiddenColumnSet).withLimit(node.getLimit());
+            }
+            // Handle SQL by setting the groupBy columns and output columns.
+            // E.g. `SELECT DISTINCT A, B FROM myTable LIMIT 10`
+            // In Sql mode, the generated sql is still `SELECT A, B FROM myTable GROUP BY A, B LIMIT 10`.
+            return context.withDistinctLimit(groupByColumns, node.getLimit()).withOutputColumns(node.getOutputVariables());
+        }
+
+        private void setHiddenField(Map<VariableReferenceExpression, Selection> selections,
+                LinkedHashSet<VariableReferenceExpression> outputs,
+                Set<VariableReferenceExpression> hiddenColumnSet)
+        {
+            VariableReferenceExpression hidden = new VariableReferenceExpression(UUID.randomUUID().toString(), BigintType.BIGINT);
+            selections.put(hidden, new Selection("count(*)", DERIVED));
+            outputs.add(hidden);
+            hiddenColumnSet.add(hidden);
         }
     }
 }
