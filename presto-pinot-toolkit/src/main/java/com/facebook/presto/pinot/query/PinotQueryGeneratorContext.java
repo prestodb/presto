@@ -199,7 +199,7 @@ public class PinotQueryGeneratorContext
     public PinotQueryGeneratorContext withProject(Map<VariableReferenceExpression, Selection> newSelections, LinkedHashSet<VariableReferenceExpression> newOutputs)
     {
         if (!useSqlSyntax) {
-            checkSupported(groupByColumns.isEmpty(), "Pinot doesn't yet support new selections on top of the grouped by data");
+            checkSupported(!hasGroupBy(), "Pinot doesn't yet support new selections on top of the grouped by data");
         }
         return new PinotQueryGeneratorContext(
                 newSelections,
@@ -278,7 +278,12 @@ public class PinotQueryGeneratorContext
         return limit.isPresent();
     }
 
-    private boolean hasAggregation()
+    public boolean hasGroupBy()
+    {
+        return !groupByColumns.isEmpty();
+    }
+
+    public boolean hasAggregation()
     {
         return aggregations > 0;
     }
@@ -316,11 +321,11 @@ public class PinotQueryGeneratorContext
         int nonAggregateShortQueryLimit = PinotSessionProperties.getNonAggregateLimitForBrokerQueries(session);
         boolean isQueryShort = hasAggregation() || limit.orElse(Integer.MAX_VALUE) < nonAggregateShortQueryLimit;
         boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && isQueryShort;
-        if (!pinotConfig.isAllowMultipleAggregations() && aggregations > 1 && !groupByColumns.isEmpty()) {
+        if (!pinotConfig.isAllowMultipleAggregations() && aggregations > 1 && hasGroupBy()) {
             throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Multiple aggregates in the presence of group by is forbidden");
         }
 
-        if (hasLimit() && aggregations > 1 && !groupByColumns.isEmpty()) {
+        if (hasLimit() && aggregations > 1 && hasGroupBy()) {
             throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Multiple aggregates in the presence of group by and limit is forbidden");
         }
 
@@ -352,7 +357,7 @@ public class PinotQueryGeneratorContext
             }
             limitKeyWord = "LIMIT";
         }
-        else if (!groupByColumns.isEmpty()) {
+        else if (hasGroupBy()) {
             limitKeyWord = "TOP";
             if (limit.isPresent()) {
                 if (aggregations > 1) {
@@ -394,7 +399,7 @@ public class PinotQueryGeneratorContext
             query += TIME_BOUNDARY_FILTER_TEMPLATE;
         }
 
-        if (!groupByColumns.isEmpty()) {
+        if (hasGroupBy()) {
             String groupByExpr = groupByColumns.stream().map(x -> selections.get(x).getDefinition()).collect(Collectors.joining(", "));
             query = query + " GROUP BY " + groupByExpr;
         }
@@ -413,7 +418,7 @@ public class PinotQueryGeneratorContext
     public PinotQueryGenerator.GeneratedPinotQuery toSqlQuery(PinotConfig pinotConfig, ConnectorSession session)
     {
         int nonAggregateShortQueryLimit = PinotSessionProperties.getNonAggregateLimitForBrokerQueries(session);
-        boolean isQueryShort = (hasAggregation() || !groupByColumns.isEmpty()) || limit.orElse(Integer.MAX_VALUE) < nonAggregateShortQueryLimit;
+        boolean isQueryShort = (hasAggregation() || hasGroupBy()) || limit.orElse(Integer.MAX_VALUE) < nonAggregateShortQueryLimit;
         boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && isQueryShort;
         String expressions = outputs.stream()
                 .map(o -> selections.get(o).getDefinition())
@@ -428,7 +433,7 @@ public class PinotQueryGeneratorContext
         // - Aggregation only query limit is ignored.
         // - Fail if limit is invalid
         int queryLimit = -1;
-        if (!hasAggregation() && groupByColumns.isEmpty()) {
+        if (!hasAggregation() && !hasGroupBy()) {
             if (!limit.isPresent() && forBroker) {
                 throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Broker non aggregate queries have to have a limit");
             }
@@ -436,7 +441,7 @@ public class PinotQueryGeneratorContext
                 queryLimit = limit.orElseGet(pinotConfig::getLimitLargeForSegment);
             }
         }
-        else if (!groupByColumns.isEmpty()) {
+        else if (hasGroupBy()) {
             if (limit.isPresent()) {
                 queryLimit = limit.getAsInt();
             }
@@ -551,6 +556,27 @@ public class PinotQueryGeneratorContext
                 newVariablesInAggregation,
                 hiddenColumnSet,
                 useSqlSyntax);
+    }
+
+    public PinotQueryGeneratorContext withDistinctLimit(LinkedHashSet<VariableReferenceExpression> newGroupByColumns, long limit)
+    {
+        int intLimit = checkForValidLimit(limit);
+        checkSupported(useSqlSyntax, "DistinctLimit is only supported in SQL mode");
+        checkSupported(!hasLimit(), "Limit already exists. Pinot doesn't support limit on top of another limit");
+        checkSupported(!hasGroupBy(), "GroupBy already exists. Pinot doesn't support Distinct on top of another Group By");
+        checkSupported(!hasAggregation(), "Aggregation already exists. Pinot doesn't support Distinct Limit on top of Aggregation");
+        return new PinotQueryGeneratorContext(
+                selections,
+                outputs,
+                from,
+                filter,
+                aggregations,
+                newGroupByColumns,
+                topNColumnOrderingMap,
+                OptionalInt.of(intLimit),
+                variablesInAggregation,
+                hiddenColumnSet,
+                true);
     }
 
     /**
