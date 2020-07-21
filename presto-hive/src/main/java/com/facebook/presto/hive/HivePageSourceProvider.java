@@ -152,6 +152,10 @@ public class HivePageSourceProvider
             }
         }
 
+        TupleDomain<HiveColumnHandle> effectivePredicate = hiveLayout.getDomainPredicate()
+                .transform(Subfield::getRootName)
+                .transform(hiveLayout.getPredicateColumns()::get);
+
         CacheQuota cacheQuota = generateCacheQuota(hiveSplit);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
@@ -164,9 +168,7 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
                 hiveSplit.getStorage(),
-                hiveLayout.getDomainPredicate()
-                        .transform(Subfield::getRootName)
-                        .transform(hiveLayout.getPredicateColumns()::get),
+                hiveLayout.getDynamicFilterPredicate() == null ? effectivePredicate : effectivePredicate.intersect(hiveLayout.getDynamicFilterPredicate().transform(x -> (HiveColumnHandle) x)),
                 selectedColumns,
                 hiveLayout.getPredicateColumns(),
                 hiveSplit.getPartitionKeys(),
@@ -276,7 +278,7 @@ public class HivePageSourceProvider
                     coercers,
                     bucketAdaptation,
                     outputColumns,
-                    layout.getDomainPredicate(),
+                    layout.getDynamicFilterPredicate() == null ? layout.getDomainPredicate() : layout.getDomainPredicate().intersect(layout.getDynamicFilterPredicate().transform(x -> new Subfield(((HiveColumnHandle) x).getName()))),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
                     new HiveFileContext(splitContext.isCacheable(), cacheQuota, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),

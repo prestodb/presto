@@ -47,6 +47,7 @@ public final class HiveTableLayoutHandle
     private final RowExpression remainingPredicate;
     private final Map<String, HiveColumnHandle> predicateColumns;
     private final TupleDomain<ColumnHandle> partitionColumnPredicate;
+    private TupleDomain<ColumnHandle> dynamicFilterPredicate;
     private final Optional<HiveBucketHandle> bucketHandle;
     private final Optional<HiveBucketFilter> bucketFilter;
     private final boolean pushdownFilterEnabled;
@@ -131,6 +132,16 @@ public final class HiveTableLayoutHandle
     public List<HiveColumnHandle> getPartitionColumns()
     {
         return partitionColumns;
+    }
+
+    public void withDynamicFilterPredicate(TupleDomain<ColumnHandle> dynamicFilterPredicate)
+    {
+        this.dynamicFilterPredicate = dynamicFilterPredicate;
+    }
+
+    public TupleDomain<ColumnHandle> getDynamicFilterPredicate()
+    {
+        return dynamicFilterPredicate;
     }
 
     @JsonProperty

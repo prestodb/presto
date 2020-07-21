@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -68,11 +69,13 @@ public class PageSourceManager
 
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
         if (table.getLayout().isPresent()) {
+            ConnectorTableLayoutHandle layoutHandle = table.getLayout().get();
+            dynamicFilter.ifPresent(x -> layoutHandle.withDynamicFilterPredicate(x.get()));
             return getPageSourceProvider(split).createPageSource(
                     split.getTransactionHandle(),
                     connectorSession,
                     split.getConnectorSplit(),
-                    table.getLayout().get(),
+                    layoutHandle,
                     columns,
                     split.getSplitContext());
         }

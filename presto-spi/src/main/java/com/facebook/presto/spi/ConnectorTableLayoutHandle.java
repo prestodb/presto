@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 
@@ -23,5 +24,10 @@ public interface ConnectorTableLayoutHandle
     default RowExpression getRemainingPredicate()
     {
         return new ConstantExpression(true, BOOLEAN);
+    }
+
+    default void withDynamicFilterPredicate(TupleDomain<ColumnHandle> dynamicFilterPredicate)
+    {
+        // no-op
     }
 }
