@@ -68,7 +68,7 @@ public class TestPinotPlanOptimizer
             new RowExpressionDeterminismEvaluator(functionMetadataManager),
             new FunctionResolution(functionMetadataManager),
             functionMetadataManager);
-    private final PinotTableHandle pinotTable = TestPinotSplitManager.hybridTable;
+    protected final PinotTableHandle pinotTable = TestPinotSplitManager.hybridTable;
     protected final SessionHolder defaultSessionHolder = getDefaultSessionHolder();
 
     public SessionHolder getDefaultSessionHolder()

@@ -18,6 +18,7 @@ import com.facebook.presto.pinot.PinotConfig;
 import com.facebook.presto.pinot.PinotTableHandle;
 import com.facebook.presto.pinot.TestPinotQueryBase;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -41,7 +42,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -373,5 +376,42 @@ public class TestPinotQueryGenerator
         AggregationNode agg = planBuilder.aggregation(aggBuilder -> aggBuilder.source(tableScanNode).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("sum(fare)", defaultSessionHolder)));
         TopNNode topN = new TopNNode(planBuilder.getIdAllocator().getNextId(), agg, 50L, new OrderingScheme(ImmutableList.of(new Ordering(variable("city"), SortOrder.DESC_NULLS_FIRST))), TopNNode.Step.FINAL);
         testPinotQuery(pinotConfig, topN, "", defaultSessionHolder, ImmutableMap.of());
+    }
+
+    @Test
+    public void testDistinctLimitPushdown()
+    {
+        PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
+        DistinctLimitNode distinctLimitNode = distinctLimit(
+                planBuilder,
+                ImmutableList.of(new VariableReferenceExpression("regionid", BIGINT)),
+                50L,
+                tableScan(planBuilder, pinotTable, regionId));
+        testPinotQuery(
+                pinotConfig,
+                distinctLimitNode,
+                String.format("SELECT %s FROM realtimeOnly GROUP BY regionId %s 50", getExpectedDistinctOutput("regionId"), getGroupByLimitKey()),
+                defaultSessionHolder,
+                ImmutableMap.of());
+
+        planBuilder = createPlanBuilder(defaultSessionHolder);
+        distinctLimitNode = distinctLimit(
+                planBuilder,
+                ImmutableList.of(
+                        new VariableReferenceExpression("regionid", BIGINT),
+                        new VariableReferenceExpression("city", VARCHAR)),
+                50L,
+                tableScan(planBuilder, pinotTable, regionId, city));
+        testPinotQuery(
+                pinotConfig,
+                distinctLimitNode,
+                String.format("SELECT %s FROM realtimeOnly GROUP BY regionId, city %s 50", getExpectedDistinctOutput("regionId, city"), getGroupByLimitKey()),
+                defaultSessionHolder,
+                ImmutableMap.of());
+    }
+
+    protected String getExpectedDistinctOutput(String groupKeys)
+    {
+        return "count(*)";
     }
 }
