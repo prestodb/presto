@@ -81,12 +81,12 @@ public class PrestoSparkRunner
                 user,
                 sessionProperties,
                 catalogSessionProperties,
-                clientInfo);
+                clientInfo,
+                userAgent);
 
         IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
                 distribution.getSparkContext(),
                 session,
-                userAgent,
                 query,
                 sparkQueueName,
                 new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
@@ -110,7 +110,8 @@ public class PrestoSparkRunner
             String user,
             Map<String, String> sessionProperties,
             Map<String, Map<String, String>> catalogSessionProperties,
-            Optional<String> clientInfo)
+            Optional<String> clientInfo,
+            Optional<String> userAgent)
     {
         // TODO: add all important session parameters to client options
         return new PrestoSparkSession(
@@ -120,6 +121,7 @@ public class PrestoSparkRunner
                 Optional.ofNullable(catalog),
                 Optional.ofNullable(schema),
                 Optional.empty(),
+                userAgent,
                 clientInfo,
                 ImmutableSet.of(),
                 Optional.empty(),
