@@ -73,6 +73,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.getFooterCount;
@@ -322,6 +323,7 @@ public class BackgroundHiveSplitLoader
                         inputFormat,
                         pathDomain,
                         getNodeSelectionStrategy(session),
+                        getMaxInitialSplitSize(session),
                         s3SelectPushdownEnabled,
                         new HiveSplitPartitionInfo(storage, path.toUri(), partitionKeys, partitionName, partitionDataColumnCount, partition.getPartitionSchemaDifference(), Optional.empty()),
                         schedulerUsesHostAddresses,
@@ -356,6 +358,7 @@ public class BackgroundHiveSplitLoader
                 inputFormat,
                 pathDomain,
                 getNodeSelectionStrategy(session),
+                getMaxInitialSplitSize(session),
                 s3SelectPushdownEnabled,
                 new HiveSplitPartitionInfo(
                         storage,
