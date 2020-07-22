@@ -380,5 +380,6 @@ public class OrderByOperator
     {
         pageIndex.clear();
         sortedPages = null;
+        spiller.ifPresent(Spiller::close);
     }
 }
