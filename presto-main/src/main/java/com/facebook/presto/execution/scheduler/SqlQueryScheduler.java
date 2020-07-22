@@ -285,6 +285,7 @@ public class SqlQueryScheduler
                         .collect(toImmutableList()));
                 if (queryStateMachine.isDone()) {
                     sectionExecutions.forEach(SectionExecution::abort);
+                    break;
                 }
 
                 sectionExecutions.forEach(sectionExecution -> scheduledStageExecutions.addAll(sectionExecution.getSectionStages()));
