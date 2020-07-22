@@ -370,6 +370,7 @@ public class PrestoSparkQueryRunner
                 createSessionInfo(session),
                 Optional.empty(),
                 sql,
+                Optional.empty(),
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty());
         List<List<Object>> results = execution.execute();
