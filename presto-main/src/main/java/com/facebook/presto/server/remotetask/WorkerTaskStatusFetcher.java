@@ -30,11 +30,14 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
+import javafx.util.Pair;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +65,7 @@ import static java.util.Objects.requireNonNull;
 class WorkerTaskStatusFetcher
         implements SimpleHttpResponseCallback<Map<TaskId, TaskStatus>>
 {
-    private final ConcurrentHashMap<TaskId, ContinuousBatchTaskStatusFetcher.Task> idTaskMap;
+    private final ConcurrentHashMap<TaskId, Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>>> idTaskMap;
 
     private static final Logger log = Logger.get(ContinuousTaskStatusFetcher.class);
 
@@ -108,7 +111,7 @@ class WorkerTaskStatusFetcher
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
         this.errorTracker = new BatchRequestErrorTracker(
-                idTaskMap,
+                Collections.list(idTaskMap.keys()),
                 getWorkerURI(),
                 maxErrorDuration,
                 errorScheduledExecutor,
@@ -119,12 +122,20 @@ class WorkerTaskStatusFetcher
     }
 
     public void addTask(ContinuousBatchTaskStatusFetcher.Task task) {
-        idTaskMap.put(task.taskId, task);
+        idTaskMap.put(
+                task.taskId,
+                new Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>>(
+                        task,
+                        new StateMachine(
+                                "task-" + task.taskId, executor, task.taskStatus
+                        )
+                )
+        );
     }
 
     TaskStatus getTaskStatus(TaskId taskId)
     {
-        return idTaskMap.get(taskId).taskStatus.get();
+        return idTaskMap.get(taskId).getKey().taskStatus.get();
     }
 
     private URI getWorkerURI() {
@@ -159,7 +170,8 @@ class WorkerTaskStatusFetcher
         }
 
         HashMap<TaskId, TaskState> idStateMap = new HashMap<>(); // Maybe we need to make this JSON instead?
-        for (ContinuousBatchTaskStatusFetcher.Task task: idTaskMap.values()) {
+        for (Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>> taskPair: idTaskMap.values()) {
+            ContinuousBatchTaskStatusFetcher.Task task = taskPair.getKey();
             idStateMap.put(task.taskId, task.taskStatus.get().getState());
         }
 
@@ -205,8 +217,9 @@ class WorkerTaskStatusFetcher
         try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", idTaskMap)) {
             updateStats(currentRequestStartNanos.get());
             try {
-                for (ContinuousBatchTaskStatusFetcher.Task task: idTaskMap.values()) {
+                for (Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>> taskPair: idTaskMap.values()) {
                     // if task not already done, record error
+                    ContinuousBatchTaskStatusFetcher.Task task = taskPair.getKey();
                     TaskStatus taskStatus = task.taskStatus.get();
                     if (!taskStatus.getState().isDone()) {
                         errorTracker.requestFailed(cause);
@@ -243,9 +256,10 @@ class WorkerTaskStatusFetcher
         }
     }
 
-    // TODO: Update logic to handle response list instead of individual TaskStatus
-    void updateTaskStatus(TaskId newTaskId, TaskStatus newTaskStatus)
+    void updateTaskStatus(TaskId taskId, TaskStatus newValue)
     {
+        StateMachine<TaskStatus> taskStatus = idTaskMap.get(taskId).getValue();
+
         // change to new value if old value is not changed and new value has a newer version
         AtomicBoolean taskMismatch = new AtomicBoolean();
         taskStatus.setIf(newValue, oldValue -> {
@@ -287,9 +301,12 @@ class WorkerTaskStatusFetcher
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    public void addStateChangeListener(StateMachine.StateChangeListener<List<TaskStatus>> stateChangeListener)
+    public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
-        // taskStatus.addStateChangeListener(stateChangeListener);
+        for (Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>> taskPair: idTaskMap.values()) {
+            StateMachine<TaskStatus> taskStatus = taskPair.getValue();
+            taskStatus.addStateChangeListener(stateChangeListener);
+        }
     }
 
     private void updateStats(long currentRequestStartNanos)

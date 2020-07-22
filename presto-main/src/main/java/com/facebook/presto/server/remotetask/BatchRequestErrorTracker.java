@@ -30,6 +30,7 @@ import java.io.EOFException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -52,7 +53,7 @@ class BatchRequestErrorTracker
 {
     private static final Logger log = Logger.get(RequestErrorTracker.class);
 
-    private final ConcurrentHashMap<TaskId, ContinuousBatchTaskStatusFetcher.Task> idTaskMap;
+    private final List<TaskId> taskIds;
     private final URI workerUri;
     private final ScheduledExecutorService scheduledExecutor;
     private final String jobDescription;
@@ -61,13 +62,13 @@ class BatchRequestErrorTracker
     private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
     public BatchRequestErrorTracker(
-            ConcurrentHashMap<TaskId, ContinuousBatchTaskStatusFetcher.Task> idTaskMap,
+            List<TaskId> taskIds,
             URI workerUri,
             Duration maxErrorDuration,
             ScheduledExecutorService scheduledExecutor,
             String jobDescription)
     {
-        this.idTaskMap = requireNonNull(idTaskMap, "idTaskMap is null");
+        this.taskIds = requireNonNull(taskIds, "taskIds is null");
         this.workerUri = requireNonNull(workerUri, "workerUri is null");
         this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         this.backoff = new Backoff(requireNonNull(maxErrorDuration, "maxErrorDuration is null"));
@@ -118,10 +119,10 @@ class BatchRequestErrorTracker
         // log failure message
         if (isExpectedError(reason)) {
             // don't print a stack for a known errors
-            log.warn("Error " + jobDescription + " %s: %s", reason.getMessage(), idTaskMap);
+            log.warn("Error " + jobDescription + " %s: %s", reason.getMessage(), taskIds);
         }
         else {
-            log.warn(reason, "Error " + jobDescription + " %s", idTaskMap);
+            log.warn(reason, "Error " + jobDescription + " %s", taskIds);
         }
 
         // remember the first 10 errors
