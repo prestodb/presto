@@ -26,8 +26,8 @@ import java.util.Locale;
 
 import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.http.server.KerberosConfig.HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB;
 import static com.facebook.presto.server.InternalCommunicationConfig.INTERNAL_COMMUNICATION_KERBEROS_ENABLED;
-import static com.facebook.presto.server.security.KerberosConfig.HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB;
 import static com.google.common.base.Verify.verify;
 
 public class InternalCommunicationModule
@@ -56,7 +56,7 @@ public class InternalCommunicationModule
     {
         return binder -> {
             InternalCommunicationConfig clientKerberosConfig = buildConfigObject(InternalCommunicationConfig.class);
-            com.facebook.presto.server.security.KerberosConfig serverKerberosConfig = buildConfigObject(com.facebook.presto.server.security.KerberosConfig.class);
+            com.facebook.airlift.http.server.KerberosConfig serverKerberosConfig = buildConfigObject(com.facebook.airlift.http.server.KerberosConfig.class);
             verify(serverKerberosConfig.getKeytab() != null, "%s must be set when %s is true", HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB, INTERNAL_COMMUNICATION_KERBEROS_ENABLED);
 
             configBinder(binder).bindConfigGlobalDefaults(KerberosConfig.class, kerberosConfig -> {

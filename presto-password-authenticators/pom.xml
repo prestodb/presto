@@ -33,6 +33,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>http-server</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
@@ -80,6 +85,12 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
             <scope>provided</scope>
         </dependency>
 
