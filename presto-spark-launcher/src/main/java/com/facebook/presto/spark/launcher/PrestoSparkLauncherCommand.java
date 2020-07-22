@@ -69,6 +69,8 @@ public class PrestoSparkLauncherCommand
                     query,
                     ImmutableMap.of(),
                     ImmutableMap.of(),
+                    Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
         }
     }
