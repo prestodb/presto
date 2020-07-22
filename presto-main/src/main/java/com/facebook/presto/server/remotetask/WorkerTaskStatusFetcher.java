@@ -37,6 +37,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -59,7 +60,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class WorkerTaskStatusFetcher
-        implements SimpleHttpResponseCallback<List<TaskStatus>>
+        implements SimpleHttpResponseCallback<Map<TaskId, TaskStatus>>
 {
     private final ConcurrentHashMap<TaskId, ContinuousBatchTaskStatusFetcher.Task> idTaskMap;
 
@@ -67,11 +68,11 @@ class WorkerTaskStatusFetcher
 
     private final String worker;
     private final Consumer<Throwable> onFail;
-    private final Codec<List<TaskStatus>> taskListStatusCodec;
+    private final Codec<Map<TaskId, TaskStatus>> taskListStatusCodec;
     private final Duration refreshMaxWait;
     private final Executor executor;
     private final HttpClient httpClient;
-    private final RequestErrorTracker errorTracker;
+    private final BatchRequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
     private final boolean isBinaryTransportEnabled;
 
@@ -81,22 +82,22 @@ class WorkerTaskStatusFetcher
     private boolean running;
 
     @GuardedBy("this")
-    private ListenableFuture<BaseResponse<List<TaskStatus>>> future;
+    private ListenableFuture<BaseResponse<Map<TaskId, TaskStatus>>> future;
 
     public WorkerTaskStatusFetcher(
             String worker,
             Consumer<Throwable> onFail,
             Duration refreshMaxWait,
-            Codec<List<TaskStatus>> taskListStatusCodec,
+            Codec<Map<TaskId, TaskStatus>> taskListStatusCodec,
             Executor executor,
             HttpClient httpClient,
+            Duration maxErrorDuration,
+            ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled)
     {
         this.worker = worker;
         idTaskMap = new ConcurrentHashMap<>();
-
-        //requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
         this.onFail = requireNonNull(onFail, "onFail is null");
 
@@ -106,8 +107,13 @@ class WorkerTaskStatusFetcher
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
-        // TODO: Create new ErrorTracker
-        this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
+        this.errorTracker = new BatchRequestErrorTracker(
+                idTaskMap,
+                getWorkerURI(),
+                maxErrorDuration,
+                errorScheduledExecutor,
+                "getting task status"
+        );
         this.stats = requireNonNull(stats, "stats is null");
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;
     }
@@ -121,7 +127,16 @@ class WorkerTaskStatusFetcher
         return idTaskMap.get(taskId).taskStatus.get();
     }
 
-    // TODO: Schedule request per worker
+    private URI getWorkerURI() {
+        URI uri;
+        try {
+            uri = uriBuilderFrom(new URI(worker)).appendPath("/tasks/status").build();
+        } catch (URISyntaxException e) {
+            uri = null;
+        }
+        return uri;
+    }
+
     public synchronized void scheduleNextRequest()
     {
         // stopped or done?
@@ -143,27 +158,20 @@ class WorkerTaskStatusFetcher
             return;
         }
 
-        URI uri;
-        try {
-            uri = uriBuilderFrom(new URI(worker)).appendPath("/tasks/status").build();
-        } catch (URISyntaxException e) {
-            uri = null;
-        }
-
         HashMap<TaskId, TaskState> idStateMap = new HashMap<>(); // Maybe we need to make this JSON instead?
         for (ContinuousBatchTaskStatusFetcher.Task task: idTaskMap.values()) {
             idStateMap.put(task.taskId, task.taskStatus.get().getState());
         }
 
         Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet())
-                .setUri(uri)
+                .setUri(getWorkerURI())
                 .setHeader(PRESTO_CURRENT_STATE, idStateMap.toString())
                 .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
                 .build();
 
         ResponseHandler responseHandler;
         if (isBinaryTransportEnabled) {
-            responseHandler = createFullSmileResponseHandler((SmileCodec<List<TaskStatus>>) taskListStatusCodec);
+            responseHandler = createFullSmileResponseHandler((SmileCodec<Map<TaskId, TaskStatus>>) taskListStatusCodec);
         }
         else {
             responseHandler = createAdaptingJsonResponseHandler(unwrapJsonCodec(taskListStatusCodec));
@@ -176,7 +184,7 @@ class WorkerTaskStatusFetcher
     }
 
     @Override
-    public void success(List<TaskStatus> value)
+    public void success(Map<TaskId, TaskStatus> value)
     {
         try (SetThreadName ignored = new SetThreadName("ContinuousBatchTaskStatusFetcher-%s", idTaskMap)) {
             updateStats(currentRequestStartNanos.get());
@@ -228,15 +236,15 @@ class WorkerTaskStatusFetcher
         }
     }
 
-    void updateAllTaskStatus(List<TaskStatus> newValues)
+    void updateAllTaskStatus(Map<TaskId, TaskStatus> newValues)
     {
-        for (TaskStatus newValue: newValues) {
-            updateTaskStatus(newValue);
+        for (Map.Entry<TaskId, TaskStatus> newEntry: newValues.entrySet()) {
+            updateTaskStatus(newEntry.getKey(), newEntry.getValue());
         }
     }
 
     // TODO: Update logic to handle response list instead of individual TaskStatus
-    void updateTaskStatus(TaskStatus newValue)
+    void updateTaskStatus(TaskId newTaskId, TaskStatus newTaskStatus)
     {
         // change to new value if old value is not changed and new value has a newer version
         AtomicBoolean taskMismatch = new AtomicBoolean();
