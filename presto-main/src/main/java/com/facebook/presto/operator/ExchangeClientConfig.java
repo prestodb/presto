@@ -38,7 +38,7 @@ public class ExchangeClientConfig
     private int pageBufferClientMaxCallbackThreads = 25;
     private boolean acknowledgePages = true;
     private double responseSizeExponentialMovingAverageDecayingAlpha = 0.1;
-    private boolean asyncPageTransportEnabled;
+    private boolean asyncPageTransportEnabled = true;
 
     @NotNull
     public DataSize getMaxBufferSize()
