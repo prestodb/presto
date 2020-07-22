@@ -71,6 +71,7 @@ public class PrestoSparkRunner
             Map<String, Map<String, String>> catalogSessionProperties,
             Optional<String> userAgent,
             Optional<String> clientInfo,
+            Optional<String> sparkQueueName,
             Optional<Path> queryInfoOutputPath)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
@@ -87,6 +88,7 @@ public class PrestoSparkRunner
                 session,
                 userAgent,
                 query,
+                sparkQueueName,
                 new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
                 queryInfoOutputPath);
 
