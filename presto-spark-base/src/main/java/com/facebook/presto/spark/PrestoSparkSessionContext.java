@@ -50,7 +50,6 @@ public class PrestoSparkSessionContext
 
     public static PrestoSparkSessionContext createFromSessionInfo(
             PrestoSparkSession prestoSparkSession,
-            Optional<String> userAgent,
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
     {
@@ -71,7 +70,7 @@ public class PrestoSparkSessionContext
                 prestoSparkSession.getCatalog().orElse(null),
                 prestoSparkSession.getSchema().orElse(null),
                 prestoSparkSession.getSource().orElse(null),
-                userAgent.orElse(null),
+                prestoSparkSession.getUserAgent().orElse(null),
                 prestoSparkSession.getClientInfo().orElse(null),
                 prestoSparkSession.getClientTags(),
                 prestoSparkSession.getTimeZoneId().orElse(null),
@@ -146,7 +145,7 @@ public class PrestoSparkSessionContext
     @Override
     public String getUserAgent()
     {
-        return null;
+        return userAgent;
     }
 
     @Nullable
