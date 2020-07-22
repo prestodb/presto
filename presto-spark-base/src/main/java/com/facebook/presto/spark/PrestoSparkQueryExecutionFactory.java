@@ -215,6 +215,7 @@ public class PrestoSparkQueryExecutionFactory
     public IPrestoSparkQueryExecution create(
             SparkContext sparkContext,
             PrestoSparkSession prestoSparkSession,
+            Optional<String> userAgent,
             String sql,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<Path> queryInfoOutputPath)
@@ -231,6 +232,7 @@ public class PrestoSparkQueryExecutionFactory
         log.info("Starting execution for presto query: %s", queryId);
         SessionContext sessionContext = PrestoSparkSessionContext.createFromSessionInfo(
                 prestoSparkSession,
+                userAgent,
                 credentialsProviders,
                 authenticatorProviders);
 

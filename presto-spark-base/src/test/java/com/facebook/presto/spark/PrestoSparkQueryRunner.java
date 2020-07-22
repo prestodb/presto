@@ -368,6 +368,7 @@ public class PrestoSparkQueryRunner
         PrestoSparkQueryExecution execution = (PrestoSparkQueryExecution) executionFactory.create(
                 sparkContext,
                 createSessionInfo(session),
+                Optional.empty(),
                 sql,
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty());
