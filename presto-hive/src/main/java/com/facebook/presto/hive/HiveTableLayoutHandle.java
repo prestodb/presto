@@ -142,7 +142,6 @@ public final class HiveTableLayoutHandle
 
     public TupleDomain<ColumnHandle> getDynamicFilterPredicate()
     {
-        System.out.println("james ========== " + dynamicFilterPredicate);
         return dynamicFilterPredicate;
     }
 

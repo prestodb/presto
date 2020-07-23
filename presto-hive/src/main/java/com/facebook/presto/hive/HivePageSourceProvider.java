@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -43,6 +44,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
@@ -56,6 +58,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucket;
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -156,6 +159,11 @@ public class HivePageSourceProvider
                 .transform(Subfield::getRootName)
                 .transform(hiveLayout.getPredicateColumns()::get);
 
+        TupleDomain<HiveColumnHandle> pruneBucket = TupleDomain.all();
+        if (hiveLayout.getDynamicFilterPredicate() != null && ((HiveSplit) split).getReadBucketNumber().isPresent() && ((HiveSplit) split).getStorage().getBucketProperty().isPresent()) {
+            pruneBucket = pruneBucket(hiveLayout.getDynamicFilterPredicate(), ((HiveSplit) split).getReadBucketNumber().getAsInt(), ((HiveSplit) split).getStorage().getBucketProperty().get());
+        }
+
         CacheQuota cacheQuota = generateCacheQuota(hiveSplit);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
@@ -168,7 +176,7 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
                 hiveSplit.getStorage(),
-                hiveLayout.getDynamicFilterPredicate() == null ? effectivePredicate : effectivePredicate.intersect(hiveLayout.getDynamicFilterPredicate().transform(x -> (HiveColumnHandle) x)),
+                (hiveLayout.getDynamicFilterPredicate() == null ? effectivePredicate : effectivePredicate.intersect(hiveLayout.getDynamicFilterPredicate().transform(x -> (HiveColumnHandle) x))).intersect(pruneBucket),
                 selectedColumns,
                 hiveLayout.getPredicateColumns(),
                 hiveSplit.getPartitionKeys(),
@@ -191,6 +199,39 @@ public class HivePageSourceProvider
             return pageSource.get();
         }
         throw new IllegalStateException("Could not find a file reader for split " + hiveSplit);
+    }
+
+    private static TupleDomain<HiveColumnHandle> pruneBucket(TupleDomain<ColumnHandle> dynamicFilter, int readBucket, HiveBucketProperty bucketProperty)
+    {
+        int tableBucket = bucketProperty.getBucketCount();
+        Set<String> bucketColumns = bucketProperty.getBucketedBy().stream().collect(toImmutableSet());
+        Optional<Map<ColumnHandle, Set<NullableValue>>> bindings = TupleDomain.extractFixedValueSets(dynamicFilter);
+        if (!bindings.isPresent()) {
+            return TupleDomain.all();
+        }
+
+        checkState(bindings.get().size() == 1, "james' hack; only allow one single bucket");
+
+        Map.Entry<ColumnHandle, Set<NullableValue>> entry = bindings.get().entrySet().iterator().next();
+        HiveColumnHandle columnHandle = (HiveColumnHandle) entry.getKey();
+
+        // TODO: this is a very strong assumption; we should ultimately use the functions in HiveBucketing
+        if (!bucketColumns.contains(columnHandle.getName())) {
+            return TupleDomain.all();
+        }
+
+        Set<NullableValue> values = entry.getValue();
+        TypeInfo typeInfo = columnHandle.getHiveType().getTypeInfo();
+
+        for (NullableValue value : values) {
+            int targetBucket = getHiveBucket(tableBucket, ImmutableList.of(typeInfo), new Object[]{value.getValue()});
+            if (readBucket == targetBucket) {
+                return TupleDomain.all();
+            }
+        }
+
+        System.out.println(format("james skip reading bucket %s/%s", readBucket, tableBucket));
+        return TupleDomain.none();
     }
 
     @VisibleForTesting
@@ -263,6 +304,7 @@ public class HivePageSourceProvider
 
         RowExpression optimizedRemainingPredicate = rowExpressionCache.getUnchecked(new RowExpressionCacheKey(layout.getRemainingPredicate(), session));
 
+        // TODO: dynamic pruning plugin here with pruneBucket just like the one above
         CacheQuota cacheQuota = generateCacheQuota(split);
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
