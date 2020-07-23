@@ -235,7 +235,6 @@ public class SqlQueryScheduler
     }
 
     @Override
-
     public void start()
     {
         if (started.compareAndSet(false, true)) {
