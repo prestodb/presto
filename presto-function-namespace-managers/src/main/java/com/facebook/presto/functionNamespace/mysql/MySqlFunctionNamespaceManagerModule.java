@@ -15,11 +15,15 @@ package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.thrift.api.udf.ThriftUdfService;
+import com.google.common.net.HostAndPort;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.drift.client.address.SimpleAddressSelectorBinder.simpleAddressSelector;
+import static com.facebook.drift.client.guice.DriftClientBinder.driftClientBinder;
 import static com.google.inject.Scopes.SINGLETON;
 import static java.util.Objects.requireNonNull;
 
@@ -41,5 +45,9 @@ public class MySqlFunctionNamespaceManagerModule
         configBinder(binder).bindConfig(SqlInvokedFunctionNamespaceManagerConfig.class);
         configBinder(binder).bindConfig(MySqlFunctionNamespaceManagerConfig.class);
         binder.bind(MySqlFunctionNamespaceManager.class).in(SINGLETON);
+
+        driftClientBinder(binder)
+                .bindDriftClient(ThriftUdfService.class)
+                .withAddressSelector(simpleAddressSelector(HostAndPort.fromParts("localhost", 7779)));
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.functionNamespace.testing;
 
+import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
@@ -24,6 +25,7 @@ import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.thrift.api.udf.ThriftUdfService;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -111,6 +113,12 @@ public class InMemoryFunctionNamespaceManager
                 .filter(function -> function.getRequiredFunctionHandle().equals(functionHandle))
                 .map(this::sqlInvokedFunctionToImplementation)
                 .collect(onlyElement());
+    }
+
+    @Override
+    protected DriftClient<ThriftUdfService> getThriftUdfClient()
+    {
+        throw new UnsupportedOperationException();
     }
 
     private static SqlInvokedFunction copyFunction(SqlInvokedFunction function)

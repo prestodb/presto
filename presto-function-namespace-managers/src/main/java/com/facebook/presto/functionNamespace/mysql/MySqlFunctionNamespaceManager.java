@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
+import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.TypeSignature;
@@ -31,6 +32,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.thrift.api.udf.ThriftUdfService;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.PostConstruct;
@@ -69,6 +71,7 @@ public class MySqlFunctionNamespaceManager
     private final Jdbi jdbi;
     private final FunctionNamespaceDao functionNamespaceDao;
     private final Class<? extends FunctionNamespaceDao> functionNamespaceDaoClass;
+    private final DriftClient<ThriftUdfService> thriftUdfClient;
 
     @Inject
     public MySqlFunctionNamespaceManager(
@@ -76,12 +79,14 @@ public class MySqlFunctionNamespaceManager
             FunctionNamespaceDao functionNamespaceDao,
             Class<? extends FunctionNamespaceDao> functionNamespaceDaoClass,
             SqlInvokedFunctionNamespaceManagerConfig managerConfig,
+            DriftClient<ThriftUdfService> thriftUdfClient,
             @ServingCatalog String catalogName)
     {
         super(catalogName, managerConfig);
         this.jdbi = requireNonNull(jdbi, "jdbi is null");
         this.functionNamespaceDao = requireNonNull(functionNamespaceDao, "functionNamespaceDao is null");
         this.functionNamespaceDaoClass = requireNonNull(functionNamespaceDaoClass, "functionNamespaceDaoClass is null");
+        this.thriftUdfClient = requireNonNull(thriftUdfClient, "thriftUdfClient is null");
     }
 
     @PostConstruct
@@ -127,6 +132,12 @@ public class MySqlFunctionNamespaceManager
             throw new InvalidFunctionHandleException(functionHandle);
         }
         return sqlInvokedFunctionToImplementation(function.get());
+    }
+
+    @Override
+    protected DriftClient<ThriftUdfService> getThriftUdfClient()
+    {
+        return thriftUdfClient;
     }
 
     @Override

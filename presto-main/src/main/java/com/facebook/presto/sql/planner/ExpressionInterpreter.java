@@ -941,6 +941,9 @@ public class ExpressionInterpreter
                             optimize);
                     result = functionInterpreter.visitor.process(function, context);
                     break;
+                case THRIFT:
+                    // do not interpret remote functions on coordinator
+                    return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
                 default:
                     throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
             }

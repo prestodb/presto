@@ -13,8 +13,14 @@
  */
 package com.facebook.presto.functionNamespace;
 
+import com.facebook.drift.TException;
+import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -29,23 +35,33 @@ import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
+import com.facebook.presto.spi.function.ThriftScalarFunctionImplementation;
+import com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock;
+import com.facebook.presto.thrift.api.udf.ThriftFunctionHandle;
+import com.facebook.presto.thrift.api.udf.ThriftUdfService;
+import com.facebook.presto.thrift.api.udf.ThriftUdfServiceException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
-import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language;
+import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.thriftPage;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -112,6 +128,8 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
 
     protected abstract ScalarFunctionImplementation fetchFunctionImplementationDirect(SqlFunctionHandle functionHandle);
 
+    protected abstract DriftClient<ThriftUdfService> getThriftUdfClient();
+
     @Override
     public final FunctionNamespaceTransactionHandle beginTransaction()
     {
@@ -172,6 +190,36 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         checkCatalog(functionHandle);
         checkArgument(functionHandle instanceof SqlFunctionHandle, "Unsupported FunctionHandle type '%s'", functionHandle.getClass().getSimpleName());
         return implementationByHandle.getUnchecked((SqlFunctionHandle) functionHandle);
+    }
+
+    @Override
+    public CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
+    {
+        checkArgument(functionHandle instanceof SqlFunctionHandle, format("Expect SqlFunctionHandle, got %s", functionHandle.getClass()));
+        FunctionMetadata functionMetadata = getFunctionMetadata(functionHandle);
+        ScalarFunctionImplementation functionImplementation = getScalarFunctionImplementation(functionHandle);
+        checkArgument(functionImplementation instanceof ThriftScalarFunctionImplementation, "Remote function execution currently only supports Thrift.");
+        ImmutableList.Builder<PrestoThriftBlock> blocks = ImmutableList.builder();
+        for (int i = 0; i < channels.size(); i++) {
+            Block block = input.getBlock(channels.get(i));
+            blocks.add(PrestoThriftBlock.fromBlock(block, typeManager.getType(functionMetadata.getArgumentTypes().get(i))));
+        }
+        SqlFunctionId functionId = ((SqlFunctionHandle) functionHandle).getFunctionId();
+        try {
+            return toCompletableFuture(getThriftUdfClient().get().invokeUdf(
+                    new ThriftFunctionHandle(
+                            functionId.getFunctionName().toString(),
+                            functionId.getArgumentTypes().stream()
+                                    .map(TypeSignature::toString)
+                                    .collect(toImmutableList()),
+                            functionMetadata.getReturnType().toString(),
+                            ((SqlFunctionHandle) functionHandle).getVersion()),
+                    thriftPage(blocks.build())))
+                    .thenApply(result -> result.getResult().getThriftBlocks().get(0).toBlock(typeManager.getType(functionMetadata.getReturnType())));
+        }
+        catch (ThriftUdfServiceException | TException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+        }
     }
 
     protected String getCatalogName()
@@ -239,8 +287,17 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     protected ScalarFunctionImplementation sqlInvokedFunctionToImplementation(SqlInvokedFunction function)
     {
         FunctionImplementationType implementationType = getFunctionImplementationType(function);
-        checkArgument(implementationType.equals(SQL));
-        return new SqlInvokedScalarFunctionImplementation(function.getBody());
+        switch (implementationType) {
+            case SQL:
+                return new SqlInvokedScalarFunctionImplementation(function.getBody());
+            case THRIFT:
+                checkArgument(function.getFunctionHandle().isPresent(), "Need functionHandle to get function implementation");
+                return new ThriftScalarFunctionImplementation(function.getFunctionHandle().get());
+            case BUILTIN:
+                throw new IllegalStateException(format("%s cannot manage BUILTIN functions", this.getClass()));
+            default:
+                throw new IllegalStateException(format("Unknown function implementation type: %s", implementationType));
+        }
     }
 
     private Collection<SqlInvokedFunction> fetchFunctions(QualifiedFunctionName functionName)

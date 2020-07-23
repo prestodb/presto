@@ -53,7 +53,7 @@ import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DynamicFilterSourceOperator;
 import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
-import com.facebook.presto.operator.FilterAndProjectOperator;
+import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.GroupIdOperator;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
@@ -79,6 +79,7 @@ import com.facebook.presto.operator.PagesSpatialIndexFactory;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
+import com.facebook.presto.operator.RemoteProjectOperator.RemoteProjectOperatorFactory;
 import com.facebook.presto.operator.RowNumberOperator;
 import com.facebook.presto.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
 import com.facebook.presto.operator.SetBuilderOperator.SetBuilderOperatorFactory;
@@ -140,6 +141,7 @@ import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ProjectNode.Locality;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
@@ -273,6 +275,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
@@ -1231,7 +1234,7 @@ public class LocalExecutionPlanner
             RowExpression filterExpression = node.getPredicate();
             List<VariableReferenceExpression> outputVariables = node.getOutputVariables();
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), identityAssignments(outputVariables), outputVariables);
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, Optional.of(filterExpression), identityAssignments(outputVariables), outputVariables, LOCAL);
         }
 
         @Override
@@ -1239,7 +1242,7 @@ public class LocalExecutionPlanner
         {
             PlanNode sourceNode;
             Optional<RowExpression> filterExpression = Optional.empty();
-            if (node.getSource() instanceof FilterNode) {
+            if (node.getLocality().equals(LOCAL) && node.getSource() instanceof FilterNode) {
                 FilterNode filterNode = (FilterNode) node.getSource();
                 sourceNode = filterNode.getSource();
                 filterExpression = Optional.of(filterNode.getPredicate());
@@ -1248,7 +1251,7 @@ public class LocalExecutionPlanner
                 sourceNode = node.getSource();
             }
 
-            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, node.getAssignments(), node.getOutputVariables());
+            return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, node.getAssignments(), node.getOutputVariables(), node.getLocality());
         }
 
         // TODO: This should be refactored, so that there's an optimizer that merges scan-filter-project into a single PlanNode
@@ -1258,15 +1261,16 @@ public class LocalExecutionPlanner
                 PlanNode sourceNode,
                 Optional<RowExpression> filterExpression,
                 Assignments assignments,
-                List<VariableReferenceExpression> outputVariables)
+                List<VariableReferenceExpression> outputVariables,
+                Locality locality)
         {
-            // if source is a table scan we fold it directly into the filter and project
+            // if source is a table scan and project is local we fold it directly into the filter and project
             // otherwise we plan it as a normal operator
             Map<VariableReferenceExpression, Integer> sourceLayout;
             TableHandle table = null;
             List<ColumnHandle> columns = null;
             PhysicalOperation source = null;
-            if (sourceNode instanceof TableScanNode) {
+            if (sourceNode instanceof TableScanNode && locality.equals(LOCAL)) {
                 TableScanNode tableScanNode = (TableScanNode) sourceNode;
                 Optional<DeleteScanInfo> deleteScanInfo = context.getTableWriteInfo().getDeleteScanInfo();
                 if (deleteScanInfo.isPresent() && deleteScanInfo.get().getId() == tableScanNode.getId()) {
@@ -1297,6 +1301,7 @@ public class LocalExecutionPlanner
 
             // filterExpression may contain large function calls; evaluate them before compiling.
             if (filterExpression.isPresent()) {
+                checkState(locality.equals(LOCAL), "Only local projection could be combined with filter");
                 // TODO: theoretically, filterExpression could be a constant value (true or false) after optimization; we could possibly optimize the execution.
                 filterExpression = Optional.of(bindChannels(filterExpression.get(), sourceLayout));
             }
@@ -1354,10 +1359,10 @@ public class LocalExecutionPlanner
 
                     return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
-                else {
+                else if (locality.equals(LOCAL)) {
                     Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
-                    OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
+                    OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
                             planNodeId,
                             pageProcessor,
@@ -1365,6 +1370,15 @@ public class LocalExecutionPlanner
                             getFilterAndProjectMinOutputPageSize(session),
                             getFilterAndProjectMinOutputPageRowCount(session));
 
+                    return new PhysicalOperation(operatorFactory, outputMappings, context, source);
+                }
+                else {
+                    // Remote projection
+                    OperatorFactory operatorFactory = new RemoteProjectOperatorFactory(
+                            context.getNextOperatorId(),
+                            planNodeId,
+                            metadata.getFunctionManager(),
+                            projections);
                     return new PhysicalOperation(operatorFactory, outputMappings, context, source);
                 }
             }
