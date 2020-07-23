@@ -14,12 +14,26 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.client.StageStats;
+import com.facebook.presto.client.StatementStats;
+import com.facebook.presto.execution.QueryInfo;
+import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.StageExecutionInfo;
+import com.facebook.presto.execution.StageExecutionStats;
+import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskInfo;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.ws.rs.core.Response;
 
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.net.URLEncoder;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_PREPARE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
@@ -79,6 +93,34 @@ public final class QueryResourceUtil
         return response.build();
     }
 
+    public static StatementStats toStatementStats(QueryInfo queryInfo)
+    {
+        QueryStats queryStats = queryInfo.getQueryStats();
+        StageInfo outputStage = queryInfo.getOutputStage().orElse(null);
+
+        return StatementStats.builder()
+                .setState(queryInfo.getState().toString())
+                .setQueued(queryInfo.getState() == QueryState.QUEUED)
+                .setScheduled(queryInfo.isScheduled())
+                .setNodes(globalUniqueNodes(outputStage).size())
+                .setTotalSplits(queryStats.getTotalDrivers())
+                .setQueuedSplits(queryStats.getQueuedDrivers())
+                .setRunningSplits(queryStats.getRunningDrivers() + queryStats.getBlockedDrivers())
+                .setCompletedSplits(queryStats.getCompletedDrivers())
+                .setCpuTimeMillis(queryStats.getTotalCpuTime().toMillis())
+                .setWallTimeMillis(queryStats.getTotalScheduledTime().toMillis())
+                .setQueuedTimeMillis(queryStats.getQueuedTime().toMillis())
+                .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
+                .setProcessedRows(queryStats.getRawInputPositions())
+                .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
+                .setPeakMemoryBytes(queryStats.getPeakUserMemoryReservation().toBytes())
+                .setPeakTotalMemoryBytes(queryStats.getPeakTotalMemoryReservation().toBytes())
+                .setPeakTaskTotalMemoryBytes(queryStats.getPeakTaskTotalMemory().toBytes())
+                .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
+                .setRootStage(toStageStats(outputStage))
+                .build();
+    }
+
     private static String urlEncode(String value)
     {
         try {
@@ -87,5 +129,61 @@ public final class QueryResourceUtil
         catch (UnsupportedEncodingException e) {
             throw new AssertionError(e);
         }
+    }
+
+    private static Set<String> globalUniqueNodes(StageInfo stageInfo)
+    {
+        if (stageInfo == null) {
+            return ImmutableSet.of();
+        }
+        ImmutableSet.Builder<String> nodes = ImmutableSet.builder();
+        for (TaskInfo task : stageInfo.getLatestAttemptExecutionInfo().getTasks()) {
+            // todo add nodeId to TaskInfo
+            URI uri = task.getTaskStatus().getSelf();
+            nodes.add(uri.getHost() + ":" + uri.getPort());
+        }
+
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            nodes.addAll(globalUniqueNodes(subStage));
+        }
+        return nodes.build();
+    }
+
+    private static StageStats toStageStats(StageInfo stageInfo)
+    {
+        if (stageInfo == null) {
+            return null;
+        }
+
+        StageExecutionInfo currentStageExecutionInfo = stageInfo.getLatestAttemptExecutionInfo();
+        StageExecutionStats stageExecutionStats = currentStageExecutionInfo.getStats();
+
+        ImmutableList.Builder<StageStats> subStages = ImmutableList.builder();
+        for (StageInfo subStage : stageInfo.getSubStages()) {
+            subStages.add(toStageStats(subStage));
+        }
+
+        Set<String> uniqueNodes = new HashSet<>();
+        for (TaskInfo task : currentStageExecutionInfo.getTasks()) {
+            // todo add nodeId to TaskInfo
+            URI uri = task.getTaskStatus().getSelf();
+            uniqueNodes.add(uri.getHost() + ":" + uri.getPort());
+        }
+
+        return StageStats.builder()
+                .setStageId(String.valueOf(stageInfo.getStageId().getId()))
+                .setState(currentStageExecutionInfo.getState().toString())
+                .setDone(currentStageExecutionInfo.getState().isDone())
+                .setNodes(uniqueNodes.size())
+                .setTotalSplits(stageExecutionStats.getTotalDrivers())
+                .setQueuedSplits(stageExecutionStats.getQueuedDrivers())
+                .setRunningSplits(stageExecutionStats.getRunningDrivers() + stageExecutionStats.getBlockedDrivers())
+                .setCompletedSplits(stageExecutionStats.getCompletedDrivers())
+                .setCpuTimeMillis(stageExecutionStats.getTotalCpuTime().toMillis())
+                .setWallTimeMillis(stageExecutionStats.getTotalScheduledTime().toMillis())
+                .setProcessedRows(stageExecutionStats.getRawInputPositions())
+                .setProcessedBytes(stageExecutionStats.getRawInputDataSize().toBytes())
+                .setSubStages(subStages.build())
+                .build();
     }
 }
