@@ -37,7 +37,6 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -70,14 +69,12 @@ public class MetadataQueryOptimizer
             QualifiedFunctionName.of(DEFAULT_NAMESPACE, "approx_distinct"));
 
     private final Metadata metadata;
-    private final LiteralEncoder literalEncoder;
 
     public MetadataQueryOptimizer(Metadata metadata)
     {
         requireNonNull(metadata, "metadata is null");
 
         this.metadata = metadata;
-        this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
     }
 
     @Override
