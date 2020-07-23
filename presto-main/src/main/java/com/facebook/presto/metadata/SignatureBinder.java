@@ -323,7 +323,8 @@ public class SignatureBinder
                     actualType,
                     typeVariableConstraint.isComparableRequired(),
                     typeVariableConstraint.isOrderableRequired(),
-                    Optional.ofNullable(typeVariableConstraint.getVariadicBound())));
+                    Optional.ofNullable(typeVariableConstraint.getVariadicBound()),
+                    typeVariableConstraint.getTypeBound()));
             return true;
         }
 
@@ -595,14 +596,22 @@ public class SignatureBinder
         private final boolean comparableRequired;
         private final boolean orderableRequired;
         private final Optional<String> requiredBaseName;
+        private final Class<? extends Type> typeBound;
 
-        public TypeParameterSolver(String typeParameter, Type actualType, boolean comparableRequired, boolean orderableRequired, Optional<String> requiredBaseName)
+        public TypeParameterSolver(
+                String typeParameter,
+                Type actualType,
+                boolean comparableRequired,
+                boolean orderableRequired,
+                Optional<String> requiredBaseName,
+                Class<? extends Type> typeBound)
         {
             this.typeParameter = typeParameter;
             this.actualType = actualType;
             this.comparableRequired = comparableRequired;
             this.orderableRequired = orderableRequired;
             this.requiredBaseName = requiredBaseName;
+            this.typeBound = typeBound;
         }
 
         @Override
@@ -637,6 +646,9 @@ public class SignatureBinder
                 return false;
             }
             if (orderableRequired && !type.isOrderable()) {
+                return false;
+            }
+            if (!typeBound.isInstance(type)) {
                 return false;
             }
             if (requiredBaseName.isPresent() && !UNKNOWN.equals(type) && !requiredBaseName.get().equals(type.getTypeSignature().getBase())) {
