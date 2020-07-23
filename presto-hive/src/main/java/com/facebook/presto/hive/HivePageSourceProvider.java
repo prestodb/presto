@@ -159,9 +159,10 @@ public class HivePageSourceProvider
                 .transform(Subfield::getRootName)
                 .transform(hiveLayout.getPredicateColumns()::get);
 
-        TupleDomain<HiveColumnHandle> pruneBucket = TupleDomain.all();
         if (hiveLayout.getDynamicFilterPredicate() != null && ((HiveSplit) split).getReadBucketNumber().isPresent() && ((HiveSplit) split).getStorage().getBucketProperty().isPresent()) {
-            pruneBucket = pruneBucket(hiveLayout.getDynamicFilterPredicate(), ((HiveSplit) split).getReadBucketNumber().getAsInt(), ((HiveSplit) split).getStorage().getBucketProperty().get());
+            if (shouldSkipBucket(hiveLayout.getDynamicFilterPredicate(), ((HiveSplit) split).getReadBucketNumber().getAsInt(), ((HiveSplit) split).getStorage().getBucketProperty().get())) {
+                return new NoopSplitPageSource();
+            }
         }
 
         CacheQuota cacheQuota = generateCacheQuota(hiveSplit);
@@ -176,7 +177,7 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
                 hiveSplit.getStorage(),
-                (hiveLayout.getDynamicFilterPredicate() == null ? effectivePredicate : effectivePredicate.intersect(hiveLayout.getDynamicFilterPredicate().transform(x -> (HiveColumnHandle) x))).intersect(pruneBucket),
+                hiveLayout.getDynamicFilterPredicate() == null ? effectivePredicate : effectivePredicate.intersect(hiveLayout.getDynamicFilterPredicate().transform(x -> (HiveColumnHandle) x)),
                 selectedColumns,
                 hiveLayout.getPredicateColumns(),
                 hiveSplit.getPartitionKeys(),
@@ -201,13 +202,13 @@ public class HivePageSourceProvider
         throw new IllegalStateException("Could not find a file reader for split " + hiveSplit);
     }
 
-    private static TupleDomain<HiveColumnHandle> pruneBucket(TupleDomain<ColumnHandle> dynamicFilter, int readBucket, HiveBucketProperty bucketProperty)
+    private static boolean shouldSkipBucket(TupleDomain<ColumnHandle> dynamicFilter, int readBucket, HiveBucketProperty bucketProperty)
     {
         int tableBucket = bucketProperty.getBucketCount();
         Set<String> bucketColumns = bucketProperty.getBucketedBy().stream().collect(toImmutableSet());
         Optional<Map<ColumnHandle, Set<NullableValue>>> bindings = TupleDomain.extractFixedValueSets(dynamicFilter);
         if (!bindings.isPresent()) {
-            return TupleDomain.all();
+            return false;
         }
 
         checkState(bindings.get().size() == 1, "james' hack; only allow one single bucket");
@@ -217,7 +218,7 @@ public class HivePageSourceProvider
 
         // TODO: this is a very strong assumption; we should ultimately use the functions in HiveBucketing
         if (!bucketColumns.contains(columnHandle.getName())) {
-            return TupleDomain.all();
+            return false;
         }
 
         Set<NullableValue> values = entry.getValue();
@@ -226,12 +227,12 @@ public class HivePageSourceProvider
         for (NullableValue value : values) {
             int targetBucket = getHiveBucket(tableBucket, ImmutableList.of(typeInfo), new Object[]{value.getValue()});
             if (readBucket == targetBucket) {
-                return TupleDomain.all();
+                return false;
             }
         }
 
         System.out.println(format("james skip reading bucket %s/%s", readBucket, tableBucket));
-        return TupleDomain.none();
+        return true;
     }
 
     @VisibleForTesting

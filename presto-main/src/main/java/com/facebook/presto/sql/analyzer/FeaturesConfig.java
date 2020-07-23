@@ -37,11 +37,13 @@ import java.nio.file.Paths;
 import java.util.List;
 
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -65,7 +67,7 @@ public class FeaturesConfig
     private double memoryCostWeight = 10;
     private double networkCostWeight = 15;
     private boolean distributedIndexJoinsEnabled;
-    private JoinDistributionType joinDistributionType = PARTITIONED;
+    private JoinDistributionType joinDistributionType = BROADCAST;
     private DataSize joinMaxBroadcastTableSize;
     private boolean colocatedJoinsEnabled = true;
     private boolean groupedExecutionForAggregationEnabled = true;
@@ -133,9 +135,9 @@ public class FeaturesConfig
     private boolean optimizeFullOuterJoinWithCoalesce = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
-    private boolean enableDynamicFiltering;
-    private int dynamicFilteringMaxPerDriverRowCount = 100;
-    private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
+    private boolean enableDynamicFiltering = true;
+    private int dynamicFilteringMaxPerDriverRowCount = 1_000_000;
+    private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, MEGABYTE);
 
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -963,7 +965,7 @@ public class FeaturesConfig
         return this;
     }
 
-    @MaxDataSize("1MB")
+    @MaxDataSize("100MB")
     public DataSize getDynamicFilteringMaxPerDriverSize()
     {
         return dynamicFilteringMaxPerDriverSize;

@@ -50,7 +50,6 @@ import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
-import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -179,12 +178,12 @@ public final class HiveQueryRunner
 
             if (!metastore.getDatabase(TPCH_SCHEMA).isPresent()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA));
-                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(Optional.empty()), tables);
+                copyTpchTables(queryRunner, "tpch", "sf10", createSession(Optional.empty()), tables);
             }
 
             if (!metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isPresent()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
-                copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, createBucketedSession(Optional.empty()), tables);
+                copyTpchTablesBucketed(queryRunner, "tpch", "sf10", createBucketedSession(Optional.empty()), tables);
             }
 
             if (!metastore.getDatabase(TEMPORARY_TABLE_SCHEMA).isPresent()) {
