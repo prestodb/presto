@@ -889,6 +889,14 @@ public final class HttpRemoteTask
         abort(failedTaskStatus);
     }
 
+    /**
+     * Move all tasks in worker to the failed state
+     */
+    private void failTaskWorker(Throwable cause)
+    {
+        // We can implement this later
+    }
+
     private HttpUriBuilder getHttpUriBuilder(TaskStatus taskStatus)
     {
         HttpUriBuilder uriBuilder = uriBuilderFrom(taskStatus.getSelf());

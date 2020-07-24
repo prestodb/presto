@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.StateMachine;
@@ -141,7 +142,9 @@ public class ContinuousBatchTaskStatusFetcher
     private synchronized void scheduleNextRequest()
     {
         for (WorkerTaskStatusFetcher workerTaskStatusFetcher: workerTaskMap.values()) {
-            workerTaskStatusFetcher.scheduleNextRequest();
+            try (SetThreadName ignored = new SetThreadName("WorkerTaskStatusFetcher-%s", workerTaskStatusFetcher)) {
+                workerTaskStatusFetcher.scheduleNextRequest();
+            }
         }
     }
 
