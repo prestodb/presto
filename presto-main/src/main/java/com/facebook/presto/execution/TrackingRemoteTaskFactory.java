@@ -20,7 +20,6 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.server.remotetask.ContinuousBatchTaskStatusFetcher;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
@@ -52,30 +51,6 @@ public class TrackingRemoteTaskFactory
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
-        return createRemoteTask(session,
-                taskId,
-                node,
-                fragment,
-                initialSplits,
-                outputBuffers,
-                partitionedSplitCountTracker,
-                summarizeTaskInfo,
-                tableWriteInfo,
-                null);
-    }
-
-    @Override
-    public RemoteTask createRemoteTask(Session session,
-            TaskId taskId,
-            InternalNode node,
-            PlanFragment fragment,
-            Multimap<PlanNodeId, Split> initialSplits,
-            OutputBuffers outputBuffers,
-            PartitionedSplitCountTracker partitionedSplitCountTracker,
-            boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo,
-            ContinuousBatchTaskStatusFetcher batchTaskStatusFetcher)
-    {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,
                 node,
@@ -84,8 +59,7 @@ public class TrackingRemoteTaskFactory
                 outputBuffers,
                 partitionedSplitCountTracker,
                 summarizeTaskInfo,
-                tableWriteInfo,
-                batchTaskStatusFetcher);
+                tableWriteInfo);
 
         task.addStateChangeListener(new UpdateQueryStats(stateMachine));
         return task;

@@ -30,7 +30,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.server.remotetask.ContinuousBatchTaskStatusFetcher;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.memory.MemoryPoolId;
@@ -153,32 +152,6 @@ public class MockRemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
-    {
-        return createRemoteTask(
-                session,
-                taskId,
-                node,
-                fragment,
-                initialSplits,
-                outputBuffers,
-                partitionedSplitCountTracker,
-                summarizeTaskInfo,
-                tableWriteInfo,
-                null);
-    }
-
-    @Override
-    public MockRemoteTask createRemoteTask(
-            Session session,
-            TaskId taskId,
-            InternalNode node,
-            PlanFragment fragment,
-            Multimap<PlanNodeId, Split> initialSplits,
-            OutputBuffers outputBuffers,
-            PartitionedSplitCountTracker partitionedSplitCountTracker,
-            boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo,
-            ContinuousBatchTaskStatusFetcher taskListStatusFetcher)
     {
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, partitionedSplitCountTracker);
     }

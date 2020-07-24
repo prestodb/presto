@@ -154,32 +154,7 @@ public class HttpRemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo) {
-        return createRemoteTask(
-                session,
-                taskId,
-                node,
-                fragment,
-                initialSplits,
-                outputBuffers,
-                partitionedSplitCountTracker,
-                summarizeTaskInfo,
-                tableWriteInfo,
-                null);
-    }
-
-    @Override
-    public RemoteTask createRemoteTask(
-            Session session,
-            TaskId taskId,
-            InternalNode node,
-            PlanFragment fragment,
-            Multimap<PlanNodeId, Split> initialSplits,
-            OutputBuffers outputBuffers,
-            PartitionedSplitCountTracker partitionedSplitCountTracker,
-            boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo,
-            ContinuousBatchTaskStatusFetcher taskListStatusFetcher)
+            TableWriteInfo tableWriteInfo)
     {
         return new HttpRemoteTask(
                 session,
@@ -207,7 +182,6 @@ public class HttpRemoteTaskFactory
                 stats,
                 isBinaryTransportEnabled,
                 tableWriteInfo,
-                maxTaskUpdateSizeInBytes,
-                taskListStatusFetcher);
+                maxTaskUpdateSizeInBytes);
     }
 }
