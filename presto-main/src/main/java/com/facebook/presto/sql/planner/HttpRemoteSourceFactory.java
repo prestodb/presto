@@ -20,7 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.ExchangeOperator.ExchangeOperatorFactory;
 import com.facebook.presto.operator.MergeOperator.MergeOperatorFactory;
-import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.OrderingCompiler;
@@ -45,7 +45,7 @@ public class HttpRemoteSourceFactory
     }
 
     @Override
-    public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
+    public SourceOperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
         return new ExchangeOperatorFactory(
                 operatorId,
@@ -55,7 +55,7 @@ public class HttpRemoteSourceFactory
     }
 
     @Override
-    public OperatorFactory createMergeRemoteSource(
+    public SourceOperatorFactory createMergeRemoteSource(
             Session session,
             int operatorId,
             PlanNodeId planNodeId,

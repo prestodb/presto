@@ -16,16 +16,16 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spi.plan.PlanNodeId;
 
 import java.util.List;
 
 public interface RemoteSourceFactory
 {
-    OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types);
+    SourceOperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types);
 
-    OperatorFactory createMergeRemoteSource(
+    SourceOperatorFactory createMergeRemoteSource(
             Session session,
             int operatorId,
             PlanNodeId planNodeId,
