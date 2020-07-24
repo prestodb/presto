@@ -68,10 +68,10 @@ public class FeaturesConfig
     private JoinDistributionType joinDistributionType = PARTITIONED;
     private DataSize joinMaxBroadcastTableSize;
     private boolean colocatedJoinsEnabled = true;
-    private boolean groupedExecutionForAggregationEnabled;
+    private boolean groupedExecutionForAggregationEnabled = true;
     private boolean groupedExecutionForJoinEnabled = true;
-    private boolean groupedExecutionForEligibleTableScansEnabled;
-    private boolean dynamicScheduleForGroupedExecution;
+    private boolean groupedExecutionForEligibleTableScansEnabled = true;
+    private boolean dynamicScheduleForGroupedExecution = true;
     private boolean recoverableGroupedExecutionEnabled;
     private double maxFailedTaskPercentage = 0.3;
     private int maxStageRetries;
@@ -378,7 +378,7 @@ public class FeaturesConfig
     }
 
     @Config("grouped-execution-for-aggregation-enabled")
-    @ConfigDescription("Experimental: Use grouped execution for aggregation when possible")
+    @ConfigDescription("Use grouped execution for aggregation when possible")
     public FeaturesConfig setGroupedExecutionForAggregationEnabled(boolean groupedExecutionForAggregationEnabled)
     {
         this.groupedExecutionForAggregationEnabled = groupedExecutionForAggregationEnabled;
@@ -391,7 +391,7 @@ public class FeaturesConfig
     }
 
     @Config("grouped-execution-for-join-enabled")
-    @ConfigDescription("Experimental: Use grouped execution for join when possible")
+    @ConfigDescription("Use grouped execution for join when possible")
     public FeaturesConfig setGroupedExecutionForJoinEnabled(boolean groupedExecutionForJoinEnabled)
     {
         this.groupedExecutionForJoinEnabled = groupedExecutionForJoinEnabled;
