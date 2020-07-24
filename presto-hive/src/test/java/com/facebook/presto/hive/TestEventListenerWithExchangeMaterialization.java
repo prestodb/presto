@@ -23,7 +23,6 @@ import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -75,6 +74,9 @@ public class TestEventListenerWithExchangeMaterialization
                 Optional.empty());
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         session = queryRunner.getDefaultSession();
+        generatedEvents.initialize(16);
+        // Wait until all tpch table copying queries finish populating completedEvents.
+        generatedEvents.waitForEvents(180);
     }
 
     @AfterClass(alwaysRun = true)
@@ -86,13 +88,13 @@ public class TestEventListenerWithExchangeMaterialization
         generatedEvents = null;
     }
 
-    private MaterializedResult runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)
+    private QueryId runQueryAndWaitForEvents(@Language("SQL") String sql, int numEventsExpected)
             throws Exception
     {
         generatedEvents.initialize(numEventsExpected);
-        MaterializedResult result = queryRunner.execute(session, sql);
-        generatedEvents.waitForEvents(100);
-        return result;
+        QueryId resultId = queryRunner.executeWithQueryId(session, sql).getQueryId();
+        generatedEvents.waitForEvents(600);
+        return resultId;
     }
 
     @Test
@@ -101,12 +103,13 @@ public class TestEventListenerWithExchangeMaterialization
     {
         // We expect one runtime optimized stage: 1.
         int expectedEvents = 2;
-        runQueryAndWaitForEvents("SELECT phone, regionkey FROM nation INNER JOIN supplier ON supplier.nationkey=nation.nationkey", expectedEvents);
+        QueryId queryId = runQueryAndWaitForEvents("SELECT phone, regionkey FROM nation INNER JOIN supplier ON supplier.nationkey=nation.nationkey", expectedEvents);
         QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         QueryMetadata queryMetadata = queryCompletedEvent.getMetadata();
         Optional<List<StageId>> runtimeOptimizedStages = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getRuntimeOptimizedStages();
 
+        assertEquals(queryMetadata.getQueryId(), queryId.toString());
         assertEquals(queryMetadata.getRuntimeOptimizedStages().size(), 1);
         assertEquals(queryMetadata.getRuntimeOptimizedStages().get(0), "1");
         assertTrue(runtimeOptimizedStages.isPresent());
