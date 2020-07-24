@@ -207,7 +207,7 @@ public class HivePageSourceProvider
         int tableBucket = bucketProperty.getBucketCount();
         Set<String> bucketColumns = bucketProperty.getBucketedBy().stream().collect(toImmutableSet());
         Optional<Map<ColumnHandle, Set<NullableValue>>> bindings = TupleDomain.extractFixedValueSets(dynamicFilter);
-        if (!bindings.isPresent()) {
+        if (!bindings.isPresent() || bindings.get().size() == 0) {
             return false;
         }
 
@@ -304,6 +304,12 @@ public class HivePageSourceProvider
                 .collect(toImmutableList());
 
         RowExpression optimizedRemainingPredicate = rowExpressionCache.getUnchecked(new RowExpressionCacheKey(layout.getRemainingPredicate(), session));
+
+        if (layout.getDynamicFilterPredicate() != null && split.getReadBucketNumber().isPresent() && split.getStorage().getBucketProperty().isPresent()) {
+            if (shouldSkipBucket(layout.getDynamicFilterPredicate(), split.getReadBucketNumber().getAsInt(), split.getStorage().getBucketProperty().get())) {
+                return Optional.of(new NoopSplitPageSource());
+            }
+        }
 
         // TODO: dynamic pruning plugin here with pruneBucket just like the one above
         CacheQuota cacheQuota = generateCacheQuota(split);

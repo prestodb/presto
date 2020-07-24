@@ -164,7 +164,7 @@ public final class HiveQueryRunner
                     ImmutableMap.copyOf(hiveProperties) :
                     ImmutableMap.<String, String>builder()
                             .putAll(hiveProperties)
-                            .put("hive.storage-format", "TEXTFILE")
+                            .put("hive.storage-format", "ORC")
                             .put("hive.compression-codec", "NONE")
                             .build();
 

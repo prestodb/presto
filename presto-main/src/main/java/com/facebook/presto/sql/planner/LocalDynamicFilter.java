@@ -109,10 +109,27 @@ public class LocalDynamicFilter
                 .where(LocalDynamicFilter::isFilterAboveTableScan)
                 .findAll();
 
+        List<TableScanNode> scanNodes = PlanNodeSearcher
+                .searchFrom(planNode.getLeft())
+                .where(LocalDynamicFilter::isTableScanContainRemainingPredicate)
+                .findAll();
+
         // Mapping from probe-side dynamic filters' IDs to their matching probe variables.
         ImmutableMultimap.Builder<String, VariableReferenceExpression> probeVariablesBuilder = ImmutableMultimap.builder();
         for (FilterNode filterNode : filterNodes) {
             DynamicFilterExtractResult extractResult = extractDynamicFilters(filterNode.getPredicate());
+            for (DynamicFilterPlaceholder placeholder : extractResult.getDynamicConjuncts()) {
+                if (placeholder.getInput() instanceof VariableReferenceExpression) {
+                    // Add descriptors that match the local dynamic filter (from the current join node).
+                    if (joinDynamicFilters.contains(placeholder.getId())) {
+                        VariableReferenceExpression probeVariable = (VariableReferenceExpression) placeholder.getInput();
+                        probeVariablesBuilder.put(placeholder.getId(), probeVariable);
+                    }
+                }
+            }
+        }
+        for (TableScanNode scanNode : scanNodes) {
+            DynamicFilterExtractResult extractResult = extractDynamicFilters(scanNode.getTable().getLayout().get().getRemainingPredicate());
             for (DynamicFilterPlaceholder placeholder : extractResult.getDynamicConjuncts()) {
                 if (placeholder.getInput() instanceof VariableReferenceExpression) {
                     // Add descriptors that match the local dynamic filter (from the current join node).
@@ -152,6 +169,11 @@ public class LocalDynamicFilter
     private static boolean isFilterAboveTableScan(PlanNode node)
     {
         return node instanceof FilterNode && ((FilterNode) node).getSource() instanceof TableScanNode;
+    }
+
+    private static boolean isTableScanContainRemainingPredicate(PlanNode node)
+    {
+        return node instanceof TableScanNode && ((TableScanNode) node).getTable().getLayout().isPresent() && ((TableScanNode) node).getTable().getLayout().get().getRemainingPredicate() != null;
     }
 
     public Map<String, Integer> getBuildChannels()

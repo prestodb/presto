@@ -142,6 +142,7 @@ public final class HiveTableLayoutHandle
 
     public TupleDomain<ColumnHandle> getDynamicFilterPredicate()
     {
+        System.out.println(dynamicFilterPredicate);
         return dynamicFilterPredicate;
     }
 

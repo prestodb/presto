@@ -21,6 +21,7 @@ import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -182,6 +183,18 @@ public class RemoveUnsupportedDynamicFilters
                 return new PlanWithConsumedDynamicFilters(new FilterNode(node.getId(), source, modified),
                         consumedDynamicFilterIds.build());
             }
+
+            return new PlanWithConsumedDynamicFilters(node, consumedDynamicFilterIds.build());
+        }
+
+        @Override
+        public PlanWithConsumedDynamicFilters visitTableScan(TableScanNode node, Set<String> allowedDynamicFilterIds)
+        {
+            ImmutableSet.Builder<String> consumedDynamicFilterIds = ImmutableSet.builder();
+
+            RowExpression remainingPredicate = node.getTable().getLayout().map(ConnectorTableLayoutHandle::getRemainingPredicate).orElse(TRUE_CONSTANT);
+
+            removeDynamicFilters(remainingPredicate, allowedDynamicFilterIds, consumedDynamicFilterIds);
 
             return new PlanWithConsumedDynamicFilters(node, consumedDynamicFilterIds.build());
         }

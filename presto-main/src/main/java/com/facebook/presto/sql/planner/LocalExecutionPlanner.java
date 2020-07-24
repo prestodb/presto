@@ -123,6 +123,7 @@ import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TableHandle;
@@ -248,7 +249,9 @@ import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.sphericalDistance;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
@@ -1308,13 +1311,34 @@ public class LocalExecutionPlanner
 
             Optional<DynamicFilterExtractResult> extractDynamicFilterResult = filterExpression.map(DynamicFilters::extractDynamicFilters);
 
+            RowExpression pushdownFilter;
+            if (sourceNode instanceof TableScanNode) {
+                pushdownFilter = ((TableScanNode) sourceNode).getTable().getLayout().map(ConnectorTableLayoutHandle::getRemainingPredicate).orElse(TRUE_CONSTANT);
+            }
+            else {
+                pushdownFilter = TRUE_CONSTANT;
+            }
+
+            Optional<DynamicFilterExtractResult> extractDynamicFilterResultForPushdown;
+            if (filterExpression.isPresent()) {
+                extractDynamicFilterResultForPushdown = filterExpression.map(x -> {
+                    if (pushdownFilter.equals(TRUE_CONSTANT)) {
+                        return extractDynamicFilters(x);
+                    }
+                    return extractDynamicFilters(and(x, pushdownFilter));
+                });
+            }
+            else {
+                extractDynamicFilterResultForPushdown = Optional.of(extractDynamicFilters(pushdownFilter));
+            }
+
             // Extract the static ones
             filterExpression = extractDynamicFilterResult
                     .map(DynamicFilterExtractResult::getStaticConjuncts)
                     .map(logicalRowExpressions::combineConjuncts);
 
             // TODO: Execution must be plugged in here
-            Optional<List<DynamicFilterPlaceholder>> dynamicFilters = extractDynamicFilterResult.map(DynamicFilterExtractResult::getDynamicConjuncts);
+            Optional<List<DynamicFilterPlaceholder>> dynamicFilters = extractDynamicFilterResultForPushdown.map(DynamicFilterExtractResult::getDynamicConjuncts);
             Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier = Optional.empty();
             if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty() && sourceNode instanceof TableScanNode) {
                 TableScanNode tableScanNode = (TableScanNode) sourceNode;
