@@ -66,7 +66,7 @@ public class HiveClientConfig
     private int maxInitialSplits = 200;
     private int splitLoaderConcurrency = 4;
     private DataSize maxInitialSplitSize;
-    private int domainCompactionThreshold = 100;
+    private int domainCompactionThreshold = 100_000;
     private DataSize writerSortBufferSize = new DataSize(64, MEGABYTE);
     private NodeSelectionStrategy nodeSelectionStrategy = NO_PREFERENCE;
     private boolean recursiveDirWalkerEnabled;
