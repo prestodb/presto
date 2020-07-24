@@ -71,6 +71,7 @@ public class FeaturesConfig
     private boolean groupedExecutionForAggregationEnabled = true;
     private boolean groupedExecutionForJoinEnabled = true;
     private boolean groupedExecutionForEligibleTableScansEnabled = true;
+    private boolean groupedExecutionEnabled = true;
     private boolean dynamicScheduleForGroupedExecution = true;
     private boolean recoverableGroupedExecutionEnabled;
     private double maxFailedTaskPercentage = 0.3;
@@ -408,6 +409,19 @@ public class FeaturesConfig
     public FeaturesConfig setGroupedExecutionForEligibleTableScansEnabled(boolean groupedExecutionForEligibleTableScansEnabled)
     {
         this.groupedExecutionForEligibleTableScansEnabled = groupedExecutionForEligibleTableScansEnabled;
+        return this;
+    }
+
+    public boolean isGroupedExecutionEnabled()
+    {
+        return groupedExecutionEnabled;
+    }
+
+    @Config("grouped-execution-enabled")
+    @ConfigDescription("Use grouped execution when possible")
+    public FeaturesConfig setGroupedExecutionEnabled(boolean groupedExecutionEnabled)
+    {
+        this.groupedExecutionEnabled = groupedExecutionEnabled;
         return this;
     }
 
