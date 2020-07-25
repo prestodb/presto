@@ -1106,7 +1106,7 @@ public class PredicatePushDown
 
             PlanNode output = node;
             if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
-                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), node.getSemiJoinOutput(), node.getSourceHashVariable(), node.getFilteringSourceHashVariable(), node.getDistributionType());
+                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), node.getSemiJoinOutput(), node.getSourceHashVariable(), node.getFilteringSourceHashVariable(), node.getDistributionType(), node.getDynamicFilters());
             }
             if (!postJoinConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, castToRowExpression(combineConjuncts(postJoinConjuncts)));
@@ -1194,7 +1194,8 @@ public class PredicatePushDown
                         node.getSemiJoinOutput(),
                         node.getSourceHashVariable(),
                         node.getFilteringSourceHashVariable(),
-                        node.getDistributionType());
+                        node.getDistributionType(),
+                        node.getDynamicFilters());
             }
             if (!postJoinConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, castToRowExpression(combineConjuncts(postJoinConjuncts)));

@@ -622,6 +622,20 @@ public class RowExpressionPredicatePushDown
             return new DynamicFiltersResult(dynamicFilters, predicates);
         }
 
+        private static DynamicFiltersResult createDynamicFilters(
+                VariableReferenceExpression probeVariable,
+                VariableReferenceExpression buildVariable,
+                PlanNodeIdAllocator idAllocator,
+                FunctionManager functionManager)
+        {
+            ImmutableMap.Builder<String, VariableReferenceExpression> dynamicFiltersBuilder = ImmutableMap.builder();
+            ImmutableList.Builder<RowExpression> predicatesBuilder = ImmutableList.builder();
+            String id = idAllocator.getNextId().toString();
+            predicatesBuilder.add(createDynamicFilterExpression(id, probeVariable, functionManager));
+            dynamicFiltersBuilder.put(id, buildVariable);
+            return new DynamicFiltersResult(dynamicFiltersBuilder.build(), predicatesBuilder.build());
+        }
+
         private static class DynamicFiltersResult
         {
             private final Map<String, VariableReferenceExpression> dynamicFilters;
@@ -1198,9 +1212,17 @@ public class RowExpressionPredicatePushDown
 
             PlanNode rewrittenSource = context.rewrite(node.getSource(), logicalRowExpressions.combineConjuncts(sourceConjuncts));
 
+            Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
+            if (isEnableDynamicFiltering(session)) {
+                DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), idAllocator, metadata.getFunctionManager());
+                dynamicFilters = dynamicFiltersResult.getDynamicFilters();
+                // add filter node on top of probe
+                rewrittenSource = new FilterNode(idAllocator.getNextId(), rewrittenSource, logicalRowExpressions.combineConjuncts(dynamicFiltersResult.getPredicates()));
+            }
+
             PlanNode output = node;
-            if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
-                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), node.getSemiJoinOutput(), node.getSourceHashVariable(), node.getFilteringSourceHashVariable(), node.getDistributionType());
+            if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource() || !dynamicFilters.isEmpty()) {
+                output = new SemiJoinNode(node.getId(), rewrittenSource, rewrittenFilteringSource, node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), node.getSemiJoinOutput(), node.getSourceHashVariable(), node.getFilteringSourceHashVariable(), node.getDistributionType(), dynamicFilters);
             }
             if (!postJoinConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, logicalRowExpressions.combineConjuncts(postJoinConjuncts));
@@ -1274,8 +1296,16 @@ public class RowExpressionPredicatePushDown
             PlanNode rewrittenSource = context.rewrite(node.getSource(), logicalRowExpressions.combineConjuncts(sourceConjuncts));
             PlanNode rewrittenFilteringSource = context.rewrite(node.getFilteringSource(), logicalRowExpressions.combineConjuncts(filteringSourceConjuncts));
 
+            Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
+            if (isEnableDynamicFiltering(session)) {
+                DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node.getSourceJoinVariable(), node.getFilteringSourceJoinVariable(), idAllocator, metadata.getFunctionManager());
+                dynamicFilters = dynamicFiltersResult.getDynamicFilters();
+                // add filter node on top of probe
+                rewrittenSource = new FilterNode(idAllocator.getNextId(), rewrittenSource, logicalRowExpressions.combineConjuncts(dynamicFiltersResult.getPredicates()));
+            }
+
             PlanNode output = node;
-            if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource()) {
+            if (rewrittenSource != node.getSource() || rewrittenFilteringSource != node.getFilteringSource() || !dynamicFilters.isEmpty()) {
                 output = new SemiJoinNode(
                         node.getId(),
                         rewrittenSource,
@@ -1285,7 +1315,8 @@ public class RowExpressionPredicatePushDown
                         node.getSemiJoinOutput(),
                         node.getSourceHashVariable(),
                         node.getFilteringSourceHashVariable(),
-                        node.getDistributionType());
+                        node.getDistributionType(),
+                        dynamicFilters);
             }
             if (!postJoinConjuncts.isEmpty()) {
                 output = new FilterNode(idAllocator.getNextId(), output, logicalRowExpressions.combineConjuncts(postJoinConjuncts));

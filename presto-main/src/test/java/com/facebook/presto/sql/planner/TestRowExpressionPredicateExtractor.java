@@ -704,7 +704,8 @@ public class TestRowExpressionPredicateExtractor
                 AV, BV, CV,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
 
         RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 

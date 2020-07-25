@@ -1337,7 +1337,6 @@ public class LocalExecutionPlanner
                     .map(DynamicFilterExtractResult::getStaticConjuncts)
                     .map(logicalRowExpressions::combineConjuncts);
 
-            // TODO: Execution must be plugged in here
             Optional<List<DynamicFilterPlaceholder>> dynamicFilters = extractDynamicFilterResultForPushdown.map(DynamicFilterExtractResult::getDynamicConjuncts);
             Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier = Optional.empty();
             if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty() && sourceNode instanceof TableScanNode) {

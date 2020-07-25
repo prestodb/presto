@@ -178,12 +178,12 @@ public final class HiveQueryRunner
 
             if (!metastore.getDatabase(TPCH_SCHEMA).isPresent()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA));
-                copyTpchTables(queryRunner, "tpch", "sf10", createSession(Optional.empty()), tables);
+                copyTpchTables(queryRunner, "tpch", "sf1", createSession(Optional.empty()), tables);
             }
 
             if (!metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isPresent()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA));
-                copyTpchTablesBucketed(queryRunner, "tpch", "sf10", createBucketedSession(Optional.empty()), tables);
+                copyTpchTablesBucketed(queryRunner, "tpch", "sf1", createBucketedSession(Optional.empty()), tables);
             }
 
             if (!metastore.getDatabase(TEMPORARY_TABLE_SCHEMA).isPresent()) {

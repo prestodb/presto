@@ -705,7 +705,8 @@ public class TestEffectivePredicateExtractor
                 AV, BV, CV,
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
 
