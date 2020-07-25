@@ -704,4 +704,28 @@ public interface ConnectorMetadata
     {
         return NOT_APPLICABLE;
     }
+
+    /**
+     * Attempt to push down the provided limit into the table.
+     * <p>
+     * Connectors can indicate whether they don't support limit pushdown or that the action had no effect
+     * by returning {@link Optional#empty()}. Connectors should expect this method to be called multiple times
+     * during the optimization of a given query.
+     * <p>
+     * <b>Note</b>: it's critical for connectors to return Optional.empty() if calling this method has no effect for that
+     * invocation, even if the connector generally supports limit pushdown. Doing otherwise can cause the optimizer
+     * to loop indefinitely.
+     * </p>
+     * <p>
+     * If the connector could benefit from the information but can't guarantee that it will be able to produce
+     * fewer rows than the provided limit, it should return a non-empty result containing a new handle for the
+     * derived table and the "limit guaranteed" flag set to false.
+     * <p>
+     * If the connector can guarantee it will produce fewer rows than the provided limit, it should return a
+     * non-empty result with the "limit guaranteed" flag set to true.
+     */
+    default Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorTableHandle handle, long limit)
+    {
+        return Optional.empty();
+    }
 }
