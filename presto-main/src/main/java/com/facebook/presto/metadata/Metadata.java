@@ -34,6 +34,7 @@ import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.LimitApplicationResult;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -462,4 +463,6 @@ public interface Metadata
     {
         return NOT_APPLICABLE;
     }
+
+    Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit);
 }
