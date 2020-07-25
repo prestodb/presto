@@ -11,36 +11,6 @@ See the [User Manual](https://prestodb.github.io/docs/current/) for deployment i
 * Maven 3.3.9+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
-## OKERA:
-### Upgrading presto version from main codebase.
-
-When we want to upgrade our presto version from the main codebase, do the following,
-* Checkout the Okera forked version of presto from here, https://github.com/cerebro-data/presto
-* For the first time, add the main codebase as a remote repo `git remote add presto git@github.com:prestodb/presto.git`
-* Then run `git fetch --all`
-* Then switch to latest okera presto branch. Example, `git checkout 0.225-okera`
-* Create a new branch for the new version. Example, `git checkout -b 0.233.2-okera`
-* Rebase that version from `presto` (public) repo. Run command, `git rebase -i presto/release-0.233.2`
-* Keep resolving the rebase issues, mostly pom.xml versions.
-* After final rebase, make sure the versions in pom.xml is the desired release version. Example, `0.233.2`
-* Build presto. Follow instructions as in (## Building Presto) section below.
-* * Make sure to add these lines to your `.m2/settings.xml` file, so that the public jars are discoverable,
-    ```
-    <repository>
-        <id>central.maven</id>
-        <name>Maven repo</name>
-        <url>https://repo1.maven.org/maven2/</url>
-    </repository>
-    ```
-    and in pluginRepositories section,
-    ```
-    <pluginRepository>
-        <id>central.maven</id>
-        <name>Maven repo</name>
-        <url>https://repo1.maven.org/maven2/</url>
-    </pluginRepository>
-    ```
-
 ## Building Presto
 
 Presto is a standard Maven project. Simply run the following command from the project root directory:
@@ -134,4 +104,4 @@ To iterate quickly, simply re-build the project in IntelliJ after packaging is c
 ## Release Notes
 
 When authoring a pull request, the PR description should include its relevant release notes.
-Follow [Release Notes Guidelines](https://github.com/prestodb/presto/wiki/Release-Notes-Guidelines) when authoring release notes.
+Follow [Release Notes Guidelines](https://github.com/prestodb/presto/wiki/Release-Notes-Guidelines) when authoring release notes. 

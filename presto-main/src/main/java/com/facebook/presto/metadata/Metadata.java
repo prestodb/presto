@@ -29,6 +29,7 @@ import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
+import com.facebook.presto.spi.connector.LimitApplicationResult;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
@@ -450,4 +451,6 @@ public interface Metadata
     AnalyzePropertyManager getAnalyzePropertyManager();
 
     Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName);
+
+    Optional<LimitApplicationResult<TableHandle>> applyLimit(Session session, TableHandle table, long limit);
 }
