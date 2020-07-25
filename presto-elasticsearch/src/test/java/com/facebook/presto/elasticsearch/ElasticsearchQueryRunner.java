@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -26,14 +24,11 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.tpch.TpchTable;
 
-import java.io.File;
-import java.net.URL;
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -61,9 +56,7 @@ public final class ElasticsearchQueryRunner
 
             embeddedElasticsearchNode.start();
 
-            ElasticsearchTableDescriptionProvider tableDescriptions = createTableDescriptions(queryRunner.getCoordinator().getMetadata());
-
-            TestingElasticsearchConnectorFactory testFactory = new TestingElasticsearchConnectorFactory(tableDescriptions);
+            TestingElasticsearchConnectorFactory testFactory = new TestingElasticsearchConnectorFactory();
 
             installElasticsearchPlugin(queryRunner, testFactory);
 
@@ -84,32 +77,18 @@ public final class ElasticsearchQueryRunner
         }
     }
 
-    private static ElasticsearchTableDescriptionProvider createTableDescriptions(Metadata metadata)
-            throws Exception
-    {
-        JsonCodec<ElasticsearchTableDescription> codec = new CodecSupplier<>(ElasticsearchTableDescription.class, metadata).get();
-
-        URL metadataUrl = getResource(ElasticsearchQueryRunner.class, "/queryrunner");
-        ElasticsearchConnectorConfig config = new ElasticsearchConnectorConfig()
-                .setTableDescriptionDirectory(new File(metadataUrl.toURI()))
-                .setDefaultSchema(TPCH_SCHEMA);
-        return new ElasticsearchTableDescriptionProvider(config, codec);
-    }
-
     private static void installElasticsearchPlugin(QueryRunner queryRunner, TestingElasticsearchConnectorFactory factory)
             throws Exception
     {
         queryRunner.installPlugin(new ElasticsearchPlugin(factory));
-        URL metadataUrl = getResource(ElasticsearchQueryRunner.class, "/queryrunner");
         Map<String, String> config = ImmutableMap.<String, String>builder()
+                .put("elasticsearch.host", "localhost")
+                .put("elasticsearch.port", "9200")
                 .put("elasticsearch.default-schema-name", TPCH_SCHEMA)
-                .put("elasticsearch.table-description-directory", metadataUrl.toURI().toString())
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.max-hits", "1000000")
                 .put("elasticsearch.request-timeout", "2m")
-                .put("elasticsearch.max-request-retries", "3")
-                .put("elasticsearch.max-request-retry-time", "5s")
                 .build();
 
         queryRunner.createCatalog("elasticsearch", "elasticsearch", config);

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.checksum;
 
-import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.common.type.SqlVarbinary;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;

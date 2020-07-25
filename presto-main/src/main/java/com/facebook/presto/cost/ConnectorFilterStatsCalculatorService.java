@@ -14,6 +14,7 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
@@ -24,7 +25,6 @@ import com.facebook.presto.spi.statistics.ColumnStatistics.Builder;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableBiMap;
 
 import java.util.Map;

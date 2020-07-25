@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.plugin.geospatial.BingTileFunctions.BingTileCoordinatesFunction;
 import com.facebook.presto.plugin.geospatial.aggregation.ConvexHullAggregation;
 import com.facebook.presto.plugin.geospatial.aggregation.GeometryUnionAgg;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Set;
 
+import static com.facebook.presto.common.type.KdbTreeType.KDB_TREE;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
-import static com.facebook.presto.spi.type.KdbTreeType.KDB_TREE;
 
 public class GeoPlugin
         implements Plugin

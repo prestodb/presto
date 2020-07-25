@@ -18,7 +18,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static java.util.Collections.emptyList;
 
 public class TestExchangeStatsRule

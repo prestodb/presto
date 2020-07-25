@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.236-SNAPSHOT</version>
+        <version>0.239-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -41,6 +41,11 @@
         </dependency>
 
         <!-- Presto -->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
@@ -122,6 +127,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
         </dependency>
@@ -129,6 +139,16 @@
         <dependency>
             <groupId>org.weakref</groupId>
             <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jol</groupId>
+            <artifactId>jol-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
         </dependency>
 
         <dependency>
@@ -146,6 +166,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift.tpch</groupId>
+            <artifactId>tpch</artifactId>
             <scope>test</scope>
         </dependency>
 

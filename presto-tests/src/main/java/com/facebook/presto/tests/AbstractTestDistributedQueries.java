@@ -38,8 +38,8 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_TABLE;
@@ -989,8 +989,22 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT * FROM test_nested_view_access",
                 privilege(getSession().getUser(), "test_view_access", SELECT_COLUMN));
 
+        // verify that INVOKER security runs as session user
+        assertAccessAllowed(
+                viewOwnerSession,
+                "CREATE VIEW test_invoker_view_access SECURITY INVOKER AS SELECT * FROM orders",
+                privilege("orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
+        assertAccessAllowed(
+                "SELECT * FROM test_invoker_view_access",
+                privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
+        assertAccessDenied(
+                "SELECT * FROM test_invoker_view_access",
+                "Cannot select from columns \\[.*\\] in table .*.orders.*",
+                privilege(getSession().getUser(), "orders", SELECT_COLUMN));
+
         assertAccessAllowed(nestedViewOwnerSession, "DROP VIEW test_nested_view_access");
         assertAccessAllowed(viewOwnerSession, "DROP VIEW test_view_access");
+        assertAccessAllowed(viewOwnerSession, "DROP VIEW test_invoker_view_access");
     }
 
     @Test

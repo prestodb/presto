@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TestingWriterTarget;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
@@ -54,8 +54,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;

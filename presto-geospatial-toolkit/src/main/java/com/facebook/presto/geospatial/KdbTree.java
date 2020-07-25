@@ -20,7 +20,9 @@ import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.ArrayDeque;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -165,31 +167,33 @@ public class KdbTree
 
     public Map<Integer, Rectangle> getLeaves()
     {
-        ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
-        addLeaves(root, leaves, node -> true);
-        return leaves.build();
+        return findLeaves(node -> true);
     }
 
     public Map<Integer, Rectangle> findIntersectingLeaves(Rectangle envelope)
     {
-        ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
-        addLeaves(root, leaves, node -> node.extent.intersects(envelope));
-        return leaves.build();
+        return findLeaves(node -> node.extent.intersects(envelope));
     }
 
-    private static void addLeaves(Node node, ImmutableMap.Builder<Integer, Rectangle> leaves, Predicate<Node> predicate)
+    private Map<Integer, Rectangle> findLeaves(Predicate<Node> predicate)
     {
-        if (!predicate.apply(node)) {
-            return;
+        ImmutableMap.Builder<Integer, Rectangle> leaves = ImmutableMap.builder();
+        Deque<Node> deque = new ArrayDeque<>();
+        deque.push(root);
+        while (!deque.isEmpty()) {
+            Node node = deque.pop();
+            if (!predicate.apply(node)) {
+                continue;
+            }
+            if (node.leafId.isPresent()) {
+                leaves.put(node.leafId.getAsInt(), node.extent);
+            }
+            else {
+                deque.push(node.getLeft().get());
+                deque.push(node.getRight().get());
+            }
         }
-
-        if (node.leafId.isPresent()) {
-            leaves.put(node.leafId.getAsInt(), node.extent);
-        }
-        else {
-            addLeaves(node.left.get(), leaves, predicate);
-            addLeaves(node.right.get(), leaves, predicate);
-        }
+        return leaves.build();
     }
 
     private interface SplitDimension

@@ -13,6 +13,15 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.SqlDate;
+import com.facebook.presto.common.type.SqlTime;
+import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
@@ -21,7 +30,6 @@ import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
@@ -34,16 +42,7 @@ import com.facebook.presto.raptor.metadata.ShardRecorder;
 import com.facebook.presto.raptor.storage.InMemoryShardRecorder.RecordedShard;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.NodeManager;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.SqlTime;
-import com.facebook.presto.spi.type.SqlTimestamp;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.type.TypeRegistry;
@@ -84,23 +83,24 @@ import java.util.stream.IntStream;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.DEFAULT_RAPTOR_CONTEXT;
 import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
 import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED_AND_VALIDATED;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
@@ -238,7 +238,7 @@ public class TestOrcStorageManager
 
         recoveryManager.restoreFromBackup(shardUuid, shardInfo.getCompressedSize(), OptionalLong.of(shardInfo.getXxhash64()));
 
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
         try (OrcDataSource dataSource = manager.openShard(fileSystem, shardUuid, READER_ATTRIBUTES)) {
             OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
@@ -337,7 +337,7 @@ public class TestOrcStorageManager
             throws Exception
     {
         OrcStorageManager manager = createOrcStorageManager();
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
 
         long transactionId = TRANSACTION_ID;
         List<Long> columnIds = ImmutableList.of(3L, 7L);
@@ -358,7 +358,7 @@ public class TestOrcStorageManager
         BitSet rowsToDelete = new BitSet();
         rowsToDelete.set(0);
         InplaceShardRewriter shardRewriter = (InplaceShardRewriter) manager.createShardRewriter(
-                FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                DEFAULT_RAPTOR_CONTEXT,
                 fileSystem,
                 transactionId,
                 OptionalInt.empty(),
@@ -391,7 +391,7 @@ public class TestOrcStorageManager
     public void testWriteDeltaDelete()
             throws Exception
     {
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
 
         // delete one row
         BitSet rowsToDelete = new BitSet();
@@ -454,7 +454,7 @@ public class TestOrcStorageManager
     public void testWriteDeltaDeleteMerge()
             throws Exception
     {
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
 
         BitSet rowsToDelete = new BitSet();
         rowsToDelete.set(0);
@@ -511,7 +511,7 @@ public class TestOrcStorageManager
     private Collection<Slice> deltaDelete(BitSet rowsToDelete, boolean oldDeltaDeleteExist)
     {
         OrcStorageManager manager = createOrcStorageManager();
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
@@ -542,7 +542,7 @@ public class TestOrcStorageManager
 
         // delta delete
         DeltaShardRewriter shardRewriter = (DeltaShardRewriter) manager.createShardRewriter(
-                FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                DEFAULT_RAPTOR_CONTEXT,
                 fileSystem,
                 TRANSACTION_ID,
                 OptionalInt.empty(),
@@ -758,7 +758,7 @@ public class TestOrcStorageManager
             TupleDomain<RaptorColumnHandle> tupleDomain)
     {
         return manager.getPageSource(
-                FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                DEFAULT_RAPTOR_CONTEXT,
                 DEFAULT_HIVE_FILE_CONTEXT,
                 uuid,
                 Optional.empty(),
@@ -773,7 +773,7 @@ public class TestOrcStorageManager
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
     {
         long transactionId = TRANSACTION_ID;
-        return manager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
+        return manager.createStoragePageSink(DEFAULT_RAPTOR_CONTEXT, transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
     }
 
     private OrcStorageManager createOrcStorageManager()

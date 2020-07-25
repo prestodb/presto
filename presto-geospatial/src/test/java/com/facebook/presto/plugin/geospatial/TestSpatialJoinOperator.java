@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.geospatial;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.geospatial.KdbTree;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
@@ -31,7 +32,6 @@ import com.facebook.presto.operator.SpatialJoinOperator.SpatialJoinOperatorFacto
 import com.facebook.presto.operator.StandardJoinFilterFunction;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.ValuesOperator;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -58,15 +58,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.geospatial.KdbTree.Node.newInternal;
 import static com.facebook.presto.geospatial.KdbTree.Node.newLeaf;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stGeometryFromText;
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stPoint;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type.LEFT;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;

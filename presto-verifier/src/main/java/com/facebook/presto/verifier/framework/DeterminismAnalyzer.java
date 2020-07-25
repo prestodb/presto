@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
@@ -28,8 +28,9 @@ import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,7 +38,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
-import static com.facebook.presto.verifier.framework.DataVerificationUtil.setupAndRun;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.teardownSafely;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_DATA_CHANGED;
@@ -49,6 +49,8 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_LIMIT_CLAUSE;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_ROW_COUNT;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_SETUP;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -99,17 +101,24 @@ public class DeterminismAnalyzer
         }
 
         List<Column> columns = getColumns(prestoAction, typeManager, control.getTableName());
-        List<QueryBundle> queryBundles = new ArrayList<>();
+        Map<QueryBundle, DeterminismAnalysisRun.Builder> queryRuns = new HashMap<>();
 
         try {
             // Rerun control query
             for (int i = 0; i < maxAnalysisRuns; i++) {
                 QueryBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
-                queryBundles.add(queryBundle);
                 DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getTableName().toString());
+                queryRuns.put(queryBundle, run);
 
-                runAndConsume(() -> setupAndRun(prestoAction, queryBundle, true), stats -> run.setQueryId(stats.getQueryId()));
+                // Rerun setup and main query
+                queryBundle.getSetupQueries().forEach(query -> runAndConsume(
+                        () -> prestoAction.execute(query, DETERMINISM_ANALYSIS_SETUP),
+                        queryStats -> run.addSetupQueryId(queryStats.getQueryId())));
+                runAndConsume(
+                        () -> prestoAction.execute(queryBundle.getQuery(), DETERMINISM_ANALYSIS_MAIN),
+                        stats -> run.setQueryId(stats.getQueryId()));
 
+                // Run checksum query
                 Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getTableName(), columns);
                 ChecksumResult testChecksum = getOnlyElement(callAndConsume(
                         () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
@@ -149,7 +158,10 @@ public class DeterminismAnalyzer
         }
         finally {
             if (runTeardown) {
-                queryBundles.forEach(bundle -> teardownSafely(prestoAction, Optional.of(bundle)));
+                queryRuns.forEach((queryBundle, run) -> teardownSafely(
+                        prestoAction,
+                        Optional.of(queryBundle),
+                        queryStats -> run.addTeardownQueryId(queryStats.getQueryId())));
             }
         }
     }

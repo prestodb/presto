@@ -19,6 +19,7 @@ import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
@@ -35,7 +36,6 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
@@ -68,6 +68,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
@@ -157,9 +158,10 @@ public class SqlTaskManager
         DataSize maxQueryUserMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
+        DataSize maxQueryBroadcastMemory = nodeMemoryConfig.getMaxQueryBroadcastMemory();
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
-                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode)));
+                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode, maxQueryBroadcastMemory)));
 
         tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
                 taskId -> createSqlTask(
@@ -185,12 +187,14 @@ public class SqlTaskManager
             GcMonitor gcMonitor,
             DataSize maxQueryUserMemoryPerNode,
             DataSize maxQueryTotalMemoryPerNode,
-            DataSize maxQuerySpillPerNode)
+            DataSize maxQuerySpillPerNode,
+            DataSize maxQueryBroadcastMemory)
     {
         return new QueryContext(
                 queryId,
                 maxQueryUserMemoryPerNode,
                 maxQueryTotalMemoryPerNode,
+                maxQueryBroadcastMemory,
                 localMemoryManager.getGeneralPool(),
                 gcMonitor,
                 taskNotificationExecutor,
@@ -382,7 +386,8 @@ public class SqlTaskManager
             queryContexts.getUnchecked(
                     taskId.getQueryId()).setMemoryLimits(
                     getQueryMaxMemoryPerNode(session),
-                    getQueryMaxTotalMemoryPerNode(session));
+                    getQueryMaxTotalMemoryPerNode(session),
+                    getQueryMaxBroadcastMemory(session));
         }
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
@@ -449,7 +454,7 @@ public class SqlTaskManager
     {
         DateTime oldestAllowedTask = DateTime.now().minus(infoCacheTime.toMillis());
         for (TaskInfo taskInfo : filter(transform(tasks.asMap().values(), SqlTask::getTaskInfo), notNull())) {
-            TaskId taskId = taskInfo.getTaskStatus().getTaskId();
+            TaskId taskId = taskInfo.getTaskId();
             try {
                 DateTime endTime = taskInfo.getStats().getEndTime();
                 if (endTime != null && endTime.isBefore(oldestAllowedTask)) {
@@ -475,8 +480,8 @@ public class SqlTaskManager
                 }
                 DateTime lastHeartbeat = taskInfo.getLastHeartbeat();
                 if (lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat)) {
-                    log.info("Failing abandoned task %s", taskStatus.getTaskId());
-                    sqlTask.failed(new PrestoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskStatus.getTaskId(), lastHeartbeat, now)));
+                    log.info("Failing abandoned task %s", taskInfo.getTaskId());
+                    sqlTask.failed(new PrestoException(ABANDONED_TASK, format("Task %s has not been accessed since %s: currentTime %s", taskInfo.getTaskId(), lastHeartbeat, now)));
                 }
             }
             catch (RuntimeException e) {

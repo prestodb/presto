@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 
 @FunctionalInterface

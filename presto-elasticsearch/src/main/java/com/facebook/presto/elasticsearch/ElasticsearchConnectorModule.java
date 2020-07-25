@@ -13,53 +13,55 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.decoder.DecoderModule;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
 
 import javax.inject.Inject;
-import javax.inject.Singleton;
 
-import java.io.IOException;
-
+import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
-import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.elasticsearch.ElasticsearchConfig.Security.AWS;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.isEqual;
 
 public class ElasticsearchConnectorModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         binder.bind(ElasticsearchConnector.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
-        binder.bind(ElasticsearchRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ElasticsearchPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ElasticsearchClient.class).in(Scopes.SINGLETON);
+        binder.bind(NodesSystemTable.class).in(Scopes.SINGLETON);
 
-        configBinder(binder).bindConfig(ElasticsearchConnectorConfig.class);
+        configBinder(binder).bindConfig(ElasticsearchConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
-        jsonCodecBinder(binder).bindJsonCodec(ElasticsearchTableDescription.class);
 
         binder.install(new DecoderModule());
-    }
 
-    @Singleton
-    @Provides
-    public static ElasticsearchClient createElasticsearchClient(ElasticsearchConnectorConfig config, ElasticsearchTableDescriptionProvider elasticsearchTableDescriptionProvider)
-            throws IOException
-    {
-        return new ElasticsearchClient(elasticsearchTableDescriptionProvider, config);
+        newOptionalBinder(binder, AwsSecurityConfig.class);
+
+        install(installModuleIf(
+                ElasticsearchConfig.class,
+                config -> config.getSecurity()
+                        .filter(isEqual(AWS))
+                        .isPresent(),
+                conditionalBinder -> configBinder(conditionalBinder).bindConfig(AwsSecurityConfig.class)));
     }
 
     private static final class TypeDeserializer

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.MethodAndNativeContainerTypes;
 import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
 import com.facebook.presto.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
@@ -23,8 +25,6 @@ import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.R
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.util.Reflection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;

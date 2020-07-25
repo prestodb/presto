@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.reflect.TypeToken;
 import io.airlift.slice.OutputStreamSliceOutput;

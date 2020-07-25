@@ -14,11 +14,13 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -27,8 +29,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -56,9 +56,9 @@ import javax.inject.Inject;
 import java.util.Map;
 import java.util.OptionalDouble;
 
+import static com.facebook.presto.common.function.OperatorType.DIVIDE;
+import static com.facebook.presto.common.function.OperatorType.MODULUS;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
-import static com.facebook.presto.spi.function.OperatorType.DIVIDE;
-import static com.facebook.presto.spi.function.OperatorType.MODULUS;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;

@@ -44,6 +44,7 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -66,16 +67,6 @@ public final class GeometryUtils
     private static double translateFromAVNaN(double n)
     {
         return n < -1.0E38D ? (0.0D / 0.0) : n;
-    }
-
-    /**
-     * Copy of com.esri.core.geometry.Interop.translateToAVNaN
-     * <p>
-     * JtsGeometrySerde#serialize must serialize NaN's the same way ESRI library does to achieve binary compatibility
-     */
-    public static double translateToAVNaN(double n)
-    {
-        return (Double.isNaN(n)) ? -Double.MAX_VALUE : n;
     }
 
     public static boolean isEsriNaN(double d)
@@ -289,14 +280,14 @@ public final class GeometryUtils
         return GEOMETRY_FACTORY.createPolygon();
     }
 
-    public static String getGeometryInvalidReason(org.locationtech.jts.geom.Geometry geometry)
+    public static Optional<String> getGeometryInvalidReason(org.locationtech.jts.geom.Geometry geometry)
     {
         IsValidOp validOp = new IsValidOp(geometry);
         IsSimpleOp simpleOp = new IsSimpleOp(geometry);
         try {
             TopologyValidationError err = validOp.getValidationError();
             if (err != null) {
-                return err.getMessage();
+                return Optional.of(err.getMessage());
             }
         }
         catch (UnsupportedOperationException e) {
@@ -329,9 +320,9 @@ public final class GeometryUtils
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unknown geometry type: %s", geometryType));
             }
             org.locationtech.jts.geom.Coordinate nonSimpleLocation = simpleOp.getNonSimpleLocation();
-            return format("[%s] %s: (%s %s)", geometryType, errorDescription, nonSimpleLocation.getX(), nonSimpleLocation.getY());
+            return Optional.of(format("[%s] %s: (%s %s)", geometryType, errorDescription, nonSimpleLocation.getX(), nonSimpleLocation.getY()));
         }
-        return null;
+        return Optional.empty();
     }
 
     /**

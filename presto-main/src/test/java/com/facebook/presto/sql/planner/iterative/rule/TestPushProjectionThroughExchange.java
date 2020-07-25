@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -22,8 +22,8 @@ import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.function.OperatorType.MULTIPLY;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;

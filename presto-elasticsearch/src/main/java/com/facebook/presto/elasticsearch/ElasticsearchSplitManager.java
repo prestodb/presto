@@ -13,23 +13,19 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.collect.ImmutableList;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsGroup;
-import org.elasticsearch.action.admin.cluster.shards.ClusterSearchShardsResponse;
-import org.elasticsearch.cluster.node.DiscoveryNode;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchSplitManager
@@ -52,26 +48,11 @@ public class ElasticsearchSplitManager
     {
         ElasticsearchTableLayoutHandle layoutHandle = (ElasticsearchTableLayoutHandle) layout;
         ElasticsearchTableHandle tableHandle = layoutHandle.getTable();
-        ElasticsearchTableDescription table = client.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
-        verify(table != null, "Table no longer exists: %s", tableHandle.toString());
 
-        List<String> indices = client.getIndices(table);
-        ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        for (String index : indices) {
-            ClusterSearchShardsResponse response = client.getSearchShards(index, table);
-            DiscoveryNode[] nodes = response.getNodes();
-            for (ClusterSearchShardsGroup group : response.getGroups()) {
-                int nodeIndex = group.getShardId().getId() % nodes.length;
-                ElasticsearchSplit split = new ElasticsearchSplit(
-                        index,
-                        table.getType(),
-                        group.getShardId().getId(),
-                        nodes[nodeIndex].getHostName(),
-                        nodes[nodeIndex].getAddress().getPort(),
-                        layoutHandle.getTupleDomain());
-                splits.add(split);
-            }
-        }
-        return new FixedSplitSource(splits.build());
+        List<ElasticsearchSplit> splits = client.getSearchShards(tableHandle.getIndex()).stream()
+                .map(shard -> new ElasticsearchSplit(shard.getIndex(), shard.getId(), layoutHandle.getTupleDomain(), shard.getAddress()))
+                .collect(toImmutableList());
+
+        return new FixedSplitSource(splits);
     }
 }

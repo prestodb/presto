@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 
 public class TestInstanceFunction
         extends AbstractTestFunctions

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;

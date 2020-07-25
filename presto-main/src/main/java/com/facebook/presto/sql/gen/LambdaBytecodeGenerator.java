@@ -24,10 +24,10 @@ import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.aggregation.AccumulatorCompiler;
 import com.facebook.presto.operator.aggregation.LambdaProvider;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -39,6 +39,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
@@ -105,12 +106,42 @@ public class LambdaBytecodeGenerator
             ClassDefinition containerClassDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
+            RowExpression expression,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            String methodNamePrefix,
+            Set<LambdaDefinitionExpression> existingCompiledLambdas)
+    {
+        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, ImmutableList.of(expression), metadata, sqlFunctionProperties, methodNamePrefix, existingCompiledLambdas);
+    }
+
+    public static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
+            ClassDefinition containerClassDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
             List<RowExpression> expressions,
             Metadata metadata,
             SqlFunctionProperties sqlFunctionProperties,
             String methodNamePrefix)
     {
-        Set<LambdaDefinitionExpression> lambdaExpressions = expressions.stream().map(LambdaExpressionExtractor::extractLambdaExpressions).flatMap(List::stream).collect(toImmutableSet());
+        return generateMethodsForLambda(containerClassDefinition, callSiteBinder, cachedInstanceBinder, expressions, metadata, sqlFunctionProperties, methodNamePrefix, ImmutableSet.of());
+    }
+
+    private static Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
+            ClassDefinition containerClassDefinition,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            List<RowExpression> expressions,
+            Metadata metadata,
+            SqlFunctionProperties sqlFunctionProperties,
+            String methodNamePrefix,
+            Set<LambdaDefinitionExpression> existingCompiledLambdas)
+    {
+        Set<LambdaDefinitionExpression> lambdaExpressions = expressions.stream()
+                .map(LambdaExpressionExtractor::extractLambdaExpressions)
+                .flatMap(List::stream)
+                .filter(lambda -> !existingCompiledLambdas.contains(lambda))
+                .collect(toImmutableSet());
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
         int counter = 0;

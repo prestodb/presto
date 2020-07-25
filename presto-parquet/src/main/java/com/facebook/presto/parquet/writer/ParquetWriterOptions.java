@@ -20,37 +20,37 @@ import static java.util.Objects.requireNonNull;
 
 public class ParquetWriterOptions
 {
-    private static final DataSize DEFAULT_BLOCK_SIZE = DataSize.valueOf("128MB");
-    private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
+    private static final DataSize DEFAULT_MAX_ROW_GROUP_SIZE = DataSize.valueOf("128MB");
+    private static final DataSize DEFAULT_MAX_PAGE_SIZE = DataSize.valueOf("1MB");
 
     public static ParquetWriterOptions.Builder builder()
     {
         return new ParquetWriterOptions.Builder();
     }
 
-    private final int maxBlockSize;
-    private final int rowGroupMaxRowCount;
+    private final int maxRowGroupSize;
+    private final int maxPageSize;
 
-    private ParquetWriterOptions(DataSize maxBlockSize, int rowGroupMaxRowCount)
+    private ParquetWriterOptions(DataSize maxRowGroupSize, DataSize maxPageSize)
     {
-        this.maxBlockSize = toIntExact(requireNonNull(maxBlockSize, "maxBlockSize is null").toBytes());
-        this.rowGroupMaxRowCount = rowGroupMaxRowCount;
+        this.maxRowGroupSize = toIntExact(requireNonNull(maxRowGroupSize, "maxRowGroupSize is null").toBytes());
+        this.maxPageSize = toIntExact(requireNonNull(maxPageSize, "maxPageSize is null").toBytes());
     }
 
-    public int getMaxBlockSize()
+    public int getMaxRowGroupSize()
     {
-        return maxBlockSize;
+        return maxRowGroupSize;
     }
 
-    public int getRowGroupMaxRowCount()
+    public int getMaxPageSize()
     {
-        return rowGroupMaxRowCount;
+        return maxPageSize;
     }
 
     public static class Builder
     {
-        private DataSize maxBlockSize = DEFAULT_BLOCK_SIZE;
-        private int rowGroupMaxRowCount = DEFAULT_ROW_GROUP_MAX_ROW_COUNT;
+        private DataSize maxBlockSize = DEFAULT_MAX_ROW_GROUP_SIZE;
+        private DataSize maxPageSize = DEFAULT_MAX_PAGE_SIZE;
 
         public Builder setMaxBlockSize(DataSize maxBlockSize)
         {
@@ -58,15 +58,15 @@ public class ParquetWriterOptions
             return this;
         }
 
-        public Builder setRowGroupMaxRowCount(int rowGroupMaxRowCount)
+        public Builder setMaxPageSize(DataSize maxPageSize)
         {
-            this.rowGroupMaxRowCount = rowGroupMaxRowCount;
+            this.maxPageSize = maxPageSize;
             return this;
         }
 
         public ParquetWriterOptions build()
         {
-            return new ParquetWriterOptions(maxBlockSize, rowGroupMaxRowCount);
+            return new ParquetWriterOptions(maxBlockSize, maxPageSize);
         }
     }
 }

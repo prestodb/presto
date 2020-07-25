@@ -14,6 +14,8 @@
 package com.facebook.presto.pinot.query;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.pinot.PinotColumnHandle;
 import com.facebook.presto.pinot.PinotConfig;
 import com.facebook.presto.pinot.PinotException;
@@ -28,6 +30,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -40,16 +43,14 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +69,7 @@ import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.TABLE_COLUMN;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -109,20 +111,18 @@ public class PinotQueryGenerator
 
     public static class PinotQueryGeneratorResult
     {
-        private final GeneratedPql generatedPql;
+        private final GeneratedPinotQuery generatedPinotQuery;
         private final PinotQueryGeneratorContext context;
 
-        public PinotQueryGeneratorResult(
-                GeneratedPql generatedPql,
-                PinotQueryGeneratorContext context)
+        public PinotQueryGeneratorResult(GeneratedPinotQuery generatedPinotQuery, PinotQueryGeneratorContext context)
         {
-            this.generatedPql = requireNonNull(generatedPql, "generatedPql is null");
+            this.generatedPinotQuery = requireNonNull(generatedPinotQuery, "generatedPinotQuery is null");
             this.context = requireNonNull(context, "context is null");
         }
 
-        public GeneratedPql getGeneratedPql()
+        public GeneratedPinotQuery getGeneratedPinotQuery()
         {
-            return generatedPql;
+            return generatedPinotQuery;
         }
 
         public PinotQueryGeneratorContext getContext()
@@ -134,9 +134,10 @@ public class PinotQueryGenerator
     public Optional<PinotQueryGeneratorResult> generate(PlanNode plan, ConnectorSession session)
     {
         try {
+            boolean usePinotSqlSyntax = PinotSessionProperties.isUsePinotSqlForBrokerQueries(session);
             PinotQueryGeneratorContext context = requireNonNull(plan.accept(
                     new PinotQueryPlanVisitor(session),
-                    new PinotQueryGeneratorContext()),
+                    new PinotQueryGeneratorContext(usePinotSqlSyntax)),
                     "Resulting context is null");
             return Optional.of(new PinotQueryGeneratorResult(context.toQuery(pinotConfig, session), context));
         }
@@ -146,36 +147,57 @@ public class PinotQueryGenerator
         }
     }
 
-    public static class GeneratedPql
+    public enum PinotQueryFormat {
+        PQL,
+        SQL
+    }
+
+    public static class GeneratedPinotQuery
     {
         final String table;
-        final String pql;
+        final String query;
+        final PinotQueryFormat format;
         final List<Integer> expectedColumnIndices;
         final int groupByClauses;
         final boolean haveFilter;
         final boolean isQueryShort;
 
         @JsonCreator
-        public GeneratedPql(
+        public GeneratedPinotQuery(
                 @JsonProperty("table") String table,
-                @JsonProperty("pql") String pql,
+                @JsonProperty("query") String query,
+                @JsonProperty("format") PinotQueryFormat format,
                 @JsonProperty("expectedColumnIndices") List<Integer> expectedColumnIndices,
                 @JsonProperty("groupByClauses") int groupByClauses,
                 @JsonProperty("haveFilter") boolean haveFilter,
                 @JsonProperty("isQueryShort") boolean isQueryShort)
         {
             this.table = table;
-            this.pql = pql;
+            this.query = query;
+            this.format = format;
+            checkState((query != null), "Expected only one of query to be present");
             this.expectedColumnIndices = expectedColumnIndices;
             this.groupByClauses = groupByClauses;
             this.haveFilter = haveFilter;
             this.isQueryShort = isQueryShort;
         }
 
-        @JsonProperty("pql")
-        public String getPql()
+        @JsonProperty("table")
+        public String getTable()
         {
-            return pql;
+            return table;
+        }
+
+        @JsonProperty("query")
+        public String getQuery()
+        {
+            return query;
+        }
+
+        @JsonProperty("format")
+        public PinotQueryFormat getFormat()
+        {
+            return format;
         }
 
         @JsonProperty("expectedColumnIndices")
@@ -188,12 +210,6 @@ public class PinotQueryGenerator
         public int getGroupByClauses()
         {
             return groupByClauses;
-        }
-
-        @JsonProperty("table")
-        public String getTable()
-        {
-            return table;
         }
 
         @JsonProperty("haveFilter")
@@ -212,13 +228,14 @@ public class PinotQueryGenerator
         public String toString()
         {
             return toStringHelper(this)
-                    .add("pql", pql)
-                    .add("table", table)
-                    .add("expectedColumnIndices", expectedColumnIndices)
-                    .add("groupByClauses", groupByClauses)
-                    .add("haveFilter", haveFilter)
-                    .add("isQueryShort", isQueryShort)
-                    .toString();
+                .add("query", query)
+                .add("format", format)
+                .add("table", table)
+                .add("expectedColumnIndices", expectedColumnIndices)
+                .add("groupByClauses", groupByClauses)
+                .add("haveFilter", haveFilter)
+                .add("isQueryShort", isQueryShort)
+                .toString();
         }
     }
 
@@ -227,11 +244,13 @@ public class PinotQueryGenerator
     {
         private final ConnectorSession session;
         private final boolean forbidBrokerQueries;
+        private final boolean useSqlSyntax;
 
         protected PinotQueryPlanVisitor(ConnectorSession session)
         {
             this.session = session;
             this.forbidBrokerQueries = PinotSessionProperties.isForbidBrokerQueries(session);
+            this.useSqlSyntax = PinotSessionProperties.isUsePinotSqlForBrokerQueries(session);
         }
 
         @Override
@@ -260,7 +279,7 @@ public class PinotQueryGenerator
         {
             context = node.getSource().accept(this, context);
             requireNonNull(context, "context is null");
-            LinkedHashMap<VariableReferenceExpression, Selection> selections = context.getSelections();
+            Map<VariableReferenceExpression, Selection> selections = context.getSelections();
             String filter = node.getPredicate().accept(pinotFilterExpressionConverter, selections::get).getDefinition();
             return context.withFilter(filter).withOutputColumns(node.getOutputVariables());
         }
@@ -270,34 +289,49 @@ public class PinotQueryGenerator
         {
             PinotQueryGeneratorContext context = node.getSource().accept(this, contextIn);
             requireNonNull(context, "context is null");
-            LinkedHashMap<VariableReferenceExpression, Selection> newSelections = new LinkedHashMap<>();
-
+            Map<VariableReferenceExpression, Selection> newSelections = new HashMap<>();
+            LinkedHashSet<VariableReferenceExpression> newOutputs = new LinkedHashSet<>();
             node.getOutputVariables().forEach(variable -> {
                 RowExpression expression = node.getAssignments().get(variable);
                 PinotExpression pinotExpression = expression.accept(
                         contextIn.getVariablesInAggregation().contains(variable) ?
-                                new PinotAggregationProjectConverter(typeManager, functionMetadataManager, standardFunctionResolution, session) : pinotProjectExpressionConverter,
+                                new PinotAggregationProjectConverter(typeManager, functionMetadataManager, standardFunctionResolution, session) :
+                                pinotProjectExpressionConverter,
                         context.getSelections());
                 newSelections.put(
                         variable,
                         new Selection(pinotExpression.getDefinition(), pinotExpression.getOrigin()));
+                newOutputs.add(variable);
             });
-            return context.withProject(newSelections);
+            if (useSqlSyntax) {
+                // For PinotQueryGeneratorContext, selections should contain the mapping from varRef to rowExpression,
+                // and output, groupBy, orderBy objects only hold varRefs.
+                //
+                // When we try to generate Pinot query, the varRef in groupBy may not be in output.
+                // E.g. a sample Presto query: `select count(*) group by A`.
+                // - To generate PQL, we expect column `A` is always in selections.
+                // - To generate SQL, we need to hold all the mappings somewhere, which is in selections, then generate
+                //   SQL based on output object.
+                newSelections.putAll(context.getSelections());
+            }
+            return context.withProject(newSelections, newOutputs);
         }
 
         @Override
         public PinotQueryGeneratorContext visitTableScan(TableScanNode node, PinotQueryGeneratorContext contextIn)
         {
             PinotTableHandle tableHandle = (PinotTableHandle) node.getTable().getConnectorHandle();
-            checkSupported(!tableHandle.getPql().isPresent(), "Expect to see no existing pql");
+            checkSupported(!tableHandle.getPinotQuery().isPresent(), "Expect to see no existing pql");
             checkSupported(!tableHandle.getIsQueryShort().isPresent(), "Expect to see no existing pql");
-            LinkedHashMap<VariableReferenceExpression, Selection> selections = new LinkedHashMap<>();
+            Map<VariableReferenceExpression, Selection> selections = new HashMap<>();
+            LinkedHashSet<VariableReferenceExpression> outputs = new LinkedHashSet<>();
             node.getOutputVariables().forEach(outputColumn -> {
                 PinotColumnHandle pinotColumn = (PinotColumnHandle) (node.getAssignments().get(outputColumn));
                 checkSupported(pinotColumn.getType().equals(PinotColumnHandle.PinotColumnType.REGULAR), "Unexpected pinot column handle that is not regular: %s", pinotColumn);
                 selections.put(outputColumn, new Selection(pinotColumn.getColumnName(), TABLE_COLUMN));
+                outputs.add(outputColumn);
             });
-            return new PinotQueryGeneratorContext(selections, tableHandle.getTableName());
+            return new PinotQueryGeneratorContext(selections, outputs, tableHandle.getTableName(), PinotSessionProperties.isUsePinotSqlForBrokerQueries(session));
         }
 
         private String handleAggregationFunction(CallExpression aggregation, Map<VariableReferenceExpression, Selection> inputSelections)
@@ -415,7 +449,8 @@ public class PinotQueryGenerator
             checkSupported(!forbidBrokerQueries, "Cannot push aggregation in segment mode");
 
             // 2nd pass
-            LinkedHashMap<VariableReferenceExpression, Selection> newSelections = new LinkedHashMap<>();
+            Map<VariableReferenceExpression, Selection> newSelections = new HashMap<>();
+            LinkedHashSet<VariableReferenceExpression> outputs = new LinkedHashSet<>();
             LinkedHashSet<VariableReferenceExpression> groupByColumns = new LinkedHashSet<>();
             Set<VariableReferenceExpression> hiddenColumnSet = new HashSet<>(context.getHiddenColumnSet());
             int aggregations = 0;
@@ -431,13 +466,16 @@ public class PinotQueryGenerator
 
                         newSelections.put(outputColumn, new Selection(pinotColumn.getDefinition(), pinotColumn.getOrigin()));
                         groupByColumns.add(outputColumn);
+                        outputs.add(outputColumn);
                         groupByExists = true;
                         break;
                     }
                     case AGGREGATE: {
                         AggregationFunctionColumnNode aggregationNode = (AggregationFunctionColumnNode) expression;
                         String pinotAggFunction = handleAggregationFunction(aggregationNode.getCallExpression(), context.getSelections());
-                        newSelections.put(getVariableReference(aggregationNode.getOutputColumn()), new Selection(pinotAggFunction, DERIVED));
+                        VariableReferenceExpression aggregationVarRef = getVariableReference(aggregationNode.getOutputColumn());
+                        newSelections.put(aggregationVarRef, new Selection(pinotAggFunction, DERIVED));
+                        outputs.add(aggregationVarRef);
                         aggregations++;
                         break;
                     }
@@ -447,13 +485,14 @@ public class PinotQueryGenerator
             }
 
             // Handling non-aggregated group by
-            if (groupByExists && aggregations == 0) {
-                VariableReferenceExpression hidden = new VariableReferenceExpression(UUID.randomUUID().toString(), BigintType.BIGINT);
-                newSelections.put(hidden, new Selection("count(*)", DERIVED));
-                hiddenColumnSet.add(hidden);
+            // E.g. `SELECT A, B FROM myTable GROUP BY A, B`
+            // In Pql mode, the generated pql is `SELECT count(*) FROM myTable GROUP BY A, B`;
+            // In Sql mode, the generated sql is still `SELECT A, B FROM myTable GROUP BY A, B`.
+            if (!useSqlSyntax && groupByExists && aggregations == 0) {
+                setHiddenField(newSelections, outputs, hiddenColumnSet);
                 aggregations++;
             }
-            return context.withAggregation(newSelections, groupByColumns, aggregations, hiddenColumnSet);
+            return context.withAggregation(newSelections, outputs, groupByColumns, aggregations, hiddenColumnSet);
         }
 
         @Override
@@ -474,6 +513,41 @@ public class PinotQueryGenerator
             checkSupported(!forbidBrokerQueries, "Cannot push topn in segment mode");
             checkSupported(node.getStep().equals(TopNNode.Step.SINGLE), "Can only push single logical topn in");
             return context.withTopN(getOrderingScheme(node), node.getCount()).withOutputColumns(node.getOutputVariables());
+        }
+
+        @Override
+        public PinotQueryGeneratorContext visitDistinctLimit(DistinctLimitNode node, PinotQueryGeneratorContext context)
+        {
+            context = node.getSource().accept(this, context);
+            requireNonNull(context, "context is null");
+            checkSupported(!forbidBrokerQueries, "Cannot push distinctLimit in segment mode");
+            LinkedHashSet<VariableReferenceExpression> groupByColumns = new LinkedHashSet<>(node.getDistinctVariables());
+            if (!useSqlSyntax) {
+                // Handling PQL by adding hidden expression: count(*)
+                // E.g. `SELECT DISTINCT A, B FROM myTable LIMIT 10`
+                // In Pql mode, the generated pql is `SELECT count(*) FROM myTable GROUP BY A, B LIMIT 10`.
+                checkSupported(!context.hasAggregation(), "Aggregation already exists. Pinot doesn't support DistinctLimit with existing Aggregation");
+                checkSupported(!context.hasGroupBy(), "GroupBy already exists. Pinot doesn't support DistinctLimit with existing GroupBy");
+                Map<VariableReferenceExpression, Selection> newSelections = new HashMap<>(context.getSelections());
+                LinkedHashSet<VariableReferenceExpression> newOutputs = new LinkedHashSet<>(groupByColumns);
+                Set<VariableReferenceExpression> hiddenColumnSet = new HashSet<>();
+                setHiddenField(newSelections, newOutputs, hiddenColumnSet);
+                return context.withAggregation(newSelections, newOutputs, groupByColumns, 1, hiddenColumnSet).withLimit(node.getLimit());
+            }
+            // Handle SQL by setting the groupBy columns and output columns.
+            // E.g. `SELECT DISTINCT A, B FROM myTable LIMIT 10`
+            // In Sql mode, the generated sql is still `SELECT A, B FROM myTable GROUP BY A, B LIMIT 10`.
+            return context.withDistinctLimit(groupByColumns, node.getLimit()).withOutputColumns(node.getOutputVariables());
+        }
+
+        private void setHiddenField(Map<VariableReferenceExpression, Selection> selections,
+                LinkedHashSet<VariableReferenceExpression> outputs,
+                Set<VariableReferenceExpression> hiddenColumnSet)
+        {
+            VariableReferenceExpression hidden = new VariableReferenceExpression(UUID.randomUUID().toString(), BigintType.BIGINT);
+            selections.put(hidden, new Selection("count(*)", DERIVED));
+            outputs.add(hidden);
+            hiddenColumnSet.add(hidden);
         }
     }
 }

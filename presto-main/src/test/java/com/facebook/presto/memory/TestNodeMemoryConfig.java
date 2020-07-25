@@ -33,6 +33,7 @@ public class TestNodeMemoryConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(NodeMemoryConfig.class)
+                .setMaxQueryBroadcastMemory(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
                 .setMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
                 .setSoftMaxQueryMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.1, BYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE))
@@ -46,6 +47,32 @@ public class TestNodeMemoryConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("query.max-memory-per-node", "1GB")
+                .put("query.max-broadcast-memory", "512MB")
+                .put("query.soft-max-memory-per-node", "512MB")
+                .put("query.max-total-memory-per-node", "3GB")
+                .put("query.soft-max-total-memory-per-node", "2GB")
+                .put("memory.heap-headroom-per-node", "1GB")
+                .put("experimental.reserved-pool-enabled", "false")
+                .build();
+
+        NodeMemoryConfig expected = new NodeMemoryConfig()
+                .setMaxQueryBroadcastMemory(new DataSize(512, MEGABYTE))
+                .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
+                .setSoftMaxQueryMemoryPerNode(new DataSize(512, MEGABYTE))
+                .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE))
+                .setSoftMaxQueryTotalMemoryPerNode(new DataSize(2, GIGABYTE))
+                .setHeapHeadroom(new DataSize(1, GIGABYTE))
+                .setReservedPoolEnabled(false);
+
+        assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testOutOfRangeBroadcastMemoryLimit()
+    {
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("query.max-memory-per-node", "1GB")
+                .put("query.max-broadcast-memory", "5GB")
                 .put("query.soft-max-memory-per-node", "512MB")
                 .put("query.max-total-memory-per-node", "3GB")
                 .put("query.soft-max-total-memory-per-node", "2GB")
@@ -55,6 +82,7 @@ public class TestNodeMemoryConfig
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
                 .setMaxQueryMemoryPerNode(new DataSize(1, GIGABYTE))
+                .setMaxQueryBroadcastMemory(new DataSize(1, GIGABYTE))
                 .setSoftMaxQueryMemoryPerNode(new DataSize(512, MEGABYTE))
                 .setMaxQueryTotalMemoryPerNode(new DataSize(3, GIGABYTE))
                 .setSoftMaxQueryTotalMemoryPerNode(new DataSize(2, GIGABYTE))

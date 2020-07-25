@@ -63,7 +63,23 @@ public final class SimpleLocalMemoryContext
         }
 
         // update the parent first as it may throw a runtime exception (e.g., ExceededMemoryLimitException)
-        ListenableFuture<?> future = parentMemoryContext.updateBytes(allocationTag, bytes - usedBytes);
+        ListenableFuture<?> future = parentMemoryContext.updateBytes(allocationTag, bytes - usedBytes, false);
+        usedBytes = bytes;
+        return future;
+    }
+
+    @Override
+    public synchronized ListenableFuture<?> setBytes(long bytes, boolean enforceBroadcastMemoryLimit)
+    {
+        checkState(!closed, "SimpleLocalMemoryContext is already closed");
+        checkArgument(bytes >= 0, "bytes cannot be negative");
+
+        if (bytes == usedBytes) {
+            return NOT_BLOCKED;
+        }
+
+        // update the parent first as it may throw a runtime exception (e.g., ExceededMemoryLimitException)
+        ListenableFuture<?> future = parentMemoryContext.updateBytes(allocationTag, bytes - usedBytes, enforceBroadcastMemoryLimit);
         usedBytes = bytes;
         return future;
     }
@@ -74,7 +90,20 @@ public final class SimpleLocalMemoryContext
         checkState(!closed, "SimpleLocalMemoryContext is already closed");
         checkArgument(bytes >= 0, "bytes cannot be negative");
         long delta = bytes - usedBytes;
-        if (parentMemoryContext.tryUpdateBytes(allocationTag, delta)) {
+        if (parentMemoryContext.tryUpdateBytes(allocationTag, delta, false)) {
+            usedBytes = bytes;
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public synchronized boolean trySetBytes(long bytes, boolean enforceBroadcastMemoryLimit)
+    {
+        checkState(!closed, "SimpleLocalMemoryContext is already closed");
+        checkArgument(bytes >= 0, "bytes cannot be negative");
+        long delta = bytes - usedBytes;
+        if (parentMemoryContext.tryUpdateBytes(allocationTag, delta, enforceBroadcastMemoryLimit)) {
             usedBytes = bytes;
             return true;
         }
@@ -88,7 +117,7 @@ public final class SimpleLocalMemoryContext
             return;
         }
         closed = true;
-        parentMemoryContext.updateBytes(allocationTag, -usedBytes);
+        parentMemoryContext.updateBytes(allocationTag, -usedBytes, false);
         usedBytes = 0;
     }
 

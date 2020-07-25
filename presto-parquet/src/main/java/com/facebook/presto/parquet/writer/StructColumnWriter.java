@@ -13,24 +13,27 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterables;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarRow;
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.List;
 
-import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
+import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.Preconditions.checkArgument;
 
 public class StructColumnWriter
         implements ColumnWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StructColumnWriter.class).instanceSize();
+
     private final List<ColumnWriter> columnWriters;
     private final int maxDefinitionLevel;
     private final int maxRepetitionLevel;
@@ -86,6 +89,13 @@ public class StructColumnWriter
     public long getBufferedBytes()
     {
         return columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum();
+    }
+
+    @Override
+    public long getRetainedBytes()
+    {
+        return INSTANCE_SIZE +
+                columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
     }
 
     @Override

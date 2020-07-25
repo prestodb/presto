@@ -27,10 +27,10 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;

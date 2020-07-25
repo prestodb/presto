@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;

@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
 public class TestKdbTreeCasts

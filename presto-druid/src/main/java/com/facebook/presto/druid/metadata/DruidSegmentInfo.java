@@ -16,7 +16,6 @@ package com.facebook.presto.druid.metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
 
@@ -35,10 +34,9 @@ public class DruidSegmentInfo
     private static final String SEGMENT_PATH_KEY = "path";
 
     private final String dataSource;
-    private final Interval interval;
     private final String version;
     private final Optional<Map<String, String>> loadSpecification;
-    private final Optional<Map<String, String>> shardSpecification;
+    private final Optional<Map<String, Object>> shardSpecification;
     private final Integer binaryVersion;
     private final long size;
 
@@ -57,15 +55,13 @@ public class DruidSegmentInfo
     @JsonCreator
     public DruidSegmentInfo(
             @JsonProperty("dataSource") String dataSource,
-            @JsonProperty("interval") Interval interval,
             @JsonProperty("version") String version,
             @JsonProperty("loadSpec") Optional<Map<String, String>> loadSpecification,
-            @JsonProperty("shardSpec") @Nullable Optional<Map<String, String>> shardSpecification,
+            @JsonProperty("shardSpec") @Nullable Optional<Map<String, Object>> shardSpecification,
             @JsonProperty("binaryVersion") Integer binaryVersion,
             @JsonProperty("size") long size)
     {
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
-        this.interval = requireNonNull(interval, "interval is null");
         this.version = requireNonNull(version, "version is null");
         this.loadSpecification = requireNonNull(loadSpecification, "loadSpecification is null");
         this.shardSpecification = requireNonNull(shardSpecification, "shardSpecification is null");
@@ -77,12 +73,6 @@ public class DruidSegmentInfo
     public String getDataSource()
     {
         return dataSource;
-    }
-
-    @JsonProperty
-    public Interval getInterval()
-    {
-        return interval;
     }
 
     @JsonProperty
@@ -98,7 +88,7 @@ public class DruidSegmentInfo
     }
 
     @JsonProperty
-    public Optional<Map<String, String>> getShardSpecification()
+    public Optional<Map<String, Object>> getShardSpecification()
     {
         return shardSpecification;
     }
@@ -132,7 +122,7 @@ public class DruidSegmentInfo
     @Override
     public int hashCode()
     {
-        return Objects.hash(dataSource, interval, version, loadSpecification, shardSpecification, binaryVersion, size);
+        return Objects.hash(dataSource, version, loadSpecification, shardSpecification, binaryVersion, size);
     }
 
     @Override
@@ -147,7 +137,6 @@ public class DruidSegmentInfo
 
         DruidSegmentInfo that = (DruidSegmentInfo) obj;
         return Objects.equals(this.dataSource, that.dataSource) &&
-                Objects.equals(this.interval, that.interval) &&
                 Objects.equals(this.version, that.version) &&
                 Objects.equals(this.loadSpecification, that.loadSpecification) &&
                 Objects.equals(this.shardSpecification, that.shardSpecification) &&
@@ -160,7 +149,6 @@ public class DruidSegmentInfo
     {
         return toStringHelper(this)
                 .add("dataSource", dataSource)
-                .add("interval", interval)
                 .add("version", version)
                 .add("loadSpecification", loadSpecification)
                 .add("shardSpecification", shardSpecification)

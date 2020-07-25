@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.project;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.LazyBlock;
+import com.facebook.presto.common.block.LongArrayBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArraySet;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.metadata.QualifiedObjectName;
-import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;

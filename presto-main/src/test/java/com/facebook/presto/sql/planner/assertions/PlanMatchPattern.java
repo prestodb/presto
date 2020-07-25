@@ -14,9 +14,10 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.ExceptNode;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
@@ -71,10 +71,10 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
-import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
-import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.common.block.SortOrder.DESC_NULLS_FIRST;
+import static com.facebook.presto.common.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -95,6 +95,6 @@ public class ThriftIndexHandle
     public String toString()
     {
         return schemaTableName.toString() +
-                session.map(value -> ", constraint = " + tupleDomain.toString(value)).orElse("");
+                session.map(value -> ", constraint = " + tupleDomain.toString(value.getSqlFunctionProperties())).orElse("");
     }
 }

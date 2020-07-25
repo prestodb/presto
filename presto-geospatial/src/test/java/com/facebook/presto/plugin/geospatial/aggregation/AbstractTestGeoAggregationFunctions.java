@@ -15,13 +15,13 @@ package com.facebook.presto.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.plugin.geospatial.GeoPlugin;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 

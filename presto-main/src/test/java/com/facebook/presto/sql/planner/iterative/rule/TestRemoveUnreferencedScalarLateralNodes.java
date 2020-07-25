@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;

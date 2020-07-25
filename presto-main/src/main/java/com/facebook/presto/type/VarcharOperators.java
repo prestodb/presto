@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
@@ -22,23 +23,22 @@ import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 
+import static com.facebook.presto.common.function.OperatorType.BETWEEN;
+import static com.facebook.presto.common.function.OperatorType.CAST;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.XX_HASH_64;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.function.OperatorType.INDETERMINATE;
-import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.XX_HASH_64;
 import static java.lang.String.format;
 
 public final class VarcharOperators

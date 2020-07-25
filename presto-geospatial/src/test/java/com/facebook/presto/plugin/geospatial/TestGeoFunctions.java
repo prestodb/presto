@@ -16,13 +16,13 @@ package com.facebook.presto.plugin.geospatial;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.ArrayType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -31,16 +31,16 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.geospatial.KdbTree.buildKdbTree;
 import static com.facebook.presto.plugin.geospatial.GeoFunctions.stCentroid;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
@@ -76,17 +76,17 @@ public class TestGeoFunctions
         // geometry within a partition
         assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", ImmutableList.of(3));
         // geometries spanning multiple partitions
-        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 5.5 3, 6 2)", ImmutableList.of(3, 4));
-        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (3 2, 8 3)", ImmutableList.of(2, 3, 4, 5));
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 5.5 3, 6 2)", ImmutableList.of(4, 3));
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (3 2, 8 3)", ImmutableList.of(5, 4, 3, 2));
         // geometry outside
         assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (2 6, 3 7)", ImmutableList.of());
 
         // with distance
         assertSpatialPartitions(kdbTreeJson, "POINT EMPTY", 1.2, null);
         assertSpatialPartitions(kdbTreeJson, "POINT (1 1)", 1.2, ImmutableList.of(0));
-        assertSpatialPartitions(kdbTreeJson, "POINT (1 1)", 2.3, ImmutableList.of(0, 1, 2));
+        assertSpatialPartitions(kdbTreeJson, "POINT (1 1)", 2.3, ImmutableList.of(2, 1, 0));
         assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", 0.2, ImmutableList.of(3));
-        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", 1.2, ImmutableList.of(2, 3, 4));
+        assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (5 0.1, 6 2)", 1.2, ImmutableList.of(4, 3, 2));
         assertSpatialPartitions(kdbTreeJson, "MULTIPOINT (2 6, 3 7)", 1.2, ImmutableList.of());
     }
 
@@ -465,6 +465,11 @@ public class TestGeoFunctions
         assertInvalidReason("MULTIPOINT (1 2, 2 4, 3 6, 1 2)", "[MultiPoint] Repeated point: (1.0 2.0)");
         assertInvalidReason("LINESTRING (0 0, 1 1, 1 0, 0 1)", "[LineString] Self-intersection at or near: (0.5 0.5)");
         assertInvalidReason("MULTILINESTRING ((1 1, 5 1), (2 4, 4 0))", "[MultiLineString] Self-intersection at or near: (3.5 1.0)");
+
+        // valid geometries
+        assertInvalidReason("POINT (1 2)", null);
+        assertInvalidReason("POLYGON ((0 0, 1 0, 1 1, 0 1, 0 0))", null);
+        assertInvalidReason("GEOMETRYCOLLECTION (MULTIPOINT (1 0, 1 1, 0 1, 0 0))", null);
     }
 
     private void assertInvalidReason(String wkt, String reason)
@@ -1187,6 +1192,27 @@ public class TestGeoFunctions
         assertFunction("ST_GeometryType(ST_GeometryFromText('MULTIPOLYGON (((1 1, 1 4, 4 4, 4 1, 1 1)), ((1 1, 1 4, 4 4, 4 1, 1 1)))'))", VARCHAR, "ST_MultiPolygon");
         assertFunction("ST_GeometryType(ST_GeometryFromText('GEOMETRYCOLLECTION(POINT(4 6),LINESTRING(4 6, 7 10))'))", VARCHAR, "ST_GeomCollection");
         assertFunction("ST_GeometryType(ST_Envelope(ST_GeometryFromText('LINESTRING (1 1, 2 2)')))", VARCHAR, "ST_Polygon");
+    }
+
+    @Test
+    public void testFlattenGeometryCollections()
+    {
+        assertFlattenGeometryCollections("POINT (0 0)", "POINT (0 0)");
+        assertFlattenGeometryCollections("MULTIPOINT ((0 0), (1 1))", "MULTIPOINT ((0 0), (1 1))");
+        assertFlattenGeometryCollections("GEOMETRYCOLLECTION EMPTY");
+        assertFlattenGeometryCollections("GEOMETRYCOLLECTION (POINT EMPTY)", "POINT EMPTY");
+        assertFlattenGeometryCollections("GEOMETRYCOLLECTION (MULTIPOLYGON EMPTY)", "MULTIPOLYGON EMPTY");
+        assertFlattenGeometryCollections("GEOMETRYCOLLECTION (POINT (0 0))", "POINT (0 0)");
+        assertFlattenGeometryCollections(
+                "GEOMETRYCOLLECTION (POINT (0 0), GEOMETRYCOLLECTION (POINT (1 1)))",
+                "POINT (1 1)", "POINT (0 0)");
+    }
+
+    private void assertFlattenGeometryCollections(String wkt, String... expected)
+    {
+        assertFunction(
+                String.format("transform(flatten_geometry_collections(ST_GeometryFromText('%s')), x -> ST_ASText(x))", wkt),
+                new ArrayType(VARCHAR), ImmutableList.copyOf(expected));
     }
 
     @Test

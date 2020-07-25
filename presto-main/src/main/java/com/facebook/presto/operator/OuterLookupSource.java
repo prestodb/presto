@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;

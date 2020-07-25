@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.rcfile.binary;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.rcfile.ColumnEncoding;
 import com.facebook.presto.rcfile.RcFileEncoding;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 import java.util.stream.Collectors;

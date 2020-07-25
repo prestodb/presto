@@ -13,6 +13,16 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.IntArrayBlock;
+import com.facebook.presto.common.block.LongArrayBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.block.ShortArrayBlock;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -21,22 +31,12 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.IntArrayBlock;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.block.ShortArrayBlock;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -247,7 +247,7 @@ public class LongDirectBatchStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         dataStreamSource = missingStreamSource(LongInputStream.class);

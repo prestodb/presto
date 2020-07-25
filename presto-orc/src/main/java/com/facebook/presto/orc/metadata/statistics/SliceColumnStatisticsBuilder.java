@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc.metadata.statistics;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import io.airlift.slice.Slice;
 
 public interface SliceColumnStatisticsBuilder

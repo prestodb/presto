@@ -13,11 +13,14 @@ package com.facebook.presto.operator.scalar;
  * limitations under the License.
  */
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SingleMapBlock;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.SingleMapBlock;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.PrestoException;
 
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.Failures.internalError;
 
 public final class MapGenericEquality
@@ -47,7 +50,15 @@ public final class MapGenericEquality
         for (int position = 0; position < leftSingleMapLeftBlock.getPositionCount(); position += 2) {
             Object key = readNativeValue(keyType, leftBlock, position);
             int leftPosition = position + 1;
-            int rightPosition = rightSingleMapBlock.seekKey(key);
+
+            int rightPosition;
+            try {
+                rightPosition = rightSingleMapBlock.seekKey(key);
+            }
+            catch (NotSupportedException e) {
+                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+            }
+
             if (rightPosition == -1) {
                 return false;
             }

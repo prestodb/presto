@@ -21,10 +21,10 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.ForLoop;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 

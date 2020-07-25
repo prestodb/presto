@@ -27,9 +27,10 @@
  */
 package com.facebook.presto.operator.repartition;
 
-import com.facebook.presto.spi.block.ArrayAllocator;
-import com.facebook.presto.spi.block.ColumnarRow;
+import com.facebook.presto.common.block.ArrayAllocator;
+import com.facebook.presto.common.block.ColumnarRow;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -41,6 +42,7 @@ import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.util.Objects.requireNonNull;
@@ -226,16 +228,19 @@ public class RowBlockEncodingBuffer
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
-        sb.append("offsetsBufferCapacity=").append(offsetsBuffer == null ? 0 : offsetsBuffer.length).append(",");
-        sb.append("offsetsBufferIndex=").append(offsetsBufferIndex).append(",");
-        sb.append("offsetsCapacity=").append(offsets == null ? 0 : offsets.length).append(",");
-        sb.append("lastOffset=").append(lastOffset).append(",");
+        ToStringHelper stringHelper = toStringHelper(this)
+                .add("super", super.toString())
+                .add("estimatedOffsetBufferMaxCapacity", estimatedOffsetBufferMaxCapacity)
+                .add("offsetsBufferCapacity", offsetsBuffer == null ? 0 : offsetsBuffer.length)
+                .add("offsetsBufferIndex", offsetsBufferIndex)
+                .add("offsetsCapacity", offsets == null ? 0 : offsets.length)
+                .add("lastOffset", lastOffset);
+
         for (int i = 0; i < fieldBuffers.length; i++) {
-            sb.append("fieldBuffer_").append(i).append("=").append(fieldBuffers[i].toString()).append(",");
+            stringHelper.add("fieldBuffer_" + i, fieldBuffers[i]);
         }
-        sb.append("}");
-        return sb.toString();
+
+        return stringHelper.toString();
     }
 
     @Override
@@ -247,21 +252,22 @@ public class RowBlockEncodingBuffer
         ColumnarRow columnarRow = (ColumnarRow) decodedBlockNode.getDecodedBlock();
         decodedBlock = columnarRow.getNullCheckBlock();
 
-        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
-
-        if (decodedBlock.mayHaveNull()) {
-            setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
-            estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE);
-        }
-        else {
-            estimatedOffsetBufferMaxCapacity = (int) targetBufferSize;
-        }
-
         populateNestedPositions(columnarRow);
 
+        long estimatedSerializedSizeInBytes = decodedBlockNode.getEstimatedSerializedSizeInBytes();
+        long childrenEstimatedSerializedSizeInBytes = 0;
+
         for (int i = 0; i < fieldBuffers.length; i++) {
-            fieldBuffers[i].setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(i), partitionBufferCapacity, decodedBlockPageSizeFraction);
+            DecodedBlockNode childDecodedBlockNode = decodedBlockNode.getChildren().get(i);
+            long childEstimatedSerializedSizeInBytes = childDecodedBlockNode.getEstimatedSerializedSizeInBytes();
+            childrenEstimatedSerializedSizeInBytes += childEstimatedSerializedSizeInBytes;
+            fieldBuffers[i].setupDecodedBlockAndMapPositions(childDecodedBlockNode, partitionBufferCapacity, decodedBlockPageSizeFraction * childEstimatedSerializedSizeInBytes / estimatedSerializedSizeInBytes);
         }
+
+        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction * (estimatedSerializedSizeInBytes - childrenEstimatedSerializedSizeInBytes) / estimatedSerializedSizeInBytes;
+
+        setEstimatedNullsBufferMaxCapacity(getEstimatedBufferMaxCapacity(targetBufferSize, Byte.BYTES, POSITION_SIZE));
+        estimatedOffsetBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Integer.BYTES, POSITION_SIZE);
     }
 
     @Override
@@ -291,6 +297,24 @@ public class RowBlockEncodingBuffer
         finally {
             bufferAllocator.returnArray(offsetsCopy);
         }
+    }
+
+    @Override
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @VisibleForTesting
+    int getEstimatedOffsetBufferMaxCapacity()
+    {
+        return estimatedOffsetBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    BlockEncodingBuffer[] getFieldBuffers()
+    {
+        return fieldBuffers;
     }
 
     private void populateNestedPositions(ColumnarRow columnarRow)

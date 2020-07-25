@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.LazyBlock;
+import com.facebook.presto.common.block.LazyBlockLoader;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.raptor.storage.DeltaShardLoader.RowsToKeepResult;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.block.LazyBlockLoader;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
@@ -33,10 +33,10 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.UUID;
 
+import static com.facebook.presto.common.predicate.Utils.nativeValueToBlock;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.spi.predicate.Utils.nativeValueToBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;

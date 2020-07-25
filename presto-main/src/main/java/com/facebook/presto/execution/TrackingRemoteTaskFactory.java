@@ -82,8 +82,8 @@ public class TrackingRemoteTaskFactory
         @Override
         public synchronized void stateChanged(TaskStatus newStatus)
         {
-            long currentUserMemory = newStatus.getMemoryReservation().toBytes();
-            long currentSystemMemory = newStatus.getSystemMemoryReservation().toBytes();
+            long currentUserMemory = newStatus.getMemoryReservationInBytes();
+            long currentSystemMemory = newStatus.getSystemMemoryReservationInBytes();
             long currentTotalMemory = currentUserMemory + currentSystemMemory;
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
             long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousSystemMemory);

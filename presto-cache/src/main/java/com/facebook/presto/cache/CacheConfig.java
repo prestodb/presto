@@ -15,24 +15,22 @@ package com.facebook.presto.cache;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.presto.hive.CacheQuotaScope;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
-import io.airlift.units.MinDuration;
-
-import javax.validation.constraints.Min;
 
 import java.net.URI;
+import java.util.Optional;
 
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static java.util.concurrent.TimeUnit.DAYS;
+import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 
 public class CacheConfig
 {
+    private boolean cachingEnabled;
+    private CacheType cacheType;
     private URI baseDirectory;
     private boolean validationEnabled;
-    private DataSize maxInMemoryCacheSize = new DataSize(2, GIGABYTE);
-    private int maxCachedEntries = 1_000;
-    private Duration cacheTtl = new Duration(2, DAYS);
+    private CacheQuotaScope cacheQuotaScope = GLOBAL;
+    private Optional<DataSize> defaultCacheQuota = Optional.empty();
 
     public URI getBaseDirectory()
     {
@@ -60,44 +58,55 @@ public class CacheConfig
         return this;
     }
 
-    public DataSize getMaxInMemoryCacheSize()
+    @Config("cache.enabled")
+    @ConfigDescription("Is cache enabled")
+    public CacheConfig setCachingEnabled(boolean cachingEnabled)
     {
-        return maxInMemoryCacheSize;
-    }
-
-    @Config("cache.max-in-memory-cache-size")
-    @ConfigDescription("The maximum cache size allowed in memory")
-    public CacheConfig setMaxInMemoryCacheSize(DataSize maxInMemoryCacheSize)
-    {
-        this.maxInMemoryCacheSize = maxInMemoryCacheSize;
+        this.cachingEnabled = cachingEnabled;
         return this;
     }
 
-    @Min(1)
-    public int getMaxCachedEntries()
+    public boolean isCachingEnabled()
     {
-        return maxCachedEntries;
+        return cachingEnabled;
     }
 
-    @Config("cache.max-cached-entries")
-    @ConfigDescription("Number of entries allowed in the cache")
-    public CacheConfig setMaxCachedEntries(int maxCachedEntries)
+    @Config("cache.type")
+    @ConfigDescription("Caching type")
+    public CacheConfig setCacheType(CacheType cacheType)
     {
-        this.maxCachedEntries = maxCachedEntries;
+        this.cacheType = cacheType;
         return this;
     }
 
-    @MinDuration("0s")
-    public Duration getCacheTtl()
+    public CacheType getCacheType()
     {
-        return cacheTtl;
+        return cacheType;
     }
 
-    @Config("cache.ttl")
-    @ConfigDescription("Time-to-live for a cache entry")
-    public CacheConfig setCacheTtl(Duration cacheTtl)
+    public CacheQuotaScope getCacheQuotaScope()
     {
-        this.cacheTtl = cacheTtl;
+        return cacheQuotaScope;
+    }
+
+    @Config("cache.cache-quota-scope")
+    public CacheConfig setCacheQuotaScope(CacheQuotaScope cacheQuotaScope)
+    {
+        this.cacheQuotaScope = cacheQuotaScope;
+        return this;
+    }
+
+    public Optional<DataSize> getDefaultCacheQuota()
+    {
+        return defaultCacheQuota;
+    }
+
+    @Config("cache.default-cache-quota")
+    public CacheConfig setDefaultCacheQuota(DataSize defaultCacheQuota)
+    {
+        if (defaultCacheQuota != null) {
+            this.defaultCacheQuota = Optional.of(defaultCacheQuota);
+        }
         return this;
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.236-SNAPSHOT</version>
+        <version>0.239-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-cache</artifactId>
@@ -29,6 +29,11 @@
         <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
@@ -62,10 +67,26 @@
             <optional>true</optional>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.alluxio</groupId>
+            <artifactId>alluxio-shaded-client</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -98,12 +119,6 @@
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
-            <artifactId>concurrent</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

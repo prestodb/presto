@@ -85,10 +85,10 @@ public class TestDruidQueryGenerator
     {
         testDQL(
                 planBuilder -> limit(planBuilder, 50L, tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch)),
-                "SELECT regionId, city, fare, secondsSinceEpoch FROM realtimeOnly LIMIT 50");
+                "SELECT \"region.Id\", \"city\", \"fare\", \"secondsSinceEpoch\" FROM \"realtimeOnly\" LIMIT 50");
         testDQL(
                 planBuilder -> limit(planBuilder, 10L, tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch)),
-                "SELECT regionId, secondsSinceEpoch FROM realtimeOnly LIMIT 10");
+                "SELECT \"region.Id\", \"secondsSinceEpoch\" FROM \"realtimeOnly\" LIMIT 10");
     }
 
     @Test
@@ -105,7 +105,7 @@ public class TestDruidQueryGenerator
                                                     tableScan(planBuilder, druidTable, regionId, city, fare, secondsSinceEpoch),
                                                     getRowExpression("secondssinceepoch > 20", defaultSessionHolder)),
                                             ImmutableList.of("city", "secondssinceepoch"))),
-                "SELECT city, secondsSinceEpoch FROM realtimeOnly WHERE (secondsSinceEpoch > 20) LIMIT 30");
+                "SELECT \"city\", \"secondsSinceEpoch\" FROM \"realtimeOnly\" WHERE (\"secondsSinceEpoch\" > 20) LIMIT 30");
     }
 
     @Test
@@ -114,25 +114,28 @@ public class TestDruidQueryGenerator
         BiConsumer<PlanBuilder, PlanBuilder.AggregationBuilder> aggregationFunctionBuilder = (planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder));
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
         PlanNode filter = buildPlan(planBuilder -> filter(planBuilder, tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare), getRowExpression("fare > 3", defaultSessionHolder)));
-        PlanNode anotherFilter = buildPlan(planBuilder -> filter(planBuilder, tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare), getRowExpression("secondssinceepoch between 200 and 300 and regionid >= 40", defaultSessionHolder)));
+        PlanNode anotherFilter = buildPlan(planBuilder ->
+                filter(planBuilder,
+                        tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare),
+                        getRowExpression("secondssinceepoch between 200 and 300 and \"region.id\" >= 40", defaultSessionHolder)));
         testDQL(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).globalGrouping())),
-                "SELECT count(*) FROM realtimeOnly");
+                "SELECT count(*) FROM \"realtimeOnly\"");
         testDQL(
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).globalGrouping())),
-                "SELECT count(*) FROM realtimeOnly WHERE (fare > 3)");
+                "SELECT count(*) FROM \"realtimeOnly\" WHERE (\"fare\" > 3)");
         testDQL(
-                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).singleGroupingSet(variable("regionid")))),
-                "SELECT regionId, count(*) FROM realtimeOnly WHERE (fare > 3) GROUP BY regionId");
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(filter).singleGroupingSet(variable("region.id")))),
+                "SELECT \"region.Id\", count(*) FROM \"realtimeOnly\" WHERE (\"fare\" > 3) GROUP BY \"region.Id\"");
         testDQL(
-                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(variable("regionid")))),
-                "SELECT regionId, count(*) FROM realtimeOnly GROUP BY regionId");
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(variable("region.id")))),
+                "SELECT \"region.Id\", count(*) FROM \"realtimeOnly\" GROUP BY \"region.Id\"");
         testDQL(
-                planBuilder -> limit(planBuilder, 5L, planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(variable("regionid"))))),
-                "SELECT regionId, count(*) FROM realtimeOnly GROUP BY regionId LIMIT 5");
+                planBuilder -> limit(planBuilder, 5L, planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(justScan).singleGroupingSet(variable("region.id"))))),
+                "SELECT \"region.Id\", count(*) FROM \"realtimeOnly\" GROUP BY \"region.Id\" LIMIT 5");
         testDQL(
-                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(anotherFilter).singleGroupingSet(variable("regionid"), variable("city")))),
-                "SELECT regionId, city, count(*) FROM realtimeOnly WHERE ((secondsSinceEpoch BETWEEN 200 AND 300) AND (regionId >= 40)) GROUP BY regionId, city");
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggregationFunctionBuilder.accept(planBuilder, aggBuilder.source(anotherFilter).singleGroupingSet(variable("region.id"), variable("city")))),
+                "SELECT \"region.Id\", \"city\", count(*) FROM \"realtimeOnly\" WHERE ((\"secondsSinceEpoch\" BETWEEN 200 AND 300) AND (\"region.Id\" >= 40)) GROUP BY \"region.Id\", \"city\"");
     }
 
     @Test
@@ -140,27 +143,32 @@ public class TestDruidQueryGenerator
     {
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
         testDQL(
-                planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("regionid"))),
-                "SELECT regionId, count(*) FROM realtimeOnly GROUP BY regionId");
+                planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("region.id"))),
+                "SELECT \"region.Id\", count(*) FROM \"realtimeOnly\" GROUP BY \"region.Id\"");
     }
 
     @Test
     public void testDistinctCountPushdown()
     {
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
-        PlanNode distinctAggregation = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("regionid"))));
+        PlanNode distinctAggregation = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("region.id"))));
         testDQL(
-                planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(distinctAggregation).globalGrouping().addAggregation(variable("regionid"), getRowExpression("count(regionid)", defaultSessionHolder))),
-                "SELECT count ( distinct regionId) FROM realtimeOnly");
+                planBuilder -> planBuilder.aggregation(
+                        aggBuilder -> aggBuilder.source(distinctAggregation).globalGrouping().addAggregation(variable("region.id"),
+                                getRowExpression("count(\"region.id\")", defaultSessionHolder))),
+                "SELECT count ( distinct \"region.Id\") FROM \"realtimeOnly\"");
     }
 
     @Test
     public void testDistinctCountGroupByPushdown()
     {
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
-        PlanNode distinctAggregation = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city"), variable("regionid"))));
+        PlanNode distinctAggregation = buildPlan(planBuilder -> planBuilder.aggregation(
+                aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city"), variable("region.id"))));
         testDQL(
-                planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(distinctAggregation).singleGroupingSet(variable("city")).addAggregation(variable("regionid"), getRowExpression("count(regionid)", defaultSessionHolder))),
-                "SELECT city, count ( distinct regionId) FROM realtimeOnly GROUP BY city");
+                planBuilder -> planBuilder.aggregation(
+                        aggBuilder -> aggBuilder.source(distinctAggregation).singleGroupingSet(variable("city"))
+                                .addAggregation(variable("region.id"), getRowExpression("count(\"region.id\")", defaultSessionHolder))),
+                "SELECT \"city\", count ( distinct \"region.Id\") FROM \"realtimeOnly\" GROUP BY \"city\"");
     }
 }

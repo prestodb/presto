@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.checkpoint.FloatStreamCheckpoint;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 import java.io.IOException;
 

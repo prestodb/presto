@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.page;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.spi.spiller.SpillCipher;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;

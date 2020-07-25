@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.accumulo.model;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.List;

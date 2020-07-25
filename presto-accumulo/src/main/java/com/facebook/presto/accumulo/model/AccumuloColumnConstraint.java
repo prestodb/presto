@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.accumulo.model;
 
-import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.common.predicate.Domain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

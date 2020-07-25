@@ -682,6 +682,24 @@ public class TestHiveTableStatistics
     }
 
     @Test
+    public void testAnalyzeForTableWithNonPrimitiveTypes()
+    {
+        String tableName = "test_analyze_table_complex_types";
+        String showStatsTable = "SHOW STATS FOR " + tableName;
+
+        query("DROP TABLE IF EXISTS " + tableName);
+        query("CREATE TABLE " + tableName + "(c_row row(c1 int, c2 int), c_char char, c_int int)");
+        query("INSERT INTO " + tableName + " VALUES (row(1,2), 'a', 3)");
+
+        assertThat(query("ANALYZE " + tableName)).containsExactly(row(1));
+        assertThat(query(showStatsTable)).containsOnly(
+                row("c_row", null, null, null, null, null, null),
+                row("c_char", 1.0, 1.0, 0.0, null, null, null),
+                row("c_int", null, 1.0, 0.0, null, "3", "3"),
+                row(null, null, null, null, 1.0, null, null));
+    }
+
+    @Test
     @Requires(NationPartitionedByBigintTable.class)
     public void testAnalyzeForTablePartitionedByBigint()
     {

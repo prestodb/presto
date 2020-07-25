@@ -65,6 +65,7 @@ import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExternalBodyReference;
 import com.facebook.presto.sql.tree.Extract;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -123,6 +124,7 @@ import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
+import com.facebook.presto.sql.tree.RoutineBody;
 import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.RoutineCharacteristics.Language;
 import com.facebook.presto.sql.tree.Row;
@@ -190,7 +192,6 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NO
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -412,11 +413,20 @@ class AstBuilder
     @Override
     public Node visitCreateView(SqlBaseParser.CreateViewContext context)
     {
+        Optional<CreateView.Security> security = Optional.empty();
+        if (context.DEFINER() != null) {
+            security = Optional.of(CreateView.Security.DEFINER);
+        }
+        else if (context.INVOKER() != null) {
+            security = Optional.of(CreateView.Security.INVOKER);
+        }
+
         return new CreateView(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
-                context.REPLACE() != null);
+                context.REPLACE() != null,
+                security);
     }
 
     @Override
@@ -436,7 +446,7 @@ class AstBuilder
                 getType(context.returnType),
                 comment,
                 getRoutineCharacteristics(context.routineCharacteristics()),
-                (Return) visit(context.routineBody()));
+                (RoutineBody) visit(context.routineBody()));
     }
 
     @Override
@@ -458,15 +468,18 @@ class AstBuilder
     }
 
     @Override
-    public Node visitRoutineBody(SqlBaseParser.RoutineBodyContext context)
-    {
-        return visit(context.returnStatement());
-    }
-
-    @Override
     public Node visitReturnStatement(SqlBaseParser.ReturnStatementContext context)
     {
         return new Return((Expression) visit(context.expression()));
+    }
+
+    @Override
+    public Node visitExternalBodyReference(SqlBaseParser.ExternalBodyReferenceContext context)
+    {
+        if (context.externalRoutineName() != null) {
+            return new ExternalBodyReference((Identifier) visit(context.externalRoutineName().identifier()));
+        }
+        return new ExternalBodyReference();
     }
 
     @Override
@@ -877,7 +890,12 @@ class AstBuilder
     @Override
     public Node visitShowFunctions(SqlBaseParser.ShowFunctionsContext context)
     {
-        return new ShowFunctions(getLocation(context));
+        return new ShowFunctions(
+                getLocation(context),
+                getTextIfPresent(context.pattern)
+                        .map(AstBuilder::unquote),
+                getTextIfPresent(context.escape)
+                        .map(AstBuilder::unquote));
     }
 
     @Override
@@ -2263,11 +2281,15 @@ class AstBuilder
 
         for (SqlBaseParser.RoutineCharacteristicContext characteristic : context.routineCharacteristic()) {
             if (characteristic.language() != null) {
-                checkArgument(characteristic.language().SQL() != null, "Unsupported language: %s", characteristic.language().getText());
                 if (language != null) {
                     throw new ParsingException(format("Duplicate language clause: %s", characteristic.language().getText()), getLocation(characteristic.language()));
                 }
-                language = Language.SQL;
+                if (characteristic.language().SQL() != null) {
+                    language = Language.SQL;
+                }
+                else {
+                    language = new Language(((Identifier) visit(characteristic.language().identifier())).getValue());
+                }
             }
             else if (characteristic.determinism() != null) {
                 if (determinism != null) {

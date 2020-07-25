@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.AbstractType;
-import com.facebook.presto.spi.type.FixedWidthType;
-import com.facebook.presto.spi.type.StandardTypes;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.PageBuilderStatus;
+import com.facebook.presto.common.block.VariableWidthBlockBuilder;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.AbstractType;
+import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
@@ -29,7 +29,7 @@ import io.airlift.slice.XxHash64;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
 public class IpPrefixType
         extends AbstractType

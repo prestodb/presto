@@ -26,7 +26,7 @@ import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
 public class StringToStringMapColumnMapper
         implements ColumnMapper<Map<String, String>>
 {
-    protected static final JsonCodec<Map<String, String>> MAP_CODEC = mapJsonCodec(String.class, String.class);
+    public static final JsonCodec<Map<String, String>> MAP_CODEC = mapJsonCodec(String.class, String.class);
 
     @Override
     public Map<String, String> map(ResultSet resultSet, int columnNumber, StatementContext ctx)

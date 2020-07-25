@@ -24,7 +24,6 @@ import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 
 import java.io.EOFException;
 import java.io.UncheckedIOException;
@@ -32,6 +31,7 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
@@ -51,6 +51,9 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
+import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
+import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
+import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
@@ -60,74 +63,84 @@ import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_SETUP;
+import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
+import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
 import static com.google.common.base.Functions.identity;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Arrays.asList;
+import static java.util.Objects.requireNonNull;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 
 public class PrestoExceptionClassifier
         implements SqlExceptionClassifier
 {
-    public static final Set<ErrorCodeSupplier> DEFAULT_ERRORS = ImmutableSet.<ErrorCodeSupplier>builder()
-            .addAll(asList(StandardErrorCode.values()))
-            .addAll(asList(HiveErrorCode.values()))
-            .addAll(asList(JdbcErrorCode.values()))
-            .addAll(asList(ThriftErrorCode.values()))
-            .build();
-
-    public static final Set<ErrorCodeSupplier> DEFAULT_RETRYABLE_ERRORS = ImmutableSet.of(
-            // From StandardErrorCode
-            NO_NODES_AVAILABLE,
-            REMOTE_TASK_ERROR,
-            SERVER_SHUTTING_DOWN,
-            SERVER_STARTING_UP,
-            TOO_MANY_REQUESTS_FAILED,
-            PAGE_TRANSPORT_ERROR,
-            PAGE_TRANSPORT_TIMEOUT,
-            REMOTE_HOST_GONE,
-            ABANDONED_TASK,
-            // From HiveErrorCode
-            HIVE_CURSOR_ERROR,
-            HIVE_FILE_NOT_FOUND,
-            HIVE_TOO_MANY_OPEN_PARTITIONS,
-            HIVE_WRITER_OPEN_ERROR,
-            HIVE_WRITER_CLOSE_ERROR,
-            HIVE_WRITER_DATA_ERROR,
-            HIVE_FILESYSTEM_ERROR,
-            HIVE_CANNOT_OPEN_SPLIT,
-            HIVE_METASTORE_ERROR,
-            // From JdbcErrorCode
-            JDBC_ERROR,
-            // From ThriftErrorCode
-            THRIFT_SERVICE_CONNECTION_ERROR);
-
-    private static final Set<ErrorCodeSupplier> DEFAULT_REQUEUABLE_ERRORS = ImmutableSet.of(
-            HIVE_PARTITION_DROPPED_DURING_QUERY,
-            HIVE_TABLE_DROPPED_DURING_QUERY);
-
     private static final Pattern TABLE_ALREADY_EXISTS_PATTERN = Pattern.compile("table.*already exists", CASE_INSENSITIVE);
 
     private final Map<Integer, ErrorCodeSupplier> errorByCode;
     private final Set<ErrorCodeSupplier> retryableErrors;
+    private final Set<ErrorMatcher> conditionalRetryableErrors;
+    private final Set<ErrorCodeSupplier> resubmittedErrors;
+    private final Set<ErrorMatcher> conditionalResubmittedErrors;
 
-    private PrestoExceptionClassifier(Set<ErrorCodeSupplier> recognizedErrors, Set<ErrorCodeSupplier> retryableErrors)
+    private PrestoExceptionClassifier(
+            Set<ErrorCodeSupplier> recognizedErrors,
+            Set<ErrorCodeSupplier> retryableErrors,
+            Set<ErrorMatcher> conditionalRetryableErrors,
+            Set<ErrorCodeSupplier> resubmittedErrors,
+            Set<ErrorMatcher> conditionalResubmittedErrors)
     {
         this.errorByCode = recognizedErrors.stream()
                 .collect(toImmutableMap(errorCode -> errorCode.toErrorCode().getCode(), identity()));
         this.retryableErrors = ImmutableSet.copyOf(retryableErrors);
+        this.conditionalRetryableErrors = ImmutableSet.copyOf(conditionalRetryableErrors);
+        this.resubmittedErrors = ImmutableSet.copyOf(resubmittedErrors);
+        this.conditionalResubmittedErrors = ImmutableSet.copyOf(conditionalResubmittedErrors);
     }
 
-    public static PrestoExceptionClassifier createDefault()
+    public static Builder defaultBuilder()
     {
-        return create(DEFAULT_ERRORS, DEFAULT_RETRYABLE_ERRORS);
-    }
-
-    public static PrestoExceptionClassifier create(Set<ErrorCodeSupplier> recognizedErrors, Set<ErrorCodeSupplier> retryableErrors)
-    {
-        Set<ErrorCodeSupplier> unrecognized = Sets.difference(retryableErrors, recognizedErrors);
-        checkArgument(unrecognized.isEmpty(), "Retryable errors not recognized: %s", unrecognized);
-        return new PrestoExceptionClassifier(recognizedErrors, retryableErrors);
+        return new Builder()
+                .addRecognizedErrors(asList(StandardErrorCode.values()))
+                .addRecognizedErrors(asList(HiveErrorCode.values()))
+                .addRecognizedErrors(asList(JdbcErrorCode.values()))
+                .addRecognizedErrors(asList(ThriftErrorCode.values()))
+                // From StandardErrorCode
+                .addRetryableError(NO_NODES_AVAILABLE)
+                .addRetryableError(REMOTE_TASK_ERROR)
+                .addRetryableError(SERVER_SHUTTING_DOWN)
+                .addRetryableError(SERVER_STARTING_UP)
+                .addRetryableError(TOO_MANY_REQUESTS_FAILED)
+                .addRetryableError(PAGE_TRANSPORT_ERROR)
+                .addRetryableError(PAGE_TRANSPORT_TIMEOUT)
+                .addRetryableError(REMOTE_HOST_GONE)
+                .addRetryableError(ABANDONED_TASK)
+                // From HiveErrorCode
+                .addRetryableError(HIVE_CURSOR_ERROR)
+                .addRetryableError(HIVE_FILE_NOT_FOUND)
+                .addRetryableError(HIVE_TOO_MANY_OPEN_PARTITIONS)
+                .addRetryableError(HIVE_WRITER_OPEN_ERROR)
+                .addRetryableError(HIVE_WRITER_CLOSE_ERROR)
+                .addRetryableError(HIVE_WRITER_DATA_ERROR)
+                .addRetryableError(HIVE_FILESYSTEM_ERROR)
+                .addRetryableError(HIVE_CANNOT_OPEN_SPLIT)
+                .addRetryableError(HIVE_METASTORE_ERROR)
+                // From JdbcErrorCode
+                .addRetryableError(JDBC_ERROR)
+                // From ThriftErrorCode
+                .addRetryableError(THRIFT_SERVICE_CONNECTION_ERROR)
+                // Conditional Retryable Errors
+                .addRetryableError(EXCEEDED_TIME_LIMIT, Optional.of(DESCRIBE), Optional.empty())
+                // Resubmitted Errors
+                .addResubmittedError(HIVE_PARTITION_DROPPED_DURING_QUERY)
+                .addResubmittedError(HIVE_TABLE_DROPPED_DURING_QUERY)
+                .addResubmittedError(CLUSTER_OUT_OF_MEMORY)
+                .addResubmittedError(ADMINISTRATIVELY_PREEMPTED)
+                // Conditional Resubmitted Errors
+                .addResubmittedError(SYNTAX_ERROR, Optional.of(CONTROL_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN))
+                .addResubmittedError(SYNTAX_ERROR, Optional.of(TEST_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN));
     }
 
     public QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause)
@@ -138,18 +151,22 @@ public class PrestoExceptionClassifier
         }
 
         Optional<ErrorCodeSupplier> errorCode = Optional.ofNullable(errorByCode.get(cause.getErrorCode()));
-        return new PrestoQueryException(cause, errorCode.isPresent() && retryableErrors.contains(errorCode.get()), queryStage, errorCode, queryStats);
+        boolean retryable = errorCode.isPresent()
+                && (retryableErrors.contains(errorCode.get())
+                || conditionalRetryableErrors.stream().anyMatch(matcher -> matcher.matches(errorCode.get(), queryStage, cause.getMessage())));
+        return new PrestoQueryException(cause, retryable, queryStage, errorCode, queryStats);
     }
 
-    public static boolean shouldResubmit(Throwable throwable)
+    public boolean shouldResubmit(Throwable throwable)
     {
         if (!(throwable instanceof PrestoQueryException)) {
             return false;
         }
         PrestoQueryException queryException = (PrestoQueryException) throwable;
         Optional<ErrorCodeSupplier> errorCode = queryException.getErrorCode();
-        return errorCode.isPresent() && DEFAULT_REQUEUABLE_ERRORS.contains(errorCode.get())
-                || isTargetTableAlreadyExistsException(queryException);
+        return errorCode.isPresent()
+                && (resubmittedErrors.contains(errorCode.get())
+                || conditionalResubmittedErrors.stream().anyMatch(matcher -> matcher.matches(errorCode.get(), queryException.getQueryStage(), queryException.getMessage())));
     }
 
     public static boolean isClusterConnectionException(Throwable t)
@@ -173,10 +190,129 @@ public class PrestoExceptionClassifier
         return Optional.empty();
     }
 
-    private static boolean isTargetTableAlreadyExistsException(PrestoQueryException queryException)
+    public static class Builder
     {
-        return queryException.getErrorCode().equals(Optional.of(SYNTAX_ERROR))
-                && queryException.getQueryStage().isSetup()
-                && TABLE_ALREADY_EXISTS_PATTERN.matcher(queryException.getMessage()).find();
+        private final ImmutableSet.Builder<ErrorCodeSupplier> recognizedErrors = ImmutableSet.builder();
+        private final ImmutableSet.Builder<ErrorCodeSupplier> retryableErrors = ImmutableSet.builder();
+        private final ImmutableSet.Builder<ErrorMatcher> conditionalRetryableErrors = ImmutableSet.builder();
+        private final ImmutableSet.Builder<ErrorCodeSupplier> resubmittedErrors = ImmutableSet.builder();
+        private final ImmutableSet.Builder<ErrorMatcher> conditionalResubmittedErrors = ImmutableSet.builder();
+
+        private Builder()
+        {
+        }
+
+        public Builder addRecognizedErrors(Iterable<ErrorCodeSupplier> errors)
+        {
+            this.recognizedErrors.addAll(errors);
+            return this;
+        }
+
+        public Builder addRetryableError(ErrorCodeSupplier error)
+        {
+            this.retryableErrors.add(error);
+            return this;
+        }
+
+        public Builder addRetryableError(ErrorCodeSupplier errorCode, Optional<QueryStage> queryStage, Optional<Pattern> errorMessagePattern)
+        {
+            this.conditionalRetryableErrors.add(new ErrorMatcher(errorCode, queryStage, errorMessagePattern));
+            return this;
+        }
+
+        public Builder addResubmittedError(ErrorCodeSupplier error)
+        {
+            this.resubmittedErrors.add(error);
+            return this;
+        }
+
+        public Builder addResubmittedError(ErrorCodeSupplier errorCode, Optional<QueryStage> queryStage, Optional<Pattern> errorMessagePattern)
+        {
+            this.conditionalResubmittedErrors.add(new ErrorMatcher(errorCode, queryStage, errorMessagePattern));
+            return this;
+        }
+
+        public PrestoExceptionClassifier build()
+        {
+            Set<ErrorCodeSupplier> recognizedErrors = this.recognizedErrors.build();
+            Set<ErrorCodeSupplier> retryableErrors = this.retryableErrors.build();
+            Set<ErrorMatcher> conditionalRetryableErrors = this.conditionalRetryableErrors.build();
+            Set<ErrorCodeSupplier> resubmittedErrors = this.resubmittedErrors.build();
+            Set<ErrorMatcher> conditionalResubmittedErrors = this.conditionalResubmittedErrors.build();
+
+            retryableErrors.forEach(error -> checkArgument(recognizedErrors.contains(error), "Error not recognized: %s", error));
+            conditionalRetryableErrors.forEach(
+                    errorMatcher -> checkArgument(recognizedErrors.contains(errorMatcher.getErrorCode()), "Error not recognized: %s", errorMatcher.getErrorCode()));
+            resubmittedErrors.forEach(error -> checkArgument(recognizedErrors.contains(error), "Error not recognized: %s", error));
+            conditionalResubmittedErrors.forEach(
+                    errorMatcher -> checkArgument(recognizedErrors.contains(errorMatcher.getErrorCode()), "Error not recognized: %s", errorMatcher.getErrorCode()));
+
+            return new PrestoExceptionClassifier(
+                    recognizedErrors,
+                    retryableErrors,
+                    conditionalRetryableErrors,
+                    resubmittedErrors,
+                    conditionalResubmittedErrors);
+        }
+    }
+
+    private static class ErrorMatcher
+    {
+        private final ErrorCodeSupplier errorCode;
+        private final Optional<QueryStage> queryStage;
+        private final Optional<Pattern> errorMessagePattern;
+
+        public ErrorMatcher(
+                ErrorCodeSupplier errorCode,
+                Optional<QueryStage> queryStage,
+                Optional<Pattern> errorMessagePattern)
+        {
+            this.errorCode = requireNonNull(errorCode, "errorCode is null");
+            this.queryStage = requireNonNull(queryStage, "queryStage is null");
+            this.errorMessagePattern = requireNonNull(errorMessagePattern, "errorMessagePattern is null");
+        }
+
+        public ErrorCodeSupplier getErrorCode()
+        {
+            return errorCode;
+        }
+
+        public boolean matches(ErrorCodeSupplier errorCode, QueryStage queryStage, String errorMessage)
+        {
+            return this.errorCode.equals(errorCode)
+                    && (!this.queryStage.isPresent() || this.queryStage.get().equals(queryStage))
+                    && (!this.errorMessagePattern.isPresent() || this.errorMessagePattern.get().matcher(errorMessage).find());
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            ErrorMatcher o = (ErrorMatcher) obj;
+            return Objects.equals(errorCode, o.errorCode) &&
+                    Objects.equals(queryStage, o.queryStage) &&
+                    Objects.equals(errorMessagePattern, o.errorMessagePattern);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(errorCode, queryStage, errorMessagePattern);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("errorCode", errorCode)
+                    .add("queryStage", queryStage)
+                    .add("errorMessagePattern", errorMessagePattern)
+                    .toString();
+        }
     }
 }

@@ -25,9 +25,22 @@ import java.net.URI;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import static com.google.common.collect.Sets.union;
+
 public class PrestoSparkInternalNodeManager
         implements InternalNodeManager
 {
+    private static final InternalNode CURRENT_NODE = new InternalNode("presto-spark-current", URI.create("http://127.0.0.1:60040"), NodeVersion.UNKNOWN, true);
+    private static final Set<InternalNode> OTHER_NODES = ImmutableSet.of(
+            new InternalNode("presto-spark-other-1", URI.create("http://127.0.0.1:60041"), NodeVersion.UNKNOWN, false),
+            new InternalNode("presto-spark-other-2", URI.create("http://127.0.0.1:60042"), NodeVersion.UNKNOWN, false),
+            new InternalNode("presto-spark-other-3", URI.create("http://127.0.0.1:60043"), NodeVersion.UNKNOWN, false));
+    private static final AllNodes ALL_NODES = new AllNodes(
+            union(ImmutableSet.of(CURRENT_NODE), OTHER_NODES),
+            ImmutableSet.of(),
+            ImmutableSet.of(),
+            ImmutableSet.of());
+
     @Override
     public Set<InternalNode> getNodes(NodeState state)
     {
@@ -38,30 +51,28 @@ public class PrestoSparkInternalNodeManager
     public Set<InternalNode> getActiveConnectorNodes(ConnectorId connectorId)
     {
         // TODO: Hack to make TPCH connector work
-        return ImmutableSet.of(
-                new InternalNode("spark1", URI.create("http://127.0.0.1:60041"), NodeVersion.UNKNOWN, false),
-                new InternalNode("spark2", URI.create("http://127.0.0.1:60042"), NodeVersion.UNKNOWN, false),
-                new InternalNode("spark3", URI.create("http://127.0.0.1:60043"), NodeVersion.UNKNOWN, false),
-                new InternalNode("spark4", URI.create("http://127.0.0.1:60044"), NodeVersion.UNKNOWN, false));
+        return ALL_NODES.getActiveNodes();
     }
 
     @Override
     public InternalNode getCurrentNode()
     {
         // TODO: Hack to make TPCH connector work
-        return new InternalNode("spark1", URI.create("http://127.0.0.1:1111"), NodeVersion.UNKNOWN, false);
+        return CURRENT_NODE;
     }
 
     @Override
     public Set<InternalNode> getCoordinators()
     {
-        throw new UnsupportedOperationException();
+        // TODO: Hack to make System connector work
+        return ImmutableSet.of(CURRENT_NODE);
     }
 
     @Override
     public AllNodes getAllNodes()
     {
-        throw new UnsupportedOperationException();
+        // TODO: Hack to make System connector work
+        return ALL_NODES;
     }
 
     @Override

@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.hive.metastore.SortingColumn;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.PageSinkProperties;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.DataSize;
@@ -165,7 +165,8 @@ public class HivePageSinkProvider
                 hiveSessionProperties,
                 hiveWriterStats,
                 orcFileWriterFactory,
-                commitRequired);
+                commitRequired,
+                handle.getEncryptionInformation());
 
         return new HivePageSink(
                 writerFactory,

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -31,7 +31,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static java.lang.String.format;
 

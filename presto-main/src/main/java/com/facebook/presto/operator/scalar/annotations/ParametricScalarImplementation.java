@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.ParametricImplementation;
@@ -23,20 +29,14 @@ import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.A
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.Signature;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.FunctionType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -59,6 +59,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.ParametricFunctionHelpers.bindDependencies;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsLegacyNullable;
@@ -78,7 +79,6 @@ import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplement
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.facebook.presto.util.Reflection.constructorMethodHandle;
 import static com.facebook.presto.util.Reflection.methodHandle;

@@ -14,31 +14,34 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.SingleMapBlock;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SingleMapBlock;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.Reflection.methodHandle;
 
@@ -123,7 +126,14 @@ public class MapElementAtFunction
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, boolean key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        int valuePosition;
+        try {
+            valuePosition = mapBlock.seekKeyExact(key);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         if (valuePosition == -1) {
             return null;
         }
@@ -134,7 +144,14 @@ public class MapElementAtFunction
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, long key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        int valuePosition;
+        try {
+            valuePosition = mapBlock.seekKeyExact(key);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         if (valuePosition == -1) {
             return null;
         }
@@ -145,7 +162,14 @@ public class MapElementAtFunction
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, double key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        int valuePosition;
+        try {
+            valuePosition = mapBlock.seekKeyExact(key);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         if (valuePosition == -1) {
             return null;
         }
@@ -156,7 +180,14 @@ public class MapElementAtFunction
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Slice key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        int valuePosition;
+        try {
+            valuePosition = mapBlock.seekKeyExact(key);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         if (valuePosition == -1) {
             return null;
         }
@@ -167,7 +198,14 @@ public class MapElementAtFunction
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Object key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact((Block) key);
+        int valuePosition;
+        try {
+            valuePosition = mapBlock.seekKeyExact((Block) key);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         if (valuePosition == -1) {
             return null;
         }

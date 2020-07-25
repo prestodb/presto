@@ -14,6 +14,8 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
@@ -35,9 +37,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
@@ -75,10 +75,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.count;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
@@ -137,7 +137,7 @@ public class TestCostCalculator
                 new NodeTaskMap(finalizerService));
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
-        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser());
+        planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser(), new FeaturesConfig());
     }
 
     @AfterClass(alwaysRun = true)

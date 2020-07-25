@@ -14,9 +14,9 @@
 
 package com.facebook.presto.operator.aggregation.groupByAggregations;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 
 import static org.testng.Assert.assertEquals;
 

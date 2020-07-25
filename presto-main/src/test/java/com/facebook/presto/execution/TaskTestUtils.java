@@ -15,6 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -38,9 +40,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
@@ -71,7 +71,7 @@ import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 

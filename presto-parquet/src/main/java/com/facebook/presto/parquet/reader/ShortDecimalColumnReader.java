@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 public class ShortDecimalColumnReader
-        extends PrimitiveColumnReader
+        extends AbstractColumnReader
 {
-    ShortDecimalColumnReader(RichColumnDescriptor descriptor)
+    public ShortDecimalColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
     }

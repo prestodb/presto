@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.Int128ArrayBlock;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.Int128ArrayBlock;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import io.airlift.slice.Slice;
 import io.airlift.slice.UnsafeSlice;
 
 import java.io.IOException;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.rescale;
 
 public class LongDecimalSelectiveStreamReader
         extends AbstractDecimalSelectiveStreamReader

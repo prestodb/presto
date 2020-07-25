@@ -15,10 +15,11 @@ package com.facebook.presto.operator.aggregation.histogram;
 
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -27,6 +28,7 @@ import static com.facebook.presto.operator.aggregation.histogram.HashUtil.comput
 import static com.facebook.presto.operator.aggregation.histogram.HashUtil.nextBucketId;
 import static com.facebook.presto.operator.aggregation.histogram.HashUtil.nextProbeLinear;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
@@ -84,22 +86,27 @@ public class ValueStore
             checkState(probeCount < bucketCount, "could not find match for value nor empty slot in %s buckets", bucketCount);
             valuePointer = buckets.get(bucketId);
 
-            if (valuePointer == EMPTY_BUCKET) {
-                valuePointer = values.getPositionCount();
-                valueHashes.set(valuePointer, (int) valueHash);
-                type.appendTo(block, position, values);
-                buckets.set(bucketId, valuePointer);
+            try {
+                if (valuePointer == EMPTY_BUCKET) {
+                    valuePointer = values.getPositionCount();
+                    valueHashes.set(valuePointer, (int) valueHash);
+                    type.appendTo(block, position, values);
+                    buckets.set(bucketId, valuePointer);
 
-                return valuePointer;
+                    return valuePointer;
+                }
+                else if (type.equalTo(block, position, values, valuePointer)) {
+                    // value at position
+                    return valuePointer;
+                }
+                else {
+                    int probe = nextProbe(probeCount);
+                    bucketId = nextBucketId(originalBucketId, mask, probe);
+                    probeCount++;
+                }
             }
-            else if (type.equalTo(block, position, values, valuePointer)) {
-                // value at position
-                return valuePointer;
-            }
-            else {
-                int probe = nextProbe(probeCount);
-                bucketId = nextBucketId(originalBucketId, mask, probe);
-                probeCount++;
+            catch (NotSupportedException e) {
+                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
             }
         }
     }

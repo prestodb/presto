@@ -14,6 +14,10 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.Distribution;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
@@ -33,16 +37,12 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -99,6 +99,7 @@ import java.util.function.Supplier;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
@@ -108,7 +109,6 @@ import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -512,7 +512,8 @@ public class TestOrcBatchPageSourceMemoryTracking
                     DEFAULT_HIVE_FILE_CONTEXT,
                     null,
                     false,
-                    ROW_EXPRESSION_SERVICE)
+                    ROW_EXPRESSION_SERVICE,
+                    Optional.empty())
                     .get();
         }
 

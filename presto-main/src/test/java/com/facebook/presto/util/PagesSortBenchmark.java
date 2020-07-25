@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.PageBuilderStatus;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
@@ -46,9 +46,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.nCopies;

@@ -16,7 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.CharType.createCharType;
+import static com.facebook.presto.common.type.CharType.createCharType;
 
 public class TestCharParametricType
         extends AbstractTestFunctions

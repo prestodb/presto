@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlock;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.VariableWidthBlock;
+import com.facebook.presto.common.block.VariableWidthBlockBuilder;
+import com.facebook.presto.common.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static java.lang.String.format;
 import static java.util.Arrays.copyOfRange;

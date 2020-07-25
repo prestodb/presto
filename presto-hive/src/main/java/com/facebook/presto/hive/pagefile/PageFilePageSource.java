@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;

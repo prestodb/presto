@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.druid;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;

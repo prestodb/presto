@@ -22,5 +22,5 @@ public interface ColumnValidator
 {
     List<SingleColumn> generateChecksumColumns(Column column);
 
-    List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult);
+    List<? extends ColumnMatchResult<?>> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult);
 }

@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.event;
 
 import com.facebook.airlift.event.client.EventField;
 import com.facebook.airlift.event.client.EventType;
+import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.verifier.framework.QueryStage;
 
 import javax.annotation.concurrent.Immutable;
@@ -30,6 +31,7 @@ public class QueryFailure
     private final String clusterType;
     private final String queryStage;
     private final String errorCode;
+    private final String errorType;
     private final boolean retryable;
     private final String prestoQueryId;
     private final String stacktrace;
@@ -37,6 +39,7 @@ public class QueryFailure
     public QueryFailure(
             QueryStage queryStage,
             String errorCode,
+            Optional<ErrorType> errorType,
             boolean retryable,
             Optional<String> prestoQueryId,
             String stacktrace)
@@ -44,6 +47,7 @@ public class QueryFailure
         this.queryStage = requireNonNull(queryStage.name(), "queryStage is null");
         this.clusterType = requireNonNull(queryStage.getTargetCluster().name(), "cluster is null");
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
+        this.errorType = errorType.map(ErrorType::name).orElse(null);
         this.retryable = retryable;
         this.prestoQueryId = prestoQueryId.orElse(null);
         this.stacktrace = requireNonNull(stacktrace, "stacktrace is null");
@@ -65,6 +69,12 @@ public class QueryFailure
     public String getErrorCode()
     {
         return errorCode;
+    }
+
+    @EventField
+    public String getErrorType()
+    {
+        return errorType;
     }
 
     @EventField

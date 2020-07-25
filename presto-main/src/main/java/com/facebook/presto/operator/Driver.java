@@ -14,10 +14,10 @@
 package com.facebook.presto.operator;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;

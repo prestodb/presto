@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.function.OperatorType.ADD;
+import static com.facebook.presto.common.function.OperatorType.ADD;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public class TestOperatorValidation

@@ -21,7 +21,7 @@ import java.util.Base64;
 import java.util.List;
 
 import static com.facebook.presto.client.FixJsonDataUtils.fixData;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.google.common.collect.Lists.newArrayList;
 import static org.testng.Assert.assertEquals;
 

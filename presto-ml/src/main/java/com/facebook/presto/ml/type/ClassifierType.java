@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.ml.type;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 
 // Layout is <size>:<model>, where

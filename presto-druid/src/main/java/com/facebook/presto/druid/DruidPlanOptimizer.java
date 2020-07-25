@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.druid;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
@@ -31,7 +32,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;

@@ -14,9 +14,9 @@
 package com.facebook.presto.raptor.metadata;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
@@ -29,8 +29,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 

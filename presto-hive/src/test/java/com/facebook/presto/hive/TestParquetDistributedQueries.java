@@ -69,6 +69,41 @@ public class TestParquetDistributedQueries
         }
     }
 
+    @Test
+    public void testSubfieldWithSchemaChanges()
+    {
+        getQueryRunner().execute("CREATE TABLE test_subfield_multilevel_pruning AS " +
+                "SELECT " +
+                "   1 as orderkey," +
+                "   CAST(ROW('N', ROW(5, 7)) AS ROW(returnflag CHAR(1), shipdate ROW(ship_day INTEGER, ship_month INTEGER))) as nestedColumnLevelUpdates," +
+                "   CAST(ROW('N', ROW(5, 7)) AS ROW(returnflag CHAR(1), shipdate ROW(ship_day INTEGER, ship_month INTEGER))) as colLevelUpdates");
+
+        // update the schema of the nested column
+        getQueryRunner().execute("ALTER TABLE test_subfield_multilevel_pruning DROP COLUMN nestedColumnLevelUpdates");
+        getQueryRunner().execute("ALTER TABLE test_subfield_multilevel_pruning ADD COLUMN " +
+                "nestedColumnLevelUpdates ROW(returnflag CHAR(1), shipdate ROW(ship_day INTEGER, ship_month INTEGER, ship_year INTEGER))");
+
+        // delete the entire struct column (colLevelUpdates) and add a new struct column with different name (colLevelUpdates2)
+        getQueryRunner().execute("ALTER TABLE test_subfield_multilevel_pruning DROP COLUMN colLevelUpdates");
+        getQueryRunner().execute("ALTER TABLE test_subfield_multilevel_pruning ADD COLUMN " +
+                "colLevelUpdates2 ROW(returnflag CHAR(1), shipdate ROW(ship_day INTEGER, ship_month INTEGER, ship_year INTEGER))");
+
+        getQueryRunner().execute("INSERT INTO test_subfield_multilevel_pruning " +
+                "SELECT 2, cast(row('Y', ROW(5, 7, 2020)) as ROW(returnflag CHAR(1), shipdate ROW(ship_day INTEGER, ship_month INTEGER, ship_year INTEGER)))," +
+                "cast(row('Y', ROW(5, 7, 2020)) as ROW(returnflag CHAR(1), shipdate ROW(ship_day INTEGER, ship_month INTEGER, ship_year INTEGER)))");
+
+        try {
+            assertQuery("SELECT orderkey, nestedColumnLevelUpdates.shipdate.ship_day, nestedColumnLevelUpdates.shipdate.ship_month, nestedColumnLevelUpdates.shipdate.ship_year FROM test_subfield_multilevel_pruning",
+                    "SELECT * from (VALUES(1, 5, 7, null), (2, 5, 7, 2020))");
+
+            assertQuery("SELECT orderkey, colLevelUpdates2.shipdate.ship_day, colLevelUpdates2.shipdate.ship_month, colLevelUpdates2.shipdate.ship_year FROM test_subfield_multilevel_pruning",
+                    "SELECT * from (VALUES (1, null, null, null), (2, 5, 7, 2020))");
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE test_subfield_multilevel_pruning");
+        }
+    }
+
     @Override
     protected boolean supportsNotNullColumns()
     {

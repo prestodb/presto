@@ -14,6 +14,10 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
@@ -23,10 +27,6 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
@@ -46,8 +46,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeTopNRowNumber;
-import static com.facebook.presto.spi.predicate.Marker.Bound.BELOW;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.predicate.Marker.Bound.BELOW;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.ExpressionDomainTranslator.ExtractionResult;
 import static com.facebook.presto.sql.planner.ExpressionDomainTranslator.fromPredicate;
 import static com.facebook.presto.sql.planner.plan.ChildReplacer.replaceChildren;

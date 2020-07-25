@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.raptor.systemtables;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.MetadataDao;
@@ -24,10 +28,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.predicate.ValueSet;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -48,16 +48,16 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.common.predicate.Range.greaterThan;
+import static com.facebook.presto.common.predicate.Range.lessThanOrEqual;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DELTA_DELETE;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
-import static com.facebook.presto.spi.predicate.Range.greaterThan;
-import static com.facebook.presto.spi.predicate.Range.lessThanOrEqual;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static io.airlift.slice.Slices.utf8Slice;

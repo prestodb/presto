@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.type.BooleanType;
+import com.facebook.presto.common.type.BooleanType;
 import org.testng.annotations.Test;
 
 public class TestArrayMatchFunctions

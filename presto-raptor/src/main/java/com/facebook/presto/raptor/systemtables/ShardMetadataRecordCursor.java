@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.raptor.systemtables;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +40,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_CORRUPT_METADATA;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.maxColumn;
@@ -47,11 +52,6 @@ import static com.facebook.presto.raptor.metadata.DatabaseShardManager.minColumn
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;
 import static com.facebook.presto.raptor.util.DatabaseUtil.metadataError;
 import static com.facebook.presto.raptor.util.DatabaseUtil.onDemandDao;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;

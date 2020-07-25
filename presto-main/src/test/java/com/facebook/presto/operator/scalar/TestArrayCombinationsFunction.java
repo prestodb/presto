@@ -14,18 +14,18 @@
 
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.common.type.ArrayType;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.scalar.ArrayCombinationsFunction.combinationCount;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.math.LongMath.factorial;
 import static java.lang.String.format;

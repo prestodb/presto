@@ -14,21 +14,21 @@
 package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DecimalParseResult;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.RowType.Field;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DecimalParseResult;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.RowType.Field;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
@@ -82,7 +82,6 @@ import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.airlift.slice.Slices;
 
 import java.util.List;
@@ -90,12 +89,26 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.function.OperatorType.BETWEEN;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.NEGATION;
+import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.JsonType.JSON;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
 import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
-import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
-import static com.facebook.presto.spi.function.OperatorType.NEGATION;
-import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
@@ -108,19 +121,6 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.CharType.createCharType;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.JsonType.JSON;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -528,64 +528,35 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitSimpleCaseExpression(SimpleCaseExpression node, Void context)
         {
-            ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
-
-            arguments.add(process(node.getOperand(), context));
-
-            for (WhenClause clause : node.getWhenClauses()) {
-                arguments.add(specialForm(
-                        WHEN,
-                        getType(clause),
-                        process(clause.getOperand(), context),
-                        process(clause.getResult(), context)));
-            }
-
-            Type returnType = getType(node);
-
-            arguments.add(node.getDefaultValue()
-                    .map((value) -> process(value, context))
-                    .orElse(constantNull(returnType)));
-
-            return specialForm(SWITCH, returnType, arguments.build());
+            return buildSwitch(process(node.getOperand(), context), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
         }
 
         @Override
         protected RowExpression visitSearchedCaseExpression(SearchedCaseExpression node, Void context)
         {
-            /*
-                Translates an expression like:
+            // We rewrite this as - CASE true WHEN p1 THEN v1 WHEN p2 THEN v2 .. ELSE v END
+            return buildSwitch(new ConstantExpression(true, BOOLEAN), node.getWhenClauses(), node.getDefaultValue(), getType(node), context);
+        }
 
-                    case when cond1 then value1
-                         when cond2 then value2
-                         when cond3 then value3
-                         else value4
-                    end
+        private RowExpression buildSwitch(RowExpression operand, List<WhenClause> whenClauses, Optional<Expression> defaultValue, Type returnType, Void context)
+        {
+            ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
 
-                To:
+            arguments.add(operand);
 
-                    IF(cond1,
-                        value1,
-                        IF(cond2,
-                            value2,
-                                If(cond3,
-                                    value3,
-                                    value4)))
-
-             */
-            RowExpression expression = node.getDefaultValue()
-                    .map((value) -> process(value, context))
-                    .orElse(constantNull(getType(node)));
-
-            for (WhenClause clause : Lists.reverse(node.getWhenClauses())) {
-                expression = specialForm(
-                        IF,
-                        getType(node),
+            for (WhenClause clause : whenClauses) {
+                arguments.add(specialForm(
+                        WHEN,
+                        getType(clause.getResult()),
                         process(clause.getOperand(), context),
-                        process(clause.getResult(), context),
-                        expression);
+                        process(clause.getResult(), context)));
             }
 
-            return expression;
+            arguments.add(defaultValue
+                    .map((value) -> process(value, context))
+                    .orElse(constantNull(returnType)));
+
+            return specialForm(SWITCH, returnType, arguments.build());
         }
 
         @Override
@@ -639,14 +610,30 @@ public final class SqlToRowExpressionTranslator
             throw new UnsupportedOperationException("Must desugar TryExpression before translate it into RowExpression");
         }
 
+        private RowExpression buildEquals(RowExpression lhs, RowExpression rhs)
+        {
+            return call(
+                    EQUAL.getOperator(),
+                    functionResolution.comparisonFunction(ComparisonExpression.Operator.EQUAL, lhs.getType(), rhs.getType()),
+                    BOOLEAN,
+                    lhs,
+                    rhs);
+        }
+
         @Override
         protected RowExpression visitInPredicate(InPredicate node, Void context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
-            arguments.add(process(node.getValue(), context));
+            RowExpression value = process(node.getValue(), context);
             InListExpression values = (InListExpression) node.getValueList();
-            for (Expression value : values.getValues()) {
-                arguments.add(process(value, context));
+
+            if (values.getValues().size() == 1) {
+                return buildEquals(value, process(values.getValues().get(0), context));
+            }
+
+            arguments.add(value);
+            for (Expression inValue : values.getValues()) {
+                arguments.add(process(inValue, context));
             }
 
             return specialForm(IN, BOOLEAN, arguments.build());

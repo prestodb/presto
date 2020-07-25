@@ -17,7 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.common.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;

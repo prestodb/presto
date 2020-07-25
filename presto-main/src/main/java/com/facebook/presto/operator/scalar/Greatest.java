@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.QualifiedFunctionName;
 
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 

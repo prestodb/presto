@@ -14,21 +14,21 @@
 package com.facebook.presto.raptor;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.storage.organization.TemporalFunction;
 import com.facebook.presto.raptor.util.PageBuffer;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -45,9 +45,9 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.airlift.concurrent.MoreFutures.allAsList;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_TOO_MANY_FILES_CREATED;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -72,12 +72,12 @@ public class RaptorPageSink
     private final Optional<Type> temporalColumnType;
     private final TemporalFunction temporalFunction;
     private final int maxAllowedFilesPerWriter;
-    private final FileSystemContext context;
+    private final HdfsContext context;
 
     private final PageWriter pageWriter;
 
     public RaptorPageSink(
-            FileSystemContext context,
+            HdfsContext context,
             PageSorter pageSorter,
             StorageManager storageManager,
             TemporalFunction temporalFunction,

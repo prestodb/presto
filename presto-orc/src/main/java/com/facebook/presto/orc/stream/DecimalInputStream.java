@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.orc.stream;
 
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;

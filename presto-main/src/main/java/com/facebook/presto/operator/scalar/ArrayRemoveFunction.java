@@ -13,25 +13,25 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.util.Failures.internalError;
 
 @ScalarFunction("array_remove")

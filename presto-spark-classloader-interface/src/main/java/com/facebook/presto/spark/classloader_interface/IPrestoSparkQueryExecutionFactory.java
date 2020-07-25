@@ -15,11 +15,16 @@ package com.facebook.presto.spark.classloader_interface;
 
 import org.apache.spark.SparkContext;
 
+import java.nio.file.Path;
+import java.util.Optional;
+
 public interface IPrestoSparkQueryExecutionFactory
 {
     IPrestoSparkQueryExecution create(
             SparkContext sparkContext,
             PrestoSparkSession session,
             String sql,
-            PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider);
+            Optional<String> sparkQueueName,
+            PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
+            Optional<Path> queryInfoOutputPath);
 }

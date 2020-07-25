@@ -59,8 +59,6 @@ public final class RaptorQueryRunner
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch"))
                 .setNodeCount(2)
-                // TODO: enable failure-detector for raptor. Currently enabling the failure detector causes failures.
-                .setCoordinatorProperties(ImmutableMap.of("failure-detector.enabled", "false"))
                 .setExtraProperties(extraProperties)
                 .build();
 

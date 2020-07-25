@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -27,9 +30,6 @@ import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.MappedPageSource;
 import com.facebook.presto.split.MappedRecordSet;
 import com.google.common.collect.ImmutableList;
@@ -39,9 +39,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
-import static com.facebook.presto.spi.predicate.TupleDomain.withColumnDomains;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

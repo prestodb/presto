@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.operator.annotations;
 
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.Convention;
@@ -20,9 +23,6 @@ import com.facebook.presto.spi.function.FunctionDependency;
 import com.facebook.presto.spi.function.InvocationConvention;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.type.LiteralParameter;
 
 import java.lang.annotation.Annotation;
@@ -35,8 +35,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsImplementationDependencyAnnotation;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 

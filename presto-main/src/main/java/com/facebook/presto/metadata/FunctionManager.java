@@ -15,12 +15,17 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
-import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -29,15 +34,10 @@ import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.gen.CacheStatsMBean;
@@ -72,6 +72,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
@@ -81,7 +82,6 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
 import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
@@ -169,6 +169,15 @@ public class FunctionManager
         }
     }
 
+    @VisibleForTesting
+    public void addFunctionNamespace(String catalogName, FunctionNamespaceManager functionNamespaceManager)
+    {
+        transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
+        if (functionNamespaceManagers.putIfAbsent(catalogName, functionNamespaceManager) != null) {
+            throw new IllegalArgumentException(format("Function namespace manager is already registered for catalog [%s]", catalogName));
+        }
+    }
+
     public FunctionInvokerProvider getFunctionInvokerProvider()
     {
         return functionInvokerProvider;
@@ -182,7 +191,7 @@ public class FunctionManager
         handleResolver.addFunctionNamespace(factory.getName(), factory.getHandleResolver());
     }
 
-    public void registerBuiltInFunctions(List<? extends BuiltInFunction> functions)
+    public void registerBuiltInFunctions(List<? extends SqlFunction> functions)
     {
         builtInFunctionNamespaceManager.registerBuiltInFunctions(functions);
     }

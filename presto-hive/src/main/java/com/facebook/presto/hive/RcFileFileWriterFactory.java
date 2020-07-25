@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.rcfile.HdfsRcFileDataSource;
@@ -21,8 +23,6 @@ import com.facebook.presto.rcfile.RcFileEncoding;
 import com.facebook.presto.rcfile.binary.BinaryRcFileEncoding;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.FileSystem;
@@ -94,7 +94,8 @@ public class RcFileFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf configuration,
-            ConnectorSession session)
+            ConnectorSession session,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         if (!HiveSessionProperties.isRcfileOptimizedWriterEnabled(session)) {
             return Optional.empty();

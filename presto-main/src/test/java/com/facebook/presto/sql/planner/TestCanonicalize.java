@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.ExpectedValueProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;

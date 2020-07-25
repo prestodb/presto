@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.operator.annotations;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.LongVariableConstraint;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 import com.facebook.presto.spi.function.TypeParameterSpecialization;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.Constraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -36,7 +36,6 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,25 +43,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.function.OperatorType.BETWEEN;
+import static com.facebook.presto.common.function.OperatorType.CAST;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
-import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.function.Signature.orderableTypeParameter;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.reflect.Modifier.isPublic;
+import static java.lang.reflect.Modifier.isStatic;
+import static java.util.Arrays.asList;
 
 public class FunctionsParserHelper
 {
@@ -129,32 +132,71 @@ public class FunctionsParserHelper
         checkArgument(signatureOld.get().equals(signatureNew), "Implementations with type parameters must all have matching signatures. %s does not match %s", signatureOld.get(), signatureNew);
     }
 
-    public static List<Method> findPublicStaticMethodsWithAnnotation(Class<?> clazz, Class<?> annotationClass)
+    @SafeVarargs
+    public static Set<Method> findPublicStaticMethods(Class<?> clazz, Class<? extends Annotation>... includedAnnotations)
     {
-        ImmutableList.Builder<Method> methods = ImmutableList.builder();
-        for (Method method : clazz.getMethods()) {
-            for (Annotation annotation : method.getAnnotations()) {
-                if (annotationClass.isInstance(annotation)) {
-                    checkArgument(Modifier.isStatic(method.getModifiers()) && Modifier.isPublic(method.getModifiers()), "%s annotated with %s must be static and public", method.getName(), annotationClass.getSimpleName());
-                    methods.add(method);
-                }
-            }
-        }
-        return methods.build();
+        return findPublicStaticMethods(clazz, ImmutableSet.copyOf(asList(includedAnnotations)), ImmutableSet.of());
+    }
+
+    public static Set<Method> findPublicStaticMethods(Class<?> clazz, Set<Class<? extends Annotation>> includedAnnotations, Set<Class<? extends Annotation>> excludedAnnotations)
+    {
+        return findMethods(
+                clazz.getMethods(),
+                method -> checkArgument(isStatic(method.getModifiers()) && isPublic(method.getModifiers()), "Annotated method [%s] must be static and public", method.getName()),
+                includedAnnotations,
+                excludedAnnotations);
     }
 
     @SafeVarargs
-    public static Set<Method> findPublicMethodsWithAnnotation(Class<?> clazz, Class<? extends Annotation>... annotationClasses)
+    public static Set<Method> findPublicMethods(Class<?> clazz, Class<? extends Annotation>... includedAnnotations)
+    {
+        return findPublicMethods(clazz, ImmutableSet.copyOf(asList(includedAnnotations)), ImmutableSet.of());
+    }
+
+    public static Set<Method> findPublicMethods(Class<?> clazz, Set<Class<? extends Annotation>> includedAnnotations, Set<Class<? extends Annotation>> excludedAnnotations)
+    {
+        return findMethods(
+                clazz.getDeclaredMethods(),
+                method -> checkArgument(isPublic(method.getModifiers()), "Annotated method [%s] must be public"),
+                includedAnnotations,
+                excludedAnnotations);
+    }
+
+    public static Set<Method> findMethods(
+            Method[] allMethods,
+            Consumer<Method> methodChecker,
+            Set<Class<? extends Annotation>> includedAnnotations,
+            Set<Class<? extends Annotation>> excludedAnnotations)
     {
         ImmutableSet.Builder<Method> methods = ImmutableSet.builder();
-        for (Method method : clazz.getDeclaredMethods()) {
+        for (Method method : allMethods) {
+            boolean included = false;
+            boolean excluded = false;
+
             for (Annotation annotation : method.getAnnotations()) {
-                for (Class<?> annotationClass : annotationClasses) {
+                for (Class<?> annotationClass : excludedAnnotations) {
                     if (annotationClass.isInstance(annotation)) {
-                        checkArgument(Modifier.isPublic(method.getModifiers()), "Method [%s] annotated with @%s must be public", method, annotationClass.getSimpleName());
-                        methods.add(method);
+                        excluded = true;
+                        break;
                     }
                 }
+                if (excluded) {
+                    break;
+                }
+                if (included) {
+                    continue;
+                }
+                for (Class<?> annotationClass : includedAnnotations) {
+                    if (annotationClass.isInstance(annotation)) {
+                        included = true;
+                        break;
+                    }
+                }
+            }
+
+            if (included && !excluded) {
+                methodChecker.accept(method);
+                methods.add(method);
             }
         }
         return methods.build();

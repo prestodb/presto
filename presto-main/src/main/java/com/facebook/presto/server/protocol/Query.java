@@ -21,6 +21,11 @@ import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -33,15 +38,10 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.security.SelectedRole;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +57,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
@@ -72,6 +73,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
+import static com.facebook.presto.SystemSessionProperties.getTargetResultSize;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -507,14 +509,18 @@ class Query
 
     private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo, long nextToken)
     {
-        return uriInfo.getBaseUriBuilder()
+        UriBuilder uri = uriInfo.getBaseUriBuilder()
                 .scheme(scheme)
                 .replacePath("/v1/statement/executing")
                 .path(queryId.toString())
                 .path(String.valueOf(nextToken))
                 .replaceQuery("")
-                .queryParam("slug", slug)
-                .build();
+                .queryParam("slug", this.slug);
+        Optional<DataSize> targetResultSize = getTargetResultSize(session);
+        if (targetResultSize.isPresent()) {
+            uri = uri.queryParam("targetResultSize", targetResultSize.get());
+        }
+        return uri.build();
     }
 
     private static StatementStats toStatementStats(QueryInfo queryInfo)

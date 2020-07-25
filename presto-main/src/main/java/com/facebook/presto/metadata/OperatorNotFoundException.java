@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 

@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 public class BooleanColumnReader
-        extends PrimitiveColumnReader
+        extends AbstractColumnReader
 {
     public BooleanColumnReader(RichColumnDescriptor descriptor)
     {

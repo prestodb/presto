@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class SimplePageWithPositionComparator
@@ -46,7 +49,15 @@ public class SimplePageWithPositionComparator
             Block rightBlock = right.getBlock(sortChannel);
 
             SortOrder sortOrder = sortOrders.get(i);
-            int compare = sortOrder.compareBlockValue(types.get(sortChannel), leftBlock, leftPosition, rightBlock, rightPosition);
+
+            int compare;
+            try {
+                compare = sortOrder.compareBlockValue(types.get(sortChannel), leftBlock, leftPosition, rightBlock, rightPosition);
+            }
+            catch (NotSupportedException e) {
+                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+            }
+
             if (compare != 0) {
                 return compare;
             }

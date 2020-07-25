@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet.reader;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 
 import static java.util.Objects.requireNonNull;
 

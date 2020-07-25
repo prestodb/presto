@@ -15,6 +15,9 @@ package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.buffer.BufferState;
@@ -31,11 +34,8 @@ import com.facebook.presto.operator.PrecomputedHashGenerator;
 import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
 import com.facebook.presto.operator.repartition.OptimizedPartitionedOutputOperator.OptimizedPartitionedOutputFactory;
 import com.facebook.presto.operator.repartition.PartitionedOutputOperator.PartitionedOutputFactory;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.facebook.presto.type.TypeRegistry;
@@ -71,6 +71,14 @@ import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.block.BlockAssertions.createMapType;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RowType.withDefaultFieldNames;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
@@ -79,14 +87,6 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.operator.PageAssertions.createDictionaryPageWithRandomData;
 import static com.facebook.presto.operator.PageAssertions.createRlePageWithRandomData;
 import static com.facebook.presto.operator.PageAssertions.updateBlockTypesWithHashBlockAndNullBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RowType.withDefaultFieldNames;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.HASH;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -309,7 +309,7 @@ public class BenchmarkPartitionedOutputOperator
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), enableCompression);
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
-            OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE, 10_000);
+            OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);
 
             return (OptimizedPartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), Optional.of(outputPartitioning), serdeFactory)

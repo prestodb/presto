@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.RowBlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.RowBlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -40,26 +40,27 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 
-import static com.facebook.presto.spi.block.ArrayBlock.fromElementBlock;
-import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
-import static com.facebook.presto.spi.block.RowBlock.fromFieldBlocks;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
-import static com.facebook.presto.spi.type.Decimals.encodeUnscaledValue;
-import static com.facebook.presto.spi.type.Decimals.writeBigDecimal;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.block.ArrayBlock.fromElementBlock;
+import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
+import static com.facebook.presto.common.block.MethodHandleUtil.compose;
+import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
+import static com.facebook.presto.common.block.RowBlock.fromFieldBlocks;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
+import static com.facebook.presto.common.type.Decimals.encodeUnscaledValue;
+import static com.facebook.presto.common.type.Decimals.writeBigDecimal;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
 import static com.facebook.presto.util.StructuralTestUtil.appendToBlockBuilder;
@@ -135,7 +136,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(Iterable<String> values)
     {
-        BlockBuilder builder = VARCHAR.createBlockBuilder(null, 100);
+        BlockBuilder builder = VARCHAR.createBlockBuilder(null, (int) StreamSupport.stream(values.spliterator(), false).count());
 
         for (String value : values) {
             if (value == null) {

@@ -13,26 +13,26 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.type.SqlDate;
+import com.facebook.presto.common.type.SqlTimeWithTimeZone;
+import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
-import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;

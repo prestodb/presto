@@ -14,10 +14,10 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.airlift.stats.QuantileDigest;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
@@ -26,7 +26,7 @@ import io.airlift.slice.Slices;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 

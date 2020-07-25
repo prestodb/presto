@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -110,7 +111,7 @@ public final class GlueToPrestoConverter
                                 Order.fromMetastoreApiOrder(column.getSortOrder(), "unknown")))
                         .collect(toImmutableList());
             }
-            bucketProperty = Optional.of(new HiveBucketProperty(sd.getBucketColumns(), sd.getNumberOfBuckets(), sortedBy));
+            bucketProperty = Optional.of(new HiveBucketProperty(sd.getBucketColumns(), sd.getNumberOfBuckets(), sortedBy, HIVE_COMPATIBLE, Optional.empty()));
         }
 
         storageBuilder.setStorageFormat(StorageFormat.createNullable(serdeInfo.getSerializationLibrary(), sd.getInputFormat(), sd.getOutputFormat()))

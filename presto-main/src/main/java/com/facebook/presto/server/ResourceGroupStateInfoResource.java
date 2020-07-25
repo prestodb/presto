@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.Encoded;
@@ -32,6 +33,7 @@ import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -39,6 +41,7 @@ import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/v1/resourceGroupState")
+@RolesAllowed(ADMIN)
 public class ResourceGroupStateInfoResource
 {
     private final ResourceGroupManager<?> resourceGroupManager;

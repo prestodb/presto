@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -76,5 +76,12 @@ public class RaptorNodePartitioningProvider
     public BucketFunction getBucketFunction(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorPartitioningHandle partitioning, List<Type> partitionChannelTypes, int bucketCount)
     {
         return new RaptorBucketFunction(bucketCount, partitionChannelTypes);
+    }
+
+    @Override
+    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        RaptorPartitioningHandle handle = (RaptorPartitioningHandle) partitioningHandle;
+        return handle.getBucketToNode().size();
     }
 }

@@ -14,6 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import com.facebook.presto.metadata.InsertTableHandle;
@@ -30,8 +32,6 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -81,6 +81,17 @@ import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
+import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
@@ -100,18 +111,7 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
-import static com.facebook.presto.spi.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.CharType.createCharType;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -2059,6 +2059,10 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("CREATE TABLE tmp_map12 AS SELECT MAP(ARRAY[1.0E0], ARRAY[ARRAY[1, 2]]) AS col", 1);
         assertQuery("SELECT col[1.0][2] FROM tmp_map12", "SELECT 2");
+
+        assertUpdate("CREATE TABLE tmp_map13 AS SELECT MAP(ARRAY['puppies', 'kittens'], ARRAY['corgi', 'norwegianWood']) AS col", 1);
+        assertQuery("SELECT col['puppies'] FROM tmp_map13", "SELECT 'corgi'");
+        assertQuery("SELECT col['kittens'] FROM tmp_map13", "SELECT 'norwegianWood'");
     }
 
     @Test
@@ -4632,6 +4636,10 @@ public class TestHiveIntegrationSmokeTest
         assertQueryReturnsEmptyResult("" +
                 "SELECT * FROM test_prune_failure\n" +
                 "WHERE x < 0 AND cast(p AS int) > 0");
+
+        assertQueryFails("" +
+                "SELECT * FROM test_prune_failure\n" +
+                "WHERE x > 0 AND cast(p AS int) > 0", "Cannot cast 'abc' to INT");
 
         assertUpdate("DROP TABLE test_prune_failure");
     }

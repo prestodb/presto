@@ -14,6 +14,9 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.orc.HdfsOrcDataSource;
 import com.facebook.presto.hive.util.MergingPageIterator;
 import com.facebook.presto.hive.util.SortBuffer;
@@ -22,11 +25,8 @@ import com.facebook.presto.hive.util.TempFileWriter;
 import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
@@ -124,14 +124,13 @@ public class SortingFileWriter
     }
 
     @Override
-    public void commit()
+    public Optional<Page> commit()
     {
         if (!sortBuffer.isEmpty()) {
             // skip temporary files entirely if the total output size is small
             if (tempFiles.isEmpty()) {
                 sortBuffer.flushTo(outputWriter::appendRows);
-                outputWriter.commit();
-                return;
+                return outputWriter.commit();
             }
 
             flushToTempFile();
@@ -139,7 +138,7 @@ public class SortingFileWriter
 
         try {
             writeSorted();
-            outputWriter.commit();
+            return outputWriter.commit();
         }
         catch (UncheckedIOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);

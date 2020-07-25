@@ -14,18 +14,18 @@
 package com.facebook.presto.teradata.functions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.SqlDate;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.TimestampType;
 import org.joda.time.DateTime;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.Math.toIntExact;

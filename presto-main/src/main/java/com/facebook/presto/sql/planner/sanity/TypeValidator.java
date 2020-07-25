@@ -14,6 +14,9 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -26,9 +29,6 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.SimplePlanVisitor;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
  * Ensures that all the expressions and FunctionCalls matches their output symbols
  */
 public final class TypeValidator
-        implements PlanSanityChecker.Checker
+        implements PlanChecker.Checker
 {
     public TypeValidator() {}
 

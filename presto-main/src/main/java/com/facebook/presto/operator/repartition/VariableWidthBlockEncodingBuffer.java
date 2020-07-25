@@ -27,21 +27,24 @@
  */
 package com.facebook.presto.operator.repartition;
 
-import com.facebook.presto.spi.block.AbstractVariableWidthBlock;
-import com.facebook.presto.spi.block.ArrayAllocator;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.VariableWidthBlock;
+import com.facebook.presto.common.block.AbstractVariableWidthBlock;
+import com.facebook.presto.common.block.ArrayAllocator;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.VariableWidthBlock;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.facebook.presto.array.Arrays.ExpansionFactor.LARGE;
+import static com.facebook.presto.array.Arrays.ExpansionFactor.MEDIUM;
 import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.MoreByteArrays.setBytes;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 import static sun.misc.Unsafe.ARRAY_INT_INDEX_SCALE;
@@ -175,12 +178,33 @@ public class VariableWidthBlockEncodingBuffer
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
-        sb.append("sliceBufferCapacity=").append(sliceBuffer == null ? 0 : sliceBuffer.length).append(",");
-        sb.append("sliceBufferIndex=").append(sliceBufferIndex).append(",");
-        sb.append("offsetsBufferCapacity=").append(offsetsBuffer == null ? 0 : offsetsBuffer.length).append(",");
-        sb.append("offsetsBufferIndex=").append(offsetsBufferIndex).append("}");
-        return sb.toString();
+        return toStringHelper(this)
+                .add("super", super.toString())
+                .add("estimatedSliceBufferMaxCapacity", estimatedSliceBufferMaxCapacity)
+                .add("sliceBufferCapacity", sliceBuffer == null ? 0 : sliceBuffer.length)
+                .add("sliceBufferIndex", sliceBufferIndex)
+                .add("estimatedOffsetBufferMaxCapacity", estimatedOffsetBufferMaxCapacity)
+                .add("offsetsBufferCapacity", offsetsBuffer == null ? 0 : offsetsBuffer.length)
+                .add("offsetsBufferIndex", offsetsBufferIndex)
+                .toString();
+    }
+
+    @VisibleForTesting
+    int getEstimatedOffsetBufferMaxCapacity()
+    {
+        return estimatedOffsetBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    int getEstimatedSliceBufferMaxCapacity()
+    {
+        return estimatedSliceBufferMaxCapacity;
+    }
+
+    @Override
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -190,13 +214,21 @@ public class VariableWidthBlockEncodingBuffer
         decodedBlock = (Block) mapPositionsToNestedBlock(decodedBlockNode).getDecodedBlock();
 
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
-        estimatedSliceBufferMaxCapacity = (int) (targetBufferSize * ((VariableWidthBlock) decodedBlock).getRawSlice(0).getRetainedSize() / decodedBlock.getRetainedSizeInBytes());
-        if (decodedBlock.mayHaveNull()) {
-            setEstimatedNullsBufferMaxCapacity((int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Byte.BYTES / POSITION_SIZE));
-            estimatedOffsetBufferMaxCapacity = (int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Integer.BYTES / POSITION_SIZE);
+
+        int positionCount = decodedBlock.getPositionCount();
+        if (positionCount == 0) {
+            estimatedSliceBufferMaxCapacity = 0;
+            setEstimatedNullsBufferMaxCapacity(0);
+            estimatedOffsetBufferMaxCapacity = 0;
         }
         else {
-            estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize - estimatedSliceBufferMaxCapacity);
+            int inclusivePositionSize = toIntExact(decodedBlock.getLogicalSizeInBytes() / positionCount);
+            estimatedSliceBufferMaxCapacity = getEstimatedBufferMaxCapacity(
+                    targetBufferSize,
+                    (((VariableWidthBlock) decodedBlock).getPositionOffset(decodedBlock.getPositionCount()) - ((VariableWidthBlock) decodedBlock).getPositionOffset(0)) / positionCount,
+                    inclusivePositionSize);
+            setEstimatedNullsBufferMaxCapacity(getEstimatedBufferMaxCapacity(targetBufferSize, Byte.BYTES, inclusivePositionSize));
+            estimatedOffsetBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Integer.BYTES, inclusivePositionSize);
         }
     }
 
@@ -235,6 +267,14 @@ public class VariableWidthBlockEncodingBuffer
         // guarded by the length check in the for loop, so the subtraction doesn't matter.
         int sliceAddress = (int) rawSlice.getAddress() - ARRAY_BYTE_BASE_OFFSET;
 
+        int totalSliceLength = 0;
+        for (int i = positionsOffset; i < positionsOffset + batchSize; i++) {
+            int position = positions[i];
+            totalSliceLength += variableWidthBlock.getPositionOffset(position + 1) - variableWidthBlock.getPositionOffset(position);
+        }
+
+        sliceBuffer = ensureCapacity(sliceBuffer, sliceBufferIndex + totalSliceLength, estimatedSliceBufferMaxCapacity, MEDIUM, PRESERVE, bufferAllocator);
+
         for (int i = positionsOffset; i < positionsOffset + batchSize; i++) {
             int position = positions[i];
             int beginOffset = variableWidthBlock.getPositionOffset(position);
@@ -245,8 +285,6 @@ public class VariableWidthBlockEncodingBuffer
             offsetsBufferIndex = setIntUnchecked(offsetsBuffer, offsetsBufferIndex, lastOffset);
 
             if (length > 0) {
-                sliceBuffer = ensureCapacity(sliceBuffer, sliceBufferIndex + length, estimatedSliceBufferMaxCapacity, LARGE, PRESERVE, bufferAllocator);
-
                 // The slice address may be greater than 0. Since we are reading from the raw slice, we need to read from beginOffset + sliceAddress.
                 sliceBufferIndex = setBytes(sliceBuffer, sliceBufferIndex, sliceBase, beginOffset + sliceAddress, length);
             }

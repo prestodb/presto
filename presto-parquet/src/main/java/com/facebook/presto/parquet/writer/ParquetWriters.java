@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.parquet.writer.valuewriter.BigintValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.BooleanValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.CharValueWriter;
@@ -23,12 +29,6 @@ import com.facebook.presto.parquet.writer.valuewriter.IntegerValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.PrimitiveValueWriter;
 import com.facebook.presto.parquet.writer.valuewriter.RealValueWriter;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ParquetProperties;
@@ -42,15 +42,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -151,7 +151,7 @@ class ParquetWriters
         }
     }
 
-    private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, com.facebook.presto.spi.type.Type type, PrimitiveType parquetType)
+    private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, com.facebook.presto.common.type.Type type, PrimitiveType parquetType)
     {
         if (BOOLEAN.equals(type)) {
             return new BooleanValueWriter(valuesWriter, parquetType);

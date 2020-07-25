@@ -29,6 +29,11 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.FilterStatsCalculator;
@@ -102,15 +107,10 @@ import com.facebook.presto.server.thrift.ThriftTaskService;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -146,10 +146,12 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.statusservice.NodeStatusService;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
@@ -225,6 +227,8 @@ public class ServerMainModule
         install(new InternalCommunicationModule());
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
+
+        binder.bind(PlanChecker.class).in(Scopes.SINGLETON);
 
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
@@ -526,6 +530,9 @@ public class ServerMainModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+
+        //Optional Status Detector
+        newOptionalBinder(binder, NodeStatusService.class);
     }
 
     @Provides

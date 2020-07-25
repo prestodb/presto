@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.security;
 
-import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
 

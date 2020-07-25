@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.benchmark;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
@@ -26,7 +27,6 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
@@ -92,7 +92,8 @@ public class HashJoinBenchmark
                     1_500_000,
                     new PagesIndex.TestingFactory(false),
                     false,
-                    SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
+                    SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
+                    false);
 
             DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
             DriverFactory buildDriverFactory = new DriverFactory(0, false, false, ImmutableList.of(ordersTableScan, hashBuilder), OptionalInt.empty(), UNGROUPED_EXECUTION);

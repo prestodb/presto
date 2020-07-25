@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.unnest;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.DictionaryBlock;
 
 import javax.annotation.Nullable;
 

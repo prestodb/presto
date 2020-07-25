@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.fasterxml.jackson.core.Base64Variants;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -31,8 +31,8 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 
-import static com.facebook.presto.spi.block.BlockSerdeUtil.readBlock;
-import static com.facebook.presto.spi.block.BlockSerdeUtil.writeBlock;
+import static com.facebook.presto.common.block.BlockSerdeUtil.readBlock;
+import static com.facebook.presto.common.block.BlockSerdeUtil.writeBlock;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

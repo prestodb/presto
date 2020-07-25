@@ -15,6 +15,7 @@ package com.facebook.presto.pinot;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorId;
@@ -26,7 +27,6 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import org.weakref.jmx.guice.MBeanModule;

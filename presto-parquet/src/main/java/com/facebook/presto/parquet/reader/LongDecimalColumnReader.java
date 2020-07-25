@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.Type;
 import org.apache.parquet.io.api.Binary;
 
 import java.math.BigInteger;
 
 public class LongDecimalColumnReader
-        extends PrimitiveColumnReader
+        extends AbstractColumnReader
 {
-    LongDecimalColumnReader(RichColumnDescriptor descriptor)
+    public LongDecimalColumnReader(RichColumnDescriptor descriptor)
     {
         super(descriptor);
     }

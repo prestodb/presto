@@ -14,10 +14,10 @@
 package com.facebook.presto.operator.spiller;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.Spiller;
@@ -46,11 +46,11 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @State(Scope.Thread)

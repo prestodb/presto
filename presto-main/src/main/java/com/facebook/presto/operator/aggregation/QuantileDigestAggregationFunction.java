@@ -14,10 +14,12 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.airlift.stats.QuantileDigest;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeSignature;
 
+import static com.facebook.presto.common.type.StandardTypes.QDIGEST;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.doubleToSortableLong;
 import static com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil.floatToSortableInt;
 import static com.facebook.presto.operator.aggregation.StatisticalDigestFactory.createStatisticalQuantileDigest;
@@ -25,8 +27,6 @@ import static com.facebook.presto.operator.aggregation.state.StatisticalDigestSt
 import static com.facebook.presto.operator.scalar.QuantileDigestFunctions.verifyAccuracy;
 import static com.facebook.presto.operator.scalar.QuantileDigestFunctions.verifyWeight;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
-import static com.facebook.presto.spi.type.StandardTypes.QDIGEST;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.lang.Float.intBitsToFloat;
 
 public final class QuantileDigestAggregationFunction

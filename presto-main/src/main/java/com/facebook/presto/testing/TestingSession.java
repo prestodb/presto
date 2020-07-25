@@ -15,6 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.connector.system.StaticSystemTablesProvider;
 import com.facebook.presto.connector.system.SystemTablesMetadata;
 import com.facebook.presto.execution.QueryIdGenerator;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.transaction.IsolationLevel;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Optional;

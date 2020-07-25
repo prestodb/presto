@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.LiteralParameter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -29,15 +29,15 @@ import io.airlift.slice.Slice;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.CharType.createCharType;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Strings.repeat;
@@ -248,6 +248,9 @@ public class TestStringFunctions
         assertFunction("CAST(REPLACE('abc' || utf8(from_hex('CE')) || 'xyz', '', 'X') AS VARBINARY)",
                 VARBINARY,
                 new SqlVarbinary(new byte[] {'X', 'a', 'X', 'b', 'X', 'c', 'X', (byte) 0xCE, 'X', 'x', 'X', 'y', 'X', 'z', 'X'}));
+
+        String longString = new String(new char[1_000_000]);
+        assertInvalidFunction(String.format("replace('%s', '', '%s')", longString, longString), "inputs to \"replace\" function are too large: when \"search\" parameter is empty, length of \"string\" times length of \"replace\" must not exceed 2147483647");
     }
 
     @Test

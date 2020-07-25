@@ -14,14 +14,19 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.BlockSerdeUtil;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.BlockSerdeUtil;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -29,11 +34,6 @@ import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -71,21 +71,21 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.ExpressionFormatter.formatExpression;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
@@ -888,9 +888,6 @@ public class TestExpressionInterpreter
                         "when unbound_long = 1234 then 33 " +
                         "else 1 " +
                         "end");
-
-        assertOptimizedMatches("case when 0 / 0 = 0 then 1 end",
-                "case when cast(fail(8, 'ignored failure message') as boolean) then 1 end");
 
         assertOptimizedMatches("if(false, 1, 0 / 0)", "cast(fail(8, 'ignored failure message') as integer)");
 

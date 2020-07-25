@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi.page;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -23,8 +23,8 @@ import io.airlift.slice.SliceOutput;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import static com.facebook.presto.spi.block.BlockSerdeUtil.readBlock;
-import static com.facebook.presto.spi.block.BlockSerdeUtil.writeBlock;
+import static com.facebook.presto.common.block.BlockSerdeUtil.readBlock;
+import static com.facebook.presto.common.block.BlockSerdeUtil.writeBlock;
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;

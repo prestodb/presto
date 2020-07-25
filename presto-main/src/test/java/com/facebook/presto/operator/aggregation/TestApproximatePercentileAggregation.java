@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -29,10 +29,10 @@ import static com.facebook.presto.block.BlockAssertions.createLongRepeatBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createSequenceBlockOfReal;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.RealType.REAL;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestApproximatePercentileAggregation

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.ml.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.AbstractVariableWidthType;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.AbstractVariableWidthType;
+import com.facebook.presto.common.type.TypeSignature;
 import io.airlift.slice.Slice;
 
 import static java.lang.String.format;

@@ -17,8 +17,9 @@ import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheStats;
 import com.facebook.presto.cache.ForCachingFileSystem;
-import com.facebook.presto.cache.LocalRangeCacheManager;
 import com.facebook.presto.cache.NoOpCacheManager;
+import com.facebook.presto.cache.filemerge.FileMergeCacheConfig;
+import com.facebook.presto.cache.filemerge.FileMergeCacheManager;
 import com.facebook.presto.raptor.storage.OrcDataEnvironment;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.storage.StorageService;
@@ -32,6 +33,7 @@ import javax.inject.Singleton;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.presto.cache.CacheType.FILE_MERGE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -45,6 +47,7 @@ public class HdfsModule
         configBinder(binder).bindConfig(RaptorHdfsConfig.class);
 
         configBinder(binder).bindConfig(CacheConfig.class);
+        configBinder(binder).bindConfig(FileMergeCacheConfig.class);
         binder.bind(CacheStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CacheStats.class).withGeneratedName();
 
@@ -64,14 +67,17 @@ public class HdfsModule
 
     @Singleton
     @Provides
-    public CacheManager createCacheManager(CacheConfig cacheConfig, CacheStats cacheStats)
+    public CacheManager createCacheManager(CacheConfig cacheConfig, FileMergeCacheConfig fileMergeCacheConfig, CacheStats cacheStats)
     {
-        return cacheConfig.getBaseDirectory() == null ?
-                new NoOpCacheManager() :
-                new LocalRangeCacheManager(
-                        cacheConfig,
-                        cacheStats,
-                        newScheduledThreadPool(5, daemonThreadsNamed("raptor-cache-flusher-%s")),
-                        newScheduledThreadPool(1, daemonThreadsNamed("raptor-cache-remover-%s")));
+        if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == FILE_MERGE) {
+            return new FileMergeCacheManager(
+                    cacheConfig,
+                    fileMergeCacheConfig,
+                    cacheStats,
+                    newScheduledThreadPool(5, daemonThreadsNamed("raptor-cache-flusher-%s")),
+                    newScheduledThreadPool(1, daemonThreadsNamed("raptor-cache-remover-%s")),
+                    newScheduledThreadPool(1, daemonThreadsNamed("hive-cache-size-calculator-%s")));
+        }
+        return new NoOpCacheManager();
     }
 }

@@ -44,7 +44,7 @@ public class AbstractTestPrestoQueryFailureResolver
     @Test
     public void testSetupFailure()
     {
-        assertFalse(failureResolver.resolve(
+        assertFalse(failureResolver.resolveQueryFailure(
                 CONTROL_QUERY_STATS,
                 new PrestoQueryException(
                         new RuntimeException(),
@@ -59,7 +59,7 @@ public class AbstractTestPrestoQueryFailureResolver
     @Test
     public void testClusterConnectionFailure()
     {
-        assertFalse(failureResolver.resolve(
+        assertFalse(failureResolver.resolveQueryFailure(
                 CONTROL_QUERY_STATS,
                 new ClusterConnectionException(new SocketTimeoutException(), TEST_MAIN),
                 Optional.empty())
@@ -69,7 +69,7 @@ public class AbstractTestPrestoQueryFailureResolver
     @Test
     public void testNoQueryStats()
     {
-        assertFalse(failureResolver.resolve(
+        assertFalse(failureResolver.resolveQueryFailure(
                 CONTROL_QUERY_STATS,
                 new PrestoQueryException(
                         new RuntimeException(),
@@ -84,7 +84,7 @@ public class AbstractTestPrestoQueryFailureResolver
     @Test
     public void testUnrelatedErrorCode()
     {
-        assertFalse(failureResolver.resolve(
+        assertFalse(failureResolver.resolveQueryFailure(
                 CONTROL_QUERY_STATS,
                 new PrestoQueryException(
                         new RuntimeException(),

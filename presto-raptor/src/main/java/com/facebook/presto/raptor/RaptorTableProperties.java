@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -24,10 +24,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 

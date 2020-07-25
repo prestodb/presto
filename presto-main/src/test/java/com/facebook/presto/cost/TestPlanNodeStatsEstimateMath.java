@@ -16,11 +16,11 @@ package com.facebook.presto.cost;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndMaxDistinctValues;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.capStats;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;

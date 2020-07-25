@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -29,10 +29,10 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.geospatial.GeometryType.GEOMETRY;
 import static com.facebook.presto.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;

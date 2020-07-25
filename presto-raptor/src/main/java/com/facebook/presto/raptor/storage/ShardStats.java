@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.raptor.storage;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.raptor.metadata.ColumnStats;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
@@ -34,11 +34,11 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 import static com.facebook.presto.raptor.storage.OrcStorageManager.toOrcFileType;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static org.joda.time.DateTimeZone.UTC;
@@ -77,7 +77,8 @@ public final class ShardStats
                 OrcPredicate.TRUE,
                 UTC,
                 new RaptorOrcAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE);
+                INITIAL_BATCH_SIZE,
+                ImmutableMap.of());
 
         if (type.equals(BOOLEAN)) {
             return indexBoolean(reader, columnIndex, columnId);

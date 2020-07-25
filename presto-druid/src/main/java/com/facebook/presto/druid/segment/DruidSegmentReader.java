@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.druid.segment;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.druid.DruidColumnHandle;
 import com.facebook.presto.druid.column.ColumnReader;
 import com.facebook.presto.druid.column.SimpleReadableOffset;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableMap;
 import org.apache.druid.segment.ColumnValueSelector;
 import org.apache.druid.segment.QueryableIndex;

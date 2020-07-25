@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.TableStatistics;
 
 import javax.annotation.Nullable;
@@ -62,7 +62,7 @@ public interface JdbcClient
         // most drivers do not need this
     }
 
-    PreparedStatement buildSql(Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
+    PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, List<JdbcColumnHandle> columnHandles)
             throws SQLException;
 
     void addColumn(JdbcIdentity identity, JdbcTableHandle handle, ColumnMetadata column);

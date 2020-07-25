@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
@@ -26,8 +30,6 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.LongOutputStream;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarArray;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -39,12 +41,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.stream.LongOutputStream.createLengthOutputStream;
-import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -58,6 +60,7 @@ public class ListColumnWriter
     private final ColumnEncoding columnEncoding;
     private final LongOutputStream lengthStream;
     private final PresentOutputStream presentStream;
+    private final CompressedMetadataWriter metadataWriter;
     private final ColumnWriter elementWriter;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
@@ -67,15 +70,16 @@ public class ListColumnWriter
 
     private boolean closed;
 
-    public ListColumnWriter(int column, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding, ColumnWriter elementWriter)
+    public ListColumnWriter(int column, CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize, OrcEncoding orcEncoding, ColumnWriter elementWriter, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
         this.column = column;
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
         this.columnEncoding = new ColumnEncoding(orcEncoding == DWRF ? DIRECT : DIRECT_V2, 0);
         this.elementWriter = requireNonNull(elementWriter, "elementWriter is null");
-        this.lengthStream = createLengthOutputStream(compression, bufferSize, orcEncoding);
-        this.presentStream = new PresentOutputStream(compression, bufferSize);
+        this.lengthStream = createLengthOutputStream(compression, dwrfEncryptor, bufferSize, orcEncoding);
+        this.presentStream = new PresentOutputStream(compression, dwrfEncryptor, bufferSize);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compression, dwrfEncryptor, bufferSize);
     }
 
     @Override
@@ -170,7 +174,7 @@ public class ListColumnWriter
     }
 
     @Override
-    public List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
+    public List<StreamDataOutput> getIndexStreams()
             throws IOException
     {
         checkState(closed);
@@ -193,7 +197,7 @@ public class ListColumnWriter
 
         ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
         indexStreams.add(new StreamDataOutput(slice, stream));
-        indexStreams.addAll(elementWriter.getIndexStreams(metadataWriter));
+        indexStreams.addAll(elementWriter.getIndexStreams());
         return indexStreams.build();
     }
 

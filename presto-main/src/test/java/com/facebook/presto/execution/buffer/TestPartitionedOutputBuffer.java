@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
@@ -52,7 +53,6 @@ import static com.facebook.presto.execution.buffer.BufferTestUtils.sizeOfPages;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;

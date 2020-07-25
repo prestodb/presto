@@ -23,4 +23,6 @@ import java.util.Optional;
 public interface SqlExceptionClassifier
 {
     QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause);
+
+    boolean shouldResubmit(Throwable throwable);
 }

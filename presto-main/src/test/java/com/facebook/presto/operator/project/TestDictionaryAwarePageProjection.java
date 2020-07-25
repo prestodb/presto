@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.LazyBlock;
+import com.facebook.presto.common.block.LongArrayBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -36,8 +36,8 @@ import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.block.BlockAssertions.createLongSequenceBlock;
-import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

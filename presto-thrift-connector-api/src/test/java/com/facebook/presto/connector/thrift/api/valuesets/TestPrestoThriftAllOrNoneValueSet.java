@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.connector.thrift.api.valuesets;
 
-import com.facebook.presto.spi.predicate.ValueSet;
+import com.facebook.presto.common.predicate.ValueSet;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.connector.thrift.api.valuesets.PrestoThriftValueSet.fromValueSet;
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

@@ -14,6 +14,7 @@
 package com.facebook.presto.druid;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -21,6 +22,8 @@ import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.BASIC;
+import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.NONE;
 
 public class TestDruidConfig
 {
@@ -28,10 +31,14 @@ public class TestDruidConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(DruidConfig.class)
-                    .setDruidBrokerUrl(null)
-                    .setDruidCoordinatorUrl(null)
-                    .setDruidSchema("druid")
-                    .setComputePushdownEnabled(false));
+                .setDruidBrokerUrl(null)
+                .setDruidCoordinatorUrl(null)
+                .setDruidSchema("druid")
+                .setComputePushdownEnabled(false)
+                .setHadoopConfiguration("")
+                .setDruidAuthenticationType(NONE)
+                .setBasicAuthenticationUsername(null)
+                .setBasicAuthenticationPassword(null));
     }
 
     @Test
@@ -42,13 +49,21 @@ public class TestDruidConfig
                 .put("druid.coordinator-url", "http://druid.coordinator:4321")
                 .put("druid.schema-name", "test")
                 .put("druid.compute-pushdown-enabled", "true")
+                .put("druid.hadoop.config.resources", "/etc/core-site.xml,/etc/hdfs-site.xml")
+                .put("druid.authentication.type", "BASIC")
+                .put("druid.basic.authentication.username", "http_basic_username")
+                .put("druid.basic.authentication.password", "http_basic_password")
                 .build();
 
         DruidConfig expected = new DruidConfig()
                 .setDruidBrokerUrl("http://druid.broker:1234")
                 .setDruidCoordinatorUrl("http://druid.coordinator:4321")
                 .setDruidSchema("test")
-                .setComputePushdownEnabled(true);
+                .setComputePushdownEnabled(true)
+                .setHadoopConfiguration(ImmutableList.of("/etc/core-site.xml", "/etc/hdfs-site.xml"))
+                .setDruidAuthenticationType(BASIC)
+                .setBasicAuthenticationUsername("http_basic_username")
+                .setBasicAuthenticationPassword("http_basic_password");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

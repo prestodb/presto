@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

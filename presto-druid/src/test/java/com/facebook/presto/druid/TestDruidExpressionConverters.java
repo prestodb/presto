@@ -52,26 +52,26 @@ public class TestDruidExpressionConverters
         SessionHolder sessionHolder = new SessionHolder();
 
         // Simple comparisons
-        testFilter("regionid = 20", "(regionId = 20)", sessionHolder);
-        testFilter("regionid >= 20", "(regionId >= 20)", sessionHolder);
-        testFilter("city = 'Campbell'", "(city = 'Campbell')", sessionHolder);
+        testFilter("\"region.id\" = 20", "(\"region.Id\" = 20)", sessionHolder);
+        testFilter("\"region.id\" >= 20", "(\"region.Id\" >= 20)", sessionHolder);
+        testFilter("city = 'Campbell'", "(\"city\" = 'Campbell')", sessionHolder);
 
         // between
         testFilter("totalfare between 20 and 30", "((fare + trip) BETWEEN 20 AND 30)", sessionHolder);
 
         // in, not in
-        testFilter("regionid in (20, 30, 40)", "(regionId IN (20, 30, 40))", sessionHolder);
-        testFilter("regionid not in (20, 30, 40)", "(regionId NOT IN (20, 30, 40))", sessionHolder);
-        testFilter("city in ('San Jose', 'Campbell', 'Union City')", "(city IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
-        testFilter("city not in ('San Jose', 'Campbell', 'Union City')", "(city NOT IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
+        testFilter("\"region.id\" in (20, 30, 40)", "(\"region.Id\" IN (20, 30, 40))", sessionHolder);
+        testFilter("\"region.id\" not in (20, 30, 40)", "(\"region.Id\" NOT IN (20, 30, 40))", sessionHolder);
+        testFilter("city in ('San Jose', 'Campbell', 'Union City')", "(\"city\" IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
+        testFilter("city not in ('San Jose', 'Campbell', 'Union City')", "(\"city\" NOT IN ('San Jose', 'Campbell', 'Union City'))", sessionHolder);
         testFilterUnsupported("secondssinceepoch + 1 in (234, 24324)", sessionHolder);
         testFilterUnsupported("NOT (secondssinceepoch = 2323)", sessionHolder);
 
         // combinations
-        testFilter("totalfare between 20 and 30 AND regionid > 20 OR city = 'Campbell'",
-                "((((fare + trip) BETWEEN 20 AND 30) AND (regionId > 20)) OR (city = 'Campbell'))", sessionHolder);
+        testFilter("totalfare between 20 and 30 AND \"region.id\" > 20 OR city = 'Campbell'",
+                "((((fare + trip) BETWEEN 20 AND 30) AND (\"region.Id\" > 20)) OR (\"city\" = 'Campbell'))", sessionHolder);
 
-        testFilter("secondssinceepoch > 1559978258", "(secondsSinceEpoch > 1559978258)", sessionHolder);
+        testFilter("secondssinceepoch > 1559978258", "(\"secondsSinceEpoch\" > 1559978258)", sessionHolder);
     }
 
     private void testFilter(String sqlExpression, String expectedDruidExpression, SessionHolder sessionHolder)

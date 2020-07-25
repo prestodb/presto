@@ -15,6 +15,14 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -24,20 +32,15 @@ import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.security.ViewAccessControl;
-import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -104,6 +107,7 @@ import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.sql.tree.Rollup;
@@ -121,6 +125,7 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
@@ -138,6 +143,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -149,20 +155,23 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
+import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
+import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
@@ -229,6 +238,7 @@ import static java.util.stream.Collectors.groupingBy;
 
 class StatementAnalyzer
 {
+    private static final int UNION_DISTINCT_FIELDS_WARNING_THRESHOLD = 3;
     private final Analysis analysis;
     private final Metadata metadata;
     private final Session session;
@@ -581,14 +591,18 @@ class StatementAnalyzer
             Scope functionScope = Scope.builder()
                     .withRelationType(RelationId.anonymous(), new RelationType(fields))
                     .build();
-            Type bodyType = analyzeExpression(node.getBody().getExpression(), functionScope).getExpressionTypes().get(NodeRef.of(node.getBody().getExpression()));
-            if (!bodyType.equals(returnType)) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Function implementation type '%s' does not match declared return type '%s'", bodyType, returnType);
+            if (node.getBody() instanceof Return) {
+                Expression returnExpression = ((Return) node.getBody()).getExpression();
+                Type bodyType = analyzeExpression(returnExpression, functionScope).getExpressionTypes().get(NodeRef.of(returnExpression));
+                if (!metadata.getTypeManager().canCoerce(bodyType, returnType)) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Function implementation type '%s' does not match declared return type '%s'", bodyType, returnType);
+                }
+
+                verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), returnExpression, "CREATE FUNCTION body");
+                verifyNoExternalFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), returnExpression, "CREATE FUNCTION body");
+
+                // TODO: Check body contains no SQL invoked functions
             }
-
-            Analyzer.verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), node.getBody().getExpression(), "CREATE FUNCTION body");
-
-            // TODO: Check body contains no SQL invoked functions
 
             return createAndAssignScope(node, scope);
         }
@@ -1148,7 +1162,6 @@ class StatementAnalyzer
         protected Scope visitSetOperation(SetOperation node, Optional<Scope> scope)
         {
             checkState(node.getRelations().size() >= 2);
-
             List<Scope> relationScopes = node.getRelations().stream()
                     .map(relation -> {
                         Scope relationScope = process(relation, scope);
@@ -1159,8 +1172,15 @@ class StatementAnalyzer
             Type[] outputFieldTypes = relationScopes.get(0).getRelationType().getVisibleFields().stream()
                     .map(Field::getType)
                     .toArray(Type[]::new);
+            int outputFieldSize = outputFieldTypes.length;
+            if (isExpensiveUnionDistinct(node, outputFieldTypes)) {
+                warningCollector.add(new PrestoWarning(
+                        PERFORMANCE_WARNING,
+                        format("UNION DISTINCT query should consider avoiding double/real/complex types and reducing the number of visible fields (%d) to %d",
+                                outputFieldSize,
+                                UNION_DISTINCT_FIELDS_WARNING_THRESHOLD)));
+            }
             for (Scope relationScope : relationScopes) {
-                int outputFieldSize = outputFieldTypes.length;
                 RelationType relationType = relationScope.getRelationType();
                 int descFieldSize = relationType.getVisibleFields().size();
                 String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
@@ -1220,6 +1240,20 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, outputDescriptorFields);
         }
 
+        private boolean isExpensiveUnionDistinct(SetOperation setOperation, Type[] outputTypes)
+        {
+            return setOperation instanceof Union &&
+                    setOperation.isDistinct() &&
+                    outputTypes.length > UNION_DISTINCT_FIELDS_WARNING_THRESHOLD &&
+                    Arrays.stream(outputTypes)
+                            .anyMatch(
+                                    type -> type instanceof RealType ||
+                                            type instanceof DoubleType ||
+                                            type instanceof MapType ||
+                                            type instanceof ArrayType ||
+                                            type instanceof RowType);
+        }
+
         @Override
         protected Scope visitIntersect(Intersect node, Optional<Scope> scope)
         {
@@ -1274,7 +1308,7 @@ class StatementAnalyzer
                     analysis.addCoercion(expression, BOOLEAN, false);
                 }
 
-                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), expression, "JOIN clause");
+                verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
                 analysis.setJoinCriteria(node, expression);
@@ -1671,7 +1705,7 @@ class StatementAnalyzer
                                 sets.add(ImmutableList.of(ImmutableSet.of(field)));
                             }
                             else {
-                                Analyzer.verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), column, "GROUP BY clause");
+                                verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), column, "GROUP BY clause");
                                 analysis.recordSubqueries(node, analyzeExpression(column, scope));
                                 complexExpressions.add(column);
                             }
@@ -1904,7 +1938,7 @@ class StatementAnalyzer
         {
             ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
 
-            Analyzer.verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), predicate, "WHERE clause");
+            verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionManager(), predicate, "WHERE clause");
 
             analysis.recordSubqueries(node, expressionAnalysis);
 
@@ -1975,11 +2009,11 @@ class StatementAnalyzer
                         .collect(toImmutableList());
 
                 for (Expression expression : outputExpressions) {
-                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis);
+                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis, warningCollector);
                 }
 
                 for (Expression expression : orderByExpressions) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis);
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis, warningCollector);
                 }
             }
         }

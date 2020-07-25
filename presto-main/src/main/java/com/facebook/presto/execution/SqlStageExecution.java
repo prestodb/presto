@@ -364,7 +364,7 @@ public final class SqlStageExecution
             ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
             for (RemoteTask sourceTask : sourceTasks) {
                 TaskStatus sourceTaskStatus = sourceTask.getTaskStatus();
-                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), sourceTask.getRemoteTaskLocation(), sourceTaskStatus.getTaskId()));
+                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), sourceTask.getRemoteTaskLocation(), sourceTask.getTaskId()));
             }
             task.addSplits(newSplits.build());
         }
@@ -490,7 +490,7 @@ public final class SqlStageExecution
         sourceTasks.forEach((planNodeId, task) -> {
             TaskStatus status = task.getTaskStatus();
             if (status.getState() != TaskState.FINISHED) {
-                initialSplits.put(planNodeId, createRemoteSplitFor(taskId, task.getRemoteTaskLocation(), status.getTaskId()));
+                initialSplits.put(planNodeId, createRemoteSplitFor(taskId, task.getRemoteTaskLocation(), task.getTaskId()));
             }
         });
 
@@ -514,7 +514,7 @@ public final class SqlStageExecution
         tasks.computeIfAbsent(node, key -> newConcurrentHashSet()).add(task);
         nodeTaskMap.addTask(node, task);
 
-        task.addStateChangeListener(new StageTaskListener());
+        task.addStateChangeListener(new StageTaskListener(taskId));
         task.addFinalTaskInfoListener(this::updateFinalTaskInfo);
 
         if (!stateMachine.getState().isDone()) {
@@ -545,7 +545,7 @@ public final class SqlStageExecution
         return new Split(REMOTE_CONNECTOR_ID, new RemoteTransactionHandle(), new RemoteSplit(new Location(splitLocation), remoteSourceTaskId));
     }
 
-    private void updateTaskStatus(TaskStatus taskStatus)
+    private void updateTaskStatus(TaskId taskId, TaskStatus taskStatus)
     {
         try {
             StageExecutionState stageExecutionState = getState();
@@ -556,7 +556,7 @@ public final class SqlStageExecution
             TaskState taskState = taskStatus.getState();
             if (taskState == TaskState.FAILED) {
                 // no matter if it is possible to recover - the task is failed
-                failedTasks.add(taskStatus.getTaskId());
+                failedTasks.add(taskId);
 
                 RuntimeException failure = taskStatus.getFailures().stream()
                         .findFirst()
@@ -565,14 +565,14 @@ public final class SqlStageExecution
                         .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
                 if (isRecoverable(taskStatus.getFailures())) {
                     try {
-                        stageTaskRecoveryCallback.get().recover(taskStatus.getTaskId());
-                        finishedTasks.add(taskStatus.getTaskId());
+                        stageTaskRecoveryCallback.get().recover(taskId);
+                        finishedTasks.add(taskId);
                     }
                     catch (Throwable t) {
                         // In an ideal world, this exception is not supposed to happen.
                         // However, it could happen, for example, if connector throws exception.
                         // We need to handle the exception in order to fail the query properly, otherwise the failed task will hang in RUNNING/SCHEDULING state.
-                        failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskStatus.getTaskId()), t));
+                        failure.addSuppressed(new PrestoException(GENERIC_RECOVERY_ERROR, format("Encountered error when trying to recover task %s", taskId), t));
                         stateMachine.transitionToFailed(failure);
                     }
                 }
@@ -585,7 +585,7 @@ public final class SqlStageExecution
                 stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageExecutionState));
             }
             else if (taskState == TaskState.FINISHED) {
-                finishedTasks.add(taskStatus.getTaskId());
+                finishedTasks.add(taskId);
             }
 
             // The finishedTasks.add(taskStatus.getTaskId()) must happen before the getState() (see schedulingComplete)
@@ -618,7 +618,7 @@ public final class SqlStageExecution
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
     {
-        tasksWithFinalInfo.add(finalTaskInfo.getTaskStatus().getTaskId());
+        tasksWithFinalInfo.add(finalTaskInfo.getTaskId());
         checkAllTaskFinal();
     }
 
@@ -670,6 +670,12 @@ public final class SqlStageExecution
         private long previousUserMemory;
         private long previousSystemMemory;
         private final Set<Lifespan> completedDriverGroups = new HashSet<>();
+        private final TaskId taskId;
+
+        public StageTaskListener(TaskId taskId)
+        {
+            this.taskId = requireNonNull(taskId, "taskId is null");
+        }
 
         @Override
         public void stateChanged(TaskStatus taskStatus)
@@ -679,14 +685,14 @@ public final class SqlStageExecution
                 updateCompletedDriverGroups(taskStatus);
             }
             finally {
-                updateTaskStatus(taskStatus);
+                updateTaskStatus(taskId, taskStatus);
             }
         }
 
         private synchronized void updateMemoryUsage(TaskStatus taskStatus)
         {
-            long currentUserMemory = taskStatus.getMemoryReservation().toBytes();
-            long currentSystemMemory = taskStatus.getSystemMemoryReservation().toBytes();
+            long currentUserMemory = taskStatus.getMemoryReservationInBytes();
+            long currentSystemMemory = taskStatus.getSystemMemoryReservationInBytes();
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
             long deltaTotalMemoryInBytes = (currentUserMemory + currentSystemMemory) - (previousUserMemory + previousSystemMemory);
             previousUserMemory = currentUserMemory;

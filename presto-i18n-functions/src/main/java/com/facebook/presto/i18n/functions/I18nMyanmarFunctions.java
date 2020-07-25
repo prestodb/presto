@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.i18n.functions;
 
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.myanmartools.TransliterateZ2U;
 import com.google.myanmartools.ZawgyiDetector;
 import io.airlift.slice.Slice;

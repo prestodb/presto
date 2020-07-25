@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.pagefile;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import io.airlift.slice.InputStreamSliceInput;

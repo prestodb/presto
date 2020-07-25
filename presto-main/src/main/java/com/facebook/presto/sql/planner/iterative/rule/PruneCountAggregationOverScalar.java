@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.relational.Expressions.constant;

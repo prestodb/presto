@@ -14,18 +14,18 @@
 package com.facebook.presto.druid;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.druid.DruidQueryGenerator.GeneratedDql;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -44,6 +44,7 @@ import java.util.List;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_BROKER_RESULT_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
 public class DruidBrokerPageSource
@@ -137,7 +138,7 @@ public class DruidBrokerPageSource
                             type.writeDouble(blockBuilder, value.doubleValue());
                         }
                         else if (type instanceof RealType) {
-                            type.writeLong(blockBuilder, value.longValue());
+                            type.writeLong(blockBuilder, floatToRawIntBits(value.floatValue()));
                         }
                         else if (type instanceof TimestampType) {
                             DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()

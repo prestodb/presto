@@ -47,31 +47,21 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public final class CachingFileSystem
+public abstract class CachingFileSystem
         extends ExtendedFileSystem
 {
-    private final URI uri;
-    private final CacheManager cacheManager;
-    private final ExtendedFileSystem dataTier;
-    private final boolean cacheValidationEnabled;
+    protected final ExtendedFileSystem dataTier;
+    protected final URI uri;
 
-    public CachingFileSystem(
-            URI uri,
-            Configuration configuration,
-            CacheManager cacheManager,
-            ExtendedFileSystem dataTier,
-            boolean cacheValidationEnabled)
+    public CachingFileSystem(ExtendedFileSystem dataTier, URI uri)
     {
-        requireNonNull(configuration, "configuration is null");
-        this.uri = requireNonNull(uri, "uri is null");
-        this.cacheManager = requireNonNull(cacheManager, "cacheManager is null");
         this.dataTier = requireNonNull(dataTier, "dataTier is null");
-        this.cacheValidationEnabled = cacheValidationEnabled;
+        this.uri = requireNonNull(uri, "uri is null");
+    }
 
-        setConf(configuration);
-
-        //noinspection AssignmentToSuperclassField
-        statistics = getStatistics(this.uri.getScheme(), getClass());
+    public ExtendedFileSystem getDataTier()
+    {
+        return dataTier;
     }
 
     @Override
@@ -91,6 +81,12 @@ public final class CachingFileSystem
             throws IOException
     {
         dataTier.initialize(uri, configuration);
+    }
+
+    @Override
+    public Configuration getConf()
+    {
+        return dataTier.getConf();
     }
 
     @Override
@@ -147,19 +143,13 @@ public final class CachingFileSystem
     public FSDataInputStream open(Path path, int bufferSize)
             throws IOException
     {
-        return new CachingInputStream(dataTier.open(path, bufferSize), cacheManager, path, cacheValidationEnabled);
+        return dataTier.open(path, bufferSize);
     }
 
+    // HiveFileContext contains caching info, which must be used while overriding this method.
     @Override
-    public FSDataInputStream openFile(Path path, HiveFileContext hiveFileContext)
-            throws Exception
-    {
-        if (hiveFileContext.isCacheable()) {
-            return new CachingInputStream(dataTier.openFile(path, hiveFileContext), cacheManager, path, cacheValidationEnabled);
-        }
-
-        return dataTier.openFile(path, hiveFileContext);
-    }
+    public abstract FSDataInputStream openFile(Path path, HiveFileContext hiveFileContext)
+            throws Exception;
 
     @Override
     public FSDataOutputStream append(Path path, int bufferSize, Progressable progressable)
@@ -265,14 +255,6 @@ public final class CachingFileSystem
             throws IOException
     {
         dataTier.close();
-    }
-
-    @Override
-    public String toString()
-    {
-        return "CachingFileSystem[" +
-                "dataTier=" + dataTier +
-                ']';
     }
 
     @Override
@@ -501,16 +483,6 @@ public final class CachingFileSystem
     public Path makeQualified(Path path)
     {
         return dataTier.makeQualified(path);
-    }
-
-    public ExtendedFileSystem getDataTier()
-    {
-        return dataTier;
-    }
-
-    public boolean isCacheValidationEnabled()
-    {
-        return cacheValidationEnabled;
     }
 
     @Override

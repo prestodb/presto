@@ -29,8 +29,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;

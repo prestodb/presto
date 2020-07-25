@@ -23,8 +23,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;

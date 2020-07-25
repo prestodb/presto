@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.SqlDecimal;
+import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.SqlTimestamp;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -52,14 +52,15 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -209,13 +210,15 @@ public class BenchmarkBatchStreamReaders
                     new StorageStripeMetadataSource(),
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createDefaultTestConfig(),
-                    false);
+                    false,
+                    NO_ENCRYPTION);
             return orcReader.createBatchRecordReader(
                     ImmutableMap.of(0, type),
                     OrcPredicate.TRUE,
                     UTC, // arbitrary
                     new TestingHiveOrcAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    ImmutableMap.of());
         }
 
         private static String randomAsciiString(Random random)

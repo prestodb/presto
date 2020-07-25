@@ -81,8 +81,8 @@ public class CachingDirectoryLister
             Table table,
             Path path,
             NamenodeStats namenodeStats,
-            NestedDirectoryPolicy nestedDirectoryPolicy,
-            PathFilter pathFilter)
+            PathFilter pathFilter,
+            HiveDirectoryContext hiveDirectoryContext)
     {
         SchemaTableName schemaTableName = new SchemaTableName(table.getDatabaseName(), table.getTableName());
 
@@ -91,8 +91,8 @@ public class CachingDirectoryLister
             return files.iterator();
         }
 
-        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, nestedDirectoryPolicy, pathFilter);
-        if (cachedTableChecker.isCachedTable(schemaTableName)) {
+        Iterator<HiveFileInfo> iterator = delegate.list(fileSystem, table, path, namenodeStats, pathFilter, hiveDirectoryContext);
+        if (hiveDirectoryContext.isCacheable() && cachedTableChecker.isCachedTable(schemaTableName)) {
             return cachingIterator(iterator, path);
         }
         return iterator;

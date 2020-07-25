@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -36,7 +36,7 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestApproximateCountDistinct

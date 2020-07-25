@@ -13,18 +13,20 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ColumnarRow;
+import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarRow;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -36,9 +38,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static com.facebook.presto.spi.block.ColumnarRow.toColumnarRow;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -52,6 +54,7 @@ public class StructColumnWriter
     private final int column;
     private final boolean compressed;
     private final PresentOutputStream presentStream;
+    private final CompressedMetadataWriter metadataWriter;
     private final List<ColumnWriter> structFields;
 
     private final List<ColumnStatistics> rowGroupColumnStatistics = new ArrayList<>();
@@ -61,13 +64,14 @@ public class StructColumnWriter
 
     private boolean closed;
 
-    public StructColumnWriter(int column, CompressionKind compression, int bufferSize, List<ColumnWriter> structFields)
+    public StructColumnWriter(int column, CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize, List<ColumnWriter> structFields, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
         this.column = column;
         this.compressed = requireNonNull(compression, "compression is null") != NONE;
         this.structFields = ImmutableList.copyOf(requireNonNull(structFields, "structFields is null"));
-        this.presentStream = new PresentOutputStream(compression, bufferSize);
+        this.presentStream = new PresentOutputStream(compression, dwrfEncryptor, bufferSize);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compression, dwrfEncryptor, bufferSize);
     }
 
     @Override
@@ -170,7 +174,7 @@ public class StructColumnWriter
     }
 
     @Override
-    public List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
+    public List<StreamDataOutput> getIndexStreams()
             throws IOException
     {
         checkState(closed);
@@ -192,7 +196,7 @@ public class StructColumnWriter
         ImmutableList.Builder<StreamDataOutput> indexStreams = ImmutableList.builder();
         indexStreams.add(new StreamDataOutput(slice, stream));
         for (ColumnWriter structField : structFields) {
-            indexStreams.addAll(structField.getIndexStreams(metadataWriter));
+            indexStreams.addAll(structField.getIndexStreams());
         }
         return indexStreams.build();
     }

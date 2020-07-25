@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.function.ValueWindowFunction;
 import com.facebook.presto.spi.function.WindowFunctionSignature;
 

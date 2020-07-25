@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cache;
 
+import com.facebook.presto.hive.CacheQuota;
 import io.airlift.slice.Slice;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -22,13 +23,16 @@ public interface CacheManager
 {
     /**
      * Given {@param request}, check if the data is in cache.
-     * If it is not in cache, return false.
-     * Otherwise, save the data in {@param buffer} starting at {@param offset} and return true.
+     * If it is in cache, save the data in {@param buffer} starting at {@param offset} and return HIT.
+     * If it is not in cache:
+     *      1. If there is still cache quota for this table, return MISS
+     *      2. Otherwise, return CACHE_QUOTA_EXCEED
+     * @return CacheResult
      */
-    boolean get(FileReadRequest request, byte[] buffer, int offset);
+    CacheResult get(FileReadRequest request, byte[] buffer, int offset, CacheQuota cacheQuota);
 
     /**
      * Save data in cache
      */
-    void put(FileReadRequest request, Slice data);
+    void put(FileReadRequest request, Slice data, CacheQuota cacheQuota);
 }

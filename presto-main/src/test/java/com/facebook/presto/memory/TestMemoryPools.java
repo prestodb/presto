@@ -15,6 +15,7 @@ package com.facebook.presto.memory;
 
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.Driver;
@@ -24,7 +25,6 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TableScanOperator;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -96,6 +96,7 @@ public class TestMemoryPools
         QueryContext queryContext = new QueryContext(new QueryId("query"),
                 TEN_MEGABYTES,
                 new DataSize(20, MEGABYTE),
+                TEN_MEGABYTES,
                 userPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),

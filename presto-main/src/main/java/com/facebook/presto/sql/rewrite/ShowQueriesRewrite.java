@@ -14,13 +14,15 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.CatalogSchemaName;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -28,14 +30,12 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.session.PropertyMetadata;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -451,7 +451,7 @@ final class ShowQueriesRewrite
                 }
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false), Optional.of(parameters)).trim();
+                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.empty()), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
 
@@ -522,15 +522,15 @@ final class ShowQueriesRewrite
                         node.getName(),
                         false,
                         sqlFunction.getParameters().stream()
-                                .map(parameter -> new SqlParameterDeclaration(new Identifier(parameter.getName(), true), parameter.getType().toString()))
+                                .map(parameter -> new SqlParameterDeclaration(new Identifier(parameter.getName()), parameter.getType().toString()))
                                 .collect(toImmutableList()),
                         sqlFunction.getSignature().getReturnType().toString(),
                         Optional.of(sqlFunction.getDescription()),
                         new RoutineCharacteristics(
-                                Language.valueOf(sqlFunction.getRoutineCharacteristics().getLanguage().name()),
+                                new Language(sqlFunction.getRoutineCharacteristics().getLanguage().getLanguage()),
                                 Determinism.valueOf(sqlFunction.getRoutineCharacteristics().getDeterminism().name()),
                                 NullCallClause.valueOf(sqlFunction.getRoutineCharacteristics().getNullCallClause().name())),
-                        sqlParser.createRoutineBody(sqlFunction.getBody(), createParsingOptions(session, warningCollector)));
+                        sqlParser.createReturn(sqlFunction.getBody(), createParsingOptions(session, warningCollector)));
                 rows.add(row(
                         new StringLiteral(formatSql(createFunction, Optional.empty())),
                         new StringLiteral(function.getSignature().getArgumentTypes().stream()
@@ -613,7 +613,7 @@ final class ShowQueriesRewrite
                         signature.isVariableArity() ? TRUE_LITERAL : FALSE_LITERAL,
                         builtIn ? TRUE_LITERAL : FALSE_LITERAL,
                         function instanceof SqlInvokedFunction
-                                ? new StringLiteral(((SqlInvokedFunction) function).getRoutineCharacteristics().getLanguage().name().toLowerCase(ENGLISH))
+                                ? new StringLiteral(((SqlInvokedFunction) function).getRoutineCharacteristics().getLanguage().getLanguage().toLowerCase(ENGLISH))
                                 : new StringLiteral("")));
             }
 
@@ -634,7 +634,11 @@ final class ShowQueriesRewrite
                             .map(entry -> aliasedName(entry.getKey(), entry.getValue()))
                             .collect(toImmutableList())),
                     aliased(new Values(rows.build()), "functions", ImmutableList.copyOf(columns.keySet())),
-                    ordering(
+                    node.getLikePattern().map(pattern -> new LikePredicate(
+                            identifier("function_name"),
+                            new StringLiteral(pattern),
+                            node.getEscape().map(StringLiteral::new))),
+                    Optional.of(ordering(
                             descending("built_in"),
                             new SortItem(
                                     functionCall("lower", identifier("function_name")),
@@ -642,7 +646,7 @@ final class ShowQueriesRewrite
                                     SortItem.NullOrdering.UNDEFINED),
                             ascending("return_type"),
                             ascending("argument_types"),
-                            ascending("function_type")));
+                            ascending("function_type"))));
         }
 
         private static String getFunctionType(SqlFunction function)

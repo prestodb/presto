@@ -15,8 +15,8 @@ package com.facebook.presto.type;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.TimeType.TIME;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 

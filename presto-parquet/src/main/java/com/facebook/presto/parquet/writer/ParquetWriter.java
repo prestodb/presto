@@ -13,14 +13,15 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.writer.ColumnWriter.BufferData;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.FileMetaData;
@@ -28,6 +29,7 @@ import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -42,6 +44,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
@@ -56,6 +59,11 @@ import static org.apache.parquet.hadoop.metadata.CompressionCodecName.ZSTD;
 public class ParquetWriter
         implements Closeable
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetWriter.class).instanceSize();
+
+    private static final int CHUNK_MAX_BYTES = toIntExact(DataSize.valueOf("128MB").toBytes());
+    private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
+
     private final List<ColumnWriter> columnWriters;
     private final OutputStreamSliceOutput outputStream;
     private final List<Type> types;
@@ -85,11 +93,31 @@ public class ParquetWriter
         ParquetSchemaConverter parquetSchemaConverter = new ParquetSchemaConverter(types, columnNames);
         this.messageType = parquetSchemaConverter.getMessageType();
 
-        ParquetProperties parquetProperties = ParquetProperties.builder().withWriterVersion(PARQUET_2_0).build();
+        ParquetProperties parquetProperties = ParquetProperties.builder()
+                .withWriterVersion(PARQUET_2_0)
+                .withPageSize(writerOption.getMaxPageSize())
+                .build();
         CompressionCodecName compressionCodecName = getCompressionCodecName(compressionCodecClass);
         this.columnWriters = ParquetWriters.getColumnWriters(messageType, parquetSchemaConverter.getPrimitiveTypes(), parquetProperties, compressionCodecName);
 
-        this.chunkMaxLogicalBytes = max(1, writerOption.getMaxBlockSize() / 2);
+        this.chunkMaxLogicalBytes = max(1, CHUNK_MAX_BYTES / 2);
+    }
+
+    public long getWrittenBytes()
+    {
+        return outputStream.size();
+    }
+
+    public long getBufferedBytes()
+    {
+        return columnWriters.stream().mapToLong(ColumnWriter::getBufferedBytes).sum();
+    }
+
+    public long getRetainedBytes()
+    {
+        return INSTANCE_SIZE +
+                outputStream.getRetainedSize() +
+                columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
     }
 
     public void write(Page page)
@@ -104,7 +132,7 @@ public class ParquetWriter
         checkArgument(page.getChannelCount() == columnWriters.size());
 
         while (page != null) {
-            int chunkRows = min(page.getPositionCount(), writerOption.getRowGroupMaxRowCount());
+            int chunkRows = min(page.getPositionCount(), DEFAULT_ROW_GROUP_MAX_ROW_COUNT);
             Page chunk = page.getRegion(0, chunkRows);
 
             // avoid chunk with huge logical size
@@ -136,7 +164,7 @@ public class ParquetWriter
         }
         rows += page.getPositionCount();
 
-        if (bufferedBytes >= writerOption.getMaxBlockSize()) {
+        if (bufferedBytes >= writerOption.getMaxRowGroupSize()) {
             columnWriters.forEach(ColumnWriter::close);
             flush();
             columnWriters.forEach(ColumnWriter::reset);
@@ -246,7 +274,9 @@ public class ParquetWriter
         ImmutableList.Builder<ColumnMetaData> builder = ImmutableList.builder();
         long currentOffset = offset;
         for (ColumnMetaData column : columns) {
-            builder.add(new ColumnMetaData(column.type, column.encodings, column.path_in_schema, column.codec, column.num_values, column.total_uncompressed_size, column.total_compressed_size, currentOffset));
+            ColumnMetaData columnMetaData = new ColumnMetaData(column.type, column.encodings, column.path_in_schema, column.codec, column.num_values, column.total_uncompressed_size, column.total_compressed_size, currentOffset);
+            columnMetaData.setStatistics(column.getStatistics());
+            builder.add(columnMetaData);
             currentOffset += column.getTotal_compressed_size();
         }
         return builder.build();

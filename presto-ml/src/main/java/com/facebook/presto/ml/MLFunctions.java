@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.ml;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.ml.type.RegressorType;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.hash.HashCode;

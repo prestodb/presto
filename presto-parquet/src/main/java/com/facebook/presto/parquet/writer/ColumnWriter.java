@@ -32,6 +32,8 @@ public interface ColumnWriter
 
     long getBufferedBytes();
 
+    long getRetainedBytes();
+
     void reset();
 
     class BufferData

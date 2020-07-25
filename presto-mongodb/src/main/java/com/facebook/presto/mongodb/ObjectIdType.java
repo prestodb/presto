@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.AbstractVariableWidthType;
-import com.facebook.presto.spi.type.SqlVarbinary;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.AbstractVariableWidthType;
+import com.facebook.presto.common.type.SqlVarbinary;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonSerializer;
@@ -27,7 +27,7 @@ import org.bson.types.ObjectId;
 
 import java.io.IOException;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
 public class ObjectIdType
         extends AbstractVariableWidthType

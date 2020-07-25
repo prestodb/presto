@@ -50,7 +50,7 @@ public class TestSqlFunctions
             DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                     .setCoordinatorProperties(ImmutableMap.of("list-built-in-functions-only", "false"))
                     .build();
-            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("testing", "example"));
+            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("testing", "example"), ImmutableMap.of("supported-function-languages", "{\"sql\": \"SQL\", \"java\": \"THRIFT\"}"));
             queryRunner.createTestFunctionNamespace("testing", "common");
             queryRunner.createTestFunctionNamespace("testing", "test");
             queryRunner.createTestFunctionNamespace("example", "example");
@@ -87,14 +87,81 @@ public class TestSqlFunctions
     public void testCreateFunctionInvalidSemantics()
     {
         assertQueryFails(
-                "CREATE FUNCTION testing.default.tan (x int) RETURNS varchar COMMENT 'tangent trigonometric function' RETURN sin(x) / cos(x)",
+                "CREATE FUNCTION testing.common.tan (x int) RETURNS varchar COMMENT 'tangent trigonometric function' RETURN sin(x) / cos(x)",
                 "Function implementation type 'double' does not match declared return type 'varchar'");
         assertQueryFails(
-                "CREATE FUNCTION testing.default.tan (x int) RETURNS varchar COMMENT 'tangent trigonometric function' RETURN sin(y) / cos(y)",
+                "CREATE FUNCTION testing.common.tan (x int) RETURNS varchar COMMENT 'tangent trigonometric function' RETURN sin(y) / cos(y)",
                 ".*Column 'y' cannot be resolved");
         assertQueryFails(
-                "CREATE FUNCTION testing.default.tan (x double) RETURNS double COMMENT 'tangent trigonometric function' RETURN sum(x)",
+                "CREATE FUNCTION testing.common.tan (x double) RETURNS double COMMENT 'tangent trigonometric function' RETURN sum(x)",
                 ".*CREATE FUNCTION body cannot contain aggregations, window functions or grouping operations:.*");
+    }
+
+    @Test
+    public void testCreateFunction()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.tan (x int) RETURNS double RETURN sin(x) / cos(x)");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.tan (x double) RETURNS double LANGUAGE JAVA RETURN sin(x) / cos(x)");
+
+        // external function
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar(3)) RETURNS varchar LANGUAGE SQL EXTERNAL");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x int) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME foo_from_another_library");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x bigint) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME \"foo.from.another.library\"");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x double) RETURNS double LANGUAGE \"JAVA\" EXTERNAL");
+        assertQueryFails("CREATE FUNCTION testing.test.foo(x smallint) RETURNS bigint LANGUAGE JAVA EXTERNAL NAME 'foo.from.another.library'", ".*mismatched input ''foo.from.another.library''. Expecting: <identifier>");
+        assertQueryFails("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL NAME", ".*mismatched input '<EOF>'. Expecting: <identifier>");
+        assertQueryFails("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE UNSUPPORTED EXTERNAL", "Catalog testing does not support functions implemented in language UNSUPPORTED");
+    }
+
+    @Test
+    public void testCreateFunctionWithCoercion()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.return_double() RETURNS DOUBLE RETURN 1");
+        String createFunctionReturnDoubleFormatted = "CREATE FUNCTION testing.test.return_double ()\n" +
+                "RETURNS DOUBLE\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN CAST(1 AS double)";
+
+        MaterializedResult rows = computeActual("SHOW CREATE FUNCTION testing.test.return_double()");
+        assertEquals(rows.getMaterializedRows().get(0).getFields(), ImmutableList.of(createFunctionReturnDoubleFormatted, ""));
+
+        rows = computeActual("SELECT testing.test.return_double() + 1");
+        assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), 2.0);
+
+        assertQuerySucceeds("CREATE FUNCTION testing.test.return_varchar() RETURNS VARCHAR RETURN 'ABC'");
+        String createFunctionReturnVarcharFormatted = "CREATE FUNCTION testing.test.return_varchar ()\n" +
+                "RETURNS varchar\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN CAST('ABC' AS varchar)";
+
+        rows = computeActual("SHOW CREATE FUNCTION testing.test.return_varchar()");
+        assertEquals(rows.getMaterializedRows().get(0).getFields(), ImmutableList.of(createFunctionReturnVarcharFormatted, ""));
+
+        rows = computeActual("SELECT lower(testing.test.return_varchar())");
+        assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), "abc");
+
+        // no explicit cast added
+        assertQuerySucceeds("CREATE FUNCTION testing.test.return_int() RETURNS INTEGER RETURN 1");
+        String createFunctionReturnIntFormatted = "CREATE FUNCTION testing.test.return_int ()\n" +
+                "RETURNS INTEGER\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN 1";
+
+        rows = computeActual("SHOW CREATE FUNCTION testing.test.return_int()");
+        assertEquals(rows.getMaterializedRows().get(0).getFields(), ImmutableList.of(createFunctionReturnIntFormatted, ""));
+
+        rows = computeActual("SELECT testing.test.return_int() + 3");
+        assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), 4);
     }
 
     @Test
@@ -169,6 +236,42 @@ public class TestSqlFunctions
         assertEquals(functionNames, ImmutableList.of("example.example.b", "testing.common.a", "testing.common.d", "testing.test.c"));
     }
 
+    @Test
+    public void testShowFunctionsLike()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo() RETURNS int RETURN 1");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.bar() RETURNS int RETURN 1");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo_bar() RETURNS int RETURN 1");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.fooobar() RETURNS int RETURN 1");
+
+        // Match function names with prefix foo
+        MaterializedResult functionsLike = computeActual("SHOW FUNCTIONS LIKE 'testing.test.foo%'");
+        List<String> functionNamesLike = functionsLike.getMaterializedRows().stream()
+                .map(MaterializedRow::getFields)
+                .map(list -> list.get(0))
+                .map(String.class::cast)
+                .collect(toImmutableList());
+        assertEquals(functionNamesLike, ImmutableList.of("testing.test.foo", "testing.test.foo_bar", "testing.test.fooobar"));
+
+        // Match both "foo_bar" and "fooobar" because '_' is treated as a wildcard, not a literal
+        MaterializedResult functionsLikeWithoutEscape = computeActual("SHOW FUNCTIONS LIKE 'testing.test.foo_bar'");
+        List<String> functionNamesLikeWithoutEscape = functionsLikeWithoutEscape.getMaterializedRows().stream()
+                .map(MaterializedRow::getFields)
+                .map(list -> list.get(0))
+                .map(String.class::cast)
+                .collect(toImmutableList());
+        assertEquals(functionNamesLikeWithoutEscape, ImmutableList.of("testing.test.foo_bar", "testing.test.fooobar"));
+
+        // Match "foo_bar" but not "fooobar" because '_' is now escaped
+        MaterializedResult functionsLikeWithEscape = computeActual("SHOW FUNCTIONS LIKE 'testing.test.foo$_bar' ESCAPE '$'");
+        List<String> functionNamesLikeWithEscape = functionsLikeWithEscape.getMaterializedRows().stream()
+                .map(MaterializedRow::getFields)
+                .map(list -> list.get(0))
+                .map(String.class::cast)
+                .collect(toImmutableList());
+        assertEquals(functionNamesLikeWithEscape, ImmutableList.of("testing.test.foo_bar"));
+    }
+
     public void testShowCreateFunctions()
     {
         @Language("SQL") String createFunctionInt = "CREATE FUNCTION testing.common.array_append(a array<int>, x int)\n" +
@@ -181,8 +284,8 @@ public class TestSqlFunctions
                 "RETURNS double\n" +
                 "RETURN rand()";
         String createFunctionIntFormatted = "CREATE FUNCTION testing.common.array_append (\n" +
-                "   \"a\" ARRAY(integer),\n" +
-                "   \"x\" integer\n" +
+                "   a ARRAY(integer),\n" +
+                "   x integer\n" +
                 ")\n" +
                 "RETURNS ARRAY(integer)\n" +
                 "COMMENT ''\n" +
@@ -191,8 +294,8 @@ public class TestSqlFunctions
                 "CALLED ON NULL INPUT\n" +
                 "RETURN \"concat\"(a, ARRAY[x])";
         String createFunctionDoubleFormatted = "CREATE FUNCTION testing.common.array_append (\n" +
-                "   \"a\" ARRAY(double),\n" +
-                "   \"x\" double\n" +
+                "   a ARRAY(double),\n" +
+                "   x double\n" +
                 ")\n" +
                 "RETURNS ARRAY(double)\n" +
                 "COMMENT ''\n" +
@@ -230,5 +333,45 @@ public class TestSqlFunctions
 
         assertQueryFails("SHOW CREATE FUNCTION array_agg", "SHOW CREATE FUNCTION is only supported for SQL functions");
         assertQueryFails("SHOW CREATE FUNCTION presto.default.array_agg", "SHOW CREATE FUNCTION is only supported for SQL functions");
+    }
+
+    @Test
+    void testParameterCaseInsensitive()
+    {
+        @Language("SQL") String createFunctionInt = "CREATE FUNCTION testing.common.array_append(input array<int>, x int)\n" +
+                "RETURNS array<int>\n" +
+                "RETURN concat(inPut, array[x])";
+        @Language("SQL") String createFunctionDouble = "CREATE FUNCTION testing.common.array_append(inPut array<bigint>, x bigint)\n" +
+                "RETURNS array<bigint>\n" +
+                "RETURN concat(input, array[x])";
+        @Language("SQL") String createFunctionArraySum = "CREATE FUNCTION testing.common.array_sum(INPUT array<bigint>)\n" +
+                "RETURNS bigint\n" +
+                "RETURN reduce(input, 0, (s, x) -> s + x, s -> s)";
+        assertQuerySucceeds(createFunctionInt);
+        assertQuerySucceeds(createFunctionDouble);
+        assertQuerySucceeds(createFunctionArraySum);
+
+        assertQuery("SELECT testing.common.array_append(array[1, 2, 3], 4)", "VALUES array[1, 2, 3, 4]");
+        assertQuery("SELECT testing.common.array_append(array[bigint'1', bigint'2', bigint'3'], bigint'4')", "VALUES array[1L, 2L, 3L, 4L]");
+        assertQuery("SELECT testing.common.ARRAY_APPEND(Array, ITEM) FROM (VALUES (array[1, 2, 3], 4), (array[2, 3, 4], 5)) t(array, item)", "VALUES array[1, 2, 3, 4], array[2, 3, 4, 5]");
+        assertQuery("SELECT testing.common.array_sum(Array) FROM (VALUES (array[1, 2, 3]), (array[4, 5, 6])) t(array)", "VALUES 6L, 15L");
+    }
+
+    @Test
+    void testLambdaVariableScoping()
+    {
+        @Language("SQL") String createFunction = "CREATE FUNCTION testing.test.array_sum(x array<int>)\n" +
+                "RETURNS int \n" +
+                "RETURN reduce(x, 0, (s, x) -> s + x, s -> s)";
+        assertQuerySucceeds(createFunction);
+
+        assertQuery("SELECT testing.test.array_sum(array[1, 2, 3])", "VALUES 6L");
+    }
+
+    @Test
+    void testUnsupportedRemoteFunctions()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL");
+        assertQueryFails("SELECT reduce(a, '', (s, x) -> s || testing.test.foo(x), s -> s) from (VALUES (array['a', 'b'])) t(a)", ".*External functions in Lambda expression is not supported:.*");
     }
 }

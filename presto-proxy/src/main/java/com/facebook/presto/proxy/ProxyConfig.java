@@ -15,16 +15,20 @@ package com.facebook.presto.proxy;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
 import java.net.URI;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
+
 public class ProxyConfig
 {
     private URI uri;
     private File sharedSecretFile;
+    private Duration asyncTimeout = new Duration(2, MINUTES);
 
     @NotNull
     public URI getUri()
@@ -51,6 +55,20 @@ public class ProxyConfig
     public ProxyConfig setSharedSecretFile(File sharedSecretFile)
     {
         this.sharedSecretFile = sharedSecretFile;
+        return this;
+    }
+
+    @NotNull
+    public Duration getAsyncTimeout()
+    {
+        return asyncTimeout;
+    }
+
+    @Config("proxy.async-timeout")
+    @ConfigDescription("Timeout for reading responses from Coordinator to Proxy")
+    public ProxyConfig setAsyncTimeout(Duration asyncTimeout)
+    {
+        this.asyncTimeout = asyncTimeout;
         return this;
     }
 }

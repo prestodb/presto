@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Method;

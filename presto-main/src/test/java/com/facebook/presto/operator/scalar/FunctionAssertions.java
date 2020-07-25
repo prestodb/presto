@@ -14,8 +14,15 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.predicate.Utils;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.BuiltInFunction;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
@@ -39,24 +46,17 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.predicate.Utils;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.split.PageSourceProvider;
 import com.facebook.presto.sql.analyzer.ExpressionAnalysis;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -118,19 +118,19 @@ import static com.facebook.presto.block.BlockAssertions.createRowBlock;
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.createTimestampsWithTimezoneBlock;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
@@ -233,7 +233,7 @@ public final class FunctionAssertions
         return metadata;
     }
 
-    public FunctionAssertions addFunctions(List<? extends BuiltInFunction> functionInfos)
+    public FunctionAssertions addFunctions(List<? extends SqlFunction> functionInfos)
     {
         metadata.registerBuiltInFunctions(functionInfos);
         return this;

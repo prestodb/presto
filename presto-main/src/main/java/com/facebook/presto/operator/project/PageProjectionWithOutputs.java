@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.project;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 import java.util.Arrays;
 import java.util.List;

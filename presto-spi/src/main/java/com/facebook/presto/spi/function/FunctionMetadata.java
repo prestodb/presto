@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.TypeSignature;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,26 +40,14 @@ public class FunctionMetadata
     public FunctionMetadata(
             QualifiedFunctionName name,
             List<TypeSignature> argumentTypes,
+            Optional<List<String>> argumentNames,
             TypeSignature returnType,
             FunctionKind functionKind,
             FunctionImplementationType implementationType,
             boolean deterministic,
             boolean calledOnNullInput)
     {
-        this(name, Optional.empty(), argumentTypes, Optional.empty(), returnType, functionKind, implementationType, deterministic, calledOnNullInput);
-    }
-
-    public FunctionMetadata(
-            QualifiedFunctionName name,
-            List<TypeSignature> argumentTypes,
-            List<String> argumentNames,
-            TypeSignature returnType,
-            FunctionKind functionKind,
-            FunctionImplementationType implementationType,
-            boolean deterministic,
-            boolean calledOnNullInput)
-    {
-        this(name, Optional.empty(), argumentTypes, Optional.of(argumentNames), returnType, functionKind, implementationType, deterministic, calledOnNullInput);
+        this(name, Optional.empty(), argumentTypes, argumentNames, returnType, functionKind, implementationType, deterministic, calledOnNullInput);
     }
 
     public FunctionMetadata(

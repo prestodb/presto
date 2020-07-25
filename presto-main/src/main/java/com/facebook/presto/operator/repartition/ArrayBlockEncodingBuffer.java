@@ -27,8 +27,8 @@
  */
 package com.facebook.presto.operator.repartition;
 
-import com.facebook.presto.spi.block.ArrayAllocator;
-import com.facebook.presto.spi.block.ColumnarArray;
+import com.facebook.presto.common.block.ArrayAllocator;
+import com.facebook.presto.common.block.ColumnarArray;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
@@ -39,6 +39,7 @@ import static com.facebook.presto.array.Arrays.ExpansionOption.NONE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.util.Objects.requireNonNull;
@@ -194,13 +195,33 @@ public class ArrayBlockEncodingBuffer
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append("{");
-        sb.append("offsetsBufferCapacity=").append(offsetsBuffer == null ? 0 : offsetsBuffer.length).append(",");
-        sb.append("offsetsBufferIndex=").append(offsetsBufferIndex).append(",");
-        sb.append("offsetsCapacity=").append(offsets == null ? 0 : offsets.length).append(",");
-        sb.append("lastOffset=").append(lastOffset).append(",");
-        sb.append("valuesBuffers=").append(valuesBuffers.toString()).append("}");
-        return sb.toString();
+        return toStringHelper(this)
+                .add("super", super.toString())
+                .add("estimatedOffsetBufferMaxCapacity", estimatedOffsetBufferMaxCapacity)
+                .add("offsetsBufferCapacity", offsetsBuffer == null ? 0 : offsetsBuffer.length)
+                .add("offsetsBufferIndex", offsetsBufferIndex)
+                .add("offsetsCapacity", offsets == null ? 0 : offsets.length)
+                .add("lastOffset", lastOffset)
+                .add("valueBuffers", valuesBuffers)
+                .toString();
+    }
+
+    @Override
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @VisibleForTesting
+    int getEstimatedOffsetBufferMaxCapacity()
+    {
+        return estimatedOffsetBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    BlockEncodingBuffer getValuesBuffers()
+    {
+        return valuesBuffers;
     }
 
     @Override
@@ -212,18 +233,18 @@ public class ArrayBlockEncodingBuffer
         ColumnarArray columnarArray = (ColumnarArray) decodedBlockNode.getDecodedBlock();
         decodedBlock = columnarArray.getNullCheckBlock();
 
-        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
-        if (decodedBlock.mayHaveNull()) {
-            setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
-            estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE);
-        }
-        else {
-            estimatedOffsetBufferMaxCapacity = (int) targetBufferSize;
-        }
+        long estimatedSerializedSizeInBytes = decodedBlockNode.getEstimatedSerializedSizeInBytes();
+        long childrenEstimatedSerializedSizeInBytes = decodedBlockNode.getChildren().get(0).getEstimatedSerializedSizeInBytes();
+
+        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction *
+                (estimatedSerializedSizeInBytes - childrenEstimatedSerializedSizeInBytes) / estimatedSerializedSizeInBytes;
+
+        setEstimatedNullsBufferMaxCapacity(getEstimatedBufferMaxCapacity(targetBufferSize, Byte.BYTES, POSITION_SIZE));
+        estimatedOffsetBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Integer.BYTES, POSITION_SIZE);
 
         populateNestedPositions(columnarArray);
 
-        valuesBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(0), partitionBufferCapacity, decodedBlockPageSizeFraction);
+        valuesBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(0), partitionBufferCapacity, decodedBlockPageSizeFraction * childrenEstimatedSerializedSizeInBytes / estimatedSerializedSizeInBytes);
     }
 
     @Override

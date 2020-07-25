@@ -16,16 +16,16 @@ package com.facebook.presto.connector.thrift.api;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.type.TypeManager;
 
 import javax.annotation.Nullable;
 
 import java.util.Objects;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.connector.thrift.api.NameValidationUtils.checkValidName;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 

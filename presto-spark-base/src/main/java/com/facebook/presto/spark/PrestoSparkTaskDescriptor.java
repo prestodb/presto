@@ -14,15 +14,12 @@
 package com.facebook.presto.spark;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
@@ -32,7 +29,6 @@ public class PrestoSparkTaskDescriptor
     private final SessionRepresentation session;
     private final Map<String, String> extraCredentials;
     private final PlanFragment fragment;
-    private final List<TaskSource> sources;
     private final TableWriteInfo tableWriteInfo;
 
     @JsonCreator
@@ -40,13 +36,11 @@ public class PrestoSparkTaskDescriptor
             @JsonProperty("session") SessionRepresentation session,
             @JsonProperty("extraCredentials") Map<String, String> extraCredentials,
             @JsonProperty("fragment") PlanFragment fragment,
-            @JsonProperty("sources") List<TaskSource> sources,
             @JsonProperty("tableWriteInfo") TableWriteInfo tableWriteInfo)
     {
         this.session = requireNonNull(session, "session is null");
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.fragment = requireNonNull(fragment);
-        this.sources = ImmutableList.copyOf(requireNonNull(sources, "sources is null"));
         this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
     }
 
@@ -66,12 +60,6 @@ public class PrestoSparkTaskDescriptor
     public PlanFragment getFragment()
     {
         return fragment;
-    }
-
-    @JsonProperty
-    public List<TaskSource> getSources()
-    {
-        return sources;
     }
 
     @JsonProperty

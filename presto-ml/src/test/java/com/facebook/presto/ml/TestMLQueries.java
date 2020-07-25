@@ -14,8 +14,8 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.ParametricType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tpch.TpchConnectorFactory;

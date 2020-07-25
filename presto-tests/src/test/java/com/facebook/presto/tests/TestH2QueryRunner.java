@@ -24,7 +24,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.google.common.base.Preconditions.checkState;
 import static org.testng.Assert.assertEquals;
 

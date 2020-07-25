@@ -28,10 +28,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
 import static com.facebook.presto.execution.TestQueues.LONG_LASTING_QUERY;
@@ -89,7 +87,7 @@ public class TestQueryTaskLimit
     }
 
     @Test(timeOut = 30_000)
-    public void testQueuingdWhenTaskLimitExceeds()
+    public void testQueuingWhenTaskLimitExceeds()
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = createQueryRunner(defaultSession, ImmutableMap.of())) {
@@ -103,12 +101,6 @@ public class TestQueryTaskLimit
 
             queryRunner.getCoordinator().getResourceGroupManager().get().setTaskLimitExceeded(false);
             waitForQueryState(queryRunner, secondQuery, RUNNING);
-
-            cancelQuery(queryRunner, firstQuery);
-            cancelQuery(queryRunner, secondQuery);
-
-            waitForQueryState(queryRunner, firstQuery, FAILED);
-            waitForQueryState(queryRunner, secondQuery, FAILED);
         }
     }
 

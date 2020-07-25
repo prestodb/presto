@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.benchmark;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 
 import java.io.Closeable;
 import java.io.IOException;

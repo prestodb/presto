@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
@@ -33,11 +33,11 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.collectCSEByLevel;
-import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.getExpressionsWithCSE;
+import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.getExpressionsPartitionedByCSE;
 import static com.facebook.presto.sql.gen.CommonSubExpressionRewriter.rewriteExpressionWithCSE;
 import static org.testng.Assert.assertEquals;
 
@@ -52,14 +52,35 @@ public class TestCommonSubExpressionRewritter
                     .put("z", BIGINT)
                     .put("add$cse", BIGINT)
                     .put("multiply$cse", BIGINT)
-                    .put("add$cse_0", BIGINT).build());
+                    .put("add$cse_0", BIGINT)
+                    .put("expr$cse", BIGINT).build());
 
     @Test
     void testGetExpressionsWithCSE()
     {
-        List<RowExpression> expressions = ImmutableList.of(rowExpression("x + y"), rowExpression("(x + y) * 2"), rowExpression("x + 2"));
-        List<RowExpression> expressionsWithCSE = getExpressionsWithCSE(expressions);
-        assertEquals(expressionsWithCSE, ImmutableList.of(rowExpression("x + y"), rowExpression("(x + y) * 2")));
+        List<RowExpression> expressions = ImmutableList.of(rowExpression("x + y"), rowExpression("(x + y) * 2"), rowExpression("x + 2"), rowExpression("y * (x + 2)"), rowExpression("x * y"));
+        Map<List<RowExpression>, Boolean> expressionsWithCSE = getExpressionsPartitionedByCSE(expressions, 3);
+        assertEquals(
+                expressionsWithCSE,
+                ImmutableMap.of(
+                        ImmutableList.of(rowExpression("x + y"), rowExpression("(x + y) * 2")), true,
+                        ImmutableList.of(rowExpression("x + 2"), rowExpression("y * (x + 2)")), true,
+                        ImmutableList.of(rowExpression("x * y")), false));
+        expressions = ImmutableList.of(rowExpression("x + y"), rowExpression("x * 2"), rowExpression("x + y + x * 2"), rowExpression("y * 2"), rowExpression("x + y * 2"));
+        expressionsWithCSE = getExpressionsPartitionedByCSE(expressions, 3);
+        assertEquals(
+                expressionsWithCSE,
+                ImmutableMap.of(
+                        ImmutableList.of(rowExpression("x + y"), rowExpression("x + y + x * 2"), rowExpression("x * 2")), true,
+                        ImmutableList.of(rowExpression("y * 2"), rowExpression("x + y * 2")), true));
+
+        expressionsWithCSE = getExpressionsPartitionedByCSE(expressions, 2);
+        assertEquals(
+                expressionsWithCSE,
+                ImmutableMap.of(
+                        ImmutableList.of(rowExpression("x + y"), rowExpression("x + y + x * 2")), true,
+                        ImmutableList.of(rowExpression("y * 2"), rowExpression("x + y * 2")), true,
+                        ImmutableList.of(rowExpression("x * 2")), true));
     }
 
     @Test
@@ -71,6 +92,14 @@ public class TestCommonSubExpressionRewritter
                 3, ImmutableMap.of(rowExpression("\"add$cse\" + z"), rowExpression("\"add$cse_0\"")),
                 2, ImmutableMap.of(rowExpression("\"multiply$cse\" + y"), rowExpression("\"add$cse\"")),
                 1, ImmutableMap.of(rowExpression("x * 2"), rowExpression("\"multiply$cse\""))));
+    }
+
+    @Test
+    void testCollectCSEByLevelCaseStatement()
+    {
+        List<RowExpression> expressions = ImmutableList.of(rowExpression("1 + CASE WHEN x = 1 THEN y + z WHEN x = 2 THEN z * 2 END"), rowExpression("2 + CASE WHEN x = 1 THEN y + z WHEN x = 2 THEN z * 2 END"));
+        Map<Integer, Map<RowExpression, VariableReferenceExpression>> cseByLevel = collectCSEByLevel(expressions);
+        assertEquals(cseByLevel, ImmutableMap.of(3, ImmutableMap.of(rowExpression("CASE WHEN x = 1 THEN y + z WHEN x = 2 THEN z * 2 END"), rowExpression("\"expr$cse\""))));
     }
 
     @Test

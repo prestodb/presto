@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.rcfile.text;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.rcfile.ColumnEncoding;
 import com.facebook.presto.rcfile.RcFileEncoding;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.joda.time.DateTimeZone;

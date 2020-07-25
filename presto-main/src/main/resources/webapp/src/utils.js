@@ -214,47 +214,48 @@ export function initializeSvg(selector: any)
 export function getChildren(nodeInfo: any)
 {
     // TODO: Remove this function by migrating StageDetail to use node JSON representation
-    switch (nodeInfo['@type']) {
-        case 'output':
-        case 'explainAnalyze':
-        case 'project':
-        case 'filter':
-        case 'aggregation':
-        case 'sort':
-        case 'markDistinct':
-        case 'window':
-        case 'rowNumber':
-        case 'topnRowNumber':
-        case 'limit':
-        case 'distinctlimit':
-        case 'topn':
-        case 'sample':
-        case 'tablewriter':
-        case 'delete':
-        case 'metadatadelete':
-        case 'tablecommit':
-        case 'groupid':
-        case 'unnest':
-        case 'scalar':
+    const nodeType = removeNodeTypePackage(nodeInfo["@type"]);
+    switch (nodeType) {
+        case "OutputNode":
+        case "ExplainAnalyzeNode":
+        case "ProjectNode":
+        case "FilterNode":
+        case "AggregationNode":
+        case "SortNode":
+        case "MarkDistinctNode":
+        case "WindowNode":
+        case "RowNumberNode":
+        case "TopNRowNumberNode":
+        case "LimitNode":
+        case "DistinctLimitNode":
+        case "TopNNode":
+        case "SampleNode":
+        case "TableWriterNode":
+        case "DeleteNode":
+        case "MetadataDeleteNode":
+        case "TableFinishNode":
+        case "GroupIdNode":
+        case "UnnestNode":
+        case "EnforceSingleRowNode":
             return [nodeInfo.source];
-        case 'join':
+        case "JoinNode":
             return [nodeInfo.left, nodeInfo.right];
-        case 'semijoin':
+        case "SemiJoinNode":
             return [nodeInfo.source, nodeInfo.filteringSource];
-        case 'spatialjoin':
+        case "SpatialJoinNode":
             return [nodeInfo.left, nodeInfo.right];
-        case 'indexjoin':
+        case "IndexJoinNode":
             return [nodeInfo.probeSource, nodeInfo.indexSource];
-        case 'union':
-        case 'exchange':
+        case "UnionNode":
+        case "ExchangeNode":
             return nodeInfo.sources;
-        case 'remoteSource':
-        case 'tablescan':
-        case 'values':
-        case 'indexsource':
+        case "RemoteSourceNode":
+        case "TableScanNode":
+        case "ValuesNode":
+        case "IndexSourceNode":
             break;
         default:
-            console.log("NOTE: Unhandled PlanNode: " + nodeInfo['@type']);
+            console.log("NOTE: Unhandled PlanNode: " + nodeType);
     }
 
     return [];
@@ -485,4 +486,13 @@ export function formatShortDateTime(date: Date): string {
     const month = "" + (date.getMonth() + 1);
     const dayOfMonth = "" + date.getDate();
     return year + "-" + (month[1] ? month : "0" + month[0]) + "-" + (dayOfMonth[1] ? dayOfMonth: "0" + dayOfMonth[0]) + " " + formatShortTime(date);
+}
+
+// Remove the Java package from each node type to convert the node type to the short name.
+// For example, in the response sent from the server, an output node is represented by
+// "com.facebook.presto.sql.planner.plan.OutputNode". After the invocation of this function,
+// the short name "OutputNode" will be returned.
+export function removeNodeTypePackage(nodeType: string): string {
+    const classEndIndex = nodeType.lastIndexOf(".");
+    return nodeType.substr(classEndIndex + 1);
 }

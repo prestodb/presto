@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.IsNull;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -159,7 +159,7 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Method .* annotated with @ScalarFunction must be public")
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Annotated method \\[.*\\] must be public")
     public void testNonPublicAnnnotatedMethod()
     {
         extractScalars(NonPublicAnnnotatedMethod.class);

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 

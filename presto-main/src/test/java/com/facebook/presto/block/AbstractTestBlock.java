@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.block;
 
+import com.facebook.presto.common.block.AbstractMapBlock.HashTables;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilderStatus;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.DictionaryId;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.block.AbstractMapBlock.HashTables;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockBuilderStatus;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.DictionaryId;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -41,9 +41,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
@@ -229,15 +229,30 @@ public abstract class AbstractTestBlock
         assertEquals(block.getSizeInBytes(), expectedBlockSize);
         assertEquals(block.getRegionSizeInBytes(0, block.getPositionCount()), expectedBlockSize);
 
+        long expectedLogicalBlockSize = copyBlockViaBlockSerde(block).getLogicalSizeInBytes();
+        assertEquals(block.getLogicalSizeInBytes(), expectedLogicalBlockSize);
+        assertEquals(block.getRegionLogicalSizeInBytes(0, block.getPositionCount()), expectedLogicalBlockSize);
+
         List<Block> splitBlock = splitBlock(block, 2);
         Block firstHalf = splitBlock.get(0);
+
         long expectedFirstHalfSize = copyBlockViaBlockSerde(firstHalf).getSizeInBytes();
         assertEquals(firstHalf.getSizeInBytes(), expectedFirstHalfSize);
         assertEquals(block.getRegionSizeInBytes(0, firstHalf.getPositionCount()), expectedFirstHalfSize);
+
+        long expectedFirstHalfLogicalSize = copyBlockViaBlockSerde(firstHalf).getLogicalSizeInBytes();
+        assertEquals(firstHalf.getLogicalSizeInBytes(), expectedFirstHalfLogicalSize);
+        assertEquals(firstHalf.getRegionLogicalSizeInBytes(0, firstHalf.getPositionCount()), expectedFirstHalfLogicalSize);
+
         Block secondHalf = splitBlock.get(1);
+
         long expectedSecondHalfSize = copyBlockViaBlockSerde(secondHalf).getSizeInBytes();
         assertEquals(secondHalf.getSizeInBytes(), expectedSecondHalfSize);
         assertEquals(block.getRegionSizeInBytes(firstHalf.getPositionCount(), secondHalf.getPositionCount()), expectedSecondHalfSize);
+
+        long expectedSecondHalfLogicalSize = copyBlockViaBlockSerde(secondHalf).getLogicalSizeInBytes();
+        assertEquals(secondHalf.getLogicalSizeInBytes(), expectedSecondHalfLogicalSize);
+        assertEquals(secondHalf.getRegionLogicalSizeInBytes(0, secondHalf.getPositionCount()), expectedSecondHalfLogicalSize);
 
         boolean[] positions = new boolean[block.getPositionCount()];
         fill(positions, 0, firstHalf.getPositionCount(), true);

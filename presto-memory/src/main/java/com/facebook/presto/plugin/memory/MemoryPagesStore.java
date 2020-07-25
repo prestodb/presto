@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.memory;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.GuardedBy;

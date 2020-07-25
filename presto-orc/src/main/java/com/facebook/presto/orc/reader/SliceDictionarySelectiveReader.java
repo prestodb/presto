@@ -13,6 +13,14 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockLease;
+import com.facebook.presto.common.block.ClosingBlockLease;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.block.VariableWidthBlock;
+import com.facebook.presto.common.type.Chars;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -25,14 +33,6 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthInputStream;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockLease;
-import com.facebook.presto.spi.block.ClosingBlockLease;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.block.VariableWidthBlock;
-import com.facebook.presto.spi.type.Chars;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -40,7 +40,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
@@ -561,7 +561,7 @@ public class SliceDictionarySelectiveReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
     {
         stripeDictionaryDataStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, DICTIONARY_DATA, ByteArrayInputStream.class);
         stripeDictionaryLengthStreamSource = dictionaryStreamSources.getInputStreamSource(streamDescriptor, LENGTH, LongInputStream.class);

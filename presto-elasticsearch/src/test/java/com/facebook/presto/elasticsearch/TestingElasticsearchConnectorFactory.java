@@ -15,11 +15,11 @@ package com.facebook.presto.elasticsearch;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Injector;
 
 import java.util.Map;
@@ -29,11 +29,8 @@ import static java.util.Objects.requireNonNull;
 class TestingElasticsearchConnectorFactory
         extends ElasticsearchConnectorFactory
 {
-    private final ElasticsearchTableDescriptionProvider tableDescriptionSupplier;
-
-    TestingElasticsearchConnectorFactory(ElasticsearchTableDescriptionProvider tableDescriptionSupplier)
+    TestingElasticsearchConnectorFactory()
     {
-        this.tableDescriptionSupplier = tableDescriptionSupplier;
     }
 
     @Override
@@ -61,7 +58,6 @@ class TestingElasticsearchConnectorFactory
                     binder -> {
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                        binder.bind(ElasticsearchTableDescriptionProvider.class).toInstance(tableDescriptionSupplier);
                     });
 
             Injector injector = app.strictConfig()

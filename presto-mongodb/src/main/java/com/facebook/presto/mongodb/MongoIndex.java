@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.common.block.SortOrder;
 import com.google.common.collect.ImmutableList;
 import com.mongodb.client.ListIndexesIterable;
 import org.bson.Document;

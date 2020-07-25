@@ -26,6 +26,9 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static com.facebook.presto.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
@@ -33,9 +36,6 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -43,6 +43,7 @@ import static java.util.Locale.ENGLISH;
 public final class HiveSessionProperties
 {
     private static final String IGNORE_TABLE_BUCKETING = "ignore_table_bucketing";
+    private static final String MIN_BUCKET_COUNT_TO_NOT_IGNORE_TABLE_BUCKETING = "min_bucket_count_to_not_ignore_table_bucketing";
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
@@ -64,15 +65,16 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS = "orc_optimized_writer_max_stripe_rows";
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
     private static final String PAGEFILE_WRITER_MAX_STRIPE_SIZE = "pagefile_writer_max_stripe_size";
-    private static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
+    public static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String ORC_COMPRESSION_CODEC = "orc_compression_codec";
-    private static final String RESPECT_TABLE_FORMAT = "respect_table_format";
+    public static final String RESPECT_TABLE_FORMAT = "respect_table_format";
     private static final String PARQUET_USE_COLUMN_NAME = "parquet_use_column_names";
     private static final String PARQUET_FAIL_WITH_CORRUPTED_STATISTICS = "parquet_fail_with_corrupted_statistics";
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     public static final String RCFILE_OPTIMIZED_WRITER_ENABLED = "rcfile_optimized_writer_enabled";
@@ -99,6 +101,10 @@ public final class HiveSessionProperties
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
     public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
     public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
+    public static final String USE_LIST_DIRECTORY_CACHE = "use_list_directory_cache";
+    private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
+    private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
+    private static final String BUCKET_FUNCTION_TYPE_FOR_EXCHANGE = "bucket_function_type_for_exchange";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -129,6 +135,11 @@ public final class HiveSessionProperties
                         "Ignore table bucketing to enable reading from unbucketed partitions",
                         hiveClientConfig.isIgnoreTableBucketing(),
                         false),
+                integerProperty(
+                        MIN_BUCKET_COUNT_TO_NOT_IGNORE_TABLE_BUCKETING,
+                        "Ignore table bucketing when table bucket count is less than the value specified",
+                        hiveClientConfig.getMinBucketCountToNotIgnoreTableBucketing(),
+                        true),
                 booleanProperty(
                         BUCKET_EXECUTION_ENABLED,
                         "Enable bucket-aware execution: only use a single worker per bucket",
@@ -444,7 +455,36 @@ public final class HiveSessionProperties
                         FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED,
                         "Fail fast when trying to insert into an immutable partition. Increases load on the metastore",
                         hiveClientConfig.isFailFastOnInsertIntoImmutablePartitionsEnabled(),
-                        false));
+                        false),
+                booleanProperty(
+                        USE_LIST_DIRECTORY_CACHE,
+                        "Use list directory cache if available when set to true",
+                        !hiveClientConfig.getFileStatusCacheTables().isEmpty(),
+                        false),
+                booleanProperty(
+                        PARQUET_OPTIMIZED_WRITER_ENABLED,
+                        "Experimental: Enable optimized writer",
+                        parquetFileWriterConfig.isParquetOptimizedWriterEnabled(),
+                        false),
+                booleanProperty(
+                        PARQUET_BATCH_READ_OPTIMIZATION_ENABLED,
+                        "Is Parquet batch read optimization enabled",
+                        hiveClientConfig.isParquetBatchReadOptimizationEnabled(),
+                        false),
+                booleanProperty(
+                        PARQUET_BATCH_READER_VERIFICATION_ENABLED,
+                        "Is Parquet batch reader verification enabled? This is for testing purposes only, not to be used in production",
+                        hiveClientConfig.isParquetBatchReaderVerificationEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        BUCKET_FUNCTION_TYPE_FOR_EXCHANGE,
+                        "hash function type for bucketed table exchange",
+                        VARCHAR,
+                        BucketFunctionType.class,
+                        hiveClientConfig.getBucketFunctionTypeForExchange(),
+                        false,
+                        value -> BucketFunctionType.valueOf((String) value),
+                        BucketFunctionType::toString));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -460,6 +500,11 @@ public final class HiveSessionProperties
     public static boolean shouldIgnoreTableBucketing(ConnectorSession session)
     {
         return session.getProperty(IGNORE_TABLE_BUCKETING, Boolean.class);
+    }
+
+    public static Integer getMinBucketCountToNotIgnoreTableBucketing(ConnectorSession session)
+    {
+        return session.getProperty(MIN_BUCKET_COUNT_TO_NOT_IGNORE_TABLE_BUCKETING, Integer.class);
     }
 
     public static int getMaxBucketsForGroupedExecution(ConnectorSession session)
@@ -748,6 +793,16 @@ public final class HiveSessionProperties
         return session.getProperty(SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.class);
     }
 
+    public static boolean isParquetBatchReadsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_BATCH_READ_OPTIMIZATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isParquetBatchReaderVerificationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_BATCH_READER_VERIFICATION_ENABLED, Boolean.class);
+    }
+
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
     {
         return new PropertyMetadata<>(
@@ -773,5 +828,20 @@ public final class HiveSessionProperties
     public static boolean isFailFastOnInsertIntoImmutablePartitionsEnabled(ConnectorSession session)
     {
         return session.getProperty(FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isUseListDirectoryCache(ConnectorSession session)
+    {
+        return session.getProperty(USE_LIST_DIRECTORY_CACHE, Boolean.class);
+    }
+
+    public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static BucketFunctionType getBucketFunctionTypeForExchange(ConnectorSession session)
+    {
+        return session.getProperty(BUCKET_FUNCTION_TYPE_FOR_EXCHANGE, BucketFunctionType.class);
     }
 }

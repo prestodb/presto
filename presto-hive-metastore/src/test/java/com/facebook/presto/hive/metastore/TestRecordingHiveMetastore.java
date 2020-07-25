@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import com.facebook.presto.hive.metastore.SortingColumn.Order;
-import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -40,14 +40,15 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveBasicStatistics.createEmptyStatistics;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.PrestoTableType.OTHER;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.MIN_VALUE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
@@ -67,7 +68,12 @@ public class TestRecordingHiveMetastore
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
             "location",
-            Optional.of(new HiveBucketProperty(ImmutableList.of("column"), 10, ImmutableList.of(new SortingColumn("column", Order.ASCENDING)))),
+            Optional.of(new HiveBucketProperty(
+                    ImmutableList.of("column"),
+                    10,
+                    ImmutableList.of(new SortingColumn("column", Order.ASCENDING)),
+                    HIVE_COMPATIBLE,
+                    Optional.empty())),
             true,
             ImmutableMap.of("param", "value2"),
             ImmutableMap.of());

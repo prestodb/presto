@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.expressions.translator;
 
-import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -38,9 +38,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.function.FunctionImplementationType.BUILTIN;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
 import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -88,6 +88,7 @@ class TranslatorAnnotationParser
         return new FunctionMetadata(
                 metadata.getName(),
                 argumentsBuilder.build(),
+                Optional.empty(),
                 metadata.getReturnType(),
                 metadata.getFunctionKind(),
                 metadata.getImplementationType(),
@@ -161,7 +162,7 @@ class TranslatorAnnotationParser
         if (header.getOperatorType().isPresent()) {
             return new FunctionMetadata(header.getOperatorType().get(), argumentTypes.build(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
         }
-        return new FunctionMetadata(header.getName(), argumentTypes.build(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
+        return new FunctionMetadata(header.getName(), argumentTypes.build(), Optional.empty(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
     }
 
     @SafeVarargs

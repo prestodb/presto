@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
@@ -25,6 +27,7 @@ import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -34,11 +37,9 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -50,7 +51,6 @@ import com.facebook.presto.sql.planner.optimizations.ActualProperties.Global;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -94,7 +94,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isOptimizeFullOuterJoinWithCoalesce;
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
-import static com.facebook.presto.spi.predicate.TupleDomain.extractFixedValuesToConstantExpressions;
+import static com.facebook.presto.common.predicate.TupleDomain.toLinkedMap;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
@@ -879,5 +879,21 @@ public class PropertyDerivations
     public static boolean arePartitionHandlesCompatibleForCoalesce(PartitioningHandle a, PartitioningHandle b, Metadata metadata, Session session)
     {
         return a.equals(b) || metadata.isRefinedPartitioningOver(session, a, b) || metadata.isRefinedPartitioningOver(session, b, a);
+    }
+
+    /**
+     * Extract all column constraints that require exactly one value or only null in their respective Domains.
+     * Returns an empty Optional if the Domain is none.
+     */
+    public static <T> Optional<Map<T, ConstantExpression>> extractFixedValuesToConstantExpressions(TupleDomain<T> tupleDomain)
+    {
+        if (!tupleDomain.getDomains().isPresent()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(tupleDomain.getDomains().get()
+                .entrySet().stream()
+                .filter(entry -> entry.getValue().isNullableSingleValue())
+                .collect(toLinkedMap(Map.Entry::getKey, entry -> new ConstantExpression(entry.getValue().getNullableSingleValue(), entry.getValue().getType()))));
     }
 }

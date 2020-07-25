@@ -14,7 +14,11 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.BuiltInFunction;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.DecimalParseResult;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.SqlDecimal;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -22,11 +26,7 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.DecimalParseResult;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableList;
@@ -41,10 +41,10 @@ import java.util.Map;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -52,6 +52,8 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestFunctions
 {
+    private static final double DELTA = 1e-5;
+
     protected final Session session;
     private final FeaturesConfig config;
     protected FunctionAssertions functionAssertions;
@@ -93,6 +95,16 @@ public abstract class AbstractTestFunctions
     protected void assertFunction(String projection, Type expectedType, Object expected)
     {
         functionAssertions.assertFunction(projection, expectedType, expected);
+    }
+
+    protected void assertFunctionWithError(String projection, Type expectedType, double expected)
+    {
+        assertFunctionWithError(projection, expectedType, expected, DELTA);
+    }
+
+    protected void assertFunctionWithError(String projection, Type expectedType, double expected, double delta)
+    {
+        functionAssertions.assertFunctionWithError(projection, expectedType, expected, delta);
     }
 
     protected void assertOperator(OperatorType operator, String value, Type expectedType, Object expected)
@@ -192,7 +204,7 @@ public abstract class AbstractTestFunctions
     protected void registerScalar(Class<?> clazz)
     {
         Metadata metadata = functionAssertions.getMetadata();
-        List<BuiltInFunction> functions = new FunctionListBuilder()
+        List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(clazz)
                 .getFunctions();
         metadata.getFunctionManager().registerBuiltInFunctions(functions);
@@ -201,7 +213,7 @@ public abstract class AbstractTestFunctions
     protected void registerParametricScalar(Class<?> clazz)
     {
         Metadata metadata = functionAssertions.getMetadata();
-        List<BuiltInFunction> functions = new FunctionListBuilder()
+        List<SqlFunction> functions = new FunctionListBuilder()
                 .scalar(clazz)
                 .getFunctions();
         metadata.getFunctionManager().registerBuiltInFunctions(functions);
@@ -235,7 +247,7 @@ public abstract class AbstractTestFunctions
     protected static SqlDecimal maxPrecisionDecimal(long value)
     {
         final String maxPrecisionFormat = "%0" + (Decimals.MAX_PRECISION + (value < 0 ? 1 : 0)) + "d";
-        return decimal(String.format(maxPrecisionFormat, value));
+        return decimal(format(maxPrecisionFormat, value));
     }
 
     // this help function should only be used when the map contains null value

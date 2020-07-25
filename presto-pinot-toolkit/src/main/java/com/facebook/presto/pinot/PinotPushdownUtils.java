@@ -13,24 +13,28 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateTimeEncoding;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
@@ -43,8 +47,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_EXPRESSION;
-import static com.facebook.presto.spi.type.Decimals.decodeUnscaledValue;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -282,6 +286,13 @@ public class PinotPushdownUtils
         }
         if (type instanceof VarcharType || type instanceof CharType) {
             return "'" + ((Slice) node.getValue()).toStringUtf8() + "'";
+        }
+        if (type instanceof TimestampType || type instanceof DateType) {
+            return node.getValue().toString();
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            Long millisUtc = DateTimeEncoding.unpackMillisUtc((Long) node.getValue());
+            return millisUtc.toString();
         }
         throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), String.format("Cannot handle the constant expression %s with value of type %s", node, type));
     }

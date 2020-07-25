@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.statistics;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 
 import java.util.ArrayList;
 import java.util.HashMap;

@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.common.InvalidFunctionArgumentException;
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.google.common.base.Defaults;
 
 import java.lang.invoke.MethodHandle;
@@ -28,6 +32,8 @@ import java.util.List;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
@@ -121,6 +127,12 @@ public class InterpretedFunctionInvoker
     {
         if (throwable instanceof InterruptedException) {
             Thread.currentThread().interrupt();
+        }
+        if (throwable instanceof InvalidFunctionArgumentException) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, throwable.getMessage(), throwable);
+        }
+        if (throwable instanceof NotSupportedException || throwable instanceof TimeZoneNotSupportedException) {
+            throw new PrestoException(NOT_SUPPORTED, throwable.getMessage(), throwable);
         }
         throwIfUnchecked(throwable);
         throw new RuntimeException(throwable);

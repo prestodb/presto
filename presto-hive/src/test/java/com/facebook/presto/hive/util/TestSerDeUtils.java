@@ -14,12 +14,12 @@
 package com.facebook.presto.hive.util;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.BlockSerdeUtil;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.BlockSerdeUtil;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,19 +41,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.hive.util.SerDeUtils.getBlockObject;
 import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
@@ -179,8 +179,8 @@ public class TestSerDeUtils
         ListHolder listHolder = new ListHolder();
         listHolder.array = array;
 
-        com.facebook.presto.spi.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
-        com.facebook.presto.spi.type.Type arrayOfRowType = RowType.anonymous(ImmutableList.of(new ArrayType(rowType)));
+        com.facebook.presto.common.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
+        com.facebook.presto.common.type.Type arrayOfRowType = RowType.anonymous(ImmutableList.of(new ArrayType(rowType)));
         Block actual = toBinaryBlock(arrayOfRowType, listHolder, getInspector(ListHolder.class));
         BlockBuilder blockBuilder = rowType.createBlockBuilder(null, 1024);
         rowType.writeObject(blockBuilder, rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 8, 9L));
@@ -223,7 +223,7 @@ public class TestSerDeUtils
         // test simple structs
         InnerStruct innerStruct = new InnerStruct(13, 14L);
 
-        com.facebook.presto.spi.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
+        com.facebook.presto.common.type.Type rowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
         Block actual = toBinaryBlock(rowType, innerStruct, getInspector(InnerStruct.class));
 
         Block expected = rowBlockOf(ImmutableList.of(INTEGER, BIGINT), 13, 14L);
@@ -249,11 +249,11 @@ public class TestSerDeUtils
         outerStruct.map.put("fifteen", new InnerStruct(-5, -10L));
         outerStruct.innerStruct = new InnerStruct(18, 19L);
 
-        com.facebook.presto.spi.type.Type innerRowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
-        com.facebook.presto.spi.type.Type arrayOfInnerRowType = new ArrayType(innerRowType);
-        com.facebook.presto.spi.type.Type mapOfInnerRowType = mapType(createUnboundedVarcharType(), innerRowType);
-        List<com.facebook.presto.spi.type.Type> outerRowParameterTypes = ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, createUnboundedVarcharType(), createUnboundedVarcharType(), arrayOfInnerRowType, mapOfInnerRowType, innerRowType);
-        com.facebook.presto.spi.type.Type outerRowType = RowType.anonymous(outerRowParameterTypes);
+        com.facebook.presto.common.type.Type innerRowType = RowType.anonymous(ImmutableList.of(INTEGER, BIGINT));
+        com.facebook.presto.common.type.Type arrayOfInnerRowType = new ArrayType(innerRowType);
+        com.facebook.presto.common.type.Type mapOfInnerRowType = mapType(createUnboundedVarcharType(), innerRowType);
+        List<com.facebook.presto.common.type.Type> outerRowParameterTypes = ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, createUnboundedVarcharType(), createUnboundedVarcharType(), arrayOfInnerRowType, mapOfInnerRowType, innerRowType);
+        com.facebook.presto.common.type.Type outerRowType = RowType.anonymous(outerRowParameterTypes);
 
         actual = toBinaryBlock(outerRowType, outerStruct, getInspector(OuterStruct.class));
 
@@ -310,7 +310,7 @@ public class TestSerDeUtils
         return sliceOutput.slice();
     }
 
-    private static Block toBinaryBlock(com.facebook.presto.spi.type.Type type, Object object, ObjectInspector inspector)
+    private static Block toBinaryBlock(com.facebook.presto.common.type.Type type, Object object, ObjectInspector inspector)
     {
         if (inspector.getCategory() == Category.PRIMITIVE) {
             return getPrimitiveBlock(type, object, inspector);
@@ -318,7 +318,7 @@ public class TestSerDeUtils
         return getBlockObject(type, object, inspector);
     }
 
-    private static Block getPrimitiveBlock(com.facebook.presto.spi.type.Type type, Object object, ObjectInspector inspector)
+    private static Block getPrimitiveBlock(com.facebook.presto.common.type.Type type, Object object, ObjectInspector inspector)
     {
         BlockBuilder builder = VARBINARY.createBlockBuilder(null, 1);
         serializeObject(type, builder, object, inspector);

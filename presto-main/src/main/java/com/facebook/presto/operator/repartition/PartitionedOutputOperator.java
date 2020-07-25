@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -22,15 +27,10 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -41,8 +41,8 @@ import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
-import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.max;

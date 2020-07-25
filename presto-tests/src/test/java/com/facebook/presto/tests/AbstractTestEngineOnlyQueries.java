@@ -14,7 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.common.type.TimeZoneKey;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 

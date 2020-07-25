@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.BigintType;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

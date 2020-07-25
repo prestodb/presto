@@ -13,20 +13,26 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.ArrayBlockBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ByteArrayBlock;
+import com.facebook.presto.common.block.ArrayBlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ByteArrayBlock;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.block.ArrayBlock.fromElementBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
+import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
+import static com.facebook.presto.block.BlockAssertions.createRandomDictionaryBlock;
+import static com.facebook.presto.block.BlockAssertions.createRandomLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRleBlockWithRandomValue;
+import static com.facebook.presto.common.block.ArrayBlock.fromElementBlock;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -156,6 +162,38 @@ public class TestArrayBlock
             assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
             assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
         }
+    }
+
+    @Test
+    public void testLogicalSizeInBytes()
+    {
+        int positionCount = 100;
+        int[] offsets = IntStream.rangeClosed(0, positionCount).toArray();
+        boolean[] nulls = new boolean[positionCount];
+
+        // Array(LongArrayBlock)
+        Block arrayOfLong = fromElementBlock(positionCount, Optional.of(nulls), offsets, createRandomLongsBlock(positionCount, 0));
+        assertEquals(arrayOfLong.getLogicalSizeInBytes(), 1400);
+
+        // Array(RLE(LongArrayBlock))
+        Block arrayOfRleOfLong = fromElementBlock(positionCount, Optional.of(nulls), offsets, createRLEBlock(1, 100));
+        assertEquals(arrayOfRleOfLong.getLogicalSizeInBytes(), 1400);
+
+        // Array(RLE(Array(LongArrayBlock)))
+        Block arrayOfRleOfArrayOfLong = fromElementBlock(positionCount, Optional.of(nulls), offsets, createRleBlockWithRandomValue(arrayOfLong, 100));
+        assertEquals(arrayOfRleOfArrayOfLong.getLogicalSizeInBytes(), 1900);
+
+        // Array(Dictionary(LongArrayBlock))
+        Block arrayOfDictionaryOfLong = fromElementBlock(positionCount, Optional.of(nulls), offsets, createLongDictionaryBlock(0, 100));
+        assertEquals(arrayOfDictionaryOfLong.getLogicalSizeInBytes(), 1400);
+
+        // Array(Array(Dictionary(LongArrayBlock)))
+        Block arrayOfArrayOfDictionaryOfLong = fromElementBlock(positionCount, Optional.of(nulls), offsets, arrayOfDictionaryOfLong);
+        assertEquals(arrayOfArrayOfDictionaryOfLong.getLogicalSizeInBytes(), 1900);
+
+        // Array(Dictionary(Array(LongArrayBlock)))
+        Block arrayOfDictionaryOfArrayOfLong = fromElementBlock(positionCount, Optional.of(nulls), offsets, createRandomDictionaryBlock(arrayOfDictionaryOfLong, 100, true));
+        assertEquals(arrayOfDictionaryOfArrayOfLong.getLogicalSizeInBytes(), 1900);
     }
 
     private static int getExpectedEstimatedDataSize(long[][] values)

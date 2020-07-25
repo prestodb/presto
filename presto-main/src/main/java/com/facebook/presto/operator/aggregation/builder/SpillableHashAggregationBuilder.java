@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.MergeHashSort;
@@ -20,9 +22,7 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.AggregationNode;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -155,6 +155,11 @@ public class SpillableHashAggregationBuilder
     public ListenableFuture<?> startMemoryRevoke()
     {
         checkState(spillInProgress.isDone());
+        if (hashAggregationBuilder.hasBuiltFinalResult()) {
+            // If the hashAggregationBuilder has already completed, decline memory revoking. At this point, buildResult has already been called
+            // on InMemoryHashAggregationBuilder and it is no longer accepting any input so no point in spilling.
+            return spillInProgress;
+        }
         spillToDisk();
         return spillInProgress;
     }
@@ -162,6 +167,10 @@ public class SpillableHashAggregationBuilder
     @Override
     public void finishMemoryRevoke()
     {
+        if (hashAggregationBuilder.hasBuiltFinalResult()) {
+            // Do not update memory if we never spilt during startMemoryRevoke if hashAggregationBuilder has already built it's final result
+            return;
+        }
         updateMemory();
     }
 

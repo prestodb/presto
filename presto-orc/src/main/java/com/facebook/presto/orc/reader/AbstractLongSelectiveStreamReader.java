@@ -13,23 +13,23 @@
  */
 package com.facebook.presto.orc.reader;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockLease;
-import com.facebook.presto.spi.block.ClosingBlockLease;
-import com.facebook.presto.spi.block.IntArrayBlock;
-import com.facebook.presto.spi.block.LongArrayBlock;
-import com.facebook.presto.spi.block.ShortArrayBlock;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockLease;
+import com.facebook.presto.common.block.ClosingBlockLease;
+import com.facebook.presto.common.block.IntArrayBlock;
+import com.facebook.presto.common.block.LongArrayBlock;
+import com.facebook.presto.common.block.ShortArrayBlock;
+import com.facebook.presto.common.type.Type;
 
 import javax.annotation.Nullable;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

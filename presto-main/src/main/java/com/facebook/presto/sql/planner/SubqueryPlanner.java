@@ -58,7 +58,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.subQueryNotSupportedError;
 import static com.facebook.presto.sql.planner.ExpressionNodeInliner.replaceExpression;

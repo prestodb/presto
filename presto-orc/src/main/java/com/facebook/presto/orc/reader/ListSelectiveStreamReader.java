@@ -13,6 +13,14 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.InvalidFunctionArgumentException;
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.block.ArrayBlock;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockLease;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -23,14 +31,6 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.block.ArrayBlock;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockLease;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.block.ClosingBlockLease.newLease;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
@@ -52,8 +53,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.createNestedStreamReader;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.block.ClosingBlockLease.newLease;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -616,7 +615,7 @@ public class ListSelectiveStreamReader
             assert outputPositions[i] == nextPosition;
 
             if (indexOutOfBounds[i]) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript out of bounds");
+                throw new InvalidFunctionArgumentException("Array subscript out of bounds");
             }
 
             positionIndex++;
@@ -696,7 +695,7 @@ public class ListSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);

@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Collection;

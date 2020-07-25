@@ -14,10 +14,10 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
@@ -34,8 +34,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static com.google.common.io.MoreFiles.deleteRecursively;

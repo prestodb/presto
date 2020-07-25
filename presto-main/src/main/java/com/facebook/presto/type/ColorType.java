@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.AbstractIntType;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.scalar.ColorFunctions;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.AbstractIntType;
-import com.facebook.presto.spi.type.TypeSignature;
 
 public class ColorType
         extends AbstractIntType

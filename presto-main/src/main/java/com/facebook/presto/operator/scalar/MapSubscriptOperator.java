@@ -14,16 +14,17 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.SingleMapBlock;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SingleMapBlock;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
@@ -32,15 +33,16 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
+import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.function.OperatorType.SUBSCRIPT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
@@ -104,7 +106,14 @@ public class MapSubscriptOperator
     public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, SqlFunctionProperties properties, Block map, boolean key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        int valuePosition;
+        try {
+            valuePosition = mapBlock.seekKeyExact(key);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         if (valuePosition == -1) {
             if (legacyMissingKey) {
                 return null;
@@ -118,7 +127,14 @@ public class MapSubscriptOperator
     public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, SqlFunctionProperties properties, Block map, long key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        int valuePosition;
+        try {
+            valuePosition = mapBlock.seekKeyExact(key);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         if (valuePosition == -1) {
             if (legacyMissingKey) {
                 return null;
@@ -132,7 +148,14 @@ public class MapSubscriptOperator
     public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, SqlFunctionProperties properties, Block map, double key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        int valuePosition;
+        try {
+            valuePosition = mapBlock.seekKeyExact(key);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         if (valuePosition == -1) {
             if (legacyMissingKey) {
                 return null;
@@ -146,7 +169,14 @@ public class MapSubscriptOperator
     public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, SqlFunctionProperties properties, Block map, Slice key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        int valuePosition;
+        try {
+            valuePosition = mapBlock.seekKeyExact(key);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         if (valuePosition == -1) {
             if (legacyMissingKey) {
                 return null;
@@ -160,7 +190,14 @@ public class MapSubscriptOperator
     public static Object subscript(boolean legacyMissingKey, MissingKeyExceptionFactory missingKeyExceptionFactory, Type valueType, SqlFunctionProperties properties, Block map, Object key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact((Block) key);
+        int valuePosition;
+        try {
+            valuePosition = mapBlock.seekKeyExact((Block) key);
+        }
+        catch (NotSupportedException e) {
+            throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+        }
+
         if (valuePosition == -1) {
             if (legacyMissingKey) {
                 return null;

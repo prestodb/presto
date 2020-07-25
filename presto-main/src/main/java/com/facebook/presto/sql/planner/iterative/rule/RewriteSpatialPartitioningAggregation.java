@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
@@ -24,8 +26,6 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -37,9 +37,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;

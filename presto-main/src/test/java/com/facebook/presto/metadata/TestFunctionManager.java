@@ -15,20 +15,20 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CustomFunctions;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -42,19 +42,19 @@ import java.util.List;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.SystemSessionProperties.EXPERIMENTAL_FUNCTIONS_ENABLED;
+import static com.facebook.presto.common.function.OperatorType.CAST;
+import static com.facebook.presto.common.function.OperatorType.SATURATED_FLOOR_CAST;
+import static com.facebook.presto.common.function.OperatorType.tryGetOperatorType;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.function.OperatorType.CAST;
-import static com.facebook.presto.spi.function.OperatorType.SATURATED_FLOOR_CAST;
-import static com.facebook.presto.spi.function.OperatorType.tryGetOperatorType;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
@@ -124,7 +124,7 @@ public class TestFunctionManager
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "\\QFunction already registered: presto.default.custom_add(bigint,bigint):bigint\\E")
     public void testDuplicateFunctions()
     {
-        List<BuiltInFunction> functions = new FunctionListBuilder()
+        List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(CustomFunctions.class)
                 .getFunctions()
                 .stream()
@@ -140,7 +140,7 @@ public class TestFunctionManager
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "'presto.default.sum' is both an aggregation and a scalar function")
     public void testConflictingScalarAggregation()
     {
-        List<BuiltInFunction> functions = new FunctionListBuilder()
+        List<SqlFunction> functions = new FunctionListBuilder()
                 .scalars(ScalarSum.class)
                 .getFunctions();
 

@@ -16,6 +16,15 @@ package com.facebook.presto.sql.planner;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -108,22 +117,16 @@ import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndex;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -141,8 +144,6 @@ import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
@@ -158,7 +159,6 @@ import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -233,6 +233,9 @@ import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionE
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.sphericalDistance;
@@ -259,9 +262,6 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
@@ -270,6 +270,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BRO
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
+import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
@@ -314,7 +315,6 @@ public class LocalExecutionPlanner
     private final IndexJoinLookupStats indexJoinLookupStats;
     private final DataSize maxPartialAggregationMemorySize;
     private final DataSize maxPagePartitioningBufferSize;
-    private final int maxPagePartitioningBufferCount;
     private final DataSize maxLocalExchangeBufferSize;
     private final SpillerFactory spillerFactory;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -370,7 +370,6 @@ public class LocalExecutionPlanner
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
         this.maxPagePartitioningBufferSize = taskManagerConfig.getMaxPagePartitioningBufferSize();
-        this.maxPagePartitioningBufferCount = taskManagerConfig.getMaxPagePartitioningBufferCount();
         this.maxLocalExchangeBufferSize = taskManagerConfig.getMaxLocalExchangeBufferSize();
         this.pagesIndexFactory = requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
@@ -436,7 +435,7 @@ public class LocalExecutionPlanner
         }
 
         if (isOptimizedRepartitioningEnabled(taskContext.getSession())) {
-            return new OptimizedPartitionedOutputFactory(outputBuffer, maxPagePartitioningBufferSize, maxPagePartitioningBufferCount);
+            return new OptimizedPartitionedOutputFactory(outputBuffer, maxPagePartitioningBufferSize);
         }
         else {
             return new PartitionedOutputFactory(outputBuffer, maxPagePartitioningBufferSize);
@@ -1059,6 +1058,8 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
+            boolean spillEnabled = isSpillEnabled(context.getSession());
+
             OperatorFactory operator = new OrderByOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -1067,7 +1068,10 @@ public class LocalExecutionPlanner
                     10_000,
                     orderByChannels,
                     sortOrder.build(),
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    spillEnabled,
+                    Optional.of(spillerFactory),
+                    orderingCompiler);
 
             return new PhysicalOperation(operator, source.getLayout(), context, source);
         }
@@ -1281,7 +1285,7 @@ public class LocalExecutionPlanner
 
             try {
                 if (columns != null) {
-                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId());
+                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId(), isOptimizeCommonSubExpressions(session));
                     Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
@@ -2050,6 +2054,10 @@ public class LocalExecutionPlanner
                 PhysicalOperation probeSource,
                 LocalExecutionPlanContext context)
         {
+            // Determine if planning broadcast join
+            Optional<JoinNode.DistributionType> distributionType = node.getDistributionType();
+            boolean isBroadcastJoin = distributionType.isPresent() && distributionType.get() == REPLICATED;
+
             LocalExecutionPlanContext buildContext = context.createSubContext();
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
 
@@ -2128,7 +2136,8 @@ public class LocalExecutionPlanner
                     10_000,
                     pagesIndexFactory,
                     spillEnabled && !buildOuter && partitionCount > 1,
-                    singleStreamSpillerFactory);
+                    singleStreamSpillerFactory,
+                    isBroadcastJoin);
 
             context.addDriverFactory(
                     buildContext.isInputDriver(),
@@ -2700,7 +2709,8 @@ public class LocalExecutionPlanner
 
         private AccumulatorFactory buildAccumulatorFactory(
                 PhysicalOperation source,
-                Aggregation aggregation)
+                Aggregation aggregation,
+                boolean spillEnabled)
         {
             FunctionManager functionManager = metadata.getFunctionManager();
             InternalAggregationFunction internalAggregationFunction = functionManager.getAggregateFunctionImplementation(aggregation.getFunctionHandle());
@@ -2748,6 +2758,7 @@ public class LocalExecutionPlanner
                     aggregation.isDistinct(),
                     joinCompiler,
                     lambdaProviders,
+                    spillEnabled,
                     session);
         }
 
@@ -2781,7 +2792,7 @@ public class LocalExecutionPlanner
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, false));
                 outputMappings.put(variable, outputChannel); // one aggregation per channel
                 outputChannel++;
             }
@@ -2844,7 +2855,7 @@ public class LocalExecutionPlanner
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
 
-                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation));
+                accumulatorFactories.add(buildAccumulatorFactory(source, aggregation, !isStreamable && spillEnabled));
                 aggregationOutputVariables.add(variable);
             }
 

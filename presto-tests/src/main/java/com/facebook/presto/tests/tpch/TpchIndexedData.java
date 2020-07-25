@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.tests.tpch;
 
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchTableHandle;

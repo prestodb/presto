@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.RowFieldName;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeParameter;
-import com.facebook.presto.spi.type.TypeSignature;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.RowFieldName;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeParameter;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.type.StandardTypes.BIGINT;
-import static com.facebook.presto.spi.type.StandardTypes.DOUBLE;
-import static com.facebook.presto.spi.type.StandardTypes.ROW;
+import static com.facebook.presto.common.type.StandardTypes.BIGINT;
+import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
 public class TestRowParametricType

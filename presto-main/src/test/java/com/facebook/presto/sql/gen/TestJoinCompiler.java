@@ -14,14 +14,14 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.PagesHashStrategy;
 import com.facebook.presto.operator.SimplePagesHashStrategy;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import com.facebook.presto.type.TypeUtils;
@@ -36,11 +36,11 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static org.testng.Assert.assertEquals;

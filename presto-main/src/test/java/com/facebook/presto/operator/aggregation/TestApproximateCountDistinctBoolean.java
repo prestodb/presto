@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Booleans;
@@ -23,8 +23,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestApproximateCountDistinctBoolean

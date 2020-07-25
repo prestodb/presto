@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.function.RankingWindowFunction;
 import com.facebook.presto.spi.function.WindowFunctionSignature;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 
 @WindowFunctionSignature(name = "percent_rank", returnType = "double")
 public class PercentRankFunction

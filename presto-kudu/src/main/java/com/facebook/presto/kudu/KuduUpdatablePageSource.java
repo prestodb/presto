@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.kudu;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.UpdatablePageSource;
-import com.facebook.presto.spi.block.Block;
 import io.airlift.slice.Slice;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.Delete;

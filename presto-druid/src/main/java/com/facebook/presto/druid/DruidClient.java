@@ -23,6 +23,8 @@ import com.facebook.presto.druid.metadata.DruidSegmentIdWrapper;
 import com.facebook.presto.druid.metadata.DruidSegmentInfo;
 import com.facebook.presto.druid.metadata.DruidTableInfo;
 import com.facebook.presto.spi.PrestoException;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -137,7 +139,7 @@ public class DruidClient
 
     private static byte[] createRequestBody(String query, DruidResultFormat resultFormat, boolean queryHeader)
     {
-        return format("{\"query\":\"%s\",\"resultFormat\":\"%s\",\"header\": %b }\n", query, resultFormat.getResultFormat(), queryHeader).getBytes();
+        return new DruidRequestBody(query, resultFormat.getResultFormat(), queryHeader).toJson().getBytes();
     }
 
     private Request prepareMetadataQuery(String query)
@@ -181,6 +183,46 @@ public class DruidClient
             catch (IOException e) {
                 throw new PrestoException(DRUID_BROKER_RESULT_ERROR, "Unable to read response from worker", e);
             }
+        }
+    }
+    public static class DruidRequestBody
+    {
+        private String query;
+        private String resultFormat;
+        private boolean queryHeader;
+
+        @JsonCreator
+        public DruidRequestBody(
+                @JsonProperty("query") String query,
+                @JsonProperty("resultFormat") String resultFormat,
+                @JsonProperty("queryHeader") boolean queryHeader)
+        {
+            this.query = requireNonNull(query);
+            this.resultFormat = requireNonNull(resultFormat);
+            this.queryHeader = queryHeader;
+        }
+
+        @JsonProperty("query")
+        public String getQuery()
+        {
+            return query;
+        }
+
+        @JsonProperty("resultFormat")
+        public String getResultFormat()
+        {
+            return resultFormat;
+        }
+
+        @JsonProperty("queryHeader")
+        public boolean isQueryHeader()
+        {
+            return queryHeader;
+        }
+
+        public String toJson()
+        {
+            return JsonCodec.jsonCodec(DruidRequestBody.class).toJson(this);
         }
     }
 }

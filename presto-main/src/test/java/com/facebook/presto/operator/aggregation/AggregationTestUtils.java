@@ -14,11 +14,11 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.block.BlockAssertions;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.operator.GroupByIdBlock;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.google.common.primitives.Ints;
 import org.apache.commons.math3.util.Precision;
 
@@ -28,8 +28,8 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

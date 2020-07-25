@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.verifier.checksum;
 
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -31,7 +31,6 @@ import static com.facebook.presto.sql.QueryUtil.functionCall;
 import static com.facebook.presto.verifier.checksum.ArrayColumnValidator.generateArrayChecksum;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 public class MapColumnValidator
         implements ColumnValidator
@@ -46,6 +45,7 @@ public class MapColumnValidator
         Expression checksum = functionCall("checksum", column.getExpression());
         Expression keysChecksum = generateArrayChecksum(functionCall("map_keys", column.getExpression()), new ArrayType(keyType));
         Expression valuesChecksum = generateArrayChecksum(functionCall("map_values", column.getExpression()), new ArrayType(valueType));
+        Expression mapCardinalityChecksum = functionCall("checksum", functionCall("cardinality", column.getExpression()));
         Expression mapCardinalitySum = new CoalesceExpression(
                 functionCall("sum", functionCall("cardinality", column.getExpression())),
                 new LongLiteral("0"));
@@ -54,45 +54,27 @@ public class MapColumnValidator
                 new SingleColumn(checksum, Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))),
                 new SingleColumn(keysChecksum, Optional.of(delimitedIdentifier(getKeysChecksumColumnAlias(column)))),
                 new SingleColumn(valuesChecksum, Optional.of(delimitedIdentifier(getValuesChecksumColumnAlias(column)))),
+                new SingleColumn(mapCardinalityChecksum, Optional.of(delimitedIdentifier(getCardinalityChecksumColumnAlias(column)))),
                 new SingleColumn(mapCardinalitySum, Optional.of(delimitedIdentifier(getCardinalitySumColumnAlias(column)))));
     }
 
     @Override
-    public List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
+    public List<ColumnMatchResult<MapColumnChecksum>> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
-        String checksumColumnAlias = getChecksumColumnAlias(column);
-        Object controlChecksum = controlResult.getChecksum(checksumColumnAlias);
-        Object testChecksum = testResult.getChecksum(checksumColumnAlias);
+        MapColumnChecksum controlChecksum = toColumnChecksum(column, controlResult);
+        MapColumnChecksum testChecksum = toColumnChecksum(column, testResult);
 
-        String keysChecksumColumnAlias = getKeysChecksumColumnAlias(column);
-        Object controlKeysChecksum = controlResult.getChecksum(keysChecksumColumnAlias);
-        Object testKeysChecksum = testResult.getChecksum(keysChecksumColumnAlias);
+        return ImmutableList.of(new ColumnMatchResult<>(Objects.equals(controlChecksum, testChecksum), column, controlChecksum, testChecksum));
+    }
 
-        String valuesChecksumColumnAlias = getValuesChecksumColumnAlias(column);
-        Object controlValuesChecksum = controlResult.getChecksum(valuesChecksumColumnAlias);
-        Object testValuesChecksum = testResult.getChecksum(valuesChecksumColumnAlias);
-
-        String cardinalitySumColumnAlias = getCardinalitySumColumnAlias(column);
-        Object controlCardinalitySum = controlResult.getChecksum(cardinalitySumColumnAlias);
-        Object testCardinalitySum = testResult.getChecksum(cardinalitySumColumnAlias);
-
-        return ImmutableList.of(new ColumnMatchResult(
-                Objects.equals(controlChecksum, testChecksum)
-                        && Objects.equals(controlKeysChecksum, testKeysChecksum)
-                        && Objects.equals(controlValuesChecksum, testValuesChecksum)
-                        && Objects.equals(controlCardinalitySum, testCardinalitySum),
-                column,
-                format(
-                        "control(checksum: %s, keys_checksum: %s, values_checksum: %s, cardinality_sum: %s) " +
-                                "test(checksum: %s, keys_checksum: %s, values_checksum: %s, cardinality_sum: %s)",
-                        controlChecksum,
-                        controlKeysChecksum,
-                        controlValuesChecksum,
-                        controlCardinalitySum,
-                        testChecksum,
-                        testKeysChecksum,
-                        testValuesChecksum,
-                        testCardinalitySum)));
+    private static MapColumnChecksum toColumnChecksum(Column column, ChecksumResult checksumResult)
+    {
+        return new MapColumnChecksum(
+                checksumResult.getChecksum(getChecksumColumnAlias(column)),
+                checksumResult.getChecksum(getKeysChecksumColumnAlias(column)),
+                checksumResult.getChecksum(getValuesChecksumColumnAlias(column)),
+                checksumResult.getChecksum(getCardinalityChecksumColumnAlias(column)),
+                (long) checksumResult.getChecksum(getCardinalitySumColumnAlias(column)));
     }
 
     private static String getChecksumColumnAlias(Column column)
@@ -108,6 +90,11 @@ public class MapColumnValidator
     private static String getValuesChecksumColumnAlias(Column column)
     {
         return column.getName() + "$values_checksum";
+    }
+
+    private static String getCardinalityChecksumColumnAlias(Column column)
+    {
+        return column.getName() + "$cardinality_checksum";
     }
 
     private static String getCardinalitySumColumnAlias(Column column)

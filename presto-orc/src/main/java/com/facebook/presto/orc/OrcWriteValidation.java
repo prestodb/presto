@@ -13,6 +13,17 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.GenericInternalException;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ColumnarMap;
+import com.facebook.presto.common.block.ColumnarRow;
+import com.facebook.presto.common.type.AbstractLongType;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
@@ -31,17 +42,6 @@ import com.facebook.presto.orc.metadata.statistics.StatisticsHasher;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatisticsBuilder;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarMap;
-import com.facebook.presto.spi.block.ColumnarRow;
-import com.facebook.presto.spi.type.AbstractLongType;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
@@ -62,28 +62,27 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
+import static com.facebook.presto.common.block.ColumnarMap.toColumnarMap;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.DETAILED;
 import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.HASHED;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.STATIC_METADATA;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.maxStringTruncateToValidRange;
 import static com.facebook.presto.orc.metadata.OrcMetadataReader.minStringTruncateToValidRange;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.block.ColumnarArray.toColumnarArray;
-import static com.facebook.presto.spi.block.ColumnarMap.toColumnarMap;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.StandardTypes.MAP;
-import static com.facebook.presto.spi.type.StandardTypes.ROW;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -727,7 +726,7 @@ public class OrcWriteValidation
                         .collect(toImmutableList());
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+                throw new GenericInternalException(format("Unsupported Hive type: %s", type));
             }
         }
 

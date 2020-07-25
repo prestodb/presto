@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
@@ -20,9 +23,6 @@ import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.proto.OrcProto;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Longs;
@@ -43,15 +43,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.checkInBloomFilter;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.extractDiscreteValues;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static org.testng.Assert.assertEquals;

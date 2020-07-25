@@ -13,6 +13,20 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockLease;
+import com.facebook.presto.common.block.ClosingBlockLease;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.block.VariableWidthBlockBuilder;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
@@ -23,20 +37,6 @@ import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockLease;
-import com.facebook.presto.spi.block.ClosingBlockLease;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -623,7 +623,7 @@ public class MapFlatSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encodings)
+    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encodings)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);

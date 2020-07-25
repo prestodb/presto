@@ -20,11 +20,11 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.connector.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static com.facebook.presto.connector.jmx.JmxMetadata.JMX_SCHEMA_NAME;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
 import static java.util.Locale.ENGLISH;

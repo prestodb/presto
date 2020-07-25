@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -26,7 +27,6 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
 import com.facebook.presto.sql.planner.EqualityInference;
@@ -78,6 +78,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
 import static com.facebook.presto.sql.ExpressionUtils.filterDeterministicConjuncts;
@@ -288,6 +289,9 @@ public class PredicatePushDown
             // sure the conjuncts are not TryExpressions.
             verify(AstUtils.preOrder(expression).noneMatch(TryExpression.class::isInstance));
 
+            if (node.getLocality().equals(REMOTE)) {
+                return false;
+            }
             // candidate symbols for inlining are
             //   1. references to simple constants
             //   2. references to complex expressions that appear only once

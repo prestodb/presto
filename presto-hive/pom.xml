@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.236-SNAPSHOT</version>
+        <version>0.239-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-hive</artifactId>
@@ -273,6 +273,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
         </dependency>
@@ -291,6 +296,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>

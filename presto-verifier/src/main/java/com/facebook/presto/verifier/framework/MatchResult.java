@@ -15,9 +15,9 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -43,20 +43,20 @@ public class MatchResult
     private final Optional<ChecksumResult> controlChecksum;
     private final OptionalLong controlRowCount;
     private final OptionalLong testRowCount;
-    private final Map<Column, ColumnMatchResult> mismatchedColumns;
+    private final List<ColumnMatchResult<?>> mismatchedColumns;
 
     public MatchResult(
             MatchType matchType,
             Optional<ChecksumResult> controlChecksum,
             OptionalLong controlRowCount,
             OptionalLong testRowCount,
-            Map<Column, ColumnMatchResult> mismatchedColumns)
+            List<ColumnMatchResult<?>> mismatchedColumns)
     {
         this.matchType = requireNonNull(matchType, "type is null");
         this.controlChecksum = requireNonNull(controlChecksum, "controlChecksum is null");
         this.controlRowCount = requireNonNull(controlRowCount, "controlRowCount is null");
         this.testRowCount = requireNonNull(testRowCount, "testRowCount is null");
-        this.mismatchedColumns = ImmutableMap.copyOf(mismatchedColumns);
+        this.mismatchedColumns = ImmutableList.copyOf(mismatchedColumns);
     }
 
     public boolean isMatched()
@@ -80,6 +80,11 @@ public class MatchResult
         return matchType == ROW_COUNT_MISMATCH || matchType == COLUMN_MISMATCH;
     }
 
+    public List<ColumnMatchResult<?>> getMismatchedColumns()
+    {
+        return mismatchedColumns;
+    }
+
     public String getResultsComparison()
     {
         StringBuilder message = new StringBuilder()
@@ -97,9 +102,14 @@ public class MatchResult
         }
 
         message.append("Mismatched Columns:\n");
-        mismatchedColumns.forEach((column, matchResult) ->
-                message.append(format("  %s (%s): %s", column.getName(), column.getType().getDisplayName(), matchResult.getMessage()))
-                        .append("\n"));
+        mismatchedColumns.forEach(columnMismatch ->
+                message.append(format(
+                        "  %s (%s)%s\n    control\t(%s)\n    test\t(%s)\n",
+                        columnMismatch.getColumn().getName(),
+                        columnMismatch.getColumn().getType().getDisplayName(),
+                        columnMismatch.getMessage().map(columnMessage -> " " + columnMessage).orElse(""),
+                        columnMismatch.getControlChecksum(),
+                        columnMismatch.getTestChecksum())));
         return message.toString();
     }
 }

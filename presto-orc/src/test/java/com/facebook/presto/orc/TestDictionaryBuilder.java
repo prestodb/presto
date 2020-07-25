@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.orc.writer.DictionaryBuilder;
-import com.facebook.presto.spi.block.VariableWidthBlock;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;

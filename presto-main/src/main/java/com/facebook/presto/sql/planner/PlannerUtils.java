@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;

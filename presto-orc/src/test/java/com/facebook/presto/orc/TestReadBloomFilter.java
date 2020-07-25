@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -26,6 +26,15 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.predicate.TupleDomain.fromFixedValues;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcPredicate.TRUE;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
@@ -34,14 +43,6 @@ import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.spi.predicate.TupleDomain.fromFixedValues;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
@@ -120,12 +121,13 @@ public class TestReadBloomFilter
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 OrcReaderTestingUtils.createDefaultTestConfig(),
-                false);
+                false,
+                NO_ENCRYPTION);
 
         assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
-        return orcReader.createBatchRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), MAX_BATCH_SIZE);
+        return orcReader.createBatchRecordReader(ImmutableMap.of(0, type), predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), MAX_BATCH_SIZE, ImmutableMap.of());
     }
 
     private static <T> TupleDomainOrcPredicate<String> makeOrcPredicate(Type type, T value, boolean bloomFilterEnabled)

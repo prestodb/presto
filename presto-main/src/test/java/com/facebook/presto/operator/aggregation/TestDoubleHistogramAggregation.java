@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.MapType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import org.testng.annotations.Test;
@@ -27,10 +27,10 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.getIntermediateBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static org.testng.Assert.assertEquals;

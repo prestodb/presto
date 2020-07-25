@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.LongVariableConstraint;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

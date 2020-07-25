@@ -103,8 +103,7 @@ public class ScaledWriterScheduler
                 .average().orElse(0.0);
 
         long writtenBytes = writerTasksProvider.get().stream()
-                .map(TaskStatus::getPhysicalWrittenDataSize)
-                .mapToLong(DataSize::toBytes)
+                .mapToLong(TaskStatus::getPhysicalWrittenDataSizeInBytes)
                 .sum();
 
         if ((fullTasks >= 0.5) && (writtenBytes >= (writerMinSizeBytes * scheduledNodes.size()))) {

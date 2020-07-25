@@ -14,26 +14,28 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimeWithTimeZoneType;
+import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.security.SelectedRole;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimeWithTimeZoneType;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
 import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.type.ColorType;
@@ -78,12 +80,15 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.spi.type.CharType.createCharType;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Float.POSITIVE_INFINITY;
 import static java.lang.String.format;
@@ -121,6 +126,10 @@ public class TestPrestoDriver
         server.createCatalog(TEST_CATALOG, "tpch");
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
+        Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
+        server.getCatalogManager().registerCatalog(bogusTestingCatalog);
+        SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
+        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
         waitForNodeRefresh(server);
         setupTestTables();
         executorService = newCachedThreadPool(daemonThreadsNamed("test-%s"));
@@ -379,7 +388,7 @@ public class TestPrestoDriver
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getCatalogs()) {
-                assertEquals(readRows(rs), list(list("blackhole"), list("system"), list(TEST_CATALOG)));
+                assertEquals(readRows(rs), list(list("blackhole"), list("system"), list(TEST_CATALOG), list(TESTING_CATALOG)));
 
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
@@ -1641,6 +1650,32 @@ public class TestPrestoDriver
             // make sure query completes
             assertEquals(future.get(10, SECONDS), (Integer) 1);
         }
+    }
+
+    @Test
+    public void testEncodeDecodeSessionValue()
+            throws Exception
+    {
+        boolean isValidSessionValue = false;
+        String targetValue = "a+1==3";
+        try (Connection connection = createConnection(TESTING_CATALOG)) {
+            try (Statement statement = connection.createStatement()) {
+                assertFalse(statement.execute(format("set session %s.connector_string='%s'", TESTING_CATALOG, targetValue)));
+                assertNull(statement.getResultSet());
+
+                assertTrue(statement.execute("show session"));
+                ResultSet rs = statement.getResultSet();
+                while (rs.next()) {
+                    String sessionName = rs.getString("Name");
+                    if (sessionName.equals(format("%s.connector_string", TESTING_CATALOG))) {
+                        assertEquals(rs.getString("Value"), targetValue);
+                        isValidSessionValue = true;
+                        break;
+                    }
+                }
+            }
+        }
+        assertTrue(isValidSessionValue);
     }
 
     private QueryState getQueryState(String queryId)

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.common.predicate.Domain;
 
 import javax.annotation.concurrent.Immutable;
 

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tdigest.TDigest;
 
 import java.util.ArrayList;
@@ -27,11 +27,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.aggregation.TestMergeTDigestFunction.TDIGEST_EQUALITY;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.StandardTypes.TDIGEST;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.google.common.collect.ImmutableList.toImmutableList;

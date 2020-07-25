@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.localfile;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 

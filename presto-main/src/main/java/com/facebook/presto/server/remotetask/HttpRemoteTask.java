@@ -276,10 +276,11 @@ public final class HttpRemoteTask
                     .map(outputId -> new BufferInfo(outputId, false, 0, 0, PageBufferInfo.empty()))
                     .collect(toImmutableList());
 
-            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, bufferStates, new TaskStats(DateTime.now(), null));
+            TaskInfo initialTask = createInitialTask(taskId, location, bufferStates, new TaskStats(DateTime.now(), null));
 
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::failTask,
+                    taskId,
                     initialTask.getTaskStatus(),
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,

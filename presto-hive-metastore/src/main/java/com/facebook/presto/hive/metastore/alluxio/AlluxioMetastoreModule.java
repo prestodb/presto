@@ -62,7 +62,7 @@ public class AlluxioMetastoreModule
         if (parts.length > 1) {
             conf.set(PropertyKey.MASTER_RPC_PORT, parts[1]);
         }
-        MasterClientContext context = MasterClientContext.newBuilder(ClientContext.create(new InstancedConfiguration(ConfigurationUtils.defaults()))).build();
+        MasterClientContext context = MasterClientContext.newBuilder(ClientContext.create(conf)).build();
         return new RetryHandlingTableMasterClient(context);
     }
 }

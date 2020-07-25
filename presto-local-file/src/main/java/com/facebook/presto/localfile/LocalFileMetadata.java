@@ -36,9 +36,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
 import static com.facebook.presto.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;

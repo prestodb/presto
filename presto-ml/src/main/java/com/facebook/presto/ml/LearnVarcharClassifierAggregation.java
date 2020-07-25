@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
@@ -24,7 +24,7 @@ import com.facebook.presto.spi.function.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 
 @AggregationFunction(value = "learn_classifier", decomposable = false)
 public final class LearnVarcharClassifierAggregation

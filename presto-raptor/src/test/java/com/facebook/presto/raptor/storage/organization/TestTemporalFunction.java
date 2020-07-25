@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
@@ -22,8 +22,8 @@ import org.testng.annotations.Test;
 import java.time.Duration;
 import java.util.TimeZone;
 
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 

@@ -16,8 +16,8 @@ package com.facebook.presto.cost;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestOutputNodeStats

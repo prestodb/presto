@@ -15,6 +15,7 @@ package com.facebook.presto.benchmark;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
@@ -25,7 +26,6 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
@@ -39,8 +39,8 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunnerHashEnabled;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -112,7 +112,8 @@ public class HashBuildAndJoinBenchmark
                 1_500_000,
                 new PagesIndex.TestingFactory(false),
                 false,
-                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
+                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
+                false);
         driversBuilder.add(hashBuilder);
         DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
 

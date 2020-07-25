@@ -13,22 +13,22 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.OperatorDependency;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
 import static com.facebook.presto.util.Failures.internalError;
 
 @Description("Determines whether given value exists in the array")

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;
@@ -38,11 +38,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.common.block.SortOrder.DESC_NULLS_LAST;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)

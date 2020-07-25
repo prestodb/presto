@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet.writer.valuewriter;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.column.page.DictionaryPage;

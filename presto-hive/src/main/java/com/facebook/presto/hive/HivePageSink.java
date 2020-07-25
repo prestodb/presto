@@ -16,16 +16,16 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.concurrent.MoreFutures;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.IntArrayBlockBuilder;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.IntArrayBlockBuilder;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
@@ -46,10 +46,13 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.hive.HiveBucketFunction.createHiveCompatibleBucketFunction;
+import static com.facebook.presto.hive.HiveBucketFunction.createPrestoNativeBucketFunction;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
@@ -122,7 +125,7 @@ public class HivePageSink
         ImmutableList.Builder<Integer> partitionColumns = ImmutableList.builder();
         ImmutableList.Builder<Integer> dataColumnsInputIndex = ImmutableList.builder();
         Object2IntMap<String> dataColumnNameToIdMap = new Object2IntOpenHashMap<>();
-        Map<String, HiveType> dataColumnNameToTypeMap = new HashMap<>();
+        Map<String, HiveType> dataColumnNameToHiveTypeMap = new HashMap<>();
         // sample weight column is passed separately, so index must be calculated without this column
         for (int inputIndex = 0; inputIndex < inputColumns.size(); inputIndex++) {
             HiveColumnHandle column = inputColumns.get(inputIndex);
@@ -132,7 +135,7 @@ public class HivePageSink
             else {
                 dataColumnsInputIndex.add(inputIndex);
                 dataColumnNameToIdMap.put(column.getName(), inputIndex);
-                dataColumnNameToTypeMap.put(column.getName(), column.getHiveType());
+                dataColumnNameToHiveTypeMap.put(column.getName(), column.getHiveType());
             }
         }
         this.partitionColumnsInputIndex = Ints.toArray(partitionColumns.build());
@@ -143,10 +146,20 @@ public class HivePageSink
             bucketColumns = bucketProperty.get().getBucketedBy().stream()
                     .mapToInt(dataColumnNameToIdMap::get)
                     .toArray();
-            List<HiveType> bucketColumnTypes = bucketProperty.get().getBucketedBy().stream()
-                    .map(dataColumnNameToTypeMap::get)
-                    .collect(toList());
-            bucketFunction = new HiveBucketFunction(bucketCount, bucketColumnTypes);
+            BucketFunctionType bucketFunctionType = bucketProperty.get().getBucketFunctionType();
+            switch (bucketFunctionType) {
+                case HIVE_COMPATIBLE:
+                    List<HiveType> bucketColumnHiveTypes = bucketProperty.get().getBucketedBy().stream()
+                            .map(dataColumnNameToHiveTypeMap::get)
+                            .collect(toImmutableList());
+                    bucketFunction = createHiveCompatibleBucketFunction(bucketCount, bucketColumnHiveTypes);
+                    break;
+                case PRESTO_NATIVE:
+                    bucketFunction = createPrestoNativeBucketFunction(bucketCount, bucketProperty.get().getTypes().get());
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
+            }
         }
         else {
             bucketColumns = null;

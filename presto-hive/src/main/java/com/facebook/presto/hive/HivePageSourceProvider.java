@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveSplit.BucketConversion;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
@@ -22,23 +25,22 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
-import com.facebook.presto.spi.Subfield;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
@@ -58,6 +60,7 @@ import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
@@ -69,6 +72,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
+import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -129,6 +133,7 @@ public class HivePageSourceProvider
 
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
 
+        Optional<EncryptionInformation> encryptionInformation = hiveSplit.getEncryptionInformation();
         if (hiveLayout.isPushdownFilterEnabled()) {
             Optional<ConnectorPageSource> selectivePageSource = createSelectivePageSource(
                     selectivePageSourceFactories,
@@ -140,12 +145,14 @@ public class HivePageSourceProvider
                     hiveStorageTimeZone,
                     typeManager,
                     optimizedRowExpressionCache,
-                    splitContext);
+                    splitContext,
+                    encryptionInformation);
             if (selectivePageSource.isPresent()) {
                 return selectivePageSource.get();
             }
         }
 
+        CacheQuota cacheQuota = generateCacheQuota(hiveSplit);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
                 pageSourceFactories,
@@ -173,14 +180,33 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionSchemaDifference(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                new HiveFileContext(splitContext.isCacheable(), hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
+                new HiveFileContext(splitContext.isCacheable(), cacheQuota, hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
-                rowExpressionService);
+                rowExpressionService,
+                encryptionInformation);
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
         throw new IllegalStateException("Could not find a file reader for split " + hiveSplit);
+    }
+
+    @VisibleForTesting
+    protected static CacheQuota generateCacheQuota(HiveSplit hiveSplit)
+    {
+        Optional<DataSize> quota = hiveSplit.getCacheQuotaRequirement().getQuota();
+        switch (hiveSplit.getCacheQuotaRequirement().getCacheQuotaScope()) {
+            case GLOBAL:
+                return new CacheQuota(".", quota);
+            case SCHEMA:
+                return new CacheQuota(hiveSplit.getDatabase(), quota);
+            case TABLE:
+                return new CacheQuota(hiveSplit.getDatabase() + "." + hiveSplit.getTable(), quota);
+            case PARTITION:
+                return new CacheQuota(hiveSplit.getDatabase() + "." + hiveSplit.getTable() + "." + hiveSplit.getPartitionName(), quota);
+            default:
+                throw new PrestoException(HIVE_UNKNOWN_ERROR, format("%s is not supported", quota));
+        }
     }
 
     private static Optional<ConnectorPageSource> createSelectivePageSource(
@@ -193,7 +219,8 @@ public class HivePageSourceProvider
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             LoadingCache<RowExpressionCacheKey, RowExpression> rowExpressionCache,
-            SplitContext splitContext)
+            SplitContext splitContext,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         Set<HiveColumnHandle> interimColumns = ImmutableSet.<HiveColumnHandle>builder()
                 .addAll(layout.getPredicateColumns().values())
@@ -234,6 +261,7 @@ public class HivePageSourceProvider
 
         RowExpression optimizedRemainingPredicate = rowExpressionCache.getUnchecked(new RowExpressionCacheKey(layout.getRemainingPredicate(), session));
 
+        CacheQuota cacheQuota = generateCacheQuota(split);
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     configuration,
@@ -251,7 +279,8 @@ public class HivePageSourceProvider
                     layout.getDomainPredicate(),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
-                    new HiveFileContext(splitContext.isCacheable(), split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)));
+                    new HiveFileContext(splitContext.isCacheable(), cacheQuota, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
+                    encryptionInformation);
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
@@ -288,7 +317,8 @@ public class HivePageSourceProvider
             HiveFileContext hiveFileContext,
             RowExpression remainingPredicate,
             boolean isPushdownFilterEnabled,
-            RowExpressionService rowExpressionService)
+            RowExpressionService rowExpressionService,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         List<HiveColumnHandle> allColumns;
 
@@ -332,11 +362,13 @@ public class HivePageSourceProvider
                     length,
                     fileSize,
                     storage,
+                    tableName,
                     tableParameters,
                     toColumnHandles(regularAndInterimColumnMappings, true),
                     effectivePredicate,
                     hiveStorageTimeZone,
-                    hiveFileContext);
+                    hiveFileContext,
+                    encryptionInformation);
             if (pageSource.isPresent()) {
                 HivePageSource hivePageSource = new HivePageSource(
                         columnMappings,
@@ -523,10 +555,10 @@ public class HivePageSourceProvider
         }
 
         /**
-         * @param columns columns that need to be returned to engine
-         * @param requiredInterimColumns columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
+         * @param columns                   columns that need to be returned to engine
+         * @param requiredInterimColumns    columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
          * @param partitionSchemaDifference map from hive column index to hive type
-         * @param bucketNumber empty if table is not bucketed, a number within [0, # bucket in table) otherwise
+         * @param bucketNumber              empty if table is not bucketed, a number within [0, # bucket in table) otherwise
          */
         public static List<ColumnMapping> buildColumnMappings(
                 List<HivePartitionKey> partitionKeys,

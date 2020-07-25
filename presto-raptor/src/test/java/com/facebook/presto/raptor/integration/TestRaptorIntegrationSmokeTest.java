@@ -14,7 +14,7 @@
 package com.facebook.presto.raptor.integration;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.ArrayType;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
@@ -39,13 +39,13 @@ import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.raptor.RaptorColumnHandle.SHARD_UUID_COLUMN_TYPE;
 import static com.facebook.presto.raptor.RaptorQueryRunner.createRaptorQueryRunner;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;

@@ -32,7 +32,7 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 
-import static com.facebook.presto.spi.type.Decimals.encodeScaledValue;
+import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

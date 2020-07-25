@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import org.apache.parquet.io.api.Binary;
 
-import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.Chars.truncateToLengthAndTrimSpaces;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
-import static com.facebook.presto.spi.type.Varchars.truncateToLength;
+import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
+import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.wrappedBuffer;
 
 public class BinaryColumnReader
-        extends PrimitiveColumnReader
+        extends AbstractColumnReader
 {
     public BinaryColumnReader(RichColumnDescriptor descriptor)
     {

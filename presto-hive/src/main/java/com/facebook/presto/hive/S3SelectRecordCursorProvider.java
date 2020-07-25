@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;

@@ -14,6 +14,11 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.expressions.RowExpressionNodeInliner;
 import com.facebook.presto.geospatial.KdbTree;
@@ -29,12 +34,10 @@ import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -43,9 +46,6 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
@@ -75,16 +75,17 @@ import java.util.Set;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.SystemSessionProperties.getSpatialPartitioningTableName;
 import static com.facebook.presto.SystemSessionProperties.isSpatialJoinEnabled;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.KdbTreeType.KDB_TREE;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.KdbTreeType.KDB_TREE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
@@ -374,9 +375,6 @@ public class ExtractSpatialJoins
             SplitManager splitManager,
             PageSourceManager pageSourceManager)
     {
-        // TODO Add support for distributed left spatial joins
-        Optional<String> spatialPartitioningTableName = joinNode.getType() == INNER ? getSpatialPartitioningTableName(context.getSession()) : Optional.empty();
-        Optional<KdbTree> kdbTree = spatialPartitioningTableName.map(tableName -> loadKdbTree(tableName, context.getSession(), metadata, splitManager, pageSourceManager));
         FunctionManager functionManager = metadata.getFunctionManager();
 
         List<RowExpression> arguments = spatialFunction.getArguments();
@@ -385,11 +383,9 @@ public class ExtractSpatialJoins
         RowExpression firstArgument = arguments.get(0);
         RowExpression secondArgument = arguments.get(1);
 
-        Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
-        if (firstArgument.getType().equals(sphericalGeographyType) || secondArgument.getType().equals(sphericalGeographyType)) {
-            if (joinNode.getType() != INNER) {
-                return Result.empty();
-            }
+        // Currently, only inner joins are supported for spherical geometries.
+        if (joinNode.getType() != INNER && isSphericalJoin(metadata, firstArgument, secondArgument)) {
+            return Result.empty();
         }
 
         Set<VariableReferenceExpression> firstVariables = extractUnique(firstArgument);
@@ -399,12 +395,14 @@ public class ExtractSpatialJoins
             return Result.empty();
         }
 
-        Optional<VariableReferenceExpression> newFirstVariable = newGeometryVariable(context, firstArgument, metadata);
-        Optional<VariableReferenceExpression> newSecondVariable = newGeometryVariable(context, secondArgument, metadata);
+        // If either firstArgument or secondArgument is not a
+        // VariableReferenceExpression, will replace the left/right join node
+        // with a projection that adds the argument as a variable.
+        Optional<VariableReferenceExpression> newFirstVariable = newGeometryVariable(context, firstArgument);
+        Optional<VariableReferenceExpression> newSecondVariable = newGeometryVariable(context, secondArgument);
 
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
-
         PlanNode newLeftNode;
         PlanNode newRightNode;
 
@@ -425,6 +423,13 @@ public class ExtractSpatialJoins
         RowExpression newFirstArgument = mapToExpression(newFirstVariable, firstArgument);
         RowExpression newSecondArgument = mapToExpression(newSecondVariable, secondArgument);
 
+        // Implement partitioned spatial joins:
+        // If the session parameter points to a valid spatial partitioning, use
+        // that to assign to each probe and build rows the partitions that the
+        // geometry intersects.  This is a projection that adds an array of ints
+        // which is subsequently unnested.
+        Optional<String> spatialPartitioningTableName = canPartitionSpatialJoin(joinNode) ? getSpatialPartitioningTableName(context.getSession()) : Optional.empty();
+        Optional<KdbTree> kdbTree = spatialPartitioningTableName.map(tableName -> loadKdbTree(tableName, context.getSession(), metadata, splitManager, pageSourceManager));
         Optional<VariableReferenceExpression> leftPartitionVariable = Optional.empty();
         Optional<VariableReferenceExpression> rightPartitionVariable = Optional.empty();
         if (kdbTree.isPresent()) {
@@ -454,6 +459,54 @@ public class ExtractSpatialJoins
                 leftPartitionVariable,
                 rightPartitionVariable,
                 kdbTree.map(KdbTreeUtils::toJson)));
+    }
+
+    private static boolean isSphericalJoin(Metadata metadata, RowExpression firstArgument, RowExpression secondArgument)
+    {
+        Type sphericalGeographyType = metadata.getType(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
+        return firstArgument.getType().equals(sphericalGeographyType) || secondArgument.getType().equals(sphericalGeographyType);
+    }
+
+    private static boolean canPartitionSpatialJoin(JoinNode joinNode)
+    {
+        /*
+         * Unlike equijoins, partitioned spatial joins can send a row to more
+         * than one join worker. Extended geometries (such as polygons) can
+         * intersect more than one spatial partition, but points will be sent
+         * to only one partition. For INNER joins, we only care about matches,
+         * so this is acceptable.  In the case of extended geometries on both
+         * probe and build side, we can disambiguate using the upper-left corner
+         * of the intersection of the envelopes.  Only the worker whose
+         * partition contains that point is responsible for the join.
+         *
+         * For OUTER joins we need to know if a row has not found a match.
+         * If a row in an OUTER side is on more than one worker in a distributed
+         * join (broadcast or partitioned), you cannot determine a non-match
+         * using only local information.  Not matching on one worker does not
+         * tell you if there isn't a match on another worker, so the worker
+         * doesn't know whether to emit a NULL for the non-match.
+         *
+         * This can happen if:
+         * 1. A side is broadcast, and it's OUTER on that side (including FULL).
+         * 2. A side is partitioned, the object is extended (ie, not a Point),
+         *    and it's OUTER on that side (including FULL).
+         *
+         * We assume that the right node is the build side.  The CBO is disabled
+         * for spatial joins, so this should be a good assumption.  Then we have:
+         * 1. INNER joins are OK.
+         * 2. LEFT joins when the left node is a Point are OK.
+         * 3. RIGHT joins when the right node is a Point are OK.
+         * 4. FULL joins when the left and right nodes are Points are OK.
+         * 5. If one side is extended by a radius (for ST_Distance), that side
+         *    is no longer considered a point.
+         *
+         * For now, we are only implementing the INNER case. Partitioned OUTER
+         * joins are future work.
+         *
+         * Caveat implementor: Letting the CBO change these joins requires
+         * thought about outer joins on broadcast sides, so consider carefully.
+         */
+        return joinNode.getType() == INNER;
     }
 
     private static KdbTree loadKdbTree(String tableName, Session session, Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
@@ -564,7 +617,7 @@ public class ExtractSpatialJoins
         return optionalVariable.map(RowExpression.class::cast).orElse(defaultExpression);
     }
 
-    private static Optional<VariableReferenceExpression> newGeometryVariable(Context context, RowExpression expression, Metadata metadata)
+    private static Optional<VariableReferenceExpression> newGeometryVariable(Context context, RowExpression expression)
     {
         if (expression instanceof VariableReferenceExpression) {
             return Optional.empty();
@@ -590,7 +643,7 @@ public class ExtractSpatialJoins
         }
 
         projections.put(variable, expression);
-        return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build());
+        return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build(), LOCAL);
     }
 
     private static PlanNode addPartitioningNodes(Context context, FunctionManager functionManager, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, RowExpression geometry, Optional<RowExpression> radius)
@@ -620,7 +673,7 @@ public class ExtractSpatialJoins
 
         return new UnnestNode(
                 context.getIdAllocator().getNextId(),
-                new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build()),
+                new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build(), LOCAL),
                 node.getOutputVariables(),
                 ImmutableMap.of(partitionsVariable, ImmutableList.of(partitionVariable)),
                 Optional.empty());

@@ -15,6 +15,13 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.PageBuilderStatus;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -22,15 +29,8 @@ import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOpera
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.builder.HashAggregationBuilder;
 import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ByteArrayBlock;
-import com.facebook.presto.spi.block.PageBuilderStatus;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -61,17 +61,18 @@ import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.GroupByHashYieldAssertion.GroupByHashYieldResult;
 import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static com.facebook.presto.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrder;
+import static com.facebook.presto.operator.OperatorAssertion.assertPagesEqualIgnoreOrder;
 import static com.facebook.presto.operator.OperatorAssertion.dropChannel;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
 import static com.facebook.presto.operator.OperatorAssertion.toPages;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
@@ -79,7 +80,6 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -153,15 +153,17 @@ public class TestHashAggregationOperator
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
     public void testHashAggregation(boolean hashEnabled, boolean spillEnabled, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
+        // make operator produce multiple pages during finish phase
+        int numberOfRows = 40_000;
         InternalAggregationFunction countVarcharColumn = getAggregation("count", VARCHAR);
         InternalAggregationFunction countBooleanColumn = getAggregation("count", BOOLEAN);
         InternalAggregationFunction maxVarcharColumn = getAggregation("max", VARCHAR);
         List<Integer> hashChannels = Ints.asList(1);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, hashChannels, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN);
         List<Page> input = rowPagesBuilder
-                .addSequencePage(10, 100, 0, 100, 0, 500)
-                .addSequencePage(10, 100, 0, 200, 0, 500)
-                .addSequencePage(10, 100, 0, 300, 0, 500)
+                .addSequencePage(numberOfRows, 100, 0, 100_000, 0, 500)
+                .addSequencePage(numberOfRows, 100, 0, 200_000, 0, 500)
+                .addSequencePage(numberOfRows, 100, 0, 300_000, 0, 500)
                 .build();
 
         HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
@@ -191,20 +193,16 @@ public class TestHashAggregationOperator
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
 
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT)
-                .row("0", 3L, 0L, 0.0, "300", 3L, 3L)
-                .row("1", 3L, 3L, 1.0, "301", 3L, 3L)
-                .row("2", 3L, 6L, 2.0, "302", 3L, 3L)
-                .row("3", 3L, 9L, 3.0, "303", 3L, 3L)
-                .row("4", 3L, 12L, 4.0, "304", 3L, 3L)
-                .row("5", 3L, 15L, 5.0, "305", 3L, 3L)
-                .row("6", 3L, 18L, 6.0, "306", 3L, 3L)
-                .row("7", 3L, 21L, 7.0, "307", 3L, 3L)
-                .row("8", 3L, 24L, 8.0, "308", 3L, 3L)
-                .row("9", 3L, 27L, 9.0, "309", 3L, 3L)
-                .build();
+        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), VARCHAR, BIGINT, BIGINT, DOUBLE, VARCHAR, BIGINT, BIGINT);
+        for (int i = 0; i < numberOfRows; ++i) {
+            expectedBuilder.row(Integer.toString(i), 3L, 3L * i, (double) i, Integer.toString(300_000 + i), 3L, 3L);
+        }
+        MaterializedResult expected = expectedBuilder.build();
 
-        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, hashEnabled, Optional.of(hashChannels.size()));
+        List<Page> pages = toPages(operatorFactory, driverContext, input);
+        assertGreaterThan(pages.size(), 1, "Expected more than one output page");
+        assertPagesEqualIgnoreOrder(driverContext, pages, expected, hashEnabled, Optional.of(hashChannels.size()));
+
         assertTrue(spillEnabled == (spillerFactory.getSpillsCount() > 0), format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()));
     }
 
@@ -780,47 +778,6 @@ public class TestHashAggregationOperator
     private static InternalAggregationFunction getAggregation(String name, Type... arguments)
     {
         return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(name, fromTypes(arguments)));
-    }
-
-    private static class DummySpillerFactory
-            implements SpillerFactory
-    {
-        private long spillsCount;
-
-        @Override
-        public Spiller create(List<Type> types, SpillContext spillContext, AggregatedMemoryContext memoryContext)
-        {
-            return new Spiller()
-            {
-                private final List<Iterable<Page>> spills = new ArrayList<>();
-
-                @Override
-                public ListenableFuture<?> spill(Iterator<Page> pageIterator)
-                {
-                    spillsCount++;
-                    spills.add(ImmutableList.copyOf(pageIterator));
-                    return immediateFuture(null);
-                }
-
-                @Override
-                public List<Iterator<Page>> getSpills()
-                {
-                    return spills.stream()
-                            .map(Iterable::iterator)
-                            .collect(toImmutableList());
-                }
-
-                @Override
-                public void close()
-                {
-                }
-            };
-        }
-
-        public long getSpillsCount()
-        {
-            return spillsCount;
-        }
     }
 
     private static class FailingSpillerFactory

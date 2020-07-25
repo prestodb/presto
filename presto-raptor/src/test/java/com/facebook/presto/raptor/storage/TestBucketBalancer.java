@@ -44,10 +44,10 @@ import java.util.stream.Collectors;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.raptor.metadata.Distribution.serializeColumnTypes;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;

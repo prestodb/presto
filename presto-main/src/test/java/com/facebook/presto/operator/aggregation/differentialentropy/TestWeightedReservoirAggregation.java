@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -25,8 +25,8 @@ import java.util.List;
 import static com.facebook.presto.block.BlockAssertions.createDoublesBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.aggregation;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 
 public class TestWeightedReservoirAggregation
         extends AbstractTestReservoirAggregation

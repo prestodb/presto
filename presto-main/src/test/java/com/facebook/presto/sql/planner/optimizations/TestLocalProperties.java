@@ -14,12 +14,12 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConstantProperty;
 import com.facebook.presto.spi.GroupingProperty;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.SortingProperty;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;

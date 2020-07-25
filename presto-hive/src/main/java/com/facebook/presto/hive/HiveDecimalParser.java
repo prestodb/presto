@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.type.DecimalType;
+import com.facebook.presto.common.type.DecimalType;
 
 import java.math.BigDecimal;
 
-import static com.facebook.presto.spi.type.Decimals.rescale;
+import static com.facebook.presto.common.type.Decimals.rescale;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 

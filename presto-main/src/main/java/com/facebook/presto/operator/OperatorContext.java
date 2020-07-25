@@ -15,12 +15,12 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.memory.QueryContextVisitor;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.annotations.VisibleForTesting;
@@ -603,7 +603,13 @@ public class OperatorContext
         @Override
         public ListenableFuture<?> setBytes(long bytes)
         {
-            ListenableFuture<?> blocked = delegate.setBytes(bytes);
+            return setBytes(bytes, false);
+        }
+
+        @Override
+        public ListenableFuture<?> setBytes(long bytes, boolean enforceBroadcastMemoryLimit)
+        {
+            ListenableFuture<?> blocked = delegate.setBytes(bytes, enforceBroadcastMemoryLimit);
             updateMemoryFuture(blocked, memoryFuture);
             allocationListener.run();
             return blocked;
@@ -612,7 +618,13 @@ public class OperatorContext
         @Override
         public boolean trySetBytes(long bytes)
         {
-            if (delegate.trySetBytes(bytes)) {
+            return trySetBytes(bytes, false);
+        }
+
+        @Override
+        public boolean trySetBytes(long bytes, boolean enforceBroadcastMemoryLimit)
+        {
+            if (delegate.trySetBytes(bytes, enforceBroadcastMemoryLimit)) {
                 allocationListener.run();
                 return true;
             }

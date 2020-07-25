@@ -14,13 +14,16 @@
 package com.facebook.presto.spark.classloader_interface;
 
 import org.apache.spark.util.CollectionAccumulator;
+import scala.collection.Iterator;
 
 public interface IPrestoSparkTaskExecutorFactory
 {
-    IPrestoSparkTaskExecutor create(
+    <T extends PrestoSparkTaskOutput> IPrestoSparkTaskExecutor<T> create(
             int partitionId,
             int attemptNumber,
             SerializedPrestoSparkTaskDescriptor taskDescriptor,
+            Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector);
+            CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+            Class<T> outputType);
 }

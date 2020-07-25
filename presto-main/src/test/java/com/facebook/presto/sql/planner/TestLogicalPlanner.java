@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -26,7 +27,6 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -50,14 +50,15 @@ import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_SORT;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.common.predicate.Domain.singleValue;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
-import static com.facebook.presto.spi.predicate.Domain.singleValue;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
@@ -97,6 +98,7 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.PAR
 import static com.facebook.presto.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
+import static com.facebook.presto.sql.planner.plan.JoinNode.Type.RIGHT;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
@@ -1068,5 +1070,64 @@ public class TestLogicalPlanner
                                                                 project(
                                                                         aggregation(ImmutableMap.of(),
                                                                                 project(values("col1")))))))))));
+    }
+
+    @Test
+    public void testJoinNullFilters()
+    {
+        Session nullFiltersInJoin = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZE_NULLS_IN_JOINS, Boolean.toString(true))
+                .build();
+        assertPlanWithSession("SELECT nationkey FROM nation INNER JOIN region ON nation.regionkey = region.regionkey",
+                nullFiltersInJoin, false,
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
+                                anyTree(
+                                        filter("NATION_REGIONKEY IS NOT NULL",
+                                                tableScan(
+                                                        "nation",
+                                                        ImmutableMap.of("NATION_REGIONKEY", "regionkey")))),
+                                anyTree(
+                                        filter("region_REGIONKEY IS NOT NULL",
+                                                tableScan(
+                                                        "region",
+                                                        ImmutableMap.of(
+                                                                "REGION_REGIONKEY", "regionkey")))))));
+
+        assertPlanWithSession("SELECT nationkey FROM nation LEFT JOIN region ON nation.regionkey = region.regionkey",
+                nullFiltersInJoin, false,
+                anyTree(
+                        join(
+                                LEFT,
+                                ImmutableList.of(equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
+                                anyTree(
+                                            tableScan(
+                                                    "nation",
+                                                    ImmutableMap.of("NATION_REGIONKEY", "regionkey"))),
+                                anyTree(
+                                        filter("region_REGIONKEY IS NOT NULL",
+                                                tableScan(
+                                                        "region",
+                                                        ImmutableMap.of(
+                                                                "REGION_REGIONKEY", "regionkey")))))));
+
+        assertPlanWithSession("SELECT nationkey FROM nation RIGHT JOIN region ON nation.regionkey = region.regionkey",
+                nullFiltersInJoin, false,
+                anyTree(
+                        join(
+                                RIGHT,
+                                ImmutableList.of(equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
+                                anyTree(
+                                        filter("NATION_REGIONKEY IS NOT NULL",
+                                                tableScan(
+                                                        "nation",
+                                                        ImmutableMap.of("NATION_REGIONKEY", "regionkey")))),
+                                anyTree(
+                                        tableScan(
+                                                "region",
+                                                ImmutableMap.of(
+                                                "REGION_REGIONKEY", "regionkey"))))));
     }
 }

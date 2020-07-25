@@ -66,6 +66,10 @@ public enum HiveErrorCode
     HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE(39, INTERNAL_ERROR),
     HIVE_TABLE_BUCKETING_IS_IGNORED(40, USER_ERROR),
     HIVE_TRANSACTION_NOT_FOUND(41, INTERNAL_ERROR),
+    // To be used for metadata inconsistencies and not for incorrect input from users
+    HIVE_INVALID_ENCRYPTION_METADATA(42, EXTERNAL),
+    HIVE_UNSUPPORTED_ENCRYPTION_OPERATION(43, USER_ERROR),
+    MALFORMED_HIVE_FILE_STATISTICS(44, INTERNAL_ERROR),
     /**/;
 
     private final ErrorCode errorCode;

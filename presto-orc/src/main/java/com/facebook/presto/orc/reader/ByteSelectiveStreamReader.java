@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockLease;
+import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.ClosingBlockLease;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
@@ -21,26 +26,21 @@ import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.ByteInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockLease;
-import com.facebook.presto.spi.block.ByteArrayBlock;
-import com.facebook.presto.spi.block.ClosingBlockLease;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.ReaderUtils.unpackByteNulls;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -97,7 +97,7 @@ public class ByteSelectiveStreamReader
     }
 
     @Override
-    public void startStripe(InputStreamSources dictionaryStreamSources, List<ColumnEncoding> encoding)
+    public void startStripe(InputStreamSources dictionaryStreamSources, Map<Integer, ColumnEncoding> encoding)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         dataStreamSource = missingStreamSource(ByteInputStream.class);

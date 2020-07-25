@@ -22,7 +22,7 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
+import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public class TriggerBucketBalancerProcedure

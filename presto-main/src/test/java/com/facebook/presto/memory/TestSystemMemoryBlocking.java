@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.memory;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.metadata.Split;
@@ -30,7 +31,6 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.PageConsumerOperator;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -53,8 +53,8 @@ import java.util.function.Function;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;

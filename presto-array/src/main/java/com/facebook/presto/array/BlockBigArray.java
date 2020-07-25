@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.array;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
 import org.openjdk.jol.info.ClassLayout;
 
 public final class BlockBigArray

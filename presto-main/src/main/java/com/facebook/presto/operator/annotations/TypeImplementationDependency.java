@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.operator.annotations;
 
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 
 import java.util.Objects;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public final class TypeImplementationDependency

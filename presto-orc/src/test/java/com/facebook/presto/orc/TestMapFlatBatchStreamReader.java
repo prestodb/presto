@@ -14,27 +14,27 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.RowFieldName;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.RowFieldName;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.SqlTimestamp;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -53,6 +53,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.ALL;
@@ -400,7 +401,8 @@ public class TestMapFlatBatchStreamReader
                 new StorageStripeMetadataSource(),
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 OrcReaderTestingUtils.createDefaultTestConfig(),
-                false);
+                false,
+                NO_ENCRYPTION);
         Type mapType = TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(
@@ -412,7 +414,8 @@ public class TestMapFlatBatchStreamReader
                 createOrcPredicate(0, mapType, expectedValues, OrcTester.Format.DWRF, true),
                 HIVE_STORAGE_TIME_ZONE,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                1024)) {
+                1024,
+                ImmutableMap.of())) {
             Iterator<?> expectedValuesIterator = expectedValues.iterator();
 
             boolean isFirst = true;

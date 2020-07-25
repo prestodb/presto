@@ -25,8 +25,8 @@ import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 
-import static com.facebook.presto.spi.block.MethodHandleUtil.methodHandle;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class RangePartitionProcedures

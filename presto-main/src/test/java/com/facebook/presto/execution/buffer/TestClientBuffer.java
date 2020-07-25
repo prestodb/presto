@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.execution.buffer.ClientBuffer.PagesSupplier;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.buffer.BufferResult.emptyResults;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.NO_WAIT;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.PAGES_SERDE;
@@ -41,7 +42,6 @@ import static com.facebook.presto.execution.buffer.BufferTestUtils.createBufferR
 import static com.facebook.presto.execution.buffer.BufferTestUtils.createPage;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.getFuture;
 import static com.facebook.presto.execution.buffer.BufferTestUtils.sizeOfPages;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;

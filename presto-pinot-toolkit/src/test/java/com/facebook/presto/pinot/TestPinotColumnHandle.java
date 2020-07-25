@@ -16,11 +16,11 @@ package com.facebook.presto.pinot;
 import com.facebook.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.MetadataUtil.COLUMN_CODEC;
 import static com.facebook.presto.pinot.PinotColumnHandle.PinotColumnType.DERIVED;
 import static com.facebook.presto.pinot.PinotColumnHandle.PinotColumnType.REGULAR;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 
 public class TestPinotColumnHandle

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignature;
 import org.jdbi.v3.core.argument.AbstractArgumentFactory;
 import org.jdbi.v3.core.argument.Argument;
 import org.jdbi.v3.core.argument.ObjectArgument;

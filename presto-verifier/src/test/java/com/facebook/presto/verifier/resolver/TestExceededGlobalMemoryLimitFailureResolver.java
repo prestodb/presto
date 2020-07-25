@@ -34,7 +34,7 @@ public class TestExceededGlobalMemoryLimitFailureResolver
     @Test
     public void testLowerControlMemory()
     {
-        assertFalse(getFailureResolver().resolve(
+        assertFalse(getFailureResolver().resolveQueryFailure(
                 CONTROL_QUERY_STATS,
                 new PrestoQueryException(
                         new RuntimeException(),
@@ -50,7 +50,7 @@ public class TestExceededGlobalMemoryLimitFailureResolver
     public void testResolved()
     {
         assertEquals(
-                getFailureResolver().resolve(
+                getFailureResolver().resolveQueryFailure(
                         CONTROL_QUERY_STATS,
                         new PrestoQueryException(
                                 new RuntimeException(),

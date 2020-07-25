@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
@@ -32,9 +32,9 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
 

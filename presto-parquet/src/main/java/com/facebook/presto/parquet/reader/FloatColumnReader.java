@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.parquet.reader;
 
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 
 import static java.lang.Float.floatToRawIntBits;
 
 public class FloatColumnReader
-        extends PrimitiveColumnReader
+        extends AbstractColumnReader
 {
     public FloatColumnReader(RichColumnDescriptor descriptor)
     {

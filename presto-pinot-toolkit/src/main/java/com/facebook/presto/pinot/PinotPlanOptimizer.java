@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.pinot.query.PinotFilterExpressionConverter;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
@@ -33,7 +34,6 @@ import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -161,15 +161,15 @@ public class PinotPlanOptimizer
 
         private Optional<PlanNode> tryCreatingNewScanNode(PlanNode plan)
         {
-            Optional<PinotQueryGenerator.PinotQueryGeneratorResult> pql = pinotQueryGenerator.generate(plan, session);
-            if (!pql.isPresent()) {
+            Optional<PinotQueryGenerator.PinotQueryGeneratorResult> pinotQuery = pinotQueryGenerator.generate(plan, session);
+            if (!pinotQuery.isPresent()) {
                 return Optional.empty();
             }
             PinotTableHandle pinotTableHandle = getPinotTableHandle(tableScanNode).orElseThrow(() -> new PinotException(PINOT_UNCLASSIFIED_ERROR, Optional.empty(), "Expected to find a pinot table handle"));
-            PinotQueryGeneratorContext context = pql.get().getContext();
+            PinotQueryGeneratorContext context = pinotQuery.get().getContext();
             TableHandle oldTableHandle = tableScanNode.getTable();
             LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = context.getAssignments();
-            boolean isQueryShort = pql.get().getGeneratedPql().isQueryShort();
+            boolean isQueryShort = pinotQuery.get().getGeneratedPinotQuery().isQueryShort();
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
                     new PinotTableHandle(
@@ -178,7 +178,7 @@ public class PinotPlanOptimizer
                             pinotTableHandle.getTableName(),
                             Optional.of(isQueryShort),
                             Optional.of(ImmutableList.copyOf(assignments.values())),
-                            Optional.of(pql.get().getGeneratedPql())),
+                            Optional.of(pinotQuery.get().getGeneratedPinotQuery())),
                     oldTableHandle.getTransaction(),
                     oldTableHandle.getLayout());
             return Optional.of(

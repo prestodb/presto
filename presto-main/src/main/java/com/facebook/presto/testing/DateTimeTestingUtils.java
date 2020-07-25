@@ -14,11 +14,11 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.SqlTime;
+import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.SqlTime;
-import com.facebook.presto.spi.type.SqlTimestamp;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 

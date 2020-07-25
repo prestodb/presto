@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

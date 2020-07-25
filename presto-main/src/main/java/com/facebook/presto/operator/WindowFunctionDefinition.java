@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.window.FrameInfo;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.function.WindowFunction;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Arrays;

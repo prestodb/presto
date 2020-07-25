@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.StreamDescriptor;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.function.Predicate;
 

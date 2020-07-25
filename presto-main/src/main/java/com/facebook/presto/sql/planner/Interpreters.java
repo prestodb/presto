@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
 import com.facebook.presto.type.LikeFunctions;
 import io.airlift.joni.Regex;
 import io.airlift.slice.Slice;

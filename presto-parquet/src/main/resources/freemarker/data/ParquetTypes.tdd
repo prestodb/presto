@@ -1,0 +1,22 @@
+{
+    flatTypes: [
+        {
+            classNamePrefix: "Int64",
+            blockType: "LongArrayBlock",
+            valuesDecoder: "Int64ValuesDecoder",
+            primitiveType: "long"
+        },
+        {
+            classNamePrefix: "Timestamp",
+            blockType: "LongArrayBlock",
+            valuesDecoder: "TimestampValuesDecoder",
+            primitiveType: "long"
+        },
+        {
+            classNamePrefix: "Boolean",
+            blockType: "ByteArrayBlock",
+            valuesDecoder: "BooleanValuesDecoder",
+            primitiveType: "byte"
+        }
+    ]
+}

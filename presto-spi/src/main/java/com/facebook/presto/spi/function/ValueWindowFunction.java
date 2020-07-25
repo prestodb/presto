@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilder;
 
 public abstract class ValueWindowFunction
         implements WindowFunction

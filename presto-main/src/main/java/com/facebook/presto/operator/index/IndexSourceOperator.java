@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FinishedOperator;
@@ -24,7 +25,6 @@ import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.SplitOperatorInfo;
 import com.facebook.presto.spi.ConnectorIndex;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;

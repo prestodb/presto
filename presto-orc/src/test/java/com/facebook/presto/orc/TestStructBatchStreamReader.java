@@ -14,18 +14,18 @@
 
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RowBlock;
+import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.RowFieldName;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RowBlock;
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.RowFieldName;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +45,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
@@ -52,7 +54,6 @@ import static com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode.
 import static com.facebook.presto.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
 import static com.facebook.presto.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -225,6 +226,8 @@ public class TestStructBatchStreamReader
                 ImmutableList.of(writerType),
                 ORC,
                 NONE,
+                Optional.empty(),
+                NO_ENCRYPTION,
                 new OrcWriterOptions()
                         .withStripeMinSize(new DataSize(0, MEGABYTE))
                         .withStripeMaxSize(new DataSize(32, MEGABYTE))
@@ -275,7 +278,8 @@ public class TestStructBatchStreamReader
                         dataSize,
                         dataSize,
                         false),
-                false);
+                false,
+                NO_ENCRYPTION);
 
         Map<Integer, Type> includedColumns = new HashMap<>();
         includedColumns.put(0, readerType);
@@ -285,7 +289,8 @@ public class TestStructBatchStreamReader
                 OrcPredicate.TRUE,
                 UTC,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                OrcReader.INITIAL_BATCH_SIZE);
+                OrcReader.INITIAL_BATCH_SIZE,
+                ImmutableMap.of());
 
         recordReader.nextBatch();
         RowBlock block = (RowBlock) recordReader.readBlock(0);

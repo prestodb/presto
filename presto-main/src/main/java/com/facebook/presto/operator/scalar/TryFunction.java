@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlNullable;

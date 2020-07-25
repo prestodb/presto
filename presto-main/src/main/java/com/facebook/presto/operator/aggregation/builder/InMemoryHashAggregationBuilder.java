@@ -14,6 +14,10 @@
 package com.facebook.presto.operator.aggregation.builder;
 
 import com.facebook.presto.array.IntBigArray;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.GroupByHash;
 import com.facebook.presto.operator.GroupByIdBlock;
@@ -26,12 +30,8 @@ import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -48,8 +48,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -66,6 +66,7 @@ public class InMemoryHashAggregationBuilder
     private final boolean useSystemMemory;
 
     private boolean full;
+    private boolean hasBuiltFinalResult;
 
     public InMemoryHashAggregationBuilder(
             List<AccumulatorFactory> accumulatorFactories,
@@ -253,6 +254,7 @@ public class InMemoryHashAggregationBuilder
     @Override
     public WorkProcessor<Page> buildResult()
     {
+        hasBuiltFinalResult = true;
         for (Aggregator aggregator : aggregators) {
             aggregator.prepareFinal();
         }
@@ -271,6 +273,11 @@ public class InMemoryHashAggregationBuilder
             types.add(aggregator.getIntermediateType());
         }
         return types;
+    }
+
+    public boolean hasBuiltFinalResult()
+    {
+        return hasBuiltFinalResult;
     }
 
     @VisibleForTesting

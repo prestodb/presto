@@ -14,10 +14,12 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
@@ -30,11 +32,9 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
 import com.facebook.presto.sql.analyzer.FieldId;
@@ -79,11 +79,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
@@ -406,7 +407,8 @@ class QueryPlanner
         return new PlanBuilder(translations, new ProjectNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                projections.build()),
+                projections.build(),
+                LOCAL),
                 analysis.getParameters());
     }
 
@@ -422,7 +424,8 @@ class QueryPlanner
         return new PlanBuilder(translations, new ProjectNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                assignments),
+                assignments,
+                LOCAL),
                 analysis.getParameters());
     }
 
@@ -541,7 +544,7 @@ class QueryPlanner
             aggregationArguments.stream().map(AssignmentUtils::identityAsSymbolReference).forEach(assignments::put);
             groupingSetMappings.forEach((key, value) -> assignments.put(key, castToRowExpression(asSymbolReference(value))));
 
-            ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
+            ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build(), LOCAL);
             subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
         }
 
@@ -701,7 +704,7 @@ class QueryPlanner
             newTranslations.put(groupingOperation, variable);
         }
 
-        return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), analysis.getParameters());
+        return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build(), LOCAL), analysis.getParameters());
     }
 
     private PlanBuilder window(PlanBuilder subPlan, OrderBy node)

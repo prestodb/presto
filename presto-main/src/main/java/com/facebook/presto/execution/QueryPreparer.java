@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -32,13 +33,18 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
+import static com.facebook.presto.execution.warnings.WarningHandlingLevel.AS_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static java.lang.String.format;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class QueryPreparer
 {
@@ -54,6 +60,12 @@ public class QueryPreparer
             throws ParsingException, PrestoException, SemanticException
     {
         Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session, warningCollector));
+        if (warningCollector.hasWarnings() && getWarningHandlingLevel(session) == AS_ERROR) {
+            throw new PrestoException(WARNING_AS_ERROR, format("Warning handling level set to AS_ERROR. Warnings: %n %s",
+                    warningCollector.getWarnings().stream()
+                            .map(PrestoWarning::getMessage)
+                            .collect(joining(System.lineSeparator()))));
+        }
         return prepareQuery(session, wrappedStatement, warningCollector);
     }
 

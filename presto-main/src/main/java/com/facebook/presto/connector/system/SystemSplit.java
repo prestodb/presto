@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

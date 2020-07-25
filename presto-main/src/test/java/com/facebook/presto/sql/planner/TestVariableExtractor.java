@@ -24,7 +24,7 @@ import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractAll;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractUnique;

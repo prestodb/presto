@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
@@ -41,7 +42,6 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.split.ConnectorAwareSplitSource;
 import com.facebook.presto.split.SplitSource;
@@ -76,12 +76,12 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;

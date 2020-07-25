@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.util;
 
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 
 public final class Types
 {

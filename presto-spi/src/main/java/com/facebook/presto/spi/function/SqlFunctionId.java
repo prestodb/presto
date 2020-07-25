@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

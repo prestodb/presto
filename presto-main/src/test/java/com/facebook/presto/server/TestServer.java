@@ -23,9 +23,9 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.testing.Closeables;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.type.TimeZoneNotSupportedException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
@@ -109,9 +109,6 @@ public class TestServer
         assertNotNull(queryError);
 
         TimeZoneNotSupportedException expected = new TimeZoneNotSupportedException(invalidTimeZone);
-        assertEquals(queryError.getErrorCode(), expected.getErrorCode().getCode());
-        assertEquals(queryError.getErrorName(), expected.getErrorCode().getName());
-        assertEquals(queryError.getErrorType(), expected.getErrorCode().getType().name());
         assertEquals(queryError.getMessage(), expected.getMessage());
     }
 
@@ -227,9 +224,9 @@ public class TestServer
     public void testStatusPing()
     {
         Request request = prepareHead()
-                                  .setUri(uriFor("/v1/status"))
-                                  .setFollowRedirects(false)
-                                  .build();
+                .setUri(uriFor("/v1/status"))
+                .setFollowRedirects(false)
+                .build();
         StatusResponseHandler.StatusResponse response = client.execute(request, createStatusResponseHandler());
         assertEquals(response.getStatusCode(), OK.getStatusCode(), "Status code");
         assertEquals(response.getHeader(CONTENT_TYPE), APPLICATION_JSON, "Content Type");

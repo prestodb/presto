@@ -16,9 +16,16 @@ package com.facebook.presto.metadata;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -38,7 +45,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
+import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -46,9 +53,7 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.LimitApplicationResult;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.SqlFunction;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -56,9 +61,6 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PartitioningHandle;
@@ -93,6 +95,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
+import static com.facebook.presto.common.function.OperatorType.BETWEEN;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
@@ -101,14 +112,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
-import static com.facebook.presto.spi.function.OperatorType.BETWEEN;
-import static com.facebook.presto.spi.function.OperatorType.EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static com.facebook.presto.spi.function.OperatorType.NOT_EQUAL;
+import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -120,6 +124,8 @@ import static java.util.Objects.requireNonNull;
 public class MetadataManager
         implements Metadata
 {
+    private static final Logger log = Logger.get(MetadataManager.class);
+
     private final FunctionManager functions;
     private final ProcedureRegistry procedures;
     private final TypeManager typeManager;
@@ -271,7 +277,7 @@ public class MetadataManager
     }
 
     @Override
-    public void registerBuiltInFunctions(List<? extends BuiltInFunction> functionInfos)
+    public void registerBuiltInFunctions(List<? extends SqlFunction> functionInfos)
     {
         functions.registerBuiltInFunctions(functionInfos);
     }
@@ -503,9 +509,18 @@ public class MetadataManager
     @Override
     public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableHandle.getLayout(), columnHandles, constraint);
+        try {
+            ConnectorId connectorId = tableHandle.getConnectorId();
+            ConnectorMetadata metadata = getMetadata(session, connectorId);
+            return metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableHandle.getLayout(), columnHandles, constraint);
+        }
+        catch (RuntimeException e) {
+            if (isIgnoreStatsCalculatorFailures(session)) {
+                log.error(e, "Error occurred when computing stats for query %s", session.getQueryId());
+                return TableStatistics.empty();
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -999,7 +1014,7 @@ public class MetadataManager
             ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
             if (view != null) {
                 ViewDefinition definition = deserializeView(view.getViewData());
-                if (view.getOwner().isPresent()) {
+                if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
                     definition = definition.withOwner(view.getOwner().get());
                 }
                 return Optional.of(definition);
@@ -1255,6 +1270,22 @@ public class MetadataManager
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId connectorId)
     {
         return getCatalogMetadata(session, connectorId).getConnectorCapabilities();
+    }
+
+    @Override
+    public TableLayoutFilterCoverage getTableLayoutFilterCoverage(Session session, TableHandle tableHandle, Set<String> relevantPartitionColumns)
+    {
+        requireNonNull(tableHandle, "tableHandle cannot be null");
+        requireNonNull(relevantPartitionColumns, "relevantPartitionKeys cannot be null");
+
+        if (!tableHandle.getLayout().isPresent()) {
+            return NOT_APPLICABLE;
+        }
+
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        return metadata.getTableLayoutFilterCoverage(tableHandle.getLayout().get(), relevantPartitionColumns);
     }
 
     private ViewDefinition deserializeView(String data)

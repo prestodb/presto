@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryPerformanceFetcher;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;

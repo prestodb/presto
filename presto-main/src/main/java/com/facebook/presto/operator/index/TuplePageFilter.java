@@ -13,17 +13,20 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.project.InputChannels;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -85,8 +88,13 @@ public class TuplePageFilter
             Type type = types.get(channel);
             Block outputBlock = page.getBlock(channel);
             Block singleTupleBlock = tuplePage.getBlock(channel);
-            if (!type.equalTo(singleTupleBlock, 0, outputBlock, position)) {
-                return false;
+            try {
+                if (!type.equalTo(singleTupleBlock, 0, outputBlock, position)) {
+                    return false;
+                }
+            }
+            catch (NotSupportedException e) {
+                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
             }
         }
         return true;

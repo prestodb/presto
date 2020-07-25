@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.accumulo;
 
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 
 /**
  * Utility class for Presto Type-related functionality.

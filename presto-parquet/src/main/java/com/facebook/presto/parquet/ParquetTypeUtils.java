@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.parquet;
 
-import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.Subfield.PathElement;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.Subfield.PathElement;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
@@ -37,7 +37,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.Subfield.NestedField;
+import static com.facebook.presto.common.Subfield.NestedField;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
@@ -273,15 +273,22 @@ public final class ParquetTypeUtils
 
         ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
         org.apache.parquet.schema.Type parentType = getParquetTypeByName(subfield.getRootName(), baseType);
+        if (parentType == null) {
+            // column doesn't exist in the file
+            return new MessageType(subfield.getRootName(), ImmutableList.of());
+        }
+        String rootName = parentType.getName();
 
         for (PathElement field : subfield.getPath()) {
             if (field instanceof NestedField) {
                 NestedField nestedField = (NestedField) field;
                 org.apache.parquet.schema.Type childType = getParquetTypeByName(nestedField.getName(), parentType.asGroupType());
-                if (childType != null) {
-                    typeBuilder.add(childType);
-                    parentType = childType;
+                if (childType == null) {
+                    // the subtree is missing in the file, just return an empty message type as there is nothing to read
+                    return new MessageType(rootName, ImmutableList.of());
                 }
+                typeBuilder.add(childType);
+                parentType = childType;
             }
             else {
                 typeBuilder.add(parentType.asGroupType().getFields().get(0));
@@ -290,14 +297,11 @@ public final class ParquetTypeUtils
         }
 
         List<org.apache.parquet.schema.Type> subfieldTypes = typeBuilder.build();
-        if (subfieldTypes.isEmpty()) {
-            return new MessageType(subfield.getRootName(), ImmutableList.of());
-        }
         org.apache.parquet.schema.Type type = subfieldTypes.get(subfieldTypes.size() - 1);
         for (int i = subfieldTypes.size() - 2; i >= 0; --i) {
             GroupType groupType = subfieldTypes.get(i).asGroupType();
             type = new MessageType(groupType.getName(), ImmutableList.of(type));
         }
-        return new MessageType(subfield.getRootName(), ImmutableList.of(type));
+        return new MessageType(rootName, ImmutableList.of(type));
     }
 }

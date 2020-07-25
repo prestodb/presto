@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -27,7 +28,6 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +39,7 @@ import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -74,6 +75,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
+import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.facebook.presto.server.smile.JsonCodecWrapper.wrapJsonCodec;
 import static com.facebook.presto.util.TaskUtils.DEFAULT_MAX_WAIT_TIME;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
@@ -88,6 +90,7 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
  * Manages tasks on this worker node
  */
 @Path("/v1/task")
+@RolesAllowed(INTERNAL)
 public class TaskResource
 {
     private static final Duration ADDITIONAL_WAIT_TIME = new Duration(5, SECONDS);

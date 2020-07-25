@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.connector.system.jdbc;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class TableTypeJdbcTable
         extends JdbcTable

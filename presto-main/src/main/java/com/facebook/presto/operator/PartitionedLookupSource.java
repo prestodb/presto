@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.exchange.LocalPartitionGenerator;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.io.Closer;
 
 import javax.annotation.Nullable;

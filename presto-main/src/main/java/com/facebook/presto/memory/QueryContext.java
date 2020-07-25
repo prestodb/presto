@@ -38,7 +38,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
 import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
@@ -74,6 +77,11 @@ public class QueryContext
     @GuardedBy("this")
     private long maxTotalMemory;
 
+    @GuardedBy("this")
+    private long broadcastUsed;
+    @GuardedBy("this")
+    private long maxBroadcastUsedMemory;
+
     private final MemoryTrackingContext queryMemoryContext;
 
     @GuardedBy("this")
@@ -86,6 +94,7 @@ public class QueryContext
             QueryId queryId,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
+            DataSize maxBroadcastUsedMemory,
             MemoryPool memoryPool,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
@@ -96,6 +105,7 @@ public class QueryContext
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null").toBytes();
+        this.maxBroadcastUsedMemory = requireNonNull(maxBroadcastUsedMemory, "maxBroadcastUsedMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -103,9 +113,9 @@ public class QueryContext
         this.maxSpill = requireNonNull(maxSpill, "maxSpill is null").toBytes();
         this.spillSpaceTracker = requireNonNull(spillSpaceTracker, "spillSpaceTracker is null");
         this.queryMemoryContext = new MemoryTrackingContext(
-                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateUserMemory, this::tryUpdateUserMemory), GUARANTEED_MEMORY),
-                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateRevocableMemory, this::tryReserveMemoryNotSupported), 0L),
-                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateSystemMemory, this::tryReserveMemoryNotSupported), 0L));
+                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateUserMemory, this::tryUpdateUserMemory, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), GUARANTEED_MEMORY),
+                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateRevocableMemory, this::tryReserveMemoryNotSupported, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), 0L),
+                newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateSystemMemory, this::tryReserveMemoryNotSupported, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), 0L));
     }
 
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
@@ -121,6 +131,14 @@ public class QueryContext
     MemoryTrackingContext getQueryMemoryContext()
     {
         return queryMemoryContext;
+    }
+
+    public synchronized void updateBroadcastMemory(long delta)
+    {
+        if (delta >= 0) {
+            enforceBroadcastMemoryLimit(broadcastUsed, delta, maxBroadcastUsedMemory);
+        }
+        broadcastUsed += delta;
     }
 
     /**
@@ -187,6 +205,19 @@ public class QueryContext
         ListenableFuture<?> future = spillSpaceTracker.reserve(bytes);
         spillUsed += bytes;
         return future;
+    }
+
+    private synchronized boolean tryUpdateBroadcastMemory(long delta)
+    {
+        if (delta <= 0) {
+            broadcastUsed += delta;
+            return true;
+        }
+        if (broadcastUsed + delta > maxBroadcastUsedMemory) {
+            return false;
+        }
+        broadcastUsed += delta;
+        return true;
     }
 
     private synchronized boolean tryUpdateUserMemory(String allocationTag, long delta)
@@ -306,11 +337,12 @@ public class QueryContext
         return queryId;
     }
 
-    public synchronized void setMemoryLimits(DataSize queryMaxTaskMemory, DataSize queryMaxTotalTaskMemory)
+    public synchronized void setMemoryLimits(DataSize queryMaxTaskMemory, DataSize queryMaxTotalTaskMemory, DataSize queryMaxBroadcastMemory)
     {
         // Don't allow session properties to increase memory beyond configured limits
         maxUserMemory = Math.min(maxUserMemory, queryMaxTaskMemory.toBytes());
         maxTotalMemory = Math.min(maxTotalMemory, queryMaxTotalTaskMemory.toBytes());
+        maxBroadcastUsedMemory = Math.min(maxBroadcastUsedMemory, queryMaxBroadcastMemory.toBytes());
     }
 
     private static class QueryMemoryReservationHandler
@@ -318,31 +350,52 @@ public class QueryContext
     {
         private final BiFunction<String, Long, ListenableFuture<?>> reserveMemoryFunction;
         private final BiPredicate<String, Long> tryReserveMemoryFunction;
+        private final Consumer<Long> updateBroadcastMemoryFunction;
+        private final Predicate<Long> tryUpdateBroadcastMemoryFunction;
 
         public QueryMemoryReservationHandler(
                 BiFunction<String, Long, ListenableFuture<?>> reserveMemoryFunction,
-                BiPredicate<String, Long> tryReserveMemoryFunction)
+                BiPredicate<String, Long> tryReserveMemoryFunction,
+                Consumer<Long> updateBroadcastMemoryFunction,
+                Predicate<Long> tryUpdateBroadcastMemoryFunction)
         {
             this.reserveMemoryFunction = requireNonNull(reserveMemoryFunction, "reserveMemoryFunction is null");
             this.tryReserveMemoryFunction = requireNonNull(tryReserveMemoryFunction, "tryReserveMemoryFunction is null");
+            this.updateBroadcastMemoryFunction = requireNonNull(updateBroadcastMemoryFunction, "updateBroadcastMemoryFunction is null");
+            this.tryUpdateBroadcastMemoryFunction = requireNonNull(tryUpdateBroadcastMemoryFunction, "tryUpdateBroadcastMemoryFunction is null");
         }
 
         @Override
-        public ListenableFuture<?> reserveMemory(String allocationTag, long delta)
+        public ListenableFuture<?> reserveMemory(String allocationTag, long delta, boolean enforceBroadcastMemoryLimit)
         {
-            return reserveMemoryFunction.apply(allocationTag, delta);
+            ListenableFuture<?> future = reserveMemoryFunction.apply(allocationTag, delta);
+            if (enforceBroadcastMemoryLimit) {
+                updateBroadcastMemoryFunction.accept(delta);
+            }
+            return future;
         }
 
         @Override
-        public boolean tryReserveMemory(String allocationTag, long delta)
+        public boolean tryReserveMemory(String allocationTag, long delta, boolean enforceBroadcastMemoryLimit)
         {
-            return tryReserveMemoryFunction.test(allocationTag, delta);
+            if (!tryReserveMemoryFunction.test(allocationTag, delta)) {
+                return false;
+            }
+            return !enforceBroadcastMemoryLimit || tryUpdateBroadcastMemoryFunction.test(delta);
         }
     }
 
     private boolean tryReserveMemoryNotSupported(String allocationTag, long bytes)
     {
         throw new UnsupportedOperationException("tryReserveMemory is not supported");
+    }
+
+    @GuardedBy("this")
+    private void enforceBroadcastMemoryLimit(long allocated, long delta, long maxMemory)
+    {
+        if (allocated + delta > maxMemory) {
+            throw exceededLocalBroadcastMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+        }
     }
 
     @GuardedBy("this")

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 
 import java.nio.ByteBuffer;
 

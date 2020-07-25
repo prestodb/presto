@@ -20,9 +20,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 
 public class HiveBucketHandle
 {
@@ -65,17 +63,6 @@ public class HiveBucketHandle
     public boolean isVirtuallyBucketed()
     {
         return columns.size() == 1 && columns.get(0).equals(pathColumnHandle());
-    }
-
-    public HiveBucketProperty toTableBucketProperty()
-    {
-        checkState(!isVirtuallyBucketed(), "Virtual bucket does not have table bucket property");
-        return new HiveBucketProperty(
-                columns.stream()
-                        .map(HiveColumnHandle::getName)
-                        .collect(toList()),
-                tableBucketCount,
-                ImmutableList.of());
     }
 
     public static HiveBucketHandle createVirtualBucketHandle(int virtualBucketCount)

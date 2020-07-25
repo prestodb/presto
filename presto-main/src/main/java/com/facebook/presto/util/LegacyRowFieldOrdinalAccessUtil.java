@@ -14,7 +14,7 @@
 
 package com.facebook.presto.util;
 
-import com.facebook.presto.spi.type.RowType;
+import com.facebook.presto.common.type.RowType;
 
 import java.util.List;
 import java.util.OptionalInt;

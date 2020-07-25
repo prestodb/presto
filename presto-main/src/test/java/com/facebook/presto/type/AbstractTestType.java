@@ -14,13 +14,13 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -35,12 +35,12 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.common.block.BlockSerdeUtil.writeBlock;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.common.block.SortOrder.DESC_NULLS_FIRST;
+import static com.facebook.presto.common.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.operator.OperatorAssertion.toRow;
-import static com.facebook.presto.spi.block.BlockSerdeUtil.writeBlock;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_LAST;
-import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_FIRST;
-import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;

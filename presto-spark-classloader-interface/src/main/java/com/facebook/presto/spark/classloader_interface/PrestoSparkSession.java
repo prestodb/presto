@@ -36,6 +36,7 @@ public class PrestoSparkSession
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final Optional<String> source;
+    private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
     private final Set<String> clientTags;
     private final Optional<String> timeZoneId;
@@ -51,6 +52,7 @@ public class PrestoSparkSession
             Optional<String> catalog,
             Optional<String> schema,
             Optional<String> source,
+            Optional<String> userAgent,
             Optional<String> clientInfo,
             Set<String> clientTags,
             Optional<String> timeZoneId,
@@ -65,6 +67,7 @@ public class PrestoSparkSession
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.source = requireNonNull(source, "source is null");
+        this.userAgent = requireNonNull(userAgent, "userAgent is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = unmodifiableSet(new HashSet<>(requireNonNull(clientTags, "clientTags is null")));
         this.timeZoneId = requireNonNull(timeZoneId, "timeZoneId is null");
@@ -103,6 +106,11 @@ public class PrestoSparkSession
     public Optional<String> getSource()
     {
         return source;
+    }
+
+    public Optional<String> getUserAgent()
+    {
+        return userAgent;
     }
 
     public Optional<String> getClientInfo()

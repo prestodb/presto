@@ -29,27 +29,28 @@ import com.facebook.presto.verifier.retry.ForPresto;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.retry.RetryDriver;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_RUN_TIME;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_MAIN;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcPrestoAction
         implements PrestoAction
 {
-    private static final String QUERY_MAX_EXECUTION_TIME = "query_max_execution_time";
-
     private final SqlExceptionClassifier exceptionClassifier;
     private final QueryConfiguration queryConfiguration;
 
@@ -144,10 +145,17 @@ public class JdbcPrestoAction
             // Do nothing
         }
 
-        Map<String, String> sessionProperties = ImmutableMap.<String, String>builder()
-                .putAll(queryConfiguration.getSessionProperties())
-                .put(QUERY_MAX_EXECUTION_TIME, getTimeout(queryStage).toString())
-                .build();
+        // configure session properties
+        Map<String, String> sessionProperties = queryStage.isMain() || queryStage == DETERMINISM_ANALYSIS_MAIN
+                ? new HashMap<>(queryConfiguration.getSessionProperties())
+                : new HashMap<>();
+
+        // Add or override query max execution time to enforce the timeout.
+        sessionProperties.put(QUERY_MAX_EXECUTION_TIME, getTimeout(queryStage).toString());
+
+        // Remove query max run time to respect execution time limit.
+        sessionProperties.remove(QUERY_MAX_RUN_TIME);
+
         for (Entry<String, String> entry : sessionProperties.entrySet()) {
             connection.setSessionProperty(entry.getKey(), entry.getValue());
         }
@@ -159,6 +167,11 @@ public class JdbcPrestoAction
         switch (queryStage) {
             case REWRITE:
             case DESCRIBE:
+            case CONTROL_SETUP:
+            case CONTROL_TEARDOWN:
+            case TEST_SETUP:
+            case TEST_TEARDOWN:
+            case DETERMINISM_ANALYSIS_SETUP:
                 return metadataTimeout;
             case CONTROL_CHECKSUM:
             case TEST_CHECKSUM:

@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.ParameterKind;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeParameter;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.ParameterKind;
+import com.facebook.presto.common.type.ParametricType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.facebook.presto.spi.block.MethodHandleUtil.compose;
-import static com.facebook.presto.spi.block.MethodHandleUtil.nativeValueGetter;
+import static com.facebook.presto.common.block.MethodHandleUtil.compose;
+import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public final class MapParametricType

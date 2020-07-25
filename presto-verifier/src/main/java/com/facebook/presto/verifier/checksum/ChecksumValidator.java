@@ -29,11 +29,9 @@ import javax.inject.Provider;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.util.function.Function.identity;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ChecksumValidator
 {
@@ -55,14 +53,11 @@ public class ChecksumValidator
         return simpleQuery(new Select(false, selectItems.build()), new Table(tableName));
     }
 
-    public Map<Column, ColumnMatchResult> getMismatchedColumns(List<Column> columns, ChecksumResult controlChecksum, ChecksumResult testChecksum)
+    public List<ColumnMatchResult<?>> getMismatchedColumns(List<Column> columns, ChecksumResult controlChecksum, ChecksumResult testChecksum)
     {
         return columns.stream()
                 .flatMap(column -> columnValidators.get(column.getCategory()).get().validate(column, controlChecksum, testChecksum).stream())
-                .collect(toImmutableMap(ColumnMatchResult::getColumn, identity()))
-                .entrySet()
-                .stream()
-                .filter(entry -> !entry.getValue().isMatched())
-                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+                .filter(columnMatchResult -> !columnMatchResult.isMatched())
+                .collect(toImmutableList());
     }
 }

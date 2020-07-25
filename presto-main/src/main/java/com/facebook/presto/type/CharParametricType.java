@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeParameter;
+import com.facebook.presto.common.InvalidFunctionArgumentException;
+import com.facebook.presto.common.type.ParametricType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeParameter;
+import com.facebook.presto.spi.PrestoException;
 
 import java.util.List;
 
-import static com.facebook.presto.spi.type.CharType.createCharType;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public class CharParametricType
         implements ParametricType
@@ -50,6 +53,11 @@ public class CharParametricType
             throw new IllegalArgumentException("CHAR length must be a number");
         }
 
-        return createCharType(parameter.getLongLiteral());
+        try {
+            return createCharType(parameter.getLongLiteral());
+        }
+        catch (InvalidFunctionArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
     }
 }

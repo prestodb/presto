@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.orc.writer;
 
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
-import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.StreamDataOutput;
-import com.facebook.presto.spi.block.Block;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
@@ -48,7 +47,7 @@ public interface ColumnWriter
      * order in which they were written.  The ordering is critical because
      * the stream only contain a length with no offset.
      */
-    List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
+    List<StreamDataOutput> getIndexStreams()
             throws IOException;
 
     /**

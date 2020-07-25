@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class ViewDefinition
@@ -31,6 +32,7 @@ public final class ViewDefinition
     private final Optional<String> schema;
     private final List<ViewColumn> columns;
     private final Optional<String> owner;
+    private final boolean runAsInvoker;
 
     @JsonCreator
     public ViewDefinition(
@@ -38,13 +40,16 @@ public final class ViewDefinition
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<ViewColumn> columns,
-            @JsonProperty("owner") Optional<String> owner)
+            @JsonProperty("owner") Optional<String> owner,
+            @JsonProperty("runAsInvoker") boolean runAsInvoker)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.owner = requireNonNull(owner, "owner is null");
+        this.runAsInvoker = runAsInvoker;
+        checkArgument(!runAsInvoker || !owner.isPresent(), "owner cannot be present with runAsInvoker");
     }
 
     @JsonProperty
@@ -77,6 +82,12 @@ public final class ViewDefinition
         return owner;
     }
 
+    @JsonProperty
+    public boolean isRunAsInvoker()
+    {
+        return runAsInvoker;
+    }
+
     @Override
     public String toString()
     {
@@ -86,13 +97,14 @@ public final class ViewDefinition
                 .add("schema", schema.orElse(null))
                 .add("columns", columns)
                 .add("owner", owner.orElse(null))
+                .add("runAsInvoker", runAsInvoker)
                 .omitNullValues()
                 .toString();
     }
 
     public ViewDefinition withOwner(String owner)
     {
-        return new ViewDefinition(originalSql, catalog, schema, columns, Optional.of(owner));
+        return new ViewDefinition(originalSql, catalog, schema, columns, Optional.of(owner), runAsInvoker);
     }
 
     public static final class ViewColumn

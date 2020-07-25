@@ -18,7 +18,7 @@ import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
-import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.common.type.BigintType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

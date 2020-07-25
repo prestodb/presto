@@ -13,37 +13,40 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.SingleMapBlock;
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.SingleMapBlock;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.facebook.presto.sql.gen.lambda.LambdaFunctionInterface;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
+import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.spi.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 
@@ -139,7 +142,14 @@ public final class MapZipWithFunction
             Object key = readNativeValue(keyType, leftMapBlock, leftKeyPosition);
             Object leftValue = readNativeValue(leftValueType, leftMapBlock, leftKeyPosition + 1);
 
-            int rightValuePosition = rightMapBlock.seekKey(key);
+            int rightValuePosition;
+            try {
+                rightValuePosition = rightMapBlock.seekKey(key);
+            }
+            catch (NotSupportedException e) {
+                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+            }
+
             Object rightValue = null;
             if (rightValuePosition != -1) {
                 rightValue = readNativeValue(rightValueType, rightMapBlock, rightValuePosition);

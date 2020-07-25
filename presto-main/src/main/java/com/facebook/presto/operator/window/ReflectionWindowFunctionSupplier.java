@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.window;
 
+import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.Description;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.ValueWindowFunction;
 import com.facebook.presto.spi.function.WindowFunction;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.Lists;
 
 import java.lang.reflect.AnnotatedElement;

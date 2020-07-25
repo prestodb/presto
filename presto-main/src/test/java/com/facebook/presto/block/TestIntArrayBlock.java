@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.IntArrayBlock;
-import com.facebook.presto.spi.block.IntArrayBlockBuilder;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.IntArrayBlock;
+import com.facebook.presto.common.block.IntArrayBlockBuilder;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 

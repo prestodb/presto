@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;

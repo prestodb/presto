@@ -64,6 +64,7 @@ public class InternalHiveSplit
     private final boolean s3SelectPushdownEnabled;
     private final HiveSplitPartitionInfo partitionInfo;
     private final Optional<byte[]> extraFileInfo;
+    private final Optional<EncryptionInformation> encryptionInformation;
 
     private long start;
     private int currentBlockIndex;
@@ -80,7 +81,8 @@ public class InternalHiveSplit
             NodeSelectionStrategy nodeSelectionStrategy,
             boolean s3SelectPushdownEnabled,
             HiveSplitPartitionInfo partitionInfo,
-            Optional<byte[]> extraFileInfo)
+            Optional<byte[]> extraFileInfo,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(end >= 0, "end must be positive");
@@ -91,6 +93,7 @@ public class InternalHiveSplit
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         requireNonNull(partitionInfo, "partitionInfo is null");
         requireNonNull(extraFileInfo, "extraFileInfo is null");
+        requireNonNull(encryptionInformation, "encryptionInformation is null");
 
         this.relativeUri = relativeUri.getBytes(UTF_8);
         this.start = start;
@@ -115,6 +118,7 @@ public class InternalHiveSplit
             blockEndOffsets[i] = block.getEnd();
         }
         blockAddresses = allAddressesEmpty ? ImmutableList.of() : addressesBuilder.build();
+        this.encryptionInformation = encryptionInformation;
     }
 
     public String getPath()
@@ -211,6 +215,11 @@ public class InternalHiveSplit
     public Optional<byte[]> getExtraFileInfo()
     {
         return extraFileInfo;
+    }
+
+    public Optional<EncryptionInformation> getEncryptionInformation()
+    {
+        return this.encryptionInformation;
     }
 
     public void reset()

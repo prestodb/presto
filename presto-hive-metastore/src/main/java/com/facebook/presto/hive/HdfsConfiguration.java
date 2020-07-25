@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;

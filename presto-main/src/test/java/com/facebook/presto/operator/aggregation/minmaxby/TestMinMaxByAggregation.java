@@ -13,18 +13,25 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.SqlDecimal;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
@@ -35,17 +42,19 @@ import static com.facebook.presto.block.BlockAssertions.createLongDecimalsBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createShortDecimalsBlock;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.asList;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 public class TestMinMaxByAggregation
@@ -573,6 +582,30 @@ public class TestMinMaxByAggregation
                 null,
                 createArrayBigintBlock(asList(asList(3L, 3L), null, asList(1L, 2L))),
                 createArrayBigintBlock(asList(null, null, null)));
+    }
+
+    @Test
+    public void testLongAndBlockPositionValueStateSerialization()
+    {
+        Type mapType = mapType(VARCHAR, BOOLEAN);
+        Map<String, Type> fieldMap = ImmutableMap.of("Key", BIGINT, "Value", mapType);
+        AccumulatorStateFactory<LongAndBlockPositionValueState> factory = StateCompiler.generateStateFactory(LongAndBlockPositionValueState.class, fieldMap, new DynamicClassLoader(LongAndBlockPositionValueState.class.getClassLoader()));
+        KeyAndBlockPositionValueStateSerializer<LongAndBlockPositionValueState> serializer = new LongAndBlockPositionStateSerializer(BIGINT, mapType);
+        LongAndBlockPositionValueState singleState = factory.createSingleState();
+        LongAndBlockPositionValueState deserializedState = factory.createSingleState();
+        singleState.setFirst(2020);
+        singleState.setFirstNull(false);
+
+        BlockBuilder builder = RowType.anonymous(ImmutableList.of(BOOLEAN, BOOLEAN, BIGINT, mapType))
+                .createBlockBuilder(null, 1);
+        serializer.serialize(singleState, builder);
+
+        Block rowBlock = builder.build();
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) rowBlock.getPositions(new int[]{0}, 0, 1);
+        serializer.deserialize(dictionaryBlock, 0, deserializedState);
+
+        assertEquals(deserializedState.isFirstNull(), singleState.isFirstNull());
+        assertEquals(deserializedState.getFirst(), singleState.getFirst());
     }
 
     private InternalAggregationFunction getMinByAggregation(Type... arguments)

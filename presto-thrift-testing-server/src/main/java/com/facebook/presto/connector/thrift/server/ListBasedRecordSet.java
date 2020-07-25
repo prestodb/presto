@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.connector.thrift.server;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 

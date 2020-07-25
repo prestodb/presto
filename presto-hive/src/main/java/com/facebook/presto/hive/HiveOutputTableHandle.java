@@ -51,7 +51,8 @@ public class HiveOutputTableHandle
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
             @JsonProperty("preferredOrderingColumns") List<SortingColumn> preferredOrderingColumns,
             @JsonProperty("tableOwner") String tableOwner,
-            @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters)
+            @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters,
+            @JsonProperty("encryptionInformation") Optional<EncryptionInformation> encryptionInformation)
     {
         super(
                 schemaName,
@@ -65,7 +66,8 @@ public class HiveOutputTableHandle
                 tableStorageFormat,
                 partitionStorageFormat,
                 actualStorageFormat,
-                compressionCodec);
+                compressionCodec,
+                encryptionInformation);
 
         this.partitionedBy = ImmutableList.copyOf(requireNonNull(partitionedBy, "partitionedBy is null"));
         this.tableOwner = requireNonNull(tableOwner, "tableOwner is null");

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.rcfile;
 
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;

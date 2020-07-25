@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.function.SqlFunctionProperties;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

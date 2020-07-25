@@ -27,12 +27,12 @@ import javax.inject.Inject;
 import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;
 
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;

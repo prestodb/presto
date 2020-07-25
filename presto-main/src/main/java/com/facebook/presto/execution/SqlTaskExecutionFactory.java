@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.executor.TaskExecutor;
@@ -22,7 +23,6 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.HttpRemoteSourceFactory;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;

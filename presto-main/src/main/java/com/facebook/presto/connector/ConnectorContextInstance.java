@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.facebook.presto.spi.type.TypeManager;
 
 import static java.util.Objects.requireNonNull;
 

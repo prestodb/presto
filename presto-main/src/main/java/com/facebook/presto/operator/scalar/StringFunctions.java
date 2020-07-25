@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.type.CodePointsType;
 import com.facebook.presto.type.Constraint;
 import com.facebook.presto.type.LiteralParameter;
@@ -37,10 +37,10 @@ import io.airlift.slice.Slices;
 import java.text.Normalizer;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.Chars.padSpaces;
+import static com.facebook.presto.common.type.Chars.trimTrailingSpaces;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.Chars.padSpaces;
-import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
@@ -122,8 +122,15 @@ public final class StringFunctions
     {
         // Empty search?
         if (search.length() == 0) {
-            // With empty `search` we insert `replace` in front of every character and and the end
-            Slice buffer = Slices.allocate((countCodePoints(str) + 1) * replace.length() + str.length());
+            // With empty `search` we insert `replace` in front of every character and at the end
+            int resultLength;
+            try {
+                resultLength = Math.addExact(Math.multiplyExact(countCodePoints(str) + 1, replace.length()), str.length());
+            }
+            catch (ArithmeticException e) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "inputs to \"replace\" function are too large: when \"search\" parameter is empty, length of \"string\" times length of \"replace\" must not exceed " + Integer.MAX_VALUE);
+            }
+            Slice buffer = Slices.allocate(resultLength);
             // Always start with replace
             buffer.setBytes(0, replace);
             int indexBuffer = replace.length();

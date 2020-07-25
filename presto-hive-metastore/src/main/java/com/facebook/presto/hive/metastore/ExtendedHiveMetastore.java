@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;

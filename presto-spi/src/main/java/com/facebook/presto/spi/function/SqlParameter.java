@@ -13,63 +13,17 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.spi.type.TypeSignature;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-import java.util.Objects;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-import static java.util.Objects.requireNonNull;
-
-public class SqlParameter
+@Retention(RUNTIME)
+@Target(METHOD)
+public @interface SqlParameter
 {
-    private final String name;
-    private final TypeSignature type;
+    String name() default "";
 
-    @JsonCreator
-    public SqlParameter(
-            @JsonProperty("name") String name,
-            @JsonProperty("type") TypeSignature type)
-    {
-        this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "type is null");
-    }
-
-    @JsonProperty
-    public String getName()
-    {
-        return name;
-    }
-
-    @JsonProperty
-    public TypeSignature getType()
-    {
-        return type;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        SqlParameter o = (SqlParameter) obj;
-        return Objects.equals(name, o.name)
-                && Objects.equals(type, o.type);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(name, type);
-    }
-
-    @Override
-    public String toString()
-    {
-        return String.format("%s %s", name, type);
-    }
+    String type() default "";
 }

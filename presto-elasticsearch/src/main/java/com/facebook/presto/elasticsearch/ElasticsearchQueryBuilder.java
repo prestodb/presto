@@ -13,139 +13,71 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.slice.Slice;
-import io.airlift.units.Duration;
-import org.elasticsearch.action.search.SearchRequestBuilder;
-import org.elasticsearch.action.search.SearchScrollRequestBuilder;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.ExistsQueryBuilder;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.HashSet;
-import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.elasticsearch.ElasticsearchClient.createTransportClient;
-import static com.facebook.presto.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
-import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
-import static org.elasticsearch.search.sort.SortOrder.ASC;
+import static java.lang.Math.toIntExact;
+import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
-public class ElasticsearchQueryBuilder
+public final class ElasticsearchQueryBuilder
 {
-    private static final Logger LOG = Logger.get(ElasticsearchQueryBuilder.class);
+    private ElasticsearchQueryBuilder() {}
 
-    private final Duration scrollTimeout;
-    private final int scrollSize;
-    private final TransportClient client;
-    private final int shard;
-    private final TupleDomain<ColumnHandle> tupleDomain;
-    private final List<ElasticsearchColumnHandle> columns;
-    private final String index;
-    private final String type;
-
-    public ElasticsearchQueryBuilder(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchConnectorConfig config, ElasticsearchSplit split)
+    public static QueryBuilder buildSearchQuery(ConnectorSession session, TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
     {
-        requireNonNull(columnHandles, "columnHandles is null");
-        requireNonNull(config, "config is null");
-        requireNonNull(split, "split is null");
+        BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
+        if (constraint.getDomains().isPresent()) {
+            for (Map.Entry<ElasticsearchColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
+                ElasticsearchColumnHandle column = entry.getKey();
+                Domain domain = entry.getValue();
 
-        columns = columnHandles;
-        tupleDomain = split.getTupleDomain();
-        index = split.getIndex();
-        shard = split.getShard();
-        type = split.getType();
-        InetAddress address;
-        try {
-            address = InetAddress.getByName(split.getSearchNode());
-        }
-        catch (UnknownHostException e) {
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, format("Error connecting to search node (%s:%d)", split.getSearchNode(), split.getPort()), e);
-        }
-        client = createTransportClient(config, new TransportAddress(address, split.getPort()));
-        scrollTimeout = config.getScrollTimeout();
-        scrollSize = config.getScrollSize();
-    }
-
-    public void close()
-    {
-        client.close();
-    }
-
-    public SearchRequestBuilder buildScrollSearchRequest()
-    {
-        String indices = index != null && !index.isEmpty() ? index : "_all";
-        List<String> fields = columns.stream()
-                .map(ElasticsearchColumnHandle::getColumnName)
-                .collect(toList());
-        // Scroll requests have optimizations that make them faster when the sort order is _doc.
-        // If you want to iterate over all documents regardless of the order, this is the most efficient option
-        // With this settings, the performance can promote several times.
-        SearchRequestBuilder searchRequestBuilder = client.prepareSearch(indices)
-                .setTypes(type)
-                .setSearchType(QUERY_THEN_FETCH)
-                .setScroll(new TimeValue(scrollTimeout.toMillis()))
-                .setFetchSource(fields.toArray(new String[0]), null)
-                .setQuery(buildSearchQuery())
-                .setPreference("_shards:" + shard)
-                .addSort("_doc", ASC)
-                .setSize(scrollSize);
-        LOG.debug("Elasticsearch Request: %s", searchRequestBuilder);
-        return searchRequestBuilder;
-    }
-
-    public SearchScrollRequestBuilder prepareSearchScroll(String scrollId)
-    {
-        return client.prepareSearchScroll(scrollId)
-                .setScroll(new TimeValue(scrollTimeout.toMillis()));
-    }
-
-    private QueryBuilder buildSearchQuery()
-    {
-        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
-        for (ElasticsearchColumnHandle column : columns) {
-            BoolQueryBuilder columnQueryBuilder = new BoolQueryBuilder();
-            Type type = column.getColumnType();
-            if (tupleDomain.getDomains().isPresent()) {
-                Domain domain = tupleDomain.getDomains().get().get(column);
-                if (domain != null) {
-                    columnQueryBuilder.should(buildPredicate(column.getColumnJsonPath(), domain, type));
+                checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.getName());
+                if (!domain.isAll()) {
+                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(session, column.getName(), domain, column.getType())));
                 }
             }
-            boolQueryBuilder.must(columnQueryBuilder);
         }
-        if (boolQueryBuilder.hasClauses()) {
-            return boolQueryBuilder;
+
+        query.map(QueryStringQueryBuilder::new)
+                .ifPresent(queryBuilder::must);
+
+        if (queryBuilder.hasClauses()) {
+            return queryBuilder;
         }
         return new MatchAllQueryBuilder();
     }
 
-    private QueryBuilder buildPredicate(String columnName, Domain domain, Type type)
+    private static QueryBuilder buildPredicate(ConnectorSession session, String columnName, Domain domain, Type type)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
@@ -160,10 +92,10 @@ public class ElasticsearchQueryBuilder
             return boolQueryBuilder;
         }
 
-        return buildTermQuery(boolQueryBuilder, columnName, domain, type);
+        return buildTermQuery(boolQueryBuilder, session, columnName, domain, type);
     }
 
-    private QueryBuilder buildTermQuery(BoolQueryBuilder queryBuilder, String columnName, Domain domain, Type type)
+    private static QueryBuilder buildTermQuery(BoolQueryBuilder queryBuilder, ConnectorSession session, String columnName, Domain domain, Type type)
     {
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             BoolQueryBuilder rangeQueryBuilder = new BoolQueryBuilder();
@@ -176,10 +108,10 @@ public class ElasticsearchQueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).gt(getValue(type, range.getLow().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(getValue(session, type, range.getLow().getValue())));
                             break;
                         case EXACTLY:
-                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).gte(getValue(type, range.getLow().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(getValue(session, type, range.getLow().getValue())));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low marker should never use BELOW bound");
@@ -190,10 +122,10 @@ public class ElasticsearchQueryBuilder
                 if (!range.getHigh().isUpperUnbounded()) {
                     switch (range.getHigh().getBound()) {
                         case EXACTLY:
-                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).lte(getValue(type, range.getHigh().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(getValue(session, type, range.getHigh().getValue())));
                             break;
                         case BELOW:
-                            rangeQueryBuilder.must(new RangeQueryBuilder(columnName).lt(getValue(type, range.getHigh().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(getValue(session, type, range.getHigh().getValue())));
                             break;
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
@@ -204,20 +136,39 @@ public class ElasticsearchQueryBuilder
             }
 
             if (valuesToInclude.size() == 1) {
-                rangeQueryBuilder.must(new TermQueryBuilder(columnName, getValue(type, getOnlyElement(valuesToInclude))));
+                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, type, getOnlyElement(valuesToInclude))));
             }
             queryBuilder.should(rangeQueryBuilder);
         }
         return queryBuilder;
     }
 
-    private static Object getValue(Type type, Object value)
+    private static Object getValue(ConnectorSession session, Type type, Object value)
     {
-        if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DOUBLE) || type.equals(BOOLEAN)) {
+        if (type.equals(BOOLEAN) ||
+                type.equals(TINYINT) ||
+                type.equals(SMALLINT) ||
+                type.equals(INTEGER) ||
+                type.equals(BIGINT) ||
+                type.equals(DOUBLE)) {
             return value;
         }
+
+        if (type.equals(REAL)) {
+            return Float.intBitsToFloat(toIntExact(((Long) value)));
+        }
+
         if (type.equals(VARCHAR)) {
             return ((Slice) value).toStringUtf8();
+        }
+
+        if (type.equals(TIMESTAMP)) {
+            checkState(session.getSqlFunctionProperties().isLegacyTimestamp(), "New timestamp semantics not yet supported");
+
+            return Instant.ofEpochMilli((Long) value)
+                    .atZone(ZoneId.of(session.getSqlFunctionProperties().getTimeZoneKey().getId()))
+                    .toLocalDateTime()
+                    .format(ISO_DATE_TIME);
         }
         throw new IllegalArgumentException("Unhandled type: " + type);
     }

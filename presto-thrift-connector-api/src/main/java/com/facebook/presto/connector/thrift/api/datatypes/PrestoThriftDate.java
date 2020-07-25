@@ -16,11 +16,11 @@ package com.facebook.presto.connector.thrift.api.datatypes;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.IntArrayBlock;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.IntArrayBlock;
-import com.facebook.presto.spi.type.Type;
 
 import javax.annotation.Nullable;
 
@@ -29,10 +29,10 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
+import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.dateData;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedBlock;
 import static com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftTypeUtils.fromIntBasedColumn;
-import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 

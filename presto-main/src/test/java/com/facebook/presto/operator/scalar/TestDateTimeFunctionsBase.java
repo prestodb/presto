@@ -14,17 +14,17 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.SqlDate;
+import com.facebook.presto.common.type.SqlTime;
+import com.facebook.presto.common.type.SqlTimeWithTimeZone;
+import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.StandardErrorCode;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.SqlTime;
-import com.facebook.presto.spi.type.SqlTimeWithTimeZone;
-import com.facebook.presto.spi.type.SqlTimestampWithTimeZone;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingSession;
 import com.facebook.presto.type.SqlIntervalDayTime;
@@ -51,17 +51,16 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
+import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.scalar.DateTimeFunctions.currentDate;
-import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKey;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static com.facebook.presto.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimeOf;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -194,9 +193,9 @@ public abstract class TestDateTimeFunctionsBase
         assertFunction("from_unixtime(" + seconds + ", " + timeZoneHoursOffset + ", " + timezoneMinutesOffset + ")", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
 
         // test invalid minute offsets
-        assertInvalidFunction("from_unixtime(0, 1, 10000)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("from_unixtime(0, 10000, 0)", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("from_unixtime(0, -100, 100)", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("from_unixtime(0, 1, 10000)", "Invalid offset minutes 10060");
+        assertInvalidFunction("from_unixtime(0, 10000, 0)", "Invalid offset minutes 600000");
+        assertInvalidFunction("from_unixtime(0, -100, 100)", "Invalid offset minutes -5900");
     }
 
     @Test

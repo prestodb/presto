@@ -14,17 +14,17 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.presto.array.ReferenceCountMap;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.DictionaryId;
+import com.facebook.presto.common.block.LazyBlock;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.DictionaryId;
-import com.facebook.presto.spi.block.LazyBlock;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.sql.gen.ExpressionProfiler;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SizeOf;
@@ -41,11 +41,11 @@ import java.util.OptionalInt;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.block.DictionaryId.randomDictionaryId;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.finished;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.ofResult;
 import static com.facebook.presto.operator.WorkProcessor.ProcessState.yield;
 import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
-import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;

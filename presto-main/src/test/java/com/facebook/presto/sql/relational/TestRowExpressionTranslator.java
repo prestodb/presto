@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.expressions.translator.FunctionTranslator;
 import com.facebook.presto.expressions.translator.RowExpressionTranslator;
 import com.facebook.presto.expressions.translator.RowExpressionTreeTranslator;
@@ -22,7 +24,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
@@ -31,7 +32,6 @@ import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.StandardTypes;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.google.common.collect.ImmutableMap;
@@ -43,12 +43,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.expressions.translator.FunctionTranslator.buildFunctionTranslator;
 import static com.facebook.presto.expressions.translator.RowExpressionTreeTranslator.translateWith;
 import static com.facebook.presto.expressions.translator.TranslatedExpression.untranslated;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;

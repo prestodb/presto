@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 
 import java.util.Optional;
 
@@ -25,7 +25,8 @@ public interface HiveFileWriter
 
     void appendRows(Page dataPage);
 
-    void commit();
+    // Page returned by commit should have fileSize as first channel
+    Optional<Page> commit();
 
     void rollback();
 

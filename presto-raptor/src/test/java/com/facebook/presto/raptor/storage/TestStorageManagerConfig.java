@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;

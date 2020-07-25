@@ -13,8 +13,9 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.spi.api.Experimental;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 
 import java.util.function.Supplier;
 

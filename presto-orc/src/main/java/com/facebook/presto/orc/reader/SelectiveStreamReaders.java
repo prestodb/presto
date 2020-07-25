@@ -13,28 +13,28 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarbinaryType;
-import com.facebook.presto.spi.type.VarcharType;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.joda.time.DateTimeZone;
@@ -44,8 +44,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
-import static com.facebook.presto.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 

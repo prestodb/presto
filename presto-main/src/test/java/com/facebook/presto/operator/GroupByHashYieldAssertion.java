@@ -15,12 +15,12 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -37,8 +37,8 @@ import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.OperatorAssertion.finishOperator;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -83,6 +83,7 @@ public final class GroupByHashYieldAssertion
                 queryId,
                 new DataSize(512, MEGABYTE),
                 new DataSize(1024, MEGABYTE),
+                new DataSize(512, MEGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 EXECUTOR,

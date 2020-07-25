@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.verifier.checksum;
 
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -30,9 +30,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.sql.QueryUtil.functionCall;
 import static com.facebook.presto.verifier.framework.VerifierUtil.delimitedIdentifier;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.String.format;
 
 public class ArrayColumnValidator
         implements ColumnValidator
@@ -41,37 +41,24 @@ public class ArrayColumnValidator
     public List<SingleColumn> generateChecksumColumns(Column column)
     {
         Expression checksum = generateArrayChecksum(column.getExpression(), column.getType());
+        Expression arrayCardinalityChecksum = functionCall("checksum", functionCall("cardinality", column.getExpression()));
         Expression arrayCardinalitySum = new CoalesceExpression(
-                new FunctionCall(
-                        QualifiedName.of("sum"),
-                        ImmutableList.of(new FunctionCall(QualifiedName.of("cardinality"), ImmutableList.of(column.getExpression())))),
+                functionCall("sum", functionCall("cardinality", column.getExpression())),
                 new LongLiteral("0"));
 
         return ImmutableList.of(
                 new SingleColumn(checksum, Optional.of(delimitedIdentifier(getChecksumColumnAlias(column)))),
+                new SingleColumn(arrayCardinalityChecksum, Optional.of(delimitedIdentifier(getCardinalityChecksumColumnAlias(column)))),
                 new SingleColumn(arrayCardinalitySum, Optional.of(delimitedIdentifier(getCardinalitySumColumnAlias(column)))));
     }
 
     @Override
-    public List<ColumnMatchResult> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
+    public List<ColumnMatchResult<ArrayColumnChecksum>> validate(Column column, ChecksumResult controlResult, ChecksumResult testResult)
     {
-        String checksumColumnAlias = getChecksumColumnAlias(column);
-        Object controlChecksum = controlResult.getChecksum(checksumColumnAlias);
-        Object testChecksum = testResult.getChecksum(checksumColumnAlias);
+        ArrayColumnChecksum controlChecksum = toColumnChecksum(column, controlResult);
+        ArrayColumnChecksum testChecksum = toColumnChecksum(column, testResult);
 
-        String cardinalitySumColumnAlias = getCardinalitySumColumnAlias(column);
-        Object controlCardinalitySum = controlResult.getChecksum(cardinalitySumColumnAlias);
-        Object testCardinalitySum = testResult.getChecksum(cardinalitySumColumnAlias);
-
-        return ImmutableList.of(new ColumnMatchResult(
-                Objects.equals(controlChecksum, testChecksum) && Objects.equals(controlCardinalitySum, testCardinalitySum),
-                column,
-                format(
-                        "control(checksum: %s, cardinality_sum: %s) test(checksum: %s, cardinality_sum: %s)",
-                        controlChecksum,
-                        controlCardinalitySum,
-                        testChecksum,
-                        testCardinalitySum)));
+        return ImmutableList.of(new ColumnMatchResult<>(Objects.equals(controlChecksum, testChecksum), column, controlChecksum, testChecksum));
     }
 
     public static Expression generateArrayChecksum(Expression column, Type type)
@@ -92,9 +79,22 @@ public class ArrayColumnValidator
         return new FunctionCall(QualifiedName.of("checksum"), ImmutableList.of(column));
     }
 
+    private static ArrayColumnChecksum toColumnChecksum(Column column, ChecksumResult checksumResult)
+    {
+        return new ArrayColumnChecksum(
+                checksumResult.getChecksum(getChecksumColumnAlias(column)),
+                checksumResult.getChecksum(getCardinalityChecksumColumnAlias(column)),
+                (long) checksumResult.getChecksum(getCardinalitySumColumnAlias(column)));
+    }
+
     private static String getChecksumColumnAlias(Column column)
     {
         return column.getName() + "$checksum";
+    }
+
+    private static String getCardinalityChecksumColumnAlias(Column column)
+    {
+        return column.getName() + "$cardinality_checksum";
     }
 
     private static String getCardinalitySumColumnAlias(Column column)

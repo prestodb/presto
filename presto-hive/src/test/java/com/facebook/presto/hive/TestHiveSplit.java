@@ -18,6 +18,11 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
@@ -25,11 +30,6 @@ import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockEncoding;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.type.TypeRegistry;
@@ -47,10 +47,11 @@ import java.util.OptionalInt;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.hive.CacheQuotaRequirement.NO_CACHE_REQUIREMENT;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static org.testng.Assert.assertEquals;
 
@@ -89,7 +90,13 @@ public class TestHiveSplit
                         16,
                         ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, ColumnType.REGULAR, Optional.of("comment"))))),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                NO_CACHE_REQUIREMENT,
+                Optional.of(EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(
+                        ImmutableMap.of("field1", "test1".getBytes()),
+                        ImmutableMap.of(),
+                        "test_algo",
+                        "test_provider"))));
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);
@@ -110,6 +117,8 @@ public class TestHiveSplit
         assertEquals(actual.getBucketConversion(), expected.getBucketConversion());
         assertEquals(actual.getNodeSelectionStrategy(), expected.getNodeSelectionStrategy());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
+        assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
+        assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
     }
 
     private JsonCodec<HiveSplit> getJsonCodec()

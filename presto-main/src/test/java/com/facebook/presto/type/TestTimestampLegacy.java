@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.type;
 
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 
 public class TestTimestampLegacy

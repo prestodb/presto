@@ -14,7 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
+import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -54,14 +54,17 @@ public class HiveZeroRowFileCreator
     private static final Logger log = Logger.get(HiveZeroRowFileCreator.class);
 
     private final HdfsEnvironment hdfsEnvironment;
+    private final DataSinkFactory dataSinkFactory;
     private final ListeningExecutorService executor;
 
     @Inject
     public HiveZeroRowFileCreator(
             HdfsEnvironment hdfsEnvironment,
+            DataSinkFactory dataSinkFactory,
             @ForZeroRowFileCreator ListeningExecutorService zeroRowFileCreatorExecutor)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.dataSinkFactory = requireNonNull(dataSinkFactory, "dataSinkFactory is null");
         this.executor = requireNonNull(zeroRowFileCreatorExecutor, "zeroRowFileCreatorExecutor is null");
     }
 
@@ -107,7 +110,7 @@ public class HiveZeroRowFileCreator
                     outputFormatName.equals(HiveStorageFormat.JSON.getOutputFormat()) ? compressionCodec : NONE);
 
             if (outputFormatName.equals(HiveStorageFormat.PAGEFILE.getOutputFormat())) {
-                createEmptyPageFile(target.getFileSystem(conf), target);
+                createEmptyPageFile(dataSinkFactory, session, target.getFileSystem(conf), target);
                 return readAllBytes(tmpFilePath);
             }
 

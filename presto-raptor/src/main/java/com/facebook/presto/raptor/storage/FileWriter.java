@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.spi.Page;
+import com.facebook.presto.common.Page;
 
 import java.io.Closeable;
 import java.util.List;

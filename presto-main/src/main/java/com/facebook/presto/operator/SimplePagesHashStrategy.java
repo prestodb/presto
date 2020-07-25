@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
@@ -27,8 +29,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.util.Failures.internalError;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -173,8 +176,13 @@ public class SimplePagesHashStrategy
             Type type = types.get(hashChannel);
             Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
             Block rightBlock = rightPage.getBlock(i);
-            if (!type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition)) {
-                return false;
+            try {
+                if (!type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition)) {
+                    return false;
+                }
+            }
+            catch (NotSupportedException e) {
+                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
             }
         }
         return true;
@@ -241,8 +249,13 @@ public class SimplePagesHashStrategy
             List<Block> channel = channels.get(hashChannel);
             Block leftBlock = channel.get(leftBlockIndex);
             Block rightBlock = channel.get(rightBlockIndex);
-            if (!type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition)) {
-                return false;
+            try {
+                if (!type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition)) {
+                    return false;
+                }
+            }
+            catch (NotSupportedException e) {
+                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
             }
         }
         return true;

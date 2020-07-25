@@ -28,6 +28,7 @@ import com.facebook.presto.server.InternalCommunicationConfig.CommunicationProto
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeState;
+import com.facebook.presto.statusservice.NodeStatusService;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -78,6 +79,7 @@ public final class DiscoveryNodeManager
     private static final Splitter CONNECTOR_ID_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
     private final ServiceSelector serviceSelector;
     private final FailureDetector failureDetector;
+    private final Optional<NodeStatusService> nodeStatusService;
     private final NodeVersion expectedNodeVersion;
     private final ConcurrentHashMap<String, RemoteNodeState> nodeStates = new ConcurrentHashMap<>();
     private final HttpClient httpClient;
@@ -105,6 +107,7 @@ public final class DiscoveryNodeManager
             @ServiceType("presto") ServiceSelector serviceSelector,
             NodeInfo nodeInfo,
             FailureDetector failureDetector,
+            Optional<NodeStatusService> nodeStatusService,
             NodeVersion expectedNodeVersion,
             @ForNodeManager HttpClient httpClient,
             @ForNodeManager DriftClient<ThriftServerInfoClient> driftClient,
@@ -112,6 +115,7 @@ public final class DiscoveryNodeManager
     {
         this.serviceSelector = requireNonNull(serviceSelector, "serviceSelector is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
+        this.nodeStatusService = requireNonNull(nodeStatusService, "nodeStatusService is null");
         this.expectedNodeVersion = requireNonNull(expectedNodeVersion, "expectedNodeVersion is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.driftClient = requireNonNull(driftClient, "driftClient is null");
@@ -226,6 +230,8 @@ public final class DiscoveryNodeManager
         // TODO: make it a whitelist (a failure-detecting service selector) and maybe build in support for injecting this in airlift
         Set<ServiceDescriptor> services = serviceSelector.selectAllServices().stream()
                 .filter(service -> !failureDetector.getFailed().contains(service))
+                // Allowing coordinator node in the list of services, even if it's not allowed by nodeStatusService with currentNode check
+                .filter(service -> !nodeStatusService.isPresent() || nodeStatusService.get().isAllowed(service.getNodeId()) || isCoordinator(service))
                 .collect(toImmutableSet());
 
         ImmutableSet.Builder<InternalNode> activeNodesBuilder = ImmutableSet.builder();

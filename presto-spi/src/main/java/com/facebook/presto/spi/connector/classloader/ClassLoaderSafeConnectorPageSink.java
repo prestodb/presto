@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.connector.classloader;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import io.airlift.slice.Slice;
 

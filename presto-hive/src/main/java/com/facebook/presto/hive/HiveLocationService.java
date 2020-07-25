@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import com.facebook.presto.hive.LocationHandle.TableType;
 import com.facebook.presto.hive.LocationHandle.WriteMode;
 import com.facebook.presto.hive.metastore.Partition;

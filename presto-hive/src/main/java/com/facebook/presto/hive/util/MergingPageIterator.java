@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 
@@ -26,6 +28,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.facebook.presto.hive.util.SortBuffer.appendPositionTo;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterators.concat;
 import static com.google.common.collect.Iterators.mergeSorted;
@@ -131,7 +134,14 @@ public class MergingPageIterator
                 Block block = page.getBlock(channel);
                 Block otherBlock = other.page.getBlock(channel);
 
-                int result = order.compareBlockValue(type, block, position, otherBlock, other.position);
+                int result;
+                try {
+                    result = order.compareBlockValue(type, block, position, otherBlock, other.position);
+                }
+                catch (NotSupportedException e) {
+                    throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+                }
+
                 if (result != 0) {
                     return result;
                 }

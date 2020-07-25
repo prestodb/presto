@@ -13,25 +13,47 @@
  */
 package com.facebook.presto.spark.classloader_interface;
 
+import org.apache.spark.broadcast.Broadcast;
 import scala.Tuple2;
+import scala.collection.Iterator;
 
-import java.util.Iterator;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkTaskInputs
 {
-    // planNodeId -> Iterator<[partitionId, page]>
-    private final Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputsMap;
+    // fragmentId -> Iterator<[partitionId, page]>
+    private final Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs;
+    private final Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs;
+    // For the COORDINATOR_ONLY fragment we first collect the inputs on the Driver
+    private final Map<String, List<PrestoSparkSerializedPage>> inMemoryInputs;
 
-    public PrestoSparkTaskInputs(Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> inputsMap)
+    public PrestoSparkTaskInputs(
+            Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> shuffleInputs,
+            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            Map<String, List<PrestoSparkSerializedPage>> inMemoryInputs)
     {
-        this.inputsMap = requireNonNull(inputsMap, "inputs is null");
+        this.shuffleInputs = unmodifiableMap(new HashMap<>(requireNonNull(shuffleInputs, "shuffleInputs is null")));
+        this.broadcastInputs = unmodifiableMap(new HashMap<>(requireNonNull(broadcastInputs, "broadcastInputs is null")));
+        this.inMemoryInputs = unmodifiableMap(new HashMap<>(requireNonNull(inMemoryInputs, "inMemoryInputs is null")));
     }
 
-    public Map<String, Iterator<Tuple2<Integer, PrestoSparkRow>>> getInputsMap()
+    public Map<String, Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> getShuffleInputs()
     {
-        return inputsMap;
+        return shuffleInputs;
+    }
+
+    public Map<String, Broadcast<List<PrestoSparkSerializedPage>>> getBroadcastInputs()
+    {
+        return broadcastInputs;
+    }
+
+    public Map<String, List<PrestoSparkSerializedPage>> getInMemoryInputs()
+    {
+        return inMemoryInputs;
     }
 }

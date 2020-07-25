@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.Type;
 import io.airlift.slice.Slices;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestApproximateCountDistinctVarBinary

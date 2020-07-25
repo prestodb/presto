@@ -34,8 +34,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.Iterables.getOnlyElement;

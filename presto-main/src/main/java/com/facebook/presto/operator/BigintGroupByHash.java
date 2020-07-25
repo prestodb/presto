@@ -15,13 +15,13 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.BigintOperators;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -29,8 +29,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.type.TypeUtils.NULL_HASH_CODE;
 import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static com.google.common.base.Preconditions.checkArgument;

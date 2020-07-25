@@ -13,17 +13,22 @@
  */
 package com.facebook.presto.cache;
 
+import com.facebook.presto.hive.CacheQuota;
 import io.airlift.slice.Slice;
+
+import static com.facebook.presto.cache.CacheResult.MISS;
 
 public class NoOpCacheManager
         implements CacheManager
 {
-    public boolean get(FileReadRequest key, byte[] buffer, int offset)
+    @Override
+    public CacheResult get(FileReadRequest request, byte[] buffer, int offset, CacheQuota cacheQuota)
     {
-        return false;
+        return MISS;
     }
 
-    public void put(FileReadRequest key, Slice data)
+    @Override
+    public void put(FileReadRequest request, Slice data, CacheQuota cacheQuota)
     {
         // no op
     }

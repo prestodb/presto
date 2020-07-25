@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.Table;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -33,15 +33,15 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
 import static com.facebook.presto.raptor.storage.organization.ShardOrganizationManager.createOrganizationSets;
 import static com.facebook.presto.raptor.storage.organization.TestCompactionSetCreator.extractIndexes;
 import static com.facebook.presto.raptor.storage.organization.TestShardOrganizer.createShardOrganizer;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

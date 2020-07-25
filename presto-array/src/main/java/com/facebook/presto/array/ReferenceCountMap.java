@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.array;
 
-import com.facebook.presto.spi.block.AbstractMapBlock;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.AbstractMapBlock;
+import com.facebook.presto.common.block.Block;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;

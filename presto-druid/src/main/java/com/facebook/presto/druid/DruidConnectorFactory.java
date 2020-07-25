@@ -15,6 +15,8 @@ package com.facebook.presto.druid;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.druid.authentication.DruidAuthenticationModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
@@ -23,7 +25,6 @@ import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.inject.Injector;
 
 import java.util.Map;
@@ -54,6 +55,7 @@ public class DruidConnectorFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new DruidModule(),
+                    new DruidAuthenticationModule(),
                     binder -> {
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                         binder.bind(FunctionMetadataManager.class).toInstance(context.getFunctionMetadataManager());

@@ -30,5 +30,6 @@ public interface HiveFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf conf,
-            ConnectorSession session);
+            ConnectorSession session,
+            Optional<EncryptionInformation> encryptionInformation);
 }

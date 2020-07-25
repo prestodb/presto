@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 
 import java.util.List;
@@ -34,5 +34,6 @@ public interface AccumulatorFactoryBinder
             boolean distinct,
             JoinCompiler joinCompiler,
             List<LambdaProvider> lambdaProviders,
+            boolean spillEnabled,
             Session session);
 }

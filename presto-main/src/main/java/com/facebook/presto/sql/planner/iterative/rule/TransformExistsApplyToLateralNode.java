@@ -43,10 +43,10 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.LateralJoinNode.Type.LEFT;

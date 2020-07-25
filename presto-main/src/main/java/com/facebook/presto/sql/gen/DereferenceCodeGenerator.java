@@ -19,10 +19,10 @@ import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
-import com.facebook.presto.spi.block.Block;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;

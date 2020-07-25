@@ -33,6 +33,7 @@ import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -286,6 +287,12 @@ public class DistributedQueryRunner
     }
 
     @Override
+    public Optional<EventListener> getEventListener()
+    {
+        return coordinator.getEventListener();
+    }
+
+    @Override
     public TestingAccessControlManager getAccessControl()
     {
         return coordinator.getAccessControl();
@@ -357,12 +364,15 @@ public class DistributedQueryRunner
      * <p>
      * TODO: Remove when there is a generic way of creating function namespaces as if creating schemas.
      */
-    public void enableTestFunctionNamespaces(List<String> catalogNames)
+    public void enableTestFunctionNamespaces(List<String> catalogNames, Map<String, String> additionalProperties)
     {
         checkState(testFunctionNamespacesHandle.get() == null, "Test function namespaces already enabled");
 
         String databaseName = String.valueOf(nanoTime());
-        Map<String, String> properties = ImmutableMap.of("database-name", databaseName);
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("database-name", databaseName)
+                .putAll(additionalProperties)
+                .build();
         installPlugin(new H2FunctionNamespaceManagerPlugin());
         for (String catalogName : catalogNames) {
             loadFunctionNamespaceManager("h2", catalogName, properties);

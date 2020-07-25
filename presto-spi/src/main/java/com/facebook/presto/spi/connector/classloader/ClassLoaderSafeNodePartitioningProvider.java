@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector.classloader;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
@@ -76,6 +76,14 @@ public final class ClassLoaderSafeNodePartitioningProvider
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSplitBucketFunction(transactionHandle, session, partitioningHandle);
+        }
+    }
+
+    @Override
+    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getBucketCount(transactionHandle, session, partitioningHandle);
         }
     }
 }

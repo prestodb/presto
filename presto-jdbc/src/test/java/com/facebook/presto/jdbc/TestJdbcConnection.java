@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.airlift.log.Logging;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.HiveHadoop2Plugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorSession;
@@ -23,7 +24,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,10 +43,10 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -167,10 +167,12 @@ public class TestJdbcConnection
     public void testSession()
             throws SQLException
     {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = createConnection("sessionProperties=query_max_run_time:2d;max_failed_task_percentage:0.6")) {
             assertThat(listSession(connection))
                     .contains("join_distribution_type|PARTITIONED|PARTITIONED")
-                    .contains("exchange_compression|false|false");
+                    .contains("exchange_compression|false|false")
+                    .contains("query_max_run_time|2d|100.00d")
+                    .contains("max_failed_task_percentage|0.6|0.3");
 
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SET SESSION join_distribution_type = 'BROADCAST'");

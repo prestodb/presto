@@ -14,7 +14,12 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.CatalogSchemaName;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -22,12 +27,10 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.LimitApplicationResult;
 import com.facebook.presto.spi.function.SqlFunction;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -35,9 +38,6 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
-import com.facebook.presto.spi.type.TypeSignature;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
@@ -76,7 +76,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void registerBuiltInFunctions(List<? extends BuiltInFunction> functions)
+    public void registerBuiltInFunctions(List<? extends SqlFunction> functions)
     {
         throw new UnsupportedOperationException();
     }

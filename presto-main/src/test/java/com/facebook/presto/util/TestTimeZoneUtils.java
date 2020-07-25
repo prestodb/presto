@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.spi.type.TimeZoneKey;
+import com.facebook.presto.common.type.TimeZoneKey;
 import io.airlift.jodabridge.JdkBasedZoneInfoProvider;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -23,8 +23,8 @@ import org.testng.annotations.Test;
 import java.time.ZoneId;
 import java.util.TreeSet;
 
-import static com.facebook.presto.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static com.facebook.presto.spi.type.TimeZoneKey.isUtcZoneId;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.isUtcZoneId;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackDateTimeZone;

@@ -16,6 +16,9 @@ package com.facebook.presto.server;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.type.ParametricType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -23,7 +26,6 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.block.BlockEncoding;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
@@ -32,8 +34,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
-import com.facebook.presto.spi.type.ParametricType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
@@ -80,6 +80,7 @@ public class PluginManager
             .add("io.airlift.slice.")
             .add("io.airlift.units.")
             .add("org.openjdk.jol.")
+            .add("com.facebook.presto.common")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);

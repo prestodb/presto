@@ -19,6 +19,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -41,7 +42,6 @@ import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
@@ -570,7 +570,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new ProjectNode(node.getId(), source, builder.build());
+            return new ProjectNode(node.getId(), source, builder.build(), node.getLocality());
         }
 
         @Override

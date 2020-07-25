@@ -27,9 +27,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
+import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.facebook.presto.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 
 public class TestLongDecimalStream
         extends AbstractTestValueStream<Slice, DecimalStreamCheckpoint, DecimalOutputStream, DecimalInputStream>
@@ -68,7 +68,7 @@ public class TestLongDecimalStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new DecimalInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
+        return new DecimalInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
     }
 
     @Override

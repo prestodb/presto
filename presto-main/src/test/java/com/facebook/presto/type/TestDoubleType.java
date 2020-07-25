@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.LongArrayBlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static org.testng.Assert.assertEquals;

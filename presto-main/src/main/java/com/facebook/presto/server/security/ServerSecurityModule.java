@@ -14,18 +14,18 @@
 package com.facebook.presto.server.security;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.airlift.http.server.TheServlet;
+import com.facebook.airlift.http.server.Authenticator;
+import com.facebook.airlift.http.server.CertificateAuthenticator;
+import com.facebook.airlift.http.server.JsonWebTokenAuthenticator;
+import com.facebook.airlift.http.server.JsonWebTokenConfig;
+import com.facebook.airlift.http.server.KerberosAuthenticator;
+import com.facebook.airlift.http.server.KerberosConfig;
 import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 
-import javax.servlet.Filter;
-
 import java.util.List;
-import java.util.Set;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
@@ -40,9 +40,6 @@ public class ServerSecurityModule
     @Override
     protected void setup(Binder binder)
     {
-        newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
-                .to(AuthenticationFilter.class).in(Scopes.SINGLETON);
-
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
 
         List<AuthenticationType> authTypes = buildConfigObject(SecurityConfig.class).getAuthenticationTypes();
@@ -67,11 +64,5 @@ public class ServerSecurityModule
                 throw new AssertionError("Unhandled auth type: " + authType);
             }
         }
-    }
-
-    @Provides
-    List<Authenticator> getAuthenticatorList(Set<Authenticator> authenticators)
-    {
-        return ImmutableList.copyOf(authenticators);
     }
 }

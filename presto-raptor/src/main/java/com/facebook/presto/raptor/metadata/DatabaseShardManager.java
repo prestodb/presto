@@ -15,14 +15,14 @@ package com.facebook.presto.raptor.metadata;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.storage.organization.ShardOrganizerDao;
 import com.facebook.presto.raptor.util.DaoSupplier;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;

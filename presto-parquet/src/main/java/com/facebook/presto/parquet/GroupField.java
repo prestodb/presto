@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet;
 
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

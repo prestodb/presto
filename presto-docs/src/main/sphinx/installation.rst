@@ -10,3 +10,4 @@ Installation
     installation/jdbc
     installation/benchmark-driver
     installation/tableau
+    installation/spark

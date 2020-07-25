@@ -16,6 +16,9 @@ package com.facebook.presto.pinot;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
@@ -26,9 +29,9 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -41,8 +44,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
@@ -67,13 +68,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.PinotColumnHandle.PinotColumnType.REGULAR;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.DERIVED;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.TABLE_COLUMN;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
@@ -94,6 +98,8 @@ public class TestPinotQueryBase
     protected static PinotColumnHandle city = new PinotColumnHandle("city", VARCHAR, REGULAR);
     protected static final PinotColumnHandle fare = new PinotColumnHandle("fare", DOUBLE, REGULAR);
     protected static final PinotColumnHandle secondsSinceEpoch = new PinotColumnHandle("secondsSinceEpoch", BIGINT, REGULAR);
+    protected static final PinotColumnHandle daysSinceEpoch = new PinotColumnHandle("daysSinceEpoch", DATE, REGULAR);
+    protected static final PinotColumnHandle millisSinceEpoch = new PinotColumnHandle("millisSinceEpoch", TIMESTAMP, REGULAR);
 
     protected static final Metadata metadata = MetadataManager.createTestMetadataManager();
 
@@ -107,7 +113,10 @@ public class TestPinotQueryBase
                     .put(new VariableReferenceExpression("fare", DOUBLE), new PinotQueryGeneratorContext.Selection("fare", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression("totalfare", DOUBLE), new PinotQueryGeneratorContext.Selection("(fare + trip)", DERIVED)) // derived column
                     .put(new VariableReferenceExpression("count_regionid", BIGINT), new PinotQueryGeneratorContext.Selection("count(regionid)", DERIVED))// derived column
+                    .put(new VariableReferenceExpression("sum_fare", BIGINT), new PinotQueryGeneratorContext.Selection("sum(fare)", DERIVED))// derived column
                     .put(new VariableReferenceExpression("secondssinceepoch", BIGINT), new PinotQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN)) // column for datetime functions
+                    .put(new VariableReferenceExpression("dayssinceepoch", DATE), new PinotQueryGeneratorContext.Selection("daysSinceEpoch", TABLE_COLUMN)) // column for date functions
+                    .put(new VariableReferenceExpression("millissinceepoch", TIMESTAMP), new PinotQueryGeneratorContext.Selection("millisSinceEpoch", TABLE_COLUMN)) // column for timestamp functions
                     .build();
 
     protected final TypeProvider typeProvider = TypeProvider.fromVariables(testInput.keySet());
@@ -123,9 +132,9 @@ public class TestPinotQueryBase
             session = TestingSession.testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
         }
 
-        public SessionHolder(boolean useDateTrunc)
+        public SessionHolder(boolean useDateTrunc, boolean useSqlSyntax)
         {
-            this(new PinotConfig().setUseDateTrunc(useDateTrunc));
+            this(new PinotConfig().setUseDateTrunc(useDateTrunc).setUsePinotSqlForBrokerQueries(useSqlSyntax));
         }
 
         public ConnectorSession getConnectorSession()
@@ -217,6 +226,11 @@ public class TestPinotQueryBase
         return new LimitNode(pb.getIdAllocator().getNextId(), source, count, FINAL);
     }
 
+    protected DistinctLimitNode distinctLimit(PlanBuilder pb, List<VariableReferenceExpression> distinctVariables, long count, PlanNode source)
+    {
+        return new DistinctLimitNode(pb.getIdAllocator().getNextId(), source, count, false, distinctVariables, Optional.empty());
+    }
+
     protected TopNNode topN(PlanBuilder pb, long count, List<String> orderingColumns, List<Boolean> ascending, PlanNode source)
     {
         ImmutableList<Ordering> ordering = IntStream.range(0, orderingColumns.size()).boxed().map(i -> new Ordering(variable(orderingColumns.get(i)), ascending.get(i) ? SortOrder.ASC_NULLS_FIRST : SortOrder.DESC_NULLS_FIRST)).collect(toImmutableList());
@@ -236,6 +250,11 @@ public class TestPinotQueryBase
     protected static PinotColumnHandle derived(String name)
     {
         return new PinotColumnHandle(name, BIGINT, PinotColumnHandle.PinotColumnType.DERIVED);
+    }
+
+    protected static PinotColumnHandle integer(String name)
+    {
+        return new PinotColumnHandle(name, INTEGER, PinotColumnHandle.PinotColumnType.REGULAR);
     }
 
     protected static PinotColumnHandle bigint(String name)

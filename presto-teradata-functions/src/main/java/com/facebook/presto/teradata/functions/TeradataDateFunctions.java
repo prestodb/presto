@@ -14,13 +14,13 @@
 package com.facebook.presto.teradata.functions;
 
 import com.facebook.airlift.concurrent.ThreadLocalCache;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
@@ -28,13 +28,13 @@ import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Locale;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackZoneKey;
+import static com.facebook.presto.common.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKeys;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackZoneKey;
-import static com.facebook.presto.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.spi.type.TimeZoneKey.getTimeZoneKeys;
 import static com.facebook.presto.teradata.functions.dateformat.DateFormatParser.createDateTimeFormatter;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.utf8Slice;

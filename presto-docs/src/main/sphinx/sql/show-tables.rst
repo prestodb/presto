@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    SHOW TABLES [ FROM schema ] [ LIKE pattern ]
+    SHOW TABLES [ FROM schema ] [ LIKE pattern [ ESCAPE 'escape_character' ] ]
 
 Description
 -----------

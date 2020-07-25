@@ -14,40 +14,60 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkRow;
+import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.execution.PrestoSparkRemoteSourceOperator.SparkRemoteSourceOperatorFactory;
-import com.facebook.presto.spi.block.SortOrder;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.RemoteSourceFactory;
-import com.google.common.collect.ImmutableMap;
+import scala.Tuple2;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static java.lang.String.format;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkRemoteSourceFactory
         implements RemoteSourceFactory
 {
-    private final Map<PlanNodeId, Iterator<PrestoSparkRow>> inputs;
+    private final PagesSerde pagesSerde;
+    private final Map<PlanNodeId, List<scala.collection.Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>>> rowInputsMap;
+    private final Map<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputsMap;
 
-    public PrestoSparkRemoteSourceFactory(Map<PlanNodeId, Iterator<PrestoSparkRow>> inputs)
+    public PrestoSparkRemoteSourceFactory(
+            PagesSerde pagesSerde,
+            Map<PlanNodeId, List<scala.collection.Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>>> rowInputsMap,
+            Map<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputsMap)
     {
-        this.inputs = ImmutableMap.copyOf(requireNonNull(inputs, "inputs is null"));
+        this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
+        this.rowInputsMap = requireNonNull(rowInputsMap, "rowInputs is null");
+        this.pageInputsMap = requireNonNull(pageInputsMap, "pageInputs is null");
     }
 
     @Override
     public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
+        List<scala.collection.Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> rowInputs = rowInputsMap.get(planNodeId);
+        List<java.util.Iterator<PrestoSparkSerializedPage>> pageInputs = pageInputsMap.get(planNodeId);
+        checkArgument(rowInputs != null || pageInputs != null, "input not found for plan node with id %s", planNodeId);
+        checkArgument(rowInputs == null || pageInputs == null, "single remote source cannot accept both, row and page inputs");
+
+        if (pageInputs != null) {
+            return new SparkRemoteSourceOperatorFactory(
+                    operatorId,
+                    planNodeId,
+                    new PrestoSparkSerializedPageInput(pagesSerde, pageInputs));
+        }
+
         return new SparkRemoteSourceOperatorFactory(
                 operatorId,
                 planNodeId,
-                requireNonNull(inputs.get(planNodeId), format("input is missing for plan node: %s", planNodeId)),
-                types);
+                new PrestoSparkMutableRowPageInput(types, rowInputs));
     }
 
     @Override

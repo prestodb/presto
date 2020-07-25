@@ -14,16 +14,16 @@
 
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.PrestoTableType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.TestingTypeManager;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +33,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
@@ -41,9 +45,6 @@ import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -61,7 +62,17 @@ public class TestHivePartitionManager
             TABLE_NAME,
             USER_NAME,
             PrestoTableType.MANAGED_TABLE,
-            new Storage(fromHiveStorageFormat(ORC), LOCATION, Optional.of(new HiveBucketProperty(ImmutableList.of(BUCKET_COLUMN.getName()), 100, ImmutableList.of())), false, ImmutableMap.of(), ImmutableMap.of()),
+            new Storage(fromHiveStorageFormat(ORC),
+                    LOCATION,
+                    Optional.of(new HiveBucketProperty(
+                            ImmutableList.of(BUCKET_COLUMN.getName()),
+                            100,
+                            ImmutableList.of(),
+                            HIVE_COMPATIBLE,
+                            Optional.empty())),
+                    false,
+                    ImmutableMap.of(),
+                    ImmutableMap.of()),
             ImmutableList.of(BUCKET_COLUMN),
             ImmutableList.of(PARTITION_COLUMN),
             ImmutableMap.of(),

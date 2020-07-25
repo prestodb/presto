@@ -13,15 +13,18 @@
  */
 package com.facebook.presto.block;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.DictionaryId;
-import com.facebook.presto.spi.block.VariableWidthBlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.DictionaryId;
+import com.facebook.presto.common.block.VariableWidthBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
+import static com.facebook.presto.block.BlockAssertions.createRandomDictionaryBlock;
+import static com.facebook.presto.block.BlockAssertions.createRandomLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createSlicesBlock;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static org.testng.Assert.assertEquals;
@@ -64,6 +67,15 @@ public class TestDictionaryBlock
 
         // The null positions should be included in the logical size.
         assertEquals(dictionaryBlock.getLogicalSizeInBytes(), 150 * 10);
+
+        Block longArrayBlock = createRandomLongsBlock(100, 0.5f);
+        DictionaryBlock dictionaryDictionaryBlock = createRandomDictionaryBlock(createRandomDictionaryBlock(longArrayBlock, 50), 10);
+        assertEquals(dictionaryDictionaryBlock.getDictionary().getLogicalSizeInBytes(), 450);
+        assertEquals(dictionaryDictionaryBlock.getLogicalSizeInBytes(), 90);
+
+        DictionaryBlock dictionaryRleBlock = createRandomDictionaryBlock(createRLEBlock(1, 50), 10);
+        assertEquals(dictionaryRleBlock.getDictionary().getLogicalSizeInBytes(), 450);
+        assertEquals(dictionaryRleBlock.getLogicalSizeInBytes(), 90);
     }
 
     @Test
@@ -89,7 +101,8 @@ public class TestDictionaryBlock
         assertEquals(copiedBlock.getDictionary().getPositionCount(), 1);
         assertEquals(copiedBlock.getPositionCount(), positionsToCopy.length);
         assertBlock(copiedBlock.getDictionary(), TestDictionaryBlock::createBlockBuilder, new Slice[] {firstExpectedValue});
-        assertBlock(copiedBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue});
+        assertBlock(copiedBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue,
+                firstExpectedValue});
     }
 
     @Test
@@ -177,7 +190,8 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         Block dictionaryBlock = new DictionaryBlock(createSlicesBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5});
-        assertBlock(dictionaryBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3], expectedValues[4], expectedValues[5]});
+        assertBlock(dictionaryBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3],
+                expectedValues[4], expectedValues[5]});
         DictionaryId dictionaryId = ((DictionaryBlock) dictionaryBlock).getDictionarySourceId();
 
         // first getPositions
@@ -202,7 +216,8 @@ public class TestDictionaryBlock
 
         // duplicated getPositions
         dictionaryBlock = dictionaryBlock.getPositions(new int[] {1, 1, 1, 1, 1}, 0, 5);
-        assertBlock(dictionaryBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5]});
+        assertBlock(dictionaryBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5],
+                expectedValues[5]});
         assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
 
         // out of range

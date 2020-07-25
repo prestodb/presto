@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -31,8 +33,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
+import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.api.Experimental;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -40,7 +42,6 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
-import com.facebook.presto.spi.type.Type;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -54,6 +55,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
@@ -720,5 +722,10 @@ public interface ConnectorMetadata
     default Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorTableHandle handle, long limit)
     {
         return Optional.empty();
+    }
+  
+    default TableLayoutFilterCoverage getTableLayoutFilterCoverage(ConnectorTableLayoutHandle tableHandle, Set<String> relevantPartitionColumns)
+    {
+        return NOT_APPLICABLE;
     }
 }

@@ -27,6 +27,7 @@ import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
@@ -97,6 +98,120 @@ public class TestJdbcPreparedStatement
                 assertEquals(rs.getInt(1), 123);
                 assertEquals(rs.getString(2), "hello");
                 assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test
+    public void testGetMetadata()
+            throws Exception
+    {
+        try (Connection connection = createConnection("blackhole", "blackhole")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE test_get_metadata (" +
+                        "c_boolean boolean, " +
+                        "c_tinyint tinyint, " +
+                        "c_smallint smallint, " +
+                        "c_integer integer, " +
+                        "c_bigint bigint, " +
+                        "c_real real, " +
+                        "c_double double, " +
+                        "c_decimal decimal, " +
+                        "c_decimal_2 decimal(10,3)," +
+                        "c_varchar varchar, " +
+                        "c_varchar_2 varchar(10), " +
+                        "c_char char, " +
+                        "c_varbinary varbinary, " +
+                        "c_json json, " +
+                        "c_date date, " +
+                        "c_time time, " +
+                        "c_time_with_time_zone time with time zone, " +
+                        "c_timestamp timestamp, " +
+                        "c_timestamp_with_time_zone timestamp with time zone, " +
+                        "c_row row(x integer, y array(integer)), " +
+                        "c_array array(integer), " +
+                        "c_map map(integer, integer))");
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT * FROM test_get_metadata")) {
+                ResultSetMetaData metadata = statement.getMetaData();
+                assertEquals(metadata.getColumnCount(), 22);
+                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                    assertEquals(metadata.getCatalogName(i), "blackhole");
+                    assertEquals(metadata.getSchemaName(i), "blackhole");
+                    assertEquals(metadata.getTableName(i), "test_get_metadata");
+                }
+
+                assertEquals(metadata.getColumnName(1), "c_boolean");
+                assertEquals(metadata.getColumnTypeName(1), "boolean");
+
+                assertEquals(metadata.getColumnName(2), "c_tinyint");
+                assertEquals(metadata.getColumnTypeName(2), "tinyint");
+
+                assertEquals(metadata.getColumnName(3), "c_smallint");
+                assertEquals(metadata.getColumnTypeName(3), "smallint");
+
+                assertEquals(metadata.getColumnName(4), "c_integer");
+                assertEquals(metadata.getColumnTypeName(4), "integer");
+
+                assertEquals(metadata.getColumnName(5), "c_bigint");
+                assertEquals(metadata.getColumnTypeName(5), "bigint");
+
+                assertEquals(metadata.getColumnName(6), "c_real");
+                assertEquals(metadata.getColumnTypeName(6), "real");
+
+                assertEquals(metadata.getColumnName(7), "c_double");
+                assertEquals(metadata.getColumnTypeName(7), "double");
+
+                assertEquals(metadata.getColumnName(8), "c_decimal");
+                assertEquals(metadata.getColumnTypeName(8), "decimal(38,0)");
+
+                assertEquals(metadata.getColumnName(9), "c_decimal_2");
+                assertEquals(metadata.getColumnTypeName(9), "decimal(10,3)");
+
+                assertEquals(metadata.getColumnName(10), "c_varchar");
+                assertEquals(metadata.getColumnTypeName(10), "varchar");
+
+                assertEquals(metadata.getColumnName(11), "c_varchar_2");
+                assertEquals(metadata.getColumnTypeName(11), "varchar(10)");
+
+                assertEquals(metadata.getColumnName(12), "c_char");
+                assertEquals(metadata.getColumnTypeName(12), "char(1)");
+
+                assertEquals(metadata.getColumnName(13), "c_varbinary");
+                assertEquals(metadata.getColumnTypeName(13), "varbinary");
+
+                assertEquals(metadata.getColumnName(14), "c_json");
+                assertEquals(metadata.getColumnTypeName(14), "json");
+
+                assertEquals(metadata.getColumnName(15), "c_date");
+                assertEquals(metadata.getColumnTypeName(15), "date");
+
+                assertEquals(metadata.getColumnName(16), "c_time");
+                assertEquals(metadata.getColumnTypeName(16), "time");
+
+                assertEquals(metadata.getColumnName(17), "c_time_with_time_zone");
+                assertEquals(metadata.getColumnTypeName(17), "time with time zone");
+
+                assertEquals(metadata.getColumnName(18), "c_timestamp");
+                assertEquals(metadata.getColumnTypeName(18), "timestamp");
+
+                assertEquals(metadata.getColumnName(19), "c_timestamp_with_time_zone");
+                assertEquals(metadata.getColumnTypeName(19), "timestamp with time zone");
+
+                assertEquals(metadata.getColumnName(20), "c_row");
+                assertEquals(metadata.getColumnTypeName(20), "row(x integer,y array(integer))");
+
+                assertEquals(metadata.getColumnName(21), "c_array");
+                assertEquals(metadata.getColumnTypeName(21), "array(integer)");
+
+                assertEquals(metadata.getColumnName(22), "c_map");
+                assertEquals(metadata.getColumnTypeName(22), "map(integer,integer)");
+            }
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE test_get_metadata");
             }
         }
     }

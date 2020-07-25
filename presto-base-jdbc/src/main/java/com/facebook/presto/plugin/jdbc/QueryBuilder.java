@@ -13,26 +13,27 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.TimeWithTimeZoneType;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
+import com.facebook.presto.common.type.TinyintType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.BooleanType;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DoubleType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.RealType;
-import com.facebook.presto.spi.type.SmallintType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.TimeWithTimeZoneType;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.TimestampWithTimeZoneType;
-import com.facebook.presto.spi.type.TinyintType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -48,7 +49,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -97,6 +98,7 @@ public class QueryBuilder
 
     public PreparedStatement buildSql(
             JdbcClient client,
+            ConnectorSession session,
             Connection connection,
             String catalog,
             String schema,
@@ -144,7 +146,7 @@ public class QueryBuilder
             sql.append(" WHERE ")
                     .append(Joiner.on(" AND ").join(clauses));
         }
-
+        sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
         PreparedStatement statement = client.getPreparedStatement(connection, sql.toString());
 
         for (int i = 0; i < accumulator.size(); i++) {

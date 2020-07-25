@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.presto.common.type.DecimalParseResult;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.DecimalParseResult;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.teradata.tpcds.Results;
 import com.teradata.tpcds.column.Column;
@@ -32,8 +32,8 @@ import org.joda.time.LocalTime;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.Chars.trimTrailingSpaces;
-import static com.facebook.presto.spi.type.Decimals.rescale;
+import static com.facebook.presto.common.type.Chars.trimTrailingSpaces;
+import static com.facebook.presto.common.type.Decimals.rescale;
 import static com.facebook.presto.tpcds.TpcdsMetadata.getPrestoType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Double.parseDouble;

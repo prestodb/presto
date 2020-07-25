@@ -17,11 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tests.AbstractTestingPrestoClient;
 import com.facebook.presto.tests.ResultsSession;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 
@@ -32,17 +34,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.elasticsearch.client.Requests.flushRequest;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.elasticsearch.common.xcontent.XContentType.JSON;
 
 public class ElasticsearchLoader
         extends AbstractTestingPrestoClient<Void>
@@ -91,6 +92,7 @@ public class ElasticsearchLoader
             }
             checkState(types.get() != null, "Type information is missing");
             List<Column> columns = statusInfo.getColumns();
+            BulkRequest request = new BulkRequest();
             for (List<Object> fields : data.getData()) {
                 try {
                     XContentBuilder dataBuilder = jsonBuilder().startObject();
@@ -100,14 +102,13 @@ public class ElasticsearchLoader
                         dataBuilder.field(columns.get(i).getName(), value);
                     }
                     dataBuilder.endObject();
-                    client.prepareIndex(tableName, "doc")
-                            .setSource(dataBuilder.string(), JSON)
-                            .get();
+                    request.add(new IndexRequest(tableName, "doc").source(dataBuilder));
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException("Error loading data into Elasticsearch index: " + tableName, e);
                 }
             }
+            client.bulk(request).actionGet();
             client.admin().indices().flush(flushRequest(tableName)).actionGet();
         }
 

@@ -31,11 +31,15 @@ public class FailureResolverModule
         extends AbstractConfigurationAwareModule
 {
     public static final FailureResolverModule BUILT_IN = FailureResolverModule.builder()
+            // Query Failure Resolvers
             .bind(ExceededGlobalMemoryLimitFailureResolver.NAME, ExceededGlobalMemoryLimitFailureResolver.class, Optional.empty())
             .bind(ExceededTimeLimitFailureResolver.NAME, ExceededTimeLimitFailureResolver.class, Optional.empty())
             .bind(ChecksumExceededTimeLimitFailureResolver.NAME, ChecksumExceededTimeLimitFailureResolver.class, Optional.empty())
             .bind(VerifierLimitationFailureResolver.NAME, VerifierLimitationFailureResolver.class, Optional.empty())
             .bindFactory(TooManyOpenPartitionsFailureResolver.NAME, TooManyOpenPartitionsFailureResolver.Factory.class, Optional.of(TooManyOpenPartitionsFailureResolverConfig.class))
+            // Result Mismatch Resolvers
+            .bind(StructuredColumnMismatchResolver.NAME, StructuredColumnMismatchResolver.class, Optional.empty())
+            .bind(IgnoredFunctionsMismatchResolver.NAME, IgnoredFunctionsMismatchResolver.class, Optional.of(IgnoredFunctionsMismatchResolverConfig.class))
             .build();
 
     private final List<FailureResolverBinding> resolvers;
@@ -75,8 +79,8 @@ public class FailureResolverModule
     {
         configBinder(binder).bindConfig(FailureResolverConfig.class, named(name), name);
         if (buildConfigObject(FailureResolverConfig.class, name).isEnabled()) {
-            failureResolverClass.ifPresent(clazz -> newSetBinder(binder, FailureResolver.class).addBinding().to(clazz));
-            failureResolverFactoryClass.ifPresent(clazz -> newSetBinder(binder, FailureResolverFactory.class).addBinding().to(clazz));
+            failureResolverClass.ifPresent(clazz -> newSetBinder(binder, FailureResolver.class).addBinding().to(clazz).in(SINGLETON));
+            failureResolverFactoryClass.ifPresent(clazz -> newSetBinder(binder, FailureResolverFactory.class).addBinding().to(clazz).in(SINGLETON));
             failureResolverConfigClass.ifPresent(clazz -> configBinder(binder).bindConfig(clazz, name));
         }
     }

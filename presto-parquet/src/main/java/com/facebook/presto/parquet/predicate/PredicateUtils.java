@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.parquet.predicate;
 
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.ParquetEncoding;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,11 +47,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.parquet.ParquetCompressionUtils.decompress;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetEncoding;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.toIntExact;

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -29,10 +29,10 @@ import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
 import static com.facebook.presto.operator.OperatorAssertion.toMaterializedResult;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static io.airlift.slice.Slices.wrappedBuffer;
 

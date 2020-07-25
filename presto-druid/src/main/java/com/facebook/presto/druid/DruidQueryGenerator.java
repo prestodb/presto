@@ -14,6 +14,8 @@
 package com.facebook.presto.druid;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.druid.DruidQueryGeneratorContext.Selection;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -30,8 +32,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.TypeManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
@@ -49,8 +49,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.druid.DruidAggregationColumnNode.AggregationFunctionColumnNode;
-import static com.facebook.presto.druid.DruidAggregationColumnNode.ExpressionType.AGGREGATE;
-import static com.facebook.presto.druid.DruidAggregationColumnNode.ExpressionType.GROUP_BY;
 import static com.facebook.presto.druid.DruidAggregationColumnNode.GroupByColumnNode;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION;
 import static com.facebook.presto.druid.DruidPushdownUtils.computeAggregationNodes;
@@ -257,7 +255,7 @@ public class DruidQueryGenerator
             node.getOutputVariables().forEach(outputColumn -> {
                 DruidColumnHandle druidColumn = (DruidColumnHandle) (node.getAssignments().get(outputColumn));
                 checkArgument(druidColumn.getType().equals(DruidColumnHandle.DruidColumnType.REGULAR), "Unexpected druid column handle that is not regular: " + druidColumn);
-                selections.put(outputColumn, new Selection("\\\"" + druidColumn.getColumnName() + "\\\"", TABLE_COLUMN));
+                selections.put(outputColumn, new Selection(druidColumn.getColumnName(), TABLE_COLUMN));
             });
             return new DruidQueryGeneratorContext(selections, tableHandle.getTableName());
         }

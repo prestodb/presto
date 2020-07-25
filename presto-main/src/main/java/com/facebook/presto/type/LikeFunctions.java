@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import io.airlift.jcodings.specific.NonStrictUTF8Encoding;
 import io.airlift.joni.Matcher;
 import io.airlift.joni.Option;
@@ -28,9 +28,9 @@ import io.airlift.joni.Syntax;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
-import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static io.airlift.joni.constants.MetaChar.INEFFECTIVE_META_CHAR;
 import static io.airlift.joni.constants.SyntaxProperties.OP_ASTERISK_ZERO_INF;

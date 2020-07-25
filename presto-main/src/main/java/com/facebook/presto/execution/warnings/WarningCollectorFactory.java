@@ -15,5 +15,5 @@ package com.facebook.presto.execution.warnings;
 
 public interface WarningCollectorFactory
 {
-    WarningCollector create();
+    WarningCollector create(WarningHandlingLevel warningHandlingLevel);
 }

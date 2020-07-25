@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.SqlDate;
+import com.facebook.presto.common.type.SqlDecimal;
+import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.orc.StripeReader.StripeId;
 import com.facebook.presto.orc.StripeReader.StripeStreamId;
 import com.facebook.presto.orc.cache.CachingOrcFileTailSource;
@@ -20,11 +25,6 @@ import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.OrcFileTail;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.SqlVarbinary;
 import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -33,6 +33,7 @@ import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -56,6 +57,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
@@ -63,18 +76,6 @@ import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcTester.createCustomOrcRecordReader;
 import static com.facebook.presto.orc.OrcTester.createOrcRecordWriter;
 import static com.facebook.presto.orc.OrcTester.createSettableStructObjectInspector;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.CharType.createCharType;
-import static com.facebook.presto.spi.type.DateType.DATE;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterables.concat;
@@ -212,11 +213,11 @@ public abstract class AbstractTestOrcReader
         StripeMetadataSource stripeMetadataSource = new CachingStripeMetadataSource(new StorageStripeMetadataSource(), stripeFootercache, stripeStreamCache);
 
         try (TempFile tempFile = createTempFile()) {
-            OrcBatchRecordReader storageReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource, true);
+            OrcBatchRecordReader storageReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource, true, ImmutableMap.of());
             assertEquals(orcFileTailCache.stats().missCount(), 1);
             assertEquals(orcFileTailCache.stats().hitCount(), 0);
 
-            OrcBatchRecordReader cacheReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource, true);
+            OrcBatchRecordReader cacheReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource, true, ImmutableMap.of());
             assertEquals(orcFileTailCache.stats().missCount(), 1);
             assertEquals(orcFileTailCache.stats().hitCount(), 1);
 
@@ -580,7 +581,7 @@ public abstract class AbstractTestOrcReader
         return values;
     }
 
-    private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
+    public static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
     {
         return ContiguousSet.create(Range.closedOpen(lowerInclusive, upperExclusive), DiscreteDomain.integers());
     }

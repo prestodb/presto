@@ -46,6 +46,7 @@ import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomp
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -168,7 +169,7 @@ public class PushPartialAggregationThroughExchange
                 VariableReferenceExpression input = symbolMapper.map(output);
                 assignments.put(output, input);
             }
-            partials.add(new ProjectNode(context.getIdAllocator().getNextId(), mappedPartial, assignments.build()));
+            partials.add(new ProjectNode(context.getIdAllocator().getNextId(), mappedPartial, assignments.build(), LOCAL));
         }
 
         for (PlanNode node : partials) {

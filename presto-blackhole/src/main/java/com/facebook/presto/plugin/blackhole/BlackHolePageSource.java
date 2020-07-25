@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.blackhole;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.units.Duration;
 

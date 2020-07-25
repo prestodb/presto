@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HiveFileContext;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
 import com.facebook.presto.raptor.storage.StorageManager;
 import com.facebook.presto.raptor.util.ConcatPageSource;
@@ -25,8 +27,6 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 
 import javax.inject.Inject;
 
@@ -38,6 +38,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 
+import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -61,7 +62,6 @@ public class RaptorPageSourceProvider
             SplitContext splitContext)
     {
         RaptorSplit raptorSplit = (RaptorSplit) split;
-        HiveFileContext hiveFileContext = new HiveFileContext(splitContext.isCacheable(), Optional.empty());
         OptionalInt bucketNumber = raptorSplit.getBucketNumber();
         TupleDomain<RaptorColumnHandle> predicate = raptorSplit.getEffectivePredicate();
         ReaderAttributes attributes = ReaderAttributes.from(session);
@@ -69,14 +69,14 @@ public class RaptorPageSourceProvider
         Optional<Map<String, Type>> columnTypes = raptorSplit.getColumnTypes();
         boolean tableSupportsDeltaDelete = raptorSplit.isTableSupportsDeltaDelete();
 
-        FileSystemContext context = new FileSystemContext(session);
+        HdfsContext context = new HdfsContext(session);
 
         Map<UUID, UUID> shardDeltaMap = raptorSplit.getShardDeltaMap();
         if (raptorSplit.getShardUuids().size() == 1) {
             UUID shardUuid = raptorSplit.getShardUuids().iterator().next();
             return createPageSource(
                     context,
-                    hiveFileContext,
+                    DEFAULT_HIVE_FILE_CONTEXT,
                     shardUuid,
                     Optional.ofNullable(shardDeltaMap.get(shardUuid)),
                     tableSupportsDeltaDelete,
@@ -91,7 +91,7 @@ public class RaptorPageSourceProvider
         Iterator<ConnectorPageSource> iterator = raptorSplit.getShardUuids().stream()
                 .map(shardUuid -> createPageSource(
                         context,
-                        hiveFileContext,
+                        DEFAULT_HIVE_FILE_CONTEXT,
                         shardUuid,
                         Optional.ofNullable(shardDeltaMap.get(shardUuid)),
                         tableSupportsDeltaDelete,
@@ -114,7 +114,7 @@ public class RaptorPageSourceProvider
      * Having these two parameters at the same time gives us the flexibility and compatibility to future features.
      */
     private ConnectorPageSource createPageSource(
-            FileSystemContext context,
+            HdfsContext context,
             HiveFileContext hiveFileContext,
             UUID shardUuid,
             Optional<UUID> deltaShardUuid,

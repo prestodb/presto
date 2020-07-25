@@ -15,9 +15,9 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.PagesIndex;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
@@ -53,8 +53,20 @@ public class LazyAccumulatorFactoryBinder
             boolean distinct,
             JoinCompiler joinCompiler,
             List<LambdaProvider> lambdaProviders,
+            boolean spillEnabled,
             Session session)
     {
-        return binder.get().bind(argumentChannels, maskChannel, sourceTypes, orderByChannels, orderings, pagesIndexFactory, distinct, joinCompiler, lambdaProviders, session);
+        return binder.get().bind(
+                argumentChannels,
+                maskChannel,
+                sourceTypes,
+                orderByChannels,
+                orderings,
+                pagesIndexFactory,
+                distinct,
+                joinCompiler,
+                lambdaProviders,
+                spillEnabled,
+                session);
     }
 }

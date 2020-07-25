@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableMap;
 import org.h2.Driver;
 

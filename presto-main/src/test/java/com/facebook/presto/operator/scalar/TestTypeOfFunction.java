@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.common.type.VarcharType;
 import org.testng.annotations.Test;
 
 public class TestTypeOfFunction

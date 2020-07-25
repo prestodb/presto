@@ -13,10 +13,6 @@
  */
 package com.facebook.presto.operator.repartition;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.ColumnarArray;
-import com.facebook.presto.spi.block.ColumnarMap;
-import com.facebook.presto.spi.block.ColumnarRow;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -43,42 +39,13 @@ class DecodedBlockNode
     private final List<DecodedBlockNode> children;
     private final long retainedSizeInBytes;
     private final long estimatedSerializedSizeInBytes;
-    private final long childrenEstimatedSerializedSizeInBytes;
 
-    public DecodedBlockNode(Object decodedBlock, List<DecodedBlockNode> children)
+    public DecodedBlockNode(Object decodedBlock, List<DecodedBlockNode> children, long decodedBlockRetainedSizeInBytes, long estimatedSerializedSizeInBytes)
     {
         this.decodedBlock = requireNonNull(decodedBlock, "decodedBlock is null");
         this.children = requireNonNull(children, "children is null");
-
-        long retainedSize = INSTANCE_SIZE;
-        long estimatedSerializedSize = 0;
-
-        if (decodedBlock instanceof Block) {
-            retainedSize += ((Block) decodedBlock).getRetainedSizeInBytes();
-            // We use logical size as an estimation of the serialized size. For DictionaryBlock and RunLengthEncodedBlock, the logical size accounts for the size as if they were inflated.
-            estimatedSerializedSize += ((Block) decodedBlock).getLogicalSizeInBytes();
-        }
-        else if (decodedBlock instanceof ColumnarArray) {
-            retainedSize += ((ColumnarArray) decodedBlock).getRetainedSizeInBytes();
-            estimatedSerializedSize += ((ColumnarArray) decodedBlock).getEstimatedSerializedSizeInBytes();
-        }
-        else if (decodedBlock instanceof ColumnarMap) {
-            retainedSize += ((ColumnarMap) decodedBlock).getRetainedSizeInBytes();
-            estimatedSerializedSize += ((ColumnarMap) decodedBlock).getEstimatedSerializedSizeInBytes();
-        }
-        else if (decodedBlock instanceof ColumnarRow) {
-            retainedSize += ((ColumnarRow) decodedBlock).getRetainedSizeInBytes();
-            estimatedSerializedSize += ((ColumnarRow) decodedBlock).getEstimatedSerializedSizeInBytes();
-        }
-
-        retainedSizeInBytes = retainedSize;
-        estimatedSerializedSizeInBytes = estimatedSerializedSize;
-
-        long childrenEstimatedSerializedSize = 0;
-        for (int i = 0; i < children.size(); i++) {
-            childrenEstimatedSerializedSize += children.get(i).getEstimatedSerializedSizeInBytes();
-        }
-        childrenEstimatedSerializedSizeInBytes = childrenEstimatedSerializedSize;
+        this.retainedSizeInBytes = decodedBlockRetainedSizeInBytes + INSTANCE_SIZE;
+        this.estimatedSerializedSizeInBytes = estimatedSerializedSizeInBytes;
     }
 
     public Object getDecodedBlock()
@@ -89,11 +56,6 @@ class DecodedBlockNode
     public List<DecodedBlockNode> getChildren()
     {
         return children;
-    }
-
-    public long getChildrenEstimatedSerializedSizeInBytes()
-    {
-        return childrenEstimatedSerializedSizeInBytes;
     }
 
     public long getRetainedSizeInBytes()

@@ -14,28 +14,28 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.BlockSerdeUtil;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.CharType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.SqlDate;
+import com.facebook.presto.common.type.SqlDecimal;
+import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
-import com.facebook.presto.spi.block.BlockSerdeUtil;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.CharType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.DecimalType;
-import com.facebook.presto.spi.type.Decimals;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.SqlDate;
-import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.SqlTimestamp;
-import com.facebook.presto.spi.type.SqlVarbinary;
-import com.facebook.presto.spi.type.TimestampType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.StructuralTestUtil;
@@ -86,8 +86,24 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.Chars.isCharType;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveManifestUtils.getFileSize;
+import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
@@ -95,19 +111,6 @@ import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.util.ConfigurationUtils.configureCompression;
 import static com.facebook.presto.hive.util.SerDeUtils.serializeObject;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.CharType.createCharType;
-import static com.facebook.presto.spi.type.Chars.isCharType;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
-import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.facebook.presto.tests.StructuralTestUtil.arrayBlockOf;
@@ -538,13 +541,26 @@ public abstract class AbstractTestHiveFileFormats
                 StorageFormat.fromHiveStorageFormat(storageFormat),
                 tableProperties,
                 jobConf,
-                session);
+                session,
+                Optional.empty());
 
         HiveFileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
         hiveFileWriter.appendRows(page);
-        hiveFileWriter.commit();
+        Optional<Page> fileStatistics = hiveFileWriter.commit();
+
+        assertFileStatistics(fileStatistics, hiveFileWriter.getWrittenBytes(), storageFormat);
 
         return new FileSplit(new Path(filePath), 0, new File(filePath).length(), new String[0]);
+    }
+
+    private static void assertFileStatistics(Optional<Page> fileStatistics, long writtenBytes, HiveStorageFormat storageFormat)
+    {
+        if (storageFormat == ORC || storageFormat == DWRF) {
+            assertTrue(fileStatistics.isPresent());
+            Page statisticsPage = fileStatistics.get();
+            assertEquals(statisticsPage.getPositionCount(), 1);
+            assertEquals(writtenBytes, getFileSize(statisticsPage, 0));
+        }
     }
 
     public static FileSplit createTestFile(

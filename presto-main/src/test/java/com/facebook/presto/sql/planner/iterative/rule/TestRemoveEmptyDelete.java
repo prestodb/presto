@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.planner.iterative.rule.test.RuleTester.CONNECTOR_ID;
 
 public class TestRemoveEmptyDelete

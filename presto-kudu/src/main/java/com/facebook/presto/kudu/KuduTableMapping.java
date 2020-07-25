@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kudu;
 
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.Type;
 
 import java.util.List;
 

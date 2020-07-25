@@ -14,9 +14,9 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.UpdateMemory.NOOP;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 
 public interface GroupByHash
 {

@@ -17,7 +17,7 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.MethodGenerationContext;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.InvokeInstruction;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 

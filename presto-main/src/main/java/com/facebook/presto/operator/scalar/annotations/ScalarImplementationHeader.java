@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.operator.scalar.ScalarHeader;
-import com.facebook.presto.spi.function.OperatorType;
-import com.facebook.presto.spi.function.QualifiedFunctionName;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;

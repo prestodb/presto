@@ -19,6 +19,8 @@ import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.system.AnalyzePropertiesSystemTable;
 import com.facebook.presto.connector.system.CatalogSystemTable;
@@ -112,14 +114,13 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -155,7 +156,7 @@ import com.facebook.presto.sql.planner.RemoteSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
-import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.AlterFunction;
@@ -280,6 +281,9 @@ public class LocalQueryRunner
     private final NodeSchedulerConfig nodeSchedulerConfig;
     private boolean printPlan;
 
+    private final PlanChecker distributedPlanChecker;
+    private final PlanChecker singleNodePlanChecker;
+
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     public LocalQueryRunner(Session defaultSession)
@@ -333,6 +337,8 @@ public class LocalQueryRunner
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
 
         this.blockEncodingManager = new BlockEncodingManager(typeRegistry);
+        featuresConfig.setIgnoreStatsCalculatorFailures(false);
+
         this.metadata = new MetadataManager(
                 featuresConfig,
                 typeRegistry,
@@ -343,14 +349,17 @@ public class LocalQueryRunner
                                 new TaskManagerConfig(),
                                 new MemoryManagerConfig(),
                                 featuresConfig,
-                                new NodeMemoryConfig())),
+                                new NodeMemoryConfig(),
+                                new WarningCollectorConfig())),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager);
         this.splitManager = new SplitManager(metadata, new QueryManagerConfig(), nodeSchedulerConfig);
-        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), sqlParser);
+        this.distributedPlanChecker = new PlanChecker(featuresConfig, false);
+        this.singleNodePlanChecker = new PlanChecker(featuresConfig, true);
+        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), sqlParser, featuresConfig);
         this.joinCompiler = new JoinCompiler(metadata, featuresConfig);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
         this.statsNormalizer = new StatsNormalizer();
@@ -546,6 +555,12 @@ public class LocalQueryRunner
         return statsCalculator;
     }
 
+    @Override
+    public Optional<EventListener> getEventListener()
+    {
+        return Optional.empty();
+    }
+
     public CostCalculator getCostCalculator()
     {
         return costCalculator;
@@ -655,7 +670,9 @@ public class LocalQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return executeWithPlan(session, sql, new DefaultWarningCollector(new WarningCollectorConfig())).getMaterializedResult();
+        return executeWithPlan(session, sql, new DefaultWarningCollector(
+                new WarningCollectorConfig(),
+                SystemSessionProperties.getWarningHandlingLevel(session))).getMaterializedResult();
     }
 
     @Override
@@ -921,7 +938,7 @@ public class LocalQueryRunner
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 new CostComparator(featuresConfig),
-                taskCountEstimator).get();
+                taskCountEstimator).getPlanningTimeOptimizers();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)
@@ -946,10 +963,11 @@ public class LocalQueryRunner
                 sqlParser,
                 statsCalculator,
                 costCalculator,
-                dataDefinitionTask);
+                dataDefinitionTask,
+                distributedPlanChecker);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), warningCollector);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(wrappedStatement instanceof Explain, session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(wrappedStatement instanceof Explain, session, optimizers, singleNodePlanChecker, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         return logicalPlanner.plan(analysis, stage);

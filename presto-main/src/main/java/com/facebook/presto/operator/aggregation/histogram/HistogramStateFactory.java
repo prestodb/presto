@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.aggregation.histogram;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
-import com.facebook.presto.spi.type.Type;
 
 import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.LEGACY;
 import static com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation.NEW;

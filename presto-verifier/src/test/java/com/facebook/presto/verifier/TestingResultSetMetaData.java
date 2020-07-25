@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.verifier;
 
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignature;
 import com.google.common.collect.ImmutableList;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public class TestingResultSetMetaData

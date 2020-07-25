@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.BucketFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.Math.toIntExact;
 

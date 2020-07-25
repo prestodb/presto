@@ -14,12 +14,12 @@
 package com.facebook.presto.hive.gcs;
 
 import com.facebook.presto.hive.DynamicConfigurationProvider;
+import com.facebook.presto.hive.HdfsContext;
 import com.google.cloud.hadoop.gcsio.GoogleCloudStorageFileSystem;
 import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 
-import static com.facebook.presto.hive.HdfsEnvironment.HdfsContext;
 import static com.facebook.presto.hive.gcs.GcsAccessTokenProvider.GCS_ACCESS_TOKEN_CONF;
 
 public class GcsConfigurationProvider

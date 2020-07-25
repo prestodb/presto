@@ -13,6 +13,21 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.ArrayAllocator;
+import com.facebook.presto.common.block.ArrayBlock;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockFlattener;
+import com.facebook.presto.common.block.BlockLease;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.common.block.ColumnarMap;
+import com.facebook.presto.common.block.ColumnarRow;
+import com.facebook.presto.common.block.DictionaryBlock;
+import com.facebook.presto.common.block.MapBlock;
+import com.facebook.presto.common.block.RowBlock;
+import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
@@ -23,26 +38,11 @@ import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.operator.SimpleArrayAllocator;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.ArrayAllocator;
-import com.facebook.presto.spi.block.ArrayBlock;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockFlattener;
-import com.facebook.presto.spi.block.BlockLease;
-import com.facebook.presto.spi.block.ColumnarArray;
-import com.facebook.presto.spi.block.ColumnarMap;
-import com.facebook.presto.spi.block.ColumnarRow;
-import com.facebook.presto.spi.block.DictionaryBlock;
-import com.facebook.presto.spi.block.MapBlock;
-import com.facebook.presto.spi.block.RowBlock;
-import com.facebook.presto.spi.block.RunLengthEncodedBlock;
+import com.facebook.presto.operator.UncheckedStackArrayAllocator;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.type.FixedWidthType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -66,8 +66,8 @@ import static com.facebook.presto.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.array.Arrays.ExpansionOption.INITIALIZE;
 import static com.facebook.presto.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.array.Arrays.ensureCapacity;
+import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
-import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -99,8 +99,7 @@ public class OptimizedPartitionedOutputOperator
             OptionalInt nullChannel,
             OutputBuffer outputBuffer,
             PagesSerdeFactory serdeFactory,
-            DataSize maxMemory,
-            int maxBufferCount)
+            DataSize maxMemory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
@@ -114,7 +113,6 @@ public class OptimizedPartitionedOutputOperator
                 serdeFactory,
                 sourceTypes,
                 maxMemory,
-                maxBufferCount,
                 operatorContext.getDriverContext().getLifespan());
 
         operatorContext.setInfoSupplier(this::getInfo);
@@ -196,34 +194,58 @@ public class OptimizedPartitionedOutputOperator
         blockLeaseCloser.register(lease::close);
         Block decodedBlock = lease.get();
 
+        long estimatedSizeInBytes = decodedBlock.getLogicalSizeInBytes();
+
         if (decodedBlock instanceof ArrayBlock) {
             ColumnarArray columnarArray = ColumnarArray.toColumnarArray(decodedBlock);
-            return new DecodedBlockNode(columnarArray, ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, columnarArray.getElementsBlock())));
+            Block childBlock = columnarArray.getElementsBlock();
+            return new DecodedBlockNode(
+                    columnarArray,
+                    ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, childBlock)),
+                    columnarArray.getRetainedSizeInBytes(),
+                    estimatedSizeInBytes);
         }
 
         if (decodedBlock instanceof MapBlock) {
             ColumnarMap columnarMap = ColumnarMap.toColumnarMap(decodedBlock);
-            return new DecodedBlockNode(columnarMap, ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, columnarMap.getKeysBlock()), decodeBlock(flattener, blockLeaseCloser, columnarMap.getValuesBlock())));
+            Block keyBlock = columnarMap.getKeysBlock();
+            Block valueBlock = columnarMap.getValuesBlock();
+            return new DecodedBlockNode(
+                    columnarMap,
+                    ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, keyBlock), decodeBlock(flattener, blockLeaseCloser, valueBlock)),
+                    columnarMap.getRetainedSizeInBytes(),
+                    estimatedSizeInBytes);
         }
 
         if (decodedBlock instanceof RowBlock) {
             ColumnarRow columnarRow = ColumnarRow.toColumnarRow(decodedBlock);
             ImmutableList.Builder<DecodedBlockNode> children = ImmutableList.builder();
             for (int i = 0; i < columnarRow.getFieldCount(); i++) {
-                children.add(decodeBlock(flattener, blockLeaseCloser, columnarRow.getField(i)));
+                Block childBlock = columnarRow.getField(i);
+                children.add(decodeBlock(flattener, blockLeaseCloser, childBlock));
             }
-            return new DecodedBlockNode(columnarRow, children.build());
+            return new DecodedBlockNode(columnarRow, children.build(), columnarRow.getRetainedSizeInBytes(), estimatedSizeInBytes);
         }
 
         if (decodedBlock instanceof DictionaryBlock) {
-            return new DecodedBlockNode(decodedBlock, ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, ((DictionaryBlock) decodedBlock).getDictionary())));
+            Block dictionary = ((DictionaryBlock) decodedBlock).getDictionary();
+            return new DecodedBlockNode(
+                    decodedBlock,
+                    ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, dictionary)),
+                    decodedBlock.getRetainedSizeInBytes(),
+                    estimatedSizeInBytes);
         }
 
         if (decodedBlock instanceof RunLengthEncodedBlock) {
-            return new DecodedBlockNode(decodedBlock, ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, ((RunLengthEncodedBlock) decodedBlock).getValue())));
+            Block childBlock = ((RunLengthEncodedBlock) decodedBlock).getValue();
+            return new DecodedBlockNode(
+                    decodedBlock,
+                    ImmutableList.of(decodeBlock(flattener, blockLeaseCloser, childBlock)),
+                    decodedBlock.getRetainedSizeInBytes(),
+                    estimatedSizeInBytes);
         }
 
-        return new DecodedBlockNode(decodedBlock, ImmutableList.of());
+        return new DecodedBlockNode(decodedBlock, ImmutableList.of(), block.getRetainedSizeInBytes(), estimatedSizeInBytes);
     }
 
     public static class OptimizedPartitionedOutputFactory
@@ -231,13 +253,11 @@ public class OptimizedPartitionedOutputOperator
     {
         private final OutputBuffer outputBuffer;
         private final DataSize maxMemory;
-        private final int maxBufferCount;
 
-        public OptimizedPartitionedOutputFactory(OutputBuffer outputBuffer, DataSize maxMemory, int maxBufferCount)
+        public OptimizedPartitionedOutputFactory(OutputBuffer outputBuffer, DataSize maxMemory)
         {
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
-            this.maxBufferCount = maxBufferCount;
         }
 
         @Override
@@ -262,8 +282,7 @@ public class OptimizedPartitionedOutputOperator
                     outputPartitioning.get().getNullChannel(),
                     outputBuffer,
                     serdeFactory,
-                    maxMemory,
-                    maxBufferCount);
+                    maxMemory);
         }
     }
 
@@ -282,7 +301,6 @@ public class OptimizedPartitionedOutputOperator
         private final OutputBuffer outputBuffer;
         private final PagesSerdeFactory serdeFactory;
         private final DataSize maxMemory;
-        private final int maxBufferCount;
 
         public OptimizedPartitionedOutputOperatorFactory(
                 int operatorId,
@@ -296,8 +314,7 @@ public class OptimizedPartitionedOutputOperator
                 OptionalInt nullChannel,
                 OutputBuffer outputBuffer,
                 PagesSerdeFactory serdeFactory,
-                DataSize maxMemory,
-                int maxBufferCount)
+                DataSize maxMemory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -311,7 +328,6 @@ public class OptimizedPartitionedOutputOperator
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
             this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
-            this.maxBufferCount = maxBufferCount;
         }
 
         @Override
@@ -329,8 +345,7 @@ public class OptimizedPartitionedOutputOperator
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
-                    maxMemory,
-                    maxBufferCount);
+                    maxMemory);
         }
 
         @Override
@@ -353,8 +368,7 @@ public class OptimizedPartitionedOutputOperator
                     nullChannel,
                     outputBuffer,
                     serdeFactory,
-                    maxMemory,
-                    maxBufferCount);
+                    maxMemory);
         }
     }
 
@@ -372,12 +386,12 @@ public class OptimizedPartitionedOutputOperator
 
         // The ArrayAllocator used by BlockFlattener for decoding blocks.
         // There could be queries that shuffles data with up to 1000 columns so we need to set the maxOutstandingArrays a high number.
-        private final ArrayAllocator blockDecodingAllocator = new SimpleArrayAllocator(5_000);
+        private final ArrayAllocator blockDecodingAllocator = new UncheckedStackArrayAllocator(500);
         private final BlockFlattener flattener = new BlockFlattener(blockDecodingAllocator);
         private final Closer blockLeaseCloser = Closer.create();
 
         // The ArrayAllocator for the buffers used in repartitioning, e.g. PartitionBuffer#serializedRowSizes, BlockEncodingBuffer#mappedPositions.
-        private final ArrayAllocator bufferAllocator;
+        private final ArrayAllocator bufferAllocator = new UncheckedStackArrayAllocator(2000);
 
         private final PartitionBuffer[] partitionBuffers;
         private final List<Type> sourceTypes;
@@ -397,7 +411,6 @@ public class OptimizedPartitionedOutputOperator
                 PagesSerdeFactory serdeFactory,
                 List<Type> sourceTypes,
                 DataSize maxMemory,
-                int maxBufferCount,
                 Lifespan lifespan)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "pagePartitioner is null");
@@ -413,7 +426,6 @@ public class OptimizedPartitionedOutputOperator
             int partitionCount = partitionFunction.getPartitionCount();
 
             int partitionBufferCapacity = max(1, min(DEFAULT_MAX_PAGE_SIZE_IN_BYTES, toIntExact(maxMemory.toBytes()) / partitionCount));
-            bufferAllocator = new SimpleArrayAllocator(maxBufferCount);
 
             partitionBuffers = new PartitionBuffer[partitionCount];
             for (int i = 0; i < partitionCount; i++) {

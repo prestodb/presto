@@ -15,6 +15,11 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
@@ -29,13 +34,8 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Field;
@@ -59,6 +59,7 @@ import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
+import com.facebook.presto.sql.tree.IsNotNullPredicate;
 import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
@@ -94,6 +95,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
@@ -193,7 +196,7 @@ class RelationPlanner
                 }
             }
 
-            root = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
+            root = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build(), LOCAL);
             mappings = newMappings.build();
         }
 
@@ -289,11 +292,13 @@ class RelationPlanner
                     if (firstDependencies.stream().allMatch(left::canResolve) && secondDependencies.stream().allMatch(right::canResolve)) {
                         leftComparisonExpressions.add(firstExpression);
                         rightComparisonExpressions.add(secondExpression);
+                        addNullFilters(complexJoinExpressions, node.getType(), firstExpression, secondExpression);
                         joinConditionComparisonOperators.add(comparisonOperator);
                     }
                     else if (firstDependencies.stream().allMatch(right::canResolve) && secondDependencies.stream().allMatch(left::canResolve)) {
                         leftComparisonExpressions.add(secondExpression);
                         rightComparisonExpressions.add(firstExpression);
+                        addNullFilters(complexJoinExpressions, node.getType(), secondExpression, firstExpression);
                         joinConditionComparisonOperators.add(comparisonOperator.flip());
                     }
                     else {
@@ -397,6 +402,32 @@ class RelationPlanner
         }
 
         return new RelationPlan(root, analysis.getScope(node), outputs);
+    }
+
+    private void addNullFilters(List<Expression> conditions, Join.Type joinType, Expression left, Expression right)
+    {
+        if (SystemSessionProperties.isOptimizeNullsInJoin(session)) {
+            switch (joinType) {
+                case INNER:
+                    addNullFilterIfSupported(conditions, left);
+                    addNullFilterIfSupported(conditions, right);
+                    break;
+                case LEFT:
+                    addNullFilterIfSupported(conditions, right);
+                    break;
+                case RIGHT:
+                    addNullFilterIfSupported(conditions, left);
+                    break;
+            }
+        }
+    }
+
+    private void addNullFilterIfSupported(List<Expression> conditions, Expression incoming)
+    {
+        if (!(incoming instanceof InPredicate)) {
+            // (A.x IN (1,2,3)) IS NOT NULL is not supported as a join condition as of today.
+            conditions.add(new IsNotNullPredicate(incoming));
+        }
     }
 
     private RelationPlan planJoinUsing(Join node, RelationPlan left, RelationPlan right)
@@ -551,11 +582,6 @@ class RelationPlanner
                 .addAll(rightPlan.getRoot().getOutputVariables())
                 .build();
         return new RelationPlan(planBuilder.getRoot(), analysis.getScope(join), outputVariables);
-    }
-
-    private static boolean isEqualComparisonExpression(Expression conjunct)
-    {
-        return conjunct instanceof ComparisonExpression && ((ComparisonExpression) conjunct).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
     private RelationPlan planCrossJoinUnnest(RelationPlan leftPlan, Join joinNode, Unnest node)

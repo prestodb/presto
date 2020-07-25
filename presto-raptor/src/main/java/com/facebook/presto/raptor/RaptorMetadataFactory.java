@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.raptor.metadata.ForMetadata;
 import com.facebook.presto.raptor.metadata.ShardManager;
-import com.facebook.presto.spi.type.TypeManager;
 import org.skife.jdbi.v2.IDBI;
 
 import javax.inject.Inject;

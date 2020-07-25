@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.builder.HashAggregationBuilder;
 import com.facebook.presto.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import com.facebook.presto.operator.aggregation.builder.SpillableHashAggregationBuilder;
 import com.facebook.presto.operator.scalar.CombineHashFunction;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
@@ -367,7 +367,7 @@ public class HashAggregationOperator
 
         if (aggregationBuilder == null) {
             // TODO: We ignore spillEnabled here if any aggregate has ORDER BY clause or DISTINCT because they are not yet implemented for spilling.
-            if (step.isOutputPartial() || !spillEnabled || hasOrderBy() || hasDistinct()) {
+            if (step.isOutputPartial() || !spillEnabled) {
                 aggregationBuilder = new InMemoryHashAggregationBuilder(
                         accumulatorFactories,
                         step,
@@ -409,16 +409,6 @@ public class HashAggregationOperator
             unfinishedWork = null;
         }
         aggregationBuilder.updateMemory();
-    }
-
-    private boolean hasOrderBy()
-    {
-        return accumulatorFactories.stream().anyMatch(AccumulatorFactory::hasOrderBy);
-    }
-
-    private boolean hasDistinct()
-    {
-        return accumulatorFactories.stream().anyMatch(AccumulatorFactory::hasDistinct);
     }
 
     @Override

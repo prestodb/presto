@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.Page;
+
 import java.io.IOException;
 import java.util.Iterator;
 

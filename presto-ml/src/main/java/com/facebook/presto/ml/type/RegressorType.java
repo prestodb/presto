@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.ml.type;
 
-import com.facebook.presto.spi.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignature;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes

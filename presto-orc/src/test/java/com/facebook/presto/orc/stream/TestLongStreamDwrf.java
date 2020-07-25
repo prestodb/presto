@@ -51,7 +51,7 @@ public class TestLongStreamDwrf
     @Override
     protected LongOutputStreamDwrf createValueOutputStream()
     {
-        return new LongOutputStreamDwrf(SNAPPY, COMPRESSION_BLOCK_SIZE, true, DATA);
+        return new LongOutputStreamDwrf(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE, true, DATA);
     }
 
     @Override
@@ -65,7 +65,7 @@ public class TestLongStreamDwrf
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize());
+        OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize());
         return new LongInputStreamDwrf(input, LONG, true, true);
     }
 

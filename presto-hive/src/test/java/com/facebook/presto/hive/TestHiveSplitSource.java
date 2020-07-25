@@ -35,9 +35,15 @@ import java.util.concurrent.Executors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.testing.Assertions.assertContains;
+import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
+import static com.facebook.presto.hive.CacheQuotaScope.PARTITION;
+import static com.facebook.presto.hive.CacheQuotaScope.TABLE;
+import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -50,6 +56,7 @@ import static org.testng.Assert.fail;
 public class TestHiveSplitSource
 {
     private static final Executor EXECUTOR = Executors.newFixedThreadPool(5);
+    private static final Optional<DataSize> DEFAULT_QUOTA_SIZE = Optional.of(DataSize.succinctDataSize(2, GIGABYTE));
 
     @Test
     public void testOutstandingSplitCount()
@@ -58,6 +65,7 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
+                new CacheQuotaRequirement(TABLE, DEFAULT_QUOTA_SIZE),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -85,12 +93,93 @@ public class TestHiveSplitSource
     }
 
     @Test
+    public void testEvenlySizedSplitRemainder()
+    {
+        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                new CacheQuotaRequirement(TABLE, DEFAULT_QUOTA_SIZE),
+                10,
+                10,
+                new DataSize(1, MEGABYTE),
+                new TestingHiveSplitLoader(),
+                EXECUTOR,
+                new CounterStat());
+
+        // One byte larger than the initial split max size
+        DataSize fileSize = new DataSize(initialSplitSize.toBytes() + 1, BYTE);
+        long halfOfSize = fileSize.toBytes() / 2;
+        hiveSplitSource.addToQueue(new TestSplit(1, OptionalInt.empty(), fileSize));
+
+        HiveSplit first = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
+        assertEquals(first.getLength(), halfOfSize);
+
+        HiveSplit second = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
+        assertEquals(second.getLength(), fileSize.toBytes() - halfOfSize);
+    }
+
+    @Test
+    public void testSplitCacheQuota()
+    {
+        // CacheQuota: TABLE 1G for unbucked splits
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                new CacheQuotaRequirement(TABLE, DEFAULT_QUOTA_SIZE),
+                10,
+                10,
+                new DataSize(1, MEGABYTE),
+                new TestingHiveSplitLoader(),
+                EXECUTOR,
+                new CounterStat());
+
+        // add 10 splits
+        for (int i = 0; i < 10; i++) {
+            hiveSplitSource.addToQueue(new TestSplit(i));
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
+        }
+
+        HiveSplit hiveSplit = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
+        CacheQuotaRequirement cacheQuotaRequirement = new CacheQuotaRequirement(TABLE, DEFAULT_QUOTA_SIZE);
+        assertEquals(hiveSplit.getCacheQuotaRequirement().getQuota(), cacheQuotaRequirement.getQuota());
+        assertEquals(hiveSplit.getCacheQuotaRequirement().getCacheQuotaScope(), cacheQuotaRequirement.getCacheQuotaScope());
+
+        // CacheQuota: PARTITION Optional.empty() for bucketed splits
+        hiveSplitSource = HiveSplitSource.bucketed(
+                SESSION,
+                "database",
+                "table",
+                new CacheQuotaRequirement(PARTITION, Optional.empty()),
+                10,
+                10,
+                new DataSize(1, MEGABYTE),
+                new TestingHiveSplitLoader(),
+                EXECUTOR,
+                new CounterStat());
+
+        // add 10 splits
+        for (int i = 0; i < 10; i++) {
+            hiveSplitSource.addToQueue(new TestSplit(i, OptionalInt.of(2)));
+            assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
+        }
+
+        hiveSplit = (HiveSplit) getSplits(hiveSplitSource, OptionalInt.of(2), 1).get(0);
+        cacheQuotaRequirement = new CacheQuotaRequirement(PARTITION, Optional.empty());
+        assertEquals(hiveSplit.getCacheQuotaRequirement().getQuota(), cacheQuotaRequirement.getQuota());
+        assertEquals(hiveSplit.getCacheQuotaRequirement().getCacheQuotaScope(), cacheQuotaRequirement.getCacheQuotaScope());
+    }
+
+    @Test
     public void testFail()
     {
         HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
                 SESSION,
                 "database",
                 "table",
+                new CacheQuotaRequirement(GLOBAL, Optional.empty()),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -148,6 +237,7 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
+                new CacheQuotaRequirement(GLOBAL, Optional.empty()),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -201,6 +291,7 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
+                new CacheQuotaRequirement(GLOBAL, Optional.empty()),
                 10,
                 10000,
                 maxOutstandingSplitsSize,
@@ -239,6 +330,7 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
+                new CacheQuotaRequirement(GLOBAL, Optional.empty()),
                 10,
                 10,
                 new DataSize(1, MEGABYTE),
@@ -261,6 +353,7 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
+                new CacheQuotaRequirement(GLOBAL, Optional.empty()),
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -319,6 +412,7 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
+                new CacheQuotaRequirement(GLOBAL, Optional.empty()),
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -354,6 +448,7 @@ public class TestHiveSplitSource
                 SESSION,
                 "database",
                 "table",
+                new CacheQuotaRequirement(GLOBAL, Optional.empty()),
                 10,
                 new DataSize(1, MEGABYTE),
                 new TestingHiveSplitLoader(),
@@ -418,12 +513,17 @@ public class TestHiveSplitSource
 
         private TestSplit(int id, OptionalInt bucketNumber)
         {
+            this(id, bucketNumber, new DataSize(100, BYTE));
+        }
+
+        private TestSplit(int id, OptionalInt bucketNumber, DataSize fileSize)
+        {
             super(
                     "path",
                     0,
-                    100,
-                    100,
-                    ImmutableList.of(new InternalHiveBlock(100, ImmutableList.of())),
+                    fileSize.toBytes(),
+                    fileSize.toBytes(),
+                    ImmutableList.of(new InternalHiveBlock(fileSize.toBytes(), ImmutableList.of())),
                     bucketNumber,
                     bucketNumber,
                     true,
@@ -443,6 +543,7 @@ public class TestHiveSplitSource
                             id,
                             ImmutableMap.of(),
                             Optional.empty()),
+                    Optional.empty(),
                     Optional.empty());
         }
     }

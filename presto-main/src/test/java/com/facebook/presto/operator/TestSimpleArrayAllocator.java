@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.block.ArrayAllocator;
 import org.testng.annotations.Test;
 
 import java.util.ArrayDeque;
@@ -28,8 +29,35 @@ public class TestSimpleArrayAllocator
     @Test
     public void testNewLease()
     {
-        SimpleArrayAllocator allocator = new SimpleArrayAllocator(10);
+        ArrayAllocator allocator = new SimpleArrayAllocator(10);
+        testNewLease(allocator);
 
+        allocator = new UncheckedStackArrayAllocator(10);
+        testNewLease(allocator);
+    }
+
+    @Test
+    public void testOverAllocateLeases()
+    {
+        SimpleArrayAllocator allocator = new SimpleArrayAllocator(2);
+
+        allocator.borrowIntArray(10);
+        allocator.borrowIntArray(10);
+        assertThrows(IllegalStateException.class, () -> allocator.borrowIntArray(10));
+    }
+
+    @Test
+    public void testReturnArrayNotBorrowed()
+    {
+        SimpleArrayAllocator allocator = new SimpleArrayAllocator(2);
+
+        int[] array = allocator.borrowIntArray(10);
+        allocator.returnArray(array);
+        assertThrows(IllegalArgumentException.class, () -> allocator.returnArray(array));
+    }
+
+    private void testNewLease(ArrayAllocator allocator)
+    {
         Deque<int[]> intArrayList = new ArrayDeque<>();
         for (int i = 0; i < 5; i++) {
             intArrayList.push(allocator.borrowIntArray(10));
@@ -65,25 +93,5 @@ public class TestSimpleArrayAllocator
         assertEquals(allocator.getEstimatedSizeInBytes(), sizeOfIntArray(101) + sizeOfByteArray(101));
         allocator.returnArray(byteBorrowed);
         assertEquals(allocator.getEstimatedSizeInBytes(), sizeOfIntArray(101) + sizeOfByteArray(101));
-    }
-
-    @Test
-    public void testOverAllocateLeases()
-    {
-        SimpleArrayAllocator allocator = new SimpleArrayAllocator(2);
-
-        allocator.borrowIntArray(10);
-        allocator.borrowIntArray(10);
-        assertThrows(IllegalStateException.class, () -> allocator.borrowIntArray(10));
-    }
-
-    @Test
-    public void testReturnArrayNotBorrowed()
-    {
-        SimpleArrayAllocator allocator = new SimpleArrayAllocator(2);
-
-        int[] array = allocator.borrowIntArray(10);
-        allocator.returnArray(array);
-        assertThrows(IllegalArgumentException.class, () -> allocator.returnArray(array));
     }
 }

@@ -15,15 +15,14 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.statistics.MetastoreHiveStatisticsProvider;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import org.joda.time.DateTimeZone;
 
@@ -52,7 +51,6 @@ public class HiveMetadataFactory
     private final TypeManager typeManager;
     private final LocationService locationService;
     private final StandardFunctionResolution functionResolution;
-    private final FunctionMetadataManager functionMetadataManager;
     private final RowExpressionService rowExpressionService;
     private final FilterStatsCalculatorService filterStatsCalculatorService;
     private final TableParameterCodec tableParameterCodec;
@@ -63,6 +61,8 @@ public class HiveMetadataFactory
     private final ZeroRowFileCreator zeroRowFileCreator;
     private final String prestoVersion;
     private final PartitionObjectBuilder partitionObjectBuilder;
+    private final HiveEncryptionInformationProvider encryptionInformationProvider;
+    private final HivePartitionStats hivePartitionStats;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -76,7 +76,6 @@ public class HiveMetadataFactory
             TypeManager typeManager,
             LocationService locationService,
             StandardFunctionResolution functionResolution,
-            FunctionMetadataManager functionMetadataManager,
             RowExpressionService rowExpressionService,
             FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
@@ -85,7 +84,9 @@ public class HiveMetadataFactory
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
             NodeVersion nodeVersion,
-            PartitionObjectBuilder partitionObjectBuilder)
+            PartitionObjectBuilder partitionObjectBuilder,
+            HiveEncryptionInformationProvider encryptionInformationProvider,
+            HivePartitionStats hivePartitionStats)
     {
         this(
                 metastore,
@@ -102,7 +103,6 @@ public class HiveMetadataFactory
                 typeManager,
                 locationService,
                 functionResolution,
-                functionMetadataManager,
                 rowExpressionService,
                 filterStatsCalculatorService,
                 tableParameterCodec,
@@ -112,7 +112,9 @@ public class HiveMetadataFactory
                 stagingFileCommitter,
                 zeroRowFileCreator,
                 nodeVersion.toString(),
-                partitionObjectBuilder);
+                partitionObjectBuilder,
+                encryptionInformationProvider,
+                hivePartitionStats);
     }
 
     public HiveMetadataFactory(
@@ -130,7 +132,6 @@ public class HiveMetadataFactory
             TypeManager typeManager,
             LocationService locationService,
             StandardFunctionResolution functionResolution,
-            FunctionMetadataManager functionMetadataManager,
             RowExpressionService rowExpressionService,
             FilterStatsCalculatorService filterStatsCalculatorService,
             TableParameterCodec tableParameterCodec,
@@ -140,7 +141,9 @@ public class HiveMetadataFactory
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
             String prestoVersion,
-            PartitionObjectBuilder partitionObjectBuilder)
+            PartitionObjectBuilder partitionObjectBuilder,
+            HiveEncryptionInformationProvider encryptionInformationProvider,
+            HivePartitionStats hivePartitionStats)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -157,7 +160,6 @@ public class HiveMetadataFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
-        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
         this.tableParameterCodec = requireNonNull(tableParameterCodec, "tableParameterCodec is null");
@@ -168,6 +170,8 @@ public class HiveMetadataFactory
         this.zeroRowFileCreator = requireNonNull(zeroRowFileCreator, "zeroRowFileCreator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
+        this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
+        this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -199,7 +203,6 @@ public class HiveMetadataFactory
                 typeManager,
                 locationService,
                 functionResolution,
-                functionMetadataManager,
                 rowExpressionService,
                 filterStatsCalculatorService,
                 tableParameterCodec,
@@ -209,6 +212,8 @@ public class HiveMetadataFactory
                 new MetastoreHiveStatisticsProvider(metastore),
                 stagingFileCommitter,
                 zeroRowFileCreator,
-                partitionObjectBuilder);
+                partitionObjectBuilder,
+                encryptionInformationProvider,
+                hivePartitionStats);
     }
 }

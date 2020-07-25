@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.SqlTime;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.SqlTime;
 
-import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeType.TIME;
 
 public class TestTimeType
         extends AbstractTestType

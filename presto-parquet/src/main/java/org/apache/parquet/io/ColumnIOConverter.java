@@ -13,26 +13,26 @@
  */
 package org.apache.parquet.io;
 
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.GroupField;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.NamedTypeSignature;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeSignatureParameter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
-import static com.facebook.presto.spi.type.StandardTypes.ARRAY;
-import static com.facebook.presto.spi.type.StandardTypes.MAP;
-import static com.facebook.presto.spi.type.StandardTypes.ROW;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 /**

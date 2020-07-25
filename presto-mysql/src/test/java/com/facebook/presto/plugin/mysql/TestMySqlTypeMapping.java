@@ -14,8 +14,8 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.type.TimeZoneKey;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.testing.mysql.MySqlOptions;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -36,10 +36,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static com.facebook.presto.spi.type.TimeZoneKey.UTC_KEY;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
 import static com.facebook.presto.tests.datatype.DataType.charDataType;
 import static com.facebook.presto.tests.datatype.DataType.dateDataType;

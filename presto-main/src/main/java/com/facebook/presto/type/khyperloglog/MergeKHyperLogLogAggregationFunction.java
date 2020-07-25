@@ -14,7 +14,7 @@
 
 package com.facebook.presto.type.khyperloglog;
 
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;

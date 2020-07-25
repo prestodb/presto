@@ -13,6 +13,12 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.TimeType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -25,13 +31,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.spi.type.BigintType;
-import com.facebook.presto.spi.type.DateType;
-import com.facebook.presto.spi.type.IntegerType;
-import com.facebook.presto.spi.type.TimeType;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.tpcds.statistics.TpcdsTableStatisticsFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,9 +45,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.CharType.createCharType;
-import static com.facebook.presto.spi.type.DecimalType.createDecimalType;
-import static com.facebook.presto.spi.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.CharType.createCharType;
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

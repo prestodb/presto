@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
 import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
@@ -23,7 +24,6 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.security.AccessDeniedException;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -33,6 +33,7 @@ import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
@@ -343,6 +344,16 @@ public abstract class AbstractTestQueryFramework
                 });
     }
 
+    public String getJsonExplainPlan(String query, ExplainType.Type planType)
+    {
+        QueryExplainer explainer = getQueryExplainer();
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .singleStatement()
+                .execute(queryRunner.getDefaultSession(), session -> {
+                    return explainer.getJsonPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                });
+    }
+
     protected void assertPlan(@Language("SQL") String query, PlanMatchPattern pattern)
     {
         assertPlan(queryRunner.getDefaultSession(), query, pattern);
@@ -385,16 +396,17 @@ public abstract class AbstractTestQueryFramework
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
-                taskCountEstimator).get();
+                taskCountEstimator).getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
-                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), sqlParser),
+                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), sqlParser, new FeaturesConfig()),
                 metadata,
                 queryRunner.getAccessControl(),
                 sqlParser,
                 queryRunner.getStatsCalculator(),
                 costCalculator,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                new PlanChecker(new FeaturesConfig(), false));
     }
 
     protected static void skipTestUnless(boolean requirement)

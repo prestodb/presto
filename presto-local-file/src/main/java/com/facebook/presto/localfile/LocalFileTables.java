@@ -31,14 +31,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.localfile.LocalFileMetadata.PRESTO_LOGS_SCHEMA;
 import static com.facebook.presto.localfile.LocalFileMetadata.SERVER_ADDRESS_COLUMN;
 import static com.facebook.presto.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;
 import static com.facebook.presto.localfile.LocalFileTables.HttpRequestLogTable.getServerAddressColumn;
 import static com.facebook.presto.localfile.LocalFileTables.HttpRequestLogTable.getTimestampColumn;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.concurrent.TimeUnit.SECONDS;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.util;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
 
 import java.io.IOException;
 import java.util.Iterator;

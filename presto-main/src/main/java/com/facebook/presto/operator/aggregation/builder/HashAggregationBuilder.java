@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.operator.aggregation.builder;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.HashCollisionsCounter;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.WorkProcessor;
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListenableFuture;
 
 public interface HashAggregationBuilder

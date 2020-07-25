@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.common.type.VarcharType;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 

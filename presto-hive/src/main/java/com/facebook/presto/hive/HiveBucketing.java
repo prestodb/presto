@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.NullableValue;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.predicate.ValueSet;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +43,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.TypeUtils.hashPosition;
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
@@ -76,6 +78,11 @@ public final class HiveBucketing
         return (hashBytes(0, utf8Slice(path.toString())) & Integer.MAX_VALUE) % bucketCount;
     }
 
+    public static int getBucket(int bucketCount, List<Type> types, Page page, int position)
+    {
+        return (getHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
+    }
+
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Page page, int position)
     {
         return (getBucketHashCode(types, page, position) & Integer.MAX_VALUE) % bucketCount;
@@ -84,6 +91,17 @@ public final class HiveBucketing
     public static int getHiveBucket(int bucketCount, List<TypeInfo> types, Object[] values)
     {
         return (getBucketHashCode(types, values) & Integer.MAX_VALUE) % bucketCount;
+    }
+
+    private static int getHashCode(List<Type> types, Page page, int position)
+    {
+        checkArgument(types.size() == page.getChannelCount());
+        int result = 0;
+        for (int i = 0; i < page.getChannelCount(); i++) {
+            int fieldHash = (int) hashPosition(types.get(i), page.getBlock(i), position);
+            result = result * 31 + fieldHash;
+        }
+        return result;
     }
 
     private static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
@@ -287,7 +305,13 @@ public final class HiveBucketing
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(Table table, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        if (!table.getStorage().getBucketProperty().isPresent()) {
+        Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
+        if (!hiveBucketProperty.isPresent()) {
+            return Optional.empty();
+        }
+
+        if (!hiveBucketProperty.get().getBucketFunctionType().equals(HIVE_COMPATIBLE)) {
+            // bucket filtering is only supported for tables bucketed with HIVE_COMPATIBLE hash function
             return Optional.empty();
         }
 
@@ -324,7 +348,14 @@ public final class HiveBucketing
 
     private static Optional<Set<Integer>> getHiveBuckets(Table table, Map<ColumnHandle, Set<NullableValue>> bindings)
     {
-        List<String> bucketColumns = table.getStorage().getBucketProperty().get().getBucketedBy();
+        if (bindings.isEmpty()) {
+            return Optional.empty();
+        }
+        HiveBucketProperty hiveBucketProperty = table.getStorage().getBucketProperty().get();
+        checkArgument(hiveBucketProperty.getBucketFunctionType().equals(HIVE_COMPATIBLE),
+                "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
+                hiveBucketProperty.getBucketFunctionType());
+        List<String> bucketColumns = hiveBucketProperty.getBucketedBy();
         if (bucketColumns.isEmpty()) {
             return Optional.empty();
         }

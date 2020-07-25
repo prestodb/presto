@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.thrift.api.PrestoThriftId;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableColumnSet;
 import com.facebook.presto.connector.thrift.api.PrestoThriftNullableSchemaName;
@@ -27,11 +31,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.connector.thrift.api.datatypes.PrestoThriftInteger;
 import com.facebook.presto.spi.InMemoryRecordSet;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
@@ -46,8 +46,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.integerData;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Collections.shuffle;

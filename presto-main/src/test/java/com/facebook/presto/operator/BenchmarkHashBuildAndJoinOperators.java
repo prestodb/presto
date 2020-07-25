@@ -14,11 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
@@ -53,8 +53,8 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -308,7 +308,8 @@ public class BenchmarkHashBuildAndJoinOperators
                 10_000,
                 new PagesIndex.TestingFactory(false),
                 false,
-                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory());
+                SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
+                false);
 
         Operator operator = hashBuilderOperatorFactory.createOperator(driverContext);
         for (Page page : buildContext.getBuildPages()) {

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.jdbc.optimization.JdbcExpression;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

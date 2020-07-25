@@ -71,7 +71,7 @@ public class SqlTask
     private static final Logger log = Logger.get(SqlTask.class);
 
     private final TaskId taskId;
-    private final String taskInstanceId;
+    private final TaskInstanceId taskInstanceId;
     private final URI location;
     private final String nodeId;
     private final TaskStateMachine taskStateMachine;
@@ -123,7 +123,7 @@ public class SqlTask
             DataSize maxBufferSize)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
-        this.taskInstanceId = UUID.randomUUID().toString();
+        this.taskInstanceId = new TaskInstanceId(UUID.randomUUID());
         this.location = requireNonNull(location, "location is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
@@ -135,7 +135,7 @@ public class SqlTask
         this.taskExchangeClientManager = new TaskExchangeClientManager(exchangeClientSupplier);
         outputBuffer = new LazyOutputBuffer(
                 taskId,
-                taskInstanceId,
+                taskInstanceId.getUuidString(),
                 taskNotificationExecutor,
                 maxBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
@@ -213,7 +213,7 @@ public class SqlTask
 
     public String getTaskInstanceId()
     {
-        return taskInstanceId;
+        return taskInstanceId.getUuidString();
     }
 
     public void recordHeartbeat()
@@ -284,23 +284,22 @@ public class SqlTask
         }
 
         return new TaskStatus(
-                taskStateMachine.getTaskId(),
-                taskInstanceId,
+                taskInstanceId.getUuidLeastSignificantBits(),
+                taskInstanceId.getUuidMostSignificantBits(),
                 versionNumber,
                 state,
                 location,
-                nodeId,
                 completedDriverGroups,
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
                 outputBuffer.getUtilization(),
                 isOutputBufferOverutilized(),
-                physicalWrittenDataSize,
-                userMemoryReservation,
-                systemMemoryReservation,
+                physicalWrittenDataSize.toBytes(),
+                userMemoryReservation.toBytes(),
+                systemMemoryReservation.toBytes(),
                 fullGcCount,
-                fullGcTime);
+                fullGcTime.toMillis());
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
@@ -338,6 +337,7 @@ public class SqlTask
 
         TaskStatus taskStatus = createTaskStatus(taskHolder);
         return new TaskInfo(
+                taskStateMachine.getTaskId(),
                 taskStatus,
                 lastHeartbeat.get(),
                 outputBuffer.getInfo(),
@@ -561,5 +561,35 @@ public class SqlTask
     public QueryContext getQueryContext()
     {
         return queryContext;
+    }
+
+    private static class TaskInstanceId
+    {
+        private final long uuidLeastSignificantBits;
+        private final long uuidMostSignificantBits;
+        private final String uuidString;
+
+        public TaskInstanceId(UUID uuid)
+        {
+            requireNonNull(uuid, "uuid is null");
+            this.uuidLeastSignificantBits = uuid.getLeastSignificantBits();
+            this.uuidMostSignificantBits = uuid.getMostSignificantBits();
+            this.uuidString = uuid.toString();
+        }
+
+        public long getUuidLeastSignificantBits()
+        {
+            return uuidLeastSignificantBits;
+        }
+
+        public long getUuidMostSignificantBits()
+        {
+            return uuidMostSignificantBits;
+        }
+
+        public String getUuidString()
+        {
+            return uuidString;
+        }
     }
 }

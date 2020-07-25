@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.Type;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -32,24 +31,22 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
-import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
-import static com.facebook.presto.plugin.geospatial.BingTileFunctions.MAX_LATITUDE;
-import static com.facebook.presto.plugin.geospatial.BingTileFunctions.MIN_LONGITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.IntegerType.INTEGER;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.MAX_LATITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LONGITUDE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
 
 public class TestBingTileFunctions
         extends AbstractTestFunctions
@@ -68,36 +65,6 @@ public class TestBingTileFunctions
         FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
         approxDistinct = functionManager.getAggregateFunctionImplementation(
                 functionManager.lookupFunction("approx_distinct", fromTypes(BING_TILE)));
-    }
-
-    @Test
-    public void testSerialization()
-            throws Exception
-    {
-        ObjectMapper objectMapper = new ObjectMapper();
-        BingTile tile = fromCoordinates(1, 2, 3);
-        String json = objectMapper.writeValueAsString(tile);
-        assertEquals("{\"x\":1,\"y\":2,\"zoom\":3}", json);
-        assertEquals(tile, objectMapper.readerFor(BingTile.class).readValue(json));
-    }
-
-    @Test
-    public void testBingTileEncoding()
-    {
-        for (int zoom = 0; zoom <= MAX_ZOOM_LEVEL; zoom++) {
-            int maxValue = (1 << zoom) - 1;
-            testEncodingRoundTrip(0, 0, zoom);
-            testEncodingRoundTrip(0, maxValue, zoom);
-            testEncodingRoundTrip(maxValue, 0, zoom);
-            testEncodingRoundTrip(maxValue, maxValue, zoom);
-        }
-    }
-
-    private void testEncodingRoundTrip(int x, int y, int zoom)
-    {
-        BingTile expected = BingTile.fromCoordinates(x, y, zoom);
-        BingTile actual = BingTile.decode(expected.encode());
-        assertEquals(actual, expected);
     }
 
     @Test

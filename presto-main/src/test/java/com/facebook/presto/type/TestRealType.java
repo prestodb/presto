@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.IntArrayBlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.IntArrayBlockBuilder;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.RealType.REAL;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;

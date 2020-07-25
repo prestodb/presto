@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
@@ -20,11 +23,9 @@ import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProjection;
 import com.facebook.presto.operator.project.PageProjectionWithOutputs;
 import com.facebook.presto.operator.project.SelectedPositions;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -32,20 +33,23 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.function.OperatorType.ADD;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static com.facebook.presto.spi.function.OperatorType.ADD;
-import static com.facebook.presto.spi.function.OperatorType.GREATER_THAN;
-import static com.facebook.presto.spi.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
@@ -194,6 +198,27 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testCommonSubExpressionLongProjectionList()
+    {
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
+
+        List<Supplier<PageProjectionWithOutputs>> pageProjections = functionCompiler.compileProjections(SESSION.getSqlFunctionProperties(), createIfProjectionList(5), true, Optional.empty());
+        assertEquals(pageProjections.size(), 1);
+
+        pageProjections = functionCompiler.compileProjections(SESSION.getSqlFunctionProperties(), createIfProjectionList(10), true, Optional.empty());
+        assertEquals(pageProjections.size(), 1);
+
+        pageProjections = functionCompiler.compileProjections(SESSION.getSqlFunctionProperties(), createIfProjectionList(11), true, Optional.empty());
+        assertEquals(pageProjections.size(), 2);
+
+        pageProjections = functionCompiler.compileProjections(SESSION.getSqlFunctionProperties(), createIfProjectionList(20), true, Optional.empty());
+        assertEquals(pageProjections.size(), 2);
+
+        pageProjections = functionCompiler.compileProjections(SESSION.getSqlFunctionProperties(), createIfProjectionList(101), true, Optional.empty());
+        assertEquals(pageProjections.size(), 11);
+    }
+
+    @Test
     public void testCommonSubExpressionInFilter()
     {
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
@@ -237,5 +262,22 @@ public class TestPageFunctionCompiler
             blocks[i] = builder.build();
         }
         return new Page(blocks);
+    }
+
+    private List<? extends RowExpression> createIfProjectionList(int projectionCount)
+    {
+        return IntStream.range(0, projectionCount)
+                .mapToObj(i -> new SpecialFormExpression(
+                        IF,
+                        BIGINT,
+                        call(
+                                GREATER_THAN.name(),
+                                FUNCTION_MANAGER.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
+                                BOOLEAN,
+                                field(0, BIGINT),
+                                constant(10L, BIGINT)),
+                        constant((long) i, BIGINT),
+                        constant((long) i + 1, BIGINT)))
+                .collect(toImmutableList());
     }
 }

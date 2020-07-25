@@ -14,15 +14,15 @@
 
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TestingColumnHandle;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.metadata.TableLayoutResult.computeEnforced;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.fail;
 
@@ -101,7 +101,7 @@ public class TestTableLayoutResult
     {
         try {
             TupleDomain<ColumnHandle> enforced = computeEnforced(predicate, unenforced);
-            fail(String.format("expected IllegalArgumentException but found [%s]", enforced.toString(SESSION)));
+            fail(String.format("expected IllegalArgumentException but found [%s]", enforced.toString(SESSION.getSqlFunctionProperties())));
         }
         catch (IllegalArgumentException e) {
             // do nothing
@@ -112,7 +112,7 @@ public class TestTableLayoutResult
     {
         TupleDomain<ColumnHandle> enforced = computeEnforced(predicate, unenforced);
         if (!enforced.equals(expectedEnforced)) {
-            fail(String.format("expected [%s] but found [%s]", expectedEnforced.toString(SESSION), enforced.toString(SESSION)));
+            fail(String.format("expected [%s] but found [%s]", expectedEnforced.toString(SESSION.getSqlFunctionProperties()), enforced.toString(SESSION.getSqlFunctionProperties())));
         }
     }
 }

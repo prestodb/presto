@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveFileWriter;
 import com.facebook.presto.orc.DataSink;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
 import io.airlift.units.DataSize;
@@ -24,6 +24,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
@@ -75,10 +76,11 @@ public class PageFileWriter
     }
 
     @Override
-    public void commit()
+    public Optional<Page> commit()
     {
         try {
             pageWriter.close();
+            return Optional.empty();
         }
         catch (IOException | UncheckedIOException e) {
             try {

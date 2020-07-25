@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -22,15 +23,14 @@ import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Set;
 import java.util.function.ToIntFunction;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 
@@ -69,5 +69,11 @@ public class TpchNodePartitioningProvider
         long rowsPerBucket = totalRows / bucketCount;
         checkArgument(partitionChannelTypes.equals(ImmutableList.of(BIGINT)), "Expected one BIGINT parameter");
         return new TpchBucketFunction(bucketCount, rowsPerBucket);
+    }
+
+    @Override
+    public int getBucketCount(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
+    {
+        return nodeManager.getRequiredWorkerNodes().size() * splitsPerNode;
     }
 }

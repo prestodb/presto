@@ -15,15 +15,17 @@ package com.facebook.presto.operator.aggregation.histogram;
 
 import com.facebook.presto.array.IntBigArray;
 import com.facebook.presto.array.LongBigArray;
+import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
 import org.openjdk.jol.info.ClassLayout;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
@@ -133,10 +135,16 @@ public class SingleTypedHistogram
                 break;
             }
 
-            if (type.equalTo(block, position, values, hashPositions.get(hashPosition))) {
-                counts.add(hashPositions.get(hashPosition), count);
-                return;
+            try {
+                if (type.equalTo(block, position, values, hashPositions.get(hashPosition))) {
+                    counts.add(hashPositions.get(hashPosition), count);
+                    return;
+                }
             }
+            catch (NotSupportedException e) {
+                throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);
+            }
+
             // increment position and mask to handle wrap around
             hashPosition = (hashPosition + 1) & mask;
         }

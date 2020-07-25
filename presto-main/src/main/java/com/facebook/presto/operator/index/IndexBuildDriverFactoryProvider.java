@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.OperatorFactory;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

@@ -14,6 +14,9 @@
 package com.facebook.presto.connector.thrift.server;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.thrift.api.PrestoThriftBlock;
 import com.facebook.presto.connector.thrift.api.PrestoThriftColumnMetadata;
 import com.facebook.presto.connector.thrift.api.PrestoThriftId;
@@ -30,10 +33,7 @@ import com.facebook.presto.connector.thrift.api.PrestoThriftSplitBatch;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTableMetadata;
 import com.facebook.presto.connector.thrift.api.PrestoThriftTupleDomain;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.Page;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.predicate.TupleDomain;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -52,9 +52,9 @@ import java.util.Set;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.connector.thrift.api.PrestoThriftBlock.fromBlock;
 import static com.facebook.presto.connector.thrift.server.SplitInfo.normalSplit;
-import static com.facebook.presto.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.tpch.TpchMetadata.getPrestoType;
 import static com.facebook.presto.tpch.TpchRecordSet.createTpchRecordSet;
 import static com.google.common.base.Preconditions.checkArgument;

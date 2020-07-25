@@ -14,7 +14,9 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.operator.scalar.annotations.ScalarFromAnnotationsParser;
+import com.facebook.presto.operator.scalar.annotations.SqlInvokedScalarFromAnnotationsParser;
 import com.facebook.presto.operator.window.WindowAnnotationsParser;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.WindowFunction;
 import com.google.common.collect.ImmutableList;
 
@@ -25,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 
 public class FunctionListBuilder
 {
-    private final List<BuiltInFunction> functions = new ArrayList<>();
+    private final List<SqlFunction> functions = new ArrayList<>();
 
     public FunctionListBuilder window(Class<? extends WindowFunction> clazz)
     {
@@ -57,6 +59,18 @@ public class FunctionListBuilder
         return this;
     }
 
+    public FunctionListBuilder sqlInvokedScalar(Class<?> clazz)
+    {
+        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinition(clazz));
+        return this;
+    }
+
+    public FunctionListBuilder sqlInvokedScalars(Class<?> clazz)
+    {
+        functions.addAll(SqlInvokedScalarFromAnnotationsParser.parseFunctionDefinitions(clazz));
+        return this;
+    }
+
     public FunctionListBuilder functions(BuiltInFunction... sqlFunctions)
     {
         for (BuiltInFunction sqlFunction : sqlFunctions) {
@@ -72,7 +86,7 @@ public class FunctionListBuilder
         return this;
     }
 
-    public List<BuiltInFunction> getFunctions()
+    public List<SqlFunction> getFunctions()
     {
         return ImmutableList.copyOf(functions);
     }

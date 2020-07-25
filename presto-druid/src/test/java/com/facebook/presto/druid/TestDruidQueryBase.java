@@ -16,6 +16,9 @@ package com.facebook.presto.druid;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
@@ -25,7 +28,6 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.block.SortOrder;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -39,8 +41,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.ExpressionUtils;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
@@ -64,13 +64,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.druid.DruidColumnHandle.DruidColumnType.REGULAR;
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.DERIVED;
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.TABLE_COLUMN;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -88,7 +88,7 @@ public class TestDruidQueryBase
     protected static ConnectorId druidConnectorId = new ConnectorId("id");
     protected static DruidTableHandle realtimeOnlyTable = new DruidTableHandle("schema", "realtimeOnly", Optional.empty());
     protected static DruidTableHandle hybridTable = new DruidTableHandle("schema", "hybrid", Optional.empty());
-    protected static DruidColumnHandle regionId = new DruidColumnHandle("regionId", BIGINT, REGULAR);
+    protected static DruidColumnHandle regionId = new DruidColumnHandle("region.Id", BIGINT, REGULAR);
     protected static DruidColumnHandle city = new DruidColumnHandle("city", VARCHAR, REGULAR);
     protected static final DruidColumnHandle fare = new DruidColumnHandle("fare", DOUBLE, REGULAR);
     protected static final DruidColumnHandle secondsSinceEpoch = new DruidColumnHandle("secondsSinceEpoch", BIGINT, REGULAR);
@@ -98,7 +98,7 @@ public class TestDruidQueryBase
     protected final DruidConfig druidConfig = new DruidConfig();
 
     protected static final Map<VariableReferenceExpression, DruidQueryGeneratorContext.Selection> testInput = ImmutableMap.of(
-            new VariableReferenceExpression("regionid", BIGINT), new DruidQueryGeneratorContext.Selection("regionId", TABLE_COLUMN),
+            new VariableReferenceExpression("region.id", BIGINT), new DruidQueryGeneratorContext.Selection("region.Id", TABLE_COLUMN),
             new VariableReferenceExpression("city", VARCHAR), new DruidQueryGeneratorContext.Selection("city", TABLE_COLUMN),
             new VariableReferenceExpression("fare", DOUBLE), new DruidQueryGeneratorContext.Selection("fare", TABLE_COLUMN),
             new VariableReferenceExpression("totalfare", DOUBLE), new DruidQueryGeneratorContext.Selection("(fare + trip)", DERIVED),

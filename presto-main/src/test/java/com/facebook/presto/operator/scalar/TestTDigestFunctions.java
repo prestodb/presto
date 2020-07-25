@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.spi.type.SqlVarbinary;
 import com.facebook.presto.tdigest.TDigest;
 import com.google.common.base.Joiner;
 import org.apache.commons.math3.distribution.BinomialDistribution;
@@ -28,9 +28,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;

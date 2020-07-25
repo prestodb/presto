@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.FunctionType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static com.facebook.presto.common.function.OperatorType.ADD;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.spi.function.OperatorType.ADD;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;

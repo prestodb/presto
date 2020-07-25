@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.aggregation.histogram;
 
 import com.facebook.presto.block.BlockAssertions;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.type.VarcharType;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.type.TypeUtils;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;

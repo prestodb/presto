@@ -14,12 +14,13 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.analyzer.ExpressionAnalyzer;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -64,6 +64,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.estimateExpressionToExpressionComparison;
 import static com.facebook.presto.cost.ComparisonStatsCalculator.estimateExpressionToLiteralComparison;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumDistinctValues;
@@ -73,7 +74,6 @@ import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
-import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.ExpressionUtils.and;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;

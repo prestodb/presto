@@ -17,16 +17,14 @@ import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
+import com.facebook.presto.bytecode.instruction.LabelNode;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.Type;
-import com.google.common.collect.Lists;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 
 public class CoalesceCodeGenerator
@@ -35,35 +33,26 @@ public class CoalesceCodeGenerator
     @Override
     public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
-        List<BytecodeNode> operands = new ArrayList<>();
-        for (RowExpression expression : arguments) {
-            operands.add(generatorContext.generate(expression, Optional.empty()));
-        }
-
         Variable wasNull = generatorContext.wasNull();
-        BytecodeNode nullValue = new BytecodeBlock()
-                .append(wasNull.set(constantTrue()))
-                .pushJavaDefault(returnType.getJavaType());
+        LabelNode endLabel = new LabelNode("end");
+        BytecodeBlock block = new BytecodeBlock();
 
-        // reverse list because current if statement builder doesn't support if/else so we need to build the if statements bottom up
-        for (BytecodeNode operand : Lists.reverse(operands)) {
-            IfStatement ifStatement = new IfStatement();
-
-            ifStatement.condition()
-                    .append(operand)
-                    .append(wasNull);
-
-            // if value was null, pop the null value, clear the null flag, and process the next operand
+        // Generate all but the last one.
+        for (RowExpression expression : arguments.subList(0, arguments.size() - 1)) {
+            block.append(generatorContext.generate(expression, Optional.empty()));
+            // Check if null
+            IfStatement ifStatement = new IfStatement().condition(wasNull);
             ifStatement.ifTrue()
                     .pop(returnType.getJavaType())
-                    .append(wasNull.set(constantFalse()))
-                    .append(nullValue);
+                    .append(wasNull.set(constantFalse()));
 
-            nullValue = ifStatement;
+            ifStatement.ifFalse().gotoLabel(endLabel);
+            block.append(ifStatement);
         }
 
-        BytecodeBlock block = new BytecodeBlock()
-                .append(nullValue);
+        // Just return the last one here if control reaches here.
+        block.append(generatorContext.generate(arguments.get(arguments.size() - 1), Optional.empty()));
+        block.visitLabel(endLabel);
         outputBlockVariable.ifPresent(output -> block.append(generateWrite(generatorContext, returnType, output)));
         return block;
     }

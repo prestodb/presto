@@ -35,8 +35,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
-import static com.facebook.presto.spi.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
@@ -110,25 +110,25 @@ public class TestTooManyOpenPartitionsFailureResolver
     public void testUnresolvedSufficientWorker()
     {
         createTable.set(format("CREATE TABLE %s (x varchar, ds varchar) WITH (partitioned_by = ARRAY[\"ds\"], bucket_count = 100)", TABLE_NAME));
-        getFailureResolver().resolve(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE));
-        assertFalse(getFailureResolver().resolve(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE)).isPresent());
+        getFailureResolver().resolveQueryFailure(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE));
+        assertFalse(getFailureResolver().resolveQueryFailure(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE)).isPresent());
     }
 
     @Test
     public void testUnresolvedNonBucketed()
     {
         createTable.set(format("CREATE TABLE %s (x varchar, ds varchar) WITH (partitioned_by = ARRAY[\"ds\"])", TABLE_NAME));
-        getFailureResolver().resolve(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE));
-        assertFalse(getFailureResolver().resolve(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE)).isPresent());
+        getFailureResolver().resolveQueryFailure(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE));
+        assertFalse(getFailureResolver().resolveQueryFailure(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE)).isPresent());
     }
 
     @Test
     public void testResolved()
     {
         createTable.set(format("CREATE TABLE %s (x varchar, ds varchar) WITH (partitioned_by = ARRAY[\"ds\"], bucket_count = 101)", TABLE_NAME));
-        getFailureResolver().resolve(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE));
+        getFailureResolver().resolveQueryFailure(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE));
         assertEquals(
-                getFailureResolver().resolve(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE)),
+                getFailureResolver().resolveQueryFailure(CONTROL_QUERY_STATS, HIVE_TOO_MANY_OPEN_PARTITIONS_EXCEPTION, Optional.of(TEST_BUNDLE)),
                 Optional.of("Not enough workers on test cluster"));
     }
 }

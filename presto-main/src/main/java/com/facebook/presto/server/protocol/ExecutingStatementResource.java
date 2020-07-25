@@ -17,13 +17,13 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -31,6 +31,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -69,6 +70,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.server.security.RoleType.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -80,6 +82,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 
 @Path("/")
+@RolesAllowed(USER)
 public class ExecutingStatementResource
 {
     private static final Logger log = Logger.get(ExecutingStatementResource.class);

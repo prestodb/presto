@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.redis;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.decoder.DecoderColumnHandle;
 import com.facebook.presto.decoder.RowDecoder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

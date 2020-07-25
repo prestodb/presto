@@ -14,17 +14,18 @@
 
 package com.facebook.presto.block;
 
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ByteArrayBlock;
+import com.facebook.presto.common.block.MapBlock;
+import com.facebook.presto.common.block.MapBlockBuilder;
+import com.facebook.presto.common.block.SingleMapBlock;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
-import com.facebook.presto.spi.block.ByteArrayBlock;
-import com.facebook.presto.spi.block.MapBlock;
-import com.facebook.presto.spi.block.MapBlockBuilder;
-import com.facebook.presto.spi.block.SingleMapBlock;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
+import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -33,12 +34,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
+import static com.facebook.presto.block.BlockAssertions.createRandomLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRleBlockWithRandomValue;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.TinyintType.TINYINT;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
@@ -88,6 +94,65 @@ public class TestMapBlock
     {
         assertLazyHashTableBuildOverBlockRegion(createTestMap(9, 3, 4, 0, 8, 0, 6, 5));
         assertLazyHashTableBuildOverBlockRegion(alternatingNullValues(createTestMap(9, 3, 4, 0, 8, 0, 6, 5)));
+    }
+
+    @Test
+    public void testSeekKey()
+    {
+        Block keyBlock = createStringsBlock("k");
+        Block valueBlock = createStringsBlock("v");
+        Block mapBlock = mapType(VARCHAR, VARCHAR).createBlockFromKeyValue(1, Optional.empty(), IntStream.range(0, 2).toArray(), keyBlock, valueBlock);
+        SingleMapBlock singleMapBlock = (SingleMapBlock) mapBlock.getBlock(0);
+        // Testing not found case. The key to seek should be longer than AbstractVariableWidthType#EXPECTED_BYTES_PER_ENTRY(32) and has same hash code as the key in keyBlock.
+        // This is because the default capacity of the slice of the keyBlock for 1 single character key is EXPECTED_BYTES_PER_ENTRY. We want to make the seeked key out of boundary
+        // to make sure no exception is thrown.
+        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice(new String(new char[10]).replace("\0", "Doudou"))), -1);
+        // Testing found case.
+        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice("k")), 1);
+    }
+
+    @Test
+    public void testLogicalSizeInBytes()
+    {
+        int positionCount = 100;
+        int[] offsets = IntStream.rangeClosed(0, positionCount).toArray();
+        boolean[] nulls = new boolean[positionCount];
+
+        // Map(LongArrayBlock, LongArrayBlock)
+        Block keyBlock1 = createRandomLongsBlock(positionCount, 0);
+        Block valueBlock1 = createRandomLongsBlock(positionCount, 0);
+        Block mapOfLongAndLong = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock1, valueBlock1);
+        assertEquals(mapOfLongAndLong.getLogicalSizeInBytes(), 3100);
+
+        // Map(RLE(LongArrayBlock), RLE(LongArrayBlock))
+        Block keyBlock2 = createRLEBlock(1, positionCount);
+        Block valueBlock2 = createRLEBlock(2, positionCount);
+        Block mapOfRleOfLongAndRleOfLong = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock2, valueBlock2);
+        assertEquals(mapOfRleOfLongAndRleOfLong.getLogicalSizeInBytes(), 3100);
+
+        // Map(RLE(LongArrayBlock), RLE(Map(LongArrayBlock, LongArrayBlock)))
+        Block keyBlock3 = createRLEBlock(1, positionCount);
+        Block valueBlock3 = createRleBlockWithRandomValue(mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock1, valueBlock1), positionCount); //createRleBlockWithRandomValue(fromElementBlock(positionCount, Optional.of(nulls), arrayOffsets, createRandomLongsBlock(positionCount * 2, 0)), positionCount);
+        Block mapOfRleOfLongAndRleOfMapOfLongAndLong = mapType(BIGINT, mapType(BIGINT, BIGINT)).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock3, valueBlock3);
+        assertEquals(mapOfRleOfLongAndRleOfMapOfLongAndLong.getLogicalSizeInBytes(), 5300);
+
+        // Map(RLE(LongArrayBlock), Map(LongArrayBlock, RLE(LongArrayBlock)))
+        Block keyBlock4 = createRLEBlock(1, positionCount);
+        Block valueBlock4 = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock1, createRLEBlock(1, positionCount));
+        Block mapBlock4 = mapType(BIGINT, mapType(BIGINT, BIGINT)).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock4, valueBlock4);
+        assertEquals(mapBlock4.getLogicalSizeInBytes(), 5300);
+
+        // Map(Dictionary(LongArrayBlock), Dictionary(LongArrayBlock))
+        Block keyBlock5 = createLongDictionaryBlock(0, positionCount);
+        Block valuesBlock5 = createLongDictionaryBlock(0, positionCount);
+        Block mapBlock5 = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock5, valuesBlock5);
+        assertEquals(mapBlock5.getLogicalSizeInBytes(), 3100);
+
+        // Map(Dictionary(LongArrayBlock), Map(LongArrayBlock, Dictionary(LongArrayBlock)))
+        Block keyBlock6 = createLongDictionaryBlock(0, positionCount);
+        Block valuesBlock6 = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock1, createLongDictionaryBlock(0, positionCount));
+        Block mapBlock6 = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock6, valuesBlock6);
+        assertEquals(mapBlock6.getLogicalSizeInBytes(), 5300);
     }
 
     private void assertLazyHashTableBuildOverBlockRegion(Map<String, Long>[] testValues)

@@ -22,6 +22,10 @@ import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpression;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.PageWithPositionComparator;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PagesIndexComparator;
@@ -29,10 +33,6 @@ import com.facebook.presto.operator.PagesIndexOrdering;
 import com.facebook.presto.operator.SimplePageWithPositionComparator;
 import com.facebook.presto.operator.SimplePagesIndexComparator;
 import com.facebook.presto.operator.SyntheticAddress;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.SortOrder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -248,7 +248,7 @@ public class OrderingCompiler
             comparator = pageWithPositionsComparatorClass.getConstructor().newInstance();
         }
         catch (Throwable t) {
-            log.error(t, "Error compiling merge sort comparator for channels %s with order %s", sortChannels, sortChannels);
+            log.error(t, "Error compiling comparator for channels %s with order %s", sortChannels, sortChannels);
             comparator = new SimplePageWithPositionComparator(types, sortChannels, sortOrders);
         }
         return comparator;

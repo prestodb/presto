@@ -17,7 +17,7 @@ import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 
 public class TestLegacyMapSubscript
         extends AbstractTestFunctions

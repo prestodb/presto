@@ -15,13 +15,13 @@
 package com.facebook.presto.type.setdigest;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.presto.spi.block.Block;
-import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.slice.Slice;
@@ -30,8 +30,8 @@ import io.airlift.slice.Slices;
 import java.io.UncheckedIOException;
 import java.util.Map;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.spi.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.type.setdigest.SetDigest.exactIntersectionCardinality;
 
 public final class SetDigestFunctions

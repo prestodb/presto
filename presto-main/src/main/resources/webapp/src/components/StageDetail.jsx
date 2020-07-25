@@ -191,7 +191,7 @@ class OperatorDetail extends React.Component {
     getOperatorTasks() {
         // sort the x-axis
         const tasks = this.props.tasks.sort(function (taskA, taskB) {
-            return getTaskNumber(taskA.taskStatus.taskId) - getTaskNumber(taskB.taskStatus.taskId);
+            return getTaskNumber(taskA.taskId) - getTaskNumber(taskB.taskId);
         });
 
         const operatorSummary = this.props.operator;

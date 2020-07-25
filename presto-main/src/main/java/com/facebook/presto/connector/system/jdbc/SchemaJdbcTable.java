@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.system.jdbc;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorSession;
@@ -23,18 +24,17 @@ import com.facebook.presto.spi.InMemoryRecordSet.Builder;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
 import static com.facebook.presto.connector.system.jdbc.FilterUtil.filter;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class SchemaJdbcTable

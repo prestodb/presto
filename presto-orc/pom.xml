@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.236-SNAPSHOT</version>
+        <version>0.239-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-orc</artifactId>
@@ -79,7 +79,7 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
+            <artifactId>presto-common</artifactId>
         </dependency>
 
         <dependency>
@@ -111,6 +111,12 @@
         </dependency>
 
         <!-- for testing -->
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spi</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-memory-context</artifactId>

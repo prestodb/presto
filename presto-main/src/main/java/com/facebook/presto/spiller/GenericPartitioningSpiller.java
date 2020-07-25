@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.SpillContext;
-import com.facebook.presto.spi.Page;
-import com.facebook.presto.spi.PageBuilder;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;

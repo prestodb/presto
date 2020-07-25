@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.spi.type.ArrayType;
-import com.facebook.presto.spi.type.MapType;
-import com.facebook.presto.spi.type.RowType;
-import com.facebook.presto.spi.type.Type;
-import com.facebook.presto.spi.type.TypeManager;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableSet;
 
@@ -26,9 +26,9 @@ import java.sql.SQLException;
 import java.util.Objects;
 import java.util.Set;
 
-import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
-import static com.facebook.presto.spi.type.RealType.REAL;
-import static com.facebook.presto.spi.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.verifier.framework.Column.Category.ARRAY;
 import static com.facebook.presto.verifier.framework.Column.Category.FLOATING_POINT;
 import static com.facebook.presto.verifier.framework.Column.Category.MAP;

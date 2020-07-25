@@ -14,6 +14,11 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Marker;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -30,6 +35,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -43,14 +49,9 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
-import com.facebook.presto.spi.predicate.Domain;
-import com.facebook.presto.spi.predicate.Marker;
-import com.facebook.presto.spi.predicate.Range;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
@@ -62,7 +63,6 @@ import com.facebook.presto.sql.planner.optimizations.JoinNodeUtils;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -98,6 +98,7 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
@@ -114,10 +115,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.metadata.CastType.CAST;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.planPrinter.JsonRenderer.JsonPlanFragment;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatDouble;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatPositions;
@@ -245,6 +247,53 @@ public class PlanPrinter
         }
 
         return builder.toString();
+    }
+
+    public static String jsonLogicalPlan(
+            PlanNode plan,
+            TypeProvider types,
+            FunctionManager functionManager,
+            StatsAndCosts estimatedStatsAndCosts,
+            Session session)
+    {
+        return jsonLogicalPlan(plan, types, Optional.empty(), functionManager, estimatedStatsAndCosts, session, Optional.empty());
+    }
+
+    public static String jsonLogicalPlan(
+            PlanNode plan,
+            TypeProvider types,
+            Optional<StageExecutionDescriptor> stageExecutionStrategy,
+            FunctionManager functionManager,
+            StatsAndCosts estimatedStatsAndCosts,
+            Session session,
+            Optional<Map<PlanNodeId, PlanNodeStats>> stats)
+    {
+        return new PlanPrinter(plan, types, stageExecutionStrategy, functionManager, estimatedStatsAndCosts, session, stats).toJson();
+    }
+
+    public static String jsonDistributedPlan(StageInfo outputStageInfo)
+    {
+        List<PlanFragment> allFragments = getAllStages(Optional.of(outputStageInfo)).stream()
+                .map(StageInfo::getPlan)
+                .map(Optional::get)
+                .collect(toImmutableList());
+        return formatJsonFragmentList(allFragments);
+    }
+
+    public static String jsonDistributedPlan(SubPlan plan)
+    {
+        return formatJsonFragmentList(plan.getAllFragments());
+    }
+
+    private static String formatJsonFragmentList(List<PlanFragment> fragments)
+    {
+        ImmutableSortedMap.Builder<PlanFragmentId, JsonPlanFragment> fragmentJsonMap = ImmutableSortedMap.naturalOrder();
+        for (PlanFragment fragment : fragments) {
+            PlanFragmentId fragmentId = fragment.getId();
+            JsonPlanFragment jsonPlanFragment = new JsonPlanFragment(fragment.getJsonRepresentation().get());
+            fragmentJsonMap.put(fragmentId, jsonPlanFragment);
+        }
+        return new JsonRenderer().render(fragmentJsonMap.build());
     }
 
     private static String formatFragment(FunctionManager functionManager, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose, List<PlanFragment> allFragments)
@@ -731,14 +780,16 @@ public class PlanPrinter
                 arguments.add(formatter.apply(filterNode.get().getPredicate()));
             }
 
+            if (projectNode.isPresent()) {
+                operatorName += "Project";
+                formatString += "projectLocality = %s, ";
+                arguments.add(projectNode.get().getLocality());
+            }
+
             if (formatString.length() > 1) {
                 formatString = formatString.substring(0, formatString.length() - 2);
             }
             formatString += "]";
-
-            if (projectNode.isPresent()) {
-                operatorName += "Project";
-            }
 
             List<PlanNodeId> allNodes = Stream.of(scanNode, filterNode, projectNode)
                     .filter(Optional::isPresent)

@@ -13,21 +13,21 @@
  */
 package com.facebook.presto.type;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.StandardTypes;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.function.OperatorType.ADD;
+import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.common.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.function.OperatorType.ADD;
-import static com.facebook.presto.spi.function.OperatorType.SUBTRACT;
-import static com.facebook.presto.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static com.facebook.presto.spi.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 

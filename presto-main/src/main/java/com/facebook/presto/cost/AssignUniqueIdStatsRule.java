@@ -22,7 +22,7 @@ import com.facebook.presto.sql.planner.plan.Patterns;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 
 public class AssignUniqueIdStatsRule
         implements ComposableStatsCalculator.Rule<AssignUniqueId>

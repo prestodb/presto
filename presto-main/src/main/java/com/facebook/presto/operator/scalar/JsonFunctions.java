@@ -14,18 +14,18 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.SqlDecimal;
+import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.function.LiteralParameters;
-import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.ScalarOperator;
-import com.facebook.presto.spi.function.SqlFunctionProperties;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.spi.type.SqlDecimal;
-import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.JsonPathType;
 import com.facebook.presto.type.LiteralParameter;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -43,8 +43,8 @@ import java.io.OutputStream;
 import java.util.LinkedList;
 import java.util.List;
 
+import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static com.facebook.presto.spi.type.Chars.padSpaces;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
 import static com.facebook.presto.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;

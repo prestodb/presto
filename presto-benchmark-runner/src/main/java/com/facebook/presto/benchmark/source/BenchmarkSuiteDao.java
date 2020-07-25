@@ -14,7 +14,7 @@
 package com.facebook.presto.benchmark.source;
 
 import com.facebook.presto.benchmark.framework.BenchmarkQuery;
-import com.facebook.presto.benchmark.framework.BenchmarkSuiteInfo;
+import com.facebook.presto.benchmark.framework.BenchmarkSuite;
 import org.jdbi.v3.sqlobject.config.RegisterColumnMapper;
 import org.jdbi.v3.sqlobject.config.RegisterConstructorMapper;
 import org.jdbi.v3.sqlobject.customizer.Bind;
@@ -33,7 +33,7 @@ public interface BenchmarkSuiteDao
             "  `suite` varchar(256) NOT NULL,\n" +
             "  `query_set` varchar(256) NOT NULL,\n" +
             "  `phases` mediumtext NOT NULL,\n" +
-            "  `session_properties` mediumtext NOT NULL,\n" +
+            "  `session_properties` mediumtext DEFAULT NULL,\n" +
             "  `created_by` varchar(256) NOT NULL,\n" +
             "  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n" +
             "  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n" +
@@ -49,6 +49,7 @@ public interface BenchmarkSuiteDao
             "  `catalog` varchar(256) NOT NULL,\n" +
             "  `schema` varchar(256) NOT NULL,\n" +
             "  `query` mediumtext NOT NULL,\n" +
+            "  `session_properties` mediumtext DEFAULT NULL,\n" +
             "  `create_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n" +
             "  `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n" +
             "  PRIMARY KEY (`id`),\n" +
@@ -65,8 +66,8 @@ public interface BenchmarkSuiteDao
             "  <table_name>\n" +
             "WHERE\n" +
             "  `suite`  = :suite\n")
-    @RegisterConstructorMapper(BenchmarkSuiteInfo.class)
-    BenchmarkSuiteInfo getBenchmarkSuiteInfo(
+    @RegisterConstructorMapper(BenchmarkSuite.JdbiBuilder.class)
+    BenchmarkSuite.JdbiBuilder getBenchmarkSuite(
             @Define("table_name") String tableName,
             @Bind("suite") String suite);
 
@@ -74,7 +75,8 @@ public interface BenchmarkSuiteDao
             "  `name`,\n" +
             "  `catalog`,\n" +
             "  `schema`,\n" +
-            "  `query`\n" +
+            "  `query`,\n" +
+            "  `session_properties`\n" +
             "FROM\n" +
             "  <table_name>\n" +
             "WHERE\n" +

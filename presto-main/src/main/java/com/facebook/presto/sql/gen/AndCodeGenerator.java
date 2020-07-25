@@ -18,14 +18,17 @@ import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
 import com.facebook.presto.bytecode.instruction.LabelNode;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.type.Type;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
 
 public class AndCodeGenerator
@@ -36,68 +39,69 @@ public class AndCodeGenerator
     {
         Preconditions.checkArgument(arguments.size() == 2);
 
-        Variable wasNull = generator.wasNull();
+        // We flatten the AND here.
+        Deque<RowExpression> stack = new ArrayDeque<>();
+        stack.push(arguments.get(1));
+        stack.push(arguments.get(0));
+
+        ImmutableList.Builder<RowExpression> flattenedArgs = ImmutableList.builder();
+        do {
+            RowExpression operand = stack.pop();
+            if (operand instanceof SpecialFormExpression &&
+                    ((SpecialFormExpression) operand).getForm() == SpecialFormExpression.Form.AND) {
+                stack.push(((SpecialFormExpression) operand).getArguments().get(1));
+                stack.push(((SpecialFormExpression) operand).getArguments().get(0));
+            }
+            else {
+                flattenedArgs.add(operand);
+            }
+        } while (!stack.isEmpty());
+
         BytecodeBlock block = new BytecodeBlock()
                 .comment("AND")
                 .setDescription("AND");
 
-        BytecodeNode left = generator.generate(arguments.get(0), Optional.empty());
-        BytecodeNode right = generator.generate(arguments.get(1), Optional.empty());
+        LabelNode falseLabel = new LabelNode("false");
+        LabelNode endLabel = new LabelNode("end");
+        Variable wasNull = generator.wasNull();
 
-        block.append(left);
+        Variable hasNulls = generator.getScope().createTempVariable(boolean.class);
+        block.initializeVariable(hasNulls);
+        for (RowExpression expression : flattenedArgs.build()) {
+            block.comment("do { eval arg; if (wasNull) { hasNull = true; wasNull = false; } else if (false) goto ret_false; }")
+                    .append(generator.generate(expression, Optional.empty()));
 
-        IfStatement ifLeftIsNull = new IfStatement("if left wasNull...")
-                .condition(wasNull);
+            IfStatement ifOperandIsNull = new IfStatement("if left wasNulll...").condition(wasNull);
+            ifOperandIsNull.ifTrue()
+                    .comment("clear the null flag and remember there was a null")
+                    .putVariable(hasNulls, true)
+                    .putVariable(wasNull, false)
+                    .pop(boolean.class);
 
-        LabelNode end = new LabelNode("end");
-        ifLeftIsNull.ifTrue()
-                .comment("clear the null flag, pop left value off stack, and push left null flag on the stack (true)")
-                .append(wasNull.set(constantFalse()))
-                .pop(arguments.get(0).getType().getJavaType()) // discard left value
-                .push(true);
+            ifOperandIsNull.ifFalse()
+                    .ifFalseGoto(falseLabel);
 
-        LabelNode leftIsTrue = new LabelNode("leftIsTrue");
-        ifLeftIsNull.ifFalse()
-                .comment("if left is false, push false, and goto end")
-                .ifTrueGoto(leftIsTrue)
-                .push(false)
-                .gotoLabel(end)
-                .comment("left was true; push left null flag on the stack (false)")
-                .visitLabel(leftIsTrue)
+            block.append(ifOperandIsNull);
+        }
+
+        // We evaluated all operands. So check if any of them was null
+        IfStatement ifHasNulls = new IfStatement("hasNulls is true");
+        ifHasNulls.condition().append(hasNulls);
+        ifHasNulls.ifTrue()
+                .comment("at least one of the arguments is null and none of them is false. So set wasNull to true")
+                .putVariable(wasNull, true)
                 .push(false);
+        ifHasNulls.ifFalse().push(true);
 
-        block.append(ifLeftIsNull);
+        block.append(ifHasNulls)
+                .gotoLabel(endLabel);
 
-        // At this point we know the left expression was either NULL or TRUE.  The stack contains a single boolean
-        // value for this expression which indicates if the left value was NULL.
-
-        // eval right!
-        block.append(right);
-
-        IfStatement ifRightIsNull = new IfStatement("if right wasNull...");
-        ifRightIsNull.condition()
-                .append(wasNull);
-
-        // this leaves a single boolean on the stack which is ignored since the value in NULL
-        ifRightIsNull.ifTrue()
-                .comment("right was null, pop the right value off the stack; wasNull flag remains set to TRUE")
-                .pop(arguments.get(1).getType().getJavaType());
-
-        LabelNode rightIsTrue = new LabelNode("rightIsTrue");
-        ifRightIsNull.ifFalse()
-                .comment("if right is false, pop left null flag off stack, push false and goto end")
-                .ifTrueGoto(rightIsTrue)
-                .pop(boolean.class)
+        block.visitLabel(falseLabel)
+                .comment("at least one of the args is false, clear wasNull and return false")
                 .push(false)
-                .gotoLabel(end)
-                .comment("right was true; store left null flag (on stack) in wasNull variable, and push true")
-                .visitLabel(rightIsTrue)
-                .putVariable(wasNull)
-                .push(true);
+                .gotoLabel(endLabel);
 
-        block.append(ifRightIsNull)
-                .visitLabel(end);
-
+        block.visitLabel(endLabel);
         outputBlockVariable.ifPresent(output -> block.append(generateWrite(generator, returnType, output)));
         return block;
     }

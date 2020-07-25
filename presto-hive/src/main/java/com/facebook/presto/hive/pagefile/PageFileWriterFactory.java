@@ -13,18 +13,19 @@
  */
 package com.facebook.presto.hive.pagefile;
 
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveFileWriter;
 import com.facebook.presto.hive.HiveFileWriterFactory;
+import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.orc.DataSink;
-import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.zlib.DeflateCompressor;
 import com.facebook.presto.orc.zlib.InflateDecompressor;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -59,14 +60,17 @@ public class PageFileWriterFactory
         implements HiveFileWriterFactory
 {
     private final HdfsEnvironment hdfsEnvironment;
+    private final DataSinkFactory dataSinkFactory;
     private final BlockEncodingSerde blockEncodingSerde;
 
     @Inject
     public PageFileWriterFactory(
             HdfsEnvironment hdfsEnvironment,
+            DataSinkFactory dataSinkFactory,
             BlockEncodingSerde blockEncodingSerde)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.dataSinkFactory = requireNonNull(dataSinkFactory, "dataSinkFactory is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
@@ -77,7 +81,8 @@ public class PageFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf configuration,
-            ConnectorSession session)
+            ConnectorSession session,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         if (!storageFormat.getOutputFormat().equals(PAGEFILE.getOutputFormat())) {
             return Optional.empty();
@@ -93,7 +98,7 @@ public class PageFileWriterFactory
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            DataSink dataSink = createPageDataSink(fileSystem, path);
+            DataSink dataSink = dataSinkFactory.createDataSink(session, fileSystem, path);
 
             Callable<Void> rollbackAction = () -> {
                 fileSystem.delete(path, false);
@@ -107,11 +112,13 @@ public class PageFileWriterFactory
     }
 
     public static void createEmptyPageFile(
+            DataSinkFactory dataSinkFactory,
+            ConnectorSession session,
             FileSystem fileSystem,
             Path path)
     {
         try {
-            DataSink dataSink = createPageDataSink(fileSystem, path);
+            DataSink dataSink = dataSinkFactory.createDataSink(session, fileSystem, path);
             dataSink.write(ImmutableList.of(createEmptyPageFileFooterOutput()));
             dataSink.close();
         }
@@ -151,11 +158,5 @@ public class PageFileWriterFactory
         }
 
         return new PagesSerde(blockEncodingSerde, Optional.ofNullable(pageCompressor), Optional.ofNullable(pageDecompressor), Optional.empty());
-    }
-
-    private static DataSink createPageDataSink(FileSystem fileSystem, Path path)
-            throws IOException
-    {
-        return new OutputStreamDataSink(fileSystem.create(path));
     }
 }

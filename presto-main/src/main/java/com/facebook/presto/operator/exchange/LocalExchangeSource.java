@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.exchange;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.WorkProcessor;
 import com.facebook.presto.operator.WorkProcessor.ProcessState;
-import com.facebook.presto.spi.Page;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 

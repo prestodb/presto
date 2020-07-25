@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.parquet.writer;
 
+import com.facebook.presto.common.block.ColumnarArray;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.DefinitionLevelIterables;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterable;
 import com.facebook.presto.parquet.writer.levels.RepetitionLevelIterables;
-import com.facebook.presto.spi.block.ColumnarArray;
 import com.google.common.collect.ImmutableList;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.List;
@@ -28,6 +29,8 @@ import static java.util.Objects.requireNonNull;
 public class ArrayColumnWriter
         implements ColumnWriter
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayColumnWriter.class).instanceSize();
+
     private final ColumnWriter elementWriter;
     private final int maxDefinitionLevel;
     private final int maxRepetitionLevel;
@@ -73,6 +76,12 @@ public class ArrayColumnWriter
     public long getBufferedBytes()
     {
         return elementWriter.getBufferedBytes();
+    }
+
+    @Override
+    public long getRetainedBytes()
+    {
+        return INSTANCE_SIZE + elementWriter.getRetainedBytes();
     }
 
     @Override

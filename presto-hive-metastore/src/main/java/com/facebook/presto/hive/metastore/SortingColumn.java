@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.block.SortOrder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -22,11 +22,11 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
+import static com.facebook.presto.common.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.metastore.SortingColumn.Order.ASCENDING;
 import static com.facebook.presto.hive.metastore.SortingColumn.Order.DESCENDING;
-import static com.facebook.presto.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static com.facebook.presto.spi.block.SortOrder.DESC_NULLS_LAST;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;

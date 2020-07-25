@@ -50,14 +50,9 @@ import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
 import com.facebook.presto.spi.eventlistener.ResourceDistribution;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.transaction.TransactionId;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;
@@ -70,6 +65,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonDistributedPlan;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.max;
@@ -81,7 +77,6 @@ import static java.util.Objects.requireNonNull;
 public class QueryMonitor
 {
     private static final Logger log = Logger.get(QueryMonitor.class);
-    private static final JsonCodec<Map<PlanFragmentId, JsonPlanFragment>> PLAN_MAP_CODEC = JsonCodec.mapJsonCodec(PlanFragmentId.class, JsonPlanFragment.class);
 
     private final JsonCodec<StageInfo> stageInfoCodec;
     private final JsonCodec<OperatorStats> operatorStatsCodec;
@@ -132,7 +127,8 @@ public class QueryMonitor
                                 queryInfo.getSelf(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty())));
+                                Optional.empty(),
+                                ImmutableList.of())));
     }
 
     public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
@@ -146,7 +142,8 @@ public class QueryMonitor
                         queryInfo.getSelf(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty()),
+                        Optional.empty(),
+                        ImmutableList.of()),
                 new QueryStatistics(
                         ofMillis(0),
                         ofMillis(0),
@@ -237,7 +234,10 @@ public class QueryMonitor
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo),
                 createJsonQueryPlan(queryInfo),
-                queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)));
+                queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)),
+                queryInfo.getRuntimeOptimizedStages().orElse(ImmutableList.of()).stream()
+                        .map(stageId -> String.valueOf(stageId.getId()))
+                        .collect(toImmutableList()));
     }
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
@@ -325,13 +325,8 @@ public class QueryMonitor
     {
         try {
             if (queryInfo.getOutputStage().isPresent()) {
-                ImmutableSortedMap.Builder<PlanFragmentId, JsonPlanFragment> fragmentJsonMap = ImmutableSortedMap.naturalOrder();
-                for (StageInfo stage : getAllStages(queryInfo.getOutputStage())) {
-                    PlanFragmentId fragmentId = stage.getPlan().get().getId();
-                    JsonPlanFragment jsonPlanFragment = new JsonPlanFragment(stage.getPlan().get().getJsonRepresentation().get());
-                    fragmentJsonMap.put(fragmentId, jsonPlanFragment);
-                }
-                return Optional.of(PLAN_MAP_CODEC.toJson(fragmentJsonMap.build()));
+                return Optional.of(jsonDistributedPlan(
+                        queryInfo.getOutputStage().get()));
             }
         }
         catch (Exception e) {
@@ -386,7 +381,7 @@ public class QueryMonitor
                 failureInfo.getErrorCode(),
                 Optional.ofNullable(failureInfo.getType()),
                 Optional.ofNullable(failureInfo.getMessage()),
-                failedTask.map(task -> task.getTaskStatus().getTaskId().toString()),
+                failedTask.map(task -> task.getTaskId().toString()),
                 failedTask.map(task -> task.getTaskStatus().getSelf().getHost()),
                 executionFailureInfoCodec.toJson(failureInfo)));
     }
@@ -562,24 +557,6 @@ public class QueryMonitor
 
         for (StageInfo subStage : stageInfo.getSubStages()) {
             computeCpuAndMemoryDistributions(subStage, cpuDistributionBuilder, memoryDistributionBuilder);
-        }
-    }
-
-    public static class JsonPlanFragment
-    {
-        @JsonRawValue
-        private final String plan;
-
-        @JsonCreator
-        public JsonPlanFragment(String plan)
-        {
-            this.plan = plan;
-        }
-
-        @JsonProperty
-        public String getPlan()
-        {
-            return this.plan;
         }
     }
 }

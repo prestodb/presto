@@ -50,7 +50,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -62,8 +61,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
@@ -86,6 +87,7 @@ public final class InternalResourceGroupManager<C>
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
     private final AtomicBoolean taskLimitExceeded = new AtomicBoolean();
     private final int maxTotalRunningTaskCountToNotExecuteNewQuery;
+    private final AtomicLong lastSchedulingCycleRunTimeMs = new AtomicLong(currentTimeMillis());
 
     @Inject
     public InternalResourceGroupManager(
@@ -191,7 +193,16 @@ public final class InternalResourceGroupManager<C>
     public void start()
     {
         if (started.compareAndSet(false, true)) {
-            refreshExecutor.scheduleWithFixedDelay(this::refreshAndStartQueries, 1, 1, TimeUnit.MILLISECONDS);
+            refreshExecutor.scheduleWithFixedDelay(() -> {
+                try {
+                    refreshAndStartQueries();
+                    lastSchedulingCycleRunTimeMs.getAndSet(currentTimeMillis());
+                }
+                catch (Throwable t) {
+                    log.error(t, "Error while executing refreshAndStartQueries");
+                    throw t;
+                }
+            }, 1, 1, MILLISECONDS);
         }
     }
 
@@ -283,6 +294,12 @@ public final class InternalResourceGroupManager<C>
         return queriesQueuedInternal;
     }
 
+    @Managed
+    public long getLastSchedulingCycleRuntimeDelayMs()
+    {
+        return currentTimeMillis() - lastSchedulingCycleRunTimeMs.get();
+    }
+
     private static int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
     {
         if (resourceGroup.subGroups().isEmpty()) {
@@ -318,6 +335,9 @@ public final class InternalResourceGroupManager<C>
     public void setTaskLimitExceeded(boolean exceeded)
     {
         taskLimitExceeded.set(exceeded);
+        for (RootInternalResourceGroup group : rootGroups) {
+            group.setTaskLimitExceeded(exceeded);
+        }
     }
 
     @SuppressWarnings("unchecked")

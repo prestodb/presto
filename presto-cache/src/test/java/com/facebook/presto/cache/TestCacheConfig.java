@@ -15,7 +15,6 @@ package com.facebook.presto.cache;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -24,9 +23,9 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.util.concurrent.TimeUnit.DAYS;
+import static com.facebook.presto.cache.CacheType.FILE_MERGE;
+import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
+import static com.facebook.presto.hive.CacheQuotaScope.TABLE;
 
 public class TestCacheConfig
 {
@@ -34,11 +33,12 @@ public class TestCacheConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(CacheConfig.class)
+                .setCachingEnabled(false)
+                .setCacheType(null)
                 .setBaseDirectory(null)
                 .setValidationEnabled(false)
-                .setMaxInMemoryCacheSize(new DataSize(2, GIGABYTE))
-                .setMaxCachedEntries(1_000)
-                .setCacheTtl(new Duration(2, DAYS)));
+                .setCacheQuotaScope(GLOBAL)
+                .setDefaultCacheQuota(null));
     }
 
     @Test
@@ -46,19 +46,21 @@ public class TestCacheConfig
             throws Exception
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("cache.enabled", "true")
+                .put("cache.type", "FILE_MERGE")
                 .put("cache.base-directory", "tcp://abc")
                 .put("cache.validation-enabled", "true")
-                .put("cache.max-in-memory-cache-size", "42MB")
-                .put("cache.max-cached-entries", "10000")
-                .put("cache.ttl", "20d")
+                .put("cache.cache-quota-scope", "TABLE")
+                .put("cache.default-cache-quota", "1GB")
                 .build();
 
         CacheConfig expected = new CacheConfig()
+                .setCachingEnabled(true)
+                .setCacheType(FILE_MERGE)
                 .setBaseDirectory(new URI("tcp://abc"))
                 .setValidationEnabled(true)
-                .setMaxInMemoryCacheSize(new DataSize(42, MEGABYTE))
-                .setMaxCachedEntries(10_000)
-                .setCacheTtl(new Duration(20, DAYS));
+                .setCacheQuotaScope(TABLE)
+                .setDefaultCacheQuota(DataSize.succinctDataSize(1, DataSize.Unit.GIGABYTE));
 
         assertFullMapping(properties, expected);
     }

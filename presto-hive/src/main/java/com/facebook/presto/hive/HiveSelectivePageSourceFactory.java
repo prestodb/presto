@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.Subfield;
-import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -45,5 +45,6 @@ public interface HiveSelectivePageSourceFactory
             TupleDomain<Subfield> domainPredicate,
             RowExpression remainingPredicate,               // refers to columns by name; already optimized
             DateTimeZone hiveStorageTimeZone,
-            HiveFileContext hiveFileContext);
+            HiveFileContext hiveFileContext,
+            Optional<EncryptionInformation> encryptionInformation);
 }

@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import io.airlift.slice.XxHash64;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -22,11 +24,14 @@ import org.apache.hadoop.fs.Path;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.raptor.RaptorErrorCode.RAPTOR_ERROR;
 
 public final class FileSystemUtil
 {
+    public static final HdfsContext DEFAULT_RAPTOR_CONTEXT = new HdfsContext(new ConnectorIdentity("presto-raptor", Optional.empty(), Optional.empty()));
+
     private static final Configuration INITIAL_CONFIGURATION;
 
     static {

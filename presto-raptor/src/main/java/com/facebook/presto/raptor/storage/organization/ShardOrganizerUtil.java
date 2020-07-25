@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.raptor.metadata.MetadataDao;
 import com.facebook.presto.raptor.metadata.ShardMetadata;
 import com.facebook.presto.raptor.metadata.Table;
 import com.facebook.presto.raptor.metadata.TableColumn;
-import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;

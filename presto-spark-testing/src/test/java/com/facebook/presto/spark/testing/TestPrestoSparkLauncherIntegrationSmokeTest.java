@@ -23,6 +23,7 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import io.airlift.units.Duration;
@@ -63,6 +64,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.net.NetUtils.addStaticResolution;
 import static org.testng.Assert.assertEquals;
 
@@ -111,7 +113,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         dockerCompose.pull();
         composeProcess = dockerCompose.up(ImmutableMap.of(
                 "spark-master", 1,
-                "spark-worker", 3,
+                "spark-worker", 2,
                 "hadoop-master", 1));
 
         Session session = testSessionBuilder()
@@ -135,6 +137,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         // it may take some time for the docker container to start
         ensureHiveIsRunning(localQueryRunner, new Duration(10, MINUTES));
         importTables(localQueryRunner, "lineitem", "orders");
+        importTablesBucketed(localQueryRunner, ImmutableList.of("orderkey"), "lineitem", "orders");
 
         File projectRoot = resolveProjectRoot();
         prestoLauncher = resolveFile(new File(projectRoot, "presto-spark-launcher/target"), Pattern.compile("presto-spark-launcher-[\\d\\.]+(-SNAPSHOT)?\\.jar"));
@@ -145,7 +148,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         configProperties = new File(tempDir, "config.properties");
         storeProperties(configProperties, ImmutableMap.of(
                 "query.hash-partition-count", "10",
-                "redistribute-writes", "false"));
+                "prefer-distributed-union", "false"));
         catalogDirectory = new File(tempDir, "catalogs");
         createDirectories(catalogDirectory.toPath());
         storeProperties(new File(catalogDirectory, "hive.properties"), ImmutableMap.of(
@@ -199,6 +202,19 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         }
     }
 
+    private static void importTablesBucketed(LocalQueryRunner localQueryRunner, List<String> bucketedBy, String... tables)
+    {
+        for (String table : tables) {
+            localQueryRunner.execute(format(
+                    "CREATE TABLE %s_bucketed WITH (bucketed_by=array[%s], bucket_count=11) AS SELECT * FROM tpch.tiny.%s",
+                    table,
+                    bucketedBy.stream()
+                            .map(value -> "'" + value + "'")
+                            .collect(joining(",")),
+                    table));
+        }
+    }
+
     @AfterClass(alwaysRun = true)
     public void tearDown()
             throws Exception
@@ -233,18 +249,20 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "-v", format("%s:/presto/query.sql", queryFile.getAbsolutePath()),
                 "-v", format("%s:/presto/etc/config.properties", configProperties.getAbsolutePath()),
                 "-v", format("%s:/presto/etc/catalogs", catalogDirectory.getAbsolutePath()),
-                "-e", "SPARK_APPLICATION_JAR_LOCATION=/presto/launcher.jar",
-                "-e", "SPARK_APPLICATION_MAIN_CLASS=com.facebook.presto.spark.launcher.PrestoSparkLauncher",
-                "-e", "SPARK_SUBMIT_ARGS=--deploy-mode client",
-                "-e", "SPARK_APPLICATION_ARGS=" +
-                        "--catalog hive " +
-                        "--schema default " +
-                        "-f /presto/query.sql " +
-                        "--package /presto/package.tar.gz " +
-                        "--config /presto/etc/config.properties " +
-                        "--catalogs /presto/etc/catalogs",
                 "spark-submit",
-                "/bin/bash", "/spark-submit.sh");
+                "/spark/bin/spark-submit",
+                "--executor-memory", "512m",
+                "--executor-cores", "4",
+                "--conf", "spark.task.cpus=4",
+                "--master", "spark://spark-master:7077",
+                "--class", "com.facebook.presto.spark.launcher.PrestoSparkLauncher",
+                "/presto/launcher.jar",
+                "--package", "/presto/package.tar.gz",
+                "--config", "/presto/etc/config.properties",
+                "--catalogs", "/presto/etc/catalogs",
+                "--catalog", "hive",
+                "--schema", "default",
+                "--file", "/presto/query.sql");
         assertEquals(exitCode, 0);
     }
 
@@ -335,6 +353,17 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
     }
 
     @Test
+    public void testBucketedAggregation()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT orderkey, count(*) c " +
+                "FROM lineitem_bucketed " +
+                "WHERE partkey % 10 = 1 " +
+                "GROUP BY orderkey");
+    }
+
+    @Test
     public void testJoin()
             throws Exception
     {
@@ -344,6 +373,93 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
                 "JOIN orders o " +
                 "ON l.orderkey = o.orderkey " +
                 "WHERE l.orderkey % 223 = 42 AND l.linenumber = 4 and o.orderstatus = 'O'");
+    }
+
+    @Test
+    public void testBucketedJoin()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT l.orderkey, l.linenumber, o.orderstatus " +
+                "FROM lineitem_bucketed l " +
+                "JOIN orders_bucketed o " +
+                "ON l.orderkey = o.orderkey " +
+                "WHERE l.orderkey % 223 = 42 AND l.linenumber = 4 and o.orderstatus = 'O'");
+    }
+
+    @Test
+    public void testCrossJoin()
+            throws Exception
+    {
+        assertQuery("" +
+                "SELECT o.custkey, l.orderkey " +
+                "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
+    }
+
+    @Test
+    public void testNWayJoin()
+            throws Exception
+    {
+        assertQuery("SELECT " +
+                "   l.orderkey, " +
+                "   l.linenumber, " +
+                "   o1.orderstatus as orderstatus1, " +
+                "   o2.orderstatus as orderstatus2, " +
+                "   o3.orderstatus as orderstatus3, " +
+                "   o4.orderstatus as orderstatus4, " +
+                "   o5.orderstatus as orderstatus5, " +
+                "   o6.orderstatus as orderstatus6 " +
+                "FROM lineitem l, orders o1, orders o2, orders o3, orders o4, orders o5, orders o6 " +
+                "WHERE l.orderkey = o1.orderkey " +
+                "AND l.orderkey = o2.orderkey " +
+                "AND l.orderkey = o3.orderkey " +
+                "AND l.orderkey = o4.orderkey " +
+                "AND l.orderkey = o5.orderkey " +
+                "AND l.orderkey = o6.orderkey");
+    }
+
+    @Test
+    public void testUnionAll()
+            throws Exception
+    {
+        assertQuery("SELECT * FROM orders UNION ALL SELECT * FROM orders");
+    }
+
+    @Test
+    public void testValues()
+            throws Exception
+    {
+        assertQuery("SELECT a, b " +
+                "FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')) t1 (a, b) ");
+    }
+
+    @Test
+    public void testUnionWithAggregationAndJoin()
+            throws Exception
+    {
+        assertQuery(
+                "SELECT t.orderkey, t.c, o.orderstatus  FROM ( " +
+                        "SELECT orderkey, count(*) as c FROM (" +
+                        "   SELECT orderdate ds, orderkey FROM orders " +
+                        "   UNION ALL " +
+                        "   SELECT shipdate ds, orderkey FROM lineitem) a " +
+                        "GROUP BY orderkey) t " +
+                        "JOIN orders o " +
+                        "ON (o.orderkey = t.orderkey)");
+    }
+
+    @Test
+    public void testBucketedTableWrite()
+            throws Exception
+    {
+        executeOnSpark("CREATE TABLE test_orders_bucketed " +
+                "WITH (bucketed_by=array['orderkey'], bucket_count=11) " +
+                "AS SELECT * FROM orders_bucketed");
+        MaterializedResult actual = localQueryRunner.execute("SELECT * FROM test_orders_bucketed");
+        MaterializedResult expected = localQueryRunner.execute("SELECT * FROM orders_bucketed");
+        assertEqualsIgnoreOrder(actual, expected);
+        dropTable("test_orders_bucketed");
     }
 
     private void assertQuery(String query)
