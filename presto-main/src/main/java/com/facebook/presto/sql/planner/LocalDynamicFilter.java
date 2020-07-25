@@ -23,6 +23,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -143,6 +144,72 @@ public class LocalDynamicFilter
 
         Multimap<String, VariableReferenceExpression> probeVariables = probeVariablesBuilder.build();
         PlanNode buildNode = planNode.getRight();
+        Map<String, Integer> buildChannels = planNode
+                .getDynamicFilters()
+                .entrySet()
+                .stream()
+                // Skip build channels that don't match local probe dynamic filters.
+                .filter(entry -> probeVariables.containsKey(entry.getKey()))
+                .collect(toMap(
+                        // Dynamic filter ID
+                        Map.Entry::getKey,
+                        // Build-side channel index
+                        entry -> {
+                            VariableReferenceExpression buildVariable = entry.getValue();
+                            int buildChannelIndex = buildNode.getOutputVariables().indexOf(buildVariable);
+                            verify(buildChannelIndex >= 0);
+                            return buildChannelIndex;
+                        }));
+
+        if (buildChannels.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new LocalDynamicFilter(probeVariables, buildChannels, partitionCount));
+    }
+
+    // TODO: hack: merge with the above function
+    public static Optional<LocalDynamicFilter> create(SemiJoinNode planNode, int partitionCount)
+    {
+        Set<String> joinDynamicFilters = planNode.getDynamicFilters().keySet();
+        List<FilterNode> filterNodes = PlanNodeSearcher
+                .searchFrom(planNode.getSource())
+                .where(LocalDynamicFilter::isFilterAboveTableScan)
+                .findAll();
+
+        List<TableScanNode> scanNodes = PlanNodeSearcher
+                .searchFrom(planNode.getSource())
+                .where(LocalDynamicFilter::isTableScanContainRemainingPredicate)
+                .findAll();
+
+        // Mapping from probe-side dynamic filters' IDs to their matching probe variables.
+        ImmutableMultimap.Builder<String, VariableReferenceExpression> probeVariablesBuilder = ImmutableMultimap.builder();
+        for (FilterNode filterNode : filterNodes) {
+            DynamicFilterExtractResult extractResult = extractDynamicFilters(filterNode.getPredicate());
+            for (DynamicFilterPlaceholder placeholder : extractResult.getDynamicConjuncts()) {
+                if (placeholder.getInput() instanceof VariableReferenceExpression) {
+                    // Add descriptors that match the local dynamic filter (from the current join node).
+                    if (joinDynamicFilters.contains(placeholder.getId())) {
+                        VariableReferenceExpression probeVariable = (VariableReferenceExpression) placeholder.getInput();
+                        probeVariablesBuilder.put(placeholder.getId(), probeVariable);
+                    }
+                }
+            }
+        }
+        for (TableScanNode scanNode : scanNodes) {
+            DynamicFilterExtractResult extractResult = extractDynamicFilters(scanNode.getTable().getLayout().get().getRemainingPredicate());
+            for (DynamicFilterPlaceholder placeholder : extractResult.getDynamicConjuncts()) {
+                if (placeholder.getInput() instanceof VariableReferenceExpression) {
+                    // Add descriptors that match the local dynamic filter (from the current join node).
+                    if (joinDynamicFilters.contains(placeholder.getId())) {
+                        VariableReferenceExpression probeVariable = (VariableReferenceExpression) placeholder.getInput();
+                        probeVariablesBuilder.put(placeholder.getId(), probeVariable);
+                    }
+                }
+            }
+        }
+
+        Multimap<String, VariableReferenceExpression> probeVariables = probeVariablesBuilder.build();
+        PlanNode buildNode = planNode.getFilteringSource();
         Map<String, Integer> buildChannels = planNode
                 .getDynamicFilters()
                 .entrySet()
