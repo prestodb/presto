@@ -110,6 +110,11 @@ public final class HiveSessionProperties
     public static final String IGNORE_UNREADABLE_PARTITION = "ignore_unreadable_partition";
     public static final String PARTIAL_AGGREGATION_PUSHDOWN_ENABLED = "partial_aggregation_pushdown_enabled";
     public static final String PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED = "partial_aggregation_pushdown_for_variable_length_datatypes_enabled";
+    private static final String ENABLE_PARQUET_COLUMN_DECRYPTION = "enable_parquet_column_decryption";
+    private static final String ENABLE_OPTIMIZED_PARQUET_READER = "enable_parquet_optimized_reader";
+    private static final String ENABLE_PARQUET_VERIFICATION = "enable_parquet_verification";
+    public static final String ENABLE_PARTIAL_AGGREGATION_PUSHDOWN = "enable_partial_aggregation_pushdown";
+    public static final String ENABLE_TABLE_OVERWRITE = "enable_table_overwrite";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -514,6 +519,11 @@ public final class HiveSessionProperties
                         PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED,
                         "Is partial aggregation pushdown enabled for variable length datatypes",
                         hiveClientConfig.isPartialAggregationPushdownForVariableLengthDatatypesEnabled(),
+                        false),
+                booleanProperty(
+                        ENABLE_TABLE_OVERWRITE,
+                        "Is table overwrite enabled",
+                        hiveClientConfig.isTableOverwriteEnabled(),
                         false));
     }
 
@@ -841,6 +851,11 @@ public final class HiveSessionProperties
     public static boolean isParquetBatchReaderVerificationEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_BATCH_READER_VERIFICATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isTableOverwriteEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ENABLE_TABLE_OVERWRITE, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)

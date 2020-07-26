@@ -138,6 +138,8 @@ public class HiveWriterFactory
     private final boolean writeToTempFile;
 
     private final Optional<EncryptionInformation> encryptionInformation;
+    private final boolean partitionCommitRequired;
+    private final boolean isTableOverwriteEnabled;
 
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
@@ -296,6 +298,8 @@ public class HiveWriterFactory
         this.writeToTempFile = commitRequired;
 
         this.encryptionInformation = requireNonNull(encryptionInformation, "encryptionInformation is null");
+        this.partitionCommitRequired = partitionCommitRequired;
+        this.isTableOverwriteEnabled = HiveSessionProperties.isTableOverwriteEnabled(session);
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -321,6 +325,79 @@ public class HiveWriterFactory
         WriterParameters writerParameters = getWriterParameters(partitionName, bucketNumber);
 
         validateSchema(partitionName, writerParameters.getSchema());
+        UpdateMode updateMode;
+        Properties schema;
+        WriteInfo writeInfo;
+        StorageFormat outputStorageFormat;
+        if (!partition.isPresent()) {
+            if (table == null) {
+                // Write to: a new partition in a new partitioned table,
+                //           or a new unpartitioned table.
+                updateMode = UpdateMode.NEW;
+                schema = new Properties();
+                schema.setProperty(META_TABLE_COLUMNS, dataColumns.stream()
+                        .map(DataColumn::getName)
+                        .collect(joining(",")));
+                schema.setProperty(META_TABLE_COLUMN_TYPES, dataColumns.stream()
+                        .map(DataColumn::getHiveType)
+                        .map(HiveType::getHiveTypeName)
+                        .map(HiveTypeName::toString)
+                        .collect(joining(":")));
+
+                if (!partitionName.isPresent()) {
+                    // new unpartitioned table
+                    writeInfo = locationService.getTableWriteInfo(locationHandle, false);
+                }
+                else {
+                    // a new partition in a new partitioned table
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
+
+                    if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
+                        // When target path is different from write path,
+                        // verify that the target directory for the partition does not already exist
+                        if (MetastoreUtil.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, writeInfo.getTargetPath())) {
+                            throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format(
+                                    "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
+                                    partitionName,
+                                    schemaName,
+                                    tableName,
+                                    writeInfo.getTargetPath()));
+                        }
+                    }
+                }
+            }
+            else {
+                // Write to: a new partition in an existing partitioned table,
+                //           or an existing unpartitioned table
+                if (partitionName.isPresent()) {
+                    // a new partition in an existing partitioned table
+                    updateMode = UpdateMode.NEW;
+                    writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
+                }
+                else if (table.getTableType().equals(TEMPORARY_TABLE)) {
+                    // Note: temporary table is always empty at this step
+                    updateMode = UpdateMode.APPEND;
+                    writeInfo = locationService.getTableWriteInfo(locationHandle, false);
+                }
+                else {
+                    if (bucketNumber.isPresent()) {
+                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into bucketed unpartitioned Hive table");
+                    }
+                    if (immutablePartitions) {
+                        throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Unpartitioned Hive tables are immutable");
+                    }
+                    if (isTableOverwriteEnabled) {
+                        updateMode = UpdateMode.OVERWRITE;
+                        writeInfo = locationService.getTableWriteInfo(locationHandle, true);
+                    }
+                    else {
+                        updateMode = UpdateMode.APPEND;
+                        writeInfo = locationService.getTableWriteInfo(locationHandle, false);
+                    }
+                }
+
+                schema = getHiveSchema(table);
+            }
 
         String extension = getFileExtension(writerParameters.getOutputStorageFormat(), compressionCodec);
         String targetFileName;

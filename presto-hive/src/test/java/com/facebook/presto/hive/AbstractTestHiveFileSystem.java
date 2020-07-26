@@ -422,7 +422,7 @@ public abstract class AbstractTestHiveFileSystem
             metastoreClient.updateTableLocation(
                     database,
                     tableName.getTableName(),
-                    locationService.getTableWriteInfo(((HiveOutputTableHandle) outputHandle).getLocationHandle()).getTargetPath().toString());
+                    locationService.getTableWriteInfo(((HiveOutputTableHandle) outputHandle).getLocationHandle(), false).getTargetPath().toString());
         }
 
         try (Transaction transaction = newTransaction()) {

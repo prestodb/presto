@@ -427,25 +427,21 @@ public class FileHiveMetastore
     {
         checkArgument(!newTable.getTableType().equals(TEMPORARY_TABLE), "temporary tables must never be stored in the metastore");
 
-        Table table = getRequiredTable(databaseName, tableName);
-        if (!table.getTableType().equals(VIRTUAL_VIEW) || !newTable.getTableType().equals(VIRTUAL_VIEW)) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, "Only views can be updated with replaceTable");
-        }
-        if (!table.getDatabaseName().equals(databaseName) || !table.getTableName().equals(tableName)) {
+        if (!newTable.getDatabaseName().equals(databaseName) || !newTable.getTableName().equals(tableName)) {
             throw new PrestoException(HIVE_METASTORE_ERROR, "Replacement table must have same name");
         }
 
-        Path tableMetadataDirectory = getTableMetadataDirectory(table);
+        Path tableMetadataDirectory = getTableMetadataDirectory(newTable);
         writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(newTable), true);
 
         // replace existing permissions
-        deleteTablePrivileges(table);
+        deleteTablePrivileges(newTable);
 
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getUserPrivileges().asMap().entrySet()) {
-            setTablePrivileges(new PrestoPrincipal(USER, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new PrestoPrincipal(USER, entry.getKey()), newTable.getDatabaseName(), newTable.getTableName(), entry.getValue());
         }
         for (Entry<String, Collection<HivePrivilegeInfo>> entry : principalPrivileges.getRolePrivileges().asMap().entrySet()) {
-            setTablePrivileges(new PrestoPrincipal(ROLE, entry.getKey()), table.getDatabaseName(), table.getTableName(), entry.getValue());
+            setTablePrivileges(new PrestoPrincipal(ROLE, entry.getKey()), newTable.getDatabaseName(), newTable.getTableName(), entry.getValue());
         }
     }
 

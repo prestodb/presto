@@ -184,6 +184,80 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testPartitionFilter()
+    {
+        Session commonSession = Session.builder(getSession()).setSystemProperty(SystemSessionProperties.PARTITION_FILTER_TABLES, HiveQueryRunner.TPCH_SCHEMA + ".Partitioned_table:" + HiveQueryRunner.TPCH_SCHEMA + ".partitioned_table_multi_partition_key").build();
+        Session partitionFilterSession = Session.builder(commonSession).setSystemProperty(SystemSessionProperties.PARTITION_FILTER, "true").build();
+        Session noPartitionFilterSession = Session.builder(commonSession).setSystemProperty(SystemSessionProperties.PARTITION_FILTER, "false").build();
+
+        Session wildcardSession = Session.builder(getSession()).setSystemProperty(SystemSessionProperties.PARTITION_FILTER_TABLES, HiveQueryRunner.TPCH_SCHEMA + ".*").setSystemProperty(SystemSessionProperties.PARTITION_FILTER, "true").build();
+
+        @Language("SQL") String createPartitionTable = "" +
+                "CREATE TABLE partitioned_table " +
+                "WITH (" +
+                "partitioned_by = ARRAY[ 'ORDER_STATUS' ]" +
+                ") " +
+                "AS " +
+                "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
+                "FROM tpch.tiny.orders";
+
+        @Language("SQL") String createPartitionedTableMultiPartitionKey = "" +
+                "CREATE TABLE partitioned_table_multi_partition_key " +
+                "WITH (" +
+                "partitioned_by = ARRAY[ 'SHIP_PRIORITY', 'ORDER_STATUS', 'PROCESSED_DATE' ]" +
+                ") " +
+                "AS " +
+                "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status, CURRENT_DATE AS processed_date " +
+                "FROM tpch.tiny.orders";
+
+        assertUpdate(commonSession, createPartitionTable, "SELECT count(*) from orders");
+        assertUpdate(commonSession, createPartitionedTableMultiPartitionKey, "SELECT count(*) from orders");
+
+        // When partition filter is not enforced, query will succeed.
+        // Not able to use assertQuery here. assertQuery runs query in H2QueryRunner as well, which we are not able to create table there.
+        computeActual(noPartitionFilterSession, "select * from partitioned_table");
+        for (Session session : ImmutableList.of(partitionFilterSession, wildcardSession)) {
+            assertQueryFails(session, "select * from partitioned_table",
+                    "Filters need to be specified on all partition columns of a table. "
+                            + "Your query is missing filters on columns \\('order_status'\\) "
+                            + "for table 'tpch.partitioned_table'. Please add filters in the WHERE clause of your query. "
+                            + "For example: WHERE DATE\\(datestr\\) > CURRENT_DATE - INTERVAL '7' DAY. .*");
+            assertQueryFails(session, "select * from partitioned_table_multi_partition_key",
+                    "Filters need to be specified on all partition columns of a table. "
+                            + "Your query is missing filters on columns \\('ship_priority', 'order_status', 'processed_date'\\) "
+                            + "for table 'tpch.partitioned_table_multi_partition_key'. Please add filters in the WHERE clause of your query. "
+                            + "For example: WHERE DATE\\(processed_date\\) > CURRENT_DATE - INTERVAL '7' DAY. .*");
+            assertQueryFails(session, "select * from partitioned_table_multi_partition_key where DATE(processed_date) > CURRENT_DATE - INTERVAL '7' DAY",
+                    "Filters need to be specified on all partition columns of a table. "
+                            + "Your query is missing filters on columns \\('ship_priority', 'order_status'\\) "
+                            + "for table 'tpch.partitioned_table_multi_partition_key'. Please add filters in the WHERE clause of your query. "
+                            + "For example: WHERE DATE\\(datestr\\) > CURRENT_DATE - INTERVAL '7' DAY. .*");
+        }
+
+        // Query in session with empty strict mode tables will succeeded
+        Session noPartitionFilterTablesSession = Session.builder(partitionFilterSession).setSystemProperty(SystemSessionProperties.PARTITION_FILTER_TABLES, "a.b:b.c:c.d:e.w").build();
+        computeActual(noPartitionFilterTablesSession, "select * from partitioned_table");
+
+        // Explain and Explain analyze will succeed.
+        computeActual(partitionFilterSession, "EXPLAIN ANALYZE select * from partitioned_table");
+        computeActual(partitionFilterSession, "EXPLAIN select * from partitioned_table");
+
+        // Query specified partition filter will succeed.
+        computeActual(partitionFilterSession, "with foo as (select order_status as bar from partitioned_table) select * from foo where bar = 'P'");
+
+        computeActual(partitionFilterSession, "with foo as (select order_status as bar from partitioned_table) select * from foo where lower(bar) = 'p'");
+
+        // Table is not in the black list, query will succeed without partition filter.
+        computeActual(Session.builder(getSession()).setSystemProperty(SystemSessionProperties.PARTITION_FILTER, "true").build(), "select * from partitioned_table_multi_partition_key");
+
+        // When order_date column in partitioned_table become order_date_1 in tableScan:originalConstraint, this query still works
+        computeActual(partitionFilterSession, "select * from partitioned_table_multi_partition_key multiple join partitioned_table single on multiple.order_status = single.order_status where multiple.order_status = '2017=06-01' and single.order_status = '2017-06-01' and multiple.ship_priority = 2");
+
+        assertUpdate("DROP TABLE partitioned_table");
+        assertUpdate("DROP TABLE partitioned_table_multi_partition_key");
+    }
+
+    @Test
     public void testSchemaOperations()
     {
         Session admin = Session.builder(getQueryRunner().getDefaultSession())
@@ -5034,13 +5108,157 @@ public class TestHiveIntegrationSmokeTest
                         "SELECT\n" +
                         "*\n" +
                         "FROM tpch.orders",
-                "SELECT count(*) FROM orders");
+                        "SELECT count(*) FROM orders");
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_parquet_table");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.PARQUET);
+
+        assertUpdate(session, "INSERT INTO test_parquet_table VALUES (" +
+                "true" +
+                ", cast(1 as tinyint)" +
+                ", cast(2 as smallint)" +
+                ", 3" +
+                ", 4" +
+                ", 1.2" +
+                ", 2.3" +
+                ", 4.5" +
+                ", 55555555555555.32" +
+                ", 'abc'" +
+                ", 'def'" +
+                ", 'g'" +
+                ", 'hij'" +
+                ", cast('klm' as varbinary)" +
+                ", cast('2020-05-01' as date)" +
+                ", cast('2020-06-04 16:55:40.777' as timestamp)" +
+                ")", 1);
+
+        assertUpdate(session, "INSERT INTO test_parquet_table VALUES (" +
+                "false" +
+                ", cast(10 as tinyint)" +
+                ", cast(20 as smallint)" +
+                ", 30" +
+                ", 40" +
+                ", 10.25" +
+                ", 25.334" +
+                ", 465.523" +
+                ", 88888888555555.91" +
+                ", 'foo'" +
+                ", 'bar'" +
+                ", 'b'" +
+                ", 'baz'" +
+                ", cast('qux' as varbinary)" +
+                ", cast('2020-06-02' as date)" +
+                ", cast('2020-05-01 18:34:23.88' as timestamp)" +
+                ")", 1);
+        String rowCount = "SELECT 2";
+
+        assertQuery(session, "SELECT COUNT(*) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_boolean) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_tinyint) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_smallint) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_integer) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_bigint) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_real) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_double) FROM test_parquet_table", rowCount);
+        // The default Parquet writer does not populate statistics for these datatypes
+        // though they are populated by hive etl tasks
+        /*
+        assertQuery(session, "SELECT COUNT(_shortdecimal) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_longdecimal) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_string) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_varchar) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_singlechar) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_char) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_varbinary) FROM test_parquet_table", rowCount);
+         */
+        assertQuery(session, "SELECT COUNT(_date) FROM test_parquet_table", rowCount);
+        assertQuery(session, "SELECT COUNT(_timestamp) FROM test_parquet_table", rowCount);
+
+        assertQuery(session, "SELECT MIN(_boolean), MAX(_boolean) FROM test_parquet_table", "select false, true");
+        assertQuery(session, "SELECT MIN(_tinyint), MAX(_tinyint) FROM test_parquet_table", "select 1, 10");
+        assertQuery(session, "SELECT MIN(_smallint), MAX(_smallint) FROM test_parquet_table", "select 2, 20");
+        assertQuery(session, "SELECT MIN(_integer), MAX(_integer) FROM test_parquet_table", "select 3, 30");
+        assertQuery(session, "SELECT MIN(_bigint), MAX(_bigint) FROM test_parquet_table", "select 4, 40");
+        assertQuery(session, "SELECT MIN(_real), MAX(_real) FROM test_parquet_table", "select 1.2, 10.25");
+        assertQuery(session, "SELECT MIN(_double), MAX(_double) FROM test_parquet_table", "select 2.3, 25.334");
+        // The default Parquet writer does not populate statistics for these datatypes
+        // though they are populated by hive etl tasks
+        /*
+        assertQuery(session, "SELECT MIN(_shortdecimal), MAX(_shortdecimal) FROM test_parquet_table", "select 4.5, 465.523");
+        assertQuery(session, "SELECT MIN(_longdecimal), MAX(_longdecimal) FROM test_parquet_table", "select 55555555555555.32, 88888888555555.91");
+        assertQuery(session, "SELECT MIN(_string), MAX(_string) FROM test_parquet_table", "select 'abc', 'foo'");
+        assertQuery(session, "SELECT MIN(_varchar), MAX(_varchar) FROM test_parquet_table", "select 'bar', 'def'");
+        assertQuery(session, "SELECT MIN(_singlechar), MAX(_singlechar) FROM test_parquet_table", "select 'b', 'g'");
+        assertQuery(session, "SELECT MIN(_char), MAX(_char) FROM test_parquet_table", "select 'baz', 'hij'");
+        assertQuery(session, "SELECT MIN(_varbinary), MAX(_varbinary) FROM test_orc_table", "select X'6b6c6d', X'717578'");
+         */
+        assertQuery(session, "SELECT MIN(_date), MAX(_date) FROM test_parquet_table", "select cast('2020-05-01' as date), cast('2020-06-02' as date)");
+        assertQuery(session, "SELECT MIN(_timestamp), MAX(_timestamp) FROM test_parquet_table", "select cast('2020-05-01 18:34:23.88' as timestamp), cast('2020-06-04 16:55:40.777' as timestamp)");
+
+        assertUpdate(session, "DROP TABLE test_parquet_table");
 
         assertQuery(testSession, "SELECT count(*) FROM test_pagefile_compression", "SELECT count(*) FROM orders");
 
         assertQuery(testSession, "SELECT sum(custkey) FROM test_pagefile_compression", "SELECT sum(custkey) FROM orders");
 
         assertUpdate("DROP TABLE test_pagefile_compression");
+    }
+
+    @Test
+    public void testOverwriteUnPartitionedTable()
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_unpartitoned_table (" +
+                " EmpName VARCHAR(10)" +
+                ",EmpNo INTEGER" +
+                ")" +
+                "WITH (format = 'parquet')";
+
+        //By default append
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "enable_table_overwrite", "false")
+                .build();
+        assertUpdate(session, createTable);
+
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_unpartitoned_table");
+        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), HiveStorageFormat.PARQUET);
+
+        assertUpdate(session, "INSERT INTO test_unpartitoned_table VALUES (" +
+                "'foo'" +
+                ", 1" +
+                ")", 1);
+
+        assertUpdate(session, "INSERT INTO test_unpartitoned_table VALUES (" +
+                "'bar'" +
+                ", 2" +
+                ")", 1);
+
+        String rowCount = "SELECT 2";
+
+        assertQuery(session, "SELECT COUNT(*) FROM test_unpartitoned_table", rowCount);
+
+        //Enable full table overwrite
+        session = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "enable_table_overwrite", "true")
+                .build();
+
+        assertUpdate(session, "INSERT INTO test_unpartitoned_table VALUES (" +
+                "'foo'" +
+                ", 1" +
+                ")", 1);
+
+        assertUpdate(session, "INSERT INTO test_unpartitoned_table VALUES (" +
+                "'bar'" +
+                ", 2" +
+                ")", 1);
+
+        rowCount = "SELECT 1";
+
+        assertQuery(session, "SELECT COUNT(*) FROM test_unpartitoned_table", rowCount);
+
+        assertUpdate(session, "DROP TABLE test_unpartitoned_table");
+
+        assertFalse(getQueryRunner().tableExists(session, "test_unpartitoned_table"));
     }
 
     private static Consumer<Plan> assertTableWriterMergeNodeIsPresent()

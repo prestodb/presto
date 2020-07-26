@@ -175,6 +175,7 @@ public class HiveClientConfig
     private boolean parquetBatchReadOptimizationEnabled;
     private boolean parquetEnableBatchReaderVerification;
     private boolean parquetDereferencePushdownEnabled;
+    private boolean isTableOverwriteEnabled;
 
     private int maxMetadataUpdaterThreads = 100;
 
@@ -1508,5 +1509,18 @@ public class HiveClientConfig
     public boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled()
     {
         return this.isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
+    }
+
+    @Config("hive.enable-table-overwrite")
+    @ConfigDescription("enabled table overwrites")
+    public HiveClientConfig setTableOverwriteEnabled(boolean tableOverwriteEnabled)
+    {
+        this.isTableOverwriteEnabled = tableOverwriteEnabled;
+        return this;
+    }
+
+    public boolean isTableOverwriteEnabled()
+    {
+        return this.isTableOverwriteEnabled;
     }
 }

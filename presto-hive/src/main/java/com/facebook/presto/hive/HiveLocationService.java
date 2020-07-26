@@ -39,6 +39,7 @@ import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET
 import static com.facebook.presto.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.pathExists;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -118,9 +119,21 @@ public class HiveLocationService
     }
 
     @Override
-    public WriteInfo getTableWriteInfo(LocationHandle locationHandle)
+    public WriteInfo getTableWriteInfo(LocationHandle locationHandle, boolean overwrite)
     {
-        return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getTempPath(), locationHandle.getWriteMode());
+        if (!overwrite) {
+            return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getTempPath(), locationHandle.getWriteMode());
+        }
+
+        WriteMode writeMode = locationHandle.getWriteMode();
+        switch (writeMode) {
+            case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
+                return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getTempPath(), locationHandle.getWriteMode());
+            case DIRECT_TO_TARGET_EXISTING_DIRECTORY:
+            case DIRECT_TO_TARGET_NEW_DIRECTORY:
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "Overwriting un-partitioned table not supported when writing directly to target directory");
+        }
     }
 
     @Override

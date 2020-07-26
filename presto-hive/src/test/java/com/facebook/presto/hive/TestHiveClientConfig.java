@@ -144,7 +144,8 @@ public class TestHiveClientConfig
                 .setIgnoreUnreadablePartition(false)
                 .setMaxMetadataUpdaterThreads(100)
                 .setPartialAggregationPushdownEnabled(false)
-                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false));
+                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false)
+                .setTableOverwriteEnabled(false));
     }
 
     @Test
@@ -250,6 +251,11 @@ public class TestHiveClientConfig
                 .put("hive.max-metadata-updater-threads", "1000")
                 .put("hive.partial_aggregation_pushdown_enabled", "true")
                 .put("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
+                .put("hive.ipc.client.fallback-to-simple-auth-allowed", "true")
+                .put("hive.enable-optimized-parquet-reader", "true")
+                .put("hive.enable-parquet-verification", "true")
+                .put("hive.enable_partial_aggregation_pushdown", "true")
+                .put("hive.enable-table-overwrite", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -352,7 +358,8 @@ public class TestHiveClientConfig
                 .setIgnoreUnreadablePartition(true)
                 .setMaxMetadataUpdaterThreads(1000)
                 .setPartialAggregationPushdownEnabled(true)
-                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true);
+                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true)
+                .setTableOverwriteEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

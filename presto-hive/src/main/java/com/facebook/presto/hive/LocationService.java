@@ -33,11 +33,11 @@ public interface LocationService
 
     /**
      * targetPath and writePath will be root directory of all partition and table paths
-     * that may be returned by {@link #getTableWriteInfo(LocationHandle)} and {@link #getPartitionWriteInfo(LocationHandle, Optional, String)} method.
+     * that may be returned by {@link #getTableWriteInfo(LocationHandle, boolean))} and {@link #getPartitionWriteInfo(LocationHandle, Optional, String)} method.
      */
     WriteInfo getQueryWriteInfo(LocationHandle locationHandle);
 
-    WriteInfo getTableWriteInfo(LocationHandle locationHandle);
+    WriteInfo getTableWriteInfo(LocationHandle locationHandle, boolean overwrite);
 
     /**
      * If {@code partition} is present, returns {@code WriteInfo} for appending existing partition;

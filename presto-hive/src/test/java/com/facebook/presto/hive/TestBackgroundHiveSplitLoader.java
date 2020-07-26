@@ -639,7 +639,41 @@ public class TestBackgroundHiveSplitLoader
                 new BlockLocation[] {});
     }
 
-    private static class TestingHdfsEnvironment
+    private static LocatedFileStatus locatedFileStatus(Path path, long fileSize)
+    {
+        return new LocatedFileStatus(
+                fileSize,
+                false,
+                0,
+                fileSize,
+                0L,
+                0L,
+                null,
+                null,
+                null,
+                null,
+                path,
+                new BlockLocation[] {new BlockLocation(null, null, 0, fileSize)});
+    }
+
+    private static class TestingDirectoryLister
+            implements DirectoryLister
+    {
+        private final List<HiveFileInfo> files;
+
+        public TestingDirectoryLister(List<HiveFileInfo> files)
+        {
+            this.files = files;
+        }
+
+        @Override
+        public Iterator<HiveFileInfo> list(FileSystem fs, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy, PathFilter pathFilter)
+        {
+            return files.iterator();
+        }
+    }
+
+    public static class TestingHdfsEnvironment
             extends HdfsEnvironment
     {
         private final List<LocatedFileStatus> files;
