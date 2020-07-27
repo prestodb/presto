@@ -65,14 +65,8 @@ public abstract class AbstractRowEncoder
         this.session = requireNonNull(session, "session is null");
         requireNonNull(columnHandles, "columnHandles is null");
         this.columnHandles = ImmutableList.copyOf(columnHandles);
-        validateColumns(this.columnHandles);
         this.currentColumnIndex = 0;
     }
-
-    /**
-     * Performs any checks on the column handle field values
-     */
-    protected abstract void validateColumns(List<EncoderColumnHandle> columnHandles);
 
     @Override
     public RowEncoder appendColumnValue(Block block, int position)
