@@ -44,6 +44,8 @@ import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.MAX_LATITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.MAX_LONGITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LATITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LONGITUDE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
@@ -482,6 +484,125 @@ public class TestBingTileFunctions
         assertFunction("ST_AsText(apply(bing_tile_polygon(bing_tile(0, 0, 3)), g -> ST_Point(ST_XMin(g), ST_YMax(g))))", VARCHAR, "POINT (-180 85.05112877980659)");
         assertFunction("ST_AsText(apply(bing_tile_polygon(bing_tile(0, 0, 4)), g -> ST_Point(ST_XMin(g), ST_YMax(g))))", VARCHAR, "POINT (-180 85.05112877980659)");
         assertFunction("ST_AsText(apply(bing_tile_polygon(bing_tile(0, 0, 5)), g -> ST_Point(ST_XMin(g), ST_YMax(g))))", VARCHAR, "POINT (-180 85.05112877980659)");
+    }
+
+    @Test
+    public void testGeometryToDissolvedBingTiles()
+    {
+        // Empty geometries
+        assertGeometryToDissolvedBingTiles("POINT EMPTY", 0, emptyList());
+        assertGeometryToDissolvedBingTiles("POINT EMPTY", 10, emptyList());
+        assertGeometryToDissolvedBingTiles("POINT EMPTY", MAX_ZOOM_LEVEL, emptyList());
+        assertGeometryToDissolvedBingTiles("POLYGON EMPTY", 10, emptyList());
+        assertGeometryToDissolvedBingTiles("GEOMETRYCOLLECTION EMPTY", 10, emptyList());
+
+        // Geometries at tile borders
+        assertGeometryToDissolvedBingTiles("POINT (0 0)", 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s 0)", MIN_LONGITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s 0)", MAX_LONGITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (0 %s)", MIN_LATITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (0 %s)", MAX_LATITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MIN_LATITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MAX_LATITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MAX_LATITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MIN_LATITUDE), 0, ImmutableList.of(""));
+
+        assertGeometryToDissolvedBingTiles("POINT (0 0)", 1, ImmutableList.of("3"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s 0)", MIN_LONGITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s 0)", MAX_LONGITUDE), 1, ImmutableList.of("3"));
+        assertGeometryToDissolvedBingTiles(format("POINT (0 %s)", MIN_LATITUDE), 1, ImmutableList.of("3"));
+        assertGeometryToDissolvedBingTiles(format("POINT (0 %s)", MAX_LATITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MIN_LATITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MAX_LATITUDE), 1, ImmutableList.of("0"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MAX_LATITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MIN_LATITUDE), 1, ImmutableList.of("3"));
+
+        assertGeometryToDissolvedBingTiles("LINESTRING (-1 0, -2 0)", 1, ImmutableList.of("2"));
+        assertGeometryToDissolvedBingTiles("LINESTRING (1 0, 2 0)", 1, ImmutableList.of("3"));
+        assertGeometryToDissolvedBingTiles("LINESTRING (0 -1, 0 -2)", 1, ImmutableList.of("3"));
+        assertGeometryToDissolvedBingTiles("LINESTRING (0 1, 0 2)", 1, ImmutableList.of("1"));
+
+        assertGeometryToDissolvedBingTiles(format("LINESTRING (%s 1, %s 2)", MIN_LONGITUDE, MIN_LONGITUDE), 1, ImmutableList.of("0"));
+        assertGeometryToDissolvedBingTiles(format("LINESTRING (%s -1, %s -2)", MIN_LONGITUDE, MIN_LONGITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToDissolvedBingTiles(format("LINESTRING (%s 1, %s 2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToDissolvedBingTiles(format("LINESTRING (%s -1, %s -2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("3"));
+
+        // General Geometries
+        assertGeometryToDissolvedBingTiles("POINT (60 30.12)", 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles("POINT (60 30.12)", 10, ImmutableList.of("1230301230"));
+        assertGeometryToDissolvedBingTiles("POINT (60 30.12)", 15, ImmutableList.of("123030123010121"));
+        assertGeometryToDissolvedBingTiles("POINT (60 30.12)", 16, ImmutableList.of("1230301230101212"));
+
+        assertGeometryToDissolvedBingTiles(
+                "POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))",
+                6,
+                ImmutableList.of("12222", "300000", "300001"));
+        assertGeometryToDissolvedBingTiles(
+                "POLYGON ((0 0, 0 10, 10 10, 0 0))",
+                6,
+                ImmutableList.of("122220", "122222", "122221", "300000"));
+        assertGeometryToDissolvedBingTiles(
+                "POLYGON ((10 10, -10 10, -20 -15, 10 10))",
+                3,
+                ImmutableList.of("033", "211", "122"));
+        assertGeometryToDissolvedBingTiles(
+                "POLYGON ((10 10, -10 10, -20 -15, 10 10))",
+                6,
+                ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "03333", "211110", "211112", "211111", "122220", "122222", "122221"));
+
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12))",
+                10,
+                ImmutableList.of("1230301230"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12))",
+                15,
+                ImmutableList.of("123030123010121"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POLYGON ((10 10, -10 10, -20 -15, 10 10)))",
+                3,
+                ImmutableList.of("033", "211", "122"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12), POLYGON ((10 10, -10 10, -20 -15, 10 10)))",
+                3,
+                ImmutableList.of("033", "211", "122", "123"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12), LINESTRING (61 31, 61.01 31.01), POLYGON EMPTY)",
+                15,
+                ImmutableList.of("123030123010121", "123030112310200", "123030112310202", "123030112310201"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12))",
+                10,
+                ImmutableList.of("1230301230"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12))",
+                15,
+                ImmutableList.of("123030123010121"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POLYGON ((10 10, -10 10, -20 -15, 10 10)))",
+                3,
+                ImmutableList.of("033", "211", "122"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12), POLYGON ((10 10, -10 10, -20 -15, 10 10)))",
+                3,
+                ImmutableList.of("033", "211", "122", "123"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12), LINESTRING (61 31, 61.01 31.01), POLYGON EMPTY)",
+                15,
+                ImmutableList.of("123030123010121", "123030112310200", "123030112310202", "123030112310201"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (0.1 0.1), POINT(0.1 -0.1), POINT(-0.1 -0.1), POINT(-0.1 0.1))",
+                3,
+                ImmutableList.of("033", "122", "211", "300"));
+    }
+
+    private void assertGeometryToDissolvedBingTiles(String wkt, int maxZoomLevel, List<String> expectedQuadKeys)
+    {
+        expectedQuadKeys = ImmutableList.sortedCopyOf(expectedQuadKeys);
+        assertFunction(
+                format("array_sort(transform(geometry_to_dissolved_bing_tiles(ST_GeometryFromText('%s'), %s), x -> bing_tile_quadkey(x)))", wkt, maxZoomLevel),
+                new ArrayType(VARCHAR),
+                expectedQuadKeys);
     }
 
     @Test
