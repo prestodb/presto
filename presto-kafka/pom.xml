@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <scala.version>2.12.2</scala.version>
+        <dep.avro.version>1.9.0</dep.avro.version>
     </properties>
 
     <dependencies>
@@ -97,6 +98,12 @@
         <dependency>
             <groupId>net.sf.opencsv</groupId>
             <artifactId>opencsv</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>${dep.avro.version}</version>
         </dependency>
 
         <!-- Presto SPI -->
