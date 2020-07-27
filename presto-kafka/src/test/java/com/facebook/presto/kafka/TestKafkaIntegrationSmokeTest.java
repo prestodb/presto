@@ -54,10 +54,10 @@ public class TestKafkaIntegrationSmokeTest
     {
         assertUpdate("INSERT into write_test." + testCase.getTableName() +
                 " (" + testCase.getFieldNames() + ")" +
-                " VALUES (" + testCase.getFieldValues() + ")", 1);
+                " VALUES (" + testCase.getFieldValues() + "), (" + testCase.getFieldValues() + ")", 2);
         assertQuery("SELECT " + testCase.getFieldNames() + " FROM write_test." + testCase.getTableName() +
                 " WHERE " + testCase.getFieldName("f_bigint") + " = " + testCase.getFieldValue("f_bigint"),
-                "VALUES (" + testCase.getFieldValues() + ")");
+                "VALUES (" + testCase.getFieldValues() + "), (" + testCase.getFieldValues() + ")");
     }
 
     @DataProvider(name = "testRoundTripAllFormatsDataProvider")
