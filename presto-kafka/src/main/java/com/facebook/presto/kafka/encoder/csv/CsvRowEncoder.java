@@ -52,18 +52,12 @@ public class CsvRowEncoder
     public CsvRowEncoder(ConnectorSession session, List<EncoderColumnHandle> columnHandles)
     {
         super(session, columnHandles);
-        this.row = new String[columnHandles.size()];
-    }
-
-    @Override
-    protected void validateColumns(List<EncoderColumnHandle> columnHandles)
-    {
-        for (EncoderColumnHandle columnHandle : columnHandles) {
-            checkArgument(columnHandle.getFormatHint() == null, "unexpected format hint '%s' defined for column '%s'", columnHandle.getFormatHint(), columnHandle.getName());
-            checkArgument(columnHandle.getDataFormat() == null, "unexpected data format '%s' defined for column '%s'", columnHandle.getDataFormat(), columnHandle.getName());
-
-            checkArgument(isSupportedType(columnHandle.getType()), "unsupported column type '%s' for column '%s'", columnHandle.getType(), columnHandle.getName());
+        for (EncoderColumnHandle columnHandle : this.columnHandles) {
+            checkArgument(columnHandle.getFormatHint() == null, "Unexpected format hint '%s' defined for column '%s'", columnHandle.getFormatHint(), columnHandle.getName());
+            checkArgument(columnHandle.getDataFormat() == null, "Unexpected data format '%s' defined for column '%s'", columnHandle.getDataFormat(), columnHandle.getName());
+            checkArgument(isSupportedType(columnHandle.getType()), "Unsupported column type '%s' for column '%s'", columnHandle.getType(), columnHandle.getName());
         }
+        this.row = new String[this.columnHandles.size()];
     }
 
     private boolean isSupportedType(Type type)
