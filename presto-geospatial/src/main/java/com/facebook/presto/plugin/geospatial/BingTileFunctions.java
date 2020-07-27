@@ -58,6 +58,7 @@ import static com.facebook.presto.plugin.geospatial.BingTileUtils.checkLatitude;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.checkLongitude;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.checkQuadKey;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.checkZoomLevel;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.findDissolvedTileCovering;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.latitudeLongitudeToTile;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.longitudeToTileX;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.longitudeToTileY;
@@ -440,7 +441,28 @@ public class BingTileFunctions
         }
     }
 
-    @Description("Given a geometry and a zoom level, returns the minimum set of Bing tiles that fully covers that geometry")
+    @Description("Given a geometry and a maximum zoom level, returns the minimum set of dissolved Bing tiles that fully covers that geometry")
+    @ScalarFunction("geometry_to_dissolved_bing_tiles")
+    @SqlType("array(" + BingTileType.NAME + ")")
+    public static Block geometryToDissolvedBingTiles(
+            @SqlType(GEOMETRY_TYPE_NAME) Slice input,
+            @SqlType(StandardTypes.INTEGER) long maxZoomLevel)
+    {
+        OGCGeometry ogcGeometry = deserialize(input);
+        if (ogcGeometry.isEmpty()) {
+            return EMPTY_TILE_ARRAY;
+        }
+
+        List<BingTile> covering = findDissolvedTileCovering(ogcGeometry, toIntExact(maxZoomLevel));
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, covering.size());
+        for (BingTile tile : covering) {
+            BIGINT.writeLong(blockBuilder, tile.encode());
+        }
+
+        return blockBuilder.build();
+    }
+
+    @Description("Given a geometry and a zoom level, returns the minimum set of Bing tiles of that zoom level that fully covers that geometry")
     @ScalarFunction("geometry_to_bing_tiles")
     @SqlType("array(" + BingTileType.NAME + ")")
     public static Block geometryToBingTiles(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(StandardTypes.INTEGER) long zoomLevelInput)

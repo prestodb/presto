@@ -13,12 +13,15 @@
  */
 package com.facebook.presto.plugin.geospatial;
 
+import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
@@ -26,6 +29,7 @@ import static com.facebook.presto.plugin.geospatial.BingTileUtils.MAX_LATITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.MAX_LONGITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LATITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LONGITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.findDissolvedTileCovering;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.tileXToLongitude;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.tileYToLatitude;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -146,5 +150,85 @@ public class TestBingTile
 
         assertThatThrownBy(() -> BingTile.fromQuadKey("12").findParent(-1))
                 .hasMessage(format("newZoom must be greater than or equal to 0: %s", -1));
+    }
+
+    @Test
+    public void testFindDissolvedTileCovering()
+    {
+        assertTileCovering("POINT EMPTY", 0, ImmutableList.of());
+        assertTileCovering("POINT EMPTY", 10, ImmutableList.of());
+        assertTileCovering("POINT EMPTY", 20, ImmutableList.of());
+
+        assertSmallSquareCovering(2);
+        assertSmallSquareCovering(5);
+        assertSmallSquareCovering(11);
+        assertSmallSquareCovering(MAX_ZOOM_LEVEL);
+
+        // Geometries at tile borders
+        assertTileCovering("POINT (0 0)", 0, ImmutableList.of(""));
+        assertTileCovering(format("POINT (%s 0)", MIN_LONGITUDE), 0, ImmutableList.of(""));
+        assertTileCovering(format("POINT (%s 0)", MAX_LONGITUDE), 0, ImmutableList.of(""));
+        assertTileCovering(format("POINT (0 %s)", MIN_LATITUDE), 0, ImmutableList.of(""));
+        assertTileCovering(format("POINT (0 %s)", MAX_LATITUDE), 0, ImmutableList.of(""));
+        assertTileCovering(format("POINT (%s %s)", MIN_LONGITUDE, MIN_LATITUDE), 0, ImmutableList.of(""));
+        assertTileCovering(format("POINT (%s %s)", MIN_LONGITUDE, MAX_LATITUDE), 0, ImmutableList.of(""));
+        assertTileCovering(format("POINT (%s %s)", MAX_LONGITUDE, MAX_LATITUDE), 0, ImmutableList.of(""));
+        assertTileCovering(format("POINT (%s %s)", MAX_LONGITUDE, MIN_LATITUDE), 0, ImmutableList.of(""));
+
+        assertTileCovering("POINT (0 0)", 1, ImmutableList.of("3"));
+        assertTileCovering(format("POINT (%s 0)", MIN_LONGITUDE), 1, ImmutableList.of("2"));
+        assertTileCovering(format("POINT (%s 0)", MAX_LONGITUDE), 1, ImmutableList.of("3"));
+        assertTileCovering(format("POINT (0 %s)", MIN_LATITUDE), 1, ImmutableList.of("3"));
+        assertTileCovering(format("POINT (0 %s)", MAX_LATITUDE), 1, ImmutableList.of("1"));
+        assertTileCovering(format("POINT (%s %s)", MIN_LONGITUDE, MIN_LATITUDE), 1, ImmutableList.of("2"));
+        assertTileCovering(format("POINT (%s %s)", MIN_LONGITUDE, MAX_LATITUDE), 1, ImmutableList.of("0"));
+        assertTileCovering(format("POINT (%s %s)", MAX_LONGITUDE, MAX_LATITUDE), 1, ImmutableList.of("1"));
+        assertTileCovering(format("POINT (%s %s)", MAX_LONGITUDE, MIN_LATITUDE), 1, ImmutableList.of("3"));
+
+        assertTileCovering("LINESTRING (-1 0, -2 0)", 1, ImmutableList.of("2"));
+        assertTileCovering("LINESTRING (1 0, 2 0)", 1, ImmutableList.of("3"));
+        assertTileCovering("LINESTRING (0 -1, 0 -2)", 1, ImmutableList.of("3"));
+        assertTileCovering("LINESTRING (0 1, 0 2)", 1, ImmutableList.of("1"));
+
+        assertTileCovering(format("LINESTRING (%s 1, %s 2)", MIN_LONGITUDE, MIN_LONGITUDE), 1, ImmutableList.of("0"));
+        assertTileCovering(format("LINESTRING (%s -1, %s -2)", MIN_LONGITUDE, MIN_LONGITUDE), 1, ImmutableList.of("2"));
+        assertTileCovering(format("LINESTRING (%s 1, %s 2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("1"));
+        assertTileCovering(format("LINESTRING (%s -1, %s -2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("3"));
+
+        assertTileCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, ImmutableList.of("12222", "300000", "300001"));
+        assertTileCovering("POLYGON ((0 0, 0 10, 10 10, 0 0))", 6, ImmutableList.of("122220", "122222", "122221", "300000"));
+        assertTileCovering("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 3, ImmutableList.of("033", "211", "122"));
+        assertTileCovering("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 6, ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "03333", "211110", "211112", "211111", "122220", "122222", "122221"));
+
+        assertTileCovering("GEOMETRYCOLLECTION (POINT (60 30.12))", 10, ImmutableList.of("1230301230"));
+        assertTileCovering("GEOMETRYCOLLECTION (POINT (60 30.12))", 15, ImmutableList.of("123030123010121"));
+        assertTileCovering("GEOMETRYCOLLECTION (POLYGON ((10 10, -10 10, -20 -15, 10 10)))", 3, ImmutableList.of("033", "211", "122"));
+        assertTileCovering("GEOMETRYCOLLECTION (POINT (60 30.12), POLYGON ((10 10, -10 10, -20 -15, 10 10)))", 3, ImmutableList.of("033", "211", "122", "123"));
+        assertTileCovering("GEOMETRYCOLLECTION (POINT (60 30.12), LINESTRING (61 31, 61.01 31.01), POLYGON EMPTY)", 15, ImmutableList.of("123030123010121", "123030112310200", "123030112310202", "123030112310201"));
+        assertTileCovering("GEOMETRYCOLLECTION (POINT (0.1 0.1), POINT(0.1 -0.1), POINT(-0.1 -0.1), POINT(-0.1 0.1))", 3,
+                ImmutableList.of("033", "122", "211", "300"));
+    }
+
+    private void assertTileCovering(String wkt, int zoom, List<String> quadkeys)
+    {
+        OGCGeometry geometry = OGCGeometry.fromText(wkt);
+        List<String> actual = findDissolvedTileCovering(geometry, zoom).stream().map(BingTile::toQuadKey).sorted().collect(toImmutableList());
+        List<String> expected = ImmutableList.sortedCopyOf(quadkeys);
+        assertEquals(actual, expected, format("Actual:\n%s\nExpected:\n%s", actual, expected));
+    }
+
+    private void assertSmallSquareCovering(int zoom)
+    {
+        int halfway = 1 << (zoom - 1);
+        assertTileCovering(
+                "POLYGON ((0.00001 0.00001, 0.00001 -0.00001, -0.00001 -0.00001, -0.00001 0.00001, 0.00001 0.00001))",
+                zoom,
+                Stream.of(
+                        BingTile.fromCoordinates(halfway, halfway, zoom),
+                        BingTile.fromCoordinates(halfway, halfway - 1, zoom),
+                        BingTile.fromCoordinates(halfway - 1, halfway, zoom),
+                        BingTile.fromCoordinates(halfway - 1, halfway - 1, zoom)
+                ).map(BingTile::toQuadKey)
+                        .collect(Collectors.toList()));
     }
 }
