@@ -17,6 +17,7 @@ import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.decoder.DecoderModule;
+import com.facebook.presto.kafka.encoder.EncoderModule;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
@@ -45,6 +46,7 @@ public class KafkaConnectorModule
         binder.bind(KafkaMetadata.class).in(Scopes.SINGLETON);
         binder.bind(KafkaSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(KafkaRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(KafkaPageSinkProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(KafkaConsumerManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(KafkaConnectorConfig.class);
@@ -53,6 +55,8 @@ public class KafkaConnectorModule
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
 
         binder.install(new DecoderModule());
+        binder.install(new EncoderModule());
+        binder.install(new KafkaProducerModule());
     }
 
     public static final class TypeDeserializer
