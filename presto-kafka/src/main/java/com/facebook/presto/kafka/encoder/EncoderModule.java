@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.kafka.encoder;
 
+import com.facebook.presto.kafka.encoder.csv.CsvRowEncoder;
+import com.facebook.presto.kafka.encoder.csv.CsvRowEncoderFactory;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
@@ -26,6 +28,8 @@ public class EncoderModule
     public void configure(Binder binder)
     {
         MapBinder<String, RowEncoderFactory> encoderFactoriesByName = MapBinder.newMapBinder(binder, String.class, RowEncoderFactory.class);
+
+        encoderFactoriesByName.addBinding(CsvRowEncoder.NAME).to(CsvRowEncoderFactory.class).in(SINGLETON);
 
         binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);
     }
