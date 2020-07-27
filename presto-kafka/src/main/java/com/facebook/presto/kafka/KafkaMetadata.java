@@ -143,7 +143,6 @@ public class KafkaMetadata
         return getColumnHandles(kafkaTableHandle.toSchemaTableName());
     }
 
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     private Map<String, ColumnHandle> getColumnHandles(SchemaTableName schemaTableName)
     {
         KafkaTopicDescription kafkaTopicDescription = tableDescriptions.get(schemaTableName);
@@ -250,7 +249,6 @@ public class KafkaMetadata
         return new ConnectorTableLayout(handle);
     }
 
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     private ConnectorTableMetadata getTableMetadata(SchemaTableName schemaTableName)
     {
         KafkaTopicDescription table = tableDescriptions.get(schemaTableName);
