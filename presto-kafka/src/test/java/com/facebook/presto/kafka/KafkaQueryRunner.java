@@ -125,6 +125,7 @@ public final class KafkaQueryRunner
         }
 
         List<String> tableNames = new ArrayList<>(4);
+        tableNames.add("all_datatypes_avro");
         tableNames.add("all_datatypes_csv");
 
         JsonCodec<KafkaTopicDescription> testDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, metadata).get();
