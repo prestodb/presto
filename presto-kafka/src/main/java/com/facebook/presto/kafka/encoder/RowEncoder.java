@@ -15,7 +15,10 @@ package com.facebook.presto.kafka.encoder;
 
 import com.facebook.presto.common.block.Block;
 
+import java.io.Closeable;
+
 public interface RowEncoder
+        extends Closeable
 {
     /**
      * Adds the value from the given block/position to the row being encoded

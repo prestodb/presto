@@ -206,4 +206,9 @@ public abstract class AbstractRowEncoder
     {
         currentColumnIndex = 0;
     }
+
+    @Override
+    public void close()
+    {
+    }
 }
