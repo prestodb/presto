@@ -54,10 +54,10 @@ public class TestKafkaIntegrationSmokeTest
     {
         assertUpdate("INSERT into write_test." + testCase.getTableName() +
                 " (" + testCase.getFieldNames() + ")" +
-                " VALUES (" + testCase.getFieldValues() + "), (" + testCase.getFieldValues() + ")", 2);
+                " VALUES " + testCase.getRowValues(), testCase.getNumRows());
         assertQuery("SELECT " + testCase.getFieldNames() + " FROM write_test." + testCase.getTableName() +
-                " WHERE " + testCase.getFieldName("f_bigint") + " = " + testCase.getFieldValue("f_bigint"),
-                "VALUES (" + testCase.getFieldValues() + "), (" + testCase.getFieldValues() + ")");
+                " WHERE f_bigint > 1",
+                "VALUES " + testCase.getRowValues());
     }
 
     @DataProvider(name = "testRoundTripAllFormatsDataProvider")
@@ -73,11 +73,15 @@ public class TestKafkaIntegrationSmokeTest
                 .add(new RoundTripTestCase(
                         "all_datatypes_avro",
                         ImmutableList.of("f_bigint", "f_double", "f_boolean", "f_varchar"),
-                        ImmutableList.of(100000, 1000.001, true, "'test'")))
+                        ImmutableList.of(
+                                ImmutableList.of(100000, 1000.001, true, "'test'"),
+                                ImmutableList.of(123456, 1234.123, false, "'abcd'"))))
                 .add(new RoundTripTestCase(
                         "all_datatypes_csv",
                         ImmutableList.of("f_bigint", "f_int", "f_double", "f_boolean", "f_varchar"),
-                        ImmutableList.of(100000, 1000, 1000.001, true, "'test'")))
+                        ImmutableList.of(
+                                ImmutableList.of(100000, 1000, 1000.001, true, "'test'"),
+                                ImmutableList.of(123456, 1234, 12345.123, false, "'abcd'"))))
                 .build();
     }
 
@@ -85,16 +89,18 @@ public class TestKafkaIntegrationSmokeTest
     {
         private final String tableName;
         private final List<String> fieldNames;
-        private final List<Object> fieldValues;
-        private final int length;
+        private final List<List<Object>> rowValues;
+        private final int numRows;
 
-        public RoundTripTestCase(String tableName, List<String> fieldNames, List<Object> fieldValues)
+        public RoundTripTestCase(String tableName, List<String> fieldNames, List<List<Object>> rowValues)
         {
-            checkArgument(fieldNames.size() == fieldValues.size(), "sizes of fieldNames and fieldValues are not equal");
+            for (List<Object> row : rowValues) {
+                checkArgument(fieldNames.size() == row.size(), "sizes of fieldNames and rowValues are not equal");
+            }
             this.tableName = requireNonNull(tableName, "tableName is null");
             this.fieldNames = ImmutableList.copyOf(fieldNames);
-            this.fieldValues = ImmutableList.copyOf(fieldValues);
-            this.length = fieldNames.size();
+            this.rowValues = ImmutableList.copyOf(rowValues);
+            this.numRows = this.rowValues.size();
         }
 
         public String getTableName()
@@ -102,33 +108,23 @@ public class TestKafkaIntegrationSmokeTest
             return tableName;
         }
 
-        private int getIndex(String fieldName)
-        {
-            return fieldNames.indexOf(fieldName);
-        }
-
-        public String getFieldName(String fieldName)
-        {
-            int index = getIndex(fieldName);
-            checkArgument(index >= 0 && index < length, "index out of bounds");
-            return fieldNames.get(index);
-        }
-
         public String getFieldNames()
         {
             return String.join(", ", fieldNames);
         }
 
-        public Object getFieldValue(String fieldName)
+        public String getRowValues()
         {
-            int index = getIndex(fieldName);
-            checkArgument(index >= 0 && index < length, "index out of bounds");
-            return fieldValues.get(index);
+            String[] rows = new String[numRows];
+            for (int i = 0; i < numRows; i++) {
+                rows[i] = rowValues.get(i).stream().map(Object::toString).collect(Collectors.joining(", ", "(", ")"));
+            }
+            return String.join(", ", rows);
         }
 
-        public String getFieldValues()
+        public int getNumRows()
         {
-            return fieldValues.stream().map(Object::toString).collect(Collectors.joining(", "));
+            return numRows;
         }
 
         @Override
