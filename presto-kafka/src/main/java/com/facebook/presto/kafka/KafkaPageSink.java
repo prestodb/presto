@@ -24,6 +24,8 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -106,6 +108,14 @@ public class KafkaPageSink
     {
         producer.flush();
         producer.close();
+        try {
+            keyEncoder.close();
+            messageEncoder.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to close row encoders", e);
+        }
+
         if (errorCounter.getErrorCount() > 0) {
             throw new PrestoException(KAFKA_PRODUCER_ERROR, format("%d producer record('s) failed to send", errorCounter.getErrorCount()));
         }
