@@ -332,6 +332,58 @@ public class BingTileUtils
         return results;
     }
 
+    /**
+     * Find a minimal set of BingTiles (at zoom), covering the geometry.
+     */
+    public static List<BingTile> findMinimalTileCovering(OGCGeometry ogcGeometry, int zoom)
+    {
+        List<BingTile> outputTiles = new ArrayList<>();
+        Deque<BingTile> stack = new ArrayDeque<>(findRawTileCovering(ogcGeometry, zoom));
+        while (!stack.isEmpty()) {
+            BingTile thisTile = stack.pop();
+            outputTiles.addAll(thisTile.findChildren(zoom));
+            checkCondition(
+                    outputTiles.size() + stack.size() <= MAX_COVERING_COUNT,
+                    "The zoom level is too high or the geometry is too large to compute a set " +
+                            "of covering Bing tiles. Please use a lower zoom level, or tile only a section " +
+                            "of the geometry.");
+        }
+        return outputTiles;
+    }
+
+    public static List<BingTile> findMinimalTileCovering(Envelope envelope, int zoom)
+    {
+        Optional<List<BingTile>> maybeResult = handleTrivialCases(envelope, zoom);
+        if (maybeResult.isPresent()) {
+            return maybeResult.get();
+        }
+
+        // envelope x,y (longitude,latitude) goes NE as they increase.
+        // tile x,y goes SE as they increase
+        BingTile seTile = BingTileUtils.latitudeLongitudeToTile(envelope.getYMin(), envelope.getXMax(), zoom);
+        BingTile nwTile = BingTileUtils.latitudeLongitudeToTile(envelope.getYMax(), envelope.getXMin(), zoom);
+        int minY = nwTile.getY();
+        int minX = nwTile.getX();
+        int maxY = seTile.getY();
+        int maxX = seTile.getX();
+
+        int numTiles = (maxX - minX + 1) * (maxY - minY + 1);
+        checkCondition(
+                numTiles <= MAX_COVERING_COUNT,
+                "The zoom level is too high or the geometry is too large to compute a set " +
+                        "of covering Bing tiles. Please use a lower zoom level, or tile only a section " +
+                        "of the geometry.");
+
+        List<BingTile> results = new ArrayList<>(numTiles);
+        for (int y = minY; y <= maxY; ++y) {
+            for (int x = minX; x <= maxX; ++x) {
+                results.add(BingTile.fromCoordinates(x, y, zoom));
+            }
+        }
+
+        return results;
+    }
+
     private static class TilingEntry
     {
         private final BingTile tile;
