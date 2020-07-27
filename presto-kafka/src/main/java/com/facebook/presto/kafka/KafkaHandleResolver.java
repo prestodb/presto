@@ -15,6 +15,7 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -39,6 +40,12 @@ public class KafkaHandleResolver
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return KafkaColumnHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        return KafkaTableHandle.class;
     }
 
     @Override
