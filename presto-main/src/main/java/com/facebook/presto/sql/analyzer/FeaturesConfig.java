@@ -70,7 +70,6 @@ public class FeaturesConfig
     private boolean colocatedJoinsEnabled = true;
     private boolean groupedExecutionForAggregationEnabled = true;
     private boolean groupedExecutionForJoinEnabled = true;
-    private boolean groupedExecutionForEligibleTableScansEnabled = true;
     private boolean groupedExecutionEnabled = true;
     private boolean dynamicScheduleForGroupedExecution = true;
     private boolean recoverableGroupedExecutionEnabled;
@@ -396,19 +395,6 @@ public class FeaturesConfig
     public FeaturesConfig setGroupedExecutionForJoinEnabled(boolean groupedExecutionForJoinEnabled)
     {
         this.groupedExecutionForJoinEnabled = groupedExecutionForJoinEnabled;
-        return this;
-    }
-
-    public boolean isGroupedExecutionForEligibleTableScansEnabled()
-    {
-        return groupedExecutionForEligibleTableScansEnabled;
-    }
-
-    @Config("experimental.grouped-execution-for-eligible-table-scans-enabled")
-    @ConfigDescription("Experimental: Use grouped execution for eligible table scans")
-    public FeaturesConfig setGroupedExecutionForEligibleTableScansEnabled(boolean groupedExecutionForEligibleTableScansEnabled)
-    {
-        this.groupedExecutionForEligibleTableScansEnabled = groupedExecutionForEligibleTableScansEnabled;
         return this;
     }
 

@@ -28,7 +28,6 @@ import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGr
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForAggregationEnabled;
-import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
@@ -49,8 +48,7 @@ public class PrestoSparkSettingsRequirements
         verify(!isDistributedSortEnabled(session), "distributed sort is not supported");
         verify(getExchangeMaterializationStrategy(session) == NONE, "exchange materialization is not supported");
         verify(getPartitioningProviderCatalog(session).equals(GlobalSystemConnector.NAME), "partitioning provider other that system is not supported");
-        verify(!isGroupedExecutionForEligibleTableScansEnabled(session) &&
-                        !isGroupedExecutionForAggregationEnabled(session) &&
+        verify(!isGroupedExecutionForAggregationEnabled(session) &&
                         !isRecoverableGroupedExecutionEnabled(session) &&
                         !isDynamicScheduleForGroupedExecution(session) &&
                         !isGroupedExecutionForJoinEnabled(session) &&
