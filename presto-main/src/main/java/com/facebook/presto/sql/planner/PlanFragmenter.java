@@ -194,7 +194,10 @@ public class PlanFragmenter
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
         subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
-        subPlan = analyzeGroupedExecution(session, subPlan, false);
+        if (!forceSingleNode) {
+            // grouped execution is not supported for SINGLE_DISTRIBUTION
+            subPlan = analyzeGroupedExecution(session, subPlan, false);
+        }
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
