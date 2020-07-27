@@ -96,7 +96,6 @@ import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWrit
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForAggregationEnabled;
-import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
@@ -1158,7 +1157,7 @@ public class PlanFragmenter
             else {
                 return new GroupedExecutionProperties(
                         true,
-                        isGroupedExecutionForEligibleTableScansEnabled(session),
+                        false,
                         ImmutableList.of(node.getId()),
                         partitionHandles.size(),
                         metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE));
