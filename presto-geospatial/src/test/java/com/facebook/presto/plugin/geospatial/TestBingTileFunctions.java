@@ -646,10 +646,10 @@ public class TestBingTileFunctions
         assertGeometryToBingTiles(format("LINESTRING (%s -1, %s -2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("3"));
 
         // Make sure corners are included
-//        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 0, 0);
+        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 0, 0);
         assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 0, 10);
         assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 10, 10);
-//        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 10, 0);
+        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 10, 0);
 
         // General geometries
         assertGeometryToBingTiles("POINT (60 30.12)", 0, ImmutableList.of(""));
@@ -657,8 +657,8 @@ public class TestBingTileFunctions
         assertGeometryToBingTiles("POINT (60 30.12)", 15, ImmutableList.of("123030123010121"));
         assertGeometryToBingTiles("POINT (60 30.12)", 16, ImmutableList.of("1230301230101212"));
 
-        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223"));
-        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 0 0))", 6, ImmutableList.of("122220", "122222", "122221"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223", "300000", "300001"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 0 0))", 6, ImmutableList.of("122220", "122222", "122221", "300000"));
 
         assertGeometryToBingTiles(
                 "POLYGON ((10 10, -10 10, -20 -15, 10 10))",
@@ -678,10 +678,9 @@ public class TestBingTileFunctions
                 15,
                 ImmutableList.of("123030123010121", "123030112310200", "123030112310202", "123030112310201"));
 
-
-        assertToBingTiles("bing_tile_polygon(bing_tile('1230301230'))", 10, ImmutableList.of("1230301230"));
-        assertToBingTiles("bing_tile_polygon(bing_tile('1230301230'))", 11, ImmutableList.of("12303012300", "12303012302", "12303012301", "12303012303"));
-        assertToBingTiles("ST_Envelope(ST_GeometryFromText('LINESTRING (59.765625 29.84064389983442, 60.2 30.14512718337612)'))", 10, ImmutableList.of("1230301230", "1230301231"));
+        assertToBingTiles("bing_tile_polygon(bing_tile('1230301230'))", 10, ImmutableList.of("1230301230", "1230301231", "1230301232", "1230301233"));
+        assertToBingTiles("bing_tile_polygon(bing_tile('1230301230'))", 11, ImmutableList.of("12303012300", "12303012302", "12303012301", "12303012303", "12303012310", "12303012312", "12303012320", "12303012321", "12303012330"));
+        assertToBingTiles("ST_Envelope(ST_GeometryFromText('LINESTRING (59.765625 29.84064389983442, 60.2 30.14512718337612)'))", 10, ImmutableList.of("1230301230", "1230301231", "1230301232", "1230301233"));
 
         // Empty geometries
         assertGeometryToBingTiles("POINT EMPTY", 10, emptyList());
@@ -716,16 +715,19 @@ public class TestBingTileFunctions
         // Input rectangle too large
         assertInvalidFunction(
                 "geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 16)",
-                "The number of tiles covering input rectangle exceeds the limit of 1M. Number of tiles: 370085804. Rectangle: xMin=0.00, yMin=0.00, xMax=80.00, yMax=80.00. Zoom level: 16.");
+                "The zoom level is too high or the geometry is too large to compute a set of covering Bing tiles. Please use a lower zoom level, or tile only a section of the geometry.");
         assertFunction(
                 "cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 5))",
                 BIGINT,
-                104L);
+                112L);
 
-        // Input polygon too complex
+        // Complex input polygon
         String filePath = this.getClass().getClassLoader().getResource("too_large_polygon.txt").getPath();
         String largeWkt = Files.lines(Paths.get(filePath)).findFirst().get();
-        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)", "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
+        assertFunction(
+                "cardinality(geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16))",
+                BIGINT,
+                9043L);
         assertFunction(
                 "cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('" + largeWkt + "')), 16))",
                 BIGINT,
@@ -734,11 +736,11 @@ public class TestBingTileFunctions
         // Zoom level is too high
         assertInvalidFunction(
                 "geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 20)",
-                "The zoom level is too high to compute a set of covering Bing tiles.");
+                "The zoom level is too high or the geometry is too large to compute a set of covering Bing tiles. Please use a lower zoom level, or tile only a section of the geometry.");
         assertFunction(
                 "cardinality(geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 14))",
                 BIGINT,
-                428787L);
+                428788L);
     }
 
     private void assertToBingTiles(String sql, int zoomLevel, List<String> expectedQuadKeys)
