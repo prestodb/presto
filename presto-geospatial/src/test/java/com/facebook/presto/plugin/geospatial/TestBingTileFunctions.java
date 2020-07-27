@@ -624,6 +624,34 @@ public class TestBingTileFunctions
     public void testGeometryToBingTiles()
             throws Exception
     {
+        // Geometries at boundaries of tiles
+        assertGeometryToBingTiles("POINT (0 0)", 1, ImmutableList.of("3"));
+        assertGeometryToBingTiles(format("POINT (%s 0)", MIN_LONGITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToBingTiles(format("POINT (%s 0)", MAX_LONGITUDE), 1, ImmutableList.of("3"));
+        assertGeometryToBingTiles(format("POINT (0 %s)", MIN_LATITUDE), 1, ImmutableList.of("3"));
+        assertGeometryToBingTiles(format("POINT (0 %s)", MAX_LATITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MIN_LATITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MAX_LATITUDE), 1, ImmutableList.of("0"));
+        assertGeometryToBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MAX_LATITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MIN_LATITUDE), 1, ImmutableList.of("3"));
+
+        assertGeometryToBingTiles("LINESTRING (-1 0, -2 0)", 1, ImmutableList.of("2"));
+        assertGeometryToBingTiles("LINESTRING (1 0, 2 0)", 1, ImmutableList.of("3"));
+        assertGeometryToBingTiles("LINESTRING (0 -1, 0 -2)", 1, ImmutableList.of("3"));
+        assertGeometryToBingTiles("LINESTRING (0 1, 0 2)", 1, ImmutableList.of("1"));
+
+        assertGeometryToBingTiles(format("LINESTRING (%s 1, %s 2)", MIN_LONGITUDE, MIN_LONGITUDE), 1, ImmutableList.of("0"));
+        assertGeometryToBingTiles(format("LINESTRING (%s -1, %s -2)", MIN_LONGITUDE, MIN_LONGITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToBingTiles(format("LINESTRING (%s 1, %s 2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToBingTiles(format("LINESTRING (%s -1, %s -2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("3"));
+
+        // Make sure corners are included
+//        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 0, 0);
+        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 0, 10);
+        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 10, 10);
+//        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 10, 0);
+
+        // General geometries
         assertGeometryToBingTiles("POINT (60 30.12)", 0, ImmutableList.of(""));
         assertGeometryToBingTiles("POINT (60 30.12)", 10, ImmutableList.of("1230301230"));
         assertGeometryToBingTiles("POINT (60 30.12)", 15, ImmutableList.of("123030123010121"));
@@ -641,10 +669,10 @@ public class TestBingTileFunctions
         assertGeometryToBingTiles("GEOMETRYCOLLECTION (POINT (60 30.12), POLYGON ((10 10, -10 10, -20 -15, 10 10)))", 3, ImmutableList.of("033", "211", "122", "123"));
         assertGeometryToBingTiles("GEOMETRYCOLLECTION (POINT (60 30.12), LINESTRING (61 31, 61.01 31.01), POLYGON EMPTY)", 15, ImmutableList.of("123030123010121", "123030112310200", "123030112310202", "123030112310201"));
 
-        assertFunction("transform(geometry_to_bing_tiles(bing_tile_polygon(bing_tile('1230301230')), 10), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("1230301230"));
-        assertFunction("transform(geometry_to_bing_tiles(bing_tile_polygon(bing_tile('1230301230')), 11), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("12303012300", "12303012302", "12303012301", "12303012303"));
 
-        assertFunction("transform(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (59.765625 29.84064389983442, 60.2 30.14512718337612)')), 10), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("1230301230", "1230301231"));
+        assertToBingTiles("bing_tile_polygon(bing_tile('1230301230'))", 10, ImmutableList.of("1230301230"));
+        assertToBingTiles("bing_tile_polygon(bing_tile('1230301230'))", 11, ImmutableList.of("12303012300", "12303012302", "12303012301", "12303012303"));
+        assertToBingTiles("ST_Envelope(ST_GeometryFromText('LINESTRING (59.765625 29.84064389983442, 60.2 30.14512718337612)'))", 10, ImmutableList.of("1230301230", "1230301231"));
 
         // Empty geometries
         assertGeometryToBingTiles("POINT EMPTY", 10, emptyList());
@@ -684,9 +712,23 @@ public class TestBingTileFunctions
         assertFunction("cardinality(geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 14))", BIGINT, 428787L);
     }
 
+    private void assertToBingTiles(String sql, int zoomLevel, List<String> expectedQuadKeys)
+    {
+        assertFunction(
+                format("array_sort(transform(geometry_to_bing_tiles(%s, %s), x -> bing_tile_quadkey(x)))", sql, zoomLevel),
+                new ArrayType(VARCHAR),
+                ImmutableList.sortedCopyOf(expectedQuadKeys));
+    }
+
     private void assertGeometryToBingTiles(String wkt, int zoomLevel, List<String> expectedQuadKeys)
     {
-        assertFunction(format("transform(geometry_to_bing_tiles(ST_GeometryFromText('%s'), %s), x -> bing_tile_quadkey(x))", wkt, zoomLevel), new ArrayType(VARCHAR), expectedQuadKeys);
+        assertToBingTiles(format("ST_GeometryFromText('%s')", wkt), zoomLevel, expectedQuadKeys);
+    }
+
+    private void assertPointInCovering(String wkt, int zoomLevel, double x, double y)
+    {
+        String needle = format("geometry_to_bing_tiles(ST_Point(%s, %s), %s)[1]", x, y, zoomLevel);
+        assertFunction(format("contains(geometry_to_bing_tiles(ST_GeometryFromText('%s'), %s), %s)", wkt, zoomLevel, needle), BOOLEAN, true);
     }
 
     @Test
