@@ -69,7 +69,7 @@ public abstract class AbstractRowEncoder
     }
 
     @Override
-    public RowEncoder appendColumnValue(Block block, int position)
+    public void appendColumnValue(Block block, int position)
     {
         checkArgument(currentColumnIndex < columnHandles.size(), format("currentColumnIndex '%d' is greater than number of columns '%d'", currentColumnIndex, columnHandles.size()));
         Type type = columnHandles.get(currentColumnIndex).getType();
@@ -122,7 +122,6 @@ public abstract class AbstractRowEncoder
             throw new UnsupportedOperationException(format("Column '%s' does not support 'null' value", columnHandles.get(currentColumnIndex).getName()));
         }
         currentColumnIndex++;
-        return this;
     }
 
     // these append value methods should be overridden for each row encoder

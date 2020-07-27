@@ -23,7 +23,7 @@ public interface RowEncoder
     /**
      * Adds the value from the given block/position to the row being encoded
      */
-    RowEncoder appendColumnValue(Block block, int position);
+    void appendColumnValue(Block block, int position);
 
     /**
      * Returns the encoded values as a byte array, and resets any info needed to prepare for next row
