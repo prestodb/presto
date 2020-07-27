@@ -71,7 +71,6 @@ public final class SystemSessionProperties
     public static final String USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT = "use_stream_exchange_for_mark_distinct";
     public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
     public static final String GROUPED_EXECUTION_FOR_JOIN = "grouped_execution_for_join";
-    public static final String GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS = "grouped_execution_for_eligible_table_scans";
     public static final String GROUPED_EXECUTION = "grouped_execution";
     public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
@@ -256,11 +255,6 @@ public final class SystemSessionProperties
                         GROUPED_EXECUTION_FOR_JOIN,
                         "Use grouped execution for foin when possible",
                         featuresConfig.isGroupedExecutionForJoinEnabled(),
-                        false),
-                booleanProperty(
-                        GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS,
-                        "Experimental: Use grouped execution for eligible table scans",
-                        featuresConfig.isGroupedExecutionForEligibleTableScansEnabled(),
                         false),
                 booleanProperty(
                         GROUPED_EXECUTION,
@@ -904,11 +898,6 @@ public final class SystemSessionProperties
     public static boolean isGroupedExecutionForJoinEnabled(Session session)
     {
         return session.getSystemProperty(GROUPED_EXECUTION_FOR_JOIN, Boolean.class) && isGroupedExecutionEnabled(session);
-    }
-
-    public static boolean isGroupedExecutionForEligibleTableScansEnabled(Session session)
-    {
-        return session.getSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, Boolean.class) && isGroupedExecutionEnabled(session);
     }
 
     public static boolean isGroupedExecutionEnabled(Session session)
