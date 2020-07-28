@@ -43,7 +43,6 @@ import java.util.function.Predicate;
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -205,11 +204,6 @@ public final class ExpressionUtils
         return and(conjuncts);
     }
 
-    public static Expression combineDisjuncts(Expression... expressions)
-    {
-        return combineDisjuncts(Arrays.asList(expressions));
-    }
-
     public static Expression combineDisjuncts(Collection<Expression> expressions)
     {
         return combineDisjunctsWithDefault(expressions, FALSE_LITERAL);
@@ -236,11 +230,6 @@ public final class ExpressionUtils
     public static Expression filterDeterministicConjuncts(Expression expression)
     {
         return filterConjuncts(expression, ExpressionDeterminismEvaluator::isDeterministic);
-    }
-
-    public static Expression filterNonDeterministicConjuncts(Expression expression)
-    {
-        return filterConjuncts(expression, not(ExpressionDeterminismEvaluator::isDeterministic));
     }
 
     public static Expression filterConjuncts(Expression expression, Predicate<Expression> predicate)
