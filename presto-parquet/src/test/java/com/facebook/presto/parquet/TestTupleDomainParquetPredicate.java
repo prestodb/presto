@@ -107,6 +107,8 @@ public class TestTupleDomainParquetPredicate
         assertEquals(getDomain(BIGINT, 10, longColumnStats(100L, 100L), ID, column, true), singleValue(BIGINT, 100L));
 
         assertEquals(getDomain(BIGINT, 10, longColumnStats(0L, 100L), ID, column, true), create(ValueSet.ofRanges(range(BIGINT, 0L, true, 100L, true)), false));
+
+        assertEquals(getDomain(BIGINT, 20, longOnlyNullsStats(10), ID, column, true), create(ValueSet.all(BIGINT), true));
         // ignore corrupted statistics
         assertEquals(getDomain(BIGINT, 10, longColumnStats(100L, 0L), ID, column, false), create(ValueSet.all(BIGINT), false));
         // fail on corrupted statistics
@@ -127,6 +129,8 @@ public class TestTupleDomainParquetPredicate
         assertEquals(getDomain(INTEGER, 10, longColumnStats(0, 100), ID, column, true), create(ValueSet.ofRanges(range(INTEGER, 0L, true, 100L, true)), false));
 
         assertEquals(getDomain(INTEGER, 20, longColumnStats(0, 2147483648L), ID, column, true), notNull(INTEGER));
+
+        assertEquals(getDomain(INTEGER, 20, longOnlyNullsStats(10), ID, column, true), create(ValueSet.all(INTEGER), true));
         // ignore corrupted statistics
         assertEquals(getDomain(INTEGER, 10, longColumnStats(2147483648L, 0), ID, column, false), create(ValueSet.all(INTEGER), false));
         // fail on corrupted statistics
@@ -147,6 +151,8 @@ public class TestTupleDomainParquetPredicate
         assertEquals(getDomain(SMALLINT, 10, longColumnStats(0, 100), ID, column, true), create(ValueSet.ofRanges(range(SMALLINT, 0L, true, 100L, true)), false));
 
         assertEquals(getDomain(SMALLINT, 20, longColumnStats(0, 2147483648L), ID, column, true), notNull(SMALLINT));
+
+        assertEquals(getDomain(SMALLINT, 20, longOnlyNullsStats(10), ID, column, true), create(ValueSet.all(SMALLINT), true));
         // ignore corrupted statistics
         assertEquals(getDomain(SMALLINT, 10, longColumnStats(2147483648L, 0), ID, column, false), create(ValueSet.all(SMALLINT), false));
         // fail on corrupted statistics
@@ -168,6 +174,7 @@ public class TestTupleDomainParquetPredicate
 
         assertEquals(getDomain(TINYINT, 20, longColumnStats(0, 2147483648L), ID, column, true), notNull(TINYINT));
 
+        assertEquals(getDomain(TINYINT, 20, longOnlyNullsStats(10), ID, column, true), create(ValueSet.all(TINYINT), true));
         // ignore corrupted statistics
         assertEquals(getDomain(TINYINT, 10, longColumnStats(2147483648L, 0), ID, column, false), create(ValueSet.all(TINYINT), false));
         // fail on corrupted statistics
@@ -438,5 +445,12 @@ public class TestTupleDomainParquetPredicate
         return new DictionaryDescriptor(
                 new ColumnDescriptor(new String[] {"dummy"}, new PrimitiveType(OPTIONAL, PrimitiveType.PrimitiveTypeName.DOUBLE, 0, ""), 1, 1),
                 Optional.of(new DictionaryPage(Slices.wrappedBuffer(buffer.toByteArray()), values.length, PLAIN_DICTIONARY)));
+    }
+
+    private static LongStatistics longOnlyNullsStats(long numNulls)
+    {
+        LongStatistics statistics = new LongStatistics();
+        statistics.setNumNulls(numNulls);
+        return statistics;
     }
 }
