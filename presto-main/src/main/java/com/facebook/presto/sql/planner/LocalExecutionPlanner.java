@@ -1009,7 +1009,9 @@ public class LocalExecutionPlanner
                     sortOrder,
                     node.getPreSortedOrderPrefix(),
                     10_000,
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    isSpillEnabled(session),
+                    spillerFactory);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
