@@ -613,10 +613,7 @@ public class WindowOperator
                 inMemoryPagesIndexWithHashStrategies.pagesIndex.clear();
                 currentSpillGroupRowPage = Optional.empty();
 
-                if (spiller.isPresent()) {
-                    spiller.get().close();
-                    spiller = Optional.empty();
-                }
+                closeSpiller();
 
                 updateMemoryUsage(false);
                 resetPagesIndex = false;
@@ -626,6 +623,7 @@ public class WindowOperator
             if (finishing && inMemoryPagesIndexWithHashStrategies.pagesIndex.getPositionCount() == 0 && !spiller.isPresent()) {
                 localRevocableMemoryContext.close();
                 localUserMemoryContext.close();
+                closeSpiller();
                 return TransformationState.finished();
             }
 
@@ -642,6 +640,12 @@ public class WindowOperator
             updateMemoryUsage(true);
             pendingInputPosition = 0;
             return needsMoreData();
+        }
+
+        void closeSpiller()
+        {
+            spiller.ifPresent(Spiller::close);
+            spiller = Optional.empty();
         }
 
         TransformationState<WorkProcessor<PagesIndexWithHashStrategies>> fullGroupBuffered()
@@ -861,5 +865,6 @@ public class WindowOperator
     public void close()
     {
         driverWindowInfo.set(Optional.of(windowInfo.build()));
+        spillablePagesToPagesIndexes.ifPresent(SpillablePagesToPagesIndexes::closeSpiller);
     }
 }
