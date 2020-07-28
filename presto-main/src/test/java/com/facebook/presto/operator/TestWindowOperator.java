@@ -27,6 +27,7 @@ import com.facebook.presto.operator.window.NthValueFunction;
 import com.facebook.presto.operator.window.ReflectionWindowFunctionSupplier;
 import com.facebook.presto.operator.window.RowNumberFunction;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
@@ -718,6 +719,7 @@ public class TestWindowOperator
                 10,
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                new DummySpillerFactory());
+                new DummySpillerFactory(),
+                new OrderingCompiler());
     }
 }
