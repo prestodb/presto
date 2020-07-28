@@ -18,9 +18,7 @@ import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.RowExpressionPredicatePushDown;
-import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -422,18 +420,6 @@ public class TestPredicatePushdown
                                                         tableScan(
                                                                 "orders",
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
-    }
-
-    @Override
-    protected void assertPlan(String sql, PlanMatchPattern pattern)
-    {
-        // TODO remove tests with filtered optimizer once we only have RowExpressionPredicatePushDown
-        // Currently we have mixture of Expression/RowExpression based push down, so we disable one of them to make sure test covers both code path.
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, planOptimizer -> !(planOptimizer instanceof StatsRecordingPlanOptimizer) ||
-                !(((StatsRecordingPlanOptimizer) planOptimizer).getDelegate() instanceof PredicatePushDown));
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, planOptimizer -> !(planOptimizer instanceof StatsRecordingPlanOptimizer) ||
-                !(((StatsRecordingPlanOptimizer) planOptimizer).getDelegate() instanceof RowExpressionPredicatePushDown));
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
     }
 
     @Test
