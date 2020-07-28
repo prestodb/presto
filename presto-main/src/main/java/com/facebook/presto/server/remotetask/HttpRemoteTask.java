@@ -22,7 +22,6 @@ import com.facebook.airlift.http.client.StatusResponseHandler.StatusResponse;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.FutureStateChange;
-import com.facebook.presto.execution.GuiceFetcherModule;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
@@ -57,8 +56,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.inject.Guice;
-import com.google.inject.Injector;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -142,7 +139,6 @@ public final class HttpRemoteTask
     private final RemoteTaskStats stats;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
-    private final ContinuousBatchTaskStatusFetcher batchTaskStatusFetcher;
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -324,10 +320,6 @@ public final class HttpRemoteTask
             partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
         }
-
-        Injector injector = Guice.createInjector(new GuiceFetcherModule());
-        ContinuousBatchTaskStatusFetcher batchTaskStatusFetcher = injector.getInstance(ContinuousBatchTaskStatusFetcher.class);
-        this.batchTaskStatusFetcher = batchTaskStatusFetcher;
     }
 
     @Override

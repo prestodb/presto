@@ -214,7 +214,7 @@ class WorkerTaskStatusFetcher
     @Override
     public void failed(Throwable cause)
     {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", idTaskMap)) {
+        try (SetThreadName ignored = new SetThreadName("WorkerTaskStatusFetcher-%s", idTaskMap)) {
             updateStats(currentRequestStartNanos.get());
             try {
                 for (Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>> taskPair: idTaskMap.values()) {
@@ -243,7 +243,7 @@ class WorkerTaskStatusFetcher
     @Override
     public void fatal(Throwable cause)
     {
-        try (SetThreadName ignored = new SetThreadName("ContinuousTaskStatusFetcher-%s", idTaskMap)) {
+        try (SetThreadName ignored = new SetThreadName("WorkerTaskStatusFetcher-%s", idTaskMap)) {
             updateStats(currentRequestStartNanos.get());
             onFail.accept(cause);
         }
@@ -301,12 +301,9 @@ class WorkerTaskStatusFetcher
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
+    public void addStateChangeListener(StateMachine<TaskStatus> taskStatus, StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
-        for (Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>> taskPair: idTaskMap.values()) {
-            StateMachine<TaskStatus> taskStatus = taskPair.getValue();
-            taskStatus.addStateChangeListener(stateChangeListener);
-        }
+        taskStatus.addStateChangeListener(stateChangeListener);
     }
 
     private void updateStats(long currentRequestStartNanos)

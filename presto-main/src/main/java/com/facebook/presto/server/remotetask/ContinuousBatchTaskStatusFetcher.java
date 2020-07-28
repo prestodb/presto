@@ -13,24 +13,34 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.concurrent.GuardedBy;
 
-import java.util.List;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
@@ -41,6 +51,7 @@ public class ContinuousBatchTaskStatusFetcher
     public class Task {
         TaskId taskId;
         StateMachine<TaskStatus> taskStatus;
+        Codec<Map<TaskId, TaskStatus>> taskListStatusCodec;
     }
 
     // TaskId -> WorkerId (String(URI(TaskStatus.getSelf() (get worker id)))
@@ -51,7 +62,6 @@ public class ContinuousBatchTaskStatusFetcher
     private static final Logger log = Logger.get(ContinuousBatchTaskStatusFetcher.class);
 
     private final Consumer<Throwable> onFail;
-    private final Codec<Map<TaskId, TaskStatus>> taskListStatusCodec;
     private final Duration refreshMaxWait;
     private final Executor executor;
     private final HttpClient httpClient;
@@ -63,41 +73,44 @@ public class ContinuousBatchTaskStatusFetcher
     @GuardedBy("this")
     private ListenableFuture<BaseResponse<TaskStatus>> future;
 
+    @Inject
     public ContinuousBatchTaskStatusFetcher(
             Consumer<Throwable> onFail,
-            Codec<Map<TaskId, TaskStatus>> taskListStatusCodec,
-            Duration refreshMaxWait,
-            Executor executor,
-            HttpClient httpClient,
-            Duration maxErrorDuration,
+            @ForScheduler HttpClient httpClient,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
-            boolean isBinaryTransportEnabled) {
+            TaskManagerConfig taskConfig,
+            QueryManagerConfig config,
+            InternalCommunicationConfig communicationConfig) {
         idWorkerMap = new ConcurrentHashMap<>();
         workerTaskMap = new ConcurrentHashMap<>();
 
         this.onFail = requireNonNull(onFail, "onFail is null");
-        this.taskListStatusCodec = requireNonNull(taskListStatusCodec, "taskListStatusCodec is null");
-        this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
-
-        this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
-        this.maxErrorDuration = requireNonNull(maxErrorDuration, "maxErrorDuration is null");
+        ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
+        this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
+
+        Duration refreshMaxWait = taskConfig.getInfoRefreshMaxWait();
+        this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
+
+        this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
         this.errorScheduledExecutor = requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
         this.stats = requireNonNull(stats, "stats is null");
-        this.isBinaryTransportEnabled = isBinaryTransportEnabled;
+        isBinaryTransportEnabled = requireNonNull(communicationConfig, "communicationConfig is null").isBinaryTransportEnabled();
     }
 
     public void addTask(
             TaskId taskId,
-            TaskStatus initialTaskStatus)
+            TaskStatus initialTaskStatus,
+            Codec<Map<TaskId, TaskStatus>> taskListStatusCodec)
     {
         Task newTask = new Task();
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
         newTask.taskId = requireNonNull(taskId, "taskId is null");
         newTask.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
+        newTask.taskListStatusCodec = requireNonNull(taskListStatusCodec, "taskListStatusCodec is null");
 
         String worker = initialTaskStatus.getSelf().getHost();
         idWorkerMap.put(taskId, worker);
@@ -108,7 +121,7 @@ public class ContinuousBatchTaskStatusFetcher
                             worker,
                             onFail,
                             refreshMaxWait,
-                            this.taskListStatusCodec,
+                            taskListStatusCodec,
                             executor,
                             httpClient,
                             maxErrorDuration,
@@ -117,17 +130,27 @@ public class ContinuousBatchTaskStatusFetcher
                             isBinaryTransportEnabled
                     )
             );
+            scheduleNextRequest(workerTaskMap.get(worker));
         }
         workerTaskMap.get(worker).addTask(newTask);
+        workerTaskMap.get(worker).addStateChangeListener(newTask.taskStatus, newStatus -> {
+            TaskState state = newStatus.getState();
+            if (state.isDone()) { // We can worry about the details later
+                // cleanUpTask();
+            }
+            else {
+                // partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+                // updateSplitQueueSpace();
+            }
+        });
     }
 
     @PostConstruct
-    public synchronized void start()
+    public synchronized void start() // We probably don't need this method, since all logic is in addTask
     {
         if (isRunning()) { // We have already called start
             return;
         }
-        scheduleNextRequest();
     }
 
     public synchronized void stop()
@@ -139,12 +162,10 @@ public class ContinuousBatchTaskStatusFetcher
         }
     }
 
-    private synchronized void scheduleNextRequest()
+    private synchronized void scheduleNextRequest(WorkerTaskStatusFetcher workerTaskStatusFetcher)
     {
-        for (WorkerTaskStatusFetcher workerTaskStatusFetcher: workerTaskMap.values()) {
-            try (SetThreadName ignored = new SetThreadName("WorkerTaskStatusFetcher-%s", workerTaskStatusFetcher)) {
-                workerTaskStatusFetcher.scheduleNextRequest();
-            }
+        try (SetThreadName ignored = new SetThreadName("WorkerTaskStatusFetcher-%s", workerTaskStatusFetcher)) {
+            workerTaskStatusFetcher.scheduleNextRequest();
         }
     }
 
@@ -156,7 +177,6 @@ public class ContinuousBatchTaskStatusFetcher
 
     public synchronized boolean isRunning()
     {
-        // [OLD] return running;
         for (WorkerTaskStatusFetcher workerTaskStatusFetcher: workerTaskMap.values()) {
             if (workerTaskStatusFetcher.isRunning()) return true;
         }
