@@ -116,6 +116,7 @@ public class BenchmarkWindowOperator
                         Ints.asList(3),
                         ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                         0,
+                        new DummySpillerFactory(),
                         false);
             }
             else if (numberOfPreGroupedColumns < NUMBER_OF_GROUP_COLUMNS) {
@@ -129,6 +130,7 @@ public class BenchmarkWindowOperator
                         Ints.asList(3),
                         ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                         0,
+                        new DummySpillerFactory(),
                         false);
             }
             else {
@@ -142,6 +144,7 @@ public class BenchmarkWindowOperator
                         Ints.asList(3),
                         ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                         (numberOfPreGroupedColumns - NUMBER_OF_GROUP_COLUMNS),
+                        new DummySpillerFactory(),
                         false);
             }
         }

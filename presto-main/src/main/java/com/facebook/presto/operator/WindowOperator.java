@@ -567,12 +567,14 @@ public class WindowOperator
         final SpillerFactory spillerFactory;
         final PageWithPositionComparator pageWithPositionComparator;
 
+        boolean spillingWhenConvertingRevocableMemory;
         boolean resetPagesIndex;
         int pendingInputPosition;
 
         Optional<Page> currentSpillGroupRowPage;
         Optional<Spiller> spiller;
-        ListenableFuture<?> spillInProgress = immediateFuture(null);
+        // Spill can be trigger by Driver, by us or both. `spillInProgress` is not empty when spill was triggered but not `finishMemoryRevoke()` yet
+        Optional<ListenableFuture<?>> spillInProgress = Optional.empty();
 
         SpillablePagesToPagesIndexes(
                 PagesIndexWithHashStrategies inMemoryPagesIndexWithHashStrategies,
@@ -600,6 +602,13 @@ public class WindowOperator
         @Override
         public TransformationState<WorkProcessor<PagesIndexWithHashStrategies>> process(Optional<Page> pendingInputOptional)
         {
+            if (spillingWhenConvertingRevocableMemory) {
+                // Spill could already be finished by Driver (via WindowOperator#finishMemoryRevoke), but finishRevokeMemory will take care of that
+                finishRevokeMemory();
+                spillingWhenConvertingRevocableMemory = false;
+                return fullGroupBuffered();
+            }
+
             if (resetPagesIndex) {
                 inMemoryPagesIndexWithHashStrategies.pagesIndex.clear();
                 currentSpillGroupRowPage = Optional.empty();
@@ -627,11 +636,7 @@ public class WindowOperator
 
             // If we have unused input or are finishing, then we have buffered a full group
             if (finishing || pendingInputPosition < pendingInputOptional.get().getPositionCount()) {
-                sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies, orderChannels, ordering);
-                // TODO spill if updating moving from revocable memory to regular is not possible
-                updateMemoryUsage(false);
-                resetPagesIndex = true;
-                return TransformationState.ofResult(unspill(), false);
+                return fullGroupBuffered();
             }
 
             updateMemoryUsage(true);
@@ -639,13 +644,37 @@ public class WindowOperator
             return needsMoreData();
         }
 
+        TransformationState<WorkProcessor<PagesIndexWithHashStrategies>> fullGroupBuffered()
+        {
+            // Convert revocable memory to user memory as inMemoryPagesIndexWithHashStrategies holds on to memory so we no longer can revoke
+            if (localRevocableMemoryContext.getBytes() > 0) {
+                long currentRevocableBytes = localRevocableMemoryContext.getBytes();
+                localRevocableMemoryContext.setBytes(0);
+                if (!localUserMemoryContext.trySetBytes(localUserMemoryContext.getBytes() + currentRevocableBytes)) {
+                    // TODO: this might fail (even though we have just released memory), but we don't
+                    // have a proper way to atomically convert memory reservations
+                    localRevocableMemoryContext.setBytes(currentRevocableBytes);
+                    spillingWhenConvertingRevocableMemory = true;
+                    return TransformationState.blocked(spill());
+                }
+            }
+
+            sortPagesIndexIfNecessary(inMemoryPagesIndexWithHashStrategies, orderChannels, ordering);
+            resetPagesIndex = true;
+            return TransformationState.ofResult(unspill(), false);
+        }
+
         ListenableFuture<?> spill()
         {
-            checkSuccess(spillInProgress, "spilling failed");
+            if (spillInProgress.isPresent()) {
+                // Spill can be triggered first in SpillablePagesToPagesIndexes#process(..) and then by Driver (via WindowOperator#startMemoryRevoke)
+                return spillInProgress.get();
+            }
 
             if (localRevocableMemoryContext.getBytes() == 0) {
                 // This must be stale revoke request
-                return immediateFuture(null);
+                spillInProgress = Optional.of(immediateFuture(null));
+                return spillInProgress.get();
             }
 
             if (!spiller.isPresent()) {
@@ -661,13 +690,21 @@ public class WindowOperator
             Page anyPage = sortedPages.peek();
             verify(anyPage.getPositionCount() != 0, "PagesIndex.getSortedPages returned an empty page");
             currentSpillGroupRowPage = Optional.of(anyPage.getSingleValuePage(/* any */0));
-            spillInProgress = spiller.get().spill(sortedPages);
+            spillInProgress = Optional.of(spiller.get().spill(sortedPages));
 
-            return spillInProgress;
+            return spillInProgress.get();
         }
 
         void finishRevokeMemory()
         {
+            if (!spillInProgress.isPresent()) {
+                // Same spill iteration can be finished first by Driver (via WindowOperator#finishMemoryRevoke) and then by SpillablePagesToPagesIndexes#process(..)
+                return;
+            }
+
+            checkSuccess(spillInProgress.get(), "spilling failed");
+            spillInProgress = Optional.empty();
+
             // No memory to reclaim
             if (localRevocableMemoryContext.getBytes() == 0) {
                 return;
