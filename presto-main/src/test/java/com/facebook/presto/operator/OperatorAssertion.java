@@ -253,7 +253,17 @@ public final class OperatorAssertion
             List<Page> input,
             MaterializedResult expected)
     {
-        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, false, Optional.empty());
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, false);
+    }
+
+    public static void assertOperatorEqualsIgnoreOrder(
+            OperatorFactory operatorFactory,
+            DriverContext driverContext,
+            List<Page> input,
+            MaterializedResult expected,
+            boolean revokeMemoryWhenAddingPages)
+    {
+        assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected, false, Optional.empty(), revokeMemoryWhenAddingPages);
     }
 
     public static void assertOperatorEqualsIgnoreOrder(
