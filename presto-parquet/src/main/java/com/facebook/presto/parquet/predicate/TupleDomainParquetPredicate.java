@@ -140,7 +140,7 @@ public class TupleDomainParquetPredicate
 
         boolean hasNullValue = statistics.getNumNulls() != 0L;
 
-        if (statistics.genericGetMin() == null || statistics.genericGetMax() == null) {
+        if (!statistics.hasNonNullValue() || statistics.genericGetMin() == null || statistics.genericGetMax() == null) {
             return Domain.create(ValueSet.all(type), hasNullValue);
         }
 
