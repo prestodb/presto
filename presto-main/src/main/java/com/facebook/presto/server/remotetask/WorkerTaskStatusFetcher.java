@@ -36,10 +36,8 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -115,22 +113,19 @@ class WorkerTaskStatusFetcher
                 getWorkerURI(),
                 maxErrorDuration,
                 errorScheduledExecutor,
-                "getting task status"
-        );
+                "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;
     }
 
-    public void addTask(ContinuousBatchTaskStatusFetcher.Task task) {
+    public void addTask(ContinuousBatchTaskStatusFetcher.Task task)
+    {
         idTaskMap.put(
                 task.taskId,
                 new Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>>(
                         task,
                         new StateMachine(
-                                "task-" + task.taskId, executor, task.taskStatus
-                        )
-                )
-        );
+                                "task-" + task.taskId, executor, task.taskStatus)));
     }
 
     TaskStatus getTaskStatus(TaskId taskId)
@@ -138,11 +133,13 @@ class WorkerTaskStatusFetcher
         return idTaskMap.get(taskId).getKey().taskStatus.get();
     }
 
-    private URI getWorkerURI() {
+    private URI getWorkerURI()
+    {
         URI uri;
         try {
             uri = uriBuilderFrom(new URI(worker)).appendPath("/tasks/status").build();
-        } catch (URISyntaxException e) {
+        }
+        catch (URISyntaxException e) {
             uri = null;
         }
         return uri;
@@ -170,7 +167,7 @@ class WorkerTaskStatusFetcher
         }
 
         HashMap<TaskId, TaskState> idStateMap = new HashMap<>(); // Maybe we need to make this JSON instead?
-        for (Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>> taskPair: idTaskMap.values()) {
+        for (Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>> taskPair : idTaskMap.values()) {
             ContinuousBatchTaskStatusFetcher.Task task = taskPair.getKey();
             idStateMap.put(task.taskId, task.taskStatus.get().getState());
         }
@@ -217,7 +214,7 @@ class WorkerTaskStatusFetcher
         try (SetThreadName ignored = new SetThreadName("WorkerTaskStatusFetcher-%s", idTaskMap)) {
             updateStats(currentRequestStartNanos.get());
             try {
-                for (Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>> taskPair: idTaskMap.values()) {
+                for (Pair<ContinuousBatchTaskStatusFetcher.Task, StateMachine<TaskStatus>> taskPair : idTaskMap.values()) {
                     // if task not already done, record error
                     ContinuousBatchTaskStatusFetcher.Task task = taskPair.getKey();
                     TaskStatus taskStatus = task.taskStatus.get();
@@ -251,7 +248,7 @@ class WorkerTaskStatusFetcher
 
     void updateAllTaskStatus(Map<TaskId, TaskStatus> newValues)
     {
-        for (Map.Entry<TaskId, TaskStatus> newEntry: newValues.entrySet()) {
+        for (Map.Entry<TaskId, TaskStatus> newEntry : newValues.entrySet()) {
             updateTaskStatus(newEntry.getKey(), newEntry.getValue());
         }
     }

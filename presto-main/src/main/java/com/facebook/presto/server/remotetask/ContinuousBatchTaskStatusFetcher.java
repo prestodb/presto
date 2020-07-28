@@ -34,9 +34,6 @@ import io.airlift.units.Duration;
 import javax.annotation.PostConstruct;
 import javax.annotation.concurrent.GuardedBy;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static java.util.concurrent.Executors.newCachedThreadPool;
-
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -44,11 +41,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class ContinuousBatchTaskStatusFetcher
 {
-    public class Task {
+    public class Task
+    {
         TaskId taskId;
         StateMachine<TaskStatus> taskStatus;
         Codec<Map<TaskId, TaskStatus>> taskListStatusCodec;
@@ -81,7 +81,8 @@ public class ContinuousBatchTaskStatusFetcher
             RemoteTaskStats stats,
             TaskManagerConfig taskConfig,
             QueryManagerConfig config,
-            InternalCommunicationConfig communicationConfig) {
+            InternalCommunicationConfig communicationConfig)
+    {
         idWorkerMap = new ConcurrentHashMap<>();
         workerTaskMap = new ConcurrentHashMap<>();
 
@@ -127,9 +128,7 @@ public class ContinuousBatchTaskStatusFetcher
                             maxErrorDuration,
                             errorScheduledExecutor,
                             stats,
-                            isBinaryTransportEnabled
-                    )
-            );
+                            isBinaryTransportEnabled));
             scheduleNextRequest(workerTaskMap.get(worker));
         }
         workerTaskMap.get(worker).addTask(newTask);
@@ -177,8 +176,10 @@ public class ContinuousBatchTaskStatusFetcher
 
     public synchronized boolean isRunning()
     {
-        for (WorkerTaskStatusFetcher workerTaskStatusFetcher: workerTaskMap.values()) {
-            if (workerTaskStatusFetcher.isRunning()) return true;
+        for (WorkerTaskStatusFetcher workerTaskStatusFetcher : workerTaskMap.values()) {
+            if (workerTaskStatusFetcher.isRunning()) {
+                return true;
+            }
         }
         return false;
     }
