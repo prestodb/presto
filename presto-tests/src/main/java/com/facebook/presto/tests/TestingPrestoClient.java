@@ -20,11 +20,14 @@ import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.JsonType;
+import com.facebook.presto.common.type.LongEnumType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoWarning;
@@ -253,6 +256,15 @@ public class TestingPrestoClient
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
+        }
+        else if (type instanceof JsonType) {
+            return value;
+        }
+        else if (type instanceof VarcharEnumType) {
+            return value;
+        }
+        else if (type instanceof LongEnumType) {
+            return ((Number) value).longValue();
         }
         else if (type.getTypeSignature().getBase().equals("ObjectId")) {
             return value;
