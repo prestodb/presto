@@ -244,7 +244,8 @@ public class WindowOperator
             this.ordering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
         }
 
-        this.outputPages = WorkProcessor.create(new ProducePagesIndexes(operatorContext.aggregateUserMemoryContext()))
+        this.outputPages = WorkProcessor.create(new PagesSource())
+                .transform(new PagesToPagesIndexes(operatorContext.aggregateUserMemoryContext()))
                 .flatMap(this::pagesIndexToWindowPartitions)
                 .transform(new WindowPartitionsToOutputPages());
 
@@ -308,19 +309,40 @@ public class WindowOperator
         return outputPages.getResult();
     }
 
-    private class ProducePagesIndexes
-            implements WorkProcessor.Process<PagesIndex>
+    private class PagesSource
+            implements WorkProcessor.Process<Page>
+    {
+        @Override
+        public ProcessState<Page> process()
+        {
+            if (operatorFinishing && pendingInput == null) {
+                return ProcessState.finished();
+            }
+
+            if (pendingInput != null) {
+                Page result = pendingInput;
+                pendingInput = null;
+                return ProcessState.ofResult(result);
+            }
+
+            return ProcessState.yield();
+        }
+    }
+
+    private class PagesToPagesIndexes
+            implements Transformation<Page, PagesIndex>
     {
         final LocalMemoryContext memoryContext;
         boolean resetPagesIndex;
+        int pendingInputPosition;
 
-        ProducePagesIndexes(AggregatedMemoryContext memoryContext)
+        PagesToPagesIndexes(AggregatedMemoryContext memoryContext)
         {
-            this.memoryContext = memoryContext.newLocalMemoryContext(ProducePagesIndexes.class.getSimpleName());
+            this.memoryContext = memoryContext.newLocalMemoryContext(PagesToPagesIndexes.class.getSimpleName());
         }
 
         @Override
-        public ProcessState<PagesIndex> process()
+        public TransformationState<PagesIndex> process(Optional<Page> pendingInputOptional)
         {
             if (resetPagesIndex) {
                 pagesIndex.clear();
@@ -328,25 +350,27 @@ public class WindowOperator
                 resetPagesIndex = false;
             }
 
-            if (operatorFinishing && pendingInput == null && pagesIndex.getPositionCount() == 0) {
+            boolean finishing = !pendingInputOptional.isPresent();
+            if (finishing && pagesIndex.getPositionCount() == 0) {
                 memoryContext.close();
-                return ProcessState.finished();
+                return TransformationState.finished();
             }
 
-            if (pendingInput != null) {
-                pendingInput = updatePagesIndex(pendingInput);
+            if (!finishing) {
+                Page pendingInput = pendingInputOptional.get();
+                pendingInputPosition = updatePagesIndex(pendingInput, pendingInputPosition);
                 updateMemoryUsage();
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
-            if (pendingInput != null || operatorFinishing) {
+            if (finishing || pendingInputPosition < pendingInputOptional.get().getPositionCount()) {
                 finishPagesIndex();
                 resetPagesIndex = true;
-                return ProcessState.ofResult(pagesIndex);
+                return TransformationState.ofResult(pagesIndex, false);
             }
 
-            // pendingInput == null && !operatorFinishing
-            return ProcessState.yield();
+            pendingInputPosition = 0;
+            return TransformationState.needsMoreData();
         }
 
         void updateMemoryUsage()
@@ -420,31 +444,34 @@ public class WindowOperator
         }
     }
 
-    private Page updatePagesIndex(Page page)
+    /**
+     * Returns first unprocessed position
+     */
+    private int updatePagesIndex(Page page, int startPosition)
     {
-        checkArgument(page.getPositionCount() > 0);
+        checkArgument(page.getPositionCount() > startPosition);
 
         // TODO: Fix pagesHashStrategy to allow specifying channels for comparison, it currently requires us to rearrange the right side blocks in consecutive channel order
         Page preGroupedPage = rearrangePage(page, preGroupedChannels);
-        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, 0, preGroupedPage)) {
+        if (pagesIndex.getPositionCount() == 0 || pagesIndex.positionEqualsRow(preGroupedPartitionHashStrategy, 0, startPosition, preGroupedPage)) {
             // Find the position where the pre-grouped columns change
-            int groupEnd = findGroupEnd(preGroupedPage, preGroupedPartitionHashStrategy, 0);
+            int groupEnd = findGroupEnd(preGroupedPage, preGroupedPartitionHashStrategy, startPosition);
 
             // Add the section of the page that contains values for the current group
-            pagesIndex.addPage(page.getRegion(0, groupEnd));
+            pagesIndex.addPage(page.getRegion(startPosition, groupEnd - startPosition));
 
             if (page.getPositionCount() - groupEnd > 0) {
                 // Save the remaining page, which may contain multiple partitions
-                return page.getRegion(groupEnd, page.getPositionCount() - groupEnd);
+                return groupEnd;
             }
             else {
                 // Page fully consumed
-                return null;
+                return page.getPositionCount();
             }
         }
         else {
-            // We had previous results buffered, but the new page starts with new group values
-            return page;
+            // We had previous results buffered, but the remaining page starts with new group values
+            return startPosition;
         }
     }
 
