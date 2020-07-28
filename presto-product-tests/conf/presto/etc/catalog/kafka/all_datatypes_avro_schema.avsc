@@ -7,7 +7,7 @@
               {
                   "name":"a_varchar",
                   "type":["null", "string"],
-                  "default": "null"
+                  "default": null
               },
               {
                   "name":"a_bigint",
