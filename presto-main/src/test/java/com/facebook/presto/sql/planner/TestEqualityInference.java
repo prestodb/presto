@@ -46,7 +46,7 @@ import static com.facebook.presto.common.type.RowType.field;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.planner.RowExpressionEqualityInference.Builder.isInferenceCandidate;
+import static com.facebook.presto.sql.planner.EqualityInference.Builder.isInferenceCandidate;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -57,7 +57,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestRowExpressionEqualityInference
+public class TestEqualityInference
 {
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final TestingRowExpressionTranslator ROW_EXPRESSION_TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
@@ -65,7 +65,7 @@ public class TestRowExpressionEqualityInference
     @Test
     public void testTransitivity()
     {
-        RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(METADATA);
+        EqualityInference.Builder builder = new EqualityInference.Builder(METADATA);
         addEquality("a1", "b1", builder);
         addEquality("b1", "c1", builder);
         addEquality("d1", "c1", builder);
@@ -76,7 +76,7 @@ public class TestRowExpressionEqualityInference
         addEquality("d2", "b2", builder);
         addEquality("c2", "d2", builder);
 
-        RowExpressionEqualityInference inference = builder.build();
+        EqualityInference inference = builder.build();
 
         assertEquals(
                 inference.rewriteExpression(someExpression("a1", "a2"), matchesVariables("d1", "d2")),
@@ -105,7 +105,7 @@ public class TestRowExpressionEqualityInference
     @Test
     public void testTriviallyRewritable()
     {
-        RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(METADATA);
+        EqualityInference.Builder builder = new EqualityInference.Builder(METADATA);
         RowExpression expression = builder.build()
                 .rewriteExpression(someExpression("a1", "a2"), matchesVariables("a1", "a2"));
 
@@ -115,10 +115,10 @@ public class TestRowExpressionEqualityInference
     @Test
     public void testUnrewritable()
     {
-        RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(METADATA);
+        EqualityInference.Builder builder = new EqualityInference.Builder(METADATA);
         addEquality("a1", "b1", builder);
         addEquality("a2", "b2", builder);
-        RowExpressionEqualityInference inference = builder.build();
+        EqualityInference inference = builder.build();
 
         assertNull(inference.rewriteExpression(someExpression("a1", "a2"), matchesVariables("b1", "c1")));
         assertNull(inference.rewriteExpression(someExpression("c1", "c2"), matchesVariables("a1", "a2")));
@@ -127,7 +127,7 @@ public class TestRowExpressionEqualityInference
     @Test
     public void testParseEqualityExpression()
     {
-        RowExpressionEqualityInference inference = new RowExpressionEqualityInference.Builder(METADATA)
+        EqualityInference inference = new EqualityInference.Builder(METADATA)
                 .addEquality(equals("a1", "b1"))
                 .addEquality(equals("a1", "c1"))
                 .addEquality(equals("c1", "a1"))
@@ -140,28 +140,28 @@ public class TestRowExpressionEqualityInference
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInvalidEqualityExpression1()
     {
-        new RowExpressionEqualityInference.Builder(METADATA)
+        new EqualityInference.Builder(METADATA)
                 .addEquality(equals("a1", "a1"));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInvalidEqualityExpression2()
     {
-        new RowExpressionEqualityInference.Builder(METADATA)
+        new EqualityInference.Builder(METADATA)
                 .addEquality(someExpression("a1", "b1"));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testInvalidEqualityExpression3()
     {
-        RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(METADATA);
+        EqualityInference.Builder builder = new EqualityInference.Builder(METADATA);
         addEquality("a1", "a1", builder);
     }
 
     @Test
     public void testExtractInferrableEqualities()
     {
-        RowExpressionEqualityInference inference = new RowExpressionEqualityInference.Builder(METADATA)
+        EqualityInference inference = new EqualityInference.Builder(METADATA)
                 .extractInferenceCandidates(and(equals("a1", "b1"), equals("b1", "c1"), someExpression("c1", "d1")))
                 .build();
 
@@ -175,16 +175,16 @@ public class TestRowExpressionEqualityInference
     @Test
     public void testEqualityPartitionGeneration()
     {
-        RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(METADATA);
+        EqualityInference.Builder builder = new EqualityInference.Builder(METADATA);
         builder.addEquality(variable("a1"), variable("b1"));
         builder.addEquality(add("a1", "a1"), multiply(variable("a1"), number(2)));
         builder.addEquality(variable("b1"), variable("c1"));
         builder.addEquality(add("a1", "a1"), variable("c1"));
         builder.addEquality(add("a1", "b1"), variable("c1"));
 
-        RowExpressionEqualityInference inference = builder.build();
+        EqualityInference inference = builder.build();
 
-        RowExpressionEqualityInference.EqualityPartition emptyScopePartition = inference.generateEqualitiesPartitionedBy(Predicates.alwaysFalse());
+        EqualityInference.EqualityPartition emptyScopePartition = inference.generateEqualitiesPartitionedBy(Predicates.alwaysFalse());
         // Cannot generate any scope equalities with no matching symbols
         assertTrue(emptyScopePartition.getScopeEqualities().isEmpty());
         // All equalities should be represented in the inverse scope
@@ -192,7 +192,7 @@ public class TestRowExpressionEqualityInference
         // There should be no equalities straddling the scope
         assertTrue(emptyScopePartition.getScopeStraddlingEqualities().isEmpty());
 
-        RowExpressionEqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesVariables("c1"));
+        EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesVariables("c1"));
 
         // There should be equalities in the scope, that only use c1 and are all inferrable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
@@ -211,13 +211,13 @@ public class TestRowExpressionEqualityInference
 
         // There should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
-        RowExpressionEqualityInference newInference = new RowExpressionEqualityInference.Builder(METADATA)
+        EqualityInference newInference = new EqualityInference.Builder(METADATA)
                 .addAllEqualities(equalityPartition.getScopeEqualities())
                 .addAllEqualities(equalityPartition.getScopeComplementEqualities())
                 .addAllEqualities(equalityPartition.getScopeStraddlingEqualities())
                 .build();
 
-        RowExpressionEqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(matchesVariables("c1"));
+        EqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(matchesVariables("c1"));
 
         assertEquals(setCopy(equalityPartition.getScopeEqualities()), setCopy(newEqualityPartition.getScopeEqualities()));
         assertEquals(setCopy(equalityPartition.getScopeComplementEqualities()), setCopy(newEqualityPartition.getScopeComplementEqualities()));
@@ -227,7 +227,7 @@ public class TestRowExpressionEqualityInference
     @Test
     public void testMultipleEqualitySetsPredicateGeneration()
     {
-        RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(METADATA);
+        EqualityInference.Builder builder = new EqualityInference.Builder(METADATA);
         addEquality("a1", "b1", builder);
         addEquality("b1", "c1", builder);
         addEquality("c1", "d1", builder);
@@ -236,10 +236,10 @@ public class TestRowExpressionEqualityInference
         addEquality("b2", "c2", builder);
         addEquality("c2", "d2", builder);
 
-        RowExpressionEqualityInference inference = builder.build();
+        EqualityInference inference = builder.build();
 
         // Generating equalities for disjoint groups
-        RowExpressionEqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(variableBeginsWith("a", "b"));
+        EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(variableBeginsWith("a", "b"));
 
         // There should be equalities in the scope, that only use a* and b* symbols and are all inferrable equalities
         assertFalse(equalityPartition.getScopeEqualities().isEmpty());
@@ -258,13 +258,13 @@ public class TestRowExpressionEqualityInference
 
         // Again, there should be a "full cover" of all of the equalities used
         // THUS, we should be able to plug the generated equalities back in and get an equivalent set of equalities back the next time around
-        RowExpressionEqualityInference newInference = new RowExpressionEqualityInference.Builder(METADATA)
+        EqualityInference newInference = new EqualityInference.Builder(METADATA)
                 .addAllEqualities(equalityPartition.getScopeEqualities())
                 .addAllEqualities(equalityPartition.getScopeComplementEqualities())
                 .addAllEqualities(equalityPartition.getScopeStraddlingEqualities())
                 .build();
 
-        RowExpressionEqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(variableBeginsWith("a", "b"));
+        EqualityInference.EqualityPartition newEqualityPartition = newInference.generateEqualitiesPartitionedBy(variableBeginsWith("a", "b"));
 
         assertEquals(setCopy(equalityPartition.getScopeEqualities()), setCopy(newEqualityPartition.getScopeEqualities()));
         assertEquals(setCopy(equalityPartition.getScopeComplementEqualities()), setCopy(newEqualityPartition.getScopeComplementEqualities()));
@@ -274,11 +274,11 @@ public class TestRowExpressionEqualityInference
     @Test
     public void testSubExpressionRewrites()
     {
-        RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(METADATA);
+        EqualityInference.Builder builder = new EqualityInference.Builder(METADATA);
         builder.addEquality(variable("a1"), add("b", "c")); // a1 = b + c
         builder.addEquality(variable("a2"), multiply(variable("b"), add("b", "c"))); // a2 = b * (b + c)
         builder.addEquality(variable("a3"), multiply(variable("a1"), add("b", "c"))); // a3 = a1 * (b + c)
-        RowExpressionEqualityInference inference = builder.build();
+        EqualityInference inference = builder.build();
 
         // Expression (b + c) should get entirely rewritten as a1
         assertEquals(inference.rewriteExpression(add("b", "c"), variableBeginsWith("a")), variable("a1"));
@@ -293,17 +293,17 @@ public class TestRowExpressionEqualityInference
     @Test
     public void testConstantEqualities()
     {
-        RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(METADATA);
+        EqualityInference.Builder builder = new EqualityInference.Builder(METADATA);
         addEquality("a1", "b1", builder);
         addEquality("b1", "c1", builder);
         builder.addEquality(variable("c1"), number(1));
-        RowExpressionEqualityInference inference = builder.build();
+        EqualityInference inference = builder.build();
 
         // Should always prefer a constant if available (constant is part of all scopes)
         assertEquals(inference.rewriteExpression(variable("a1"), matchesVariables("a1", "b1")), number(1));
 
         // All scope equalities should utilize the constant if possible
-        RowExpressionEqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesVariables("a1", "b1"));
+        EqualityInference.EqualityPartition equalityPartition = inference.generateEqualitiesPartitionedBy(matchesVariables("a1", "b1"));
         assertEquals(equalitiesAsSets(equalityPartition.getScopeEqualities()),
                 set(set(variable("a1"), number(1)), set(variable("b1"), number(1))));
         assertEquals(equalitiesAsSets(equalityPartition.getScopeComplementEqualities()),
@@ -316,11 +316,11 @@ public class TestRowExpressionEqualityInference
     @Test
     public void testEqualityGeneration()
     {
-        RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(METADATA);
+        EqualityInference.Builder builder = new EqualityInference.Builder(METADATA);
         builder.addEquality(variable("a1"), add("b", "c")); // a1 = b + c
         builder.addEquality(variable("e1"), add("b", "d")); // e1 = b + d
         addEquality("c", "d", builder);
-        RowExpressionEqualityInference inference = builder.build();
+        EqualityInference inference = builder.build();
 
         RowExpression scopedCanonical = inference.getScopedCanonical(variable("e1"), variableBeginsWith("a"));
         assertEquals(scopedCanonical, variable("a1"));
@@ -329,11 +329,11 @@ public class TestRowExpressionEqualityInference
     @Test(dataProvider = "testRowExpressions")
     public void testExpressionsThatMayReturnNullOnNonNullInput(RowExpression candidate)
     {
-        RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(METADATA);
+        EqualityInference.Builder builder = new EqualityInference.Builder(METADATA);
         builder.extractInferenceCandidates(equals(variable("b"), variable("x")));
         builder.extractInferenceCandidates(equals(variable("a"), candidate));
 
-        RowExpressionEqualityInference inference = builder.build();
+        EqualityInference inference = builder.build();
         List<RowExpression> equalities = inference.generateEqualitiesPartitionedBy(matchesVariables("b")).getScopeStraddlingEqualities();
         assertEquals(equalities.size(), 1);
         assertTrue(equalities.get(0).equals(equals(variable("x"), variable("b"))) || equalities.get(0).equals(equals(variable("b"), variable("x"))));
@@ -367,7 +367,7 @@ public class TestRowExpressionEqualityInference
         };
     }
 
-    private static void addEquality(String symbol1, String symbol2, RowExpressionEqualityInference.Builder builder)
+    private static void addEquality(String symbol1, String symbol2, EqualityInference.Builder builder)
     {
         builder.addEquality(variable(symbol1), variable(symbol2));
     }

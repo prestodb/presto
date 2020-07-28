@@ -413,12 +413,12 @@ public class EffectivePredicateExtractor
 
         private RowExpression pullExpressionThroughVariables(RowExpression expression, Collection<VariableReferenceExpression> variables)
         {
-            RowExpressionEqualityInference equalityInference = new RowExpressionEqualityInference.Builder(functionManger, typeManager)
+            EqualityInference equalityInference = new EqualityInference.Builder(functionManger, typeManager)
                     .addEqualityInference(expression)
                     .build();
 
             ImmutableList.Builder<RowExpression> effectiveConjuncts = ImmutableList.builder();
-            for (RowExpression conjunct : new RowExpressionEqualityInference.Builder(functionManger, typeManager).nonInferrableConjuncts(expression)) {
+            for (RowExpression conjunct : new EqualityInference.Builder(functionManger, typeManager).nonInferrableConjuncts(expression)) {
                 if (determinismEvaluator.isDeterministic(conjunct)) {
                     RowExpression rewritten = equalityInference.rewriteExpression(conjunct, in(variables));
                     if (rewritten != null) {
