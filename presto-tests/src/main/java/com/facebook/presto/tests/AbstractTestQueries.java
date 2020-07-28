@@ -283,6 +283,14 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testTryLambdaWithCast()
+    {
+        assertQuery(
+                "SELECT IF(TRY(CAST(a AS INT)) IN (1, 5), TRY(CAST(b AS DOUBLE)), 0.0) FROM (VALUES (varchar'1', varchar'2.1'), (varchar'5', varchar'3.4')) t(a, b)",
+                "VALUES 2.1, 3.4");
+    }
+
+    @Test
     public void testNonDeterministicFilter()
     {
         MaterializedResult materializedResult = computeActual("SELECT u FROM ( SELECT if(rand() > 0.5, 0, 1) AS u ) WHERE u <> u");
