@@ -30,6 +30,8 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -42,13 +44,13 @@ public class BenchmarkTypeSignatureParsing
     @Benchmark
     public void parseRowTypeSignature(BenchmarkData data)
     {
-        TypeSignature.parseTypeSignature(data.signature);
+        parseTypeSignature(data.signature);
     }
 
     @Benchmark
     public void parseRowTypeSignatureWithEnums(BenchmarkData data)
     {
-        TypeSignature.parseTypeSignature(data.enumSignature);
+        parseTypeSignature(data.enumSignature);
     }
 
     @State(Scope.Thread)
