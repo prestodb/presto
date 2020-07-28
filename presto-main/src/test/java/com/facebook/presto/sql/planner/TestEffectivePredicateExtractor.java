@@ -80,7 +80,7 @@ import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static com.facebook.presto.sql.planner.RowExpressionEqualityInference.Builder.nonInferrableConjuncts;
+import static com.facebook.presto.sql.planner.EqualityInference.Builder.nonInferrableConjuncts;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.count;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -783,7 +783,7 @@ public class TestEffectivePredicateExtractor
         // and thereby produce comparable Sets of conjuncts from this method.
 
         // Equality inference rewrites and equality generation will always be stable across multiple runs in the same JVM
-        RowExpressionEqualityInference inference = RowExpressionEqualityInference.createEqualityInference(metadata, predicate);
+        EqualityInference inference = EqualityInference.createEqualityInference(metadata, predicate);
 
         Set<RowExpression> rewrittenSet = new HashSet<>();
         for (RowExpression expression : nonInferrableConjuncts(metadata, predicate)) {
