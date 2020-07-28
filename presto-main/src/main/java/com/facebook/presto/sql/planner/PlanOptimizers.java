@@ -394,16 +394,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new SimplifyCountOverConstant(metadata.getFunctionManager()))),
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
-                new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.<Rule<?>>builder()
-                                // add UnaliasSymbolReferences when it's ported
-                                .add(new RemoveRedundantIdentityProjections())
-                                .addAll(GatherAndMergeWindows.rules())
-                                .build()));
+                new WindowFilterPushDown(metadata)); // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -415,6 +406,15 @@ public class PlanOptimizers
         // After this point, all planNodes should not contain OriginalExpression
 
         builder.add(
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                // add UnaliasSymbolReferences when it's ported
+                                .add(new RemoveRedundantIdentityProjections())
+                                .addAll(GatherAndMergeWindows.rules())
+                                .build()),
                 inlineProjections,
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new IterativeOptimizer(
