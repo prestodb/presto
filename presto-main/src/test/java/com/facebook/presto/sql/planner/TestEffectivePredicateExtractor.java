@@ -88,7 +88,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static org.testng.Assert.assertEquals;
 
-public class TestRowExpressionPredicateExtractor
+public class TestEffectivePredicateExtractor
 {
     private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle(
             new ConnectorId("test"),
@@ -115,7 +115,7 @@ public class TestRowExpressionPredicateExtractor
             new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
             new FunctionResolution(metadata.getFunctionManager()),
             metadata.getFunctionManager());
-    private final RowExpressionPredicateExtractor effectivePredicateExtractor = new RowExpressionPredicateExtractor(
+    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(
             new RowExpressionDomainTranslator(metadata),
             metadata.getFunctionManager(),
             metadata.getTypeManager());

@@ -71,13 +71,13 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class RowExpressionPredicateExtractor
+public class EffectivePredicateExtractor
 {
     private final RowExpressionDomainTranslator domainTranslator;
     private final FunctionManager functionManager;
     private final TypeManager typeManager;
 
-    public RowExpressionPredicateExtractor(RowExpressionDomainTranslator domainTranslator, FunctionManager functionManager, TypeManager typeManager)
+    public EffectivePredicateExtractor(RowExpressionDomainTranslator domainTranslator, FunctionManager functionManager, TypeManager typeManager)
     {
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         this.functionManager = functionManager;

@@ -36,9 +36,9 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.EffectivePredicateExtractor;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.RowExpressionEqualityInference;
-import com.facebook.presto.sql.planner.RowExpressionPredicateExtractor;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
@@ -107,13 +107,13 @@ public class RowExpressionPredicatePushDown
         implements PlanOptimizer
 {
     private final Metadata metadata;
-    private final RowExpressionPredicateExtractor effectivePredicateExtractor;
+    private final EffectivePredicateExtractor effectivePredicateExtractor;
     private final SqlParser sqlParser;
 
     public RowExpressionPredicatePushDown(Metadata metadata, SqlParser sqlParser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.effectivePredicateExtractor = new RowExpressionPredicateExtractor(new RowExpressionDomainTranslator(metadata), metadata.getFunctionManager(), metadata.getTypeManager());
+        this.effectivePredicateExtractor = new EffectivePredicateExtractor(new RowExpressionDomainTranslator(metadata), metadata.getFunctionManager(), metadata.getTypeManager());
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
@@ -137,7 +137,7 @@ public class RowExpressionPredicatePushDown
         private final PlanVariableAllocator variableAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
-        private final RowExpressionPredicateExtractor effectivePredicateExtractor;
+        private final EffectivePredicateExtractor effectivePredicateExtractor;
         private final Session session;
         private final ExpressionEquivalence expressionEquivalence;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
@@ -150,7 +150,7 @@ public class RowExpressionPredicatePushDown
                 PlanVariableAllocator variableAllocator,
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
-                RowExpressionPredicateExtractor effectivePredicateExtractor,
+                EffectivePredicateExtractor effectivePredicateExtractor,
                 SqlParser sqlParser,
                 Session session)
         {
