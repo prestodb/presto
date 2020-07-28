@@ -29,6 +29,13 @@ public abstract class QueryException
     private final boolean retryable;
     private final QueryStage queryStage;
 
+    public QueryException(String message, boolean retryable, QueryStage queryStage)
+    {
+        super(message);
+        this.retryable = retryable;
+        this.queryStage = requireNonNull(queryStage, "queryStage is null");
+    }
+
     public QueryException(Throwable cause, boolean retryable, QueryStage queryStage)
     {
         super(cause);
