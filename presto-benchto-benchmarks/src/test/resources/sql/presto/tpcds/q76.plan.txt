@@ -3,8 +3,8 @@ local exchange (GATHER, SINGLE, [])
         final aggregation over (d_qoy_168, d_year_167, expr_165, expr_166, i_category_169)
             local exchange (REPARTITION, HASH, [d_qoy_168, d_year_167, expr_165, expr_166, i_category_169])
                 local exchange (REPARTITION, ROUND_ROBIN, [])
-                    remote exchange (REPARTITION, HASH, [d_qoy, d_year, expr_12, expr_217, i_category])
-                        partial aggregation over (d_qoy, d_year, expr_12, expr_217, i_category)
+                    remote exchange (REPARTITION, HASH, [cast, d_qoy, d_year, expr_12, i_category])
+                        partial aggregation over (cast, d_qoy, d_year, expr_12, i_category)
                             join (INNER, REPLICATED):
                                 join (INNER, REPLICATED):
                                     scan store_sales
@@ -14,8 +14,8 @@ local exchange (GATHER, SINGLE, [])
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPLICATE, BROADCAST, [])
                                         scan date_dim
-                    remote exchange (REPARTITION, HASH, [d_qoy_49, d_year_45, expr_223, expr_68, i_category_29])
-                        partial aggregation over (d_qoy_49, d_year_45, expr_223, expr_68, i_category_29)
+                    remote exchange (REPARTITION, HASH, [cast_222, d_qoy_49, d_year_45, expr_68, i_category_29])
+                        partial aggregation over (cast_222, d_qoy_49, d_year_45, expr_68, i_category_29)
                             join (INNER, PARTITIONED):
                                 remote exchange (REPARTITION, HASH, [ws_sold_date_sk])
                                     join (INNER, PARTITIONED):
