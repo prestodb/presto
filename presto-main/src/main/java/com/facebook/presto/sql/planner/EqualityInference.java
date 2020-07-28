@@ -57,7 +57,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 
-public class RowExpressionEqualityInference
+public class EqualityInference
 {
     // Ordering used to determine Expression preference when determining canonicals
     private static final Ordering<RowExpression> CANONICAL_ORDERING = Ordering.from((expression1, expression2) -> {
@@ -79,7 +79,7 @@ public class RowExpressionEqualityInference
     private final RowExpressionDeterminismEvaluator determinismEvaluator;
     private final FunctionManager functionManager;
 
-    private RowExpressionEqualityInference(
+    private EqualityInference(
             Iterable<Set<RowExpression>> equalityGroups,
             Set<RowExpression> derivedExpressions,
             RowExpressionDeterminismEvaluator determinismEvaluator,
@@ -106,7 +106,7 @@ public class RowExpressionEqualityInference
         this.derivedExpressions = ImmutableSet.copyOf(derivedExpressions);
     }
 
-    public static RowExpressionEqualityInference createEqualityInference(Metadata metadata, RowExpression... equalityInferences)
+    public static EqualityInference createEqualityInference(Metadata metadata, RowExpression... equalityInferences)
     {
         return new Builder(metadata)
                 .addEqualityInference(equalityInferences)
@@ -388,7 +388,7 @@ public class RowExpressionEqualityInference
             return addAllEqualities(filter(extractConjuncts(expression), isInferenceCandidate()));
         }
 
-        public RowExpressionEqualityInference.Builder addAllEqualities(Iterable<RowExpression> expressions)
+        public EqualityInference.Builder addAllEqualities(Iterable<RowExpression> expressions)
         {
             for (RowExpression expression : expressions) {
                 addEquality(expression);
@@ -396,7 +396,7 @@ public class RowExpressionEqualityInference
             return this;
         }
 
-        public RowExpressionEqualityInference.Builder addEquality(RowExpression expression)
+        public EqualityInference.Builder addEquality(RowExpression expression)
         {
             expression = normalizeInPredicateToEquality(expression);
             checkArgument(isInferenceCandidate().apply(expression), "RowExpression must be a simple equality: " + expression);
@@ -404,7 +404,7 @@ public class RowExpressionEqualityInference
             return this;
         }
 
-        public RowExpressionEqualityInference.Builder addEquality(RowExpression expression1, RowExpression expression2)
+        public EqualityInference.Builder addEquality(RowExpression expression1, RowExpression expression2)
         {
             checkArgument(!expression1.equals(expression2), "Need to provide equality between different expressions");
             checkArgument(determinismEvaluator.isDeterministic(expression1), "RowExpression must be deterministic: " + expression1);
@@ -446,10 +446,10 @@ public class RowExpressionEqualityInference
             }
         }
 
-        public RowExpressionEqualityInference build()
+        public EqualityInference build()
         {
             generateMoreEquivalences();
-            return new RowExpressionEqualityInference(equalities.getEquivalentClasses(), derivedExpressions, determinismEvaluator, functionManager);
+            return new EqualityInference(equalities.getEquivalentClasses(), derivedExpressions, determinismEvaluator, functionManager);
         }
 
         private boolean isOperation(RowExpression expression, OperatorType type)
