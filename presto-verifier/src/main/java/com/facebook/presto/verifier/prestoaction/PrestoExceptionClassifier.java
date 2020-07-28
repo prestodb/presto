@@ -150,11 +150,22 @@ public class PrestoExceptionClassifier
             return new ClusterConnectionException(clusterConnectionExceptionCause.get(), queryStage);
         }
 
-        Optional<ErrorCodeSupplier> errorCode = Optional.ofNullable(errorByCode.get(cause.getErrorCode()));
-        boolean retryable = errorCode.isPresent()
-                && (retryableErrors.contains(errorCode.get())
-                || conditionalRetryableErrors.stream().anyMatch(matcher -> matcher.matches(errorCode.get(), queryStage, cause.getMessage())));
+        Optional<ErrorCodeSupplier> errorCode = getErrorCode(cause.getErrorCode());
+        boolean retryable = errorCode.isPresent() && isRetryable(errorCode.get(), queryStage, cause.getMessage());
         return new PrestoQueryException(cause, retryable, queryStage, errorCode, queryStats);
+    }
+
+    @Override
+    public Optional<ErrorCodeSupplier> getErrorCode(int code)
+    {
+        return Optional.ofNullable(errorByCode.get(code));
+    }
+
+    @Override
+    public boolean isRetryable(ErrorCodeSupplier errorCode, QueryStage queryStage, String message)
+    {
+        return retryableErrors.contains(errorCode)
+                || conditionalRetryableErrors.stream().anyMatch(matcher -> matcher.matches(errorCode, queryStage, message));
     }
 
     public boolean shouldResubmit(Throwable throwable)
