@@ -56,6 +56,7 @@ import org.locationtech.jts.geom.MultiLineString;
 import org.locationtech.jts.geom.TopologyException;
 import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 import org.locationtech.jts.linearref.LengthIndexedLine;
+import org.locationtech.jts.operation.distance.DistanceOp;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -940,6 +941,29 @@ public final class GeoFunctions
         OGCGeometry rightGeometry = EsriGeometrySerde.deserialize(right);
         verifySameSpatialReference(leftGeometry, rightGeometry);
         return leftGeometry.isEmpty() || rightGeometry.isEmpty() ? null : leftGeometry.distance(rightGeometry);
+    }
+
+    @SqlNullable
+    @Description("Return the closest points on the two geometries")
+    @ScalarFunction("geometry_nearest_points")
+    @SqlType("array(" + GEOMETRY_TYPE_NAME + ")")
+    public static Block geometryNearestPoints(@SqlType(GEOMETRY_TYPE_NAME) Slice left, @SqlType(GEOMETRY_TYPE_NAME) Slice right)
+    {
+        Geometry leftGeometry = deserialize(left);
+        Geometry rightGeometry = deserialize(right);
+        if (leftGeometry.isEmpty() || rightGeometry.isEmpty()) {
+            return null;
+        }
+        try {
+            Coordinate[] nearestCoordinates = DistanceOp.nearestPoints(leftGeometry, rightGeometry);
+            BlockBuilder blockBuilder = GEOMETRY.createBlockBuilder(null, 2);
+            GEOMETRY.writeSlice(blockBuilder, serialize(createJtsPoint(nearestCoordinates[0])));
+            GEOMETRY.writeSlice(blockBuilder, serialize(createJtsPoint(nearestCoordinates[1])));
+            return blockBuilder.build();
+        }
+        catch (TopologyException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getMessage(), e);
+        }
     }
 
     @SqlNullable
