@@ -370,7 +370,8 @@ public final class PlanMatchPattern
                         joinType,
                         expectedEquiCriteria,
                         expectedFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate))),
-                        expectedDistributionType));
+                        expectedDistributionType,
+                        Optional.empty()));
     }
 
     public static PlanMatchPattern spatialJoin(String expectedFilter, PlanMatchPattern left, PlanMatchPattern right)
