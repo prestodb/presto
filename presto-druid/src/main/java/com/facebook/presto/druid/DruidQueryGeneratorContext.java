@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.druid.DruidErrorCode.DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_QUERY_GENERATOR_FAILURE;
 import static com.facebook.presto.druid.DruidPushdownUtils.DRUID_COUNT_DISTINCT_FUNCTION_NAME;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -104,7 +105,10 @@ public class DruidQueryGeneratorContext
 
     public DruidQueryGeneratorContext withFilter(String filter)
     {
-        checkState(!hasFilter(), "Druid doesn't support filters at multiple levels");
+        if (hasAggregation()) {
+            throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Druid does not support filter on top of AggregationNode.");
+        }
+        checkState(!hasFilter(), "Druid doesn't support filters at multiple levels under AggregationNode");
         return new DruidQueryGeneratorContext(
                 selections,
                 from,
