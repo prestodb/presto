@@ -90,7 +90,7 @@ public class TestSubqueries
     {
         // coercion from subquery symbol type to correlation type
         assertions.assertFails(
-                "select (select count(*) from (values 1) t(a) where t.a=t2.b limit 1) from (values 1.0) t2(b)",
+                "select (select count(*) from (values 1) t(a) where t.a=t2.b group by a limit 1) from (values 1.0) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // coercion from t.a (null) to integer
         assertions.assertFails(
@@ -101,12 +101,19 @@ public class TestSubqueries
     @Test
     public void testCorrelatedSubqueriesWithLimit()
     {
+        // coercion from subquery symbol type to correlation type
+        assertions.assertQuery(
+                "select (select count(*) from (values 1) t(a) where t.a=t2.b limit 1) from (values 1.0) t2(b)",
+                "VALUES BIGINT '1'");
         assertions.assertQuery(
                 "select (select t.a from (values 1, 2) t(a) where t.a=t2.b limit 1) from (values 1) t2(b)",
                 "VALUES 1");
+        assertions.assertQuery(
+                "SELECT (SELECT t.a FROM (VALUES 1, 2) t(a) WHERE t.a=t2.b LIMIT 2) FROM (VALUES 1) t2(b)",
+                "VALUES 1");
         // cannot enforce limit 2 on correlated subquery
         assertions.assertFails(
-                "select (select t.a from (values 1, 2) t(a) where t.a=t2.b limit 2) from (values 1) t2(b)",
+                "select (select t.a from (values 1, 2, 3) t(a) where t.a=t2.b limit 2) from (values 1) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertions.assertQuery(
                 "select (select sum(t.a) from (values 1, 2) t(a) where t.a=t2.b group by t.a limit 2) from (values 1) t2(b)",
@@ -118,10 +125,12 @@ public class TestSubqueries
                 "select EXISTS(select 1 from (values 1, 1, 3) t(a) where t.a=t2.b limit 1) from (values 1, 2) t2(b)",
                 "VALUES true, false",
                 false);
-        // TransformCorrelatedScalarAggregationToJoin does not fire since limit is above aggregation node
         assertions.assertFails(
-                "select (select count(*) from (values 1, 1, 3) t(a) where t.a=t2.b limit 1) from (values 1) t2(b)",
+                "select (select count(*) from (values 1, 1, 3) t(a) where t.a=t2.b group by a limit 1) from (values 1.0) t2(b)",
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertions.assertQuery(
+                "SELECT (SELECT count(*) FROM (VALUES 1, 1, 3) t(a) WHERE t.a=t2.b LIMIT 1) FROM (VALUES 1) t2(b)",
+                "VALUES BIGINT '2'");
         assertExistsRewrittenToAggregationBelowJoin(
                 "SELECT EXISTS(SELECT 1 FROM (values ('x', 1)) u(x, cid) WHERE x = 'x' AND t.cid = cid LIMIT 1) " +
                         "FROM (values 1) t(cid)",
