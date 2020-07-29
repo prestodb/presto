@@ -103,14 +103,14 @@ import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
-public class RowExpressionPredicatePushDown
+public class PredicatePushDown
         implements PlanOptimizer
 {
     private final Metadata metadata;
     private final EffectivePredicateExtractor effectivePredicateExtractor;
     private final SqlParser sqlParser;
 
-    public RowExpressionPredicatePushDown(Metadata metadata, SqlParser sqlParser)
+    public PredicatePushDown(Metadata metadata, SqlParser sqlParser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.effectivePredicateExtractor = new EffectivePredicateExtractor(new RowExpressionDomainTranslator(metadata), metadata.getFunctionManager(), metadata.getTypeManager());
