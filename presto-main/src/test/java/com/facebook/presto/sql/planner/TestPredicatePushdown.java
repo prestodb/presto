@@ -18,7 +18,7 @@ import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
-import com.facebook.presto.sql.planner.optimizations.RowExpressionPredicatePushDown;
+import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -426,7 +426,7 @@ public class TestPredicatePushdown
     public void testPredicatePushDownCreatesValidJoin()
     {
         RuleTester tester = new RuleTester();
-        tester.assertThat(new RowExpressionPredicatePushDown(tester.getMetadata(), tester.getSqlParser()))
+        tester.assertThat(new PredicatePushDown(tester.getMetadata(), tester.getSqlParser()))
                 .on(p ->
                         p.join(INNER,
                                 p.filter(p.comparison(OperatorType.EQUAL, p.variable("a1"), constant(1L, INTEGER)),
