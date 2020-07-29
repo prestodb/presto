@@ -22,6 +22,7 @@ import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFunction;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
@@ -704,7 +705,8 @@ public class BuiltInFunctionNamespaceManager
                 .functions(TDIGEST_AGG, TDIGEST_AGG_WITH_WEIGHT, TDIGEST_AGG_WITH_WEIGHT_AND_COMPRESSION)
                 .function(MergeTDigestFunction.MERGE)
                 .sqlInvokedScalar(MapNormalizeFunction.class)
-                .sqlInvokedScalars(ArrayArithmeticFunctions.class);
+                .sqlInvokedScalars(ArrayArithmeticFunctions.class)
+                .scalar(DynamicFilterPlaceholderFunction.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:

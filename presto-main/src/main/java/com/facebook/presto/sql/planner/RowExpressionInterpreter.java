@@ -70,6 +70,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.expressions.DynamicFilters.isDynamicFilter;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
@@ -259,7 +260,10 @@ public class RowExpressionInterpreter
 
             // do not optimize non-deterministic functions
             if (optimizationLevel.ordinal() < EVALUATED.ordinal() &&
-                    (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || resolution.isFailFunction(functionHandle))) {
+                    (!functionMetadata.isDeterministic() ||
+                            hasUnresolvedValue(argumentValues) ||
+                            isDynamicFilter(node) ||
+                            resolution.isFailFunction(functionHandle))) {
                 return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
             }
 
