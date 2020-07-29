@@ -36,6 +36,10 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.DeleteHandl
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandle;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
+import com.facebook.presto.expressions.DynamicFilters;
+import com.facebook.presto.expressions.DynamicFilters.DynamicFilterExtractResult;
+import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
 import com.facebook.presto.metadata.FunctionManager;
@@ -140,6 +144,7 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -184,6 +189,7 @@ import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.annotations.VisibleForTesting;
@@ -325,6 +331,7 @@ public class LocalExecutionPlanner
     private final LookupJoinOperators lookupJoinOperators;
     private final OrderingCompiler orderingCompiler;
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
+    private final LogicalRowExpressions logicalRowExpressions;
 
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
@@ -350,7 +357,8 @@ public class LocalExecutionPlanner
             JoinCompiler joinCompiler,
             LookupJoinOperators lookupJoinOperators,
             OrderingCompiler orderingCompiler,
-            JsonCodec<TableCommitContext> tableCommitContextCodec)
+            JsonCodec<TableCommitContext> tableCommitContextCodec,
+            DeterminismEvaluator determinismEvaluator)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -376,6 +384,10 @@ public class LocalExecutionPlanner
         this.lookupJoinOperators = requireNonNull(lookupJoinOperators, "lookupJoinOperators is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.tableCommitContextCodec = requireNonNull(tableCommitContextCodec, "tableCommitContextCodec is null");
+        this.logicalRowExpressions = new LogicalRowExpressions(
+                requireNonNull(determinismEvaluator, "determinismEvaluator is null"),
+                new FunctionResolution(metadata.getFunctionManager()),
+                metadata.getFunctionManager());
     }
 
     public LocalExecutionPlan plan(
@@ -1276,6 +1288,19 @@ public class LocalExecutionPlanner
                 outputMappingsBuilder.put(variable, i);
             }
             Map<VariableReferenceExpression, Integer> outputMappings = outputMappingsBuilder.build();
+
+            Optional<DynamicFilterExtractResult> extractDynamicFilterResult = filterExpression.map(DynamicFilters::extractDynamicFilters);
+
+            // Extract the static ones
+            filterExpression = extractDynamicFilterResult
+                    .map(DynamicFilterExtractResult::getStaticConjuncts)
+                    .map(logicalRowExpressions::combineConjuncts);
+
+            // TODO: Execution must be plugged in here
+            Optional<List<DynamicFilterPlaceholder>> dynamicFilters = extractDynamicFilterResult.map(DynamicFilterExtractResult::getDynamicConjuncts);
+            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty()) {
+                // translate filter function
+            }
 
             // compiler uses inputs instead of variables, so rewrite the expressions first
             List<RowExpression> projections = outputVariables.stream()
