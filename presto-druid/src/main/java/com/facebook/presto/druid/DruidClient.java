@@ -29,10 +29,13 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
@@ -48,6 +51,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.Objects.requireNonNull;
 
 public class DruidClient
@@ -175,6 +179,10 @@ public class DruidClient
         public InputStream handle(Request request, com.facebook.airlift.http.client.Response response)
         {
             try {
+                if (response.getStatusCode() != HTTP_OK) {
+                    String result = new BufferedReader(new InputStreamReader(response.getInputStream())).lines().collect(Collectors.joining("\n"));
+                    throw new PrestoException(DRUID_BROKER_RESULT_ERROR, result);
+                }
                 if (APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {
                     return response.getInputStream();
                 }
