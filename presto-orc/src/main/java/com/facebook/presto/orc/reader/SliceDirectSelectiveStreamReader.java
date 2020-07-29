@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.ClosingBlockLease;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
@@ -511,8 +512,13 @@ public class SliceDirectSelectiveStreamReader
                 boolean isNotNull = nullCount == 0 || !isNullVector[i];
                 if (i == positions[positionIndex]) {
                     if (isNotNull) {
-                        totalLength += lengthVector[lengthIndex];
-                        maxLength = Math.max(maxLength, lengthVector[lengthIndex]);
+                        int length = lengthVector[lengthIndex];
+                        if (length < 0) {
+                            throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(),
+                                    "String length cannot be negative: " + length + ". Stream: " + streamDescriptor.getStreamName());
+                        }
+                        totalLength += length;
+                        maxLength = Math.max(maxLength, length);
                         lengthIndex++;
                     }
                     positionIndex++;
