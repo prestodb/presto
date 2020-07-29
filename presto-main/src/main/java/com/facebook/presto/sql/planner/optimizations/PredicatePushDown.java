@@ -59,6 +59,7 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -550,7 +551,8 @@ public class PredicatePushDown
                         newJoinFilter,
                         node.getLeftHashVariable(),
                         node.getRightHashVariable(),
-                        distributionType);
+                        distributionType,
+                        node.getDynamicFilters());
             }
 
             if (!postJoinPredicate.equals(TRUE_CONSTANT)) {
@@ -960,11 +962,32 @@ public class PredicatePushDown
                     return node;
                 }
                 if (canConvertToLeftJoin && canConvertToRightJoin) {
-                    return new JoinNode(node.getId(), INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+                    return new JoinNode(
+                            node.getId(),
+                            INNER,
+                            node.getLeft(),
+                            node.getRight(),
+                            node.getCriteria(),
+                            node.getOutputVariables(),
+                            node.getFilter(),
+                            node.getLeftHashVariable(),
+                            node.getRightHashVariable(),
+                            node.getDistributionType(),
+                            node.getDynamicFilters());
                 }
                 else {
-                    return new JoinNode(node.getId(), canConvertToLeftJoin ? LEFT : RIGHT,
-                            node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+                    return new JoinNode(
+                            node.getId(),
+                            canConvertToLeftJoin ? LEFT : RIGHT,
+                            node.getLeft(),
+                            node.getRight(),
+                            node.getCriteria(),
+                            node.getOutputVariables(),
+                            node.getFilter(),
+                            node.getLeftHashVariable(),
+                            node.getRightHashVariable(),
+                            node.getDistributionType(),
+                            node.getDynamicFilters());
                 }
             }
 
@@ -972,7 +995,18 @@ public class PredicatePushDown
                     node.getType() == JoinNode.Type.RIGHT && !canConvertOuterToInner(node.getLeft().getOutputVariables(), inheritedPredicate)) {
                 return node;
             }
-            return new JoinNode(node.getId(), JoinNode.Type.INNER, node.getLeft(), node.getRight(), node.getCriteria(), node.getOutputVariables(), node.getFilter(), node.getLeftHashVariable(), node.getRightHashVariable(), node.getDistributionType());
+            return new JoinNode(
+                    node.getId(),
+                    JoinNode.Type.INNER,
+                    node.getLeft(),
+                    node.getRight(),
+                    node.getCriteria(),
+                    node.getOutputVariables(),
+                    node.getFilter(),
+                    node.getLeftHashVariable(),
+                    node.getRightHashVariable(),
+                    node.getDistributionType(),
+                    node.getDynamicFilters());
         }
 
         private boolean canConvertOuterToInner(List<VariableReferenceExpression> innerVariablesForOuterJoin, RowExpression inheritedPredicate)
