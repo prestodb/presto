@@ -437,7 +437,8 @@ public class TestPredicatePushdown
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.of(PARTITIONED)))
+                                Optional.of(PARTITIONED),
+                                ImmutableMap.of()))
                 .matches(
                         project(
                                 join(
