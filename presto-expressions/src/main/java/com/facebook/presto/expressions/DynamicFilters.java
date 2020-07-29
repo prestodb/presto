@@ -65,7 +65,7 @@ public final class DynamicFilters
         return getPlaceholder(expression).isPresent();
     }
 
-    private static Optional<DynamicFilterPlaceholder> getPlaceholder(RowExpression expression)
+    public static Optional<DynamicFilterPlaceholder> getPlaceholder(RowExpression expression)
     {
         if (!(expression instanceof CallExpression)) {
             return Optional.empty();
