@@ -790,6 +790,43 @@ public class TestGeoFunctions
     }
 
     @Test
+    public void testGeometryNearestPoints()
+    {
+        assertNearestPoints("POINT (50 100)", "POINT (150 150)", "POINT (50 100)", "POINT (150 150)");
+        assertNearestPoints("MULTIPOINT (50 100, 50 200)", "POINT (50 100)", "POINT (50 100)", "POINT (50 100)");
+        assertNearestPoints("LINESTRING (50 100, 50 200)", "LINESTRING (10 10, 20 20)", "POINT (50 100)", "POINT (20 20)");
+        assertNearestPoints("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))", "LINESTRING (10 20, 20 50)", "POINT (4 4)", "POINT (10 20)");
+        assertNearestPoints("POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))", "POLYGON ((4 4, 4 5, 5 5, 5 4, 4 4))", "POINT (3 3)", "POINT (4 4)");
+        assertNearestPoints("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((0 0, 0 2, 2 2, 2 0, 0 0)))", "POLYGON ((10 100, 30 10, 30 100, 10 100))", "POINT (3 3)", "POINT (30 10)");
+        assertNearestPoints("GEOMETRYCOLLECTION (POINT (0 0), LINESTRING (0 20, 20 0))", "POLYGON ((5 5, 5 6, 6 6, 6 5, 5 5))", "POINT (10 10)", "POINT (6 6)");
+
+        assertNoNearestPoints("POINT EMPTY", "POINT (150 150)");
+        assertNoNearestPoints("POINT (50 100)", "POINT EMPTY");
+        assertNoNearestPoints("POINT EMPTY", "POINT EMPTY");
+        assertNoNearestPoints("MULTIPOINT EMPTY", "POINT (50 100)");
+        assertNoNearestPoints("LINESTRING (50 100, 50 200)", "LINESTRING EMPTY");
+        assertNoNearestPoints("MULTILINESTRING EMPTY", "LINESTRING (10 20, 20 50)");
+        assertNoNearestPoints("POLYGON ((1 1, 1 3, 3 3, 3 1, 1 1))", "POLYGON EMPTY");
+        assertNoNearestPoints("MULTIPOLYGON EMPTY", "POLYGON ((10 100, 30 10, 30 100, 10 100))");
+    }
+
+    private void assertNearestPoints(String leftInputWkt, String rightInputWkt, String leftPointWkt, String rightPointWkt)
+    {
+        assertFunction(
+                format("transform(geometry_nearest_points(ST_GeometryFromText('%s'), ST_GeometryFromText('%s')), x -> ST_ASText(x))", leftInputWkt, rightInputWkt),
+                new ArrayType(VARCHAR),
+                ImmutableList.of(leftPointWkt, rightPointWkt));
+    }
+
+    private void assertNoNearestPoints(String leftInputWkt, String rightInputWkt)
+    {
+        assertFunction(
+                format("geometry_nearest_points(ST_GeometryFromText('%s'), ST_GeometryFromText('%s'))", leftInputWkt, rightInputWkt),
+                new ArrayType(GEOMETRY),
+                null);
+    }
+
+    @Test
     public void testSTExteriorRing()
     {
         assertFunction("ST_AsText(ST_ExteriorRing(ST_GeometryFromText('POLYGON EMPTY')))", VARCHAR, null);
