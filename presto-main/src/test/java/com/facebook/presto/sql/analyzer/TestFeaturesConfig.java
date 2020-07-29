@@ -142,6 +142,7 @@ public class TestFeaturesConfig
                 .setUseLegacyScheduler(true)
                 .setOptimizeCommonSubExpressions(true)
                 .setPreferDistributedUnion(true)
+                .setPreferLocalUnion(false)
                 .setOptimizeNullsInJoin(false)
                 .setWarnOnNoTableLayoutFilter("")
                 .setInlineSqlFunctions(true));
@@ -242,6 +243,7 @@ public class TestFeaturesConfig
                 .put("use-legacy-scheduler", "false")
                 .put("optimize-common-sub-expressions", "false")
                 .put("prefer-distributed-union", "false")
+                .put("prefer-local-union", "true")
                 .put("optimize-nulls-in-join", "true")
                 .put("warn-on-no-table-layout-filter", "ry@nlikestheyankees,ds")
                 .put("inline-sql-functions", "false")
@@ -339,6 +341,7 @@ public class TestFeaturesConfig
                 .setUseLegacyScheduler(false)
                 .setOptimizeCommonSubExpressions(false)
                 .setPreferDistributedUnion(false)
+                .setPreferLocalUnion(true)
                 .setOptimizeNullsInJoin(true)
                 .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds")
                 .setInlineSqlFunctions(false);

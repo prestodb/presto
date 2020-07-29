@@ -159,6 +159,7 @@ public final class SystemSessionProperties
     public static final String USE_LEGACY_SCHEDULER = "use_legacy_scheduler";
     public static final String OPTIMIZE_COMMON_SUB_EXPRESSIONS = "optimize_common_sub_expressions";
     public static final String PREFER_DISTRIBUTED_UNION = "prefer_distributed_union";
+    public static final String PREFER_LOCAL_UNION = "prefer_local_union";
     public static final String WARNING_HANDLING = "warning_handling";
     public static final String OPTIMIZE_NULLS_IN_JOINS = "optimize_nulls_in_join";
     public static final String TARGET_RESULT_SIZE = "target_result_size";
@@ -821,6 +822,11 @@ public final class SystemSessionProperties
                         "Prefer distributed union",
                         featuresConfig.isPreferDistributedUnion(),
                         true),
+                booleanProperty(
+                        PREFER_LOCAL_UNION,
+                        "Prefer union using local exchange rather than remote exchange",
+                        featuresConfig.isPreferLocalUnion(),
+                        false),
                 new PropertyMetadata<>(
                         WARNING_HANDLING,
                         format("The level of warning handling. Levels are %s",
@@ -1440,6 +1446,11 @@ public final class SystemSessionProperties
     public static boolean isPreferDistributedUnion(Session session)
     {
         return session.getSystemProperty(PREFER_DISTRIBUTED_UNION, Boolean.class);
+    }
+
+    public static boolean isPreferLocalUnion(Session session)
+    {
+        return session.getSystemProperty(PREFER_LOCAL_UNION, Boolean.class);
     }
 
     public static WarningHandlingLevel getWarningHandlingLevel(Session session)

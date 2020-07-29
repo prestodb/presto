@@ -159,6 +159,7 @@ public class FeaturesConfig
     private boolean useLegacyScheduler = true;
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
+    private boolean preferLocalUnion;
     private boolean optimizeNullsInJoin;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
@@ -1360,6 +1361,19 @@ public class FeaturesConfig
     public FeaturesConfig setPreferDistributedUnion(boolean preferDistributedUnion)
     {
         this.preferDistributedUnion = preferDistributedUnion;
+        return this;
+    }
+
+    public boolean isPreferLocalUnion()
+    {
+        return preferLocalUnion;
+    }
+
+    @Config("prefer-local-union")
+    @ConfigDescription("Prefer to execute UNION ALL using local exchange rather than remote exchange")
+    public FeaturesConfig setPreferLocalUnion(boolean preferLocalUnion)
+    {
+        this.preferLocalUnion = preferLocalUnion;
         return this;
     }
 
