@@ -225,7 +225,8 @@ public class PushDownDereferences
                     joinNode.getFilter().map(expression -> replaceDereferences(expression, expressions)),
                     joinNode.getLeftHashVariable(),
                     joinNode.getRightHashVariable(),
-                    joinNode.getDistributionType());
+                    joinNode.getDistributionType(),
+                    joinNode.getDynamicFilters());
         }
     }
 
@@ -386,7 +387,8 @@ public class PushDownDereferences
                     joinNode.getFilter().map(expression -> replaceDereferences(expression, expressions)),
                     joinNode.getLeftHashVariable(),
                     joinNode.getRightHashVariable(),
-                    joinNode.getDistributionType()));
+                    joinNode.getDistributionType(),
+                    joinNode.getDynamicFilters()));
         }
     }
 

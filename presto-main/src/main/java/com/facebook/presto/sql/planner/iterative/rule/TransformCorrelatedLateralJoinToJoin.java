@@ -23,6 +23,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Optional;
 
@@ -65,6 +66,7 @@ public class TransformCorrelatedLateralJoinToJoin
                         decorrelatedNode.getCorrelatedPredicates().map(OriginalExpressionUtils::castToRowExpression),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty()))).orElseGet(Result::empty);
+                        Optional.empty(),
+                        ImmutableMap.of()))).orElseGet(Result::empty);
     }
 }
