@@ -345,7 +345,8 @@ class RelationPlanner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
 
         if (node.getType() != INNER) {
             for (Expression complexExpression : complexJoinExpressions) {
@@ -381,7 +382,8 @@ class RelationPlanner
                     Optional.of(castToRowExpression(rewrittenFilterCondition)),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty());
+                    Optional.empty(),
+                    ImmutableMap.of());
         }
 
         if (node.getType() == INNER) {
@@ -514,7 +516,8 @@ class RelationPlanner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
 
         // Add a projection to produce the outputs of the columns in the USING clause,
         // which are defined as coalesce(l.k, r.k)
