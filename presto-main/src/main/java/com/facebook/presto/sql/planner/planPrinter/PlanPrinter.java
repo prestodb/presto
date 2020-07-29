@@ -227,13 +227,15 @@ public class PlanPrinter
     {
         StringBuilder builder = new StringBuilder();
         List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
-        List<PlanFragment> allFragments = allStages.stream()
-                .map(StageInfo::getPlan)
-                .map(Optional::get)
-                .collect(toImmutableList());
         Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
         for (StageInfo stageInfo : allStages) {
-            builder.append(formatFragment(functionManager, session, stageInfo.getPlan().get(), Optional.of(stageInfo), Optional.of(aggregatedStats), verbose, allFragments));
+            builder.append(formatFragment(
+                    functionManager,
+                    session,
+                    stageInfo.getPlan().get(),
+                    Optional.of(stageInfo),
+                    Optional.of(aggregatedStats),
+                    verbose));
         }
 
         return builder.toString();
@@ -243,7 +245,13 @@ public class PlanPrinter
     {
         StringBuilder builder = new StringBuilder();
         for (PlanFragment fragment : plan.getAllFragments()) {
-            builder.append(formatFragment(functionManager, session, fragment, Optional.empty(), Optional.empty(), verbose, plan.getAllFragments()));
+            builder.append(formatFragment(
+                    functionManager,
+                    session,
+                    fragment,
+                    Optional.empty(),
+                    Optional.empty(),
+                    verbose));
         }
 
         return builder.toString();
@@ -296,7 +304,13 @@ public class PlanPrinter
         return new JsonRenderer().render(fragmentJsonMap.build());
     }
 
-    private static String formatFragment(FunctionManager functionManager, Session session, PlanFragment fragment, Optional<StageInfo> stageInfo, Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats, boolean verbose, List<PlanFragment> allFragments)
+    private static String formatFragment(
+            FunctionManager functionManager,
+            Session session,
+            PlanFragment fragment,
+            Optional<StageInfo> stageInfo,
+            Optional<Map<PlanNodeId, PlanNodeStats>> planNodeStats,
+            boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
         builder.append(format("Fragment %s [%s]\n",
@@ -344,11 +358,18 @@ public class PlanPrinter
         }
         builder.append(indentString(1)).append(format("Stage Execution Strategy: %s\n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
-        TypeProvider typeProvider = TypeProvider.fromVariables(allFragments.stream()
-                .flatMap(f -> f.getVariables().stream())
-                .distinct()
-                .collect(toImmutableList()));
-        builder.append(textLogicalPlan(fragment.getRoot(), typeProvider, Optional.of(fragment.getStageExecutionDescriptor()), functionManager, fragment.getStatsAndCosts(), session, planNodeStats, 1, verbose))
+        TypeProvider typeProvider = TypeProvider.fromVariables(fragment.getVariables());
+        builder.append(
+                textLogicalPlan(
+                        fragment.getRoot(),
+                        typeProvider,
+                        Optional.of(fragment.getStageExecutionDescriptor()),
+                        functionManager,
+                        fragment.getStatsAndCosts(),
+                        session,
+                        planNodeStats,
+                        1,
+                        verbose))
                 .append("\n");
 
         return builder.toString();
