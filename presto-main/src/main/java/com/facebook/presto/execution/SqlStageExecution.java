@@ -133,11 +133,10 @@ public final class SqlStageExecution
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
 
+    private final ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher;
+
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
-
-    @Inject
-    private ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher; // Is @Inject the right way to get injected instance?
 
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,
@@ -149,7 +148,8 @@ public final class SqlStageExecution
             ExecutorService executor,
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher)
     {
         requireNonNull(stageExecutionId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
@@ -160,6 +160,7 @@ public final class SqlStageExecution
         requireNonNull(failureDetector, "failureDetector is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
         requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+        requireNonNull(continuousBatchTaskStatusFetcher, "continuousBatchTaskStatusFetcher is null");
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
                 session,
@@ -171,7 +172,8 @@ public final class SqlStageExecution
                 executor,
                 failureDetector,
                 getMaxFailedTaskPercentage(session),
-                tableWriteInfo);
+                tableWriteInfo,
+                continuousBatchTaskStatusFetcher);
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
@@ -186,7 +188,8 @@ public final class SqlStageExecution
             Executor executor,
             FailureDetector failureDetector,
             double maxFailedTaskPercentage,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
@@ -198,6 +201,7 @@ public final class SqlStageExecution
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.tableWriteInfo = requireNonNull(tableWriteInfo);
         this.maxFailedTaskPercentage = maxFailedTaskPercentage;
+        this.continuousBatchTaskStatusFetcher = continuousBatchTaskStatusFetcher;
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
         for (RemoteSourceNode remoteSourceNode : planFragment.getRemoteSourceNodes()) {

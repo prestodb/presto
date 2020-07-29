@@ -30,6 +30,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.remotetask.ContinuousBatchTaskStatusFetcher;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -100,6 +101,7 @@ public class SectionExecutionFactory
     private final SplitSchedulerStats schedulerStats;
     private final NodeScheduler nodeScheduler;
     private final int splitBatchSize;
+    private final ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher;
 
     @Inject
     public SectionExecutionFactory(
@@ -111,7 +113,8 @@ public class SectionExecutionFactory
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
             NodeScheduler nodeScheduler,
-            QueryManagerConfig queryManagerConfig)
+            QueryManagerConfig queryManagerConfig,
+            ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher)
     {
         this(
                 metadata,
@@ -122,7 +125,8 @@ public class SectionExecutionFactory
                 failureDetector,
                 schedulerStats,
                 nodeScheduler,
-                requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize());
+                requireNonNull(queryManagerConfig, "queryManagerConfig is null").getScheduleSplitBatchSize(),
+                continuousBatchTaskStatusFetcher);
     }
 
     public SectionExecutionFactory(
@@ -134,7 +138,8 @@ public class SectionExecutionFactory
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
             NodeScheduler nodeScheduler,
-            int splitBatchSize)
+            int splitBatchSize,
+            ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
@@ -145,6 +150,7 @@ public class SectionExecutionFactory
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
         this.splitBatchSize = splitBatchSize;
+        this.continuousBatchTaskStatusFetcher = requireNonNull(continuousBatchTaskStatusFetcher, "continuousBatchTaskStatusFetcher is null");
     }
 
     /**
@@ -209,7 +215,8 @@ public class SectionExecutionFactory
                 executor,
                 failureDetector,
                 schedulerStats,
-                tableWriteInfo);
+                tableWriteInfo,
+                continuousBatchTaskStatusFetcher);
 
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
         List<RemoteSourceNode> remoteSourceNodes = plan.getFragment().getRemoteSourceNodes();
