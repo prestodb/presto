@@ -15,6 +15,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -22,7 +24,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -51,13 +52,11 @@ public class TestDynamicFilter
         assertPlan(
                 "SELECT o.orderkey FROM orders o LEFT JOIN lineitem l ON l.orderkey = o.orderkey",
                 anyTree(
-                        join(LEFT,
+                        join(
+                                LEFT,
                                 ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                project(
-                                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
-                                exchange(
-                                        project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+                                project(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                                exchange(project(tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
     }
 
     @Test
@@ -66,10 +65,10 @@ public class TestDynamicFilter
         assertPlan(
                 "SELECT o.orderkey FROM orders o CROSS JOIN lineitem l",
                 anyTree(
-                        join(INNER, ImmutableList.of(),
+                        join(
+                                INNER, ImmutableList.of(),
                                 tableScan("orders"),
-                                exchange(
-                                        tableScan("lineitem")))));
+                                exchange(tableScan("lineitem")))));
     }
 
     @Test
@@ -78,12 +77,50 @@ public class TestDynamicFilter
         assertPlan(
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                any(
-                                        node(FilterNode.class,
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                ImmutableMap.of("ORDERS_OK", "LINEITEM_OK"),
+                                Optional.empty(),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                exchange(
+                                        project(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+    }
+
+    @Test
+    public void testJoinOnCast()
+    {
+        assertPlan(
+                "SELECT o.orderkey FROM orders o, lineitem l WHERE cast(l.orderkey as int) = cast(o.orderkey as int)",
+                anyTree(
+                        node(
+                                JoinNode.class,
+                                anyTree(
+                                        node(
+                                                FilterNode.class,
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+    }
+
+    @Test
+    public void testJoinMultipleEquiJoinClauses()
+    {
+        assertPlan(
+                "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey AND l.partkey = o.custkey",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(
+                                        equiJoinClause("ORDERS_OK", "LINEITEM_OK"),
+                                        equiJoinClause("ORDERS_CK", "LINEITEM_PK")),
+                                ImmutableMap.of("ORDERS_OK", "LINEITEM_OK", "ORDERS_CK", "LINEITEM_PK"),
+                                Optional.empty(),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey", "ORDERS_CK", "custkey")),
+                                exchange(
+                                        project(
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_PK", "partkey")))))));
     }
 
     @Test
@@ -92,23 +129,40 @@ public class TestDynamicFilter
         assertPlan(
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey ORDER BY l.orderkey ASC, o.orderkey ASC",
                 anyTree(
-                        join(INNER, ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                                any(
-                                        node(FilterNode.class,
-                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))),
-                                anyTree(
-                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                ImmutableMap.of("ORDERS_OK", "LINEITEM_OK"),
+                                Optional.empty(),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                exchange(
+                                        project(tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
     }
 
     @Test
     public void testUncorrelatedSubqueries()
     {
         assertPlan(
+                "SELECT * FROM orders WHERE orderkey = (SELECT orderkey FROM lineitem ORDER BY orderkey LIMIT 1)",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("X", "Y")),
+                                ImmutableMap.of("X", "Y"),
+                                Optional.empty(),
+                                tableScan("orders", ImmutableMap.of("X", "orderkey")),
+                                project(node(EnforceSingleRowNode.class, anyTree(tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
+
+        assertPlan(
                 "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
                 anyTree(
-                        filter("S",
+                        filter(
+                                "S",
                                 project(
-                                        semiJoin("X", "Y", "S",
+                                        semiJoin(
+                                                "X",
+                                                "Y",
+                                                "S",
                                                 anyTree(
                                                         tableScan("orders", ImmutableMap.of("X", "orderkey"))),
                                                 anyTree(
@@ -117,13 +171,15 @@ public class TestDynamicFilter
         assertPlan(
                 "SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM lineitem WHERE linenumber < 0)",
                 anyTree(
-                        filter("NOT S",
+                        filter(
+                                "NOT S",
                                 project(
-                                        semiJoin("X", "Y", "S",
-                                                anyTree(
-                                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))),
-                                                anyTree(
-                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
+                                        semiJoin(
+                                                "X",
+                                                "Y",
+                                                "S",
+                                                anyTree(tableScan("orders", ImmutableMap.of("X", "orderkey"))),
+                                                anyTree(tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
     }
 
     @Test
@@ -132,8 +188,10 @@ public class TestDynamicFilter
         assertPlan(
                 "SELECT 1 FROM orders o JOIN lineitem l ON o.shippriority = l.linenumber AND o.orderkey < l.orderkey",
                 anyTree(
-                        anyNot(FilterNode.class,
-                                join(INNER,
+                        anyNot(
+                                FilterNode.class,
+                                join(
+                                        INNER,
                                         ImmutableList.of(equiJoinClause("O_SHIPPRIORITY", "L_LINENUMBER")),
                                         Optional.of("O_ORDERKEY < L_ORDERKEY"),
                                         anyTree(tableScan("orders", ImmutableMap.of(
@@ -142,5 +200,45 @@ public class TestDynamicFilter
                                         anyTree(tableScan("lineitem", ImmutableMap.of(
                                                 "L_LINENUMBER", "linenumber",
                                                 "L_ORDERKEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testSubTreeJoinDFOnProbeSide()
+    {
+        assertPlan(
+                "SELECT part.partkey from part JOIN (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) ON part.partkey = lineitem.orderkey",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("PART_PK", "LINEITEM_OK")),
+                                ImmutableMap.of("PART_PK", "LINEITEM_OK"),
+                                Optional.empty(),
+                                tableScan("part", ImmutableMap.of("PART_PK", "partkey")),
+                                anyTree(
+                                        join(
+                                                INNER,
+                                                ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
+                                                ImmutableMap.of("LINEITEM_OK", "ORDERS_OK"),
+                                                Optional.empty(),
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")),
+                                                exchange(project(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))))));
+    }
+
+    @Test
+    public void testSubTreeJoinDFOnBuildSide()
+    {
+        assertPlan(
+                "SELECT part.partkey from (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) JOIN part ON lineitem.orderkey = part.partkey",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("LINEITEM_OK", "PART_PK")),
+                                join(
+                                        INNER,
+                                        ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
+                                        anyTree(node(FilterNode.class, tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))),
+                                        anyTree(node(FilterNode.class, tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))),
+                                exchange(
+                                        project(tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))));
     }
 }

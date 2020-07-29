@@ -16,16 +16,22 @@ package com.facebook.presto.sql.planner.assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.expressions.DynamicFilters;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.facebook.presto.sql.tree.Expression;
 import com.google.common.base.Joiner;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -41,18 +47,20 @@ public class DynamicFilterMatcher
     private final Map<SymbolAlias, SymbolAlias> expectedDynamicFilters;
     private final Map<String, String> joinExpectedMappings;
     private final Map<String, String> filterExpectedMappings;
+    private final Optional<Expression> expectedStaticFilter;
 
     private JoinNode joinNode;
     private SymbolAliases symbolAliases;
     private FilterNode filterNode;
 
-    public DynamicFilterMatcher(Map<SymbolAlias, SymbolAlias> expectedDynamicFilters)
+    public DynamicFilterMatcher(Map<SymbolAlias, SymbolAlias> expectedDynamicFilters, Optional<Expression> expectedStaticFilter)
     {
         this.expectedDynamicFilters = requireNonNull(expectedDynamicFilters, "expectedDynamicFilters is null");
         this.joinExpectedMappings = expectedDynamicFilters.values().stream()
                 .collect(toImmutableMap(rightSymbol -> rightSymbol.toString() + "_alias", SymbolAlias::toString));
         this.filterExpectedMappings = expectedDynamicFilters.entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> entry.getValue().toString() + "_alias"));
+        this.expectedStaticFilter = requireNonNull(expectedStaticFilter, "expectedStaticFilter is null");
     }
 
     public MatchResult match(JoinNode joinNode, SymbolAliases symbolAliases)
@@ -63,12 +71,23 @@ public class DynamicFilterMatcher
         return new MatchResult(match());
     }
 
-    public MatchResult match(FilterNode filterNode, SymbolAliases symbolAliases)
+    private MatchResult match(FilterNode filterNode, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
         checkState(this.filterNode == null, "filterNode must be null at this point");
         this.filterNode = filterNode;
         this.symbolAliases = symbolAliases;
-        return new MatchResult(match());
+
+        LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
+                new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
+                new FunctionResolution(metadata.getFunctionManager()),
+                metadata.getFunctionManager());
+        boolean staticFilterMatches = expectedStaticFilter.map(filter -> {
+            RowExpressionVerifier verifier = new RowExpressionVerifier(symbolAliases, metadata, session);
+            RowExpression staticFilter = logicalRowExpressions.combineConjuncts(extractDynamicFilters(filterNode.getPredicate()).getStaticConjuncts());
+            return verifier.process(filter, staticFilter);
+        }).orElse(true);
+
+        return new MatchResult(match() && staticFilterMatches);
     }
 
     private boolean match()
@@ -93,7 +112,7 @@ public class DynamicFilterMatcher
             return false;
         }
 
-        Map<VariableReferenceExpression, VariableReferenceExpression> actual = new HashMap<>();
+        Map<Symbol, Symbol> actual = new HashMap<>();
         for (Map.Entry<String, VariableReferenceExpression> idToProbeSymbol : idToProbeSymbolMap.entrySet()) {
             String id = idToProbeSymbol.getKey();
             VariableReferenceExpression probe = idToProbeSymbol.getValue();
@@ -101,7 +120,7 @@ public class DynamicFilterMatcher
             if (build == null) {
                 return false;
             }
-            actual.put(probe, build);
+            actual.put(new Symbol(probe.getName()), new Symbol(build.getName()));
         }
 
         Map<Symbol, Symbol> expected = expectedDynamicFilters.entrySet().stream()
@@ -122,7 +141,7 @@ public class DynamicFilterMatcher
         if (!(node instanceof FilterNode)) {
             return new MatchResult(false);
         }
-        return match((FilterNode) node, symbolAliases);
+        return match((FilterNode) node, session, metadata, symbolAliases);
     }
 
     public Map<String, String> getJoinExpectedMappings()
@@ -138,7 +157,8 @@ public class DynamicFilterMatcher
                         .map(entry -> entry.getKey() + " = " + entry.getValue())
                         .collect(toImmutableList()));
         return toStringHelper(this)
-                .add("predicate", predicate)
+                .add("dynamicPredicate", predicate)
+                .add("staticPredicate", expectedStaticFilter)
                 .toString();
     }
 }
