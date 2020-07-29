@@ -306,6 +306,7 @@ public class ServerMainModule
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
         binder.bind(ContinuousBatchTaskStatusFetcher.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ContinuousBatchTaskStatusFetcher.class).withGeneratedName();
 
         // memory revoking scheduler
         binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);

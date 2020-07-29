@@ -154,7 +154,8 @@ public class HttpRemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher)
     {
         return new HttpRemoteTask(
                 session,
@@ -182,6 +183,7 @@ public class HttpRemoteTaskFactory
                 stats,
                 isBinaryTransportEnabled,
                 tableWriteInfo,
-                maxTaskUpdateSizeInBytes);
+                maxTaskUpdateSizeInBytes,
+                continuousBatchTaskStatusFetcher);
     }
 }

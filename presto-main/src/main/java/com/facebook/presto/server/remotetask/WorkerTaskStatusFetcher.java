@@ -76,6 +76,7 @@ class WorkerTaskStatusFetcher
     private final BatchRequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
     private final boolean isBinaryTransportEnabled;
+    private final String sessionId;
 
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
@@ -95,7 +96,8 @@ class WorkerTaskStatusFetcher
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
-            boolean isBinaryTransportEnabled)
+            boolean isBinaryTransportEnabled,
+            String sessionId)
     {
         this.worker = worker;
         idTaskMap = new ConcurrentHashMap<>();
@@ -116,6 +118,8 @@ class WorkerTaskStatusFetcher
                 "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;
+
+        this.sessionId = sessionId;
     }
 
     public void addTask(ContinuousBatchTaskStatusFetcher.Task task)
@@ -137,7 +141,7 @@ class WorkerTaskStatusFetcher
     {
         URI uri;
         try {
-            uri = uriBuilderFrom(new URI(worker)).appendPath("/tasks/status").build();
+            uri = uriBuilderFrom(new URI(worker)).appendPath("v1/task/status?session_id=" + sessionId).build();
         }
         catch (URISyntaxException e) {
             uri = null;

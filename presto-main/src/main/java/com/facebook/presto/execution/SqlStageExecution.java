@@ -22,6 +22,7 @@ import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.RemoteTransactionHandle;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.server.remotetask.ContinuousBatchTaskStatusFetcher;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -35,6 +36,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -133,6 +135,9 @@ public final class SqlStageExecution
 
     @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
+
+    @Inject
+    private ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher; // Is @Inject the right way to get injected instance?
 
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,
@@ -506,7 +511,8 @@ public final class SqlStageExecution
                 outputBuffers,
                 nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
                 summarizeTaskInfo,
-                tableWriteInfo);
+                tableWriteInfo,
+                continuousBatchTaskStatusFetcher);
 
         completeSources.forEach(task::noMoreSplits);
 

@@ -75,7 +75,6 @@ public class ContinuousBatchTaskStatusFetcher
 
     @Inject
     public ContinuousBatchTaskStatusFetcher(
-            Consumer<Throwable> onFail,
             @ForScheduler HttpClient httpClient,
             ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
@@ -86,7 +85,7 @@ public class ContinuousBatchTaskStatusFetcher
         idWorkerMap = new ConcurrentHashMap<>();
         workerTaskMap = new ConcurrentHashMap<>();
 
-        this.onFail = requireNonNull(onFail, "onFail is null");
+        this.onFail = this::failTask;
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
         ExecutorService coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
@@ -99,6 +98,11 @@ public class ContinuousBatchTaskStatusFetcher
         this.errorScheduledExecutor = requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
         this.stats = requireNonNull(stats, "stats is null");
         isBinaryTransportEnabled = requireNonNull(communicationConfig, "communicationConfig is null").isBinaryTransportEnabled();
+    }
+
+    private void failTask(Throwable cause)
+    {
+        // Dummy method for onFail
     }
 
     public void addTask(
@@ -128,7 +132,8 @@ public class ContinuousBatchTaskStatusFetcher
                             maxErrorDuration,
                             errorScheduledExecutor,
                             stats,
-                            isBinaryTransportEnabled));
+                            isBinaryTransportEnabled,
+                            Integer.toString(worker.hashCode())));
             scheduleNextRequest(workerTaskMap.get(worker));
         }
         workerTaskMap.get(worker).addTask(newTask);
