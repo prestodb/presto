@@ -161,6 +161,7 @@ public class FeaturesConfig
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
     private boolean pushdownDereferenceEnabled;
+    private boolean inlineSqlFunctions = true;
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -1383,6 +1384,18 @@ public class FeaturesConfig
     public FeaturesConfig setWarnOnNoTableLayoutFilter(String warnOnNoTableLayoutFilter)
     {
         this.warnOnNoTableLayoutFilter = warnOnNoTableLayoutFilter;
+        return this;
+    }
+
+    public boolean isInlineSqlFunctions()
+    {
+        return inlineSqlFunctions;
+    }
+
+    @Config("inline-sql-functions")
+    public FeaturesConfig setInlineSqlFunctions(boolean inlineSqlFunctions)
+    {
+        this.inlineSqlFunctions = inlineSqlFunctions;
         return this;
     }
 }
