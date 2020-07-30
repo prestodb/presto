@@ -313,10 +313,10 @@ public class PrestoSparkTaskExecutorFactory
                 allocationTrackingEnabled,
                 false);
 
-        ImmutableMap.Builder<PlanNodeId, List<scala.collection.Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>>> rowInputs = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputs = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputs = ImmutableMap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
-            List<scala.collection.Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> remoteSourceRowInputs = new ArrayList<>();
+            List<PrestoSparkShuffleInput> remoteSourceRowInputs = new ArrayList<>();
             List<java.util.Iterator<PrestoSparkSerializedPage>> remoteSourcePageInputs = new ArrayList<>();
             for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
                 Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
@@ -326,7 +326,7 @@ public class PrestoSparkTaskExecutorFactory
                 if (shuffleInput != null) {
                     checkArgument(broadcastInput == null, "single remote source is not expected to accept different kind of inputs");
                     checkArgument(inMemoryInput == null, "single remote source is not expected to accept different kind of inputs");
-                    remoteSourceRowInputs.add(shuffleInput);
+                    remoteSourceRowInputs.add(new PrestoSparkShuffleInput(sourceFragmentId.getId(), shuffleInput));
                     continue;
                 }
 
@@ -348,7 +348,7 @@ public class PrestoSparkTaskExecutorFactory
                 throw new IllegalArgumentException("Input not found for sourceFragmentId: " + sourceFragmentId);
             }
             if (!remoteSourceRowInputs.isEmpty()) {
-                rowInputs.put(remoteSource.getId(), remoteSourceRowInputs);
+                shuffleInputs.put(remoteSource.getId(), remoteSourceRowInputs);
             }
             if (!remoteSourcePageInputs.isEmpty()) {
                 pageInputs.put(remoteSource.getId(), remoteSourcePageInputs);
@@ -372,7 +372,7 @@ public class PrestoSparkTaskExecutorFactory
                 output.getOutputFactory(),
                 new PrestoSparkRemoteSourceFactory(
                         pagesSerde,
-                        rowInputs.build(),
+                        shuffleInputs.build(),
                         pageInputs.build()),
                 taskDescriptor.getTableWriteInfo(),
                 true);
