@@ -17,9 +17,9 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.google.common.collect.ImmutableList;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -38,6 +38,7 @@ import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -54,13 +55,11 @@ public class TestQueryResource
             throws Exception
     {
         client = new JettyHttpClient();
-        server = new TestingPrestoServer(
-                true,
-                ImmutableMap.of("query.client.timeout", "10s"),
-                "testing",
-                null,
-                new SqlParserOptions(),
-                ImmutableList.of());
+        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "10s"));
+        server = runner.getCoordinator();
+        server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+        server.getResourceGroupManager().get()
+                .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
     @AfterClass(alwaysRun = true)
@@ -79,33 +78,40 @@ public class TestQueryResource
         runToCompletion("SELECT 1");
         runToCompletion("SELECT 2");
         runToCompletion("SELECT x FROM y");
+        runToFirstResult("SELECT * from tpch.sf100.orders");
+        runToFirstResult("SELECT * from tpch.sf100.orders");
+        runToFirstResult("SELECT * from tpch.sf100.orders");
         runToQueued("SELECT 3");
 
         // Sleep to allow query to make some progress
         sleep(SECONDS.toMillis(5));
 
         List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
-        assertEquals(infos.size(), 4);
-        assertStateCounts(infos, 2, 1, 1);
+        assertEquals(infos.size(), 7);
+        assertStateCounts(infos, 2, 1, 3, 1);
 
         infos = getQueryInfos("/v1/query?state=finished");
         assertEquals(infos.size(), 2);
-        assertStateCounts(infos, 2, 0, 0);
+        assertStateCounts(infos, 2, 0, 0, 0);
 
         infos = getQueryInfos("/v1/query?state=failed");
         assertEquals(infos.size(), 1);
-        assertStateCounts(infos, 0, 1, 0);
+        assertStateCounts(infos, 0, 1, 0, 0);
 
         infos = getQueryInfos("/v1/query?state=running");
+        assertEquals(infos.size(), 3);
+        assertStateCounts(infos, 0, 0, 3, 0);
+
+        infos = getQueryInfos("/v1/query?state=queued");
         assertEquals(infos.size(), 1);
-        assertStateCounts(infos, 0, 0, 1);
+        assertStateCounts(infos, 0, 0, 0, 1);
 
         // Sleep to trigger client query expiration
         sleep(SECONDS.toMillis(10));
 
         infos = getQueryInfos("/v1/query?state=failed");
-        assertEquals(infos.size(), 2);
-        assertStateCounts(infos, 0, 2, 0);
+        assertEquals(infos.size(), 5);
+        assertStateCounts(infos, 0, 5, 0, 0);
     }
 
     private List<BasicQueryInfo> getQueryInfos(String path)
@@ -119,6 +125,15 @@ public class TestQueryResource
         URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
         QueryResults queryResults = postQuery(sql, uri);
         while (queryResults.getNextUri() != null) {
+            queryResults = getQueryResults(queryResults);
+        }
+    }
+
+    private void runToFirstResult(String sql)
+    {
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
+        QueryResults queryResults = postQuery(sql, uri);
+        while (queryResults.getData() == null) {
             queryResults = getQueryResults(queryResults);
         }
     }
@@ -153,11 +168,12 @@ public class TestQueryResource
         return queryResults;
     }
 
-    private void assertStateCounts(List<BasicQueryInfo> infos, int expectedFinished, int expectedFailed, int expectedRunning)
+    private void assertStateCounts(List<BasicQueryInfo> infos, int expectedFinished, int expectedFailed, int expectedRunning, int expectedQueued)
     {
         int failed = 0;
         int finished = 0;
         int running = 0;
+        int queued = 0;
         for (BasicQueryInfo info : infos) {
             switch (info.getState()) {
                 case FINISHED:
@@ -169,6 +185,9 @@ public class TestQueryResource
                 case RUNNING:
                     running++;
                     break;
+                case QUEUED:
+                    queued++;
+                    break;
                 default:
                     fail("Unexpected query state " + info.getState());
             }
@@ -176,5 +195,11 @@ public class TestQueryResource
         assertEquals(failed, expectedFailed);
         assertEquals(finished, expectedFinished);
         assertEquals(running, expectedRunning);
+        assertEquals(queued, expectedQueued);
+    }
+
+    private String getResourceFilePath(String fileName)
+    {
+        return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 }
