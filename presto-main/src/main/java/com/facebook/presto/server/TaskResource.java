@@ -61,6 +61,7 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -192,6 +193,22 @@ public class TaskResource
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskInfo, responseExecutor)
                 .withTimeout(timeout);
+    }
+
+    //Batch Endpoint
+    @GET
+    @Path("status")
+    @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
+    public void getAllTaskStatus(
+            @Context UriInfo uriInfo,
+            @Suspended AsyncResponse asyncResponse)
+    {
+        String session = getSession(uriInfo);
+
+        Map<TaskId, TaskStatus> allTaskStatus = taskManager.getAllTaskStatus("abc");
+        asyncResponse.resume(allTaskStatus);
+        return;
     }
 
     @GET
@@ -364,5 +381,10 @@ public class TaskResource
     private static boolean shouldSummarize(UriInfo uriInfo)
     {
         return uriInfo.getQueryParameters().containsKey("summarize");
+    }
+
+    private static String getSession(UriInfo uriInfo)
+    {
+        return uriInfo.getQueryParameters().getFirst("session");
     }
 }
