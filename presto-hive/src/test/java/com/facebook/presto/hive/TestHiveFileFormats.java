@@ -835,7 +835,7 @@ public class TestHiveFileFormats
         HiveErrorCode expectedErrorCode = HIVE_PARTITION_SCHEMA_MISMATCH;
         String expectedMessageRowLongNest = "The column column_name of table schema.table is declared as type map<string,struct<s_double:int,s_int:int>>, but the Parquet file ((.*?)) declares the column as type optional group column_name \\(MAP\\) \\{\n" +
                 "  repeated group map \\(MAP_KEY_VALUE\\) \\{\n" +
-                "    required binary key \\(UTF8\\);\n" +
+                "    required binary key \\(STRING\\);\n" +
                 "    optional group value \\{\n" +
                 "      optional int32 s_int;\n" +
                 "      optional double s_double;\n" +
