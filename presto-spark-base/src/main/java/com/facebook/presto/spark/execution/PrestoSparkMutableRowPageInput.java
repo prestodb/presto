@@ -20,8 +20,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
-import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import scala.Tuple2;
 import scala.collection.Iterator;
@@ -31,6 +31,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.nio.ByteBuffer;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
@@ -39,7 +40,7 @@ public class PrestoSparkMutableRowPageInput
 {
     private static final int TARGET_SIZE = 1024 * 1024;
     private static final int BUFFER_SIZE = (int) (TARGET_SIZE * 1.2f);
-    private static final int MAX_ROWS_PER_ZERO_COLUMN_PAGE = 10_000;
+    private static final int MAX_ROWS_PER_PAGE = 20_000;
 
     private final List<Type> types;
     @GuardedBy("this")
@@ -56,46 +57,13 @@ public class PrestoSparkMutableRowPageInput
     @Override
     public Page getNextPage()
     {
-        // zero columns page
-        if (types.isEmpty()) {
-            int rowCount = 0;
-            synchronized (this) {
-                while (true) {
-                    if (currentIteratorIndex >= rowIterators.size()) {
-                        break;
-                    }
-                    if (rowCount >= MAX_ROWS_PER_ZERO_COLUMN_PAGE) {
-                        break;
-                    }
-                    Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> currentIterator = rowIterators.get(currentIteratorIndex);
-                    if (currentIterator.hasNext()) {
-                        currentIterator.next();
-                        rowCount++;
-                    }
-                    else {
-                        currentIteratorIndex++;
-                    }
-                }
-            }
-            if (rowCount == 0) {
-                return null;
-            }
-            return new Page(rowCount);
-        }
-
-        SliceOutput output = new DynamicSliceOutput(BUFFER_SIZE);
+        SliceOutput output = new DynamicSliceOutput(types.isEmpty() ? 0 : BUFFER_SIZE);
         int rowCount = 0;
         synchronized (this) {
-            while (true) {
-                if (currentIteratorIndex >= rowIterators.size()) {
-                    break;
-                }
-                if (output.size() >= TARGET_SIZE) {
-                    break;
-                }
-                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> currentIterator = rowIterators.get(currentIteratorIndex);
-                if (currentIterator.hasNext()) {
-                    PrestoSparkMutableRow row = currentIterator.next()._2;
+            while (currentIteratorIndex < rowIterators.size()) {
+                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> iterator = rowIterators.get(currentIteratorIndex);
+                while (iterator.hasNext() && output.size() <= TARGET_SIZE && rowCount <= MAX_ROWS_PER_PAGE) {
+                    PrestoSparkMutableRow row = iterator.next()._2;
                     if (row.getBuffer() != null) {
                         ByteBuffer buffer = row.getBuffer();
                         output.writeBytes(buffer.array(), buffer.arrayOffset() + buffer.position(), buffer.remaining());
@@ -108,23 +76,34 @@ public class PrestoSparkMutableRowPageInput
                     }
                     rowCount++;
                 }
-                else {
+                if (!iterator.hasNext()) {
                     currentIteratorIndex++;
+                }
+                else {
+                    break;
                 }
             }
         }
-
         if (rowCount == 0) {
             return null;
         }
+        return createPage(rowCount, output.slice().getInput(), types);
+    }
 
-        SliceInput sliceInput = output.slice().getInput();
+    private static Page createPage(int rowCount, BasicSliceInput input, List<Type> types)
+    {
+        checkArgument(rowCount > 0, "rowCount must be greater than zero: %s", rowCount);
+        if (input.length() == 0) {
+            // zero column page
+            verify(types.isEmpty(), "types is expected to be empty");
+            return new Page(rowCount);
+        }
         PageBuilder pageBuilder = new PageBuilder(types);
-        while (sliceInput.isReadable()) {
+        while (input.isReadable()) {
             pageBuilder.declarePosition();
             for (int channel = 0; channel < types.size(); channel++) {
                 BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(channel);
-                blockBuilder.readPositionFrom(sliceInput);
+                blockBuilder.readPositionFrom(input);
             }
         }
         Page page = pageBuilder.build();
