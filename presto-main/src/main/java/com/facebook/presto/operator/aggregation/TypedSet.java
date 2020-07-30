@@ -22,6 +22,8 @@ import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.util.Optional;
+
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
@@ -40,12 +42,12 @@ public class TypedSet
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TypedSet.class).instanceSize();
     private static final int INT_ARRAY_LIST_INSTANCE_SIZE = ClassLayout.parseClass(IntArrayList.class).instanceSize();
     private static final float FILL_RATIO = 0.75f;
-    static final long FOUR_MEGABYTES = MAX_FUNCTION_MEMORY.toBytes();
 
     private final Type elementType;
     private final IntArrayList blockPositionByHash;
     private final BlockBuilder elementBlock;
     private final String functionName;
+    private final long maxBlockMemoryInBytes;
 
     private int initialElementBlockOffset;
     private long initialElementBlockSizeInBytes;
@@ -66,10 +68,16 @@ public class TypedSet
 
     public TypedSet(Type elementType, BlockBuilder blockBuilder, int expectedSize, String functionName)
     {
+        this(elementType, blockBuilder, expectedSize, functionName, Optional.of(MAX_FUNCTION_MEMORY));
+    }
+
+    public TypedSet(Type elementType, BlockBuilder blockBuilder, int expectedSize, String functionName, Optional<DataSize> maxBlockMemory)
+    {
         checkArgument(expectedSize >= 0, "expectedSize must not be negative");
         this.elementType = requireNonNull(elementType, "elementType must not be null");
         this.elementBlock = requireNonNull(blockBuilder, "blockBuilder must not be null");
         this.functionName = functionName;
+        this.maxBlockMemoryInBytes = requireNonNull(maxBlockMemory, "maxBlockMemory must not be null").map(value -> value.toBytes()).orElse(Long.MAX_VALUE);
 
         initialElementBlockOffset = elementBlock.getPositionCount();
         initialElementBlockSizeInBytes = elementBlock.getSizeInBytes();
@@ -173,12 +181,12 @@ public class TypedSet
     private void addNewElement(int hashPosition, Block block, int position)
     {
         elementType.appendTo(block, position, elementBlock);
-        if (elementBlock.getSizeInBytes() - initialElementBlockSizeInBytes > FOUR_MEGABYTES) {
+        if (elementBlock.getSizeInBytes() - initialElementBlockSizeInBytes > maxBlockMemoryInBytes) {
             throw new PrestoException(
                     EXCEEDED_FUNCTION_MEMORY_LIMIT,
                     format("The input to %s is too large. More than %s of memory is needed to hold the intermediate hash set.\n",
-                            functionName,
-                            MAX_FUNCTION_MEMORY));
+                           functionName,
+                           MAX_FUNCTION_MEMORY));
         }
         blockPositionByHash.set(hashPosition, elementBlock.getPositionCount() - 1);
 
