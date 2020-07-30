@@ -42,10 +42,10 @@ import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 
-public class TestDereferencePushDown
+public class TestPushDownDereferences
         extends BasePlanTest
 {
-    public TestDereferencePushDown()
+    public TestPushDownDereferences()
     {
         super(ImmutableMap.of(PUSHDOWN_SUBFIELDS_ENABLED, "true", PUSHDOWN_DEREFERENCE_ENABLED, "true"));
     }
