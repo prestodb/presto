@@ -366,14 +366,7 @@ public class PlanOptimizers
                                 new InlineProjections(metadata.getFunctionManager()),
                                 new RemoveRedundantIdentityProjections(),
                                 new TransformCorrelatedSingleRowSubqueryToProject())),
-                new CheckSubqueryNodesAreRewritten(),
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.<Rule<?>>builder()
-                                .addAll(new PushDownDereferences(metadata, sqlParser).rules())
-                                .build()));
+                new CheckSubqueryNodesAreRewritten());
 
         // TODO: move this before optimization if possible!!
         // Replace all expressions with row expressions
@@ -440,6 +433,15 @@ public class PlanOptimizers
                         ImmutableSet.of(new EliminateCrossJoins())),
                 predicatePushDown,
                 simplifyRowExpressionOptimizer); // Should always run simplifyOptimizer after predicatePushDown
+
+        builder.add(new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(new PushDownDereferences(metadata).rules())
+                                .build()),
+                    new PruneUnreferencedOutputs());
 
         builder.add(new IterativeOptimizer(
                 ruleStats,
