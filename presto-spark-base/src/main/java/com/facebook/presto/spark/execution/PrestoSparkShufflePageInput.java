@@ -35,7 +35,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoSparkMutableRowPageInput
+public class PrestoSparkShufflePageInput
         implements PrestoSparkPageInput
 {
     private static final int TARGET_SIZE = 1024 * 1024;
@@ -44,14 +44,14 @@ public class PrestoSparkMutableRowPageInput
 
     private final List<Type> types;
     @GuardedBy("this")
-    private final List<Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> rowIterators;
+    private final List<PrestoSparkShuffleInput> shuffleInputs;
     @GuardedBy("this")
     private int currentIteratorIndex;
 
-    public PrestoSparkMutableRowPageInput(List<Type> types, List<Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> rowIterators)
+    public PrestoSparkShufflePageInput(List<Type> types, List<PrestoSparkShuffleInput> shuffleInputs)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.rowIterators = requireNonNull(rowIterators, "rowIterators is null");
+        this.shuffleInputs = ImmutableList.copyOf(requireNonNull(shuffleInputs, "shuffleInputs is null"));
     }
 
     @Override
@@ -60,8 +60,9 @@ public class PrestoSparkMutableRowPageInput
         SliceOutput output = new DynamicSliceOutput(types.isEmpty() ? 0 : BUFFER_SIZE);
         int rowCount = 0;
         synchronized (this) {
-            while (currentIteratorIndex < rowIterators.size()) {
-                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> iterator = rowIterators.get(currentIteratorIndex);
+            while (currentIteratorIndex < shuffleInputs.size()) {
+                PrestoSparkShuffleInput input = shuffleInputs.get(currentIteratorIndex);
+                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> iterator = input.getIterator();
                 while (iterator.hasNext() && output.size() <= TARGET_SIZE && rowCount <= MAX_ROWS_PER_PAGE) {
                     PrestoSparkMutableRow row = iterator.next()._2;
                     if (row.getBuffer() != null) {
