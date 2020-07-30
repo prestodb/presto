@@ -2,6 +2,10 @@
 Release 0.238
 =============
 
+.. warning::
+
+   There is a bug in this release that will cause certain queries with lambda expressions to fail.
+
 **Highlights**
 ==============
 * Fix SQL function parameters to be case-insensitive.
