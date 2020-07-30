@@ -100,6 +100,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.collect.Iterables.getFirst;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
@@ -263,11 +264,15 @@ public class PrestoSparkTaskExecutorFactory
 
         List<TaskSource> taskSources = getTaskSources(serializedTaskSources);
 
-        log.info("Task [%s] received %d splits.",
+        log.info("Task [%s] received %d splits, total size is %s.",
                 taskId,
                 taskSources.stream()
                         .mapToInt(taskSource -> taskSource.getSplits().size())
-                        .sum());
+                        .sum(),
+                succinctBytes(taskSources.stream()
+                        .flatMap(taskSource -> taskSource.getSplits().stream())
+                        .mapToLong(split -> split.getSplit().getConnectorSplit().getSplitSizeInBytes().orElse(0))
+                        .sum()));
 
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("spark-executor-memory-pool"), maxTotalMemory);
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillMemory);
