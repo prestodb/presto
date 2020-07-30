@@ -14,6 +14,7 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
@@ -23,8 +24,10 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -52,6 +55,9 @@ public class PageSourceManager
     {
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
+
+        // TODO: push the tuple domain to underlying connectors
+        Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter = table.getDynamicFilter();
 
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
         if (table.getLayout().isPresent()) {

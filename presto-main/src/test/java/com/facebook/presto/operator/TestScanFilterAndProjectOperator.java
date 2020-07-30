@@ -126,6 +126,7 @@ public class TestScanFilterAndProjectOperator
                 TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(VARCHAR),
+                Optional.empty(),
                 new DataSize(0, BYTE),
                 0);
 
@@ -170,6 +171,7 @@ public class TestScanFilterAndProjectOperator
                 TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(BIGINT),
+                Optional.empty(),
                 new DataSize(64, KILOBYTE),
                 2);
 
@@ -214,6 +216,7 @@ public class TestScanFilterAndProjectOperator
                 TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(BIGINT),
+                Optional.empty(),
                 new DataSize(0, BYTE),
                 0);
 
@@ -252,6 +255,7 @@ public class TestScanFilterAndProjectOperator
                 TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(BIGINT),
+                Optional.empty(),
                 new DataSize(0, BYTE),
                 0);
 
@@ -296,6 +300,7 @@ public class TestScanFilterAndProjectOperator
                 TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(VARCHAR),
+                Optional.empty(),
                 new DataSize(0, BYTE),
                 0);
 
@@ -349,6 +354,7 @@ public class TestScanFilterAndProjectOperator
                 TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(BIGINT),
+                Optional.empty(),
                 new DataSize(0, BYTE),
                 0);
 
@@ -416,6 +422,7 @@ public class TestScanFilterAndProjectOperator
                 TESTING_TABLE_HANDLE,
                 ImmutableList.of(),
                 ImmutableList.of(BIGINT),
+                Optional.empty(),
                 new DataSize(0, BYTE),
                 0);
 
