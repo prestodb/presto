@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,6 +34,9 @@ public final class TableHandle
     // TODO remove table layout once it is fully deprecated.
     private final Optional<ConnectorTableLayoutHandle> layout;
 
+    // This is not serializable; for local execution only
+    private final Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter;
+
     @JsonCreator
     public TableHandle(
             @JsonProperty("connectorId") ConnectorId connectorId,
@@ -39,10 +44,21 @@ public final class TableHandle
             @JsonProperty("transaction") ConnectorTransactionHandle transaction,
             @JsonProperty("connectorTableLayout") Optional<ConnectorTableLayoutHandle> layout)
     {
+        this(connectorId, connectorHandle, transaction, layout, Optional.empty());
+    }
+
+    public TableHandle(
+            ConnectorId connectorId,
+            ConnectorTableHandle connectorHandle,
+            ConnectorTransactionHandle transaction,
+            Optional<ConnectorTableLayoutHandle> layout,
+            Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter)
+    {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.layout = requireNonNull(layout, "layout is null");
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
     }
 
     @JsonProperty
@@ -67,6 +83,20 @@ public final class TableHandle
     public Optional<ConnectorTableLayoutHandle> getLayout()
     {
         return layout;
+    }
+
+    public Optional<Supplier<TupleDomain<ColumnHandle>>> getDynamicFilter()
+    {
+        return dynamicFilter;
+    }
+
+    public TableHandle withDynamicFilter(Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+    {
+        requireNonNull(dynamicFilter, "dynamicFilter is null");
+        if (this.dynamicFilter.isPresent()) {
+            throw new RuntimeException("dynamicFilter already exists");
+        }
+        return new TableHandle(connectorId, connectorHandle, transaction, layout, Optional.of(dynamicFilter));
     }
 
     @Override
