@@ -167,6 +167,7 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
+    public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -869,7 +870,12 @@ public final class SystemSessionProperties
                         LEGACY_TYPE_COERCION_WARNING_ENABLED,
                         "Enable warning for query relying on legacy type coercion",
                         featuresConfig.isLegacyDateTimestampToVarcharCoercion(),
-                        true));
+                        true),
+                booleanProperty(
+                        INLINE_SQL_FUNCTIONS,
+                        "Inline SQL function definition at plan time",
+                        featuresConfig.isInlineSqlFunctions(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1469,5 +1475,10 @@ public final class SystemSessionProperties
     public static boolean isLegacyTypeCoercionWarningEnabled(Session session)
     {
         return session.getSystemProperty(LEGACY_TYPE_COERCION_WARNING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isInlineSqlFunctions(Session session)
+    {
+        return session.getSystemProperty(INLINE_SQL_FUNCTIONS, Boolean.class);
     }
 }

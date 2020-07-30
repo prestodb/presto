@@ -143,7 +143,8 @@ public class TestFeaturesConfig
                 .setOptimizeCommonSubExpressions(true)
                 .setPreferDistributedUnion(true)
                 .setOptimizeNullsInJoin(false)
-                .setWarnOnNoTableLayoutFilter(""));
+                .setWarnOnNoTableLayoutFilter("")
+                .setInlineSqlFunctions(true));
     }
 
     @Test
@@ -243,6 +244,7 @@ public class TestFeaturesConfig
                 .put("prefer-distributed-union", "false")
                 .put("optimize-nulls-in-join", "true")
                 .put("warn-on-no-table-layout-filter", "ry@nlikestheyankees,ds")
+                .put("inline-sql-functions", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -338,7 +340,8 @@ public class TestFeaturesConfig
                 .setOptimizeCommonSubExpressions(false)
                 .setPreferDistributedUnion(false)
                 .setOptimizeNullsInJoin(true)
-                .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds");
+                .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds")
+                .setInlineSqlFunctions(false);
         assertFullMapping(properties, expected);
     }
 
