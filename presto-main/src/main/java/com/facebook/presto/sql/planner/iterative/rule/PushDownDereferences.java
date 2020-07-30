@@ -14,8 +14,9 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.expressions.RowExpressionRewriter;
+import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
@@ -28,9 +29,8 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.Rule.Context;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
@@ -38,16 +38,9 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
-import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.DereferenceExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -61,24 +54,20 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.SystemSessionProperties.isPushdownDereferenceEnabled;
+import static com.facebook.presto.expressions.RowExpressionTreeRewriter.rewriteWith;
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
 import static com.facebook.presto.sql.planner.VariablesExtractor.extractAll;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.semiJoin;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
 import static com.facebook.presto.sql.planner.plan.Patterns.unnest;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.tree.ExpressionTreeRewriter.rewriteWith;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -94,12 +83,10 @@ import static java.util.Objects.requireNonNull;
 public class PushDownDereferences
 {
     private final Metadata metadata;
-    private final SqlParser sqlParser;
 
-    public PushDownDereferences(Metadata metadata, SqlParser sqlParser)
+    public PushDownDereferences(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
     public Set<Rule<?>> rules()
@@ -111,6 +98,7 @@ public class PushDownDereferences
                 new PushDownDereferenceThrough<>(WindowNode.class),
                 new PushDownDereferenceThrough<>(TopNNode.class),
                 new PushDownDereferenceThrough<>(RowNumberNode.class),
+                new PushDownDereferenceThrough<>(TopNRowNumberNode.class),
                 new PushDownDereferenceThrough<>(SortNode.class),
                 new PushDownDereferenceThrough<>(FilterNode.class),
                 new PushDownDereferenceThrough<>(LimitNode.class),
@@ -158,17 +146,17 @@ public class PushDownDereferences
         @Override
         public Result apply(N node, Captures captures, Context context)
         {
-            Map<DereferenceExpression, VariableReferenceExpression> expressions =
-                    getDereferenceSymbolMap(extractExpressionsNonRecursive(node), context, metadata, sqlParser);
+            Map<SpecialFormExpression, VariableReferenceExpression> expressions =
+                    getDereferenceSymbolMap(extractExpressionsNonRecursive(node), context, metadata);
 
             if (expressions.isEmpty()) {
                 return Result.empty();
             }
 
-            return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), rewrite(context, node, HashBiMap.create(expressions)), identityAssignmentsAsSymbolReferences(node.getOutputVariables())));
+            return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), rewrite(context, node, HashBiMap.create(expressions)), identityAssignments(node.getOutputVariables())));
         }
 
-        protected abstract N rewrite(Context context, N node, BiMap<DereferenceExpression, VariableReferenceExpression> expressions);
+        protected abstract N rewrite(Context context, N node, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions);
     }
 
     class ExtractFromFilter
@@ -180,14 +168,14 @@ public class PushDownDereferences
         }
 
         @Override
-        protected FilterNode rewrite(Context context, FilterNode node, BiMap<DereferenceExpression, VariableReferenceExpression> expressions)
+        protected FilterNode rewrite(Context context, FilterNode node, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions)
         {
             PlanNode source = node.getSource();
 
             Map<VariableReferenceExpression, RowExpression> dereferencesMap = expressions.inverse().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> castToRowExpression(entry.getValue())));
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
             Assignments assignments = Assignments.builder()
-                    .putAll(identityAssignmentsAsSymbolReferences(source.getOutputVariables()))
+                    .putAll(identityAssignments(source.getOutputVariables()))
                     .putAll(dereferencesMap)
                     .build();
             ProjectNode projectNode = new ProjectNode(context.getIdAllocator().getNextId(), source, assignments);
@@ -207,18 +195,18 @@ public class PushDownDereferences
         }
 
         @Override
-        protected JoinNode rewrite(Context context, JoinNode joinNode, BiMap<DereferenceExpression, VariableReferenceExpression> expressions)
+        protected JoinNode rewrite(Context context, JoinNode joinNode, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions)
         {
             Assignments.Builder leftSideDereferences = Assignments.builder();
             Assignments.Builder rightSideDereferences = Assignments.builder();
 
-            for (Map.Entry<VariableReferenceExpression, DereferenceExpression> entry : expressions.inverse().entrySet()) {
-                VariableReferenceExpression baseSymbol = getBase(entry.getValue(), context.getVariableAllocator().getTypes());
-                if (joinNode.getLeft().getOutputVariables().contains(baseSymbol)) {
-                    leftSideDereferences.put(entry.getKey(), castToRowExpression(entry.getValue()));
+            for (Map.Entry<VariableReferenceExpression, SpecialFormExpression> entry : expressions.inverse().entrySet()) {
+                VariableReferenceExpression baseVariable = getBase(entry.getValue());
+                if (joinNode.getLeft().getOutputVariables().contains(baseVariable)) {
+                    leftSideDereferences.put(entry.getKey(), entry.getValue());
                 }
                 else {
-                    rightSideDereferences.put(entry.getKey(), castToRowExpression(entry.getValue()));
+                    rightSideDereferences.put(entry.getKey(), entry.getValue());
                 }
             }
             PlanNode leftNode = createProject(joinNode.getLeft(), leftSideDereferences.build(), context.getIdAllocator());
@@ -271,14 +259,14 @@ public class PushDownDereferences
         public Result apply(ProjectNode node, Captures captures, Context context)
         {
             N child = captures.get(targetCapture);
-            Map<DereferenceExpression, VariableReferenceExpression> allDereferencesInProject = getDereferenceSymbolMap(node.getAssignments().getExpressions(), context, metadata, sqlParser);
+            Map<SpecialFormExpression, VariableReferenceExpression> allDereferencesInProject = getDereferenceSymbolMap(node.getAssignments().getExpressions(), context, metadata);
 
-            Set<VariableReferenceExpression> childSourceSymbols = child.getSources().stream()
+            Set<VariableReferenceExpression> childSourceVariables = child.getSources().stream()
                     .map(PlanNode::getOutputVariables).flatMap(Collection::stream)
                     .collect(toImmutableSet());
 
-            Map<DereferenceExpression, VariableReferenceExpression> pushdownDereferences = allDereferencesInProject.entrySet().stream()
-                    .filter(entry -> childSourceSymbols.contains(getBase(entry.getKey(), context.getVariableAllocator().getTypes())))
+            Map<SpecialFormExpression, VariableReferenceExpression> pushdownDereferences = allDereferencesInProject.entrySet().stream()
+                    .filter(entry -> childSourceVariables.contains(getBase(entry.getKey())))
                     .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
             if (pushdownDereferences.isEmpty()) {
@@ -292,17 +280,12 @@ public class PushDownDereferences
 
             Assignments.Builder builder = Assignments.builder();
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : node.getAssignments().entrySet()) {
-                if (OriginalExpressionUtils.isExpression(entry.getValue())) {
-                    builder.put(entry.getKey(), replaceDereferences(entry.getValue(), pushdownDereferences));
-                }
-                else {
-                    builder.put(entry.getKey(), entry.getValue());
-                }
+                builder.put(entry.getKey(), replaceDereferences(entry.getValue(), pushdownDereferences));
             }
             return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), result.getTransformedPlan().get(), builder.build()));
         }
 
-        protected abstract Result pushDownDereferences(Context context, N targetNode, BiMap<DereferenceExpression, VariableReferenceExpression> expressions);
+        protected abstract Result pushDownDereferences(Context context, N targetNode, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions);
     }
 
     /**
@@ -327,18 +310,17 @@ public class PushDownDereferences
         }
 
         @Override
-        protected Result pushDownDereferences(Context context, N targetNode, BiMap<DereferenceExpression, VariableReferenceExpression> expressions)
+        protected Result pushDownDereferences(Context context, N targetNode, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions)
         {
             PlanNode source = getOnlyElement(targetNode.getSources());
 
-            Map<VariableReferenceExpression, RowExpression> dereferencesMap =
-                    expressions.inverse().entrySet().stream()
-                            .collect(toImmutableMap(Map.Entry::getKey, entry -> castToRowExpression(entry.getValue())));
+            Map<VariableReferenceExpression, RowExpression> dereferencesMap = expressions.inverse().entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
             ProjectNode projectNode = new ProjectNode(
                     context.getIdAllocator().getNextId(),
                     source,
                     Assignments.builder()
-                            .putAll(identityAssignmentsAsSymbolReferences(source.getOutputVariables()))
+                            .putAll(identityAssignments(source.getOutputVariables()))
                             .putAll(dereferencesMap)
                             .build());
             return Result.ofPlanNode(targetNode.replaceChildren(ImmutableList.of(projectNode)));
@@ -374,18 +356,18 @@ public class PushDownDereferences
         }
 
         @Override
-        protected Result pushDownDereferences(Context context, JoinNode joinNode, BiMap<DereferenceExpression, VariableReferenceExpression> expressions)
+        protected Result pushDownDereferences(Context context, JoinNode joinNode, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions)
         {
             Assignments.Builder leftSideDereferences = Assignments.builder();
             Assignments.Builder rightSideDereferences = Assignments.builder();
 
-            for (Map.Entry<VariableReferenceExpression, DereferenceExpression> entry : expressions.inverse().entrySet()) {
-                VariableReferenceExpression baseSymbol = getBase(entry.getValue(), context.getVariableAllocator().getTypes());
-                if (joinNode.getLeft().getOutputVariables().contains(baseSymbol)) {
-                    leftSideDereferences.put(entry.getKey(), castToRowExpression(entry.getValue()));
+            for (Map.Entry<VariableReferenceExpression, SpecialFormExpression> entry : expressions.inverse().entrySet()) {
+                VariableReferenceExpression baseVariable = getBase(entry.getValue());
+                if (joinNode.getLeft().getOutputVariables().contains(baseVariable)) {
+                    leftSideDereferences.put(entry.getKey(), entry.getValue());
                 }
                 else {
-                    rightSideDereferences.put(entry.getKey(), castToRowExpression(entry.getValue()));
+                    rightSideDereferences.put(entry.getKey(), entry.getValue());
                 }
             }
             PlanNode leftNode = createProject(joinNode.getLeft(), leftSideDereferences.build(), context.getIdAllocator());
@@ -401,7 +383,7 @@ public class PushDownDereferences
                             .addAll(leftNode.getOutputVariables())
                             .addAll(rightNode.getOutputVariables())
                             .build(),
-                    joinNode.getFilter(),
+                    joinNode.getFilter().map(expression -> replaceDereferences(expression, expressions)),
                     joinNode.getLeftHashVariable(),
                     joinNode.getRightHashVariable(),
                     joinNode.getDistributionType()));
@@ -417,18 +399,18 @@ public class PushDownDereferences
         }
 
         @Override
-        protected Result pushDownDereferences(Context context, SemiJoinNode semiJoinNode, BiMap<DereferenceExpression, VariableReferenceExpression> expressions)
+        protected Result pushDownDereferences(Context context, SemiJoinNode semiJoinNode, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions)
         {
             Assignments.Builder filteringSourceDereferences = Assignments.builder();
             Assignments.Builder sourceDereferences = Assignments.builder();
 
-            for (Map.Entry<VariableReferenceExpression, DereferenceExpression> entry : expressions.inverse().entrySet()) {
-                VariableReferenceExpression baseSymbol = getBase(entry.getValue(), context.getVariableAllocator().getTypes());
-                if (semiJoinNode.getFilteringSource().getOutputVariables().contains(baseSymbol)) {
-                    filteringSourceDereferences.put(entry.getKey(), castToRowExpression(entry.getValue()));
+            for (Map.Entry<VariableReferenceExpression, SpecialFormExpression> entry : expressions.inverse().entrySet()) {
+                VariableReferenceExpression baseVariable = getBase(entry.getValue());
+                if (semiJoinNode.getFilteringSource().getOutputVariables().contains(baseVariable)) {
+                    filteringSourceDereferences.put(entry.getKey(), entry.getValue());
                 }
                 else {
-                    sourceDereferences.put(entry.getKey(), castToRowExpression(entry.getValue()));
+                    sourceDereferences.put(entry.getKey(), entry.getValue());
                 }
             }
             PlanNode filteringSource = createProject(semiJoinNode.getFilteringSource(), filteringSourceDereferences.build(), context.getIdAllocator());
@@ -446,11 +428,10 @@ public class PushDownDereferences
         }
 
         @Override
-        protected Result pushDownDereferences(Context context, ProjectNode projectNode, BiMap<DereferenceExpression, VariableReferenceExpression> expressions)
+        protected Result pushDownDereferences(Context context, ProjectNode projectNode, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions)
         {
             Map<VariableReferenceExpression, RowExpression> dereferencesMap = expressions.inverse().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> castToRowExpression(entry.getValue())));
-
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
             return Result.ofPlanNode(
                     new ProjectNode(context.getIdAllocator().getNextId(),
                             projectNode.getSource(),
@@ -470,12 +451,12 @@ public class PushDownDereferences
         }
 
         @Override
-        protected Result pushDownDereferences(Context context, UnnestNode unnestNode, BiMap<DereferenceExpression, VariableReferenceExpression> expressions)
+        protected Result pushDownDereferences(Context context, UnnestNode unnestNode, BiMap<SpecialFormExpression, VariableReferenceExpression> expressions)
         {
             Map<VariableReferenceExpression, RowExpression> dereferencesMap = expressions.inverse().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getKey, entry -> castToRowExpression(entry.getValue())));
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
             Assignments assignments = Assignments.builder()
-                    .putAll(identityAssignmentsAsSymbolReferences(unnestNode.getSource().getOutputVariables()))
+                    .putAll(identityAssignments(unnestNode.getSource().getOutputVariables()))
                     .putAll(dereferencesMap)
                     .build();
             ProjectNode source = new ProjectNode(context.getIdAllocator().getNextId(), unnestNode.getSource(), assignments);
@@ -492,9 +473,9 @@ public class PushDownDereferences
         }
     }
 
-    private RowExpression replaceDereferences(RowExpression rowExpression, Map<DereferenceExpression, VariableReferenceExpression> dereferences)
+    private RowExpression replaceDereferences(RowExpression rowExpression, Map<SpecialFormExpression, VariableReferenceExpression> dereferences)
     {
-        return castToRowExpression(rewriteWith(new DereferenceReplacer(dereferences), castToExpression(rowExpression)));
+        return rewriteWith(new DereferenceReplacer(dereferences), rowExpression);
     }
 
     private static PlanNode createProject(PlanNode planNode, Assignments dereferences, PlanNodeIdAllocator idAllocator)
@@ -503,55 +484,56 @@ public class PushDownDereferences
             return planNode;
         }
         Assignments assignments = Assignments.builder()
-                .putAll(identityAssignmentsAsSymbolReferences(planNode.getOutputVariables()))
+                .putAll(identityAssignments(planNode.getOutputVariables()))
                 .putAll(dereferences)
                 .build();
         return new ProjectNode(idAllocator.getNextId(), planNode, assignments);
     }
 
     private static class DereferenceReplacer
-            extends ExpressionRewriter<Void>
+            extends RowExpressionRewriter<Void>
     {
-        private final Map<DereferenceExpression, VariableReferenceExpression> expressions;
+        private final Map<SpecialFormExpression, VariableReferenceExpression> expressions;
 
-        DereferenceReplacer(Map<DereferenceExpression, VariableReferenceExpression> expressions)
+        DereferenceReplacer(Map<SpecialFormExpression, VariableReferenceExpression> expressions)
         {
             this.expressions = requireNonNull(expressions, "expressions is null");
         }
 
         @Override
-        public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+        public RowExpression rewriteSpecialForm(SpecialFormExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
         {
             if (expressions.containsKey(node)) {
-                return new SymbolReference(expressions.get(node).getName());
+                return new VariableReferenceExpression(expressions.get(node).getName(), node.getType());
             }
             return treeRewriter.defaultRewrite(node, context);
         }
     }
 
-    private static List<DereferenceExpression> extractDereferenceExpressions(Expression expression)
+    private static List<SpecialFormExpression> extractDereference(RowExpression expression)
     {
-        ImmutableList.Builder<DereferenceExpression> builder = ImmutableList.builder();
-        new DefaultExpressionTraversalVisitor<Void, ImmutableList.Builder<DereferenceExpression>>()
+        ImmutableList.Builder<SpecialFormExpression> builder = ImmutableList.builder();
+        expression.accept(new DefaultRowExpressionTraversalVisitor<ImmutableList.Builder<SpecialFormExpression>>()
         {
             @Override
-            protected Void visitDereferenceExpression(DereferenceExpression node, ImmutableList.Builder<DereferenceExpression> context)
+            public Void visitSpecialForm(SpecialFormExpression node, ImmutableList.Builder<SpecialFormExpression> context)
             {
-                if (validPushDown(node)) {
+                if (isValidDereference(node)) {
                     context.add(node);
+                }
+                else {
+                    node.getArguments().forEach(argument -> argument.accept(this, context));
                 }
                 return null;
             }
-        }.process(expression, builder);
+        }, builder);
         return builder.build();
     }
 
-    private static Map<DereferenceExpression, VariableReferenceExpression> getDereferenceSymbolMap(Collection<RowExpression> expressions, Context context, Metadata metadata, SqlParser sqlParser)
+    private static Map<SpecialFormExpression, VariableReferenceExpression> getDereferenceSymbolMap(Collection<RowExpression> expressions, Context context, Metadata metadata)
     {
-        Set<DereferenceExpression> dereferences = expressions.stream()
-                .filter(OriginalExpressionUtils::isExpression)
-                .map(OriginalExpressionUtils::castToExpression)
-                .flatMap(expression -> extractDereferenceExpressions(expression).stream())
+        Set<SpecialFormExpression> dereferences = expressions.stream()
+                .flatMap(expression -> extractDereference(expression).stream())
                 .collect(toImmutableSet());
 
         // DereferenceExpression with the same base will cause unnecessary rewritten
@@ -560,36 +542,34 @@ public class PushDownDereferences
         }
 
         return dereferences.stream()
-                .collect(toImmutableMap(Function.identity(), expression -> newSymbol(expression, context, metadata, sqlParser)));
+                .collect(toImmutableMap(Function.identity(), expression -> createVariable(expression, context)));
     }
 
-    private static VariableReferenceExpression newSymbol(Expression expression, Context context, Metadata metadata, SqlParser sqlParser)
+    private static VariableReferenceExpression createVariable(SpecialFormExpression expression, Context context)
     {
-        Type type = getExpressionTypes(context.getSession(), metadata, sqlParser, context.getVariableAllocator().getTypes(), expression, emptyList(), WarningCollector.NOOP).get(NodeRef.of(expression));
-        verify(type != null);
-        return context.getVariableAllocator().newVariable(expression, type);
+        return context.getVariableAllocator().newVariable(expression);
     }
 
-    private static boolean baseExists(DereferenceExpression expression, Set<DereferenceExpression> dereferences)
+    private static boolean baseExists(SpecialFormExpression expression, Set<SpecialFormExpression> dereferences)
     {
-        Expression base = expression.getBase();
-        while (base instanceof DereferenceExpression) {
+        RowExpression base = expression.getArguments().get(0);
+        while (base instanceof SpecialFormExpression) {
             if (dereferences.contains(base)) {
                 return true;
             }
-            base = ((DereferenceExpression) base).getBase();
+            base = ((SpecialFormExpression) base).getArguments().get(0);
         }
         return false;
     }
 
-    private static boolean validPushDown(DereferenceExpression dereference)
+    private static boolean isValidDereference(SpecialFormExpression dereference)
     {
-        Expression base = dereference.getBase();
-        return (base instanceof SymbolReference) || (base instanceof DereferenceExpression);
+        RowExpression base = dereference.getArguments().get(0);
+        return (base instanceof VariableReferenceExpression) || (base instanceof SpecialFormExpression && ((SpecialFormExpression) base).getForm() == DEREFERENCE);
     }
 
-    private static VariableReferenceExpression getBase(Expression expression, TypeProvider types)
+    private static VariableReferenceExpression getBase(RowExpression expression)
     {
-        return getOnlyElement(extractAll(expression, types));
+        return getOnlyElement(extractAll(expression));
     }
 }
