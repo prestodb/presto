@@ -104,6 +104,7 @@ import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabl
 import static com.facebook.presto.SystemSessionProperties.isExactPartitioningPreferred;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isPreferDistributedUnion;
+import static com.facebook.presto.SystemSessionProperties.isPreferLocalUnion;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
 import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchangeForMarkDistinctEnabled;
@@ -173,6 +174,7 @@ public class AddExchanges
         private final boolean redistributeWrites;
         private final boolean scaleWriters;
         private final boolean preferDistributedUnion;
+        private final boolean preferLocalUnion;
         private final PartialMergePushdownStrategy partialMergePushdownStrategy;
         private final String partitioningProviderCatalog;
         private final int hashPartitionCount;
@@ -188,6 +190,7 @@ public class AddExchanges
             this.redistributeWrites = isRedistributeWrites(session);
             this.scaleWriters = isScaleWriters(session);
             this.preferDistributedUnion = isPreferDistributedUnion(session);
+            this.preferLocalUnion = isPreferLocalUnion(session);
             this.partialMergePushdownStrategy = getPartialMergePushdownStrategy(session);
             this.preferStreamingOperators = preferStreamingOperators(session);
             this.partitioningProviderCatalog = getPartitioningProviderCatalog(session);
@@ -1209,6 +1212,9 @@ public class AddExchanges
                         // instead of "arbitraryPartition".
                         return new PlanWithProperties(node.replaceChildren(distributedChildren));
                     }
+                    else if (preferLocalUnion && isSupportedLocalUnionALL(node)) {
+                        return new PlanWithProperties(node.replaceChildren(distributedChildren));
+                    }
                     else if (preferDistributedUnion) {
                         // Presto currently can not execute stage that has multiple table scans, so in that case
                         // we have to insert REMOTE exchange with FIXED_ARBITRARY_DISTRIBUTION instead of local exchange
@@ -1417,6 +1423,26 @@ public class AddExchanges
 
             return aggregationPartitioningMergingStrategy.isMergingWithParent();
         }
+    }
+
+    private boolean isSupportedLocalUnionALL(PlanNode node)
+    {
+        if (node instanceof TableScanNode) {
+            return true;
+        }
+        if (node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()) {
+            return true;
+        }
+
+        if (node instanceof JoinNode ||
+                node instanceof SemiJoinNode ||
+                node instanceof SpatialJoinNode ||
+                node instanceof AggregationNode) {
+            return false;
+        }
+
+        return node.getSources().stream()
+                .allMatch(this::isSupportedLocalUnionALL);
     }
 
     private boolean canPushdownPartialMerge(PlanNode node, PartialMergePushdownStrategy strategy)

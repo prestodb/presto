@@ -204,6 +204,7 @@ public class PrestoSparkQueryRunner
                 ImmutableMap.of(
                         "presto.version", "testversion",
                         "query.hash-partition-count", Integer.toString(NODE_COUNT * 2),
+                        "prefer-local-union", "true",
                         "prefer-distributed-union", "false"),
                 ImmutableMap.of(),
                 Optional.empty(),

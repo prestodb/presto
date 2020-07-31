@@ -97,6 +97,7 @@ import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGr
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForJoinEnabled;
+import static com.facebook.presto.SystemSessionProperties.isPreferLocalUnion;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -894,8 +895,11 @@ public class PlanFragmenter
                 return this;
             }
 
+            // TODO: This seems never happens for current planner, consider to remove
             if (currentPartitioning.equals(SOURCE_DISTRIBUTION)) {
-                this.partitioningHandle = Optional.of(distribution);
+                if (!isPreferLocalUnion(session)) {
+                    this.partitioningHandle = Optional.of(distribution);
+                }
                 return this;
             }
 
@@ -908,6 +912,11 @@ public class PlanFragmenter
                 return this;
             }
 
+            if (isPreferLocalUnion(session) && distribution.equals(SOURCE_DISTRIBUTION)) {
+                this.partitioningHandle = Optional.of(distribution);
+                return this;
+            }
+
             Optional<PartitioningHandle> commonPartitioning = metadata.getCommonPartitioning(session, currentPartitioning, distribution);
             if (commonPartitioning.isPresent()) {
                 partitioningHandle = commonPartitioning;
@@ -915,6 +924,11 @@ public class PlanFragmenter
             }
 
             if (metadata.isRefinedPartitioningOver(session, distribution, currentPartitioning)) {
+                return this;
+            }
+
+            if (isPreferLocalUnion(session) && metadata.isRefinedPartitioningOver(session, currentPartitioning, distribution)) {
+                this.partitioningHandle = Optional.of(distribution);
                 return this;
             }
 
@@ -1293,6 +1307,10 @@ public class PlanFragmenter
 
             if (partitioning.equals(fragmentPartitioningHandle)) {
                 // do nothing if the current scan node's partitioning matches the fragment's
+                return node;
+            }
+
+            if (isPreferLocalUnion(session) && fragmentPartitioningHandle.equals(SOURCE_DISTRIBUTION)) {
                 return node;
             }
 
