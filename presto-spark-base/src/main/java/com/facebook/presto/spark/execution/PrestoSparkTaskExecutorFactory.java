@@ -48,6 +48,7 @@ import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorF
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
@@ -97,6 +98,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
+import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation.WRITE;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
@@ -239,10 +241,19 @@ public class PrestoSparkTaskExecutorFactory
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+            CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             Class<T> outputType)
     {
         try {
-            return doCreate(partitionId, attemptNumber, serializedTaskDescriptor, serializedTaskSources, inputs, taskInfoCollector, outputType);
+            return doCreate(
+                    partitionId,
+                    attemptNumber,
+                    serializedTaskDescriptor,
+                    serializedTaskSources,
+                    inputs,
+                    taskInfoCollector,
+                    shuffleStatsCollector,
+                    outputType);
         }
         catch (RuntimeException e) {
             throw executionExceptionFactory.toPrestoSparkExecutionException(e);
@@ -256,6 +267,7 @@ public class PrestoSparkTaskExecutorFactory
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+            CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             Class<T> outputType)
     {
         PrestoSparkTaskDescriptor taskDescriptor = taskDescriptorJsonCodec.fromJson(serializedTaskDescriptor.getBytes());
@@ -373,7 +385,9 @@ public class PrestoSparkTaskExecutorFactory
                 new PrestoSparkRemoteSourceFactory(
                         pagesSerde,
                         shuffleInputs.build(),
-                        pageInputs.build()),
+                        pageInputs.build(),
+                        partitionId,
+                        shuffleStatsCollector),
                 taskDescriptor.getTableWriteInfo(),
                 true);
 
@@ -399,6 +413,7 @@ public class PrestoSparkTaskExecutorFactory
                 output.getOutputSupplier(),
                 taskInfoJsonCodec,
                 taskInfoCollector,
+                shuffleStatsCollector,
                 executionExceptionFactory,
                 output.getOutputBufferType(),
                 outputBuffer);
@@ -463,6 +478,7 @@ public class PrestoSparkTaskExecutorFactory
         private final OutputSupplier<T> outputSupplier;
         private final JsonCodec<TaskInfo> taskInfoJsonCodec;
         private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
+        private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
         private final OutputBufferType outputBufferType;
         private final PrestoSparkOutputBuffer<?> outputBuffer;
@@ -471,12 +487,17 @@ public class PrestoSparkTaskExecutorFactory
 
         private Tuple2<MutablePartitionId, T> next;
 
+        private final long start = System.currentTimeMillis();
+        private long processedRows;
+        private long processedBytes;
+
         private PrestoSparkTaskExecutor(
                 TaskContext taskContext,
                 TaskStateMachine taskStateMachine,
                 OutputSupplier<T> outputSupplier,
                 JsonCodec<TaskInfo> taskInfoJsonCodec,
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+                CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
                 OutputBufferType outputBufferType,
                 PrestoSparkOutputBuffer<?> outputBuffer)
@@ -486,6 +507,7 @@ public class PrestoSparkTaskExecutorFactory
             this.outputSupplier = requireNonNull(outputSupplier, "outputSupplier is null");
             this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
             this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
+            this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
             this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
             this.outputBufferType = requireNonNull(outputBufferType, "outputBufferType is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
@@ -533,13 +555,26 @@ public class PrestoSparkTaskExecutorFactory
                 throws InterruptedException
         {
             Tuple2<MutablePartitionId, T> output = outputSupplier.getNext();
+
             if (output != null) {
+                processedRows += output._2.getRowCount();
+                processedBytes += output._2.getSize();
                 return output;
             }
 
             // task finished
             TaskState taskState = taskStateMachine.getState();
             checkState(taskState.isDone(), "task is expected to be done");
+
+            long end = System.currentTimeMillis();
+            PrestoSparkShuffleStats shuffleStats = new PrestoSparkShuffleStats(
+                    taskContext.getTaskId().getStageExecutionId().getStageId().getId(),
+                    taskContext.getTaskId().getId(),
+                    WRITE,
+                    processedRows,
+                    processedBytes,
+                    end - start - outputSupplier.getTimeSpentWaitingForOutputInMillis());
+            shuffleStatsCollector.add(shuffleStats);
 
             TaskInfo taskInfo = createTaskInfo(taskContext, taskStateMachine, taskInstanceId, outputBufferType, outputBuffer);
             SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(
@@ -660,6 +695,8 @@ public class PrestoSparkTaskExecutorFactory
     {
         Tuple2<MutablePartitionId, T> getNext()
                 throws InterruptedException;
+
+        long getTimeSpentWaitingForOutputInMillis();
     }
 
     private static class RowOutputSupplier
@@ -667,6 +704,8 @@ public class PrestoSparkTaskExecutorFactory
     {
         private final PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer;
         private RowTupleSupplier currentRowTupleSupplier;
+
+        private long timeSpentWaitingForOutputInMillis;
 
         private RowOutputSupplier(PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer)
         {
@@ -680,7 +719,10 @@ public class PrestoSparkTaskExecutorFactory
             Tuple2<MutablePartitionId, PrestoSparkMutableRow> next = null;
             while (next == null) {
                 if (currentRowTupleSupplier == null) {
+                    long start = System.currentTimeMillis();
                     PrestoSparkRowBatch rowBatch = outputBuffer.get();
+                    long end = System.currentTimeMillis();
+                    timeSpentWaitingForOutputInMillis += (end - start);
                     if (rowBatch == null) {
                         return null;
                     }
@@ -693,6 +735,12 @@ public class PrestoSparkTaskExecutorFactory
             }
             return next;
         }
+
+        @Override
+        public long getTimeSpentWaitingForOutputInMillis()
+        {
+            return timeSpentWaitingForOutputInMillis;
+        }
     }
 
     private static class PageOutputSupplier
@@ -701,6 +749,8 @@ public class PrestoSparkTaskExecutorFactory
         private static final MutablePartitionId DEFAULT_PARTITION = new MutablePartitionId();
 
         private final PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer;
+
+        private long timeSpentWaitingForOutputInMillis;
 
         private PageOutputSupplier(PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer)
         {
@@ -711,11 +761,20 @@ public class PrestoSparkTaskExecutorFactory
         public Tuple2<MutablePartitionId, PrestoSparkSerializedPage> getNext()
                 throws InterruptedException
         {
+            long start = System.currentTimeMillis();
             PrestoSparkBufferedSerializedPage page = outputBuffer.get();
+            long end = System.currentTimeMillis();
+            timeSpentWaitingForOutputInMillis += (end - start);
             if (page == null) {
                 return null;
             }
             return new Tuple2<>(DEFAULT_PARTITION, toPrestoSparkSerializedPage(page.getSerializedPage()));
+        }
+
+        @Override
+        public long getTimeSpentWaitingForOutputInMillis()
+        {
+            return timeSpentWaitingForOutputInMillis;
         }
     }
 

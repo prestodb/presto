@@ -15,4 +15,7 @@ package com.facebook.presto.spark.classloader_interface;
 
 public interface PrestoSparkTaskOutput
 {
+    long getRowCount();
+
+    long getSize();
 }

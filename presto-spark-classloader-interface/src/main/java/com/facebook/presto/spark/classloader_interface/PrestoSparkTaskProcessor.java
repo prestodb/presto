@@ -33,6 +33,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
     private final PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider;
     private final SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor;
     private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
+    private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
     // fragmentId -> Broadcast
     private final Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs;
     private final Class<T> outputType;
@@ -41,12 +42,14 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
             PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+            CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
             Class<T> outputType)
     {
         this.taskExecutorFactoryProvider = requireNonNull(taskExecutorFactoryProvider, "taskExecutorFactoryProvider is null");
         this.serializedTaskDescriptor = requireNonNull(serializedTaskDescriptor, "serializedTaskDescriptor is null");
         this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
+        this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
         this.broadcastInputs = new HashMap<>(requireNonNull(broadcastInputs, "broadcastInputs is null"));
         this.outputType = requireNonNull(outputType, "outputType is null");
     }
@@ -65,6 +68,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
                 serializedTaskSources,
                 new PrestoSparkTaskInputs(shuffleInputs, broadcastInputs, emptyMap()),
                 taskInfoCollector,
+                shuffleStatsCollector,
                 outputType);
     }
 }
