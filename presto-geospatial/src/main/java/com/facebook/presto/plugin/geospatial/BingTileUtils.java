@@ -149,19 +149,16 @@ public class BingTileUtils
     {
         long mapSize = mapSize(zoomLevel);
         int tileX = longitudeToTileX(longitude, mapSize);
-        int tileY = longitudeToTileY(latitude, mapSize);
+        int tileY = latitudeToTileY(latitude, mapSize);
         return BingTile.fromCoordinates(tileX, tileY, zoomLevel);
     }
 
     /**
-     * Given latitude and longitude in degrees, and the level of detail, the pixel XY coordinates can be calculated as follows:
-     * sinLatitude = sin(latitude * pi/180)
-     * pixelX = ((longitude + 180) / 360) * 256 * 2level
-     * pixelY = (0.5 – log((1 + sinLatitude) / (1 – sinLatitude)) / (4 * pi)) * 256 * 2level
+     * Given longitude in degrees, and the level of detail, the tile X coordinate can be calculated as follows:
+     * pixelX = ((longitude + 180) / 360) * 2**level
      * The latitude and longitude are assumed to be on the WGS 84 datum. Even though Bing Maps uses a spherical projection,
      * it’s important to convert all geographic coordinates into a common datum, and WGS 84 was chosen to be that datum.
-     * The longitude is assumed to range from -180 to +180 degrees, and the latitude must be clipped to range from -85.05112878 to 85.05112878.
-     * This avoids a singularity at the poles, and it causes the projected map to be square.
+     * The longitude is assumed to range from -180 to +180 degrees.
      * <p>
      * reference: https://msdn.microsoft.com/en-us/library/bb259689.aspx
      */
@@ -171,7 +168,18 @@ public class BingTileUtils
         return axisToCoordinates(x, mapSize);
     }
 
-    static int longitudeToTileY(double latitude, long mapSize)
+    /**
+     * Given latitude in degrees, and the level of detail, the tile Y coordinate can be calculated as follows:
+     * sinLatitude = sin(latitude * pi/180)
+     * pixelY = (0.5 – log((1 + sinLatitude) / (1 – sinLatitude)) / (4 * pi)) * 2**level
+     * The latitude and longitude are assumed to be on the WGS 84 datum. Even though Bing Maps uses a spherical projection,
+     * it’s important to convert all geographic coordinates into a common datum, and WGS 84 was chosen to be that datum.
+     * The latitude must be clipped to range from -85.05112878 to 85.05112878.
+     * This avoids a singularity at the poles, and it causes the projected map to be square.
+     * <p>
+     * reference: https://msdn.microsoft.com/en-us/library/bb259689.aspx
+     */
+    static int latitudeToTileY(double latitude, long mapSize)
     {
         double sinLatitude = Math.sin(latitude * Math.PI / 180);
         double y = 0.5 - Math.log((1 + sinLatitude) / (1 - sinLatitude)) / (4 * Math.PI);
