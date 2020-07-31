@@ -249,7 +249,7 @@ public abstract class AbstractOperatorBenchmark
                 if (!driver.isFinished()) {
                     driver.process();
                     long lastPeakMemory = peakMemory;
-                    peakMemory = (long) taskContext.getTaskStats().getUserMemoryReservation().getValue(BYTE);
+                    peakMemory = taskContext.getTaskStats().getUserMemoryReservationInBytes();
                     if (peakMemory <= lastPeakMemory) {
                         peakMemory = lastPeakMemory;
                     }
@@ -295,9 +295,9 @@ public abstract class AbstractOperatorBenchmark
 
         TaskStats taskStats = taskContext.getTaskStats();
         long inputRows = taskStats.getRawInputPositions();
-        long inputBytes = taskStats.getRawInputDataSize().toBytes();
+        long inputBytes = taskStats.getRawInputDataSizeInBytes();
         long outputRows = taskStats.getOutputPositions();
-        long outputBytes = taskStats.getOutputDataSize().toBytes();
+        long outputBytes = taskStats.getOutputDataSizeInBytes();
 
         double inputMegaBytes = new DataSize(inputBytes, BYTE).getValue(MEGABYTE);
 
