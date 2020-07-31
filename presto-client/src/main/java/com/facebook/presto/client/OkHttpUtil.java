@@ -272,9 +272,9 @@ public final class OkHttpUtil
         clientBuilder.authenticator(handler);
     }
 
-    public static void setupGCSOauth(OkHttpClient.Builder clientBuilder, String credentialPath)
+    public static void setupGCSOauth(OkHttpClient.Builder clientBuilder, String credentialPath, Optional<String> gcsOAuthScopesString)
     {
-        GCSOAuthInterceptor handler = new GCSOAuthInterceptor(credentialPath);
+        GCSOAuthInterceptor handler = new GCSOAuthInterceptor(credentialPath, gcsOAuthScopesString);
         clientBuilder.addInterceptor(handler);
     }
 }
