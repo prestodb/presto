@@ -66,6 +66,8 @@ public class TestRetryDriver
         Logging.initialize().setLevel(RetryDriver.class.getName(), DEBUG);
     }
 
+    private static final String SUITE = "test-suite";
+    private static final String NAME = "test-query";
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
     private static final QueryException RETRYABLE_EXCEPTION = new ClusterConnectionException(new SocketTimeoutException(), QUERY_STAGE);
     private static final QueryException NON_RETRYABLE_EXCEPTION = new PrestoQueryException(new RuntimeException(), false, QUERY_STAGE, Optional.of(REMOTE_HOST_GONE), Optional.empty());
@@ -76,7 +78,7 @@ public class TestRetryDriver
     @BeforeMethod
     public void setup()
     {
-        verificationContext = VerificationContext.create();
+        verificationContext = VerificationContext.create(SUITE, NAME);
         retryDriver = new RetryDriver<>(
                 new RetryConfig()
                         .setMaxAttempts(5)

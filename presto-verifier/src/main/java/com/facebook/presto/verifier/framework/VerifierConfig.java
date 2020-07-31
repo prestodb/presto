@@ -144,7 +144,7 @@ public class VerifierConfig
         return testId;
     }
 
-    @ConfigDescription("A customizable string that will be logged with the results")
+    @ConfigDescription("A customizable string that will be passed into query client info and logged with the results")
     @Config("test-id")
     public VerifierConfig setTestId(String testId)
     {
