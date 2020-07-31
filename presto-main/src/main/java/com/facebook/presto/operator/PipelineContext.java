@@ -49,8 +49,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.stream.Collectors.toList;
@@ -433,31 +431,31 @@ public class PipelineContext
                 pipelineStatus.getBlockedDrivers(),
                 completedDrivers,
 
-                succinctBytes(pipelineMemoryContext.getUserMemory()),
-                succinctBytes(pipelineMemoryContext.getRevocableMemory()),
-                succinctBytes(pipelineMemoryContext.getSystemMemory()),
+                pipelineMemoryContext.getUserMemory(),
+                pipelineMemoryContext.getRevocableMemory(),
+                pipelineMemoryContext.getSystemMemory(),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),
 
-                succinctNanos(totalScheduledTime),
-                succinctNanos(totalCpuTime),
-                succinctNanos(totalBlockedTime),
+                totalScheduledTime,
+                totalCpuTime,
+                totalBlockedTime,
                 fullyBlocked,
                 blockedReasons,
 
-                succinctBytes(totalAllocation),
+                totalAllocation,
 
-                succinctBytes(rawInputDataSize),
+                rawInputDataSize,
                 rawInputPositions,
 
-                succinctBytes(processedInputDataSize),
+                processedInputDataSize,
                 processedInputPositions,
 
-                succinctBytes(outputDataSize),
+                outputDataSize,
                 outputPositions,
 
-                succinctBytes(physicalWrittenDataSize),
+                physicalWrittenDataSize,
 
                 ImmutableList.copyOf(operatorSummaries.values()),
                 drivers);
