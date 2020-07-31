@@ -187,11 +187,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>joda-to-java-time-bridge</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-server</artifactId>
         </dependency>
@@ -449,9 +444,6 @@
                     <excludes>
                         <exclude>**/TestLocalExecutionPlanner.java</exclude>
                     </excludes>
-                    <systemPropertyVariables>
-                        <org.joda.time.DateTimeZone.Provider>io.airlift.jodabridge.JdkBasedZoneInfoProvider</org.joda.time.DateTimeZone.Provider>
-                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>
