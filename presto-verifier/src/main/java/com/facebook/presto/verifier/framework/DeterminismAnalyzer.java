@@ -48,8 +48,9 @@ import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DET
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_COLUMNS;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_LIMIT_CLAUSE;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_ROW_COUNT;
-import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_CHECKSUM;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_MAIN;
+import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_SETUP;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
 import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -63,12 +64,11 @@ public class DeterminismAnalyzer
     private final QueryRewriter queryRewriter;
     private final ChecksumValidator checksumValidator;
     private final TypeManager typeManager;
-    private final VerificationContext verificationContext;
 
-    private boolean runTeardown;
-    private int maxAnalysisRuns;
-    private Set<String> nonDeterministicCatalogs;
-    private boolean handleLimitQuery;
+    private final boolean runTeardown;
+    private final int maxAnalysisRuns;
+    private final Set<String> nonDeterministicCatalogs;
+    private final boolean handleLimitQuery;
 
     public DeterminismAnalyzer(
             SourceQuery sourceQuery,
@@ -76,7 +76,6 @@ public class DeterminismAnalyzer
             QueryRewriter queryRewriter,
             ChecksumValidator checksumValidator,
             TypeManager typeManager,
-            VerificationContext verificationContext,
             DeterminismAnalyzerConfig config)
     {
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
@@ -84,7 +83,6 @@ public class DeterminismAnalyzer
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
         this.runTeardown = config.isRunTeardown();
         this.maxAnalysisRuns = config.getMaxAnalysisRuns();
@@ -111,10 +109,10 @@ public class DeterminismAnalyzer
 
                 // Rerun setup and main query
                 queryBundle.getSetupQueries().forEach(query -> runAndConsume(
-                        () -> prestoAction.execute(query, DETERMINISM_ANALYSIS),
+                        () -> prestoAction.execute(query, DETERMINISM_ANALYSIS_SETUP),
                         queryStats -> run.addSetupQueryId(queryStats.getQueryId())));
                 runAndConsume(
-                        () -> prestoAction.execute(queryBundle.getQuery(), DETERMINISM_ANALYSIS),
+                        () -> prestoAction.execute(queryBundle.getQuery(), DETERMINISM_ANALYSIS_MAIN),
                         stats -> run.setQueryId(stats.getQueryId()));
 
                 // Run checksum query

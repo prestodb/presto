@@ -451,7 +451,7 @@ final class ShowQueriesRewrite
                 }
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
-                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false), Optional.of(parameters)).trim();
+                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.empty()), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
 
@@ -522,15 +522,15 @@ final class ShowQueriesRewrite
                         node.getName(),
                         false,
                         sqlFunction.getParameters().stream()
-                                .map(parameter -> new SqlParameterDeclaration(new Identifier(parameter.getName(), true), parameter.getType().toString()))
+                                .map(parameter -> new SqlParameterDeclaration(new Identifier(parameter.getName()), parameter.getType().toString()))
                                 .collect(toImmutableList()),
                         sqlFunction.getSignature().getReturnType().toString(),
                         Optional.of(sqlFunction.getDescription()),
                         new RoutineCharacteristics(
-                                Language.valueOf(sqlFunction.getRoutineCharacteristics().getLanguage().name()),
+                                new Language(sqlFunction.getRoutineCharacteristics().getLanguage().getLanguage()),
                                 Determinism.valueOf(sqlFunction.getRoutineCharacteristics().getDeterminism().name()),
                                 NullCallClause.valueOf(sqlFunction.getRoutineCharacteristics().getNullCallClause().name())),
-                        sqlParser.createRoutineBody(sqlFunction.getBody(), createParsingOptions(session, warningCollector)));
+                        sqlParser.createReturn(sqlFunction.getBody(), createParsingOptions(session, warningCollector)));
                 rows.add(row(
                         new StringLiteral(formatSql(createFunction, Optional.empty())),
                         new StringLiteral(function.getSignature().getArgumentTypes().stream()
@@ -613,7 +613,7 @@ final class ShowQueriesRewrite
                         signature.isVariableArity() ? TRUE_LITERAL : FALSE_LITERAL,
                         builtIn ? TRUE_LITERAL : FALSE_LITERAL,
                         function instanceof SqlInvokedFunction
-                                ? new StringLiteral(((SqlInvokedFunction) function).getRoutineCharacteristics().getLanguage().name().toLowerCase(ENGLISH))
+                                ? new StringLiteral(((SqlInvokedFunction) function).getRoutineCharacteristics().getLanguage().getLanguage().toLowerCase(ENGLISH))
                                 : new StringLiteral("")));
             }
 

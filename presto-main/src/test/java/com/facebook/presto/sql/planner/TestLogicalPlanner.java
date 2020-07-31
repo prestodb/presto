@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -26,7 +27,6 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -469,6 +469,19 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of(
                                                                 "REGION_NAME", "name",
                                                                 "REGION_REGIONKEY", "regionkey")))))));
+    }
+
+    @Test
+    public void testScalarSubqueryJoinFilterPushdown()
+    {
+        assertPlan(
+                "SELECT * FROM orders WHERE orderkey = (SELECT 1)",
+                anyTree(
+                        join(INNER, ImmutableList.of(),
+                                filter("orderkey = BIGINT '1'",
+                                        tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))),
+                                anyTree(
+                                        project(ImmutableMap.of("orderkey", expression("1")), any())))));
     }
 
     @Test
@@ -989,11 +1002,12 @@ public class TestLogicalPlanner
                         join(INNER, ImmutableList.of(equiJoinClause("l_suppkey", "p_suppkey")),
                                 anyTree(
                                         filter(
-                                                "l_comment = '42'",
+                                                // cast function cannot be optimized on coordinator; it will only be optimized on workers
+                                                "l_comment = '42' and '42' = cast(l_comment as varchar)",
                                                 tableScan("lineitem", ImmutableMap.of("l_suppkey", "suppkey", "l_comment", "comment")))),
                                 anyTree(
                                         filter(
-                                                "p_comment = '42'",
+                                                "p_comment = '42' ",
                                                 tableScan("partsupp", ImmutableMap.of("p_suppkey", "suppkey", "p_partkey", "partkey", "p_comment", "comment")))))));
     }
 
@@ -1103,9 +1117,9 @@ public class TestLogicalPlanner
                                 LEFT,
                                 ImmutableList.of(equiJoinClause("NATION_REGIONKEY", "REGION_REGIONKEY")),
                                 anyTree(
-                                            tableScan(
-                                                    "nation",
-                                                    ImmutableMap.of("NATION_REGIONKEY", "regionkey"))),
+                                        tableScan(
+                                                "nation",
+                                                ImmutableMap.of("NATION_REGIONKEY", "regionkey"))),
                                 anyTree(
                                         filter("region_REGIONKEY IS NOT NULL",
                                                 tableScan(
@@ -1128,6 +1142,6 @@ public class TestLogicalPlanner
                                         tableScan(
                                                 "region",
                                                 ImmutableMap.of(
-                                                "REGION_REGIONKEY", "regionkey"))))));
+                                                        "REGION_REGIONKEY", "regionkey"))))));
     }
 }

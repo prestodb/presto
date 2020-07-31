@@ -66,6 +66,8 @@ public enum GeometryType
             case "MultiPoint":
                 return MULTI_POINT;
             case "LineString":
+            // LinearRings are a subclass of LineString
+            case "LinearRing":
                 return LINE_STRING;
             case "MultiLineString":
                 return MULTI_LINE_STRING;

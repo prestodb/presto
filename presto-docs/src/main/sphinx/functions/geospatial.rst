@@ -497,6 +497,28 @@ represent a valid tile will raise an exception.
 
     Creates a Bing tile object from a quadkey.
 
+.. function:: bing_tile_parent(tile) -> BingTile
+
+    Returns the parent of the Bing tile at one lower zoom level.
+    Throws an exception if tile is at zoom level 0.
+
+.. function:: bing_tile_parent(tile, newZoom) -> BingTile
+
+    Returns the parent of the Bing tile at the specified lower zoom level.
+    Throws an exception if newZoom is less than 0, or newZoom is greater than
+    the tile's zoom.
+
+.. function:: bing_tile_children(tile) -> array(BingTile)
+
+    Returns the children of the Bing tile at one higher zoom level.
+    Throws an exception if tile is at max zoom level.
+
+.. function:: bing_tile_children(tile, newZoom) -> array(BingTile)
+
+    Returns the children of the Bing tile at the specified higher zoom level.
+    Throws an exception if newZoom is greater than the max zoom level, or
+    newZoom is less than the tile's zoom.
+
 .. function:: bing_tile_at(latitude, longitude, zoom_level) -> BingTile
 
     Returns a Bing tile at a given zoom level containing a point at a given latitude
@@ -533,3 +555,11 @@ represent a valid tile will raise an exception.
 
     Returns the minimum set of Bing tiles that fully covers a given geometry at
     a given zoom level. Zoom levels from 1 to 23 are supported.
+
+.. function:: geometry_to_dissolved_bing_tiles(geometry, max_zoom_level) -> array(BingTile)
+
+    Returns the minimum set of Bing tiles that fully covers a given geometry at
+    a given zoom level, recursively dissolving full sets of children into parents.
+    This results in a smaller array of tiles of different zoom levels. For example,
+    if the non-dissolved covering is ["00", "01", "02", "03", "10"], the dissolved
+    covering would be ["0", "10"]. Zoom levels from 1 to 23 are supported.

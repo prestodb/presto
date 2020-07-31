@@ -139,6 +139,12 @@ public class Int128ArrayBlockEncodingBuffer
                 .toString();
     }
 
+    @VisibleForTesting
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        return estimatedValueBufferMaxCapacity;
+    }
+
     @Override
     protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
     {
@@ -146,13 +152,9 @@ public class Int128ArrayBlockEncodingBuffer
         decodedBlock = (Block) mapPositionsToNestedBlock(decodedBlockNode).getDecodedBlock();
 
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
-        if (decodedBlock.mayHaveNull()) {
-            setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
-            estimatedValueBufferMaxCapacity = (int) (targetBufferSize * Long.BYTES * 2 / POSITION_SIZE);
-        }
-        else {
-            estimatedValueBufferMaxCapacity = (int) targetBufferSize;
-        }
+
+        setEstimatedNullsBufferMaxCapacity(getEstimatedBufferMaxCapacity(targetBufferSize, Byte.BYTES, POSITION_SIZE));
+        estimatedValueBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Long.BYTES * 2, POSITION_SIZE);
     }
 
     @Override

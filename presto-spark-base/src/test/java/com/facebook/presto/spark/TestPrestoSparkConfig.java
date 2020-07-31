@@ -15,12 +15,14 @@ package com.facebook.presto.spark;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 
 public class TestPrestoSparkConfig
 {
@@ -28,17 +30,23 @@ public class TestPrestoSparkConfig
     public void testDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(PrestoSparkConfig.class)
-                .setInitialSparkPartitionCount(16));
+                .setSparkPartitionCountAutoTuneEnabled(true)
+                .setInitialSparkPartitionCount(16)
+                .setMaxSplitsDataSizePerSparkPartition(new DataSize(2, GIGABYTE)));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("spark.partition-count-auto-tune-enabled", "false")
                 .put("spark.initial-partition-count", "128")
+                .put("spark.max-splits-data-size-per-partition", "4GB")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
-                .setInitialSparkPartitionCount(128);
+                .setSparkPartitionCountAutoTuneEnabled(false)
+                .setInitialSparkPartitionCount(128)
+                .setMaxSplitsDataSizePerSparkPartition(new DataSize(4, GIGABYTE));
         assertFullMapping(properties, expected);
     }
 }

@@ -18,6 +18,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializingQueryRunner;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteMaterializedExchangesCount;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
@@ -44,6 +45,7 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     {
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "temporary_table_storage_format", "PAGEFILE")
+                .setSystemProperty(ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE, "true")
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_materialize_non_hive_types AS\n" +
@@ -70,6 +72,30 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
                 assertRemoteMaterializedExchangesCount(2));
 
         assertUpdate("DROP TABLE IF EXISTS test_materialize_non_hive_types");
+
+        assertUpdate(session, "CREATE TABLE test_materialize_non_hive_types AS\n" +
+                        "WITH t1 AS (\n" +
+                        "    SELECT\n" +
+                        "        CAST('2000-01-01' AS DATE) date,\n" +
+                        "        nationkey\n" +
+                        "    FROM nation\n" +
+                        "),\n" +
+                        "t2 AS (\n" +
+                        "    SELECT\n" +
+                        "        FROM_ISO8601_TIMESTAMP('2020-02-25') time,\n" +
+                        "        nationkey\n" +
+                        "    FROM nation\n" +
+                        ")\n" +
+                        "SELECT\n" +
+                        "    t1.nationkey,\n" +
+                        "    t1.date,\n" +
+                        "    CAST(t2.time AS VARCHAR) time\n" +
+                        "FROM t1\n" +
+                        "JOIN t2\n" +
+                        "    ON t1.nationkey = t2.nationkey",
+                25);
+
+        assertUpdate("DROP TABLE IF EXISTS test_materialize_non_hive_types");
     }
 
     @Test
@@ -77,6 +103,7 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     {
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", "temporary_table_storage_format", "PAGEFILE")
+                .setCatalogSessionProperty("hive", "bucket_function_type_for_exchange", "PRESTO_NATIVE")
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_materialize_bucket_by_non_hive_types AS\n" +
@@ -243,6 +270,60 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_constant_folding_lineitem_bucketed");
             assertUpdate("DROP TABLE IF EXISTS test_constant_folding_partsupp_unbucketed");
+        }
+    }
+
+    @Test
+    public void testIgnoreTableBucketingWhenTableBucketCountIsSmall()
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE partitioned_nation\n" +
+                            "WITH (\n" +
+                            "    bucket_count = 17,\n" +
+                            "    bucketed_by = ARRAY['nationkey']\n" +
+                            ") AS\n" +
+                            "SELECT\n" +
+                            "    *\n" +
+                            "FROM nation",
+                    25);
+
+            // test default : not ignore table bucketing
+            assertQuery(
+                    getSession(),
+                    "SELECT\n" +
+                            "    *\n" +
+                            "FROM partitioned_nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey",
+                    "SELECT\n" +
+                            "    *\n" +
+                            "FROM nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey",
+                    assertRemoteMaterializedExchangesCount(1));
+
+            // test ignore table bucketing
+            Session testSession = Session.builder(getSession())
+                    .setCatalogSessionProperty("hive", "min_bucket_count_to_not_ignore_table_bucketing", "20")
+                    .build();
+
+            assertQuery(
+                    testSession,
+                    "SELECT\n" +
+                            "    *\n" +
+                            "FROM partitioned_nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey",
+                    "SELECT\n" +
+                            "    *\n" +
+                            "FROM nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey",
+                    assertRemoteMaterializedExchangesCount(2));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS partitioned_nation");
         }
     }
 

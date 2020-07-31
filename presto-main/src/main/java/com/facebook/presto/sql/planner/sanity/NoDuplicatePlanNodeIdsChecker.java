@@ -30,7 +30,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class NoDuplicatePlanNodeIdsChecker
-        implements PlanSanityChecker.Checker
+        implements PlanChecker.Checker
 {
     @Override
     public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)

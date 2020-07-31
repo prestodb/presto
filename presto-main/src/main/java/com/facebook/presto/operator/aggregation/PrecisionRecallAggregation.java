@@ -220,8 +220,8 @@ public abstract class PrecisionRecallAggregation
                         totalFalseWeight,
                         totalTrueWeight - runningTrueWeight,
                         runningFalseWeight,
-                        runningTrueWeight,
-                        totalFalseWeight - runningFalseWeight);
+                        totalFalseWeight - runningFalseWeight,
+                        runningTrueWeight);
 
                 runningTrueWeight += trueResult.getWeight();
                 runningFalseWeight += falseResult.getWeight();

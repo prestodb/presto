@@ -21,20 +21,15 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.operator.BlockedReason;
-import com.facebook.presto.operator.OperatorStats;
-import com.facebook.presto.operator.TableWriterOperator;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
-import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
@@ -54,7 +49,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,9 +83,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.Duration.succinctDuration;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class QueryStateMachine
@@ -405,7 +397,6 @@ public class QueryStateMachine
         }
 
         boolean completeInfo = getAllStages(rootStage).stream().allMatch(StageInfo::isFinalStageInfo);
-        boolean isScheduled = isScheduled(rootStage);
         Optional<List<TaskId>> failedTasks;
         // Traversing all tasks is expensive, thus only construct failedTasks list when query finished.
         if (state.isDone()) {
@@ -420,16 +411,18 @@ public class QueryStateMachine
             failedTasks = Optional.empty();
         }
 
+        List<StageId> runtimeOptimizedStages = getAllStages(rootStage).stream().filter(StageInfo::isRuntimeOptimized).map(StageInfo::getStageId).collect(toImmutableList());
+        QueryStats queryStats = getQueryStats(rootStage);
         return new QueryInfo(
                 queryId,
                 session.toSessionRepresentation(),
                 state,
                 memoryPool.get().getId(),
-                isScheduled,
+                queryStats.isScheduled(),
                 self,
                 outputManager.getQueryOutputInfo().map(QueryOutputInfo::getColumnNames).orElse(ImmutableList.of()),
                 query,
-                getQueryStats(rootStage),
+                queryStats,
                 Optional.ofNullable(setCatalog.get()),
                 Optional.ofNullable(setSchema.get()),
                 setSessionProperties,
@@ -449,190 +442,20 @@ public class QueryStateMachine
                 completeInfo,
                 Optional.of(resourceGroup),
                 queryType,
-                failedTasks);
+                failedTasks,
+                runtimeOptimizedStages.isEmpty() ? Optional.empty() : Optional.of(runtimeOptimizedStages));
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)
     {
-        int totalTasks = 0;
-        int runningTasks = 0;
-        int completedTasks = 0;
-
-        int totalDrivers = 0;
-        int queuedDrivers = 0;
-        int runningDrivers = 0;
-        int blockedDrivers = 0;
-        int completedDrivers = 0;
-
-        long cumulativeUserMemory = 0;
-        long userMemoryReservation = 0;
-        long totalMemoryReservation = 0;
-
-        long totalScheduledTime = 0;
-        long totalCpuTime = 0;
-        long retriedCpuTime = 0;
-        long totalBlockedTime = 0;
-
-        long totalAllocation = 0;
-
-        long rawInputDataSize = 0;
-        long rawInputPositions = 0;
-
-        long processedInputDataSize = 0;
-        long processedInputPositions = 0;
-
-        long outputDataSize = 0;
-        long outputPositions = 0;
-
-        long writtenOutputPositions = 0;
-        long writtenOutputLogicalDataSize = 0;
-        long writtenOutputPhysicalDataSize = 0;
-
-        long writtenIntermediatePhysicalDataSize = 0;
-
-        ImmutableList.Builder<StageGcStatistics> stageGcStatistics = ImmutableList.builder();
-
-        boolean fullyBlocked = rootStage.isPresent();
-        Set<BlockedReason> blockedReasons = new HashSet<>();
-
-        ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
-        boolean completeInfo = true;
-        for (StageInfo stageInfo : getAllStages(rootStage)) {
-            StageExecutionStats stageExecutionStats = stageInfo.getLatestAttemptExecutionInfo().getStats();
-            totalTasks += stageExecutionStats.getTotalTasks();
-            runningTasks += stageExecutionStats.getRunningTasks();
-            completedTasks += stageExecutionStats.getCompletedTasks();
-
-            totalDrivers += stageExecutionStats.getTotalDrivers();
-            queuedDrivers += stageExecutionStats.getQueuedDrivers();
-            runningDrivers += stageExecutionStats.getRunningDrivers();
-            blockedDrivers += stageExecutionStats.getBlockedDrivers();
-            completedDrivers += stageExecutionStats.getCompletedDrivers();
-
-            cumulativeUserMemory += stageExecutionStats.getCumulativeUserMemory();
-            userMemoryReservation += stageExecutionStats.getUserMemoryReservation().toBytes();
-            totalMemoryReservation += stageExecutionStats.getTotalMemoryReservation().toBytes();
-            totalScheduledTime += stageExecutionStats.getTotalScheduledTime().roundTo(MILLISECONDS);
-            totalCpuTime += stageExecutionStats.getTotalCpuTime().roundTo(MILLISECONDS);
-            retriedCpuTime += computeRetriedCpuTime(stageInfo);
-            totalBlockedTime += stageExecutionStats.getTotalBlockedTime().roundTo(MILLISECONDS);
-            if (!stageInfo.getLatestAttemptExecutionInfo().getState().isDone()) {
-                fullyBlocked &= stageExecutionStats.isFullyBlocked();
-                blockedReasons.addAll(stageExecutionStats.getBlockedReasons());
-            }
-
-            totalAllocation += stageExecutionStats.getTotalAllocation().toBytes();
-
-            if (stageInfo.getPlan().isPresent()) {
-                PlanFragment plan = stageInfo.getPlan().get();
-                if (!plan.getTableScanSchedulingOrder().isEmpty()) {
-                    rawInputDataSize += stageExecutionStats.getRawInputDataSize().toBytes();
-                    rawInputPositions += stageExecutionStats.getRawInputPositions();
-
-                    processedInputDataSize += stageExecutionStats.getProcessedInputDataSize().toBytes();
-                    processedInputPositions += stageExecutionStats.getProcessedInputPositions();
-                }
-
-                if (plan.isOutputTableWriterFragment()) {
-                    writtenOutputPositions += stageExecutionStats.getOperatorSummaries().stream()
-                            .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
-                            .mapToLong(OperatorStats::getInputPositions)
-                            .sum();
-                    writtenOutputLogicalDataSize += stageExecutionStats.getOperatorSummaries().stream()
-                            .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.class.getSimpleName()))
-                            .mapToLong(stats -> stats.getInputDataSize().toBytes())
-                            .sum();
-                    writtenOutputPhysicalDataSize += stageExecutionStats.getPhysicalWrittenDataSize().toBytes();
-                }
-                else {
-                    writtenIntermediatePhysicalDataSize += stageExecutionStats.getPhysicalWrittenDataSize().toBytes();
-                }
-            }
-
-            stageGcStatistics.add(stageExecutionStats.getGcInfo());
-
-            completeInfo = completeInfo && stageInfo.isFinalStageInfo();
-            operatorStatsSummary.addAll(stageExecutionStats.getOperatorSummaries());
-        }
-
-        if (rootStage.isPresent()) {
-            StageExecutionStats outputStageStats = rootStage.get().getLatestAttemptExecutionInfo().getStats();
-            outputDataSize += outputStageStats.getOutputDataSize().toBytes();
-            outputPositions += outputStageStats.getOutputPositions();
-        }
-
-        boolean isScheduled = isScheduled(rootStage);
-
-        return new QueryStats(
-                queryStateTimer.getCreateTime(),
-                getExecutionStartTime().orElse(null),
-                getLastHeartbeat(),
-                getEndTime().orElse(null),
-
-                queryStateTimer.getElapsedTime(),
-                queryStateTimer.getQueuedTime(),
-                queryStateTimer.getResourceWaitingTime(),
-                queryStateTimer.getDispatchingTime(),
-                queryStateTimer.getExecutionTime(),
-                queryStateTimer.getAnalysisTime(),
-                queryStateTimer.getPlanningTime(),
-                queryStateTimer.getFinishingTime(),
-
-                totalTasks,
-                runningTasks,
+        return QueryStats.create(
+                queryStateTimer,
+                rootStage,
                 getPeakRunningTaskCount(),
-                completedTasks,
-
-                totalDrivers,
-                queuedDrivers,
-                runningDrivers,
-                blockedDrivers,
-                completedDrivers,
-
-                cumulativeUserMemory,
-                succinctBytes(userMemoryReservation),
-                succinctBytes(totalMemoryReservation),
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
                 succinctBytes(getPeakTaskUserMemory()),
-                succinctBytes(getPeakTaskTotalMemory()),
-
-                isScheduled,
-
-                succinctDuration(totalScheduledTime, MILLISECONDS),
-                succinctDuration(totalCpuTime, MILLISECONDS),
-                succinctDuration(retriedCpuTime, MILLISECONDS),
-                succinctDuration(totalBlockedTime, MILLISECONDS),
-                fullyBlocked,
-                blockedReasons,
-
-                succinctBytes(totalAllocation),
-
-                succinctBytes(rawInputDataSize),
-                rawInputPositions,
-                succinctBytes(processedInputDataSize),
-                processedInputPositions,
-                succinctBytes(outputDataSize),
-                outputPositions,
-
-                writtenOutputPositions,
-                succinctBytes(writtenOutputLogicalDataSize),
-                succinctBytes(writtenOutputPhysicalDataSize),
-
-                succinctBytes(writtenIntermediatePhysicalDataSize),
-
-                stageGcStatistics.build(),
-
-                operatorStatsSummary.build());
-    }
-
-    private static long computeRetriedCpuTime(StageInfo stageInfo)
-    {
-        long stageRetriedCpuTime = stageInfo.getPreviousAttemptsExecutionInfos().stream()
-                .mapToLong(executionInfo -> executionInfo.getStats().getTotalCpuTime().roundTo(MILLISECONDS))
-                .sum();
-        long taskRetriedCpuTime = stageInfo.getLatestAttemptExecutionInfo().getStats().getRetriedCpuTime().roundTo(MILLISECONDS);
-        return stageRetriedCpuTime + taskRetriedCpuTime;
+                succinctBytes(getPeakTaskTotalMemory()));
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -979,17 +802,6 @@ public class QueryStateMachine
         return queryStateTimer.getEndTime();
     }
 
-    private static boolean isScheduled(Optional<StageInfo> rootStage)
-    {
-        if (!rootStage.isPresent()) {
-            return false;
-        }
-        return getAllStages(rootStage).stream()
-                .map(StageInfo::getLatestAttemptExecutionInfo)
-                .map(StageExecutionInfo::getState)
-                .allMatch(state -> (state == StageExecutionState.RUNNING) || state.isDone());
-    }
-
     public Optional<ExecutionFailureInfo> getFailureInfo()
     {
         if (queryState.get() != QueryState.FAILED) {
@@ -1026,7 +838,8 @@ public class QueryStateMachine
                 Optional.empty(), // Remove the plan
                 pruneStageExecutionInfo(outputStage.getLatestAttemptExecutionInfo()),
                 ImmutableList.of(), // Remove failed attempts
-                ImmutableList.of())); // Remove the substages
+                ImmutableList.of(),
+                outputStage.isRuntimeOptimized())); // Remove the substages
 
         QueryInfo prunedQueryInfo = new QueryInfo(
                 queryInfo.getQueryId(),
@@ -1057,7 +870,8 @@ public class QueryStateMachine
                 queryInfo.isCompleteInfo(),
                 queryInfo.getResourceGroupId(),
                 queryInfo.getQueryType(),
-                queryInfo.getFailedTasks());
+                queryInfo.getFailedTasks(),
+                queryInfo.getRuntimeOptimizedStages());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

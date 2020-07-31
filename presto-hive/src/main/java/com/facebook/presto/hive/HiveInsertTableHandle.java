@@ -39,7 +39,8 @@ public class HiveInsertTableHandle
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
             @JsonProperty("actualStorageFormat") HiveStorageFormat actualStorageFormat,
-            @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec)
+            @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
+            @JsonProperty("encryptionInformation") Optional<EncryptionInformation> encryptionInformation)
     {
         super(
                 schemaName,
@@ -53,6 +54,7 @@ public class HiveInsertTableHandle
                 tableStorageFormat,
                 partitionStorageFormat,
                 actualStorageFormat,
-                compressionCodec);
+                compressionCodec,
+                encryptionInformation);
     }
 }

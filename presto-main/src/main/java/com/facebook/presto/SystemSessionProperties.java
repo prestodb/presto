@@ -71,7 +71,7 @@ public final class SystemSessionProperties
     public static final String USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT = "use_stream_exchange_for_mark_distinct";
     public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
     public static final String GROUPED_EXECUTION_FOR_JOIN = "grouped_execution_for_join";
-    public static final String GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS = "grouped_execution_for_eligible_table_scans";
+    public static final String GROUPED_EXECUTION = "grouped_execution";
     public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
     public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
@@ -119,6 +119,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_MAP_SUBSCRIPT = "do_not_use_legacy_map_subscript";
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
+    public static final String RUNTIME_OPTIMIZER_ENABLED = "runtime_optimizer_enabled";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
     public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
@@ -136,6 +137,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_UNNEST = "legacy_unnest";
     public static final String STATISTICS_CPU_TIMER_ENABLED = "statistics_cpu_timer_enabled";
     public static final String ENABLE_STATS_CALCULATOR = "enable_stats_calculator";
+    public static final String ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE = "enable_stats_collection_for_temporary_table";
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String PRINT_STATS_FOR_NON_JOIN_QUERY = "print_stats_for_non_join_query";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
@@ -157,6 +159,7 @@ public final class SystemSessionProperties
     public static final String PREFER_DISTRIBUTED_UNION = "prefer_distributed_union";
     public static final String WARNING_HANDLING = "warning_handling";
     public static final String OPTIMIZE_NULLS_IN_JOINS = "optimize_nulls_in_join";
+    public static final String TARGET_RESULT_SIZE = "target_result_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -254,9 +257,9 @@ public final class SystemSessionProperties
                         featuresConfig.isGroupedExecutionForJoinEnabled(),
                         false),
                 booleanProperty(
-                        GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS,
-                        "Experimental: Use grouped execution for eligible table scans",
-                        featuresConfig.isGroupedExecutionForEligibleTableScansEnabled(),
+                        GROUPED_EXECUTION,
+                        "Use grouped execution when possible",
+                        featuresConfig.isGroupedExecutionEnabled(),
                         false),
                 booleanProperty(
                         DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION,
@@ -447,7 +450,7 @@ public final class SystemSessionProperties
                         Duration::toString),
                 booleanProperty(
                         OPTIMIZE_METADATA_QUERIES,
-                        "Enable optimization for metadata queries",
+                        "Enable optimization for metadata queries. Note if metadata entry has empty data, the result might be different (e.g. empty Hive partition)",
                         featuresConfig.isOptimizeMetadataQueries(),
                         false),
                 integerProperty(
@@ -585,6 +588,11 @@ public final class SystemSessionProperties
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
                 booleanProperty(
+                        RUNTIME_OPTIMIZER_ENABLED,
+                        "Experimental: enable runtime optimizer",
+                        featuresConfig.isRuntimeOptimizerEnabled(),
+                        false),
+                booleanProperty(
                         EXCHANGE_COMPRESSION,
                         "Enable compression in exchanges",
                         featuresConfig.isExchangeCompressionEnabled(),
@@ -672,6 +680,11 @@ public final class SystemSessionProperties
                         ENABLE_STATS_CALCULATOR,
                         "Experimental: Enable statistics calculator",
                         featuresConfig.isEnableStatsCalculator(),
+                        false),
+                booleanProperty(
+                        ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE,
+                        "Experimental: Enable statistics collection of temporary tables created for materialized exchange",
+                        featuresConfig.isEnableStatsCollectionForTemporaryTable(),
                         false),
                 integerProperty(
                         MAX_TASKS_PER_STAGE,
@@ -806,7 +819,16 @@ public final class SystemSessionProperties
                         OPTIMIZE_NULLS_IN_JOINS,
                         "Filter nulls from inner side of join",
                         featuresConfig.isOptimizeNullsInJoin(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        TARGET_RESULT_SIZE,
+                        "Target result size for results being streamed from coordinator",
+                        VARCHAR,
+                        DataSize.class,
+                        null,
+                        false,
+                        value -> value != null ? DataSize.valueOf((String) value) : null,
+                        value -> value != null ? value.toString() : null));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -870,17 +892,17 @@ public final class SystemSessionProperties
 
     public static boolean isGroupedExecutionForAggregationEnabled(Session session)
     {
-        return session.getSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, Boolean.class);
+        return session.getSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, Boolean.class) && isGroupedExecutionEnabled(session);
     }
 
     public static boolean isGroupedExecutionForJoinEnabled(Session session)
     {
-        return session.getSystemProperty(GROUPED_EXECUTION_FOR_JOIN, Boolean.class);
+        return session.getSystemProperty(GROUPED_EXECUTION_FOR_JOIN, Boolean.class) && isGroupedExecutionEnabled(session);
     }
 
-    public static boolean isGroupedExecutionForEligibleTableScansEnabled(Session session)
+    public static boolean isGroupedExecutionEnabled(Session session)
     {
-        return session.getSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, Boolean.class);
+        return session.getSystemProperty(GROUPED_EXECUTION, Boolean.class);
     }
 
     public static boolean isDynamicScheduleForGroupedExecution(Session session)
@@ -1125,6 +1147,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ITERATIVE_OPTIMIZER, Boolean.class);
     }
 
+    public static boolean isRuntimeOptimizerEnabled(Session session)
+    {
+        return session.getSystemProperty(RUNTIME_OPTIMIZER_ENABLED, Boolean.class);
+    }
+
     @Deprecated
     public static boolean isLegacyTimestamp(Session session)
     {
@@ -1267,6 +1294,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(ENABLE_STATS_CALCULATOR, Boolean.class);
     }
 
+    public static boolean isEnableStatsCollectionForTemporaryTable(Session session)
+    {
+        return session.getSystemProperty(ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE, Boolean.class);
+    }
+
     public static boolean isIgnoreStatsCalculatorFailures(Session session)
     {
         return session.getSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, Boolean.class);
@@ -1361,5 +1393,10 @@ public final class SystemSessionProperties
     public static boolean isOptimizeNullsInJoin(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_NULLS_IN_JOINS, Boolean.class);
+    }
+
+    public static Optional<DataSize> getTargetResultSize(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(TARGET_RESULT_SIZE, DataSize.class));
     }
 }

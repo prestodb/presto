@@ -25,8 +25,8 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestAllOrNoneValueSet
 {
@@ -39,13 +39,7 @@ public class TestAllOrNoneValueSet
         assertTrue(valueSet.isAll());
         assertFalse(valueSet.isSingleValue());
         assertTrue(valueSet.containsValue(Slices.EMPTY_SLICE));
-
-        try {
-            valueSet.getSingleValue();
-            fail();
-        }
-        catch (Exception ignored) {
-        }
+        assertThrows(UnsupportedOperationException.class, valueSet::getSingleValue);
     }
 
     @Test
@@ -57,13 +51,7 @@ public class TestAllOrNoneValueSet
         assertFalse(valueSet.isAll());
         assertFalse(valueSet.isSingleValue());
         assertFalse(valueSet.containsValue(Slices.EMPTY_SLICE));
-
-        try {
-            valueSet.getSingleValue();
-            fail();
-        }
-        catch (Exception ignored) {
-        }
+        assertThrows(UnsupportedOperationException.class, valueSet::getSingleValue);
     }
 
     @Test

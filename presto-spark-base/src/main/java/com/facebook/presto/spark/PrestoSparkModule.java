@@ -41,12 +41,13 @@ import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
-import com.facebook.presto.execution.ForQueryScheduling;
 import com.facebook.presto.execution.QueryIdGenerator;
+import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
@@ -80,7 +81,6 @@ import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
-import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
@@ -138,6 +138,7 @@ import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Statement;
@@ -178,10 +179,12 @@ public class PrestoSparkModule
         extends AbstractConfigurationAwareModule
 {
     private final SparkProcessType sparkProcessType;
+    private final SqlParserOptions sqlParserOptions;
 
-    public PrestoSparkModule(SparkProcessType sparkProcessType)
+    public PrestoSparkModule(SparkProcessType sparkProcessType, SqlParserOptions sqlParserOptions)
     {
         this.sparkProcessType = requireNonNull(sparkProcessType, "sparkProcessType is null");
+        this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
     }
 
     @Override
@@ -207,7 +210,7 @@ public class PrestoSparkModule
 
         // json codecs
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
-        jsonCodecBinder(binder).bindJsonCodec(TaskStats.class);
+        jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkTaskDescriptor.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskSource.class);
         jsonCodecBinder(binder).bindJsonCodec(TableCommitContext.class);
@@ -215,6 +218,7 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(StageInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
+        jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
 
         // index manager
         binder.bind(IndexManager.class).in(Scopes.SINGLETON);
@@ -295,7 +299,6 @@ public class PrestoSparkModule
         ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("presto-spark-executor-%s"));
         binder.bind(Executor.class).toInstance(executor);
         binder.bind(ExecutorService.class).toInstance(executor);
-        binder.bind(ExecutorService.class).annotatedWith(ForQueryScheduling.class).toInstance(executor);
         binder.bind(ScheduledExecutorService.class).toInstance(newScheduledThreadPool(0, daemonThreadsNamed("presto-spark-scheduled-executor-%s")));
 
         // task executor
@@ -315,8 +318,9 @@ public class PrestoSparkModule
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
 
         // parser
+        binder.bind(PlanChecker.class).in(Scopes.SINGLETON);
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
-        binder.bind(SqlParserOptions.class).toInstance(new SqlParserOptions());
+        binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);

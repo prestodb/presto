@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DictionaryCompressionOptimizer.DictionaryColumn;
+import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.array.IntBigArray;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
@@ -24,6 +25,7 @@ import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
@@ -73,6 +75,7 @@ public class SliceDictionaryColumnWriter
     private final int column;
     private final Type type;
     private final CompressionKind compression;
+    private final Optional<DwrfDataEncryptor> dwrfEncryptor;
     private final int bufferSize;
     private final OrcEncoding orcEncoding;
     private final int stringStatisticsLimitInBytes;
@@ -81,6 +84,8 @@ public class SliceDictionaryColumnWriter
     private final PresentOutputStream presentStream;
     private final ByteArrayOutputStream dictionaryDataStream;
     private final LongOutputStream dictionaryLengthStream;
+    private final CompressedMetadataWriter compressedMetadataWriter;
+    private final MetadataWriter metadataWriter;
 
     private final DictionaryBuilder dictionary = new DictionaryBuilder(10000);
 
@@ -102,26 +107,37 @@ public class SliceDictionaryColumnWriter
     private boolean directEncoded;
     private SliceDirectColumnWriter directColumnWriter;
 
-    public SliceDictionaryColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding, DataSize stringStatisticsLimit)
+    public SliceDictionaryColumnWriter(
+            int column,
+            Type type,
+            CompressionKind compression,
+            Optional<DwrfDataEncryptor> dwrfEncryptor,
+            int bufferSize,
+            OrcEncoding orcEncoding,
+            DataSize stringStatisticsLimit,
+            MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
         this.compression = requireNonNull(compression, "compression is null");
+        this.dwrfEncryptor = requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         this.bufferSize = bufferSize;
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
         this.stringStatisticsLimitInBytes = toIntExact(requireNonNull(stringStatisticsLimit, "stringStatisticsLimit is null").toBytes());
         LongOutputStream result;
         if (orcEncoding == DWRF) {
-            result = new LongOutputStreamV1(compression, bufferSize, false, DATA);
+            result = new LongOutputStreamV1(compression, dwrfEncryptor, bufferSize, false, DATA);
         }
         else {
             result = new LongOutputStreamV2(compression, bufferSize, false, DATA);
         }
         this.dataStream = result;
-        this.presentStream = new PresentOutputStream(compression, bufferSize);
-        this.dictionaryDataStream = new ByteArrayOutputStream(compression, bufferSize, StreamKind.DICTIONARY_DATA);
-        this.dictionaryLengthStream = createLengthOutputStream(compression, bufferSize, orcEncoding);
+        this.presentStream = new PresentOutputStream(compression, dwrfEncryptor, bufferSize);
+        this.dictionaryDataStream = new ByteArrayOutputStream(compression, dwrfEncryptor, bufferSize, StreamKind.DICTIONARY_DATA);
+        this.dictionaryLengthStream = createLengthOutputStream(compression, dwrfEncryptor, bufferSize, orcEncoding);
+        this.metadataWriter = requireNonNull(metadataWriter, "metadataWriter is null");
+        this.compressedMetadataWriter = new CompressedMetadataWriter(metadataWriter, compression, dwrfEncryptor, bufferSize);
         values = new IntBigArray();
         this.statisticsBuilder = newStringStatisticsBuilder();
     }
@@ -174,7 +190,7 @@ public class SliceDictionaryColumnWriter
         checkState(!closed);
         checkState(!directEncoded);
         if (directColumnWriter == null) {
-            directColumnWriter = new SliceDirectColumnWriter(column, type, compression, bufferSize, orcEncoding, this::newStringStatisticsBuilder);
+            directColumnWriter = new SliceDirectColumnWriter(column, type, compression, dwrfEncryptor, bufferSize, orcEncoding, this::newStringStatisticsBuilder, metadataWriter);
         }
         checkState(directColumnWriter.getBufferedBytes() == 0);
 
@@ -456,13 +472,13 @@ public class SliceDictionaryColumnWriter
     }
 
     @Override
-    public List<StreamDataOutput> getIndexStreams(CompressedMetadataWriter metadataWriter)
+    public List<StreamDataOutput> getIndexStreams()
             throws IOException
     {
         checkState(closed);
 
         if (directEncoded) {
-            return directColumnWriter.getIndexStreams(metadataWriter);
+            return directColumnWriter.getIndexStreams();
         }
 
         ImmutableList.Builder<RowGroupIndex> rowGroupIndexes = ImmutableList.builder();
@@ -478,7 +494,7 @@ public class SliceDictionaryColumnWriter
             rowGroupIndexes.add(new RowGroupIndex(positions, columnStatistics));
         }
 
-        Slice slice = metadataWriter.writeRowIndexes(rowGroupIndexes.build());
+        Slice slice = compressedMetadataWriter.writeRowIndexes(rowGroupIndexes.build());
         Stream stream = new Stream(column, StreamKind.ROW_INDEX, slice.length(), false);
         return ImmutableList.of(new StreamDataOutput(slice, stream));
     }

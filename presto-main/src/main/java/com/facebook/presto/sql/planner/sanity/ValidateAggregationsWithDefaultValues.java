@@ -26,7 +26,7 @@ import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.sanity.PlanSanityChecker.Checker;
+import com.facebook.presto.sql.planner.sanity.PlanChecker.Checker;
 
 import java.util.List;
 import java.util.Optional;

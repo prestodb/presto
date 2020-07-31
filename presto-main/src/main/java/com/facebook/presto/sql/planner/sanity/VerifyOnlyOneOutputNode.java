@@ -25,7 +25,7 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.google.common.base.Preconditions.checkState;
 
 public final class VerifyOnlyOneOutputNode
-        implements PlanSanityChecker.Checker
+        implements PlanChecker.Checker
 {
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)

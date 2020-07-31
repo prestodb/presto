@@ -130,7 +130,7 @@ public class RcFileFileWriter
     }
 
     @Override
-    public void commit()
+    public Optional<Page> commit()
     {
         try {
             rcFileWriter.close();
@@ -157,6 +157,7 @@ public class RcFileFileWriter
                 throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+        return Optional.empty();
     }
 
     @Override

@@ -137,6 +137,8 @@ public class HiveWriterFactory
 
     private final boolean writeToTempFile;
 
+    private final Optional<EncryptionInformation> encryptionInformation;
+
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
             String schemaName,
@@ -164,7 +166,8 @@ public class HiveWriterFactory
             HiveSessionProperties hiveSessionProperties,
             HiveWriterStats hiveWriterStats,
             OrcFileWriterFactory orcFileWriterFactory,
-            boolean commitRequired)
+            boolean commitRequired,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -291,6 +294,8 @@ public class HiveWriterFactory
         // In Hive connector, bucket commit is fulfilled by writing to temporary file in TableWriterOperator, and rename in TableFinishOpeartor
         // (note Presto partition here loosely maps to Hive bucket)
         this.writeToTempFile = commitRequired;
+
+        this.encryptionInformation = requireNonNull(encryptionInformation, "encryptionInformation is null");
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -346,7 +351,8 @@ public class HiveWriterFactory
                     writerParameters.getOutputStorageFormat(),
                     writerParameters.getSchema(),
                     conf,
-                    session);
+                    session,
+                    encryptionInformation);
             if (fileWriter.isPresent()) {
                 hiveFileWriter = fileWriter.get();
                 break;
@@ -381,7 +387,7 @@ public class HiveWriterFactory
                 hiveFileWriter,
                 partitionName,
                 writerParameters.getUpdateMode(),
-                new FileWriteInfo(writeFileName, targetFileName),
+                new FileWriteInfo(writeFileName, targetFileName, Optional.empty()),
                 writerParameters.getWriteInfo().getWritePath().toString(),
                 writerParameters.getWriteInfo().getTargetPath().toString(),
                 createCommitEventListener(path, partitionName, hiveFileWriter, writerParameters),

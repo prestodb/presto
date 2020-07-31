@@ -84,6 +84,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
 import static com.facebook.presto.sql.planner.PlannerUtils.toSortOrder;
@@ -406,7 +407,8 @@ class QueryPlanner
         return new PlanBuilder(translations, new ProjectNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                projections.build()),
+                projections.build(),
+                LOCAL),
                 analysis.getParameters());
     }
 
@@ -422,7 +424,8 @@ class QueryPlanner
         return new PlanBuilder(translations, new ProjectNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                assignments),
+                assignments,
+                LOCAL),
                 analysis.getParameters());
     }
 
@@ -541,7 +544,7 @@ class QueryPlanner
             aggregationArguments.stream().map(AssignmentUtils::identityAsSymbolReference).forEach(assignments::put);
             groupingSetMappings.forEach((key, value) -> assignments.put(key, castToRowExpression(asSymbolReference(value))));
 
-            ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build());
+            ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build(), LOCAL);
             subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
         }
 
@@ -701,7 +704,7 @@ class QueryPlanner
             newTranslations.put(groupingOperation, variable);
         }
 
-        return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build()), analysis.getParameters());
+        return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build(), LOCAL), analysis.getParameters());
     }
 
     private PlanBuilder window(PlanBuilder subPlan, OrderBy node)

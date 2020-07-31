@@ -37,10 +37,13 @@ public class PrestoSparkSessionContext
     private final String catalog;
     private final String schema;
     private final String source;
+
+    private final String userAgent;
     private final String clientInfo;
     private final Set<String> clientTags;
     private final String timeZoneId;
     private final String language;
+
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogSessionProperties;
     private final Optional<String> traceToken;
@@ -67,6 +70,7 @@ public class PrestoSparkSessionContext
                 prestoSparkSession.getCatalog().orElse(null),
                 prestoSparkSession.getSchema().orElse(null),
                 prestoSparkSession.getSource().orElse(null),
+                prestoSparkSession.getUserAgent().orElse(null),
                 prestoSparkSession.getClientInfo().orElse(null),
                 prestoSparkSession.getClientTags(),
                 prestoSparkSession.getTimeZoneId().orElse(null),
@@ -81,6 +85,7 @@ public class PrestoSparkSessionContext
             String catalog,
             String schema,
             String source,
+            String userAgent,
             String clientInfo,
             Set<String> clientTags,
             String timeZoneId,
@@ -93,6 +98,7 @@ public class PrestoSparkSessionContext
         this.catalog = catalog;
         this.schema = schema;
         this.source = source;
+        this.userAgent = userAgent;
         this.clientInfo = clientInfo;
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.timeZoneId = timeZoneId;
@@ -139,7 +145,7 @@ public class PrestoSparkSessionContext
     @Override
     public String getUserAgent()
     {
-        return null;
+        return userAgent;
     }
 
     @Nullable

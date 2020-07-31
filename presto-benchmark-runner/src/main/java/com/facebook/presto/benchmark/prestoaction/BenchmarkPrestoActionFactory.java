@@ -17,8 +17,6 @@ import com.facebook.presto.benchmark.framework.BenchmarkQuery;
 import com.facebook.presto.benchmark.retry.RetryConfig;
 import com.google.inject.Inject;
 
-import java.util.Map;
-
 import static java.util.Objects.requireNonNull;
 
 public class BenchmarkPrestoActionFactory
@@ -40,15 +38,12 @@ public class BenchmarkPrestoActionFactory
     }
 
     @Override
-    public PrestoAction get(
-            BenchmarkQuery benchmarkQuery,
-            Map<String, String> sessionProperties)
+    public PrestoAction get(BenchmarkQuery benchmarkQuery)
     {
         return new JdbcPrestoAction(
                 exceptionClassifier,
                 benchmarkQuery,
                 clusterConfig,
-                sessionProperties,
                 networkRetryConfig);
     }
 }

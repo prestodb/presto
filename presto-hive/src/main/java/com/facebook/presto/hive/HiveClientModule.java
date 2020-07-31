@@ -17,6 +17,8 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.concurrent.ExecutorServiceAdapter;
 import com.facebook.airlift.event.client.EventClient;
 import com.facebook.presto.cache.ForCachingFileSystem;
+import com.facebook.presto.hive.HiveDwrfEncryptionProvider.ForCryptoService;
+import com.facebook.presto.hive.HiveDwrfEncryptionProvider.ForUnknown;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
@@ -34,11 +36,13 @@ import com.facebook.presto.hive.rule.HivePlanOptimizerProvider;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
 import com.facebook.presto.orc.CacheStatsMBean;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
+import com.facebook.presto.orc.EncryptionLibrary;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.StripeReader.StripeId;
 import com.facebook.presto.orc.StripeReader.StripeStreamId;
+import com.facebook.presto.orc.UnsupportedEncryptionLibrary;
 import com.facebook.presto.orc.cache.CachingOrcFileTailSource;
 import com.facebook.presto.orc.cache.OrcCacheConfig;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
@@ -124,6 +128,8 @@ public class HiveClientModule
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(TableParameterCodec.class).in(Scopes.SINGLETON);
+        binder.bind(HivePartitionStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(HivePartitionStats.class).as(generatedNameOf(HivePartitionStats.class, connectorId));
         binder.bind(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(new TypeLiteral<Supplier<TransactionalMetadata>>() {}).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(StagingFileCommitter.class).to(HiveStagingFileCommitter.class).in(Scopes.SINGLETON);
@@ -131,6 +137,7 @@ public class HiveClientModule
         binder.bind(PartitionObjectBuilder.class).to(HivePartitionObjectBuilder.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(CacheQuotaRequirementProvider.class).to(ConfigBasedCacheQuotaRequirementProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generatedNameOf(HiveSplitManager.class, connectorId));
         binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
@@ -141,6 +148,10 @@ public class HiveClientModule
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).as(generatedNameOf(FileFormatDataSourceStats.class, connectorId));
+
+        binder.bind(EncryptionLibrary.class).annotatedWith(ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
+        binder.bind(EncryptionLibrary.class).annotatedWith(ForUnknown.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
+        binder.bind(HiveDwrfEncryptionProvider.class).in(Scopes.SINGLETON);
 
         Multibinder<HiveBatchPageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HiveBatchPageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(OrcBatchPageSourceFactory.class).in(Scopes.SINGLETON);
@@ -174,6 +185,9 @@ public class HiveClientModule
         configBinder(binder).bindConfig(ParquetFileWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(Scopes.SINGLETON);
         binder.install(new MetastoreClientModule());
+
+        binder.bind(HiveEncryptionInformationProvider.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, EncryptionInformationSource.class);
     }
 
     @ForHiveClient

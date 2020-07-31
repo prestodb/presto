@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.OrcDataSource;
@@ -51,7 +52,7 @@ public class LocalOrcDataEnvironment
     }
 
     @Override
-    public FileSystem getFileSystem(FileSystemContext ignore)
+    public FileSystem getFileSystem(HdfsContext ignore)
     {
         return localFileSystem;
     }

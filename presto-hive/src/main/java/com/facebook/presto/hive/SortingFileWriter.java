@@ -124,14 +124,13 @@ public class SortingFileWriter
     }
 
     @Override
-    public void commit()
+    public Optional<Page> commit()
     {
         if (!sortBuffer.isEmpty()) {
             // skip temporary files entirely if the total output size is small
             if (tempFiles.isEmpty()) {
                 sortBuffer.flushTo(outputWriter::appendRows);
-                outputWriter.commit();
-                return;
+                return outputWriter.commit();
             }
 
             flushToTempFile();
@@ -139,7 +138,7 @@ public class SortingFileWriter
 
         try {
             writeSorted();
-            outputWriter.commit();
+            return outputWriter.commit();
         }
         catch (UncheckedIOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);

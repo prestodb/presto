@@ -206,6 +206,15 @@ public interface Block
     long getRegionSizeInBytes(int position, int length);
 
     /**
+     * Returns the size of {@code block.getRegion(position, length)}.
+     * The method can be expensive. Do not use it outside an implementation of Block.
+     */
+    default long getRegionLogicalSizeInBytes(int position, int length)
+    {
+        return getRegionSizeInBytes(position, length);
+    }
+
+    /**
      * Returns the size of of all positions marked true in the positions array.
      * This is equivalent to multiple calls of {@code block.getRegionSizeInBytes(position, length)}
      * where you mark all positions for the regions first.

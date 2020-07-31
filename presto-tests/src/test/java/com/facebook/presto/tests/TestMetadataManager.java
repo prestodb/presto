@@ -13,14 +13,20 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.facebook.presto.transaction.TransactionBuilder;
 import com.google.common.collect.ImmutableList;
@@ -31,10 +37,14 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.spi.Constraint.alwaysTrue;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -67,6 +77,9 @@ public class TestMetadataManager
                         })
                         .withGetViews((session, prefix) -> ImmutableMap.of())
                         .withGetColumnHandles((session, tableHandle) -> {
+                            throw new UnsupportedOperationException();
+                        })
+                        .withGetTableStatistics(() -> {
                             throw new UnsupportedOperationException();
                         })
                         .build();
@@ -150,6 +163,38 @@ public class TestMetadataManager
                             List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
                             assertEquals(queryRunner.getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog"), expectedSchemas);
                             return null;
+                        });
+    }
+
+    @Test
+    public void testGetTableStatisticsDoesNotThrow()
+    {
+        Session session = testSessionBuilder()
+                .setSystemProperty("ignore_stats_calculator_failures", "true")
+                .build();
+        TableHandle tableHandle = new TableHandle(new ConnectorId("upper_case_schema_catalog"), new ConnectorTableHandle() {}, TestingTransactionHandle.create(), Optional.empty());
+        TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .execute(
+                        session,
+                        transactionSession -> {
+                            queryRunner.getMetadata().getCatalogHandle(transactionSession, "upper_case_schema_catalog");
+                            assertEquals(queryRunner.getMetadata().getTableStatistics(transactionSession, tableHandle, ImmutableList.of(), alwaysTrue()), TableStatistics.empty());
+                        });
+    }
+
+    @Test(expectedExceptions = UnsupportedOperationException.class)
+    public void testGetTableStatisticsThrows()
+    {
+        Session session = testSessionBuilder()
+                .setSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, "false")
+                .build();
+        TableHandle tableHandle = new TableHandle(new ConnectorId("upper_case_schema_catalog"), new ConnectorTableHandle() {}, TestingTransactionHandle.create(), Optional.empty());
+        TransactionBuilder.transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                .execute(
+                        session,
+                        transactionSession -> {
+                            queryRunner.getMetadata().getCatalogHandle(transactionSession, "upper_case_schema_catalog");
+                            assertEquals(queryRunner.getMetadata().getTableStatistics(transactionSession, tableHandle, ImmutableList.of(), alwaysTrue()), TableStatistics.empty());
                         });
     }
 }

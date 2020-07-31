@@ -49,6 +49,8 @@ Property Name                                 Description
 ``elasticsearch.connect-timeout``             Timeout for connections to Elasticsearch hosts.
 ``elasticsearch.max-retry-time``              Maximum duration across all retry attempts for a single request.
 ``elasticsearch.node-refresh-interval``       How often to refresh the list of available Elasticsearch nodes.
+``elasticsearch.max-http-connections``        Maximum number of persistent HTTP connections to Elasticsearch.
+``elasticsearch.http-thread-count``           Number of threads handling HTTP connections to Elasticsearch.
 ============================================= ==============================================================================
 
 ``elasticsearch.host``
@@ -126,6 +128,20 @@ This property is optional; the default is ``20s``.
 This property controls how often the list of available Elasticsearch nodes is refreshed.
 
 This property is optional; the default is ``1m``.
+
+``elasticsearch.max-http-connections``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This property controls the maximum number of persistent HTTP connections to Elasticsearch.
+
+This property is optional; the default is ``25``.
+
+``elasticsearch.http-thread-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This property controls the number of threads handling HTTP connections to Elasticsearch.
+
+This property is optional; the default is number of available processors.
 
 TLS Security
 ------------

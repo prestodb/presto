@@ -29,7 +29,6 @@ import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.dispatcher.DispatchQueryFactory;
 import com.facebook.presto.dispatcher.FailedDispatchQueryFactory;
 import com.facebook.presto.dispatcher.LocalDispatchQueryFactory;
-import com.facebook.presto.dispatcher.QueuedStatementResource;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.execution.AddColumnTask;
@@ -52,7 +51,6 @@ import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.ForQueryExecution;
-import com.facebook.presto.execution.ForQueryScheduling;
 import com.facebook.presto.execution.GrantRolesTask;
 import com.facebook.presto.execution.GrantTask;
 import com.facebook.presto.execution.PrepareTask;
@@ -98,6 +96,8 @@ import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
+import com.facebook.presto.server.protocol.LocalQueryProvider;
+import com.facebook.presto.server.protocol.QueuedStatementResource;
 import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -232,6 +232,8 @@ public class CoordinatorModule
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
 
+        binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
+
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
@@ -295,8 +297,6 @@ public class CoordinatorModule
 
         binder.bind(ScheduledExecutorService.class).annotatedWith(ForScheduler.class)
                 .toInstance(newSingleThreadScheduledExecutor(threadsNamed("stage-scheduler")));
-        binder.bind(ExecutorService.class).annotatedWith(ForQueryScheduling.class)
-                .toInstance(newCachedThreadPool(threadsNamed("query-scheduler-%s")));
 
         // query execution
         binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class)

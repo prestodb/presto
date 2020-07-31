@@ -43,13 +43,14 @@ public class QueryInfo
     private final Double wallTimeSecs;
     private final Long peakTotalMemoryBytes;
     private final Long peakTaskTotalMemoryBytes;
+    private final QueryStatsEvent queryStats;
 
     public QueryInfo(
             String catalog,
             String schema,
             String originalQuery)
     {
-        this(catalog, schema, originalQuery, Optional.empty(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        this(catalog, schema, originalQuery, Optional.empty(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public QueryInfo(
@@ -67,7 +68,8 @@ public class QueryInfo
             Optional<Double> cpuTimeSecs,
             Optional<Double> wallTimeSecs,
             Optional<Long> peakTotalMemoryBytes,
-            Optional<Long> peakTaskTotalMemoryBytes)
+            Optional<Long> peakTaskTotalMemoryBytes,
+            Optional<QueryStatsEvent> queryStats)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -84,6 +86,7 @@ public class QueryInfo
         this.wallTimeSecs = wallTimeSecs.orElse(null);
         this.peakTotalMemoryBytes = peakTotalMemoryBytes.orElse(null);
         this.peakTaskTotalMemoryBytes = peakTaskTotalMemoryBytes.orElse(null);
+        this.queryStats = queryStats.orElse(null);
     }
 
     @EventField
@@ -174,5 +177,11 @@ public class QueryInfo
     public Long getPeakTaskTotalMemoryBytes()
     {
         return peakTaskTotalMemoryBytes;
+    }
+
+    @EventField
+    public QueryStatsEvent getQueryStats()
+    {
+        return queryStats;
     }
 }

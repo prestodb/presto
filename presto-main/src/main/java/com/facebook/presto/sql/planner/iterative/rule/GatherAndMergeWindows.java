@@ -23,11 +23,9 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -45,8 +43,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutputs;
 import static com.facebook.presto.sql.planner.iterative.rule.Util.transpose;
-import static com.facebook.presto.sql.planner.optimizations.WindowNodeUtil.dependsOn;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.isIdentity;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
@@ -108,7 +105,7 @@ public class GatherAndMergeWindows
                     .map(captures::get)
                     .collect(toImmutableList());
 
-            return pullWindowNodeAboveProjects(captures.get(childCapture), projects, context)
+            return pullWindowNodeAboveProjects(captures.get(childCapture), projects)
                     .flatMap(newChild -> manipulateAdjacentWindowNodes(parent, newChild, context))
                     .map(Result::ofPlanNode)
                     .orElse(Result.empty());
@@ -123,10 +120,7 @@ public class GatherAndMergeWindows
          *
          * @param projects the nodes above the target, bottom first.
          */
-        protected static Optional<WindowNode> pullWindowNodeAboveProjects(
-                WindowNode target,
-                List<ProjectNode> projects,
-                Context context)
+        protected static Optional<WindowNode> pullWindowNodeAboveProjects(WindowNode target, List<ProjectNode> projects)
         {
             if (projects.isEmpty()) {
                 return Optional.of(target);
@@ -155,15 +149,15 @@ public class GatherAndMergeWindows
 
                 Assignments newAssignments = Assignments.builder()
                         .putAll(assignmentsWithoutTargetOutputIdentities)
-                        .putAll(identitiesAsSymbolReferences(targetInputs))
+                        .putAll(identityAssignments(targetInputs))
                         .build();
 
-                if (!newTargetChildOutputs.containsAll(extractUnique(newAssignments, context.getVariableAllocator().getTypes()))) {
+                if (!newTargetChildOutputs.containsAll(extractUnique(newAssignments))) {
                     // Projection uses an output of the target -- can't move the target above this projection.
                     return Optional.empty();
                 }
 
-                newTargetChild = new ProjectNode(project.getId(), newTargetChild, newAssignments);
+                newTargetChild = new ProjectNode(project.getId(), newTargetChild, newAssignments, project.getLocality());
             }
 
             WindowNode newTarget = (WindowNode) target.replaceChildren(ImmutableList.of(newTargetChild));
@@ -176,10 +170,21 @@ public class GatherAndMergeWindows
         }
     }
 
-    private static Set<VariableReferenceExpression> extractUnique(Assignments assignments, TypeProvider types)
+    private static Set<VariableReferenceExpression> extractUnique(Assignments assignments)
     {
         Collection<RowExpression> expressions = assignments.getExpressions();
-        return VariablesExtractor.extractUnique(expressions.stream().map(OriginalExpressionUtils::castToExpression).collect(toImmutableList()), types);
+        return VariablesExtractor.extractUnique(expressions);
+    }
+
+    private static boolean dependsOn(WindowNode parent, WindowNode child)
+    {
+        return parent.getPartitionBy().stream().anyMatch(child.getCreatedVariable()::contains)
+                || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderByVariables().stream()
+                .anyMatch(child.getCreatedVariable()::contains))
+                || parent.getWindowFunctions().values().stream()
+                .map(function -> VariablesExtractor.extractUnique(function.getFunctionCall().getArguments()))
+                .flatMap(Collection::stream)
+                .anyMatch(child.getCreatedVariable()::contains);
     }
 
     public static class MergeAdjacentWindowsOverProjects
@@ -193,7 +198,7 @@ public class GatherAndMergeWindows
         @Override
         protected Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context)
         {
-            if (!child.getSpecification().equals(parent.getSpecification()) || dependsOn(parent, child, context.getVariableAllocator().getTypes())) {
+            if (!child.getSpecification().equals(parent.getSpecification()) || dependsOn(parent, child)) {
                 return Optional.empty();
             }
 
@@ -211,7 +216,7 @@ public class GatherAndMergeWindows
                     parent.getPreSortedOrderPrefix());
 
             return Optional.of(
-                    restrictOutputs(context.getIdAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.getOutputVariables()), false)
+                    restrictOutputs(context.getIdAllocator(), mergedWindowNode, ImmutableSet.copyOf(parent.getOutputVariables()), true)
                             .orElse(mergedWindowNode));
         }
     }
@@ -227,10 +232,10 @@ public class GatherAndMergeWindows
         @Override
         protected Optional<PlanNode> manipulateAdjacentWindowNodes(WindowNode parent, WindowNode child, Context context)
         {
-            if ((compare(parent, child) < 0) && (!dependsOn(parent, child, context.getVariableAllocator().getTypes()))) {
+            if ((compare(parent, child) < 0) && (!dependsOn(parent, child))) {
                 PlanNode transposedWindows = transpose(parent, child);
                 return Optional.of(
-                        restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputVariables()), false)
+                        restrictOutputs(context.getIdAllocator(), transposedWindows, ImmutableSet.copyOf(parent.getOutputVariables()), true)
                                 .orElse(transposedWindows));
             }
             else {

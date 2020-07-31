@@ -14,10 +14,20 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.array.ObjectBigArray;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.ArrayBlock;
+import com.facebook.presto.common.block.ArrayBlockBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.common.block.ColumnarRow;
+import com.facebook.presto.common.block.LongArrayBlock;
+import com.facebook.presto.common.block.RowBlock;
+import com.facebook.presto.common.block.RowBlockBuilder;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.MarkDistinctHash;
@@ -29,6 +39,7 @@ import com.facebook.presto.spi.function.WindowIndex;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -40,6 +51,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
+import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -67,6 +80,7 @@ public class GenericAccumulatorFactory
     @Nullable
     private final Session session;
     private final boolean distinct;
+    private final boolean spillEnabled;
     private final PagesIndex.Factory pagesIndexFactory;
 
     public GenericAccumulatorFactory(
@@ -82,7 +96,8 @@ public class GenericAccumulatorFactory
             PagesIndex.Factory pagesIndexFactory,
             JoinCompiler joinCompiler,
             Session session,
-            boolean distinct)
+            boolean distinct,
+            boolean spillEnabled)
     {
         this.stateDescriptors = requireNonNull(stateDescriptors, "stateDescriptors is null");
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
@@ -100,6 +115,7 @@ public class GenericAccumulatorFactory
         this.joinCompiler = joinCompiler;
         this.session = session;
         this.distinct = distinct;
+        this.spillEnabled = spillEnabled;
     }
 
     @Override
@@ -113,7 +129,7 @@ public class GenericAccumulatorFactory
     {
         Accumulator accumulator;
 
-        if (distinct) {
+        if (hasDistinct()) {
             // channel 0 will contain the distinct mask
             accumulator = instantiateAccumulator(
                     inputChannels.stream()
@@ -152,9 +168,46 @@ public class GenericAccumulatorFactory
     @Override
     public GroupedAccumulator createGroupedAccumulator()
     {
+        GroupedAccumulator accumulator = createGenericGroupedAccumulator();
+        if (!spillEnabled || (!hasDistinct() && !hasOrderBy())) {
+            return accumulator;
+        }
+
+        checkState(accumulator instanceof FinalOnlyGroupedAccumulator);
+        return new SpillableFinalOnlyGroupedAccumulator(sourceTypes, (FinalOnlyGroupedAccumulator) accumulator);
+    }
+
+    @Override
+    public GroupedAccumulator createGroupedIntermediateAccumulator()
+    {
+        if (!hasOrderBy() && !hasDistinct()) {
+            try {
+                return groupedAccumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaProviders);
+            }
+            catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return createGroupedAccumulator();
+    }
+
+    @Override
+    public boolean hasOrderBy()
+    {
+        return !orderByChannels.isEmpty();
+    }
+
+    @Override
+    public boolean hasDistinct()
+    {
+        return distinct;
+    }
+
+    private GroupedAccumulator createGenericGroupedAccumulator()
+    {
         GroupedAccumulator accumulator;
 
-        if (distinct) {
+        if (hasDistinct()) {
             // channel 0 will contain the distinct mask
             accumulator = instantiateGroupedAccumulator(
                     inputChannels.stream()
@@ -178,29 +231,6 @@ public class GenericAccumulatorFactory
         }
 
         return new OrderingGroupedAccumulator(accumulator, sourceTypes, orderByChannels, orderings, pagesIndexFactory);
-    }
-
-    @Override
-    public GroupedAccumulator createGroupedIntermediateAccumulator()
-    {
-        try {
-            return groupedAccumulatorConstructor.newInstance(stateDescriptors, ImmutableList.of(), Optional.empty(), lambdaProviders);
-        }
-        catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Override
-    public boolean hasOrderBy()
-    {
-        return !orderByChannels.isEmpty();
-    }
-
-    @Override
-    public boolean hasDistinct()
-    {
-        return distinct;
     }
 
     private Accumulator instantiateAccumulator(List<Integer> inputs, Optional<Integer> mask)
@@ -322,7 +352,7 @@ public class GenericAccumulatorFactory
     }
 
     private static class DistinctingGroupedAccumulator
-            implements GroupedAccumulator
+            extends FinalOnlyGroupedAccumulator
     {
         private final GroupedAccumulator accumulator;
         private final MarkDistinctHash hash;
@@ -366,12 +396,6 @@ public class GenericAccumulatorFactory
         }
 
         @Override
-        public Type getIntermediateType()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public void addInput(GroupByIdBlock groupIdsBlock, Page page)
         {
             Page withGroup = page.prependColumn(groupIdsBlock);
@@ -397,18 +421,6 @@ public class GenericAccumulatorFactory
             }
 
             accumulator.addInput(groupIds, new Page(filtered.getPositionCount(), columns));
-        }
-
-        @Override
-        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void evaluateIntermediate(int groupId, BlockBuilder output)
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -497,7 +509,7 @@ public class GenericAccumulatorFactory
     }
 
     private static class OrderingGroupedAccumulator
-            implements GroupedAccumulator
+            extends FinalOnlyGroupedAccumulator
     {
         private final GroupedAccumulator accumulator;
         private final List<Integer> orderByChannels;
@@ -536,12 +548,6 @@ public class GenericAccumulatorFactory
         }
 
         @Override
-        public Type getIntermediateType()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public void addInput(GroupByIdBlock groupIdsBlock, Page page)
         {
             Block[] blocks = new Block[page.getChannelCount() + 1];
@@ -552,18 +558,6 @@ public class GenericAccumulatorFactory
             blocks[page.getChannelCount()] = groupIdsBlock;
             groupCount = max(groupCount, groupIdsBlock.getGroupCount());
             pagesIndex.addPage(new Page(blocks));
-        }
-
-        @Override
-        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void evaluateIntermediate(int groupId, BlockBuilder output)
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -584,6 +578,181 @@ public class GenericAccumulatorFactory
                 // to use. Since we did not change the order of original input channels, passing the group id is safe.
                 accumulator.addInput(groupIds, page);
             });
+        }
+    }
+
+    /**
+     * {@link SpillableFinalOnlyGroupedAccumulator} enables spilling for {@link FinalOnlyGroupedAccumulator}
+     */
+    private static class SpillableFinalOnlyGroupedAccumulator
+            implements GroupedAccumulator
+    {
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SpillableFinalOnlyGroupedAccumulator.class).instanceSize();
+
+        private final FinalOnlyGroupedAccumulator delegate;
+        private final List<Type> spillingTypes;
+
+        private ObjectBigArray<GroupIdPage> rawInputs = new ObjectBigArray<>();
+        private ObjectBigArray<RowBlockBuilder> blockBuilders;
+        private long rawInputsLength;
+
+        public SpillableFinalOnlyGroupedAccumulator(List<Type> types, FinalOnlyGroupedAccumulator delegate)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.spillingTypes = requireNonNull(types, "types is null");
+        }
+
+        @Override
+        public long getEstimatedSize()
+        {
+            return INSTANCE_SIZE +
+                    delegate.getEstimatedSize() +
+                    (rawInputs == null ? 0 : rawInputs.sizeOf()) +
+                    (blockBuilders == null ? 0 : blockBuilders.sizeOf());
+        }
+
+        @Override
+        public Type getFinalType()
+        {
+            return delegate.getFinalType();
+        }
+
+        @Override
+        public Type getIntermediateType()
+        {
+            return new ArrayType(RowType.anonymous(spillingTypes));
+        }
+
+        @Override
+        public void addInput(GroupByIdBlock groupIdsBlock, Page page)
+        {
+            checkState(rawInputs != null && blockBuilders == null);
+            rawInputs.ensureCapacity(rawInputsLength);
+            rawInputs.set(rawInputsLength, new GroupIdPage(groupIdsBlock, page));
+            // TODO(sakshams) deduplicate inputs for DISTINCT accumulator case by doing page compaction
+            rawInputsLength++;
+        }
+
+        @Override
+        public void addIntermediate(GroupByIdBlock groupIdsBlock, Block block)
+        {
+            checkState(rawInputs != null && blockBuilders == null);
+            checkState(block instanceof ArrayBlock);
+            ArrayBlock arrayBlock = (ArrayBlock) block;
+
+            // expand array block back into page
+            ColumnarArray columnarArray = toColumnarArray(block); // flattens the squashed arrays; so there is no need to flatten block again.
+            ColumnarRow columnarRow = toColumnarRow(columnarArray.getElementsBlock()); // contains the flattened array
+            int newPositionCount = columnarRow.getPositionCount(); // number of positions in expanded array (since columnarRow is already flattened)
+            long[] newGroupIds = new long[newPositionCount];
+            boolean[] nulls = new boolean[newPositionCount];
+            int currentRowBlockIndex = 0;
+            for (int groupIdPosition = 0; groupIdPosition < groupIdsBlock.getPositionCount(); groupIdPosition++) {
+                for (int unused = 0; unused < arrayBlock.getBlock(groupIdPosition).getPositionCount(); unused++) {
+                    // unused because we are expanding all the squashed values for the same group id
+                    newGroupIds[currentRowBlockIndex] = groupIdsBlock.getGroupId(groupIdPosition);
+                    nulls[currentRowBlockIndex] = groupIdsBlock.isNull(groupIdPosition);
+                    currentRowBlockIndex++;
+                }
+            }
+
+            Block[] blocks = new Block[spillingTypes.size()];
+            for (int channel = 0; channel < spillingTypes.size(); channel++) {
+                blocks[channel] = columnarRow.getField(channel);
+            }
+            Page page = new Page(blocks);
+            GroupByIdBlock squashedGroupIds = new GroupByIdBlock(groupIdsBlock.getGroupCount(), new LongArrayBlock(newPositionCount, Optional.of(nulls), newGroupIds));
+
+            rawInputs.ensureCapacity(rawInputsLength);
+            rawInputs.set(rawInputsLength, new GroupIdPage(squashedGroupIds, page));
+            rawInputsLength++;
+        }
+
+        @Override
+        public void evaluateIntermediate(int groupId, BlockBuilder output)
+        {
+            checkState(output instanceof ArrayBlockBuilder);
+            if (blockBuilders == null) {
+                checkState(rawInputs != null);
+
+                blockBuilders = new ObjectBigArray<>();
+                for (int i = 0; i < rawInputsLength; i++) {
+                    GroupIdPage groupIdPage = rawInputs.get(i);
+                    Page page = groupIdPage.getPage();
+                    GroupByIdBlock groupIdsBlock = groupIdPage.getGroupByIdBlock();
+                    for (int position = 0; position < page.getPositionCount(); position++) {
+                        long currentGroupId = groupIdsBlock.getGroupId(position);
+                        blockBuilders.ensureCapacity(currentGroupId);
+                        RowBlockBuilder rowBlockBuilder = blockBuilders.get(currentGroupId);
+                        if (rowBlockBuilder == null) {
+                            rowBlockBuilder = new RowBlockBuilder(spillingTypes, null, (int) groupIdsBlock.getGroupCount());
+                        }
+
+                        BlockBuilder currentOutput = rowBlockBuilder.beginBlockEntry();
+                        for (int channel = 0; channel < spillingTypes.size(); channel++) {
+                            spillingTypes.get(channel).appendTo(page.getBlock(channel), position, currentOutput);
+                        }
+                        rowBlockBuilder.closeEntry();
+
+                        blockBuilders.set(currentGroupId, rowBlockBuilder);
+                    }
+                }
+                rawInputs = null;
+                rawInputsLength = 0;
+            }
+
+            BlockBuilder singleArrayBlockWriter = output.beginBlockEntry();
+            checkState(rawInputs == null && blockBuilders != null);
+
+            // We need to squash the entire page into one array block since we can't spill multiple values for a single group ID during evaluateIntermediate.
+            RowBlock rowBlock = (RowBlock) blockBuilders.get(groupId).build();
+            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                singleArrayBlockWriter.appendStructure(rowBlock.getBlock(i));
+            }
+            output.closeEntry();
+        }
+
+        @Override
+        public void evaluateFinal(int groupId, BlockBuilder output)
+        {
+            checkState(rawInputs == null && blockBuilders == null);
+            delegate.evaluateFinal(groupId, output);
+        }
+
+        @Override
+        public void prepareFinal()
+        {
+            checkState(rawInputs != null && blockBuilders == null);
+            for (int i = 0; i < rawInputsLength; i++) {
+                GroupIdPage groupIdPage = rawInputs.get(i);
+                delegate.addInput(groupIdPage.getGroupByIdBlock(), groupIdPage.getPage());
+            }
+
+            rawInputs = null;
+            rawInputsLength = 0;
+            delegate.prepareFinal();
+        }
+
+        private static class GroupIdPage
+        {
+            private final GroupByIdBlock groupByIdBlock;
+            private final Page page;
+
+            public GroupIdPage(GroupByIdBlock groupByIdBlock, Page page)
+            {
+                this.page = requireNonNull(page, "page is null");
+                this.groupByIdBlock = requireNonNull(groupByIdBlock, "groupByIdBlock is null");
+            }
+
+            public Page getPage()
+            {
+                return page;
+            }
+
+            public GroupByIdBlock getGroupByIdBlock()
+            {
+                return groupByIdBlock;
+            }
         }
     }
 }

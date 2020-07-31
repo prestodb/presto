@@ -112,6 +112,7 @@ public abstract class AbstractTestVerifierIntegrationSmokeTest
                 .put("control.jdbc-port", String.valueOf(port))
                 .put("test.host", host)
                 .put("test.jdbc-port", String.valueOf(port))
+                .put("test.http-port", String.valueOf(port))
                 .put("control.table-prefix", "local.tmp_verifier_c")
                 .put("test.table-prefix", "local.tmp_verifier_t")
                 .put("source-query.database", mySqlServer.getJdbcUrl(XDB))

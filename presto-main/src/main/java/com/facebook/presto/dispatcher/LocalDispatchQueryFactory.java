@@ -118,6 +118,7 @@ public class LocalDispatchQueryFactory
 
         return new LocalDispatchQuery(
                 stateMachine,
+                queryMonitor,
                 queryExecutionFuture,
                 clusterSizeMonitor,
                 executor,

@@ -44,6 +44,7 @@ import static com.facebook.presto.operator.MoreByteArrays.setBytes;
 import static com.facebook.presto.operator.UncheckedByteArrays.setIntUnchecked;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 import static sun.misc.Unsafe.ARRAY_INT_INDEX_SCALE;
@@ -188,6 +189,24 @@ public class VariableWidthBlockEncodingBuffer
                 .toString();
     }
 
+    @VisibleForTesting
+    int getEstimatedOffsetBufferMaxCapacity()
+    {
+        return estimatedOffsetBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    int getEstimatedSliceBufferMaxCapacity()
+    {
+        return estimatedSliceBufferMaxCapacity;
+    }
+
+    @Override
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
     {
@@ -195,13 +214,21 @@ public class VariableWidthBlockEncodingBuffer
         decodedBlock = (Block) mapPositionsToNestedBlock(decodedBlockNode).getDecodedBlock();
 
         double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
-        estimatedSliceBufferMaxCapacity = (int) (targetBufferSize * ((VariableWidthBlock) decodedBlock).getRawSlice(0).getRetainedSize() / decodedBlock.getRetainedSizeInBytes());
-        if (decodedBlock.mayHaveNull()) {
-            setEstimatedNullsBufferMaxCapacity((int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Byte.BYTES / POSITION_SIZE));
-            estimatedOffsetBufferMaxCapacity = (int) ((targetBufferSize - estimatedSliceBufferMaxCapacity) * Integer.BYTES / POSITION_SIZE);
+
+        int positionCount = decodedBlock.getPositionCount();
+        if (positionCount == 0) {
+            estimatedSliceBufferMaxCapacity = 0;
+            setEstimatedNullsBufferMaxCapacity(0);
+            estimatedOffsetBufferMaxCapacity = 0;
         }
         else {
-            estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize - estimatedSliceBufferMaxCapacity);
+            int inclusivePositionSize = toIntExact(decodedBlock.getLogicalSizeInBytes() / positionCount);
+            estimatedSliceBufferMaxCapacity = getEstimatedBufferMaxCapacity(
+                    targetBufferSize,
+                    (((VariableWidthBlock) decodedBlock).getPositionOffset(decodedBlock.getPositionCount()) - ((VariableWidthBlock) decodedBlock).getPositionOffset(0)) / positionCount,
+                    inclusivePositionSize);
+            setEstimatedNullsBufferMaxCapacity(getEstimatedBufferMaxCapacity(targetBufferSize, Byte.BYTES, inclusivePositionSize));
+            estimatedOffsetBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Integer.BYTES, inclusivePositionSize);
         }
     }
 

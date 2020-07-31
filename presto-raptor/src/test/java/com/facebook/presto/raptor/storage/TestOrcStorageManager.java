@@ -30,7 +30,6 @@ import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.backup.BackupManager;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.filesystem.RaptorLocalFileSystem;
@@ -95,6 +94,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.DEFAULT_RAPTOR_CONTEXT;
 import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
@@ -238,7 +238,7 @@ public class TestOrcStorageManager
 
         recoveryManager.restoreFromBackup(shardUuid, shardInfo.getCompressedSize(), OptionalLong.of(shardInfo.getXxhash64()));
 
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
         try (OrcDataSource dataSource = manager.openShard(fileSystem, shardUuid, READER_ATTRIBUTES)) {
             OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
@@ -337,7 +337,7 @@ public class TestOrcStorageManager
             throws Exception
     {
         OrcStorageManager manager = createOrcStorageManager();
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
 
         long transactionId = TRANSACTION_ID;
         List<Long> columnIds = ImmutableList.of(3L, 7L);
@@ -358,7 +358,7 @@ public class TestOrcStorageManager
         BitSet rowsToDelete = new BitSet();
         rowsToDelete.set(0);
         InplaceShardRewriter shardRewriter = (InplaceShardRewriter) manager.createShardRewriter(
-                FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                DEFAULT_RAPTOR_CONTEXT,
                 fileSystem,
                 transactionId,
                 OptionalInt.empty(),
@@ -391,7 +391,7 @@ public class TestOrcStorageManager
     public void testWriteDeltaDelete()
             throws Exception
     {
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
 
         // delete one row
         BitSet rowsToDelete = new BitSet();
@@ -454,7 +454,7 @@ public class TestOrcStorageManager
     public void testWriteDeltaDeleteMerge()
             throws Exception
     {
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
 
         BitSet rowsToDelete = new BitSet();
         rowsToDelete.set(0);
@@ -511,7 +511,7 @@ public class TestOrcStorageManager
     private Collection<Slice> deltaDelete(BitSet rowsToDelete, boolean oldDeltaDeleteExist)
     {
         OrcStorageManager manager = createOrcStorageManager();
-        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(FileSystemContext.DEFAULT_RAPTOR_CONTEXT);
+        FileSystem fileSystem = new LocalOrcDataEnvironment().getFileSystem(DEFAULT_RAPTOR_CONTEXT);
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
@@ -542,7 +542,7 @@ public class TestOrcStorageManager
 
         // delta delete
         DeltaShardRewriter shardRewriter = (DeltaShardRewriter) manager.createShardRewriter(
-                FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                DEFAULT_RAPTOR_CONTEXT,
                 fileSystem,
                 TRANSACTION_ID,
                 OptionalInt.empty(),
@@ -758,7 +758,7 @@ public class TestOrcStorageManager
             TupleDomain<RaptorColumnHandle> tupleDomain)
     {
         return manager.getPageSource(
-                FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                DEFAULT_RAPTOR_CONTEXT,
                 DEFAULT_HIVE_FILE_CONTEXT,
                 uuid,
                 Optional.empty(),
@@ -773,7 +773,7 @@ public class TestOrcStorageManager
     private static StoragePageSink createStoragePageSink(StorageManager manager, List<Long> columnIds, List<Type> columnTypes)
     {
         long transactionId = TRANSACTION_ID;
-        return manager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
+        return manager.createStoragePageSink(DEFAULT_RAPTOR_CONTEXT, transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
     }
 
     private OrcStorageManager createOrcStorageManager()

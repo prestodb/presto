@@ -49,7 +49,7 @@ public class TestDoubleStream
     @Override
     protected DoubleOutputStream createValueOutputStream()
     {
-        return new DoubleOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new DoubleOutputStream(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE);
     }
 
     @Override
@@ -63,7 +63,7 @@ public class TestDoubleStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new DoubleInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
+        return new DoubleInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
     }
 
     @Override

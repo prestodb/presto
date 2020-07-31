@@ -53,10 +53,12 @@ public class MapBlockEncodingBuffer
     @VisibleForTesting
     static final int POSITION_SIZE = SIZE_OF_INT + SIZE_OF_BYTE;
 
+    @VisibleForTesting
+    static final int HASH_MULTIPLIER = 2;
+
+    private static final int POSITION_SIZE_WITH_HASHTABLE = SIZE_OF_INT + SIZE_OF_BYTE + SIZE_OF_INT * HASH_MULTIPLIER;
     private static final String NAME = "MAP";
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockEncodingBuffer.class).instanceSize();
-
-    private static final int HASH_MULTIPLIER = 2;
 
     // The buffer for the hashtables for all incoming blocks so far
     private byte[] hashTablesBuffer;
@@ -268,6 +270,36 @@ public class MapBlockEncodingBuffer
     }
 
     @Override
+    protected int getEstimatedValueBufferMaxCapacity()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @VisibleForTesting
+    int getEstimatedOffsetBufferMaxCapacity()
+    {
+        return estimatedOffsetBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    int getEstimatedHashTableBufferMaxCapacity()
+    {
+        return estimatedHashTableBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    BlockEncodingBuffer getKeyBuffers()
+    {
+        return keyBuffers;
+    }
+
+    @VisibleForTesting
+    BlockEncodingBuffer getValueBuffers()
+    {
+        return valueBuffers;
+    }
+
+    @Override
     protected void setupDecodedBlockAndMapPositions(DecodedBlockNode decodedBlockNode, int partitionBufferCapacity, double decodedBlockPageSizeFraction)
     {
         requireNonNull(decodedBlockNode, "decodedBlockNode is null");
@@ -276,28 +308,22 @@ public class MapBlockEncodingBuffer
         columnarMap = (ColumnarMap) decodedBlockNode.getDecodedBlock();
         decodedBlock = columnarMap.getNullCheckBlock();
 
-        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
+        long estimatedSerializedSizeInBytes = decodedBlockNode.getEstimatedSerializedSizeInBytes();
+        long keyBufferEstimatedSerializedSizeInBytes = decodedBlockNode.getChildren().get(0).getEstimatedSerializedSizeInBytes();
+        long valueBufferEstimatedSerializedSizeInBytes = decodedBlockNode.getChildren().get(1).getEstimatedSerializedSizeInBytes();
 
-        if (!noHashTables && columnarMap.getHashTables() != null) {
-            estimatedHashTableBufferMaxCapacity = (int) (targetBufferSize * columnarMap.getHashTables().length / columnarMap.getRetainedSizeInBytes());
-            targetBufferSize -= estimatedHashTableBufferMaxCapacity;
-        }
-        else {
-            estimatedHashTableBufferMaxCapacity = 0;
-        }
+        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction *
+                (estimatedSerializedSizeInBytes - keyBufferEstimatedSerializedSizeInBytes - valueBufferEstimatedSerializedSizeInBytes) / estimatedSerializedSizeInBytes;
 
-        if (decodedBlock.mayHaveNull()) {
-            setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
-            estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE);
-        }
-        else {
-            estimatedOffsetBufferMaxCapacity = (int) targetBufferSize;
-        }
+        estimatedHashTableBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Integer.BYTES * HASH_MULTIPLIER, POSITION_SIZE_WITH_HASHTABLE);
+        setEstimatedNullsBufferMaxCapacity(getEstimatedBufferMaxCapacity(targetBufferSize, Byte.BYTES, POSITION_SIZE_WITH_HASHTABLE));
+        estimatedOffsetBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Integer.BYTES, POSITION_SIZE_WITH_HASHTABLE);
 
         populateNestedPositions();
 
-        keyBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(0), partitionBufferCapacity, decodedBlockPageSizeFraction);
-        valueBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(1), partitionBufferCapacity, decodedBlockPageSizeFraction);
+        keyBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(0), partitionBufferCapacity, decodedBlockPageSizeFraction * keyBufferEstimatedSerializedSizeInBytes / estimatedSerializedSizeInBytes);
+
+        valueBuffers.setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(1), partitionBufferCapacity, decodedBlockPageSizeFraction * valueBufferEstimatedSerializedSizeInBytes / estimatedSerializedSizeInBytes);
     }
 
     @Override

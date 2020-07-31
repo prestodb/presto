@@ -15,7 +15,9 @@ package com.facebook.presto.functionNamespace;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
@@ -40,11 +42,14 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -54,6 +59,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     private final ConcurrentMap<FunctionNamespaceTransactionHandle, FunctionCollection> transactions = new ConcurrentHashMap<>();
 
     private final String catalogName;
+    private final Map<Language, FunctionImplementationType> supportedFunctionLanguages;
     private final LoadingCache<QualifiedFunctionName, Collection<SqlInvokedFunction>> functions;
     private final LoadingCache<SqlFunctionHandle, FunctionMetadata> metadataByHandle;
     private final LoadingCache<SqlFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
@@ -61,6 +67,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     public AbstractSqlInvokedFunctionNamespaceManager(String catalogName, SqlInvokedFunctionNamespaceManagerConfig config)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.supportedFunctionLanguages = config.getSupportedFunctionLanguages();
         this.functions = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getFunctionCacheExpiration().toMillis(), MILLISECONDS)
                 .build(new CacheLoader<QualifiedFunctionName, Collection<SqlInvokedFunction>>()
@@ -131,18 +138,24 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     public final Collection<SqlInvokedFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
     {
         checkCatalog(functionName);
-        checkArgument(transactionHandle.isPresent(), "missing transactionHandle");
-        return transactions.get(transactionHandle.get()).loadAndGetFunctionsTransactional(functionName);
+        if (transactionHandle.isPresent()) {
+            return transactions.get(transactionHandle.get()).loadAndGetFunctionsTransactional(functionName);
+        }
+        return fetchFunctionsDirect(functionName);
     }
 
     @Override
     public final FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
         checkCatalog(signature.getName());
-        checkArgument(transactionHandle.isPresent(), "missing transactionHandle");
         // This is the only assumption in this class that we're dealing with sql-invoked regular function.
         SqlFunctionId functionId = new SqlFunctionId(signature.getName(), signature.getArgumentTypes());
-        return transactions.get(transactionHandle.get()).getFunctionHandle(functionId);
+        if (transactionHandle.isPresent()) {
+            return transactions.get(transactionHandle.get()).getFunctionHandle(functionId);
+        }
+        FunctionCollection collection = new FunctionCollection();
+        collection.loadAndGetFunctionsTransactional(signature.getName());
+        return collection.getFunctionHandle(functionId);
     }
 
     @Override
@@ -195,7 +208,14 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         functions.refresh(functionName);
     }
 
-    protected static FunctionMetadata sqlInvokedFunctionToMetadata(SqlInvokedFunction function)
+    protected void checkFunctionLanguageSupported(SqlInvokedFunction function)
+    {
+        if (!supportedFunctionLanguages.containsKey(function.getRoutineCharacteristics().getLanguage())) {
+            throw new PrestoException(GENERIC_USER_ERROR, format("Catalog %s does not support functions implemented in language %s", catalogName, function.getRoutineCharacteristics().getLanguage()));
+        }
+    }
+
+    protected FunctionMetadata sqlInvokedFunctionToMetadata(SqlInvokedFunction function)
     {
         return new FunctionMetadata(
                 function.getSignature().getName(),
@@ -205,14 +225,20 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                         .collect(toImmutableList())),
                 function.getSignature().getReturnType(),
                 SCALAR,
-                function.getFunctionImplementationType(),
+                getFunctionImplementationType(function),
                 function.isDeterministic(),
                 function.isCalledOnNullInput());
     }
 
-    protected static ScalarFunctionImplementation sqlInvokedFunctionToImplementation(SqlInvokedFunction function)
+    protected FunctionImplementationType getFunctionImplementationType(SqlInvokedFunction function)
     {
-        checkArgument(function.getFunctionImplementationType().equals(SQL));
+        return supportedFunctionLanguages.get(function.getRoutineCharacteristics().getLanguage());
+    }
+
+    protected ScalarFunctionImplementation sqlInvokedFunctionToImplementation(SqlInvokedFunction function)
+    {
+        FunctionImplementationType implementationType = getFunctionImplementationType(function);
+        checkArgument(implementationType.equals(SQL));
         return new SqlInvokedScalarFunctionImplementation(function.getBody());
     }
 

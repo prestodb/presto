@@ -16,19 +16,23 @@ package com.facebook.presto.hive.orc;
 import com.facebook.hive.orc.OrcSerde;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.StripeMetadataSource;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.joda.time.DateTimeZone;
@@ -60,6 +64,7 @@ public class DwrfBatchPageSourceFactory
     private final int domainCompactionThreshold;
     private final OrcFileTailSource orcFileTailSource;
     private final StripeMetadataSource stripeMetadataSource;
+    private final DwrfEncryptionProvider dwrfEncryptionProvider;
 
     @Inject
     public DwrfBatchPageSourceFactory(
@@ -68,7 +73,8 @@ public class DwrfBatchPageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
             OrcFileTailSource orcFileTailSource,
-            StripeMetadataSource stripeMetadataSource)
+            StripeMetadataSource stripeMetadataSource,
+            HiveDwrfEncryptionProvider dwrfEncryptionProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -76,6 +82,7 @@ public class DwrfBatchPageSourceFactory
         this.domainCompactionThreshold = requireNonNull(config, "config is null").getDomainCompactionThreshold();
         this.orcFileTailSource = requireNonNull(orcFileTailSource, "orcFileTailSource is null");
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
+        this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "dwrfEncryptionProvider is null").toDwrfEncryptionProvider();
     }
 
     @Override
@@ -87,11 +94,13 @@ public class DwrfBatchPageSourceFactory
             long length,
             long fileSize,
             Storage storage,
+            SchemaTableName tableName,
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            HiveFileContext hiveFileContext)
+            HiveFileContext hiveFileContext,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -128,6 +137,8 @@ public class DwrfBatchPageSourceFactory
                         getOrcMaxMergeDistance(session),
                         getOrcTinyStripeThreshold(session),
                         getOrcMaxReadBlockSize(session),
-                        isOrcZstdJniDecompressionEnabled(session))));
+                        isOrcZstdJniDecompressionEnabled(session)),
+                encryptionInformation,
+                dwrfEncryptionProvider));
     }
 }

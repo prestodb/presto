@@ -147,6 +147,7 @@ public class NodeScheduler
         if (useNetworkTopology) {
             return new TopologyAwareNodeSelector(
                     nodeManager,
+                    nodeSelectionStats,
                     nodeTaskMap,
                     includeCoordinator,
                     nodeMap,
@@ -292,7 +293,8 @@ public class NodeScheduler
             int maxPendingSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
-            BucketNodeMap bucketNodeMap)
+            BucketNodeMap bucketNodeMap,
+            NodeSelectionStats nodeSelectionStats)
     {
         Multimap<InternalNode, Split> assignments = HashMultimap.create();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
@@ -308,6 +310,10 @@ public class NodeScheduler
                     assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerTask) {
                 if (isCacheable) {
                     split = new Split(split.getConnectorId(), split.getTransactionHandle(), split.getConnectorSplit(), split.getLifespan(), new SplitContext(true));
+                    nodeSelectionStats.incrementBucketedPreferredNodeSelectedCount();
+                }
+                else {
+                    nodeSelectionStats.incrementBucketedNonPreferredNodeSelectedCount();
                 }
                 assignments.put(node, split);
                 assignmentStats.addAssignedSplit(node);

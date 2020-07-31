@@ -25,6 +25,7 @@ import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.statistics.IntegerStatistics;
 import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
+import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -59,6 +60,7 @@ import static com.facebook.presto.orc.metadata.statistics.DoubleStatistics.DOUBL
 import static com.facebook.presto.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 
 public class DwrfMetadataReader
@@ -96,6 +98,7 @@ public class DwrfMetadataReader
         DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
 
         // todo enable file stats when DWRF team verifies that the stats are correct
+        // TODO: once we enable fileStats, we will need to handle encrypted file stats
         // List<ColumnStatistics> fileStats = toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false);
         List<ColumnStatistics> fileStats = ImmutableList.of();
 
@@ -105,7 +108,39 @@ public class DwrfMetadataReader
                 toStripeInformation(footer.getStripesList()),
                 toType(footer.getTypesList()),
                 fileStats,
-                toUserMetadata(footer.getMetadataList()));
+                toUserMetadata(footer.getMetadataList()),
+                footer.hasEncryption() ? Optional.of(toEncryption(footer.getEncryption())) : Optional.empty());
+    }
+
+    private static DwrfEncryption toEncryption(DwrfProto.Encryption encryption)
+    {
+        KeyProvider keyProvider = toKeyProvider(encryption.getKeyProvider());
+        List<EncryptionGroup> encryptionGroups = toEncryptionGroups(encryption.getEncryptionGroupsList());
+        return new DwrfEncryption(keyProvider, encryptionGroups);
+    }
+
+    private static List<EncryptionGroup> toEncryptionGroups(List<DwrfProto.EncryptionGroup> encryptionGroups)
+    {
+        ImmutableList.Builder<EncryptionGroup> encryptionGroupBuilder = ImmutableList.builder();
+        for (DwrfProto.EncryptionGroup dwrfEncryptionGroup : encryptionGroups) {
+            encryptionGroupBuilder.add(new EncryptionGroup(
+                    dwrfEncryptionGroup.getNodesList(),
+                    dwrfEncryptionGroup.hasKeyMetadata() ? Optional.of(byteStringToSlice(dwrfEncryptionGroup.getKeyMetadata())) : Optional.empty(),
+                    dwrfEncryptionGroup.getStatisticsList().stream()
+                            .map(OrcMetadataReader::byteStringToSlice)
+                            .collect(toImmutableList())));
+        }
+        return encryptionGroupBuilder.build();
+    }
+
+    private static KeyProvider toKeyProvider(DwrfProto.Encryption.KeyProvider keyProvider)
+    {
+        switch (keyProvider) {
+            case CRYPTO_SERVICE:
+                return KeyProvider.CRYPTO_SERVICE;
+            default:
+                return KeyProvider.UNKNOWN;
+        }
     }
 
     private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> types)
@@ -120,7 +155,10 @@ public class DwrfMetadataReader
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
-                stripeInformation.getFooterLength());
+                stripeInformation.getFooterLength(),
+                stripeInformation.getKeyMetadataList().stream()
+                        .map(ByteString::toByteArray)
+                        .collect(toImmutableList()));
     }
 
     @Override
@@ -129,12 +167,23 @@ public class DwrfMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.StripeFooter stripeFooter = DwrfProto.StripeFooter.parseFrom(input);
-        return new StripeFooter(toStream(stripeFooter.getStreamsList()), toColumnEncoding(types, stripeFooter.getColumnsList()));
+        return new StripeFooter(
+                toStream(stripeFooter.getStreamsList()),
+                toColumnEncoding(types, stripeFooter.getColumnsList()),
+                stripeFooter.getEncryptedGroupsList().stream()
+                        .map(OrcMetadataReader::byteStringToSlice)
+                        .collect(toImmutableList()));
     }
 
     private static Stream toStream(DwrfProto.Stream stream)
     {
-        return new Stream(stream.getColumn(), toStreamKind(stream.getKind()), toIntExact(stream.getLength()), stream.getUseVInts(), stream.getSequence());
+        return new Stream(
+                stream.getColumn(),
+                toStreamKind(stream.getKind()),
+                toIntExact(stream.getLength()),
+                stream.getUseVInts(),
+                stream.getSequence(),
+                stream.hasOffset() ? Optional.of(stream.getOffset()) : Optional.empty());
     }
 
     private static List<Stream> toStream(List<DwrfProto.Stream> streams)
@@ -167,9 +216,10 @@ public class DwrfMetadataReader
         return Optional.of(additionalSequenceEncodings.build());
     }
 
-    private static List<ColumnEncoding> toColumnEncoding(List<OrcType> types, List<DwrfProto.ColumnEncoding> columnEncodings)
+    private static Map<Integer, ColumnEncoding> toColumnEncoding(List<OrcType> types, List<DwrfProto.ColumnEncoding> columnEncodings)
     {
         Map<Integer, List<DwrfProto.ColumnEncoding>> groupedColumnEncodings = new HashMap<>(columnEncodings.size());
+        ImmutableMap.Builder<Integer, ColumnEncoding> resultBuilder = ImmutableMap.builder();
 
         for (int i = 0; i < columnEncodings.size(); i++) {
             DwrfProto.ColumnEncoding columnEncoding = columnEncodings.get(i);
@@ -183,13 +233,12 @@ public class DwrfMetadataReader
             groupedColumnEncodings.computeIfAbsent(column, key -> new ArrayList<>()).add(columnEncoding);
         }
 
-        ImmutableList.Builder<ColumnEncoding> resultBuilder = ImmutableList.builder();
-
         for (Map.Entry<Integer, List<DwrfProto.ColumnEncoding>> entry : groupedColumnEncodings.entrySet()) {
             OrcType type = types.get(entry.getKey());
 
             DwrfProto.ColumnEncoding columnEncoding = entry.getValue().get(0);
-            resultBuilder.add(
+            resultBuilder.put(
+                    entry.getKey(),
                     new ColumnEncoding(
                             toColumnEncodingKind(type.getOrcTypeKind(), columnEncoding.getKind()),
                             columnEncoding.getDictionarySize(),
@@ -457,5 +506,16 @@ public class DwrfMetadataReader
             default:
                 throw new IllegalArgumentException(compression + " compression not implemented yet");
         }
+    }
+
+    public static StripeEncryptionGroup toStripeEncryptionGroup(InputStream inputStream, List<OrcType> types)
+            throws IOException
+    {
+        CodedInputStream codedInputStream = CodedInputStream.newInstance(inputStream);
+        DwrfProto.StripeEncryptionGroup stripeEncryptionGroup = DwrfProto.StripeEncryptionGroup.parseFrom(codedInputStream);
+        List<Stream> encryptedStreams = toStream(stripeEncryptionGroup.getStreamsList());
+        return new StripeEncryptionGroup(
+                encryptedStreams,
+                toColumnEncoding(types, stripeEncryptionGroup.getEncodingList()));
     }
 }

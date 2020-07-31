@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -130,7 +131,9 @@ public class HiveClientConfig
 
     private boolean bucketExecutionEnabled = true;
     private boolean sortedWritingEnabled = true;
+    private BucketFunctionType bucketFunctionTypeForExchange = HIVE_COMPATIBLE;
     private boolean ignoreTableBucketing;
+    private int minBucketCountToNotIgnoreTableBucketing;
     private int maxBucketsForGroupedExecution = 1_000_000;
     // TODO: Clean up this gatekeeper config and related code/session property once the roll out is done.
     private boolean sortedWriteToTempPathEnabled;
@@ -1082,6 +1085,19 @@ public class HiveClientConfig
         return this;
     }
 
+    @Config("hive.bucket-function-type-for-exchange")
+    @ConfigDescription("Hash function type for exchange")
+    public HiveClientConfig setBucketFunctionTypeForExchange(BucketFunctionType bucketFunctionTypeForExchange)
+    {
+        this.bucketFunctionTypeForExchange = bucketFunctionTypeForExchange;
+        return this;
+    }
+
+    public BucketFunctionType getBucketFunctionTypeForExchange()
+    {
+        return bucketFunctionTypeForExchange;
+    }
+
     @Config("hive.ignore-table-bucketing")
     @ConfigDescription("Ignore table bucketing to allow reading from unbucketed partitions")
     public HiveClientConfig setIgnoreTableBucketing(boolean ignoreTableBucketing)
@@ -1093,6 +1109,20 @@ public class HiveClientConfig
     public boolean isIgnoreTableBucketing()
     {
         return ignoreTableBucketing;
+    }
+
+    @Config("hive.min-bucket-count-to-not-ignore-table-bucketing")
+    @ConfigDescription("Ignore table bucketing when table bucket count is less than the value specified, " +
+            "otherwise, it is controlled by property hive.ignore-table-bucketing")
+    public HiveClientConfig setMinBucketCountToNotIgnoreTableBucketing(int minBucketCountToNotIgnoreTableBucketing)
+    {
+        this.minBucketCountToNotIgnoreTableBucketing = minBucketCountToNotIgnoreTableBucketing;
+        return this;
+    }
+
+    public int getMinBucketCountToNotIgnoreTableBucketing()
+    {
+        return minBucketCountToNotIgnoreTableBucketing;
     }
 
     @Config("hive.max-buckets-for-grouped-execution")

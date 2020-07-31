@@ -31,8 +31,8 @@ import java.util.Iterator;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestEquatableValueSet
 {
@@ -138,12 +138,7 @@ public class TestEquatableValueSet
     public void testGetSingleValue()
     {
         assertEquals(EquatableValueSet.of(TestingIdType.ID, 0L).getSingleValue(), 0L);
-        try {
-            EquatableValueSet.all(TestingIdType.ID).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException ignored) {
-        }
+        assertThrows(IllegalStateException.class, () -> EquatableValueSet.all(TestingIdType.ID).getSingleValue());
     }
 
     @Test

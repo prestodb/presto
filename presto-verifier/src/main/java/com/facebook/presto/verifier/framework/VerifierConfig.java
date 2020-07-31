@@ -47,6 +47,9 @@ public class VerifierConfig
     private boolean smartTeardown;
     private int verificationResubmissionLimit = 2;
 
+    private boolean setupOnMainClusters = true;
+    private boolean teardownOnMainClusters = true;
+
     @NotNull
     public Optional<Set<String>> getWhitelist()
     {
@@ -242,6 +245,32 @@ public class VerifierConfig
     public VerifierConfig setVerificationResubmissionLimit(int verificationResubmissionLimit)
     {
         this.verificationResubmissionLimit = verificationResubmissionLimit;
+        return this;
+    }
+
+    public boolean isSetupOnMainClusters()
+    {
+        return setupOnMainClusters;
+    }
+
+    @ConfigDescription("If true, run control/test setup queries on control/test clusters. Otherwise, run setup queries on the help cluster.")
+    @Config("setup-on-main-clusters")
+    public VerifierConfig setSetupOnMainClusters(boolean setupOnMainClusters)
+    {
+        this.setupOnMainClusters = setupOnMainClusters;
+        return this;
+    }
+
+    public boolean isTeardownOnMainClusters()
+    {
+        return teardownOnMainClusters;
+    }
+
+    @ConfigDescription("If true, run control/test teardown queries on control/test clusters. Otherwise, run teardown queries on the help cluster.")
+    @Config("teardown-on-main-clusters")
+    public VerifierConfig setTeardownOnMainClusters(boolean teardownOnMainClusters)
+    {
+        this.teardownOnMainClusters = teardownOnMainClusters;
         return this;
     }
 }

@@ -15,9 +15,9 @@ package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.raptor.RaptorColumnHandle;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.spi.ConnectorPageSource;
 
 import java.util.List;
@@ -30,7 +30,7 @@ import java.util.UUID;
 public interface StorageManager
 {
     default ConnectorPageSource getPageSource(
-            FileSystemContext fileSystemContext,
+            HdfsContext hdfsContext,
             HiveFileContext hiveFileContext,
             UUID shardUuid,
             Optional<UUID> deltaShardUuid,
@@ -42,7 +42,7 @@ public interface StorageManager
             ReaderAttributes readerAttributes)
     {
         return getPageSource(
-                fileSystemContext,
+                hdfsContext,
                 hiveFileContext,
                 shardUuid,
                 deltaShardUuid,
@@ -57,7 +57,7 @@ public interface StorageManager
     }
 
     ConnectorPageSource getPageSource(
-            FileSystemContext fileSystemContext,
+            HdfsContext hdfsContext,
             HiveFileContext hiveFileContext,
             UUID shardUuid,
             Optional<UUID> deltaShardUuid,
@@ -71,7 +71,7 @@ public interface StorageManager
             Optional<Map<String, Type>> allColumnTypes);
 
     StoragePageSink createStoragePageSink(
-            FileSystemContext fileSystemContext,
+            HdfsContext hdfsContext,
             long transactionId,
             OptionalInt bucketNumber,
             List<Long> columnIds,

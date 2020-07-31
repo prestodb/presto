@@ -21,7 +21,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.raptor.filesystem.FileSystemContext;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.ShardInfo;
 import com.facebook.presto.raptor.storage.ReaderAttributes;
@@ -49,6 +48,7 @@ import java.util.UUID;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
+import static com.facebook.presto.raptor.filesystem.FileSystemUtil.DEFAULT_RAPTOR_CONTEXT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.nanosSince;
@@ -84,7 +84,7 @@ public final class ShardCompactor
         List<Long> columnIds = columns.stream().map(ColumnInfo::getColumnId).collect(toList());
         List<Type> columnTypes = columns.stream().map(ColumnInfo::getType).collect(toList());
 
-        StoragePageSink storagePageSink = storageManager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, false);
+        StoragePageSink storagePageSink = storageManager.createStoragePageSink(DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, false);
 
         List<ShardInfo> shardInfos;
         try {
@@ -114,7 +114,7 @@ public final class ShardCompactor
             UUID uuid = entry.getKey();
             Optional<UUID> deltaUuid = entry.getValue();
             try (ConnectorPageSource pageSource = storageManager.getPageSource(
-                    FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                    DEFAULT_RAPTOR_CONTEXT,
                     DEFAULT_HIVE_FILE_CONTEXT,
                     uuid,
                     deltaUuid,
@@ -163,11 +163,11 @@ public final class ShardCompactor
                 .collect(toList());
 
         Queue<SortedPageSource> rowSources = new PriorityQueue<>();
-        StoragePageSink outputPageSink = storageManager.createStoragePageSink(FileSystemContext.DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, false);
+        StoragePageSink outputPageSink = storageManager.createStoragePageSink(DEFAULT_RAPTOR_CONTEXT, transactionId, bucketNumber, columnIds, columnTypes, false);
         try {
             uuidsMap.forEach((uuid, deltaUuid) -> {
                 ConnectorPageSource pageSource = storageManager.getPageSource(
-                        FileSystemContext.DEFAULT_RAPTOR_CONTEXT,
+                        DEFAULT_RAPTOR_CONTEXT,
                         DEFAULT_HIVE_FILE_CONTEXT,
                         uuid,
                         deltaUuid,

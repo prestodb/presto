@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
@@ -36,6 +37,7 @@ import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -132,11 +134,13 @@ public class ParquetPageSourceFactory
             long length,
             long fileSize,
             Storage storage,
+            SchemaTableName tableName,
             Map<String, String> tableParameters,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
-            HiveFileContext hiveFileContext)
+            HiveFileContext hiveFileContext,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -151,6 +155,7 @@ public class ParquetPageSourceFactory
                 length,
                 fileSize,
                 columns,
+                tableName,
                 isUseParquetColumnNames(session),
                 isFailOnCorruptedParquetStatistics(session),
                 getParquetMaxReadBlockSize(session),
@@ -171,6 +176,7 @@ public class ParquetPageSourceFactory
             long length,
             long fileSize,
             List<HiveColumnHandle> columns,
+            SchemaTableName tableName,
             boolean useParquetColumnNames,
             boolean failOnCorruptedParquetStatistics,
             DataSize maxReadBlockSize,
@@ -193,7 +199,7 @@ public class ParquetPageSourceFactory
 
             Optional<MessageType> message = columns.stream()
                     .filter(column -> column.getColumnType() == REGULAR)
-                    .map(column -> getColumnType(typeManager.getType(column.getTypeSignature()), fileSchema, useParquetColumnNames, column))
+                    .map(column -> getColumnType(typeManager.getType(column.getTypeSignature()), fileSchema, useParquetColumnNames, column, tableName, path))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(type -> new MessageType(fileSchema.getName(), type))
@@ -235,7 +241,9 @@ public class ParquetPageSourceFactory
                     messageColumnIO,
                     typeManager,
                     columns,
-                    useParquetColumnNames);
+                    useParquetColumnNames,
+                    tableName,
+                    path);
         }
         catch (Exception e) {
             try {
@@ -285,7 +293,7 @@ public class ParquetPageSourceFactory
         return TupleDomain.withColumnDomains(predicate.build());
     }
 
-    public static Optional<org.apache.parquet.schema.Type> getParquetType(Type prestoType, MessageType messageType, boolean useParquetColumnNames, HiveColumnHandle column)
+    public static Optional<org.apache.parquet.schema.Type> getParquetType(Type prestoType, MessageType messageType, boolean useParquetColumnNames, HiveColumnHandle column, SchemaTableName tableName, Path path)
     {
         org.apache.parquet.schema.Type type = null;
         if (useParquetColumnNames) {
@@ -310,9 +318,11 @@ public class ParquetPageSourceFactory
                 group.writeToStringBuilder(builder, "");
                 parquetTypeName = builder.toString();
             }
-            throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("The column %s is declared as type %s, but the Parquet file declares the column as type %s",
+            throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("The column %s of table %s is declared as type %s, but the Parquet file (%s) declares the column as type %s",
                     column.getName(),
+                    tableName.toString(),
                     column.getHiveType(),
+                    path.toString(),
                     parquetTypeName));
         }
         return Optional.of(type);
@@ -403,7 +413,7 @@ public class ParquetPageSourceFactory
         }
     }
 
-    public static Optional<org.apache.parquet.schema.Type> getColumnType(Type prestoType, MessageType messageType, boolean useParquetColumnNames, HiveColumnHandle column)
+    public static Optional<org.apache.parquet.schema.Type> getColumnType(Type prestoType, MessageType messageType, boolean useParquetColumnNames, HiveColumnHandle column, SchemaTableName tableName, Path path)
     {
         if (useParquetColumnNames && !column.getRequiredSubfields().isEmpty()) {
             MessageType result = null;
@@ -418,6 +428,6 @@ public class ParquetPageSourceFactory
             }
             return Optional.of(result);
         }
-        return getParquetType(prestoType, messageType, useParquetColumnNames, column);
+        return getParquetType(prestoType, messageType, useParquetColumnNames, column, tableName, path);
     }
 }

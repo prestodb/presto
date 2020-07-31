@@ -15,10 +15,10 @@ package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.connector.thrift.ThriftErrorCode;
 import com.facebook.presto.hive.HiveErrorCode;
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
@@ -143,18 +143,29 @@ public class PrestoExceptionClassifier
                 .addResubmittedError(SYNTAX_ERROR, Optional.of(TEST_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN));
     }
 
-    public QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause)
+    public QueryException createException(QueryStage queryStage, Optional<QueryStatsEvent> queryStats, SQLException cause)
     {
         Optional<Throwable> clusterConnectionExceptionCause = getClusterConnectionExceptionCause(cause);
         if (clusterConnectionExceptionCause.isPresent()) {
             return new ClusterConnectionException(clusterConnectionExceptionCause.get(), queryStage);
         }
 
-        Optional<ErrorCodeSupplier> errorCode = Optional.ofNullable(errorByCode.get(cause.getErrorCode()));
-        boolean retryable = errorCode.isPresent()
-                && (retryableErrors.contains(errorCode.get())
-                || conditionalRetryableErrors.stream().anyMatch(matcher -> matcher.matches(errorCode.get(), queryStage, cause.getMessage())));
+        Optional<ErrorCodeSupplier> errorCode = getErrorCode(cause.getErrorCode());
+        boolean retryable = errorCode.isPresent() && isRetryable(errorCode.get(), queryStage, cause.getMessage());
         return new PrestoQueryException(cause, retryable, queryStage, errorCode, queryStats);
+    }
+
+    @Override
+    public Optional<ErrorCodeSupplier> getErrorCode(int code)
+    {
+        return Optional.ofNullable(errorByCode.get(code));
+    }
+
+    @Override
+    public boolean isRetryable(ErrorCodeSupplier errorCode, QueryStage queryStage, String message)
+    {
+        return retryableErrors.contains(errorCode)
+                || conditionalRetryableErrors.stream().anyMatch(matcher -> matcher.matches(errorCode, queryStage, message));
     }
 
     public boolean shouldResubmit(Throwable throwable)

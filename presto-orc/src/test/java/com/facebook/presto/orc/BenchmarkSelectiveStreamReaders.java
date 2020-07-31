@@ -75,6 +75,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -197,7 +198,8 @@ public class BenchmarkSelectiveStreamReaders
                     new StorageStripeMetadataSource(),
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createDefaultTestConfig(),
-                    false);
+                    false,
+                    NO_ENCRYPTION);
 
             return orcReader.createSelectiveRecordReader(
                     ImmutableMap.of(0, type),
@@ -215,7 +217,8 @@ public class BenchmarkSelectiveStreamReaders
                     true,
                     new TestingHiveOrcAggregatedMemoryContext(),
                     Optional.empty(),
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    ImmutableMap.of());
         }
     }
 

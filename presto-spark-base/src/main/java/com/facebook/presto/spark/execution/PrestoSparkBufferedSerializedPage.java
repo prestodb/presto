@@ -40,4 +40,10 @@ public class PrestoSparkBufferedSerializedPage
     {
         return INSTANCE_SIZE + serializedPage.getRetainedSizeInBytes();
     }
+
+    @Override
+    public int getPositionCount()
+    {
+        return serializedPage.getPositionCount();
+    }
 }

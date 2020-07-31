@@ -36,8 +36,8 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestMarker
 {
@@ -119,47 +119,12 @@ public class TestMarker
         assertEquals(Marker.above(BIGINT, 1L).lesserAdjacent(), Marker.exactly(BIGINT, 1L));
         assertEquals(Marker.exactly(BIGINT, 1L).lesserAdjacent(), Marker.below(BIGINT, 1L));
 
-        try {
-            Marker.below(BIGINT, 1L).lesserAdjacent();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
-
-        try {
-            Marker.above(BIGINT, 1L).greaterAdjacent();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
-
-        try {
-            Marker.lowerUnbounded(BIGINT).lesserAdjacent();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
-
-        try {
-            Marker.lowerUnbounded(BIGINT).greaterAdjacent();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
-
-        try {
-            Marker.upperUnbounded(BIGINT).lesserAdjacent();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
-
-        try {
-            Marker.upperUnbounded(BIGINT).greaterAdjacent();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThrows(IllegalStateException.class, () -> Marker.below(BIGINT, 1L).lesserAdjacent());
+        assertThrows(IllegalStateException.class, () -> Marker.above(BIGINT, 1L).greaterAdjacent());
+        assertThrows(IllegalStateException.class, () -> Marker.lowerUnbounded(BIGINT).lesserAdjacent());
+        assertThrows(IllegalStateException.class, () -> Marker.lowerUnbounded(BIGINT).greaterAdjacent());
+        assertThrows(IllegalStateException.class, () -> Marker.upperUnbounded(BIGINT).lesserAdjacent());
+        assertThrows(IllegalStateException.class, () -> Marker.upperUnbounded(BIGINT).greaterAdjacent());
     }
 
     @Test

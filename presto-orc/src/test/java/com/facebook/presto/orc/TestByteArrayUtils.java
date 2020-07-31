@@ -1,10 +1,3 @@
-package com.facebook.presto.orc;
-
-import org.testng.annotations.Test;
-
-import static com.facebook.presto.orc.ByteArrayUtils.compareRanges;
-import static org.testng.Assert.assertEquals;
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +11,13 @@ import static org.testng.Assert.assertEquals;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto.orc;
+
+import org.testng.annotations.Test;
+
+import static com.facebook.presto.orc.ByteArrayUtils.compareRanges;
+import static org.testng.Assert.assertEquals;
+
 public class TestByteArrayUtils
 {
     @Test

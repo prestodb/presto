@@ -61,6 +61,8 @@ public class HiveMetadataFactory
     private final ZeroRowFileCreator zeroRowFileCreator;
     private final String prestoVersion;
     private final PartitionObjectBuilder partitionObjectBuilder;
+    private final HiveEncryptionInformationProvider encryptionInformationProvider;
+    private final HivePartitionStats hivePartitionStats;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -82,7 +84,9 @@ public class HiveMetadataFactory
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
             NodeVersion nodeVersion,
-            PartitionObjectBuilder partitionObjectBuilder)
+            PartitionObjectBuilder partitionObjectBuilder,
+            HiveEncryptionInformationProvider encryptionInformationProvider,
+            HivePartitionStats hivePartitionStats)
     {
         this(
                 metastore,
@@ -108,7 +112,9 @@ public class HiveMetadataFactory
                 stagingFileCommitter,
                 zeroRowFileCreator,
                 nodeVersion.toString(),
-                partitionObjectBuilder);
+                partitionObjectBuilder,
+                encryptionInformationProvider,
+                hivePartitionStats);
     }
 
     public HiveMetadataFactory(
@@ -135,7 +141,9 @@ public class HiveMetadataFactory
             StagingFileCommitter stagingFileCommitter,
             ZeroRowFileCreator zeroRowFileCreator,
             String prestoVersion,
-            PartitionObjectBuilder partitionObjectBuilder)
+            PartitionObjectBuilder partitionObjectBuilder,
+            HiveEncryptionInformationProvider encryptionInformationProvider,
+            HivePartitionStats hivePartitionStats)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -162,6 +170,8 @@ public class HiveMetadataFactory
         this.zeroRowFileCreator = requireNonNull(zeroRowFileCreator, "zeroRowFileCreator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
+        this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
+        this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -202,6 +212,8 @@ public class HiveMetadataFactory
                 new MetastoreHiveStatisticsProvider(metastore),
                 stagingFileCommitter,
                 zeroRowFileCreator,
-                partitionObjectBuilder);
+                partitionObjectBuilder,
+                encryptionInformationProvider,
+                hivePartitionStats);
     }
 }

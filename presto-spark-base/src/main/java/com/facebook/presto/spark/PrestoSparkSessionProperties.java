@@ -16,16 +16,21 @@ package com.facebook.presto.spark;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 
 public class PrestoSparkSessionProperties
 {
+    public static final String SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED = "spark_partition_count_auto_tune_enabled";
     public static final String SPARK_INITIAL_PARTITION_COUNT = "spark_initial_partition_count";
+    public static final String MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION = "max_splits_data_size_per_spark_partition";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -33,11 +38,25 @@ public class PrestoSparkSessionProperties
     public PrestoSparkSessionProperties(PrestoSparkConfig prestoSparkConfig)
     {
         sessionProperties = ImmutableList.of(
+                booleanProperty(
+                        SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED,
+                        "Automatic tuning of spark initial partition count based on splits size per partition",
+                        prestoSparkConfig.isSparkPartitionCountAutoTuneEnabled(),
+                        false),
                 integerProperty(
                         SPARK_INITIAL_PARTITION_COUNT,
                         "Initial partition count for Spark RDD when reading table",
                         prestoSparkConfig.getInitialSparkPartitionCount(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION,
+                        "Maximal size in bytes for splits assigned to one partition",
+                        VARCHAR,
+                        DataSize.class,
+                        prestoSparkConfig.getMaxSplitsDataSizePerSparkPartition(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -45,8 +64,18 @@ public class PrestoSparkSessionProperties
         return sessionProperties;
     }
 
+    public static boolean isSparkPartitionCountAutoTuneEnabled(Session session)
+    {
+        return session.getSystemProperty(SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED, Boolean.class);
+    }
+
     public static int getSparkInitialPartitionCount(Session session)
     {
         return session.getSystemProperty(SPARK_INITIAL_PARTITION_COUNT, Integer.class);
+    }
+
+    public static DataSize getMaxSplitsDataSizePerSparkPartition(Session session)
+    {
+        return session.getSystemProperty(MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION, DataSize.class);
     }
 }

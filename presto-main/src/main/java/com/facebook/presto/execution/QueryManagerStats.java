@@ -55,7 +55,6 @@ public class QueryManagerStats
     private final TimeStat queuedTime = new TimeStat(MILLISECONDS);
     private final DistributionStat wallInputBytesRate = new DistributionStat();
     private final DistributionStat cpuInputByteRate = new DistributionStat();
-    private final DistributionStat peakRunningTasksStat = new DistributionStat();
 
     public void trackQueryStats(DispatchQuery managedQueryExecution)
     {
@@ -76,12 +75,17 @@ public class QueryManagerStats
     {
         startedQueries.update(1);
         runningQueries.incrementAndGet();
-        queuedQueries.decrementAndGet();
+        queryDequeued();
     }
 
     private void queryStopped()
     {
         runningQueries.decrementAndGet();
+    }
+
+    private void queryDequeued()
+    {
+        queuedQueries.decrementAndGet();
     }
 
     private void queryFinished(BasicQueryInfo info)
@@ -104,11 +108,6 @@ public class QueryManagerStats
         long executionCpuMillis = info.getQueryStats().getTotalCpuTime().toMillis();
         if (executionCpuMillis > 0) {
             cpuInputByteRate.add(rawInputBytes * 1000 / executionCpuMillis);
-        }
-
-        long peakRunningTasks = info.getQueryStats().getPeakRunningTasks();
-        if (peakRunningTasks > 0) {
-            peakRunningTasksStat.add(peakRunningTasks);
         }
 
         if (info.getErrorCode() != null) {
@@ -169,6 +168,9 @@ public class QueryManagerStats
                     stopped = true;
                     if (started) {
                         queryStopped();
+                    }
+                    else {
+                        queryDequeued();
                     }
                     finalQueryInfoSupplier.get()
                             .ifPresent(QueryManagerStats.this::queryFinished);
@@ -313,12 +315,5 @@ public class QueryManagerStats
     public DistributionStat getCpuInputByteRate()
     {
         return cpuInputByteRate;
-    }
-
-    @Managed(description = "Distribution of query peak running tasks")
-    @Nested
-    public DistributionStat getPeakRunningTasksStat()
-    {
-        return peakRunningTasksStat;
     }
 }

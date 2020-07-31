@@ -13,12 +13,17 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.expressions.RowExpressionNodeInliner;
+import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.InListExpression;
-import com.facebook.presto.sql.tree.InPredicate;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.util.DisjointSet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
@@ -37,55 +42,63 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.sql.ExpressionUtils.extractConjuncts;
-import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
-import static com.facebook.presto.sql.planner.NullabilityAnalyzer.mayReturnNullOnNonNullInput;
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.uniqueSubExpressions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.filter;
 import static java.util.Objects.requireNonNull;
 
-/**
- * Makes equality based inferences to rewrite Expressions and generate equality sets in terms of specified symbol scopes
- */
-@Deprecated
 public class EqualityInference
 {
     // Ordering used to determine Expression preference when determining canonicals
-    private static final Ordering<Expression> CANONICAL_ORDERING = Ordering.from((expression1, expression2) -> {
+    private static final Ordering<RowExpression> CANONICAL_ORDERING = Ordering.from((expression1, expression2) -> {
         // Current cost heuristic:
         // 1) Prefer fewer input symbols
         // 2) Prefer smaller expression trees
         // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
-        // TODO: be more precise in determining the cost of an expression
+        // TODO: be more precise in determining the cost of an RowExpression
         return ComparisonChain.start()
-                .compare(VariablesExtractor.extractAllSymbols(expression1).size(), VariablesExtractor.extractAllSymbols(expression2).size())
-                .compare(SubExpressionExtractor.extract(expression1).size(), SubExpressionExtractor.extract(expression2).size())
+                .compare(VariablesExtractor.extractAll(expression1).size(), VariablesExtractor.extractAll(expression2).size())
+                .compare(uniqueSubExpressions(expression1).size(), uniqueSubExpressions(expression2).size())
                 .compare(expression1.toString(), expression2.toString())
                 .result();
     });
 
-    private final SetMultimap<Expression, Expression> equalitySets; // Indexed by canonical expression
-    private final Map<Expression, Expression> canonicalMap; // Map each known expression to canonical expression
-    private final Set<Expression> derivedExpressions;
+    private final SetMultimap<RowExpression, RowExpression> equalitySets; // Indexed by canonical RowExpression
+    private final Map<RowExpression, RowExpression> canonicalMap; // Map each known RowExpression to canonical RowExpression
+    private final Set<RowExpression> derivedExpressions;
+    private final RowExpressionDeterminismEvaluator determinismEvaluator;
+    private final FunctionManager functionManager;
 
-    private EqualityInference(Iterable<Set<Expression>> equalityGroups, Set<Expression> derivedExpressions)
+    private EqualityInference(
+            Iterable<Set<RowExpression>> equalityGroups,
+            Set<RowExpression> derivedExpressions,
+            RowExpressionDeterminismEvaluator determinismEvaluator,
+            FunctionManager functionManager)
     {
-        ImmutableSetMultimap.Builder<Expression, Expression> setBuilder = ImmutableSetMultimap.builder();
-        for (Set<Expression> equalityGroup : equalityGroups) {
+        this.determinismEvaluator = determinismEvaluator;
+        this.functionManager = functionManager;
+        ImmutableSetMultimap.Builder<RowExpression, RowExpression> setBuilder = ImmutableSetMultimap.builder();
+        for (Set<RowExpression> equalityGroup : equalityGroups) {
             if (!equalityGroup.isEmpty()) {
                 setBuilder.putAll(CANONICAL_ORDERING.min(equalityGroup), equalityGroup);
             }
         }
         equalitySets = setBuilder.build();
 
-        ImmutableMap.Builder<Expression, Expression> mapBuilder = ImmutableMap.builder();
-        for (Map.Entry<Expression, Expression> entry : equalitySets.entries()) {
-            Expression canonical = entry.getKey();
-            Expression expression = entry.getValue();
+        ImmutableMap.Builder<RowExpression, RowExpression> mapBuilder = ImmutableMap.builder();
+        for (Map.Entry<RowExpression, RowExpression> entry : equalitySets.entries()) {
+            RowExpression canonical = entry.getKey();
+            RowExpression expression = entry.getValue();
             mapBuilder.put(expression, canonical);
         }
         canonicalMap = mapBuilder.build();
@@ -93,15 +106,22 @@ public class EqualityInference
         this.derivedExpressions = ImmutableSet.copyOf(derivedExpressions);
     }
 
+    public static EqualityInference createEqualityInference(Metadata metadata, RowExpression... equalityInferences)
+    {
+        return new Builder(metadata)
+                .addEqualityInference(equalityInferences)
+                .build();
+    }
+
     /**
-     * Attempts to rewrite an Expression in terms of the symbols allowed by the symbol scope
+     * Attempts to rewrite an RowExpression in terms of the symbols allowed by the symbol scope
      * given the known equalities. Returns null if unsuccessful.
      * This method checks if rewritten expression is non-deterministic.
      */
-    public Expression rewriteExpression(Expression expression, Predicate<VariableReferenceExpression> variableScope, TypeProvider types)
+    public RowExpression rewriteExpression(RowExpression expression, Predicate<VariableReferenceExpression> variableScope)
     {
-        checkArgument(isDeterministic(expression), "Only deterministic expressions may be considered for rewrite");
-        return rewriteExpression(expression, variableScope, true, types);
+        checkArgument(determinismEvaluator.isDeterministic(expression), "Only deterministic expressions may be considered for rewrite");
+        return rewriteExpression(expression, variableScope, true);
     }
 
     /**
@@ -109,21 +129,21 @@ public class EqualityInference
      * given the known equalities. Returns null if unsuccessful.
      * This method allows rewriting non-deterministic expressions.
      */
-    public Expression rewriteExpressionAllowNonDeterministic(Expression expression, Predicate<VariableReferenceExpression> variableScope, TypeProvider types)
+    public RowExpression rewriteExpressionAllowNonDeterministic(RowExpression expression, Predicate<VariableReferenceExpression> variableScope)
     {
-        return rewriteExpression(expression, variableScope, true, types);
+        return rewriteExpression(expression, variableScope, true);
     }
 
-    private Expression rewriteExpression(Expression expression, Predicate<VariableReferenceExpression> variableScope, boolean allowFullReplacement, TypeProvider types)
+    private RowExpression rewriteExpression(RowExpression expression, Predicate<VariableReferenceExpression> variableScope, boolean allowFullReplacement)
     {
-        Iterable<Expression> subExpressions = SubExpressionExtractor.extract(expression);
+        Iterable<RowExpression> subExpressions = uniqueSubExpressions(expression);
         if (!allowFullReplacement) {
             subExpressions = filter(subExpressions, not(equalTo(expression)));
         }
 
-        ImmutableMap.Builder<Expression, Expression> expressionRemap = ImmutableMap.builder();
-        for (Expression subExpression : subExpressions) {
-            Expression canonical = getScopedCanonical(subExpression, variableScope, types);
+        ImmutableMap.Builder<RowExpression, RowExpression> expressionRemap = ImmutableMap.builder();
+        for (RowExpression subExpression : subExpressions) {
+            RowExpression canonical = getScopedCanonical(subExpression, variableScope);
             if (canonical != null) {
                 expressionRemap.put(subExpression, canonical);
             }
@@ -132,8 +152,8 @@ public class EqualityInference
         // Perform a naive single-pass traversal to try to rewrite non-compliant portions of the tree. Prefers to replace
         // larger subtrees over smaller subtrees
         // TODO: this rewrite can probably be made more sophisticated
-        Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionRemap.build()), expression);
-        if (!variableToExpressionPredicate(variableScope, types).apply(rewritten)) {
+        RowExpression rewritten = RowExpressionTreeRewriter.rewriteWith(new RowExpressionNodeInliner(expressionRemap.build()), expression);
+        if (!variableToExpressionPredicate(variableScope).apply(rewritten)) {
             // If the rewritten is still not compliant with the symbol scope, just give up
             return null;
         }
@@ -168,24 +188,24 @@ public class EqualityInference
      *       d = f
      * </pre>
      */
-    public EqualityPartition generateEqualitiesPartitionedBy(Predicate<VariableReferenceExpression> variableScope, TypeProvider types)
+    public EqualityPartition generateEqualitiesPartitionedBy(Predicate<VariableReferenceExpression> variableScope)
     {
-        ImmutableSet.Builder<Expression> scopeEqualities = ImmutableSet.builder();
-        ImmutableSet.Builder<Expression> scopeComplementEqualities = ImmutableSet.builder();
-        ImmutableSet.Builder<Expression> scopeStraddlingEqualities = ImmutableSet.builder();
+        ImmutableSet.Builder<RowExpression> scopeEqualities = ImmutableSet.builder();
+        ImmutableSet.Builder<RowExpression> scopeComplementEqualities = ImmutableSet.builder();
+        ImmutableSet.Builder<RowExpression> scopeStraddlingEqualities = ImmutableSet.builder();
 
-        for (Collection<Expression> equalitySet : equalitySets.asMap().values()) {
-            Set<Expression> scopeExpressions = new LinkedHashSet<>();
-            Set<Expression> scopeComplementExpressions = new LinkedHashSet<>();
-            Set<Expression> scopeStraddlingExpressions = new LinkedHashSet<>();
+        for (Collection<RowExpression> equalitySet : equalitySets.asMap().values()) {
+            Set<RowExpression> scopeExpressions = new LinkedHashSet<>();
+            Set<RowExpression> scopeComplementExpressions = new LinkedHashSet<>();
+            Set<RowExpression> scopeStraddlingExpressions = new LinkedHashSet<>();
 
             // Try to push each non-derived expression into one side of the scope
-            for (Expression expression : filter(equalitySet, not(derivedExpressions::contains))) {
-                Expression scopeRewritten = rewriteExpression(expression, variableScope, false, types);
+            for (RowExpression expression : filter(equalitySet, not(derivedExpressions::contains))) {
+                RowExpression scopeRewritten = rewriteExpression(expression, variableScope, false);
                 if (scopeRewritten != null) {
                     scopeExpressions.add(scopeRewritten);
                 }
-                Expression scopeComplementRewritten = rewriteExpression(expression, not(variableScope), false, types);
+                RowExpression scopeComplementRewritten = rewriteExpression(expression, not(variableScope), false);
                 if (scopeComplementRewritten != null) {
                     scopeComplementExpressions.add(scopeComplementRewritten);
                 }
@@ -194,29 +214,29 @@ public class EqualityInference
                 }
             }
             // Compile the equality expressions on each side of the scope
-            Expression matchingCanonical = getCanonical(scopeExpressions);
+            RowExpression matchingCanonical = getCanonical(scopeExpressions);
             if (scopeExpressions.size() >= 2) {
-                for (Expression expression : filter(scopeExpressions, not(equalTo(matchingCanonical)))) {
-                    scopeEqualities.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, matchingCanonical, expression));
+                for (RowExpression expression : filter(scopeExpressions, not(equalTo(matchingCanonical)))) {
+                    scopeEqualities.add(buildEqualsExpression(functionManager, matchingCanonical, expression));
                 }
             }
-            Expression complementCanonical = getCanonical(scopeComplementExpressions);
+            RowExpression complementCanonical = getCanonical(scopeComplementExpressions);
             if (scopeComplementExpressions.size() >= 2) {
-                for (Expression expression : filter(scopeComplementExpressions, not(equalTo(complementCanonical)))) {
-                    scopeComplementEqualities.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, complementCanonical, expression));
+                for (RowExpression expression : filter(scopeComplementExpressions, not(equalTo(complementCanonical)))) {
+                    scopeComplementEqualities.add(buildEqualsExpression(functionManager, complementCanonical, expression));
                 }
             }
 
             // Compile the scope straddling equality expressions
-            List<Expression> connectingExpressions = new ArrayList<>();
+            List<RowExpression> connectingExpressions = new ArrayList<>();
             connectingExpressions.add(matchingCanonical);
             connectingExpressions.add(complementCanonical);
             connectingExpressions.addAll(scopeStraddlingExpressions);
             connectingExpressions = ImmutableList.copyOf(filter(connectingExpressions, Predicates.notNull()));
-            Expression connectingCanonical = getCanonical(connectingExpressions);
+            RowExpression connectingCanonical = getCanonical(connectingExpressions);
             if (connectingCanonical != null) {
-                for (Expression expression : filter(connectingExpressions, not(equalTo(connectingCanonical)))) {
-                    scopeStraddlingEqualities.add(new ComparisonExpression(ComparisonExpression.Operator.EQUAL, connectingCanonical, expression));
+                for (RowExpression expression : filter(connectingExpressions, not(equalTo(connectingCanonical)))) {
+                    scopeStraddlingEqualities.add(buildEqualsExpression(functionManager, connectingCanonical, expression));
                 }
             }
         }
@@ -227,7 +247,7 @@ public class EqualityInference
     /**
      * Returns the most preferrable expression to be used as the canonical expression
      */
-    private static Expression getCanonical(Iterable<Expression> expressions)
+    private static RowExpression getCanonical(Iterable<RowExpression> expressions)
     {
         if (Iterables.isEmpty(expressions)) {
             return null;
@@ -240,98 +260,44 @@ public class EqualityInference
      * to the specified expression. Returns null if unable to to find a canonical.
      */
     @VisibleForTesting
-    Expression getScopedCanonical(Expression expression, Predicate<VariableReferenceExpression> variableScope, TypeProvider types)
+    RowExpression getScopedCanonical(RowExpression expression, Predicate<VariableReferenceExpression> variableScope)
     {
-        Expression canonicalIndex = canonicalMap.get(expression);
+        RowExpression canonicalIndex = canonicalMap.get(expression);
         if (canonicalIndex == null) {
             return null;
         }
-        return getCanonical(filter(equalitySets.get(canonicalIndex), variableToExpressionPredicate(variableScope, types)));
+        return getCanonical(filter(equalitySets.get(canonicalIndex), variableToExpressionPredicate(variableScope)));
     }
 
-    private static Predicate<Expression> variableToExpressionPredicate(final Predicate<VariableReferenceExpression> variableScope, TypeProvider types)
+    private static Predicate<RowExpression> variableToExpressionPredicate(final Predicate<VariableReferenceExpression> variableScope)
     {
-        return expression -> Iterables.all(VariablesExtractor.extractUnique(expression, types), variableScope);
-    }
-
-    /**
-     * Determines whether an Expression may be successfully applied to the equality inference
-     */
-    public static Predicate<Expression> isInferenceCandidate()
-    {
-        return expression -> {
-            expression = normalizeInPredicateToEquality(expression);
-            if (expression instanceof ComparisonExpression &&
-                    isDeterministic(expression) &&
-                    !mayReturnNullOnNonNullInput(expression)) {
-                ComparisonExpression comparison = (ComparisonExpression) expression;
-                if (comparison.getOperator() == ComparisonExpression.Operator.EQUAL) {
-                    // We should only consider equalities that have distinct left and right components
-                    return !comparison.getLeft().equals(comparison.getRight());
-                }
-            }
-            return false;
-        };
-    }
-
-    /**
-     * Rewrite single value InPredicates as equality if possible
-     */
-    private static Expression normalizeInPredicateToEquality(Expression expression)
-    {
-        if (expression instanceof InPredicate) {
-            InPredicate inPredicate = (InPredicate) expression;
-            if (inPredicate.getValueList() instanceof InListExpression) {
-                InListExpression valueList = (InListExpression) inPredicate.getValueList();
-                if (valueList.getValues().size() == 1) {
-                    return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, inPredicate.getValue(), Iterables.getOnlyElement(valueList.getValues()));
-                }
-            }
-        }
-        return expression;
-    }
-
-    /**
-     * Provides a convenience Iterable of Expression conjuncts which have not been added to the inference
-     */
-    public static Iterable<Expression> nonInferrableConjuncts(Expression expression)
-    {
-        return filter(extractConjuncts(expression), not(isInferenceCandidate()));
-    }
-
-    public static EqualityInference createEqualityInference(Expression... expressions)
-    {
-        EqualityInference.Builder builder = new EqualityInference.Builder();
-        for (Expression expression : expressions) {
-            builder.extractInferenceCandidates(expression);
-        }
-        return builder.build();
+        return expression -> Iterables.all(VariablesExtractor.extractUnique(expression), variableScope);
     }
 
     public static class EqualityPartition
     {
-        private final List<Expression> scopeEqualities;
-        private final List<Expression> scopeComplementEqualities;
-        private final List<Expression> scopeStraddlingEqualities;
+        private final List<RowExpression> scopeEqualities;
+        private final List<RowExpression> scopeComplementEqualities;
+        private final List<RowExpression> scopeStraddlingEqualities;
 
-        public EqualityPartition(Iterable<Expression> scopeEqualities, Iterable<Expression> scopeComplementEqualities, Iterable<Expression> scopeStraddlingEqualities)
+        public EqualityPartition(Iterable<RowExpression> scopeEqualities, Iterable<RowExpression> scopeComplementEqualities, Iterable<RowExpression> scopeStraddlingEqualities)
         {
             this.scopeEqualities = ImmutableList.copyOf(requireNonNull(scopeEqualities, "scopeEqualities is null"));
             this.scopeComplementEqualities = ImmutableList.copyOf(requireNonNull(scopeComplementEqualities, "scopeComplementEqualities is null"));
             this.scopeStraddlingEqualities = ImmutableList.copyOf(requireNonNull(scopeStraddlingEqualities, "scopeStraddlingEqualities is null"));
         }
 
-        public List<Expression> getScopeEqualities()
+        public List<RowExpression> getScopeEqualities()
         {
             return scopeEqualities;
         }
 
-        public List<Expression> getScopeComplementEqualities()
+        public List<RowExpression> getScopeComplementEqualities()
         {
             return scopeComplementEqualities;
         }
 
-        public List<Expression> getScopeStraddlingEqualities()
+        public List<RowExpression> getScopeStraddlingEqualities()
         {
             return scopeStraddlingEqualities;
         }
@@ -339,36 +305,110 @@ public class EqualityInference
 
     public static class Builder
     {
-        private final DisjointSet<Expression> equalities = new DisjointSet<>();
-        private final Set<Expression> derivedExpressions = new LinkedHashSet<>();
+        private final DisjointSet<RowExpression> equalities = new DisjointSet<>();
+        private final Set<RowExpression> derivedExpressions = new LinkedHashSet<>();
+        private final FunctionManager functionManager;
+        private final NullabilityAnalyzer nullabilityAnalyzer;
+        private final RowExpressionDeterminismEvaluator determinismEvaluator;
 
-        public Builder extractInferenceCandidates(Expression expression)
+        public Builder(FunctionManager functionManager, TypeManager typeManager)
+        {
+            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
+            this.functionManager = functionManager;
+            this.nullabilityAnalyzer = new NullabilityAnalyzer(functionManager, typeManager);
+        }
+
+        public Builder(Metadata metadata)
+        {
+            this(metadata.getFunctionManager(), metadata.getTypeManager());
+        }
+
+        /**
+         * Determines whether an RowExpression may be successfully applied to the equality inference
+         */
+        public Predicate<RowExpression> isInferenceCandidate()
+        {
+            return expression -> {
+                expression = normalizeInPredicateToEquality(expression);
+                if (isOperation(expression, EQUAL) &&
+                        determinismEvaluator.isDeterministic(expression) &&
+                        !nullabilityAnalyzer.mayReturnNullOnNonNullInput(expression)) {
+                    // We should only consider equalities that have distinct left and right components
+                    return !getLeft(expression).equals(getRight(expression));
+                }
+                return false;
+            };
+        }
+
+        public static Predicate<RowExpression> isInferenceCandidate(Metadata metadata)
+        {
+            return new Builder(metadata).isInferenceCandidate();
+        }
+
+        /**
+         * Rewrite single value InPredicates as equality if possible
+         */
+        private RowExpression normalizeInPredicateToEquality(RowExpression expression)
+        {
+            if (isInPredicate(expression)) {
+                int size = ((SpecialFormExpression) expression).getArguments().size() - 1;
+                checkArgument(size >= 1, "InList cannot be empty");
+                if (size == 1) {
+                    RowExpression leftValue = ((SpecialFormExpression) expression).getArguments().get(0);
+                    RowExpression rightValue = ((SpecialFormExpression) expression).getArguments().get(1);
+                    return buildEqualsExpression(functionManager, leftValue, rightValue);
+                }
+            }
+            return expression;
+        }
+
+        /**
+         * Provides a convenience Iterable of RowExpression conjuncts which have not been added to the inference
+         */
+        public Iterable<RowExpression> nonInferrableConjuncts(RowExpression expression)
+        {
+            return filter(extractConjuncts(expression), not(isInferenceCandidate()));
+        }
+
+        public static Iterable<RowExpression> nonInferrableConjuncts(Metadata metadata, RowExpression expression)
+        {
+            return new Builder(metadata).nonInferrableConjuncts(expression);
+        }
+
+        public Builder addEqualityInference(RowExpression... expressions)
+        {
+            for (RowExpression expression : expressions) {
+                extractInferenceCandidates(expression);
+            }
+            return this;
+        }
+
+        public Builder extractInferenceCandidates(RowExpression expression)
         {
             return addAllEqualities(filter(extractConjuncts(expression), isInferenceCandidate()));
         }
 
-        public Builder addAllEqualities(Iterable<Expression> expressions)
+        public EqualityInference.Builder addAllEqualities(Iterable<RowExpression> expressions)
         {
-            for (Expression expression : expressions) {
+            for (RowExpression expression : expressions) {
                 addEquality(expression);
             }
             return this;
         }
 
-        public Builder addEquality(Expression expression)
+        public EqualityInference.Builder addEquality(RowExpression expression)
         {
             expression = normalizeInPredicateToEquality(expression);
-            checkArgument(isInferenceCandidate().apply(expression), "Expression must be a simple equality: " + expression);
-            ComparisonExpression comparison = (ComparisonExpression) expression;
-            addEquality(comparison.getLeft(), comparison.getRight());
+            checkArgument(isInferenceCandidate().apply(expression), "RowExpression must be a simple equality: " + expression);
+            addEquality(getLeft(expression), getRight(expression));
             return this;
         }
 
-        public Builder addEquality(Expression expression1, Expression expression2)
+        public EqualityInference.Builder addEquality(RowExpression expression1, RowExpression expression2)
         {
             checkArgument(!expression1.equals(expression2), "Need to provide equality between different expressions");
-            checkArgument(isDeterministic(expression1), "Expression must be deterministic: " + expression1);
-            checkArgument(isDeterministic(expression2), "Expression must be deterministic: " + expression2);
+            checkArgument(determinismEvaluator.isDeterministic(expression1), "RowExpression must be deterministic: " + expression1);
+            checkArgument(determinismEvaluator.isDeterministic(expression2), "RowExpression must be deterministic: " + expression2);
 
             equalities.findAndUnion(expression1, expression2);
             return this;
@@ -379,24 +419,24 @@ public class EqualityInference
          */
         private void generateMoreEquivalences()
         {
-            Collection<Set<Expression>> equivalentClasses = equalities.getEquivalentClasses();
+            Collection<Set<RowExpression>> equivalentClasses = equalities.getEquivalentClasses();
 
             // Map every expression to the set of equivalent expressions
-            ImmutableMap.Builder<Expression, Set<Expression>> mapBuilder = ImmutableMap.builder();
-            for (Set<Expression> expressions : equivalentClasses) {
+            ImmutableMap.Builder<RowExpression, Set<RowExpression>> mapBuilder = ImmutableMap.builder();
+            for (Set<RowExpression> expressions : equivalentClasses) {
                 expressions.forEach(expression -> mapBuilder.put(expression, expressions));
             }
 
             // For every non-derived expression, extract the sub-expressions and see if they can be rewritten as other expressions. If so,
             // use this new information to update the known equalities.
-            Map<Expression, Set<Expression>> map = mapBuilder.build();
-            for (Expression expression : map.keySet()) {
+            Map<RowExpression, Set<RowExpression>> map = mapBuilder.build();
+            for (RowExpression expression : map.keySet()) {
                 if (!derivedExpressions.contains(expression)) {
-                    for (Expression subExpression : filter(SubExpressionExtractor.extract(expression), not(equalTo(expression)))) {
-                        Set<Expression> equivalentSubExpressions = map.get(subExpression);
+                    for (RowExpression subExpression : filter(uniqueSubExpressions(expression), not(equalTo(expression)))) {
+                        Set<RowExpression> equivalentSubExpressions = map.get(subExpression);
                         if (equivalentSubExpressions != null) {
-                            for (Expression equivalentSubExpression : filter(equivalentSubExpressions, not(equalTo(subExpression)))) {
-                                Expression rewritten = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(ImmutableMap.of(subExpression, equivalentSubExpression)), expression);
+                            for (RowExpression equivalentSubExpression : filter(equivalentSubExpressions, not(equalTo(subExpression)))) {
+                                RowExpression rewritten = RowExpressionTreeRewriter.rewriteWith(new RowExpressionNodeInliner(ImmutableMap.of(subExpression, equivalentSubExpression)), expression);
                                 equalities.findAndUnion(expression, rewritten);
                                 derivedExpressions.add(rewritten);
                             }
@@ -409,7 +449,54 @@ public class EqualityInference
         public EqualityInference build()
         {
             generateMoreEquivalences();
-            return new EqualityInference(equalities.getEquivalentClasses(), derivedExpressions);
+            return new EqualityInference(equalities.getEquivalentClasses(), derivedExpressions, determinismEvaluator, functionManager);
         }
+
+        private boolean isOperation(RowExpression expression, OperatorType type)
+        {
+            if (expression instanceof CallExpression) {
+                CallExpression call = (CallExpression) expression;
+                Optional<OperatorType> expressionOperatorType = functionManager.getFunctionMetadata(call.getFunctionHandle()).getOperatorType();
+                if (expressionOperatorType.isPresent()) {
+                    return expressionOperatorType.get() == type;
+                }
+            }
+            return false;
+        }
+    }
+
+    private static RowExpression getLeft(RowExpression expression)
+    {
+        checkArgument(expression instanceof CallExpression && ((CallExpression) expression).getArguments().size() == 2, "must be binary call expression");
+        return ((CallExpression) expression).getArguments().get(0);
+    }
+
+    private static RowExpression getRight(RowExpression expression)
+    {
+        checkArgument(expression instanceof CallExpression && ((CallExpression) expression).getArguments().size() == 2, "must be binary call expression");
+        return ((CallExpression) expression).getArguments().get(1);
+    }
+
+    private static boolean isInPredicate(RowExpression expression)
+    {
+        if (expression instanceof SpecialFormExpression) {
+            return ((SpecialFormExpression) expression).getForm() == SpecialFormExpression.Form.IN;
+        }
+        return false;
+    }
+
+    private static CallExpression buildEqualsExpression(FunctionManager functionManager, RowExpression left, RowExpression right)
+    {
+        return binaryOperation(functionManager, EQUAL, left, right);
+    }
+
+    private static CallExpression binaryOperation(FunctionManager functionManager, OperatorType type, RowExpression left, RowExpression right)
+    {
+        return call(
+                type.getFunctionName().getFunctionName(),
+                functionManager.resolveOperator(type, fromTypes(left.getType(), right.getType())),
+                BOOLEAN,
+                left,
+                right);
     }
 }

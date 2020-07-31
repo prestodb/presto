@@ -40,6 +40,8 @@ public class StageInfo
 
     private final List<StageInfo> subStages;
 
+    private final boolean isRuntimeOptimized;
+
     @JsonCreator
     public StageInfo(
             @JsonProperty("stageId") StageId stageId,
@@ -47,7 +49,8 @@ public class StageInfo
             @JsonProperty("plan") Optional<PlanFragment> plan,
             @JsonProperty("latestAttemptExecutionInfo") StageExecutionInfo latestAttemptExecutionInfo,
             @JsonProperty("previousAttemptsExecutionInfos") List<StageExecutionInfo> previousAttemptsExecutionInfos,
-            @JsonProperty("subStages") List<StageInfo> subStages)
+            @JsonProperty("subStages") List<StageInfo> subStages,
+            @JsonProperty("isRuntimeOptimized") boolean isRuntimeOptimized)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
         this.self = requireNonNull(self, "self is null");
@@ -55,6 +58,7 @@ public class StageInfo
         this.latestAttemptExecutionInfo = requireNonNull(latestAttemptExecutionInfo, "latestAttemptExecutionInfo is null");
         this.previousAttemptsExecutionInfos = ImmutableList.copyOf(requireNonNull(previousAttemptsExecutionInfos, "previousAttemptsExecutionInfos is null"));
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
+        this.isRuntimeOptimized = isRuntimeOptimized;
     }
 
     @JsonProperty
@@ -91,6 +95,12 @@ public class StageInfo
     public List<StageInfo> getSubStages()
     {
         return subStages;
+    }
+
+    @JsonProperty
+    public boolean isRuntimeOptimized()
+    {
+        return isRuntimeOptimized;
     }
 
     public boolean isFinalStageInfo()

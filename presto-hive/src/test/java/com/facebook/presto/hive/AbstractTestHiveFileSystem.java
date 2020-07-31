@@ -64,6 +64,7 @@ import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FileSystem;
@@ -204,7 +205,9 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
                 new NodeVersion("test_version"),
-                new HivePartitionObjectBuilder());
+                new HivePartitionObjectBuilder(),
+                new HiveEncryptionInformationProvider(ImmutableList.of()),
+                new HivePartitionStats());
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,
@@ -221,8 +224,8 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxInitialSplits(),
                 config.getSplitLoaderConcurrency(),
                 config.getRecursiveDirWalkerEnabled(),
-                cacheConfig.getCacheQuotaScope(),
-                cacheConfig.getDefaultCacheQuota());
+                new ConfigBasedCacheQuotaRequirementProvider(cacheConfig),
+                new HiveEncryptionInformationProvider(ImmutableSet.of()));
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, metastoreClientConfig),
                 hdfsEnvironment,

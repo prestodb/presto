@@ -59,14 +59,22 @@ public class EventListenerManager
             throws Exception
     {
         if (EVENT_LISTENER_CONFIGURATION.exists()) {
-            Map<String, String> properties = new HashMap<>(loadProperties(EVENT_LISTENER_CONFIGURATION));
-
-            String eventListenerName = properties.remove(EVENT_LISTENER_PROPERTY_NAME);
-            checkArgument(!isNullOrEmpty(eventListenerName),
-                    "Access control configuration %s does not contain %s", EVENT_LISTENER_CONFIGURATION.getAbsoluteFile(), EVENT_LISTENER_PROPERTY_NAME);
-
-            setConfiguredEventListener(eventListenerName, properties);
+            Map<String, String> properties = loadProperties(EVENT_LISTENER_CONFIGURATION);
+            checkArgument(
+                    !isNullOrEmpty(properties.get(EVENT_LISTENER_PROPERTY_NAME)),
+                    "Access control configuration %s does not contain %s",
+                    EVENT_LISTENER_CONFIGURATION.getAbsoluteFile(),
+                    EVENT_LISTENER_PROPERTY_NAME);
+            loadConfiguredEventListener(properties);
         }
+    }
+
+    public void loadConfiguredEventListener(Map<String, String> properties)
+    {
+        properties = new HashMap<>(properties);
+        String eventListenerName = properties.remove(EVENT_LISTENER_PROPERTY_NAME);
+        checkArgument(!isNullOrEmpty(eventListenerName), "event-listener.name property must be present");
+        setConfiguredEventListener(eventListenerName, properties);
     }
 
     @VisibleForTesting

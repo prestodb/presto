@@ -45,9 +45,11 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitialize
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.testing.MaterializedResult;
@@ -204,6 +206,8 @@ public class PrestoSparkQueryRunner
                         "query.hash-partition-count", Integer.toString(NODE_COUNT * 2),
                         "prefer-distributed-union", "false"),
                 ImmutableMap.of(),
+                Optional.empty(),
+                new SqlParserOptions(),
                 ImmutableList.of(),
                 Optional.of(new TestingAccessControlModule()));
 
@@ -340,6 +344,12 @@ public class PrestoSparkQueryRunner
     }
 
     @Override
+    public Optional<EventListener> getEventListener()
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public TestingAccessControlManager getAccessControl()
     {
         return testingAccessControlManager;
@@ -359,7 +369,9 @@ public class PrestoSparkQueryRunner
                 sparkContext,
                 createSessionInfo(session),
                 sql,
-                new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId));
+                Optional.empty(),
+                new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
+                Optional.empty());
         List<List<Object>> results = execution.execute();
         List<MaterializedRow> rows = results.stream()
                 .map(result -> new MaterializedRow(DEFAULT_PRECISION, result))
@@ -393,6 +405,7 @@ public class PrestoSparkQueryRunner
                 session.getCatalog(),
                 session.getSchema(),
                 session.getSource(),
+                session.getUserAgent(),
                 session.getClientInfo(),
                 session.getClientTags(),
                 Optional.of(session.getTimeZoneKey().getId()),

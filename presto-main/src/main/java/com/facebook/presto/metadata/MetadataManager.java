@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.CatalogSchemaName;
@@ -44,6 +45,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -92,6 +94,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
@@ -108,6 +111,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
+import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -119,6 +123,8 @@ import static java.util.Objects.requireNonNull;
 public class MetadataManager
         implements Metadata
 {
+    private static final Logger log = Logger.get(MetadataManager.class);
+
     private final FunctionManager functions;
     private final ProcedureRegistry procedures;
     private final TypeManager typeManager;
@@ -502,9 +508,18 @@ public class MetadataManager
     @Override
     public TableStatistics getTableStatistics(Session session, TableHandle tableHandle, List<ColumnHandle> columnHandles, Constraint<ColumnHandle> constraint)
     {
-        ConnectorId connectorId = tableHandle.getConnectorId();
-        ConnectorMetadata metadata = getMetadata(session, connectorId);
-        return metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableHandle.getLayout(), columnHandles, constraint);
+        try {
+            ConnectorId connectorId = tableHandle.getConnectorId();
+            ConnectorMetadata metadata = getMetadata(session, connectorId);
+            return metadata.getTableStatistics(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableHandle.getLayout(), columnHandles, constraint);
+        }
+        catch (RuntimeException e) {
+            if (isIgnoreStatsCalculatorFailures(session)) {
+                log.error(e, "Error occurred when computing stats for query %s", session.getQueryId());
+                return TableStatistics.empty();
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -998,7 +1013,7 @@ public class MetadataManager
             ConnectorViewDefinition view = views.get(viewName.asSchemaTableName());
             if (view != null) {
                 ViewDefinition definition = deserializeView(view.getViewData());
-                if (view.getOwner().isPresent()) {
+                if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
                     definition = definition.withOwner(view.getOwner().get());
                 }
                 return Optional.of(definition);
@@ -1254,6 +1269,22 @@ public class MetadataManager
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId connectorId)
     {
         return getCatalogMetadata(session, connectorId).getConnectorCapabilities();
+    }
+
+    @Override
+    public TableLayoutFilterCoverage getTableLayoutFilterCoverage(Session session, TableHandle tableHandle, Set<String> relevantPartitionColumns)
+    {
+        requireNonNull(tableHandle, "tableHandle cannot be null");
+        requireNonNull(relevantPartitionColumns, "relevantPartitionKeys cannot be null");
+
+        if (!tableHandle.getLayout().isPresent()) {
+            return NOT_APPLICABLE;
+        }
+
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, connectorId);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+        return metadata.getTableLayoutFilterCoverage(tableHandle.getLayout().get(), relevantPartitionColumns);
     }
 
     private ViewDefinition deserializeView(String data)

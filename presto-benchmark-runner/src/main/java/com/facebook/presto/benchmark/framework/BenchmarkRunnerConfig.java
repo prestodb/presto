@@ -23,15 +23,20 @@ import javax.validation.constraints.NotNull;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.benchmark.source.DbBenchmarkSuiteSupplier.BENCHMARK_SUITE_SUPPLIER;
+import static com.facebook.presto.benchmark.source.MySqlBenchmarkSuiteSupplier.MYSQL_BENCHMARK_SUITE_SUPPLIER;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class BenchmarkRunnerConfig
 {
     private String testId;
-    private String benchmarkSuiteSupplier = BENCHMARK_SUITE_SUPPLIER;
+    private String benchmarkSuiteSupplier = MYSQL_BENCHMARK_SUITE_SUPPLIER;
+
     private Set<String> eventClients = ImmutableSet.of("json");
     private Optional<String> jsonEventLogFile = Optional.empty();
+
     private boolean continueOnFailure;
+
+    private Optional<Integer> maxConcurrency = Optional.empty();
 
     @NotNull
     public String getTestId()
@@ -96,6 +101,21 @@ public class BenchmarkRunnerConfig
     public BenchmarkRunnerConfig setContinueOnFailure(boolean continueOnFailure)
     {
         this.continueOnFailure = continueOnFailure;
+        return this;
+    }
+
+    @NotNull
+    public Optional<Integer> getMaxConcurrency()
+    {
+        return maxConcurrency;
+    }
+
+    @ConfigDescription("Default max concurrency for concurrent phases")
+    @Config("max-concurrency")
+    public BenchmarkRunnerConfig setMaxConcurrency(Integer maxConcurrency)
+    {
+        checkArgument(maxConcurrency == null || maxConcurrency > 0, "maxConcurrency must be positive");
+        this.maxConcurrency = Optional.ofNullable(maxConcurrency);
         return this;
     }
 }

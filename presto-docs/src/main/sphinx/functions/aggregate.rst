@@ -147,6 +147,21 @@ General Aggregate Functions
 
         Returns an array created from the distinct input ``x`` elements.
 
+.. function:: set_union(array(T)) -> array(T)
+
+    Returns an array of all the distinct values contained in each array of the input
+
+    Example::
+
+        SELECT set_union(elements)
+        FROM (
+            VALUES
+                ARRAY[1, 2, 3],
+                ARRAY[2, 3, 4]
+        ) AS t(elements);
+
+    Returns ARRAY[1, 2, 3, 4]
+
 .. function:: sum(x) -> [same as input]
 
     Returns the sum of all input values.
@@ -505,7 +520,7 @@ To find the `ROC curve <https://en.wikipedia.org/wiki/Receiver_operating_charact
     .. math ::
 
         {
-            \sum_{i \;|\; x_i \leq t_j \bigwedge y_i = 0} \left[ w_i \right]
+            \sum_{i \;|\; x_i > t_j \bigwedge y_i = 0} \left[ w_i \right]
             \over
             \sum_{i \;|\; y_i = 0} \left[ w_i \right]
         },

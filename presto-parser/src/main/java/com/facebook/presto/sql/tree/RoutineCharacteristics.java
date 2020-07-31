@@ -25,9 +25,46 @@ import static java.util.Objects.requireNonNull;
 
 public class RoutineCharacteristics
 {
-    public enum Language
+    public static class Language
     {
-        SQL;
+        public static final Language SQL = new Language("SQL");
+
+        private final String language;
+
+        public Language(String language)
+        {
+            this.language = requireNonNull(language.toUpperCase());
+        }
+
+        public String getLanguage()
+        {
+            return language;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(language);
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            Language that = (Language) o;
+            return Objects.equals(language, that.language);
+        }
+
+        @Override
+        public String toString()
+        {
+            return language;
+        }
     }
 
     public enum Determinism

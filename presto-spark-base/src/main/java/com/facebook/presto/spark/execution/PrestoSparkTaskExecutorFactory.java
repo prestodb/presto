@@ -19,13 +19,17 @@ import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.event.SplitMonitor;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
+import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBufferMemoryManager;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.MemoryPool;
@@ -46,7 +50,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskSource;
-import com.facebook.presto.spark.classloader_interface.SerializedTaskStats;
+import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spark.execution.PrestoSparkPageOutputOperator.PrestoSparkPageOutputFactory;
 import com.facebook.presto.spark.execution.PrestoSparkRowBatch.RowTupleSupplier;
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
@@ -67,27 +71,37 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
+import org.joda.time.DateTime;
 import scala.Tuple2;
 import scala.collection.AbstractIterator;
 import scala.collection.Iterator;
 
 import javax.inject.Inject;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.execution.TaskState.FAILED;
+import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
+import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
+import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.collect.Iterables.getFirst;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 
 public class PrestoSparkTaskExecutorFactory
         implements IPrestoSparkTaskExecutorFactory
@@ -99,7 +113,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final JsonCodec<TaskSource> taskSourceJsonCodec;
-    private final JsonCodec<TaskStats> taskStatsJsonCodec;
+    private final JsonCodec<TaskInfo> taskInfoJsonCodec;
 
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -128,7 +142,7 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingManager blockEncodingManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskSource> taskSourceJsonCodec,
-            JsonCodec<TaskStats> taskStatsJsonCodec,
+            JsonCodec<TaskInfo> taskInfoJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             LocalExecutionPlanner localExecutionPlanner,
@@ -145,7 +159,7 @@ public class PrestoSparkTaskExecutorFactory
                 blockEncodingManager,
                 taskDescriptorJsonCodec,
                 taskSourceJsonCodec,
-                taskStatsJsonCodec,
+                taskInfoJsonCodec,
                 notificationExecutor,
                 yieldExecutor,
                 localExecutionPlanner,
@@ -168,7 +182,7 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingManager blockEncodingManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskSource> taskSourceJsonCodec,
-            JsonCodec<TaskStats> taskStatsJsonCodec,
+            JsonCodec<TaskInfo> taskInfoJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             LocalExecutionPlanner localExecutionPlanner,
@@ -189,7 +203,7 @@ public class PrestoSparkTaskExecutorFactory
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
         this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
-        this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
+        this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
         this.localExecutionPlanner = requireNonNull(localExecutionPlanner, "localExecutionPlanner is null");
@@ -214,11 +228,11 @@ public class PrestoSparkTaskExecutorFactory
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             Class<T> outputType)
     {
         try {
-            return doCreate(partitionId, attemptNumber, serializedTaskDescriptor, serializedTaskSources, inputs, taskStatsCollector, outputType);
+            return doCreate(partitionId, attemptNumber, serializedTaskDescriptor, serializedTaskSources, inputs, taskInfoCollector, outputType);
         }
         catch (RuntimeException e) {
             throw executionExceptionFactory.toPrestoSparkExecutionException(e);
@@ -231,7 +245,7 @@ public class PrestoSparkTaskExecutorFactory
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
-            CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
+            CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             Class<T> outputType)
     {
         PrestoSparkTaskDescriptor taskDescriptor = taskDescriptorJsonCodec.fromJson(serializedTaskDescriptor.getBytes());
@@ -270,8 +284,9 @@ public class PrestoSparkTaskExecutorFactory
                 maxSpillMemory,
                 spillSpaceTracker);
 
+        TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
         TaskContext taskContext = queryContext.addTaskContext(
-                new TaskStateMachine(taskId, notificationExecutor),
+                taskStateMachine,
                 session,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
@@ -343,7 +358,6 @@ public class PrestoSparkTaskExecutorFactory
                 taskDescriptor.getTableWriteInfo(),
                 true);
 
-        TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 outputBuffer.setNoMoreRows();
@@ -364,9 +378,11 @@ public class PrestoSparkTaskExecutorFactory
                 taskContext,
                 taskStateMachine,
                 output.getOutputSupplier(),
-                taskStatsJsonCodec,
-                taskStatsCollector,
-                executionExceptionFactory);
+                taskInfoJsonCodec,
+                taskInfoCollector,
+                executionExceptionFactory,
+                output.getOutputBufferType(),
+                outputBuffer);
     }
 
     private List<TaskSource> getTaskSources(Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources)
@@ -374,7 +390,7 @@ public class PrestoSparkTaskExecutorFactory
         ImmutableList.Builder<TaskSource> result = ImmutableList.builder();
         while (serializedTaskSources.hasNext()) {
             SerializedPrestoSparkTaskSource serializedTaskSource = serializedTaskSources.next();
-            result.add(taskSourceJsonCodec.fromJson(serializedTaskSource.getBytes()));
+            result.add(taskSourceJsonCodec.fromJson(decompress(serializedTaskSource.getBytes())));
         }
         return result.build();
     }
@@ -389,13 +405,13 @@ public class PrestoSparkTaskExecutorFactory
             PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer = new PrestoSparkOutputBuffer<>(memoryManager);
             OutputFactory outputFactory = new PrestoSparkRowOutputFactory(outputBuffer);
             OutputSupplier<T> outputSupplier = (OutputSupplier<T>) new RowOutputSupplier(outputBuffer);
-            return new Output<>(outputBuffer, outputFactory, outputSupplier);
+            return new Output<>(OutputBufferType.SPARK_ROW_OUTPUT_BUFFER, outputBuffer, outputFactory, outputSupplier);
         }
         else if (outputType.equals(PrestoSparkSerializedPage.class)) {
             PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer = new PrestoSparkOutputBuffer<>(memoryManager);
             OutputFactory outputFactory = new PrestoSparkPageOutputFactory(outputBuffer, pagesSerde);
             OutputSupplier<T> outputSupplier = (OutputSupplier<T>) new PageOutputSupplier(outputBuffer);
-            return new Output<>(outputBuffer, outputFactory, outputSupplier);
+            return new Output<>(OutputBufferType.SPARK_PAGE_OUTPUT_BUFFER, outputBuffer, outputFactory, outputSupplier);
         }
         else {
             throw new IllegalArgumentException("Unexpected output type: " + outputType.getName());
@@ -409,9 +425,13 @@ public class PrestoSparkTaskExecutorFactory
         private final TaskContext taskContext;
         private final TaskStateMachine taskStateMachine;
         private final OutputSupplier<T> outputSupplier;
-        private final JsonCodec<TaskStats> taskStatsJsonCodec;
-        private final CollectionAccumulator<SerializedTaskStats> taskStatsCollector;
+        private final JsonCodec<TaskInfo> taskInfoJsonCodec;
+        private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
+        private final OutputBufferType outputBufferType;
+        private final PrestoSparkOutputBuffer<?> outputBuffer;
+
+        private final UUID taskInstanceId = randomUUID();
 
         private Tuple2<MutablePartitionId, T> next;
 
@@ -419,16 +439,20 @@ public class PrestoSparkTaskExecutorFactory
                 TaskContext taskContext,
                 TaskStateMachine taskStateMachine,
                 OutputSupplier<T> outputSupplier,
-                JsonCodec<TaskStats> taskStatsJsonCodec,
-                CollectionAccumulator<SerializedTaskStats> taskStatsCollector,
-                PrestoSparkExecutionExceptionFactory executionExceptionFactory)
+                JsonCodec<TaskInfo> taskInfoJsonCodec,
+                CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+                PrestoSparkExecutionExceptionFactory executionExceptionFactory,
+                OutputBufferType outputBufferType,
+                PrestoSparkOutputBuffer<?> outputBuffer)
         {
             this.taskContext = requireNonNull(taskContext, "taskContext is null");
             this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
             this.outputSupplier = requireNonNull(outputSupplier, "outputSupplier is null");
-            this.taskStatsJsonCodec = requireNonNull(taskStatsJsonCodec, "taskStatsJsonCodec is null");
-            this.taskStatsCollector = requireNonNull(taskStatsCollector, "taskStatsCollector is null");
+            this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
+            this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
             this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
+            this.outputBufferType = requireNonNull(outputBufferType, "outputBufferType is null");
+            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
         }
 
         @Override
@@ -477,14 +501,17 @@ public class PrestoSparkTaskExecutorFactory
                 return output;
             }
 
-            //  TODO: Implement task stats collection
-            //  TaskStats taskStats = taskContext.getTaskStats();
-            //  byte[] taskStatsSerialized = taskStatsJsonCodec.toJsonBytes(taskStats);
-            //  taskStatsCollector.add(new SerializedTaskStats(taskStatsSerialized));
-
             // task finished
             TaskState taskState = taskStateMachine.getState();
             checkState(taskState.isDone(), "task is expected to be done");
+
+            TaskInfo taskInfo = createTaskInfo(taskContext, taskStateMachine, taskInstanceId, outputBufferType, outputBuffer);
+            SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(
+                    taskInfo.getTaskId().getStageExecutionId().getStageId().getId(),
+                    taskInfo.getTaskId().getId(),
+                    compress(taskInfoJsonCodec.toJsonBytes(taskInfo)));
+            taskInfoCollector.add(serializedTaskInfo);
+
             LinkedBlockingQueue<Throwable> failures = taskStateMachine.getFailureCauses();
             if (failures.isEmpty()) {
                 return null;
@@ -496,22 +523,85 @@ public class PrestoSparkTaskExecutorFactory
             propagateIfPossible(failure, InterruptedException.class);
             throw new RuntimeException(failure);
         }
+
+        private static TaskInfo createTaskInfo(
+                TaskContext taskContext,
+                TaskStateMachine taskStateMachine,
+                UUID taskInstanceId,
+                OutputBufferType outputBufferType,
+                PrestoSparkOutputBuffer<?> outputBuffer)
+        {
+            TaskId taskId = taskContext.getTaskId();
+            TaskState taskState = taskContext.getState();
+            TaskStats taskStats = taskContext.getTaskStats();
+
+            List<ExecutionFailureInfo> failures = ImmutableList.of();
+            if (taskState == FAILED) {
+                failures = toFailures(taskStateMachine.getFailureCauses());
+            }
+
+            TaskStatus taskStatus = new TaskStatus(
+                    taskInstanceId.getLeastSignificantBits(),
+                    taskInstanceId.getMostSignificantBits(),
+                    STARTING_VERSION,
+                    taskState,
+                    URI.create("http://fake.invalid/task/" + taskId),
+                    taskContext.getCompletedDriverGroups(),
+                    failures,
+                    taskStats.getQueuedPartitionedDrivers(),
+                    taskStats.getRunningPartitionedDrivers(),
+                    0,
+                    false,
+                    taskStats.getPhysicalWrittenDataSize().toBytes(),
+                    taskStats.getUserMemoryReservation().toBytes(),
+                    taskStats.getSystemMemoryReservation().toBytes(),
+                    taskStats.getFullGcCount(),
+                    taskStats.getFullGcTime().toMillis());
+
+            OutputBufferInfo outputBufferInfo = new OutputBufferInfo(
+                    outputBufferType.name(),
+                    FINISHED,
+                    false,
+                    false,
+                    0,
+                    0,
+                    outputBuffer.getTotalRowsProcessed(),
+                    outputBuffer.getTotalPagesProcessed(),
+                    ImmutableList.of());
+
+            return new TaskInfo(
+                    taskId,
+                    taskStatus,
+                    DateTime.now(),
+                    outputBufferInfo,
+                    ImmutableSet.of(),
+                    taskStats,
+                    false);
+        }
     }
 
     private static class Output<T extends PrestoSparkTaskOutput>
     {
+        private final OutputBufferType outputBufferType;
         private final PrestoSparkOutputBuffer<?> outputBuffer;
         private final OutputFactory outputFactory;
         private final OutputSupplier<T> outputSupplier;
 
         private Output(
+                OutputBufferType outputBufferType,
                 PrestoSparkOutputBuffer<?> outputBuffer,
                 OutputFactory outputFactory,
                 OutputSupplier<T> outputSupplier)
         {
+            this.outputBufferType = requireNonNull(outputBufferType, "outputBufferType is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.outputFactory = requireNonNull(outputFactory, "outputFactory is null");
             this.outputSupplier = requireNonNull(outputSupplier, "outputSupplier is null");
+        }
+
+        public OutputBufferType getOutputBufferType()
+        {
+            return outputBufferType;
         }
 
         public PrestoSparkOutputBuffer<?> getOutputBuffer()
@@ -591,5 +681,11 @@ public class PrestoSparkTaskExecutorFactory
             }
             return new Tuple2<>(DEFAULT_PARTITION, toPrestoSparkSerializedPage(page.getSerializedPage()));
         }
+    }
+
+    private enum OutputBufferType
+    {
+        SPARK_ROW_OUTPUT_BUFFER,
+        SPARK_PAGE_OUTPUT_BUFFER,
     }
 }

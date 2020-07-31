@@ -53,6 +53,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcTester.Format.DWRF;
@@ -221,13 +222,15 @@ public class BenchmarkBatchStreamReadersWithZstd
                     new StorageStripeMetadataSource(),
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createTestingReaderOptions(zstdJniDecompressionEnabled),
-                    false);
+                    false,
+                    NO_ENCRYPTION);
             return orcReader.createBatchRecordReader(
                     ImmutableMap.of(0, type),
                     OrcPredicate.TRUE,
                     UTC, // arbitrary
                     new TestingHiveOrcAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE);
+                    INITIAL_BATCH_SIZE,
+                    ImmutableMap.of());
         }
 
         private static String randomAsciiString(Random random)

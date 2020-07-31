@@ -30,6 +30,7 @@ import java.io.File;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,23 +58,39 @@ public class PrestoSparkRunner
                 SparkProcessType.DRIVER,
                 distribution.getPackageSupplier(),
                 distribution.getConfigProperties(),
-                distribution.getCatalogProperties());
+                distribution.getCatalogProperties(),
+                distribution.getEventListenerProperties());
     }
 
     public void run(
             String catalog,
             String schema,
+            String user,
             String query,
             Map<String, String> sessionProperties,
-            Map<String, Map<String, String>> catalogSessionProperties)
+            Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<String> userAgent,
+            Optional<String> clientInfo,
+            Optional<String> sparkQueueName,
+            Optional<Path> queryInfoOutputPath)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
-        PrestoSparkSession session = createSessionInfo(catalog, schema, sessionProperties, catalogSessionProperties);
+        PrestoSparkSession session = createSessionInfo(
+                catalog,
+                schema,
+                user,
+                sessionProperties,
+                catalogSessionProperties,
+                clientInfo,
+                userAgent);
+
         IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
                 distribution.getSparkContext(),
                 session,
                 query,
-                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution));
+                sparkQueueName,
+                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
+                queryInfoOutputPath);
 
         List<List<Object>> results = queryExecution.execute();
 
@@ -90,18 +107,22 @@ public class PrestoSparkRunner
     private static PrestoSparkSession createSessionInfo(
             String catalog,
             String schema,
+            String user,
             Map<String, String> sessionProperties,
-            Map<String, Map<String, String>> catalogSessionProperties)
+            Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<String> clientInfo,
+            Optional<String> userAgent)
     {
         // TODO: add all important session parameters to client options
         return new PrestoSparkSession(
-                "test",
+                user,
                 Optional.empty(),
                 ImmutableMap.of(),
                 Optional.ofNullable(catalog),
                 Optional.ofNullable(schema),
                 Optional.empty(),
-                Optional.empty(),
+                userAgent,
+                clientInfo,
                 ImmutableSet.of(),
                 Optional.empty(),
                 Optional.empty(),
@@ -138,11 +159,12 @@ public class PrestoSparkRunner
             SparkProcessType sparkProcessType,
             PackageSupplier packageSupplier,
             Map<String, String> configProperties,
-            Map<String, Map<String, String>> catalogProperties)
+            Map<String, Map<String, String>> catalogProperties,
+            Optional<Map<String, String>> eventListenerProperties)
     {
         String packagePath = getPackagePath(packageSupplier);
         File pluginsDirectory = checkDirectory(new File(packagePath, "plugin"));
-        PrestoSparkConfiguration configuration = new PrestoSparkConfiguration(configProperties, pluginsDirectory.getAbsolutePath(), catalogProperties);
+        PrestoSparkConfiguration configuration = new PrestoSparkConfiguration(configProperties, pluginsDirectory.getAbsolutePath(), catalogProperties, eventListenerProperties);
         IPrestoSparkServiceFactory serviceFactory = createServiceFactory(checkDirectory(new File(packagePath, "lib")));
         return serviceFactory.createService(sparkProcessType, configuration);
     }
@@ -158,6 +180,7 @@ public class PrestoSparkRunner
         private final PackageSupplier packageSupplier;
         private final Map<String, String> configProperties;
         private final Map<String, Map<String, String>> catalogProperties;
+        private final Map<String, String> eventListenerProperties;
 
         public DistributionBasedPrestoSparkTaskExecutorFactoryProvider(PrestoSparkDistribution distribution)
         {
@@ -165,6 +188,8 @@ public class PrestoSparkRunner
             this.packageSupplier = distribution.getPackageSupplier();
             this.configProperties = distribution.getConfigProperties();
             this.catalogProperties = distribution.getCatalogProperties();
+            // Optional is not Serializable
+            this.eventListenerProperties = distribution.getEventListenerProperties().orElse(null);
         }
 
         @Override
@@ -179,19 +204,22 @@ public class PrestoSparkRunner
         private static String currentPackagePath;
         private static Map<String, String> currentConfigProperties;
         private static Map<String, Map<String, String>> currentCatalogProperties;
+        private static Map<String, String> currentEventListenerProperties;
 
         private IPrestoSparkService getOrCreatePrestoSparkService()
         {
             synchronized (DistributionBasedPrestoSparkTaskExecutorFactoryProvider.class) {
                 if (service == null) {
-                    service = createService(SparkProcessType.EXECUTOR, packageSupplier, configProperties, catalogProperties);
+                    service = createService(SparkProcessType.EXECUTOR, packageSupplier, configProperties, catalogProperties, Optional.ofNullable(eventListenerProperties));
                     currentPackagePath = getPackagePath(packageSupplier);
                     currentConfigProperties = configProperties;
                     currentCatalogProperties = catalogProperties;
+                    currentEventListenerProperties = eventListenerProperties;
                 }
                 checkEquals("packagePath", currentPackagePath, getPackagePath(packageSupplier));
                 checkEquals("configProperties", currentConfigProperties, configProperties);
                 checkEquals("catalogProperties", currentCatalogProperties, catalogProperties);
+                checkEquals("eventListenerProperties", currentEventListenerProperties, eventListenerProperties);
                 return service;
             }
         }

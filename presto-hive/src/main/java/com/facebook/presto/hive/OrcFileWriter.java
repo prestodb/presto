@@ -20,6 +20,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.DataSink;
+import com.facebook.presto.orc.DwrfEncryptionProvider;
+import com.facebook.presto.orc.DwrfWriterEncryption;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcEncoding;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -45,6 +47,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static com.facebook.presto.hive.HiveManifestUtils.createFileStatisticsPage;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -62,6 +65,7 @@ public class OrcFileWriter
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
 
     private long validationCpuNanos;
+    private long rowCount;
 
     public OrcFileWriter(
             DataSink dataSink,
@@ -76,7 +80,9 @@ public class OrcFileWriter
             DateTimeZone hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
             OrcWriteValidationMode validationMode,
-            OrcWriterStats stats)
+            OrcWriterStats stats,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            Optional<DwrfWriterEncryption> dwrfWriterEncryption)
     {
         requireNonNull(dataSink, "dataSink is null");
 
@@ -87,6 +93,8 @@ public class OrcFileWriter
                     fileColumnTypes,
                     orcEncoding,
                     compression,
+                    dwrfWriterEncryption,
+                    dwrfEncryptionProvider,
                     options,
                     metadata,
                     hiveStorageTimeZone,
@@ -140,6 +148,7 @@ public class OrcFileWriter
         Page page = new Page(dataPage.getPositionCount(), blocks);
         try {
             orcWriter.write(page);
+            rowCount += page.getPositionCount();
         }
         catch (IOException | UncheckedIOException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
@@ -147,7 +156,7 @@ public class OrcFileWriter
     }
 
     @Override
-    public void commit()
+    public Optional<Page> commit()
     {
         try {
             orcWriter.close();
@@ -174,6 +183,8 @@ public class OrcFileWriter
                 throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+
+        return Optional.of(createFileStatisticsPage(getWrittenBytes(), rowCount));
     }
 
     @Override

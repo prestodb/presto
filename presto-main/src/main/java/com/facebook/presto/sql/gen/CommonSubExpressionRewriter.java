@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.sql.gen;
 
+import com.facebook.presto.bytecode.BytecodeBlock;
+import com.facebook.presto.bytecode.ClassDefinition;
+import com.facebook.presto.bytecode.FieldDefinition;
+import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -25,6 +29,7 @@ import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import com.google.common.primitives.Primitives;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -35,6 +40,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.bytecode.Access.PRIVATE;
+import static com.facebook.presto.bytecode.Access.a;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantBoolean;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantNull;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.relational.Expressions.subExpressions;
@@ -390,6 +399,64 @@ public class CommonSubExpressionRewriter
                 addAtLevel(level, specialForm);
             }
             return level;
+        }
+    }
+
+    static class CommonSubExpressionFields
+    {
+        private final FieldDefinition evaluatedField;
+        private final FieldDefinition resultField;
+        private final Class<?> resultType;
+        private final String methodName;
+
+        public CommonSubExpressionFields(FieldDefinition evaluatedField, FieldDefinition resultField, Class<?> resultType, String methodName)
+        {
+            this.evaluatedField = evaluatedField;
+            this.resultField = resultField;
+            this.resultType = resultType;
+            this.methodName = methodName;
+        }
+
+        public FieldDefinition getEvaluatedField()
+        {
+            return evaluatedField;
+        }
+
+        public FieldDefinition getResultField()
+        {
+            return resultField;
+        }
+
+        public String getMethodName()
+        {
+            return methodName;
+        }
+
+        public Class<?> getResultType()
+        {
+            return resultType;
+        }
+
+        public static Map<VariableReferenceExpression, CommonSubExpressionFields> declareCommonSubExpressionFields(ClassDefinition classDefinition, Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel)
+        {
+            ImmutableMap.Builder<VariableReferenceExpression, CommonSubExpressionFields> fields = ImmutableMap.builder();
+            commonSubExpressionsByLevel.values().stream().map(Map::values).flatMap(Collection::stream).forEach(variable -> {
+                Class<?> type = Primitives.wrap(variable.getType().getJavaType());
+                fields.put(variable, new CommonSubExpressionFields(
+                        classDefinition.declareField(a(PRIVATE), variable.getName() + "Evaluated", boolean.class),
+                        classDefinition.declareField(a(PRIVATE), variable.getName() + "Result", type),
+                        type,
+                        "get" + variable.getName()));
+            });
+            return fields.build();
+        }
+
+        public static void initializeCommonSubExpressionFields(Collection<CommonSubExpressionFields> cseFields, Variable thisVariable, BytecodeBlock body)
+        {
+            cseFields.forEach(fields -> {
+                body.append(thisVariable.setField(fields.getEvaluatedField(), constantBoolean(false)));
+                body.append(thisVariable.setField(fields.getResultField(), constantNull(fields.getResultType())));
+            });
         }
     }
 }

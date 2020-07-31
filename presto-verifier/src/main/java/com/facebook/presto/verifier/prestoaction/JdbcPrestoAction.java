@@ -17,6 +17,7 @@ import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
@@ -35,21 +36,21 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
-import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_RUN_TIME;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
+import static com.facebook.presto.verifier.prestoaction.QueryActionUtil.mangleSessionProperties;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcPrestoAction
         implements PrestoAction
 {
+    public static final String QUERY_ACTION_TYPE = "presto-jdbc";
+
     private final SqlExceptionClassifier exceptionClassifier;
     private final QueryConfiguration queryConfiguration;
 
@@ -65,17 +66,19 @@ public class JdbcPrestoAction
             SqlExceptionClassifier exceptionClassifier,
             QueryConfiguration queryConfiguration,
             VerificationContext verificationContext,
-            PrestoClusterConfig prestoClusterConfig,
+            PrestoActionConfig prestoActionConfig,
+            Duration metadataTimeout,
+            Duration checksumTimeout,
             @ForClusterConnection RetryConfig networkRetryConfig,
             @ForPresto RetryConfig prestoRetryConfig)
     {
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.queryConfiguration = requireNonNull(queryConfiguration, "queryConfiguration is null");
 
-        this.jdbcUrl = requireNonNull(prestoClusterConfig.getJdbcUrl(), "jdbcUrl is null");
-        this.queryTimeout = requireNonNull(prestoClusterConfig.getQueryTimeout(), "queryTimeout is null");
-        this.metadataTimeout = requireNonNull(prestoClusterConfig.getMetadataTimeout(), "metadataTimeout is null");
-        this.checksumTimeout = requireNonNull(prestoClusterConfig.getChecksumTimeout(), "checksumTimeout is null");
+        this.jdbcUrl = requireNonNull(prestoActionConfig.getJdbcUrl(), "jdbcUrl is null");
+        this.queryTimeout = requireNonNull(prestoActionConfig.getQueryTimeout(), "queryTimeout is null");
+        this.metadataTimeout = requireNonNull(metadataTimeout, "metadataTimeout is null");
+        this.checksumTimeout = requireNonNull(checksumTimeout, "checksumTimeout is null");
 
         this.networkRetry = new RetryDriver<>(
                 networkRetryConfig,
@@ -90,7 +93,7 @@ public class JdbcPrestoAction
     }
 
     @Override
-    public QueryStats execute(Statement statement, QueryStage queryStage)
+    public QueryStatsEvent execute(Statement statement, QueryStage queryStage)
     {
         return execute(statement, queryStage, new NoResultStatementExecutor<>());
     }
@@ -144,17 +147,7 @@ public class JdbcPrestoAction
             // Do nothing
         }
 
-        // configure session properties
-        Map<String, String> sessionProperties = queryStage.isMain()
-                ? new HashMap<>(queryConfiguration.getSessionProperties())
-                : new HashMap<>();
-
-        // Add or override query max execution time to enforce the timeout.
-        sessionProperties.put(QUERY_MAX_EXECUTION_TIME, getTimeout(queryStage).toString());
-
-        // Remove query max run time to respect execution time limit.
-        sessionProperties.remove(QUERY_MAX_RUN_TIME);
-
+        Map<String, String> sessionProperties = mangleSessionProperties(queryConfiguration.getSessionProperties(), queryStage, getTimeout(queryStage));
         for (Entry<String, String> entry : sessionProperties.entrySet()) {
             connection.setSessionProperty(entry.getKey(), entry.getValue());
         }
@@ -166,6 +159,11 @@ public class JdbcPrestoAction
         switch (queryStage) {
             case REWRITE:
             case DESCRIBE:
+            case CONTROL_SETUP:
+            case CONTROL_TEARDOWN:
+            case TEST_SETUP:
+            case TEST_TEARDOWN:
+            case DETERMINISM_ANALYSIS_SETUP:
                 return metadataTimeout;
             case CONTROL_CHECKSUM:
             case TEST_CHECKSUM:
@@ -187,9 +185,9 @@ public class JdbcPrestoAction
             this.queryStats = Optional.of(requireNonNull(queryStats, "queryStats is null"));
         }
 
-        public synchronized Optional<QueryStats> getLastQueryStats()
+        public synchronized Optional<QueryStatsEvent> getLastQueryStats()
         {
-            return queryStats;
+            return queryStats.map(stats -> new QueryStatsEvent(stats, Optional.empty()));
         }
     }
 
@@ -234,12 +232,12 @@ public class JdbcPrestoAction
     }
 
     private static class NoResultStatementExecutor<R>
-            implements StatementExecutor<QueryStats>
+            implements StatementExecutor<QueryStatsEvent>
     {
         private final ProgressMonitor progressMonitor = new ProgressMonitor();
 
         @Override
-        public QueryStats execute(PrestoStatement statement, String query)
+        public QueryStatsEvent execute(PrestoStatement statement, String query)
                 throws SQLException
         {
             boolean moreResults = statement.execute(query);

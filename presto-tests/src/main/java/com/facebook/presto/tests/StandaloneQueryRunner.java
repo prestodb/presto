@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -39,6 +40,7 @@ import org.intellij.lang.annotations.Language;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -165,6 +167,12 @@ public final class StandaloneQueryRunner
     public StatsCalculator getStatsCalculator()
     {
         return server.getStatsCalculator();
+    }
+
+    @Override
+    public Optional<EventListener> getEventListener()
+    {
+        return server.getEventListener();
     }
 
     @Override

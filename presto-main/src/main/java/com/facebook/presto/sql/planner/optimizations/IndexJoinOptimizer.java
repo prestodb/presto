@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.ResolvedIndex;
 import com.facebook.presto.spi.ColumnHandle;
@@ -25,10 +26,9 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.DomainTranslator.ExtractionResult;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.ExpressionDomainTranslator;
-import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
@@ -38,9 +38,9 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -54,15 +54,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
-import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
-import static com.facebook.presto.sql.relational.Expressions.variable;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.in;
@@ -89,20 +84,18 @@ public class IndexJoinOptimizer
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(variableAllocator, idAllocator, metadata, session), plan, null);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator, metadata, session), plan, null);
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
-        private final PlanVariableAllocator variableAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
         private final Session session;
 
-        private Rewriter(PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+        private Rewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
         {
-            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.session = requireNonNull(session, "session is null");
@@ -121,7 +114,6 @@ public class IndexJoinOptimizer
                 Optional<PlanNode> leftIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
                         leftRewritten,
                         ImmutableSet.copyOf(leftJoinVariables),
-                        variableAllocator,
                         idAllocator,
                         metadata,
                         session);
@@ -134,7 +126,6 @@ public class IndexJoinOptimizer
                 Optional<PlanNode> rightIndexCandidate = IndexSourceRewriter.rewriteWithIndex(
                         rightRewritten,
                         ImmutableSet.copyOf(rightJoinVariables),
-                        variableAllocator,
                         idAllocator,
                         metadata,
                         session);
@@ -164,7 +155,7 @@ public class IndexJoinOptimizer
                                 indexJoinNode = new ProjectNode(
                                         idAllocator.getNextId(),
                                         indexJoinNode,
-                                        identityAssignmentsAsSymbolReferences(node.getOutputVariables()));
+                                        identityAssignments(node.getOutputVariables()));
                             }
 
                             return indexJoinNode;
@@ -212,7 +203,7 @@ public class IndexJoinOptimizer
                 result = new ProjectNode(
                         idAllocator.getNextId(),
                         result,
-                        identityAssignmentsAsSymbolReferences(expectedOutputs));
+                        identityAssignments(expectedOutputs));
             }
             return result;
         }
@@ -234,17 +225,20 @@ public class IndexJoinOptimizer
     private static class IndexSourceRewriter
             extends SimplePlanRewriter<IndexSourceRewriter.Context>
     {
-        private final PlanVariableAllocator variableAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
-        private final ExpressionDomainTranslator domainTranslator;
+        private final RowExpressionDomainTranslator domainTranslator;
+        private final LogicalRowExpressions logicalRowExpressions;
         private final Session session;
 
-        private IndexSourceRewriter(PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
+        private IndexSourceRewriter(PlanNodeIdAllocator idAllocator, Metadata metadata, Session session)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.domainTranslator = new ExpressionDomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde()));
-            this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+            this.domainTranslator = new RowExpressionDomainTranslator(metadata);
+            this.logicalRowExpressions = new LogicalRowExpressions(
+                    new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
+                    new FunctionResolution(metadata.getFunctionManager()),
+                    metadata.getFunctionManager());
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.session = requireNonNull(session, "session is null");
         }
@@ -252,13 +246,12 @@ public class IndexJoinOptimizer
         public static Optional<PlanNode> rewriteWithIndex(
                 PlanNode planNode,
                 Set<VariableReferenceExpression> lookupVariables,
-                PlanVariableAllocator variableAllocator,
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
                 Session session)
         {
             AtomicBoolean success = new AtomicBoolean();
-            IndexSourceRewriter indexSourceRewriter = new IndexSourceRewriter(variableAllocator, idAllocator, metadata, session);
+            IndexSourceRewriter indexSourceRewriter = new IndexSourceRewriter(idAllocator, metadata, session);
             PlanNode rewritten = SimplePlanRewriter.rewriteWith(indexSourceRewriter, planNode, new Context(lookupVariables, success));
             if (success.get()) {
                 return Optional.of(rewritten);
@@ -276,19 +269,15 @@ public class IndexJoinOptimizer
         @Override
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Context> context)
         {
-            return planTableScan(node, BooleanLiteral.TRUE_LITERAL, context.get());
+            return planTableScan(node, TRUE_CONSTANT, context.get());
         }
 
-        private PlanNode planTableScan(TableScanNode node, Expression predicate, Context context)
+        private PlanNode planTableScan(TableScanNode node, RowExpression predicate, Context context)
         {
-            ExpressionDomainTranslator.ExtractionResult decomposedPredicate = ExpressionDomainTranslator.fromPredicate(
-                    metadata,
-                    session,
-                    predicate,
-                    variableAllocator.getTypes());
+            ExtractionResult<VariableReferenceExpression> decomposedPredicate = domainTranslator.fromPredicate(session.toConnectorSession(), predicate);
 
             TupleDomain<ColumnHandle> simplifiedConstraint = decomposedPredicate.getTupleDomain()
-                    .transform(variableName -> node.getAssignments().entrySet().stream().collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue)).get(variableName))
+                    .transform(variableName -> node.getAssignments().get(variableName))
                     .intersect(node.getEnforcedConstraint());
 
             checkState(node.getOutputVariables().containsAll(context.getLookupVariables()));
@@ -306,8 +295,8 @@ public class IndexJoinOptimizer
             }
             ResolvedIndex resolvedIndex = optionalResolvedIndex.get();
 
-            Map<ColumnHandle, String> inverseAssignments = node.getAssignments().entrySet().stream()
-                    .collect(toImmutableMap(Map.Entry::getValue, entry -> entry.getKey().getName()));
+            Map<ColumnHandle, VariableReferenceExpression> inverseAssignments = node.getAssignments().entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey));
 
             PlanNode source = new IndexSourceNode(
                     idAllocator.getNextId(),
@@ -318,13 +307,13 @@ public class IndexJoinOptimizer
                     node.getAssignments(),
                     simplifiedConstraint);
 
-            Expression resultingPredicate = combineConjuncts(
+            RowExpression resultingPredicate = logicalRowExpressions.combineConjuncts(
                     domainTranslator.toPredicate(resolvedIndex.getUnresolvedTupleDomain().transform(inverseAssignments::get)),
                     decomposedPredicate.getRemainingExpression());
 
-            if (!resultingPredicate.equals(TRUE_LITERAL)) {
+            if (!resultingPredicate.equals(TRUE_CONSTANT)) {
                 // todo it is likely we end up with redundant filters here because the predicate push down has already been run... the fix is to run predicate push down again
-                source = new FilterNode(idAllocator.getNextId(), source, castToRowExpression(resultingPredicate));
+                source = new FilterNode(idAllocator.getNextId(), source, resultingPredicate);
             }
             context.markSuccess();
             return source;
@@ -337,8 +326,8 @@ public class IndexJoinOptimizer
             ImmutableSet.Builder<VariableReferenceExpression> newLookupVariablesBuilder = ImmutableSet.builder();
             for (VariableReferenceExpression variable : context.get().getLookupVariables()) {
                 RowExpression expression = node.getAssignments().get(variable);
-                if (castToExpression(expression) instanceof SymbolReference) {
-                    newLookupVariablesBuilder.add(new VariableReferenceExpression(((SymbolReference) castToExpression(expression)).getName(), variable.getType()));
+                if (expression instanceof VariableReferenceExpression) {
+                    newLookupVariablesBuilder.add((VariableReferenceExpression) expression);
                 }
             }
             ImmutableSet<VariableReferenceExpression> newLookupVariables = newLookupVariablesBuilder.build();
@@ -354,7 +343,7 @@ public class IndexJoinOptimizer
         public PlanNode visitFilter(FilterNode node, RewriteContext<Context> context)
         {
             if (node.getSource() instanceof TableScanNode) {
-                return planTableScan((TableScanNode) node.getSource(), castToExpression(node.getPredicate()), context.get());
+                return planTableScan((TableScanNode) node.getSource(), node.getPredicate(), context.get());
             }
 
             return context.defaultRewrite(node, new Context(context.get().getLookupVariables(), context.get().getSuccess()));
@@ -498,12 +487,12 @@ public class IndexJoinOptimizer
             public Map<VariableReferenceExpression, VariableReferenceExpression> visitProject(ProjectNode node, Set<VariableReferenceExpression> lookupVariables)
             {
                 // Map from output Variables to source Variables
-                Map<VariableReferenceExpression, VariableReferenceExpression> directVariableTranslationOutputMap = Maps.transformEntries(
+                Map<VariableReferenceExpression, VariableReferenceExpression> directVariableTranslationOutputMap = Maps.transformValues(
                         Maps.filterValues(node.getAssignments().getMap(), IndexKeyTracer::isVariable),
-                        IndexKeyTracer::extractVariable);
+                        VariableReferenceExpression.class::cast);
                 Map<VariableReferenceExpression, VariableReferenceExpression> outputToSourceMap = lookupVariables.stream()
                         .filter(directVariableTranslationOutputMap.keySet()::contains)
-                        .collect(toImmutableMap(identity(), variable -> directVariableTranslationOutputMap.get(variable)));
+                        .collect(toImmutableMap(identity(), directVariableTranslationOutputMap::get));
 
                 checkState(!outputToSourceMap.isEmpty(), "No lookup variables were able to pass through the projection");
 
@@ -565,23 +554,8 @@ public class IndexJoinOptimizer
             }
         }
 
-        private static VariableReferenceExpression extractVariable(VariableReferenceExpression key, RowExpression value)
-        {
-            // TODO remove isExpression once all optimization rule is using RowExpression.
-            // Handle both expression and rowExpression because ValidateDependenciesChecker used it.
-            if (value instanceof VariableReferenceExpression) {
-                return (VariableReferenceExpression) value;
-            }
-            return variable(((SymbolReference) castToExpression(value)).getName(), key.getType());
-        }
-
         private static boolean isVariable(RowExpression expression)
         {
-            // TODO remove isExpression once all optimization rule is using RowExpression.
-            // Handle both expression and rowExpression because ValidateDependenciesChecker used it.
-            if (isExpression(expression)) {
-                return castToExpression(expression) instanceof SymbolReference;
-            }
             return expression instanceof VariableReferenceExpression;
         }
     }

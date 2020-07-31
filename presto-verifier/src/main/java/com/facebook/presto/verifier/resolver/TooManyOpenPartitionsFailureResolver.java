@@ -14,13 +14,14 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.ShowCreate;
+import com.facebook.presto.verifier.annotation.ForTest;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
@@ -52,13 +53,13 @@ public class TooManyOpenPartitionsFailureResolver
     public static final String NAME = "too-many-open-partitions";
 
     private static final Logger log = Logger.get(TooManyOpenPartitionsFailureResolver.class);
-    private static final String NODE_RESOURCE_PATH = "/v1/node";
 
     private final SqlParser sqlParser;
     private final PrestoAction prestoAction;
     private final Supplier<Integer> testClusterSizeSupplier;
     private final int maxBucketPerWriter;
 
+    @Inject
     public TooManyOpenPartitionsFailureResolver(
             SqlParser sqlParser,
             PrestoAction prestoAction,
@@ -72,7 +73,7 @@ public class TooManyOpenPartitionsFailureResolver
     }
 
     @Override
-    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolveQueryFailure(QueryStatsEvent controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         if (!test.isPresent()) {
             return Optional.empty();
@@ -92,7 +93,7 @@ public class TooManyOpenPartitionsFailureResolver
                         }
                         long bucketCount = ((LongLiteral) getOnlyElement(bucketCountProperty).getValue()).getValue();
 
-                        int testClusterSize = testClusterSizeSupplier.get();
+                        int testClusterSize = this.testClusterSizeSupplier.get();
 
                         if (testClusterSize * maxBucketPerWriter < bucketCount) {
                             return Optional.of("Not enough workers on test cluster");
@@ -109,12 +110,16 @@ public class TooManyOpenPartitionsFailureResolver
     public static class Factory
             implements FailureResolverFactory
     {
+        private final ClusterSizeSupplier testClusterSizeSupplier;
         private final Duration clusterSizeExpiration;
         private final int maxBucketPerWriter;
 
         @Inject
-        public Factory(TooManyOpenPartitionsFailureResolverConfig config)
+        public Factory(
+                @ForTest ClusterSizeSupplier testClusterSizeSupplier,
+                TooManyOpenPartitionsFailureResolverConfig config)
         {
+            this.testClusterSizeSupplier = requireNonNull(testClusterSizeSupplier, "testClusterSizeSupplier is null");
             this.clusterSizeExpiration = requireNonNull(config.getClusterSizeExpiration(), "clusterSizeExpiration is null");
             this.maxBucketPerWriter = config.getMaxBucketsPerWriter();
         }
@@ -122,15 +127,13 @@ public class TooManyOpenPartitionsFailureResolver
         @Override
         public FailureResolver create(FailureResolverFactoryContext context)
         {
-            Supplier<Integer> testClusterSizeSupplier = memoizeWithExpiration(
-                    () -> context.getTestResourceClient().getClusterSize(NODE_RESOURCE_PATH),
-                    clusterSizeExpiration.toMillis(),
-                    MILLISECONDS);
-
             return new TooManyOpenPartitionsFailureResolver(
                     context.getSqlParser(),
                     context.getPrestoAction(),
-                    testClusterSizeSupplier,
+                    memoizeWithExpiration(
+                            testClusterSizeSupplier::getClusterSize,
+                            clusterSizeExpiration.toMillis(),
+                            MILLISECONDS),
                     maxBucketPerWriter);
         }
     }

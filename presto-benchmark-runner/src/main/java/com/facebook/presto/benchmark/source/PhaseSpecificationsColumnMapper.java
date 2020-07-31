@@ -27,13 +27,13 @@ import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 public class PhaseSpecificationsColumnMapper
         implements ColumnMapper<List<PhaseSpecification>>
 {
-    protected static final JsonCodec<List<PhaseSpecification>> PHASE_SPECIFICATION_LIST_CODEC = listJsonCodec(PhaseSpecification.class);
+    protected static final JsonCodec<List<PhaseSpecification>> PHASE_SPECIFICATIONS_CODEC = listJsonCodec(PhaseSpecification.class);
 
     @Override
     public List<PhaseSpecification> map(ResultSet resultSet, int columnNumber, StatementContext ctx)
             throws SQLException
     {
         String columnValue = resultSet.getString(columnNumber);
-        return columnValue == null ? null : PHASE_SPECIFICATION_LIST_CODEC.fromJson(columnValue);
+        return columnValue == null ? null : PHASE_SPECIFICATIONS_CODEC.fromJson(columnValue);
     }
 }

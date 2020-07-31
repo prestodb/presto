@@ -92,8 +92,10 @@ public class IterativeOptimizer
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
         Context context = new Context(memo, lookup, idAllocator, variableAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector);
-        exploreGroup(memo.getRootGroup(), context, matcher);
-
+        boolean planChanged = exploreGroup(memo.getRootGroup(), context, matcher);
+        if (!planChanged) {
+            return plan;
+        }
         return memo.extract();
     }
 

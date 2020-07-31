@@ -65,7 +65,8 @@ public final class TestUtils
                 "kafka.nodes", embeddedKafka.getConnectString(),
                 "kafka.table-names", Joiner.on(",").join(topicDescriptions.keySet()),
                 "kafka.connect-timeout", "120s",
-                "kafka.default-schema", "default");
+                "kafka.default-schema", "default",
+                "kafka.table-description-dir", "write-test");
         queryRunner.createCatalog("kafka", "kafka", kafkaConfig);
     }
 

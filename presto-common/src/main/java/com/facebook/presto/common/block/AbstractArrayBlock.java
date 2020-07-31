@@ -110,6 +110,18 @@ public abstract class AbstractArrayBlock
     }
 
     @Override
+    public long getRegionLogicalSizeInBytes(int position, int length)
+    {
+        int positionCount = getPositionCount();
+        checkValidRegion(positionCount, position, length);
+
+        int valueStart = getOffsets()[getOffsetBase() + position];
+        int valueEnd = getOffsets()[getOffsetBase() + position + length];
+
+        return getRawElementBlock().getRegionLogicalSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) length);
+    }
+
+    @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
         checkValidPositions(positions, getPositionCount());

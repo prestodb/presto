@@ -99,9 +99,9 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TaskContext;
@@ -116,6 +116,7 @@ import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -155,7 +156,7 @@ import com.facebook.presto.sql.planner.RemoteSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
-import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.AlterFunction;
@@ -280,6 +281,9 @@ public class LocalQueryRunner
     private final NodeSchedulerConfig nodeSchedulerConfig;
     private boolean printPlan;
 
+    private final PlanChecker distributedPlanChecker;
+    private final PlanChecker singleNodePlanChecker;
+
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     public LocalQueryRunner(Session defaultSession)
@@ -333,6 +337,8 @@ public class LocalQueryRunner
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
 
         this.blockEncodingManager = new BlockEncodingManager(typeRegistry);
+        featuresConfig.setIgnoreStatsCalculatorFailures(false);
+
         this.metadata = new MetadataManager(
                 featuresConfig,
                 typeRegistry,
@@ -351,7 +357,9 @@ public class LocalQueryRunner
                 new AnalyzePropertyManager(),
                 transactionManager);
         this.splitManager = new SplitManager(metadata, new QueryManagerConfig(), nodeSchedulerConfig);
-        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), sqlParser);
+        this.distributedPlanChecker = new PlanChecker(featuresConfig, false);
+        this.singleNodePlanChecker = new PlanChecker(featuresConfig, true);
+        this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig(), sqlParser, featuresConfig);
         this.joinCompiler = new JoinCompiler(metadata, featuresConfig);
         this.pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
         this.statsNormalizer = new StatsNormalizer();
@@ -545,6 +553,12 @@ public class LocalQueryRunner
     public StatsCalculator getStatsCalculator()
     {
         return statsCalculator;
+    }
+
+    @Override
+    public Optional<EventListener> getEventListener()
+    {
+        return Optional.empty();
     }
 
     public CostCalculator getCostCalculator()
@@ -803,20 +817,7 @@ public class LocalQueryRunner
                 subplan.getFragment().getTableScanSchedulingOrder(),
                 outputFactory,
                 Optional.empty(),
-                new RemoteSourceFactory()
-                {
-                    @Override
-                    public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
-                    {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public OperatorFactory createMergeRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types, List<Integer> outputChannels, List<Integer> sortChannels, List<SortOrder> sortOrder)
-                    {
-                        throw new UnsupportedOperationException();
-                    }
-                },
+                new UnsupportedRemoteSourceFactory(),
                 createTableWriteInfo(streamingSubPlan, metadata, session),
                 false);
 
@@ -924,7 +925,7 @@ public class LocalQueryRunner
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 new CostComparator(featuresConfig),
-                taskCountEstimator).get();
+                taskCountEstimator).getPlanningTimeOptimizers();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)
@@ -949,10 +950,11 @@ public class LocalQueryRunner
                 sqlParser,
                 statsCalculator,
                 costCalculator,
-                dataDefinitionTask);
+                dataDefinitionTask,
+                distributedPlanChecker);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), warningCollector);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(wrappedStatement instanceof Explain, session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(wrappedStatement instanceof Explain, session, optimizers, singleNodePlanChecker, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         return logicalPlanner.plan(analysis, stage);
@@ -968,5 +970,21 @@ public class LocalQueryRunner
         return searchFrom(node)
                 .where(TableScanNode.class::isInstance)
                 .findAll();
+    }
+
+    private static class UnsupportedRemoteSourceFactory
+            implements RemoteSourceFactory
+    {
+        @Override
+        public SourceOperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SourceOperatorFactory createMergeRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types, List<Integer> outputChannels, List<Integer> sortChannels, List<SortOrder> sortOrder)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }

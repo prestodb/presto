@@ -21,6 +21,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
@@ -30,20 +31,29 @@ public final class ProjectNode
 {
     private final PlanNode source;
     private final Assignments assignments;
+    private final Locality locality;
+
+    public ProjectNode(PlanNodeId id, PlanNode source, Assignments assignments)
+    {
+        this(id, source, assignments, UNKNOWN);
+    }
 
     // TODO: pass in the "assignments" and the "outputs" separately (i.e., get rid if the symbol := symbol idiom)
     @JsonCreator
     public ProjectNode(@JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
-            @JsonProperty("assignments") Assignments assignments)
+            @JsonProperty("assignments") Assignments assignments,
+            @JsonProperty("locality") Locality locality)
     {
         super(id);
 
         requireNonNull(source, "source is null");
         requireNonNull(assignments, "assignments is null");
+        requireNonNull(locality, "locality is null");
 
         this.source = source;
         this.assignments = assignments;
+        this.locality = locality;
     }
 
     @Override
@@ -70,6 +80,12 @@ public final class ProjectNode
         return source;
     }
 
+    @JsonProperty
+    public Locality getLocality()
+    {
+        return locality;
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -83,6 +99,13 @@ public final class ProjectNode
         if (newChildren.size() != 1) {
             throw new IllegalArgumentException("newChildren list has multiple items");
         }
-        return new ProjectNode(getId(), newChildren.get(0), assignments);
+        return new ProjectNode(getId(), newChildren.get(0), assignments, locality);
+    }
+
+    public enum Locality
+    {
+        UNKNOWN,
+        LOCAL,
+        REMOTE,
     }
 }

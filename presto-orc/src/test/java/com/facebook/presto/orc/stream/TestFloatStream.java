@@ -49,7 +49,7 @@ public class TestFloatStream
     @Override
     protected FloatOutputStream createValueOutputStream()
     {
-        return new FloatOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        return new FloatOutputStream(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE);
     }
 
     @Override
@@ -63,7 +63,7 @@ public class TestFloatStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new FloatInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
+        return new FloatInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
     }
 
     @Override

@@ -140,11 +140,6 @@ public class SqlInvokedFunction
         return functionHandle.map(SqlFunctionHandle::getVersion);
     }
 
-    public FunctionImplementationType getFunctionImplementationType()
-    {
-        return FunctionImplementationType.SQL;
-    }
-
     public SqlFunctionHandle getRequiredFunctionHandle()
     {
         Optional<? extends SqlFunctionHandle> functionHandle = getFunctionHandle();

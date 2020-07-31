@@ -234,7 +234,8 @@ public final class HiveUtil
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
             int headerCount = getHeaderCount(schema);
-            if (headerCount > 0) {
+            //  Only skip header rows when the split is at the beginning of the file
+            if (start == 0 && headerCount > 0) {
                 Utilities.skipHeader(recordReader, headerCount, recordReader.createKey(), recordReader.createValue());
             }
 
@@ -340,12 +341,12 @@ public final class HiveUtil
 
     public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
     {
-        // ORC uses a custom InputFormat but is always splittable
-        if (inputFormat.getClass().getSimpleName().equals("OrcInputFormat")) {
+        if (inputFormat.getClass().getSimpleName().equals("OrcInputFormat") ||
+                inputFormat.getClass().getSimpleName().equals("RCFileInputFormat")) {
             return true;
         }
 
-        // use reflection to get isSplittable method on FileInputFormat
+        // use reflection to get isSplittable method on inputFormat
         Method method = null;
         for (Class<?> clazz = inputFormat.getClass(); clazz != null; clazz = clazz.getSuperclass()) {
             try {
