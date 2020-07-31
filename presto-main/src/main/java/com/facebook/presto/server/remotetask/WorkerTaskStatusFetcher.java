@@ -94,7 +94,7 @@ class WorkerTaskStatusFetcher
             Executor executor,
             HttpClient httpClient,
             Duration maxErrorDuration,
-            ScheduledExecutorService errorScheduledExecutor,
+            // ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled,
             String sessionId)
@@ -114,7 +114,7 @@ class WorkerTaskStatusFetcher
                 Collections.list(idTaskMap.keys()),
                 getWorkerURI(),
                 maxErrorDuration,
-                errorScheduledExecutor,
+                // errorScheduledExecutor,
                 "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;

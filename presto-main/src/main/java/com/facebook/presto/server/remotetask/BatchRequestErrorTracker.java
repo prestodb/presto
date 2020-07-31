@@ -64,12 +64,12 @@ class BatchRequestErrorTracker
             List<TaskId> taskIds,
             URI workerUri,
             Duration maxErrorDuration,
-            ScheduledExecutorService scheduledExecutor,
+            // ScheduledExecutorService scheduledExecutor,
             String jobDescription)
     {
         this.taskIds = requireNonNull(taskIds, "taskIds is null");
         this.workerUri = requireNonNull(workerUri, "workerUri is null");
-        this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
+        this.scheduledExecutor = null; // requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         this.backoff = new Backoff(requireNonNull(maxErrorDuration, "maxErrorDuration is null"));
         this.jobDescription = requireNonNull(jobDescription, "jobDescription is null");
     }

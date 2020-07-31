@@ -141,7 +141,7 @@ public final class HttpRemoteTask
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
     private final ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher;
 
-    private final boolean USE_BATCH_STATUS_FETCHER = true; // Can be replaced with a config
+    private final boolean useBatchTaskStatusFetcher = true; // Can be replaced with a config
 
     @GuardedBy("this")
     private Future<?> currentRequest;
@@ -282,7 +282,7 @@ public final class HttpRemoteTask
 
             TaskInfo initialTask = createInitialTask(taskId, location, bufferStates, new TaskStats(DateTime.now(), null));
 
-            if (USE_BATCH_STATUS_FETCHER) {
+            if (useBatchTaskStatusFetcher) {
                 this.continuousBatchTaskStatusFetcher = continuousBatchTaskStatusFetcher;
                 this.taskStatusFetcher = null;
             }
@@ -354,7 +354,7 @@ public final class HttpRemoteTask
     @Override
     public TaskStatus getTaskStatus()
     {
-        return USE_BATCH_STATUS_FETCHER ? continuousBatchTaskStatusFetcher.getTaskStatus(taskId) : taskStatusFetcher.getTaskStatus();
+        return useBatchTaskStatusFetcher ? continuousBatchTaskStatusFetcher.getTaskStatus(taskId) : taskStatusFetcher.getTaskStatus();
     }
 
     @Override
@@ -370,7 +370,7 @@ public final class HttpRemoteTask
             // to start we just need to trigger an update
             scheduleUpdate();
 
-            if (USE_BATCH_STATUS_FETCHER) {
+            if (useBatchTaskStatusFetcher) {
                 continuousBatchTaskStatusFetcher.start();
             }
             else {
@@ -554,7 +554,7 @@ public final class HttpRemoteTask
     public void addStateChangeListener(StateChangeListener<TaskStatus> stateChangeListener)
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            if (USE_BATCH_STATUS_FETCHER) {
+            if (useBatchTaskStatusFetcher) {
                 // We do this directly from the ContinuousBatchTaskStatusFetcher on addTask
             }
             else {
@@ -626,7 +626,7 @@ public final class HttpRemoteTask
 
     private void updateTaskInfo(TaskInfo taskInfo)
     {
-        if (USE_BATCH_STATUS_FETCHER) {
+        if (useBatchTaskStatusFetcher) {
             // We do this directly from the ContinuousBatchTaskStatusFetcher
         }
         else {
@@ -774,7 +774,7 @@ public final class HttpRemoteTask
             currentRequestStartNanos = 0;
         }
 
-        if (USE_BATCH_STATUS_FETCHER) {
+        if (useBatchTaskStatusFetcher) {
             continuousBatchTaskStatusFetcher.stop();
         }
         else {
@@ -806,7 +806,7 @@ public final class HttpRemoteTask
         checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            if (USE_BATCH_STATUS_FETCHER) {
+            if (useBatchTaskStatusFetcher) {
                 // We do this directly from the ContinuousBatchTaskStatusFetcher
             } else {
                 taskStatusFetcher.updateTaskStatus(status);

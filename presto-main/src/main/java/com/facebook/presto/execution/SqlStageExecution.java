@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import com.google.inject.Inject;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;

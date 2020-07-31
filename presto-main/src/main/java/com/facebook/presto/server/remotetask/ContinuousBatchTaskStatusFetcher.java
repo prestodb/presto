@@ -66,7 +66,7 @@ public class ContinuousBatchTaskStatusFetcher
     private final Executor executor;
     private final HttpClient httpClient;
     private final Duration maxErrorDuration;
-    private final ScheduledExecutorService errorScheduledExecutor;
+    // private final ScheduledExecutorService errorScheduledExecutor;
     private final RemoteTaskStats stats;
     private final boolean isBinaryTransportEnabled;
 
@@ -76,7 +76,7 @@ public class ContinuousBatchTaskStatusFetcher
     @Inject
     public ContinuousBatchTaskStatusFetcher(
             @ForScheduler HttpClient httpClient,
-            ScheduledExecutorService errorScheduledExecutor,
+            // ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
             TaskManagerConfig taskConfig,
             QueryManagerConfig config,
@@ -95,7 +95,7 @@ public class ContinuousBatchTaskStatusFetcher
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
 
         this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
-        this.errorScheduledExecutor = requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
+        // this.errorScheduledExecutor = requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
         this.stats = requireNonNull(stats, "stats is null");
         isBinaryTransportEnabled = requireNonNull(communicationConfig, "communicationConfig is null").isBinaryTransportEnabled();
     }
@@ -130,7 +130,7 @@ public class ContinuousBatchTaskStatusFetcher
                             executor,
                             httpClient,
                             maxErrorDuration,
-                            errorScheduledExecutor,
+                            // errorScheduledExecutor,
                             stats,
                             isBinaryTransportEnabled,
                             Integer.toString(worker.hashCode())));

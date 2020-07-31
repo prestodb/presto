@@ -34,7 +34,8 @@ public interface RemoteTaskFactory
             OutputBuffers outputBuffers,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
-            TableWriteInfo tableWriteInfo) {
+            TableWriteInfo tableWriteInfo)
+    {
         return null;
     }
 
@@ -47,7 +48,8 @@ public interface RemoteTaskFactory
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
-            ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher) {
+            ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher)
+    {
         return this.createRemoteTask(session,
                 taskId,
                 node,
