@@ -454,7 +454,7 @@ public class SqlQueryExecution
                 .withBuffer(OUTPUT_BUFFER_ID, BROADCAST_PARTITION_ID)
                 .withNoMoreBufferIds();
 
-        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider);
+        SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector());
         // build the stage execution objects (this doesn't schedule execution)
         SqlQuerySchedulerInterface scheduler = isUseLegacyScheduler(getSession()) ?
                 LegacySqlQueryScheduler.createSqlQueryScheduler(

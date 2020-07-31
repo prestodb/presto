@@ -11,14 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.split;
+package com.facebook.presto.hive;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
+import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.WarningCodeSupplier;
 
-public interface SplitSourceProvider
+public enum HiveWarningCode
+        implements WarningCodeSupplier
 {
-    SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector);
+    PARTITION_NOT_READABLE(1),
+    /**/;
+    private final WarningCode warningCode;
+
+    public static final int WARNING_CODE_MASK = 0x0100_0000;
+
+    HiveWarningCode(int code)
+    {
+        warningCode = new WarningCode(code + WARNING_CODE_MASK, name());
+    }
+
+    @Override
+    public WarningCode toWarningCode()
+    {
+        return warningCode;
+    }
 }

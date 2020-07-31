@@ -133,6 +133,7 @@ public class HiveClientConfig
     private boolean sortedWritingEnabled = true;
     private BucketFunctionType bucketFunctionTypeForExchange = HIVE_COMPATIBLE;
     private boolean ignoreTableBucketing;
+    private boolean ignoreUnreadablePartition;
     private int minBucketCountToNotIgnoreTableBucketing;
     private int maxBucketsForGroupedExecution = 1_000_000;
     // TODO: Clean up this gatekeeper config and related code/session property once the roll out is done.
@@ -1097,6 +1098,19 @@ public class HiveClientConfig
     public BucketFunctionType getBucketFunctionTypeForExchange()
     {
         return bucketFunctionTypeForExchange;
+    }
+
+    @Config("hive.ignore-unreadable-partition")
+    @ConfigDescription("Ignore unreadable partitions and report as warnings instead of failing the query")
+    public HiveClientConfig setIgnoreUnreadablePartition(boolean ignoreUnreadablePartition)
+    {
+        this.ignoreUnreadablePartition = ignoreUnreadablePartition;
+        return this;
+    }
+
+    public boolean isIgnoreUnreadablePartition()
+    {
+        return ignoreUnreadablePartition;
     }
 
     @Config("hive.ignore-table-bucketing")

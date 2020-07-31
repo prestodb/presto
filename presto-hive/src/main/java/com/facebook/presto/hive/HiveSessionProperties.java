@@ -106,6 +106,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     private static final String BUCKET_FUNCTION_TYPE_FOR_EXCHANGE = "bucket_function_type_for_exchange";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
+    private static final String IGNORE_UNREADABLE_PARTITION = "ignore_unreadable_partition";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -477,6 +478,11 @@ public final class HiveSessionProperties
                         "Is Parquet batch reader verification enabled? This is for testing purposes only, not to be used in production",
                         hiveClientConfig.isParquetBatchReaderVerificationEnabled(),
                         false),
+                booleanProperty(
+                        IGNORE_UNREADABLE_PARTITION,
+                        "Ignore unreadable partitions and report as warnings instead of failing the query",
+                        hiveClientConfig.isIgnoreUnreadablePartition(),
+                        false),
                 new PropertyMetadata<>(
                         BUCKET_FUNCTION_TYPE_FOR_EXCHANGE,
                         "hash function type for bucketed table exchange",
@@ -792,6 +798,11 @@ public final class HiveSessionProperties
     public static boolean isOfflineDataDebugModeEnabled(ConnectorSession session)
     {
         return session.getProperty(OFFLINE_DATA_DEBUG_MODE_ENABLED, Boolean.class);
+    }
+
+    public static boolean shouldIgnoreUnreadablePartition(ConnectorSession session)
+    {
+        return session.getProperty(IGNORE_UNREADABLE_PARTITION, Boolean.class);
     }
 
     public static boolean isShufflePartitionedColumnsForTableWriteEnabled(ConnectorSession session)
