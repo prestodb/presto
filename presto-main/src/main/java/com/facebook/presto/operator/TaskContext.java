@@ -50,8 +50,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -448,41 +446,41 @@ public class TaskContext
             blockedDrivers += pipeline.getBlockedDrivers();
             completedDrivers += pipeline.getCompletedDrivers();
 
-            totalScheduledTime += pipeline.getTotalScheduledTime().roundTo(NANOSECONDS);
-            totalCpuTime += pipeline.getTotalCpuTime().roundTo(NANOSECONDS);
-            totalBlockedTime += pipeline.getTotalBlockedTime().roundTo(NANOSECONDS);
+            totalScheduledTime += pipeline.getTotalScheduledTimeInNanos();
+            totalCpuTime += pipeline.getTotalCpuTimeInNanos();
+            totalBlockedTime += pipeline.getTotalBlockedTimeInNanos();
 
-            totalAllocation += pipeline.getTotalAllocation().toBytes();
+            totalAllocation += pipeline.getTotalAllocationInBytes();
 
             if (pipeline.isInputPipeline()) {
-                rawInputDataSize += pipeline.getRawInputDataSize().toBytes();
+                rawInputDataSize += pipeline.getRawInputDataSizeInBytes();
                 rawInputPositions += pipeline.getRawInputPositions();
 
-                processedInputDataSize += pipeline.getProcessedInputDataSize().toBytes();
+                processedInputDataSize += pipeline.getProcessedInputDataSizeInBytes();
                 processedInputPositions += pipeline.getProcessedInputPositions();
             }
 
             if (pipeline.isOutputPipeline()) {
-                outputDataSize += pipeline.getOutputDataSize().toBytes();
+                outputDataSize += pipeline.getOutputDataSizeInBytes();
                 outputPositions += pipeline.getOutputPositions();
             }
 
-            physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSize().toBytes();
+            physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSizeInBytes();
         }
 
         long startNanos = this.startNanos.get();
         if (startNanos == 0) {
             startNanos = System.nanoTime();
         }
-        Duration queuedTime = new Duration(startNanos - createNanos, NANOSECONDS);
+        long queuedTimeInNanos = startNanos - createNanos;
 
         long endNanos = this.endNanos.get();
-        Duration elapsedTime;
+        long elapsedTimeInNanos;
         if (endNanos >= startNanos) {
-            elapsedTime = new Duration(endNanos - createNanos, NANOSECONDS);
+            elapsedTimeInNanos = endNanos - createNanos;
         }
         else {
-            elapsedTime = new Duration(0, NANOSECONDS);
+            elapsedTimeInNanos = 0;
         }
 
         int fullGcCount = getFullGcCount();
@@ -517,8 +515,8 @@ public class TaskContext
                 lastExecutionStartTime.get(),
                 lastExecutionEndTime == 0 ? null : new DateTime(lastExecutionEndTime),
                 executionEndTime.get(),
-                elapsedTime.convertToMostSuccinctTimeUnit(),
-                queuedTime.convertToMostSuccinctTimeUnit(),
+                elapsedTimeInNanos,
+                queuedTimeInNanos,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
@@ -527,25 +525,25 @@ public class TaskContext
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory.get(),
-                succinctBytes(userMemory),
-                succinctBytes(taskMemoryContext.getRevocableMemory()),
-                succinctBytes(systemMemory),
+                userMemory,
+                taskMemoryContext.getRevocableMemory(),
+                systemMemory,
                 peakTotalMemoryInBytes.get(),
-                succinctNanos(totalScheduledTime),
-                succinctNanos(totalCpuTime),
-                succinctNanos(totalBlockedTime),
+                totalScheduledTime,
+                totalCpuTime,
+                totalBlockedTime,
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,
-                succinctBytes(totalAllocation),
-                succinctBytes(rawInputDataSize),
+                totalAllocation,
+                rawInputDataSize,
                 rawInputPositions,
-                succinctBytes(processedInputDataSize),
+                processedInputDataSize,
                 processedInputPositions,
-                succinctBytes(outputDataSize),
+                outputDataSize,
                 outputPositions,
-                succinctBytes(physicalWrittenDataSize),
+                physicalWrittenDataSize,
                 fullGcCount,
-                fullGcTime,
+                fullGcTime.toMillis(),
                 pipelineStats);
     }
 

@@ -414,7 +414,7 @@ public class PrestoSparkQueryExecutionFactory
                 // there's no way to know how many tasks were running in parallel in Spark
                 // for now let's assume that all the tasks were running in parallel
                 peakRunningTasks++;
-                long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservation().toBytes();
+                long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservationInBytes();
                 long taskPeakTotalMemoryInBytes = taskInfo.getStats().getPeakTotalMemoryInBytes();
                 peakUserMemoryReservationInBytes += taskPeakUserMemoryInBytes;
                 peakTotalMemoryReservationInBytes += taskPeakTotalMemoryInBytes;
@@ -482,7 +482,7 @@ public class PrestoSparkQueryExecutionFactory
         List<TaskInfo> taskInfos = taskInfoMap.get(planFragmentId);
         long peakUserMemoryReservationInBytes = 0;
         for (TaskInfo taskInfo : taskInfos) {
-            long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservation().toBytes();
+            long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservationInBytes();
             peakUserMemoryReservationInBytes += taskPeakUserMemoryInBytes;
         }
         StageExecutionInfo stageExecutionInfo = StageExecutionInfo.create(

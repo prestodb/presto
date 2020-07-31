@@ -38,6 +38,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class TaskSystemTable
         implements SystemTable
@@ -122,20 +123,20 @@ public class TaskSystemTable
                     (long) stats.getRunningDrivers(),
                     (long) stats.getCompletedDrivers(),
 
-                    toMillis(stats.getTotalScheduledTime()),
-                    toMillis(stats.getTotalCpuTime()),
-                    toMillis(stats.getTotalBlockedTime()),
+                    NANOSECONDS.toMillis(stats.getTotalScheduledTimeInNanos()),
+                    NANOSECONDS.toMillis(stats.getTotalCpuTimeInNanos()),
+                    NANOSECONDS.toMillis(stats.getTotalBlockedTimeInNanos()),
 
-                    toBytes(stats.getRawInputDataSize()),
+                    stats.getRawInputDataSizeInBytes(),
                     stats.getRawInputPositions(),
 
-                    toBytes(stats.getProcessedInputDataSize()),
+                    stats.getProcessedInputDataSizeInBytes(),
                     stats.getProcessedInputPositions(),
 
-                    toBytes(stats.getOutputDataSize()),
+                    stats.getOutputDataSizeInBytes(),
                     stats.getOutputPositions(),
 
-                    toBytes(stats.getPhysicalWrittenDataSize()),
+                    stats.getPhysicalWrittenDataSizeInBytes(),
 
                     toTimeStamp(stats.getCreateTime()),
                     toTimeStamp(stats.getFirstStartTime()),

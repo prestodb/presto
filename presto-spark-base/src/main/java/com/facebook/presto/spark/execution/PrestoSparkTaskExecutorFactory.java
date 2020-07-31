@@ -552,11 +552,11 @@ public class PrestoSparkTaskExecutorFactory
                     taskStats.getRunningPartitionedDrivers(),
                     0,
                     false,
-                    taskStats.getPhysicalWrittenDataSize().toBytes(),
-                    taskStats.getUserMemoryReservation().toBytes(),
-                    taskStats.getSystemMemoryReservation().toBytes(),
+                    taskStats.getPhysicalWrittenDataSizeInBytes(),
+                    taskStats.getUserMemoryReservationInBytes(),
+                    taskStats.getSystemMemoryReservationInBytes(),
                     taskStats.getFullGcCount(),
-                    taskStats.getFullGcTime().toMillis());
+                    taskStats.getFullGcTimeInMillis());
 
             OutputBufferInfo outputBufferInfo = new OutputBufferInfo(
                     outputBufferType.name(),

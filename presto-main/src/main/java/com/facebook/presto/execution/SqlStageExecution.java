@@ -78,6 +78,7 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 @ThreadSafe
 public final class SqlStageExecution
@@ -330,7 +331,7 @@ public final class SqlStageExecution
     public synchronized Duration getTotalCpuTime()
     {
         long millis = getAllTasks().stream()
-                .mapToLong(task -> task.getTaskInfo().getStats().getTotalCpuTime().toMillis())
+                .mapToLong(task -> NANOSECONDS.toMillis(task.getTaskInfo().getStats().getTotalCpuTimeInNanos()))
                 .sum();
         return new Duration(millis, TimeUnit.MILLISECONDS);
     }
@@ -341,7 +342,7 @@ public final class SqlStageExecution
             return new DataSize(0, BYTE);
         }
         long datasize = getAllTasks().stream()
-                .mapToLong(task -> task.getTaskInfo().getStats().getRawInputDataSize().toBytes())
+                .mapToLong(task -> task.getTaskInfo().getStats().getRawInputDataSizeInBytes())
                 .sum();
         return DataSize.succinctBytes(datasize);
     }
