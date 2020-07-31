@@ -34,6 +34,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.testing.TestingNodeManager;
@@ -215,7 +216,7 @@ public class TestRaptorSplitManager
     private static ConnectorSplitSource getSplits(RaptorSplitManager splitManager, ConnectorTableLayoutResult layout)
     {
         ConnectorTransactionHandle transaction = new RaptorTransactionHandle();
-        return splitManager.getSplits(transaction, SESSION, layout.getTableLayout().getHandle(), new SplitSchedulingContext(UNGROUPED_SCHEDULING, true));
+        return splitManager.getSplits(transaction, SESSION, layout.getTableLayout().getHandle(), new SplitSchedulingContext(UNGROUPED_SCHEDULING, true, WarningCollector.NOOP));
     }
 
     private static List<ConnectorSplit> getSplits(ConnectorSplitSource source, int maxSize)

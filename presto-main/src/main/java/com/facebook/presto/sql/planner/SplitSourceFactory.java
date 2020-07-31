@@ -19,6 +19,7 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo.DeleteScanInfo;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -78,10 +79,12 @@ public class SplitSourceFactory
     private static final Logger log = Logger.get(SplitSourceFactory.class);
 
     private final SplitSourceProvider splitSourceProvider;
+    private final WarningCollector warningCollector;
 
-    public SplitSourceFactory(SplitSourceProvider splitSourceProvider)
+    public SplitSourceFactory(SplitSourceProvider splitSourceProvider, WarningCollector warningCollector)
     {
         this.splitSourceProvider = requireNonNull(splitSourceProvider, "splitSourceProvider is null");
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
     public Map<PlanNodeId, SplitSource> createSplitSources(PlanFragment fragment, Session session, TableWriteInfo tableWriteInfo)
@@ -152,7 +155,8 @@ public class SplitSourceFactory
             Supplier<SplitSource> splitSourceSupplier = () -> splitSourceProvider.getSplits(
                     session,
                     table,
-                    getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId()));
+                    getSplitSchedulingStrategy(stageExecutionDescriptor, node.getId()),
+                    warningCollector);
 
             SplitSource splitSource = new LazySplitSource(splitSourceSupplier);
 

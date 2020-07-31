@@ -139,7 +139,8 @@ public class TestHiveClientConfig
                 .setParquetBatchReaderVerificationEnabled(false)
                 .setParquetBatchReadOptimizationEnabled(false)
                 .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE)
-                .setParquetDereferencePushdownEnabled(false));
+                .setParquetDereferencePushdownEnabled(false)
+                .setIgnoreUnreadablePartition(false));
     }
 
     @Test
@@ -240,6 +241,7 @@ public class TestHiveClientConfig
                 .put("hive.enable-parquet-batch-reader-verification", "true")
                 .put("hive.bucket-function-type-for-exchange", "PRESTO_NATIVE")
                 .put("hive.enable-parquet-dereference-pushdown", "true")
+                .put("hive.ignore-unreadable-partition", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -337,7 +339,8 @@ public class TestHiveClientConfig
                 .setParquetBatchReaderVerificationEnabled(true)
                 .setParquetBatchReadOptimizationEnabled(true)
                 .setBucketFunctionTypeForExchange(PRESTO_NATIVE)
-                .setParquetDereferencePushdownEnabled(true);
+                .setParquetDereferencePushdownEnabled(true)
+                .setIgnoreUnreadablePartition(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
