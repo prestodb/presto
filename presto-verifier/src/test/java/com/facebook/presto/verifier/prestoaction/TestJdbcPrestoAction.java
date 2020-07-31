@@ -23,6 +23,7 @@ import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
+import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
@@ -51,6 +52,8 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestJdbcPrestoAction
 {
+    private static final String SUITE = "test-suite";
+    private static final String NAME = "test-query";
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
     private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
@@ -72,7 +75,7 @@ public class TestJdbcPrestoAction
     public void setup()
     {
         QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
-        verificationContext = VerificationContext.create();
+        verificationContext = VerificationContext.create(SUITE, NAME);
         prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 CONFIGURATION,
@@ -83,7 +86,8 @@ public class TestJdbcPrestoAction
                 queryActionsConfig.getMetadataTimeout(),
                 queryActionsConfig.getChecksumTimeout(),
                 new RetryConfig(),
-                new RetryConfig());
+                new RetryConfig(),
+                new VerifierConfig().setTestId("test"));
     }
 
     @Test

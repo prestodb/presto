@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
@@ -25,6 +26,7 @@ import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
+import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
 import com.facebook.presto.verifier.retry.ForPresto;
 import com.facebook.presto.verifier.retry.RetryConfig;
@@ -41,6 +43,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.verifier.prestoaction.QueryActionUtil.mangleSessionProperties;
 import static com.google.common.base.Preconditions.checkState;
@@ -50,14 +53,17 @@ public class JdbcPrestoAction
         implements PrestoAction
 {
     public static final String QUERY_ACTION_TYPE = "presto-jdbc";
+    private static final JsonCodec<ClientInfo> CLIENT_INFO_JSON_CODEC = jsonCodec(ClientInfo.class);
 
     private final SqlExceptionClassifier exceptionClassifier;
     private final QueryConfiguration queryConfiguration;
+    private final VerificationContext verificationContext;
 
     private final String jdbcUrl;
     private final Duration queryTimeout;
     private final Duration metadataTimeout;
     private final Duration checksumTimeout;
+    private final String testId;
 
     private final RetryDriver<QueryException> networkRetry;
     private final RetryDriver<QueryException> prestoRetry;
@@ -70,15 +76,18 @@ public class JdbcPrestoAction
             Duration metadataTimeout,
             Duration checksumTimeout,
             @ForClusterConnection RetryConfig networkRetryConfig,
-            @ForPresto RetryConfig prestoRetryConfig)
+            @ForPresto RetryConfig prestoRetryConfig,
+            VerifierConfig verifierConfig)
     {
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.queryConfiguration = requireNonNull(queryConfiguration, "queryConfiguration is null");
+        this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
         this.jdbcUrl = requireNonNull(prestoActionConfig.getJdbcUrl(), "jdbcUrl is null");
         this.queryTimeout = requireNonNull(prestoActionConfig.getQueryTimeout(), "queryTimeout is null");
         this.metadataTimeout = requireNonNull(metadataTimeout, "metadataTimeout is null");
         this.checksumTimeout = requireNonNull(checksumTimeout, "checksumTimeout is null");
+        this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
 
         this.networkRetry = new RetryDriver<>(
                 networkRetryConfig,
@@ -116,8 +125,12 @@ public class JdbcPrestoAction
     private <T> T executeOnce(Statement statement, QueryStage queryStage, StatementExecutor<T> statementExecutor)
     {
         String query = formatSql(statement, Optional.empty());
+        String clientInfo = new ClientInfo(
+                testId,
+                verificationContext.getSourceQueryName(),
+                verificationContext.getSuite()).serialize();
 
-        try (PrestoConnection connection = getConnection(queryStage)) {
+        try (PrestoConnection connection = getConnection(queryStage, clientInfo)) {
             try (java.sql.Statement jdbcStatement = connection.createStatement()) {
                 PrestoStatement prestoStatement = jdbcStatement.unwrap(PrestoStatement.class);
                 prestoStatement.setProgressMonitor(statementExecutor.getProgressMonitor());
@@ -129,7 +142,7 @@ public class JdbcPrestoAction
         }
     }
 
-    private PrestoConnection getConnection(QueryStage queryStage)
+    private PrestoConnection getConnection(QueryStage queryStage, String clientInfo)
             throws SQLException
     {
         PrestoConnection connection = DriverManager.getConnection(
@@ -140,6 +153,7 @@ public class JdbcPrestoAction
 
         try {
             connection.setClientInfo("ApplicationName", "verifier-test");
+            connection.setClientInfo("ClientInfo", clientInfo);
             connection.setCatalog(queryConfiguration.getCatalog());
             connection.setSchema(queryConfiguration.getSchema());
         }
