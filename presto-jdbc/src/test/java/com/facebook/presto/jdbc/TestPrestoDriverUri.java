@@ -15,7 +15,10 @@ package com.facebook.presto.jdbc;
 
 import org.testng.annotations.Test;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Properties;
 
@@ -231,10 +234,11 @@ public class TestPrestoDriverUri
 
     @Test
     public void testUriWithExtraCredentials()
-            throws SQLException
+            throws SQLException, UnsupportedEncodingException
     {
-        String extraCredentials = "test.token.foo:bar;test.token.abc:xyz";
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?extraCredentials=" + extraCredentials);
+        String extraCredentials = "test.token.foo:bar;test.token.abc:xyz;test.scopes:read_only|read_write";
+        String encodedExtraCredentials = URLEncoder.encode(extraCredentials, StandardCharsets.UTF_8.toString());
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?extraCredentials=" + encodedExtraCredentials);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(EXTRA_CREDENTIALS.getKey()), extraCredentials);
     }

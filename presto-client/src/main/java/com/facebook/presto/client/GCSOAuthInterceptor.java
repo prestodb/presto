@@ -15,14 +15,19 @@ package com.facebook.presto.client;
 
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.common.base.Splitter;
 import okhttp3.Interceptor;
 import okhttp3.Request;
 import okhttp3.Response;
 
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Collections;
+import java.util.Collection;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
+import static com.facebook.presto.client.GCSOAuthScope.DEVSTORAGE_READ_ONLY;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
 import static java.util.Objects.requireNonNull;
 
@@ -30,15 +35,20 @@ public class GCSOAuthInterceptor
         implements Interceptor
 {
     public static final String GCS_CREDENTIALS_PATH_KEY = "hive.gcs.credentials.path";
-    private static final String GCS_CREDENTIALS_OAUTH_TOKEN_KEY = "hive.gcs.oauth";
+    public static final String GCS_OAUTH_SCOPES_KEY = "hive.gcs.oauth.scopes";
 
-    private String credentialsFilePath;
+    private static final String GCS_CREDENTIALS_OAUTH_TOKEN_KEY = "hive.gcs.oauth";
+    private static final Splitter SCOPE_SPLITTER = Splitter.on("|");
+
+    private final Collection<String> gcsOAuthScopeURLs;
+    private final String credentialsFilePath;
 
     private GoogleCredentials credentials;
 
-    public GCSOAuthInterceptor(String credentialPath)
+    public GCSOAuthInterceptor(String credentialPath, Optional<String> gcsOAuthScopesString)
     {
         this.credentialsFilePath = requireNonNull(credentialPath);
+        this.gcsOAuthScopeURLs = mapScopeStringToURLs(requireNonNull(gcsOAuthScopesString).orElse(DEVSTORAGE_READ_ONLY.name()));
     }
 
     @Override
@@ -73,10 +83,19 @@ public class GCSOAuthInterceptor
     private GoogleCredentials createCredentials()
     {
         try {
-            return GoogleCredentials.fromStream(new FileInputStream(credentialsFilePath)).createScoped(Collections.singleton("https://www.googleapis.com/auth/devstorage.read_only"));
+            return GoogleCredentials.fromStream(new FileInputStream(credentialsFilePath)).createScoped(gcsOAuthScopeURLs);
         }
         catch (IOException e) {
             throw new ClientException("Google credential loading error", e);
         }
+    }
+
+    private Collection<String> mapScopeStringToURLs(String gcsOAuthScopesString)
+    {
+        return StreamSupport
+                .stream(SCOPE_SPLITTER.split(gcsOAuthScopesString).spliterator(), false)
+                .map(GCSOAuthScope::valueOf)
+                .map(scope -> scope.getScopeURL())
+                .collect(Collectors.toList());
     }
 }
