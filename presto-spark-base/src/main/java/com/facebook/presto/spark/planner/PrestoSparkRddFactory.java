@@ -26,6 +26,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkPartitioner;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleSerializer;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskProcessor;
@@ -137,6 +138,7 @@ public class PrestoSparkRddFactory
             Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+            CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             TableWriteInfo tableWriteInfo,
             Class<T> outputType)
     {
@@ -192,6 +194,7 @@ public class PrestoSparkRddFactory
                     fragment,
                     executorFactoryProvider,
                     taskInfoCollector,
+                    shuffleStatsCollector,
                     tableWriteInfo,
                     partitionedInputs,
                     broadcastInputs,
@@ -249,6 +252,7 @@ public class PrestoSparkRddFactory
             PlanFragment fragment,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+            CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             TableWriteInfo tableWriteInfo,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
             Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
@@ -285,6 +289,7 @@ public class PrestoSparkRddFactory
                 executorFactoryProvider,
                 serializedTaskDescriptor,
                 taskInfoCollector,
+                shuffleStatsCollector,
                 toTaskProcessorBroadcastInputs(broadcastInputs),
                 outputType);
 

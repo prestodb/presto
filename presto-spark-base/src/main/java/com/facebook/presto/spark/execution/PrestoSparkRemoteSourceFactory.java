@@ -18,12 +18,15 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.execution.PrestoSparkRemoteSourceOperator.SparkRemoteSourceOperatorFactory;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.RemoteSourceFactory;
 import com.google.common.collect.ImmutableMap;
+import org.apache.spark.util.CollectionAccumulator;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -36,15 +39,21 @@ public class PrestoSparkRemoteSourceFactory
     private final PagesSerde pagesSerde;
     private final Map<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputsMap;
     private final Map<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputsMap;
+    private final int taskId;
+    private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
 
     public PrestoSparkRemoteSourceFactory(
             PagesSerde pagesSerde,
             Map<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputsMap,
-            Map<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputsMap)
+            Map<PlanNodeId, List<Iterator<PrestoSparkSerializedPage>>> pageInputsMap,
+            int taskId,
+            CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector)
     {
         this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
         this.shuffleInputsMap = ImmutableMap.copyOf(requireNonNull(shuffleInputsMap, "shuffleInputsMap is null"));
         this.pageInputsMap = ImmutableMap.copyOf(requireNonNull(pageInputsMap, "pageInputs is null"));
+        this.taskId = taskId;
+        this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
     }
 
     @Override
@@ -65,7 +74,7 @@ public class PrestoSparkRemoteSourceFactory
         return new SparkRemoteSourceOperatorFactory(
                 operatorId,
                 planNodeId,
-                new PrestoSparkShufflePageInput(types, shuffleInputs));
+                new PrestoSparkShufflePageInput(types, shuffleInputs, taskId, shuffleStatsCollector));
     }
 
     @Override

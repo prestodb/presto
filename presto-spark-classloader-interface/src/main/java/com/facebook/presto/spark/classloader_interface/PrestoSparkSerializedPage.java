@@ -52,4 +52,16 @@ public class PrestoSparkSerializedPage
     {
         return pageCodecMarkers;
     }
+
+    @Override
+    public long getRowCount()
+    {
+        return positionCount;
+    }
+
+    @Override
+    public long getSize()
+    {
+        return bytes.length;
+    }
 }
