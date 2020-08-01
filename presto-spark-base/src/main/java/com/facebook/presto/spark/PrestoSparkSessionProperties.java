@@ -29,6 +29,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 public class PrestoSparkSessionProperties
 {
     public static final String SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED = "spark_partition_count_auto_tune_enabled";
+    public static final String MAX_SPARK_INPUT_PARTITION_COUNT_FOR_AUTO_TUNE = "max_spark_input_partition_count_for_auto_tune";
     public static final String SPARK_INITIAL_PARTITION_COUNT = "spark_initial_partition_count";
     public static final String MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION = "max_splits_data_size_per_spark_partition";
     public static final String SHUFFLE_OUTPUT_TARGET_AVERAGE_ROW_SIZE = "shuffle_output_target_average_row_size";
@@ -43,6 +44,11 @@ public class PrestoSparkSessionProperties
                         SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED,
                         "Automatic tuning of spark initial partition count based on splits size per partition",
                         prestoSparkConfig.isSparkPartitionCountAutoTuneEnabled(),
+                        false),
+                integerProperty(
+                        MAX_SPARK_INPUT_PARTITION_COUNT_FOR_AUTO_TUNE,
+                        "Max Spark input partition count when Spark partition auto tune is enabled",
+                        prestoSparkConfig.getMaxSparkInputPartitionCountForAutoTune(),
                         false),
                 integerProperty(
                         SPARK_INITIAL_PARTITION_COUNT,
@@ -69,6 +75,11 @@ public class PrestoSparkSessionProperties
     public static boolean isSparkPartitionCountAutoTuneEnabled(Session session)
     {
         return session.getSystemProperty(SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED, Boolean.class);
+    }
+
+    public static int getMaxSparkInputPartitionCountForAutoTune(Session session)
+    {
+        return session.getSystemProperty(MAX_SPARK_INPUT_PARTITION_COUNT_FOR_AUTO_TUNE, Integer.class);
     }
 
     public static int getSparkInitialPartitionCount(Session session)
