@@ -64,6 +64,7 @@ public class JdbcPrestoAction
     private final Duration metadataTimeout;
     private final Duration checksumTimeout;
     private final String testId;
+    private final Optional<String> testName;
 
     private final RetryDriver<QueryException> networkRetry;
     private final RetryDriver<QueryException> prestoRetry;
@@ -88,6 +89,7 @@ public class JdbcPrestoAction
         this.metadataTimeout = requireNonNull(metadataTimeout, "metadataTimeout is null");
         this.checksumTimeout = requireNonNull(checksumTimeout, "checksumTimeout is null");
         this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
+        this.testName = requireNonNull(verifierConfig.getTestName(), "testName is null");
 
         this.networkRetry = new RetryDriver<>(
                 networkRetryConfig,
@@ -127,6 +129,7 @@ public class JdbcPrestoAction
         String query = formatSql(statement, Optional.empty());
         String clientInfo = new ClientInfo(
                 testId,
+                testName,
                 verificationContext.getSourceQueryName(),
                 verificationContext.getSuite()).serialize();
 
