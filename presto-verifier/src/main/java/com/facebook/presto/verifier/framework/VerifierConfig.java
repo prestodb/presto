@@ -38,6 +38,7 @@ public class VerifierConfig
     private Optional<String> humanReadableEventLogFile = Optional.empty();
 
     private String testId;
+    private Optional<String> testName = Optional.empty();
     private int maxConcurrency = 10;
     private int suiteRepetitions = 1;
     private int queryRepetitions = 1;
@@ -149,6 +150,20 @@ public class VerifierConfig
     public VerifierConfig setTestId(String testId)
     {
         this.testId = testId;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getTestName()
+    {
+        return testName;
+    }
+
+    @ConfigDescription("A customizable string that will be passed into query client info")
+    @Config("test-name")
+    public VerifierConfig setTestName(String testName)
+    {
+        this.testName = Optional.ofNullable(testName);
         return this;
     }
 

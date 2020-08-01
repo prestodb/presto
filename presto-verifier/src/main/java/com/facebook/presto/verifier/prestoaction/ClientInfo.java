@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class ClientInfo
@@ -24,12 +26,14 @@ public class ClientInfo
     private static final String CLIENT_INFO_TYPE = "VERIFIER";
 
     private final String testId;
+    private final Optional<String> testName;
     private final String sourceQueryName;
     private final String suite;
 
-    public ClientInfo(String testId, String sourceQueryName, String suite)
+    public ClientInfo(String testId, Optional<String> testName, String sourceQueryName, String suite)
     {
         this.testId = requireNonNull(testId, "testId is null");
+        this.testName = requireNonNull(testName, "testName is null");
         this.sourceQueryName = requireNonNull(sourceQueryName, "sourceQueryName is null");
         this.suite = requireNonNull(suite, "suite is null");
     }
@@ -47,6 +51,12 @@ public class ClientInfo
     }
 
     @JsonProperty
+    public Optional<String> getTestName()
+    {
+        return testName;
+    }
+
+    @JsonProperty
     public String getSourceQueryName()
     {
         return sourceQueryName;
@@ -58,7 +68,8 @@ public class ClientInfo
         return suite;
     }
 
-    public String serialize() {
+    public String serialize()
+    {
         try {
             return new ObjectMapper().writeValueAsString(this);
         }
