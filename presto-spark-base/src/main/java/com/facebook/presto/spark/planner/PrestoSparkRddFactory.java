@@ -85,6 +85,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSparkInputPartitionCountForAutoTune;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSplitsDataSizePerSparkPartition;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkInitialPartitionCount;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isSparkPartitionCountAutoTuneEnabled;
@@ -436,26 +437,24 @@ public class PrestoSparkRddFactory
         int partitionCount = 0;
         boolean autoTunePartitionCount = isSparkPartitionCountAutoTuneEnabled(session);
         if (autoTunePartitionCount) {
+            int maxPartitionCount = getMaxSparkInputPartitionCountForAutoTune(session);
+
             for (int splitIndex = 0; splitIndex < splits.size(); splitIndex++) {
                 int partitionId;
                 long splitSizeInBytes = splits.get(splitIndex).getSplit().getConnectorSplit().getSplitSizeInBytes().getAsLong();
 
-                if (!queue.isEmpty() &&
-                        queue.peek().getSplitsInBytes() + splitSizeInBytes <= maxSplitsSizeInBytesPerPartition) {
+                if ((!queue.isEmpty() && queue.peek().getSplitsInBytes() + splitSizeInBytes <= maxSplitsSizeInBytesPerPartition)
+                        || partitionCount == maxPartitionCount) {
                     SparkPartition partition = queue.poll();
                     partitionId = partition.getPartitionId();
                     partition.assignSplitWithSize(splitSizeInBytes);
-                    if (partition.getSplitsInBytes() < maxSplitsSizeInBytesPerPartition) {
-                        queue.add(partition);
-                    }
+                    queue.add(partition);
                 }
                 else {
                     partitionId = partitionCount++;
-                    if (splitSizeInBytes < maxSplitsSizeInBytesPerPartition) {
-                        SparkPartition newPartition = new SparkPartition(partitionId);
-                        newPartition.assignSplitWithSize(splitSizeInBytes);
-                        queue.add(newPartition);
-                    }
+                    SparkPartition newPartition = new SparkPartition(partitionId);
+                    newPartition.assignSplitWithSize(splitSizeInBytes);
+                    queue.add(newPartition);
                 }
 
                 result.put(partitionId, splits.get(splitIndex));
