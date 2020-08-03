@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.JdkSSLOptions;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.SocketOptions;
 import com.datastax.driver.core.policies.ConstantSpeculativeExecutionPolicy;
@@ -24,6 +25,7 @@ import com.datastax.driver.core.policies.RoundRobinPolicy;
 import com.datastax.driver.core.policies.TokenAwarePolicy;
 import com.datastax.driver.core.policies.WhiteListPolicy;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.cassandra.util.SslContextProvider;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -123,6 +125,12 @@ public class CassandraClientModule
         socketOptions.setConnectTimeoutMillis(toIntExact(config.getClientConnectTimeout().toMillis()));
         if (config.getClientSoLinger() != null) {
             socketOptions.setSoLinger(config.getClientSoLinger());
+        }
+        if (config.isTlsEnabled()) {
+            SslContextProvider sslContextProvider = new SslContextProvider(config.getKeystorePath(),
+                    config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword());
+            sslContextProvider.buildSslContext().ifPresent(context ->
+                    clusterBuilder.withSSL(JdkSSLOptions.builder().withSSLContext(context).build()));
         }
         clusterBuilder.withSocketOptions(socketOptions);
 
