@@ -166,6 +166,10 @@
             <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
+      <dependency>
+        <groupId>com.facebook.airlift</groupId>
+        <artifactId>security</artifactId>
+      </dependency>
     </dependencies>
 
     <build>
