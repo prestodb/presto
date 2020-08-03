@@ -37,7 +37,7 @@ public final class TableStatistics
         return EMPTY;
     }
 
-    public TableStatistics(Estimate rowCount, Map<ColumnHandle, ColumnStatistics> columnStatistics)
+    private TableStatistics(Estimate rowCount, Map<ColumnHandle, ColumnStatistics> columnStatistics)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
         if (!rowCount.isUnknown() && rowCount.getValue() < 0) {

@@ -15,9 +15,7 @@ package com.facebook.presto.benchmark.prestoaction;
 
 import com.facebook.presto.benchmark.framework.BenchmarkQuery;
 
-import java.util.Map;
-
 public interface PrestoActionFactory
 {
-    PrestoAction get(BenchmarkQuery benchmarkQuery, Map<String, String> sessionProperties);
+    PrestoAction get(BenchmarkQuery benchmarkQuery);
 }

@@ -352,6 +352,7 @@ public class TestingPrestoServer
         serverProperties.put("task.concurrency", "4");
         serverProperties.put("task.max-worker-threads", "4");
         serverProperties.put("exchange.client-threads", "4");
+        serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
         if (coordinator) {
             // enabling failure detector in tests can make them flakey
             serverProperties.put("failure-detector.enabled", "false");

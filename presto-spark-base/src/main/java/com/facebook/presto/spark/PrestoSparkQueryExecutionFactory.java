@@ -73,6 +73,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
@@ -216,6 +217,7 @@ public class PrestoSparkQueryExecutionFactory
             SparkContext sparkContext,
             PrestoSparkSession prestoSparkSession,
             String sql,
+            Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<Path> queryInfoOutputPath)
     {
@@ -249,6 +251,7 @@ public class PrestoSparkQueryExecutionFactory
                         sql,
                         PLANNING,
                         Optional.empty(),
+                        sparkQueueName,
                         Optional.empty(),
                         queryStateTimer,
                         Optional.empty(),
@@ -282,6 +285,7 @@ public class PrestoSparkQueryExecutionFactory
                     sql,
                     planAndMore,
                     fragmentedPlan,
+                    sparkQueueName,
                     taskInfoJsonCodec,
                     sparkTaskDescriptorJsonCodec,
                     queryInfoJsonCodec,
@@ -317,6 +321,7 @@ public class PrestoSparkQueryExecutionFactory
                         sql,
                         FAILED,
                         Optional.ofNullable(planAndMore),
+                        sparkQueueName,
                         failureInfo,
                         queryStateTimer,
                         Optional.empty(),
@@ -389,6 +394,7 @@ public class PrestoSparkQueryExecutionFactory
             String query,
             QueryState queryState,
             Optional<PlanAndMore> planAndMore,
+            Optional<String> sparkQueueName,
             Optional<ExecutionFailureInfo> failureInfo,
             QueryStateTimer queryStateTimer,
             Optional<StageInfo> rootStage,
@@ -453,8 +459,9 @@ public class PrestoSparkQueryExecutionFactory
                 planAndMore.map(PlanAndMore::getInputs).orElse(ImmutableSet.of()),
                 planAndMore.flatMap(PlanAndMore::getOutput),
                 true,
-                Optional.empty(),
+                sparkQueueName.map(ResourceGroupId::new),
                 planAndMore.flatMap(PlanAndMore::getQueryType),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -497,7 +504,8 @@ public class PrestoSparkQueryExecutionFactory
                 ImmutableList.of(),
                 plan.getChildren().stream()
                         .map(child -> createStageInfo(queryId, child, taskInfoMap))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                false);
     }
 
     private static void writeQueryInfo(Path queryInfoOutputPath, QueryInfo queryInfo, JsonCodec<QueryInfo> queryInfoJsonCodec)
@@ -526,6 +534,8 @@ public class PrestoSparkQueryExecutionFactory
         private final String query;
         private final PlanAndMore planAndMore;
         private final SubPlan fragmentedPlan;
+        private final Optional<String> sparkQueueName;
+
         private final JsonCodec<TaskInfo> taskInfoJsonCodec;
         private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
         private final JsonCodec<QueryInfo> queryInfoJsonCodec;
@@ -548,6 +558,7 @@ public class PrestoSparkQueryExecutionFactory
                 String query,
                 PlanAndMore planAndMore,
                 SubPlan fragmentedPlan,
+                Optional<String> sparkQueueName,
                 JsonCodec<TaskInfo> taskInfoJsonCodec,
                 JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
                 JsonCodec<QueryInfo> queryInfoJsonCodec,
@@ -569,6 +580,8 @@ public class PrestoSparkQueryExecutionFactory
             this.query = requireNonNull(query, "query is null");
             this.planAndMore = requireNonNull(planAndMore, "planAndMore is null");
             this.fragmentedPlan = requireNonNull(fragmentedPlan, "fragmentedPlan is null");
+            this.sparkQueueName = requireNonNull(sparkQueueName, "sparkQueueName is null");
+
             this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
             this.sparkTaskDescriptorJsonCodec = requireNonNull(sparkTaskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
             this.queryInfoJsonCodec = requireNonNull(queryInfoJsonCodec, "queryInfoJsonCodec is null");
@@ -752,6 +765,7 @@ public class PrestoSparkQueryExecutionFactory
                     query,
                     queryState,
                     Optional.of(planAndMore),
+                    sparkQueueName,
                     failureInfo,
                     queryStateTimer,
                     Optional.of(stageInfo),

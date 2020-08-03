@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -70,6 +71,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.PinotColumnHandle.PinotColumnType.REGULAR;
@@ -111,6 +113,7 @@ public class TestPinotQueryBase
                     .put(new VariableReferenceExpression("fare", DOUBLE), new PinotQueryGeneratorContext.Selection("fare", TABLE_COLUMN)) // direct column reference
                     .put(new VariableReferenceExpression("totalfare", DOUBLE), new PinotQueryGeneratorContext.Selection("(fare + trip)", DERIVED)) // derived column
                     .put(new VariableReferenceExpression("count_regionid", BIGINT), new PinotQueryGeneratorContext.Selection("count(regionid)", DERIVED))// derived column
+                    .put(new VariableReferenceExpression("sum_fare", BIGINT), new PinotQueryGeneratorContext.Selection("sum(fare)", DERIVED))// derived column
                     .put(new VariableReferenceExpression("secondssinceepoch", BIGINT), new PinotQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN)) // column for datetime functions
                     .put(new VariableReferenceExpression("dayssinceepoch", DATE), new PinotQueryGeneratorContext.Selection("daysSinceEpoch", TABLE_COLUMN)) // column for date functions
                     .put(new VariableReferenceExpression("millissinceepoch", TIMESTAMP), new PinotQueryGeneratorContext.Selection("millisSinceEpoch", TABLE_COLUMN)) // column for timestamp functions
@@ -129,9 +132,9 @@ public class TestPinotQueryBase
             session = TestingSession.testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
         }
 
-        public SessionHolder(boolean useDateTrunc)
+        public SessionHolder(boolean useDateTrunc, boolean useSqlSyntax)
         {
-            this(new PinotConfig().setUseDateTrunc(useDateTrunc));
+            this(new PinotConfig().setUseDateTrunc(useDateTrunc).setUsePinotSqlForBrokerQueries(useSqlSyntax));
         }
 
         public ConnectorSession getConnectorSession()
@@ -223,6 +226,11 @@ public class TestPinotQueryBase
         return new LimitNode(pb.getIdAllocator().getNextId(), source, count, FINAL);
     }
 
+    protected DistinctLimitNode distinctLimit(PlanBuilder pb, List<VariableReferenceExpression> distinctVariables, long count, PlanNode source)
+    {
+        return new DistinctLimitNode(pb.getIdAllocator().getNextId(), source, count, false, distinctVariables, Optional.empty());
+    }
+
     protected TopNNode topN(PlanBuilder pb, long count, List<String> orderingColumns, List<Boolean> ascending, PlanNode source)
     {
         ImmutableList<Ordering> ordering = IntStream.range(0, orderingColumns.size()).boxed().map(i -> new Ordering(variable(orderingColumns.get(i)), ascending.get(i) ? SortOrder.ASC_NULLS_FIRST : SortOrder.DESC_NULLS_FIRST)).collect(toImmutableList());
@@ -242,6 +250,11 @@ public class TestPinotQueryBase
     protected static PinotColumnHandle derived(String name)
     {
         return new PinotColumnHandle(name, BIGINT, PinotColumnHandle.PinotColumnType.DERIVED);
+    }
+
+    protected static PinotColumnHandle integer(String name)
+    {
+        return new PinotColumnHandle(name, INTEGER, PinotColumnHandle.PinotColumnType.REGULAR);
     }
 
     protected static PinotColumnHandle bigint(String name)

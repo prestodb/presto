@@ -13,15 +13,17 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.SqlFormatter;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.event.QueryInfo;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.framework.MatchResult.MatchType;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.QueryAction;
+import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
@@ -67,7 +69,7 @@ public abstract class AbstractVerification
 {
     private static final String INTERNAL_ERROR = "VERIFIER_INTERNAL_ERROR";
 
-    private final PrestoAction prestoAction;
+    private final QueryActions queryActions;
     private final SourceQuery sourceQuery;
     private final QueryRewriter queryRewriter;
     private final DeterminismAnalyzer determinismAnalyzer;
@@ -79,8 +81,11 @@ public abstract class AbstractVerification
     private final boolean smartTeardown;
     private final int verificationResubmissionLimit;
 
+    private final boolean setupOnMainClusters;
+    private final boolean teardownOnMainClusters;
+
     public AbstractVerification(
-            PrestoAction prestoAction,
+            QueryActions queryActions,
             SourceQuery sourceQuery,
             QueryRewriter queryRewriter,
             DeterminismAnalyzer determinismAnalyzer,
@@ -89,7 +94,7 @@ public abstract class AbstractVerification
             VerificationContext verificationContext,
             VerifierConfig verifierConfig)
     {
-        this.prestoAction = requireNonNull(prestoAction, "prestoAction is null");
+        this.queryActions = requireNonNull(queryActions, "queryActions is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
@@ -100,13 +105,15 @@ public abstract class AbstractVerification
         this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
         this.smartTeardown = verifierConfig.isSmartTeardown();
         this.verificationResubmissionLimit = verifierConfig.getVerificationResubmissionLimit();
+        this.setupOnMainClusters = verifierConfig.isSetupOnMainClusters();
+        this.teardownOnMainClusters = verifierConfig.isTeardownOnMainClusters();
     }
 
     protected abstract MatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext);
 
-    protected PrestoAction getPrestoAction()
+    protected PrestoAction getHelperAction()
     {
-        return prestoAction;
+        return queryActions.getHelperAction();
     }
 
     @Override
@@ -146,22 +153,24 @@ public abstract class AbstractVerification
             QueryBundle controlQueryBundle = control.get();
             QueryBundle testQueryBundle = test.get();
 
+            QueryAction controlSetupAction = setupOnMainClusters ? queryActions.getControlAction() : queryActions.getHelperAction();
+            QueryAction testSetupAction = setupOnMainClusters ? queryActions.getTestAction() : queryActions.getHelperAction();
             controlQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
-                    () -> prestoAction.execute(query, CONTROL_SETUP),
+                    () -> controlSetupAction.execute(query, CONTROL_SETUP),
                     controlQueryContext::addSetupQuery,
                     controlQueryContext::setException));
             runAndConsume(
-                    () -> prestoAction.execute(controlQueryBundle.getQuery(), CONTROL_MAIN),
+                    () -> queryActions.getControlAction().execute(controlQueryBundle.getQuery(), CONTROL_MAIN),
                     controlQueryContext::setMainQueryStats,
                     controlQueryContext::setException);
             controlQueryContext.setState(QueryState.SUCCEEDED);
 
             testQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
-                    () -> prestoAction.execute(query, TEST_SETUP),
+                    () -> testSetupAction.execute(query, TEST_SETUP),
                     testQueryContext::addSetupQuery,
                     testQueryContext::setException));
             runAndConsume(
-                    () -> prestoAction.execute(testQueryBundle.getQuery(), TEST_MAIN),
+                    () -> queryActions.getTestAction().execute(testQueryBundle.getQuery(), TEST_MAIN),
                     testQueryContext::setMainQueryStats,
                     testQueryContext::setException);
             testQueryContext.setState(QueryState.SUCCEEDED);
@@ -188,8 +197,10 @@ public abstract class AbstractVerification
             if (!smartTeardown
                     || testQueryContext.getState() != QueryState.SUCCEEDED
                     || (partialResult.isPresent() && partialResult.get().getStatus().equals(SUCCEEDED))) {
-                teardownSafely(prestoAction, control, controlQueryContext::addTeardownQuery);
-                teardownSafely(prestoAction, test, testQueryContext::addTeardownQuery);
+                QueryAction controlTeardownAction = teardownOnMainClusters ? queryActions.getControlAction() : queryActions.getHelperAction();
+                QueryAction testTeardownAction = teardownOnMainClusters ? queryActions.getTestAction() : queryActions.getHelperAction();
+                teardownSafely(controlTeardownAction, control, controlQueryContext::addTeardownQuery);
+                teardownSafely(testTeardownAction, test, testQueryContext::addTeardownQuery);
             }
         }
 
@@ -323,7 +334,7 @@ public abstract class AbstractVerification
                 configuration.getCatalog(),
                 configuration.getSchema(),
                 originalQuery,
-                queryContext.getMainQueryStats().map(QueryStats::getQueryId),
+                queryContext.getMainQueryStats().map(QueryStatsEvent::getQueryId),
                 queryContext.getSetupQueryIds(),
                 queryContext.getTeardownQueryIds(),
                 checksumQueryContext.getChecksumQueryId(),
@@ -331,10 +342,11 @@ public abstract class AbstractVerification
                 queryBundle.map(QueryBundle::getSetupQueries).map(AbstractVerification::formatSqls),
                 queryBundle.map(QueryBundle::getTeardownQueries).map(AbstractVerification::formatSqls),
                 checksumQueryContext.getChecksumQuery(),
-                millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getCpuTimeMillis)),
-                millisToSeconds(queryContext.getMainQueryStats().map(QueryStats::getWallTimeMillis)),
-                queryContext.getMainQueryStats().map(QueryStats::getPeakTotalMemoryBytes),
-                queryContext.getMainQueryStats().map(QueryStats::getPeakTaskTotalMemoryBytes));
+                millisToSeconds(queryContext.getMainQueryStats().map(QueryStatsEvent::getCpuTimeMillis)),
+                millisToSeconds(queryContext.getMainQueryStats().map(QueryStatsEvent::getWallTimeMillis)),
+                queryContext.getMainQueryStats().map(QueryStatsEvent::getPeakTotalMemoryBytes),
+                queryContext.getMainQueryStats().map(QueryStatsEvent::getPeakTaskTotalMemoryBytes),
+                queryContext.getMainQueryStats());
     }
 
     protected static String formatSql(Statement statement)
@@ -418,17 +430,17 @@ public abstract class AbstractVerification
 
     private static class QueryContext
     {
-        private Optional<QueryStats> mainQueryStats = Optional.empty();
+        private Optional<QueryStatsEvent> mainQueryStats = Optional.empty();
         private Optional<QueryState> state = Optional.empty();
         private ImmutableList.Builder<String> setupQueryIds = ImmutableList.builder();
         private ImmutableList.Builder<String> teardownQueryIds = ImmutableList.builder();
 
-        public Optional<QueryStats> getMainQueryStats()
+        public Optional<QueryStatsEvent> getMainQueryStats()
         {
             return mainQueryStats;
         }
 
-        public void setMainQueryStats(QueryStats mainQueryStats)
+        public void setMainQueryStats(QueryStatsEvent mainQueryStats)
         {
             checkState(!this.mainQueryStats.isPresent(), "mainQueryStats is already set", mainQueryStats);
             this.mainQueryStats = Optional.of(mainQueryStats);
@@ -455,7 +467,7 @@ public abstract class AbstractVerification
             return setupQueryIds.build();
         }
 
-        public void addSetupQuery(QueryStats queryStats)
+        public void addSetupQuery(QueryStatsEvent queryStats)
         {
             setupQueryIds.add(queryStats.getQueryId());
         }
@@ -465,7 +477,7 @@ public abstract class AbstractVerification
             return teardownQueryIds.build();
         }
 
-        public void addTeardownQuery(QueryStats queryStats)
+        public void addTeardownQuery(QueryStatsEvent queryStats)
         {
             teardownQueryIds.add(queryStats.getQueryId());
         }

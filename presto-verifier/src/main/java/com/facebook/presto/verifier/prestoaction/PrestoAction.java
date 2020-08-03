@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
 
@@ -27,6 +27,7 @@ import java.util.Optional;
 import static java.util.Collections.unmodifiableList;
 
 public interface PrestoAction
+        extends QueryAction
 {
     @FunctionalInterface
     interface ResultSetConverter<R>
@@ -43,7 +44,7 @@ public interface PrestoAction
         };
     }
 
-    QueryStats execute(Statement statement, QueryStage queryStage);
+    QueryStatsEvent execute(Statement statement, QueryStage queryStage);
 
     <R> QueryResult<R> execute(Statement statement, QueryStage queryStage, ResultSetConverter<R> converter);
 }

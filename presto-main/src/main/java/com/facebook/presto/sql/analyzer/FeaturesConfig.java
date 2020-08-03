@@ -68,10 +68,10 @@ public class FeaturesConfig
     private JoinDistributionType joinDistributionType = PARTITIONED;
     private DataSize joinMaxBroadcastTableSize;
     private boolean colocatedJoinsEnabled = true;
-    private boolean groupedExecutionForAggregationEnabled;
+    private boolean groupedExecutionForAggregationEnabled = true;
     private boolean groupedExecutionForJoinEnabled = true;
-    private boolean groupedExecutionForEligibleTableScansEnabled;
-    private boolean dynamicScheduleForGroupedExecution;
+    private boolean groupedExecutionEnabled = true;
+    private boolean dynamicScheduleForGroupedExecution = true;
     private boolean recoverableGroupedExecutionEnabled;
     private double maxFailedTaskPercentage = 0.3;
     private int maxStageRetries;
@@ -156,6 +156,7 @@ public class FeaturesConfig
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
+    private boolean pushdownDereferenceEnabled;
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -378,7 +379,7 @@ public class FeaturesConfig
     }
 
     @Config("grouped-execution-for-aggregation-enabled")
-    @ConfigDescription("Experimental: Use grouped execution for aggregation when possible")
+    @ConfigDescription("Use grouped execution for aggregation when possible")
     public FeaturesConfig setGroupedExecutionForAggregationEnabled(boolean groupedExecutionForAggregationEnabled)
     {
         this.groupedExecutionForAggregationEnabled = groupedExecutionForAggregationEnabled;
@@ -391,23 +392,23 @@ public class FeaturesConfig
     }
 
     @Config("grouped-execution-for-join-enabled")
-    @ConfigDescription("Experimental: Use grouped execution for join when possible")
+    @ConfigDescription("Use grouped execution for join when possible")
     public FeaturesConfig setGroupedExecutionForJoinEnabled(boolean groupedExecutionForJoinEnabled)
     {
         this.groupedExecutionForJoinEnabled = groupedExecutionForJoinEnabled;
         return this;
     }
 
-    public boolean isGroupedExecutionForEligibleTableScansEnabled()
+    public boolean isGroupedExecutionEnabled()
     {
-        return groupedExecutionForEligibleTableScansEnabled;
+        return groupedExecutionEnabled;
     }
 
-    @Config("experimental.grouped-execution-for-eligible-table-scans-enabled")
-    @ConfigDescription("Experimental: Use grouped execution for eligible table scans")
-    public FeaturesConfig setGroupedExecutionForEligibleTableScansEnabled(boolean groupedExecutionForEligibleTableScansEnabled)
+    @Config("grouped-execution-enabled")
+    @ConfigDescription("Use grouped execution when possible")
+    public FeaturesConfig setGroupedExecutionEnabled(boolean groupedExecutionEnabled)
     {
-        this.groupedExecutionForEligibleTableScansEnabled = groupedExecutionForEligibleTableScansEnabled;
+        this.groupedExecutionEnabled = groupedExecutionEnabled;
         return this;
     }
 
@@ -624,6 +625,7 @@ public class FeaturesConfig
     }
 
     @Config("optimizer.optimize-metadata-queries")
+    @ConfigDescription("Enable optimization for metadata queries. Note if metadata entry has empty data, the result might be different (e.g. empty Hive partition)")
     public FeaturesConfig setOptimizeMetadataQueries(boolean optimizeMetadataQueries)
     {
         this.optimizeMetadataQueries = optimizeMetadataQueries;
@@ -1167,6 +1169,19 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldsEnabled()
     {
         return pushdownSubfieldsEnabled;
+    }
+
+    @Config("experimental.pushdown-dereference-enabled")
+    @ConfigDescription("Experimental: enable dereference pushdown")
+    public FeaturesConfig setPushdownDereferenceEnabled(boolean pushdownDereferenceEnabled)
+    {
+        this.pushdownDereferenceEnabled = pushdownDereferenceEnabled;
+        return this;
+    }
+
+    public boolean isPushdownDereferenceEnabled()
+    {
+        return pushdownDereferenceEnabled;
     }
 
     public boolean isTableWriterMergeOperatorEnabled()

@@ -14,8 +14,6 @@
 package com.facebook.presto.benchmark.framework;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.presto.benchmark.executor.BenchmarkQueryExecutor;
-import com.facebook.presto.benchmark.executor.PhaseExecutorFactory;
 import com.facebook.presto.benchmark.prestoaction.BenchmarkPrestoActionFactory;
 import com.facebook.presto.benchmark.prestoaction.PrestoActionFactory;
 import com.facebook.presto.benchmark.prestoaction.PrestoClusterConfig;
@@ -57,8 +55,7 @@ public class BenchmarkModule
         binder.bind(SqlParser.class).in(SINGLETON);
 
         binder.bind(PrestoActionFactory.class).to(BenchmarkPrestoActionFactory.class).in(SINGLETON);
-        binder.bind(PhaseExecutorFactory.class).in(SINGLETON);
-        binder.bind(BenchmarkQueryExecutor.class).in(SINGLETON);
+        binder.bind(ConcurrentPhaseExecutor.class).in(SINGLETON);
 
         binder.bind(BenchmarkRunner.class).in(SINGLETON);
     }

@@ -48,26 +48,23 @@ public class JdbcPrestoAction
     private final BenchmarkQuery benchmarkQuery;
     private final String jdbcUrl;
     private final Duration queryTimeout;
-    private final Map<String, String> sessionProperties;
     private final RetryDriver networkRetry;
 
     public JdbcPrestoAction(
             SqlExceptionClassifier exceptionClassifier,
             BenchmarkQuery benchmarkQuery,
             PrestoClusterConfig prestoClusterConfig,
-            Map<String, String> sessionProperties,
             RetryConfig networkRetryConfig)
     {
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.benchmarkQuery = requireNonNull(benchmarkQuery, "benchmarkQuery is null");
         this.jdbcUrl = requireNonNull(prestoClusterConfig.getJdbcUrl(), "jdbcUrl is null");
         this.queryTimeout = requireNonNull(prestoClusterConfig.getQueryTimeout(), "queryTimeout is null");
-        this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
 
         this.networkRetry = new RetryDriver(
                 networkRetryConfig,
                 (exception) -> exception instanceof QueryException
-                                   && (((QueryException) exception).getType() == CLUSTER_CONNECTION));
+                        && (((QueryException) exception).getType() == CLUSTER_CONNECTION));
     }
 
     @Override
@@ -154,7 +151,7 @@ public class JdbcPrestoAction
         }
 
         Map<String, String> sessionProperties = ImmutableMap.<String, String>builder()
-                .putAll(this.sessionProperties)
+                .putAll(benchmarkQuery.getSessionProperties())
                 .put(QUERY_MAX_EXECUTION_TIME, queryTimeout.toString())
                 .build();
         for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {

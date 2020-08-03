@@ -369,6 +369,7 @@ public class PrestoSparkQueryRunner
                 sparkContext,
                 createSessionInfo(session),
                 sql,
+                Optional.empty(),
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty());
         List<List<Object>> results = execution.execute();
@@ -404,6 +405,7 @@ public class PrestoSparkQueryRunner
                 session.getCatalog(),
                 session.getSchema(),
                 session.getSource(),
+                session.getUserAgent(),
                 session.getClientInfo(),
                 session.getClientTags(),
                 Optional.of(session.getTimeZoneKey().getId()),

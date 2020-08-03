@@ -17,7 +17,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -155,11 +157,55 @@ public final class BingTile
         return String.valueOf(quadKey);
     }
 
+    public List<BingTile> findChildren()
+    {
+        return findChildren(zoomLevel + 1);
+    }
+
+    public List<BingTile> findChildren(int newZoom)
+    {
+        if (newZoom == zoomLevel) {
+            return ImmutableList.of(this);
+        }
+
+        checkArgument(newZoom <= MAX_ZOOM_LEVEL, "newZoom must be less than or equal to %s: %s", MAX_ZOOM_LEVEL, newZoom);
+        checkArgument(newZoom >= zoomLevel, "newZoom must be greater than or equal to current zoom %s: %s", zoomLevel, newZoom);
+
+        int zoomDelta = newZoom - zoomLevel;
+        int xNew = x << zoomDelta;
+        int yNew = y << zoomDelta;
+        ImmutableList.Builder<BingTile> builder = ImmutableList.builderWithExpectedSize(1 << (2 * zoomDelta));
+        for (int yDelta = 0; yDelta < 1 << zoomDelta; ++yDelta) {
+            for (int xDelta = 0; xDelta < 1 << zoomDelta; ++xDelta) {
+                builder.add(BingTile.fromCoordinates(xNew + xDelta, yNew + yDelta, newZoom));
+            }
+        }
+        return builder.build();
+    }
+
+    public BingTile findParent()
+    {
+        return findParent(zoomLevel - 1);
+    }
+
+    public BingTile findParent(int newZoom)
+    {
+        if (newZoom == zoomLevel) {
+            return this;
+        }
+
+        checkArgument(newZoom >= 0, "newZoom must be greater than or equal to 0: %s", newZoom);
+        checkArgument(newZoom <= zoomLevel, "newZoom must be less than or equal to current zoom %s: %s", zoomLevel, newZoom);
+
+        int zoomDelta = zoomLevel - newZoom;
+        return BingTile.fromCoordinates(x >> zoomDelta, y >> zoomDelta, newZoom);
+    }
+
     /**
      * Encodes Bing tile as a 64-bit long:
      * Version (5 bits), 0 (4 bits), x (23 bits), Zoom (5 bits), 0 (4 bits), y (23 bits)
      * (high bits left, low bits right).
-     *
+     * <p>
      * This arrangement maximizes low-bit entropy for the Java long hash function.
      */
     public long encode()

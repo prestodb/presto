@@ -14,12 +14,6 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.benchmark.framework.BenchmarkQuery;
-import com.facebook.presto.benchmark.framework.BenchmarkSuite;
-import com.facebook.presto.benchmark.framework.BenchmarkSuiteInfo;
-import com.facebook.presto.benchmark.framework.ConcurrentExecutionPhase;
-import com.facebook.presto.benchmark.framework.PhaseSpecification;
-import com.facebook.presto.benchmark.framework.StreamExecutionPhase;
 import com.facebook.presto.benchmark.source.BenchmarkSuiteDao;
 import com.facebook.presto.plugin.memory.MemoryPlugin;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
@@ -29,12 +23,10 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
-import static com.facebook.presto.benchmark.framework.PhaseSpecification.ExecutionStrategy.CONCURRENT;
-import static com.facebook.presto.benchmark.framework.PhaseSpecification.ExecutionStrategy.STREAM;
+import static com.facebook.presto.benchmark.source.StringToStringMapColumnMapper.MAP_CODEC;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public class BenchmarkTestUtil
@@ -76,20 +68,22 @@ public class BenchmarkTestUtil
         return Jdbi.create(mySqlServer.getJdbcUrl(XDB)).installPlugin(new SqlObjectPlugin());
     }
 
-    public static void insertBenchmarkQuery(Handle handle, String querySet, String name, String query)
+    public static void insertBenchmarkQuery(Handle handle, String querySet, String name, String query, Optional<Map<String, String>> sessionProperties)
     {
         handle.execute(
                 "INSERT INTO benchmark_queries(\n" +
-                        "    `query_set`, `name`, `catalog`, `schema`, `query`)\n" +
+                        "    `query_set`, `name`, `catalog`, `schema`, `query`, `session_properties`)\n" +
                         "SELECT\n" +
                         "    ?,\n" +
                         "    ?,\n" +
                         "    'benchmark',\n" +
                         "    'default',\n" +
+                        "    ?\n," +
                         "    ?\n",
                 querySet,
                 name,
-                query);
+                query,
+                sessionProperties.map(MAP_CODEC::toJson).orElse(null));
     }
 
     public static void insertBenchmarkSuite(Handle handle, String suite, String querySet, String phases, String sessionProperties)
@@ -107,33 +101,5 @@ public class BenchmarkTestUtil
                 querySet,
                 phases,
                 sessionProperties);
-    }
-
-    public static List<PhaseSpecification> getBenchmarkSuitePhases()
-    {
-        List<List<String>> streams = ImmutableList.of(ImmutableList.of("Q1", "Q2"), ImmutableList.of("Q2", "Q3"));
-        PhaseSpecification streamExecutionPhase = new StreamExecutionPhase("Phase-1", STREAM, streams);
-
-        List<String> queries = ImmutableList.of("Q1", "Q2", "Q3");
-        PhaseSpecification concurrentExecutionPhase = new ConcurrentExecutionPhase("Phase-2", CONCURRENT, queries, 50);
-
-        return ImmutableList.of(streamExecutionPhase, concurrentExecutionPhase);
-    }
-
-    public static Map<String, String> getBenchmarkSuiteSessionProperties()
-    {
-        Map<String, String> sessionProperties = new HashMap();
-        sessionProperties.put("max", "5");
-        return sessionProperties;
-    }
-
-    public static BenchmarkSuite getBenchmarkSuiteObject(String suite, String querySet)
-    {
-        BenchmarkQuery benchmarkQuery1 = new BenchmarkQuery("Q1", "SELECT 1", CATALOG, SCHEMA);
-        BenchmarkQuery benchmarkQuery2 = new BenchmarkQuery("Q2", "SELECT 2", CATALOG, SCHEMA);
-        BenchmarkQuery benchmarkQuery3 = new BenchmarkQuery("Q3", "SELECT 3", CATALOG, SCHEMA);
-
-        return new BenchmarkSuite(suite, new BenchmarkSuiteInfo(suite, querySet, getBenchmarkSuitePhases(), getBenchmarkSuiteSessionProperties()),
-                ImmutableList.of(benchmarkQuery1, benchmarkQuery2, benchmarkQuery3));
     }
 }

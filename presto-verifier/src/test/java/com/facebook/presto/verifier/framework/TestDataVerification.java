@@ -25,8 +25,10 @@ import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
+import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.QueryActions;
+import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
 import com.facebook.presto.verifier.resolver.ChecksumExceededTimeLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.ExceededGlobalMemoryLimitFailureResolver;
 import com.facebook.presto.verifier.resolver.ExceededTimeLimitFailureResolver;
@@ -110,15 +112,18 @@ public class TestDataVerification
         VerificationContext verificationContext = VerificationContext.create();
         VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         RetryConfig retryConfig = new RetryConfig();
+        QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> {
             return new JdbcPrestoAction(
                     exceptionClassifier,
                     sourceQuery.getControlConfiguration(),
                     verificationContext,
-                    new PrestoClusterConfig()
+                    new PrestoActionConfig()
                             .setHost(queryRunner.getServer().getAddress().getHost())
                             .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
+                    queryActionsConfig.getMetadataTimeout(),
+                    queryActionsConfig.getChecksumTimeout(),
                     retryConfig,
                     retryConfig);
         });
@@ -129,7 +134,7 @@ public class TestDataVerification
                 new QueryRewriteConfig().setTablePrefix("tmp_verifier_t")).create(prestoAction);
         ChecksumValidator checksumValidator = createChecksumValidator(verifierConfig);
         return new DataVerification(
-                prestoAction,
+                new QueryActions(prestoAction, prestoAction, prestoAction),
                 sourceQuery,
                 queryRewriter,
                 new DeterminismAnalyzer(
@@ -138,7 +143,6 @@ public class TestDataVerification
                         queryRewriter,
                         checksumValidator,
                         typeManager,
-                        verificationContext,
                         determinismAnalyzerConfig),
                 new FailureResolverManager(ImmutableSet.of(
                         new ExceededGlobalMemoryLimitFailureResolver(),
@@ -473,5 +477,6 @@ public class TestDataVerification
         assertNotNull(queryInfo.getWallTimeSecs());
         assertNotNull(queryInfo.getPeakTotalMemoryBytes());
         assertNotNull(queryInfo.getPeakTaskTotalMemoryBytes());
+        assertNotNull(queryInfo.getQueryStats());
     }
 }

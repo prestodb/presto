@@ -46,10 +46,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -124,6 +126,7 @@ public class LegacySqlQueryScheduler
     private final SectionExecutionFactory sectionExecutionFactory;
     private final RemoteTaskFactory remoteTaskFactory;
     private final SplitSourceFactory splitSourceFactory;
+    private final Set<StageId> runtimeOptimizedStages = Collections.synchronizedSet(new HashSet<>());
 
     private final Map<StageId, StageExecutionAndScheduler> stageExecutions = new ConcurrentHashMap<>();
     private final ExecutorService executor;
@@ -544,6 +547,8 @@ public class LegacySqlQueryScheduler
             return section;
         }
 
+        oldToNewFragment.forEach((oldFragment, newFragment) -> runtimeOptimizedStages.add(getStageId(oldFragment.getId())));
+
         // Update SubPlan so that getStageInfo will reflect the latest optimized plan when query is finished.
         updatePlan(oldToNewFragment);
 
@@ -769,6 +774,15 @@ public class LegacySqlQueryScheduler
         return new Duration(millis, MILLISECONDS);
     }
 
+    @Override
+    public DataSize getRawInputDataSize()
+    {
+        long datasize = stageExecutions.values().stream()
+                .mapToLong(stage -> stage.getStageExecution().getRawInputDataSize().toBytes())
+                .sum();
+        return DataSize.succinctBytes(datasize);
+    }
+
     public BasicStageExecutionStats getBasicStageStats()
     {
         List<BasicStageExecutionStats> stageStats = stageExecutions.values().stream()
@@ -800,7 +814,8 @@ public class LegacySqlQueryScheduler
                 ImmutableList.of(),
                 subPlan.getChildren().stream()
                         .map(plan -> buildStageInfo(plan, stageExecutionInfos))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                runtimeOptimizedStages.contains(stageId));
     }
 
     public void cancelStage(StageId stageId)

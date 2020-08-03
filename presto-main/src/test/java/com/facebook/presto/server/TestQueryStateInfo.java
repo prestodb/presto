@@ -170,6 +170,7 @@ public class TestQueryStateInfo
                 false,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 }

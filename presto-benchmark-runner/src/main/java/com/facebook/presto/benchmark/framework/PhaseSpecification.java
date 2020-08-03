@@ -27,12 +27,6 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = ConcurrentExecutionPhase.class, name = "concurrent")})
 public abstract class PhaseSpecification
 {
-    public enum ExecutionStrategy
-    {
-        STREAM,
-        CONCURRENT
-    }
-
     private final String name;
 
     public abstract ExecutionStrategy getExecutionStrategy();

@@ -64,12 +64,11 @@ public class DeterminismAnalyzer
     private final QueryRewriter queryRewriter;
     private final ChecksumValidator checksumValidator;
     private final TypeManager typeManager;
-    private final VerificationContext verificationContext;
 
-    private boolean runTeardown;
-    private int maxAnalysisRuns;
-    private Set<String> nonDeterministicCatalogs;
-    private boolean handleLimitQuery;
+    private final boolean runTeardown;
+    private final int maxAnalysisRuns;
+    private final Set<String> nonDeterministicCatalogs;
+    private final boolean handleLimitQuery;
 
     public DeterminismAnalyzer(
             SourceQuery sourceQuery,
@@ -77,7 +76,6 @@ public class DeterminismAnalyzer
             QueryRewriter queryRewriter,
             ChecksumValidator checksumValidator,
             TypeManager typeManager,
-            VerificationContext verificationContext,
             DeterminismAnalyzerConfig config)
     {
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
@@ -85,7 +83,6 @@ public class DeterminismAnalyzer
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
         this.runTeardown = config.isRunTeardown();
         this.maxAnalysisRuns = config.getMaxAnalysisRuns();

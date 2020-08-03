@@ -14,6 +14,8 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.Ordering;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -23,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -59,7 +62,7 @@ public class TestPushAggregationThroughOuterJoin
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
-                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
                         .singleGroupingSet(p.variable("COL1"))))
                 .matches(
                         project(ImmutableMap.of(
@@ -101,7 +104,13 @@ public class TestPushAggregationThroughOuterJoin
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty()))
-                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2 ORDER BY COL4)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(
+                                p.variable("AVG", DOUBLE),
+                                p.rowExpression("avg(COL2)"),
+                                Optional.empty(),
+                                Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(p.variable("COL4"), ASC_NULLS_LAST)))),
+                                false,
+                                Optional.empty())
                         .singleGroupingSet(p.variable("COL1"), p.variable("COL3"))))
                 .matches(
                         project(ImmutableMap.of(
@@ -149,7 +158,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
                         .singleGroupingSet(p.variable("COL1"))))
                 .matches(
                         project(ImmutableMap.of(
@@ -191,7 +200,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
                         .singleGroupingSet(p.variable("COL1"))))
                 .doesNotFire();
 
@@ -232,7 +241,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(p.variable("AVG", DOUBLE), PlanBuilder.expression("avg(COL2)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
                         .singleGroupingSet(p.variable("COL1"), p.variable("COL3"))))
                 .doesNotFire();
     }
@@ -251,7 +260,7 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))
-                        .addAggregation(p.variable("SUM", DOUBLE), PlanBuilder.expression("sum(COL1)"), ImmutableList.of(DOUBLE))
+                        .addAggregation(p.variable("SUM", DOUBLE), p.rowExpression("sum(COL1)"))
                         .singleGroupingSet(p.variable("COL1"))))
                 .doesNotFire();
     }

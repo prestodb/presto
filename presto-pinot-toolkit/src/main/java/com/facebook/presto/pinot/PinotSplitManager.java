@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.presto.pinot.query.PinotQueryGenerator.GeneratedPql;
+import com.facebook.presto.pinot.query.PinotQueryGenerator;
+import com.facebook.presto.pinot.query.PinotQueryGenerator.GeneratedPinotQuery;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -60,9 +61,10 @@ public class PinotSplitManager
         this.pinotPrestoConnection = requireNonNull(pinotPrestoConnection, "pinotPrestoConnection is null");
     }
 
-    protected ConnectorSplitSource generateSplitForBrokerBasedScan(GeneratedPql brokerPql, List<PinotColumnHandle> expectedColumnHandles)
+    protected ConnectorSplitSource generateSplitForBrokerBasedScan(PinotQueryGenerator.GeneratedPinotQuery brokerPinotQuery,
+            List<PinotColumnHandle> expectedColumnHandles)
     {
-        return new FixedSplitSource(singletonList(createBrokerSplit(connectorId, expectedColumnHandles, brokerPql)));
+        return new FixedSplitSource(singletonList(createBrokerSplit(connectorId, expectedColumnHandles, brokerPinotQuery)));
     }
 
     protected ConnectorSplitSource generateSplitsForSegmentBasedScan(
@@ -78,7 +80,7 @@ public class PinotSplitManager
 
         List<ConnectorSplit> splits = new ArrayList<>();
         if (!routingTable.isEmpty()) {
-            GeneratedPql segmentPql = tableHandle.getPql().orElseThrow(() -> new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Expected to find realtime and offline pql in " + tableHandle));
+            GeneratedPinotQuery segmentPql = tableHandle.getPinotQuery().orElseThrow(() -> new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Expected to find realtime and offline pql in " + tableHandle));
             PinotClusterInfoFetcher.TimeBoundary timeBoundary = pinotPrestoConnection.getTimeBoundary(tableName);
             String realtime = getSegmentPql(segmentPql, "_REALTIME", timeBoundary.getOnlineTimePredicate());
             String offline = getSegmentPql(segmentPql, "_OFFLINE", timeBoundary.getOfflineTimePredicate());
@@ -90,9 +92,9 @@ public class PinotSplitManager
         return new FixedSplitSource(splits);
     }
 
-    private String getSegmentPql(GeneratedPql basePql, String suffix, Optional<String> timePredicate)
+    private String getSegmentPql(GeneratedPinotQuery basePql, String suffix, Optional<String> timePredicate)
     {
-        String pql = basePql.getPql().replace(TABLE_NAME_SUFFIX_TEMPLATE, suffix);
+        String pql = basePql.getQuery().replace(TABLE_NAME_SUFFIX_TEMPLATE, suffix);
         if (timePredicate.isPresent()) {
             String tp = timePredicate.get();
             pql = pql.replace(TIME_BOUNDARY_FILTER_TEMPLATE, basePql.isHaveFilter() ? tp : " WHERE " + tp);
@@ -189,7 +191,7 @@ public class PinotSplitManager
             return generateSplitsForSegmentBasedScan(pinotLayoutHandle, session, pinotTableHandle.getExpectedColumnHandles().orElseThrow(errorSupplier));
         }
         else {
-            return generateSplitForBrokerBasedScan(pinotTableHandle.getPql().orElseThrow(errorSupplier), pinotTableHandle.getExpectedColumnHandles().orElseThrow(errorSupplier));
+            return generateSplitForBrokerBasedScan(pinotTableHandle.getPinotQuery().orElseThrow(errorSupplier), pinotTableHandle.getExpectedColumnHandles().orElseThrow(errorSupplier));
         }
     }
 }

@@ -99,9 +99,9 @@ import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
 import com.facebook.presto.operator.OperatorContext;
-import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PagesIndex;
+import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TaskContext;
@@ -337,6 +337,8 @@ public class LocalQueryRunner
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
 
         this.blockEncodingManager = new BlockEncodingManager(typeRegistry);
+        featuresConfig.setIgnoreStatsCalculatorFailures(false);
+
         this.metadata = new MetadataManager(
                 featuresConfig,
                 typeRegistry,
@@ -815,20 +817,7 @@ public class LocalQueryRunner
                 subplan.getFragment().getTableScanSchedulingOrder(),
                 outputFactory,
                 Optional.empty(),
-                new RemoteSourceFactory()
-                {
-                    @Override
-                    public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
-                    {
-                        throw new UnsupportedOperationException();
-                    }
-
-                    @Override
-                    public OperatorFactory createMergeRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types, List<Integer> outputChannels, List<Integer> sortChannels, List<SortOrder> sortOrder)
-                    {
-                        throw new UnsupportedOperationException();
-                    }
-                },
+                new UnsupportedRemoteSourceFactory(),
                 createTableWriteInfo(streamingSubPlan, metadata, session),
                 false);
 
@@ -981,5 +970,21 @@ public class LocalQueryRunner
         return searchFrom(node)
                 .where(TableScanNode.class::isInstance)
                 .findAll();
+    }
+
+    private static class UnsupportedRemoteSourceFactory
+            implements RemoteSourceFactory
+    {
+        @Override
+        public SourceOperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public SourceOperatorFactory createMergeRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types, List<Integer> outputChannels, List<Integer> sortChannels, List<SortOrder> sortOrder)
+        {
+            throw new UnsupportedOperationException();
+        }
     }
 }

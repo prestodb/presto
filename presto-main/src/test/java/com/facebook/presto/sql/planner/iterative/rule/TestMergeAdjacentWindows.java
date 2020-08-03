@@ -38,14 +38,13 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specif
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
-import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.castToRowExpression;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
-import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignmentsAsSymbolReferences;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 
 public class TestMergeAdjacentWindows
         extends BaseRuleTest
@@ -183,11 +182,11 @@ public class TestMergeAdjacentWindows
                                 ImmutableMap.of(p.variable("lagOutput"), newWindowNodeFunction("lag", LAG_FUNCTION_HANDLE, "a", "one")),
                                 p.project(
                                         Assignments.builder()
-                                                .put(p.variable("one"), castToRowExpression("CAST(1 AS bigint)"))
-                                                .putAll(identitiesAsSymbolReferences(ImmutableList.of(p.variable("a"), p.variable("avgOutput"))))
+                                                .put(p.variable("one"), constant(1L, BIGINT))
+                                                .putAll(identityAssignments(ImmutableList.of(p.variable("a"), p.variable("avgOutput"))))
                                                 .build(),
                                         p.project(
-                                                identityAssignmentsAsSymbolReferences(p.variable("a"), p.variable("avgOutput"), p.variable("unused")),
+                                                identityAssignments(p.variable("a"), p.variable("avgOutput"), p.variable("unused")),
                                                 p.window(
                                                         newWindowNodeSpecification(p, "a"),
                                                         ImmutableMap.of(p.variable("avgOutput"), newWindowNodeFunction("avg", AVG_FUNCTION_HANDLE, "a")),

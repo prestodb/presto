@@ -1058,6 +1058,8 @@ public class LocalExecutionPlanner
                 outputChannels.add(i);
             }
 
+            boolean spillEnabled = isSpillEnabled(context.getSession());
+
             OperatorFactory operator = new OrderByOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -1066,7 +1068,10 @@ public class LocalExecutionPlanner
                     10_000,
                     orderByChannels,
                     sortOrder.build(),
-                    pagesIndexFactory);
+                    pagesIndexFactory,
+                    spillEnabled,
+                    Optional.of(spillerFactory),
+                    orderingCompiler);
 
             return new PhysicalOperation(operator, source.getLayout(), context, source);
         }

@@ -50,11 +50,13 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -130,6 +132,7 @@ public class SqlQueryScheduler
     private final WarningCollector warningCollector;
     private final PlanNodeIdAllocator idAllocator;
     private final PlanVariableAllocator variableAllocator;
+    private final Set<StageId> runtimeOptimizedStages = Collections.synchronizedSet(new HashSet<>());
 
     private final StreamingPlanSection sectionedPlan;
     private final boolean summarizeTaskInfo;
@@ -235,7 +238,6 @@ public class SqlQueryScheduler
     }
 
     @Override
-
     public void start()
     {
         if (started.compareAndSet(false, true)) {
@@ -284,6 +286,7 @@ public class SqlQueryScheduler
                         .collect(toImmutableList()));
                 if (queryStateMachine.isDone()) {
                     sectionExecutions.forEach(SectionExecution::abort);
+                    break;
                 }
 
                 sectionExecutions.forEach(sectionExecution -> scheduledStageExecutions.addAll(sectionExecution.getSectionStages()));
@@ -433,6 +436,8 @@ public class SqlQueryScheduler
         if (oldToNewFragment.isEmpty()) {
             return section;
         }
+
+        oldToNewFragment.forEach((oldFragment, newFragment) -> runtimeOptimizedStages.add(getStageId(oldFragment.getId())));
 
         // Update SubPlan so that getStageInfo will reflect the latest optimized plan when query is finished.
         updatePlan(oldToNewFragment);
@@ -713,6 +718,16 @@ public class SqlQueryScheduler
     }
 
     @Override
+    public DataSize getRawInputDataSize()
+    {
+        long rawInputDataSize = getAllStagesExecutions()
+                .map(SqlStageExecution::getRawInputDataSize)
+                .mapToLong(DataSize::toBytes)
+                .sum();
+        return DataSize.succinctBytes(rawInputDataSize);
+    }
+
+    @Override
     public BasicStageExecutionStats getBasicStageStats()
     {
         List<BasicStageExecutionStats> stageStats = getAllStagesExecutions()
@@ -758,7 +773,8 @@ public class SqlQueryScheduler
                 previousAttemptInfos,
                 subPlan.getChildren().stream()
                         .map(plan -> buildStageInfo(plan, stageExecutions))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                runtimeOptimizedStages.contains(stageId));
     }
 
     private ListMultimap<StageId, SqlStageExecution> getStageExecutions()

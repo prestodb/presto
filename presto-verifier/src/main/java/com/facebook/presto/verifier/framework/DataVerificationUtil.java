@@ -15,14 +15,15 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.QueryAction;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -46,7 +47,7 @@ public class DataVerificationUtil
 
     private DataVerificationUtil() {}
 
-    public static void teardownSafely(PrestoAction prestoAction, Optional<QueryBundle> bundle, Consumer<QueryStats> queryStatsConsumer)
+    public static void teardownSafely(QueryAction queryAction, Optional<QueryBundle> bundle, Consumer<QueryStatsEvent> queryStatsConsumer)
     {
         if (!bundle.isPresent()) {
             return;
@@ -54,7 +55,7 @@ public class DataVerificationUtil
 
         for (Statement teardownQuery : bundle.get().getTeardownQueries()) {
             try {
-                runAndConsume(() -> prestoAction.execute(teardownQuery, forTeardown(bundle.get().getCluster())), queryStatsConsumer);
+                runAndConsume(() -> queryAction.execute(teardownQuery, forTeardown(bundle.get().getCluster())), queryStatsConsumer);
             }
             catch (Throwable t) {
                 log.warn("Failed to teardown %s: %s", bundle.get().getCluster().name().toLowerCase(ENGLISH), formatSql(teardownQuery, Optional.empty()));

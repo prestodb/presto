@@ -15,17 +15,13 @@ package com.facebook.presto.benchmark.source;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.benchmark.framework.BenchmarkRunnerConfig;
-import com.facebook.presto.benchmark.framework.MySqlBenchmarkSuiteConfig;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
-import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-import java.sql.DriverManager;
 import java.util.Set;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.presto.benchmark.source.DbBenchmarkSuiteSupplier.BENCHMARK_SUITE_SUPPLIER;
+import static com.facebook.presto.benchmark.source.MySqlBenchmarkSuiteSupplier.MYSQL_BENCHMARK_SUITE_SUPPLIER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.Scopes.SINGLETON;
 
@@ -37,7 +33,7 @@ public class BenchmarkSuiteModule
     public BenchmarkSuiteModule(Set<String> customBenchmarkSuiteSuppliers)
     {
         this.supportedBenchmarkSuiteSuppliers = ImmutableSet.<String>builder()
-                .add(BENCHMARK_SUITE_SUPPLIER)
+                .add(MYSQL_BENCHMARK_SUITE_SUPPLIER)
                 .addAll(customBenchmarkSuiteSuppliers)
                 .build();
     }
@@ -48,11 +44,10 @@ public class BenchmarkSuiteModule
         String benchmarkSuiteSupplier = buildConfigObject(BenchmarkRunnerConfig.class).getBenchmarkSuiteSupplier();
         checkArgument(supportedBenchmarkSuiteSuppliers.contains(benchmarkSuiteSupplier), "Unsupported BenchmarkSuiteSupplier: %s", benchmarkSuiteSupplier);
 
-        if (BENCHMARK_SUITE_SUPPLIER.equals(benchmarkSuiteSupplier)) {
-            configBinder(binder).bindConfig(BenchmarkSuiteConfig.class);
-            binder.bind(BenchmarkSuiteSupplier.class).to(DbBenchmarkSuiteSupplier.class).in(SINGLETON);
-            String database = buildConfigObject(MySqlBenchmarkSuiteConfig.class).getDatabaseUrl();
-            binder.bind(Jdbi.class).toInstance(Jdbi.create(() -> DriverManager.getConnection(database)).installPlugin(new SqlObjectPlugin()));
+        if (MYSQL_BENCHMARK_SUITE_SUPPLIER.equals(benchmarkSuiteSupplier)) {
+            configBinder(binder).bindConfig(BenchmarkSuiteConfig.class, "benchmark-suite");
+            configBinder(binder).bindConfig(MySqlBenchmarkSuiteConfig.class, "benchmark-suite");
+            binder.bind(BenchmarkSuiteSupplier.class).to(MySqlBenchmarkSuiteSupplier.class).in(SINGLETON);
         }
     }
 }

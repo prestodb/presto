@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -74,6 +75,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -331,6 +333,17 @@ public final class SqlStageExecution
                 .mapToLong(task -> task.getTaskInfo().getStats().getTotalCpuTime().toMillis())
                 .sum();
         return new Duration(millis, TimeUnit.MILLISECONDS);
+    }
+
+    public synchronized DataSize getRawInputDataSize()
+    {
+        if (planFragment.getTableScanSchedulingOrder().isEmpty()) {
+            return new DataSize(0, BYTE);
+        }
+        long datasize = getAllTasks().stream()
+                .mapToLong(task -> task.getTaskInfo().getStats().getRawInputDataSize().toBytes())
+                .sum();
+        return DataSize.succinctBytes(datasize);
     }
 
     public BasicStageExecutionStats getBasicStageStats()

@@ -15,7 +15,9 @@ package com.facebook.presto.verifier.prestoaction;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -25,7 +27,7 @@ public interface PrestoAddress
 
     int getJdbcPort();
 
-    int getHttpPort();
+    Optional<Integer> getHttpPort();
 
     Map<String, String> getJdbcUrlParameters();
 
@@ -39,6 +41,7 @@ public interface PrestoAddress
 
     default URI getHttpUri(String path)
     {
-        return URI.create(format("http://%s:%s", getHost(), getHttpPort())).resolve(path);
+        checkState(getHttpPort().isPresent(), "httpPort is not present");
+        return URI.create(format("http://%s:%s", getHost(), getHttpPort().get())).resolve(path);
     }
 }

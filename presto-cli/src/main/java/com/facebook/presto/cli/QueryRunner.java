@@ -26,8 +26,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.client.ClientSession.stripTransactionId;
+import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_CREDENTIALS_PATH_KEY;
+import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_OAUTH_SCOPES_KEY;
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
 import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
+import static com.facebook.presto.client.OkHttpUtil.setupGCSOauth;
 import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
@@ -94,6 +97,9 @@ public class QueryRunner
                     kerberosKeytabPath.map(File::new),
                     kerberosCredentialCachePath.map(File::new));
         }
+
+        Optional.ofNullable(session.getExtraCredentials().get(GCS_CREDENTIALS_PATH_KEY))
+                .ifPresent(credentialPath -> setupGCSOauth(builder, credentialPath, Optional.ofNullable(session.getExtraCredentials().get(GCS_OAUTH_SCOPES_KEY))));
 
         this.httpClient = builder.build();
     }

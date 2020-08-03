@@ -16,6 +16,7 @@ package com.facebook.presto.spi.eventlistener;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -36,6 +37,8 @@ public class QueryMetadata
 
     private final Optional<String> payload;
 
+    private final List<String> runtimeOptimizedStages;
+
     public QueryMetadata(
             String queryId,
             Optional<String> transactionId,
@@ -44,7 +47,8 @@ public class QueryMetadata
             URI uri,
             Optional<String> plan,
             Optional<String> jsonPlan,
-            Optional<String> payload)
+            Optional<String> payload,
+            List<String> runtimeOptimizedStages)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -54,6 +58,7 @@ public class QueryMetadata
         this.plan = requireNonNull(plan, "plan is null");
         this.jsonPlan = requireNonNull(jsonPlan, "jsonPlan is null");
         this.payload = requireNonNull(payload, "payload is null");
+        this.runtimeOptimizedStages = requireNonNull(runtimeOptimizedStages, "runtimeOptimizedStages is null");
     }
 
     @JsonProperty
@@ -102,5 +107,11 @@ public class QueryMetadata
     public Optional<String> getPayload()
     {
         return payload;
+    }
+
+    @JsonProperty
+    public List<String> getRuntimeOptimizedStages()
+    {
+        return runtimeOptimizedStages;
     }
 }

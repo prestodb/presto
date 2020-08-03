@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.239-SNAPSHOT</version>
+    <version>0.240-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -45,7 +45,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.191</dep.airlift.version>
+        <dep.airlift.version>0.193</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -62,7 +62,7 @@
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>6.2.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
-        <dep.alluxio.version>2.2.2</dep.alluxio.version>
+        <dep.alluxio.version>2.2.2-2</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.17.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
@@ -548,7 +548,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
-                <version>2.7.4-7</version>
+                <version>2.7.4-8</version>
             </dependency>
 
             <dependency>
@@ -743,12 +743,6 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.1.5.3</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>joda-to-java-time-bridge</artifactId>
-                <version>3</version>
             </dependency>
 
             <dependency>
@@ -1064,7 +1058,7 @@
             <dependency>
                 <groupId>com.facebook.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.31</version>
+                <version>1.32</version>
             </dependency>
 
             <dependency>
@@ -1135,6 +1129,18 @@
                     <exclusion>
                         <groupId>joda-time</groupId>
                         <artifactId>joda-time</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.auth</groupId>
+                <artifactId>google-auth-library-oauth2-http</artifactId>
+                <version>0.12.0</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1345,6 +1351,24 @@
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>4.5.5</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpcore</artifactId>
+                <version>4.4.9</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-codec</groupId>
+                <artifactId>commons-codec</artifactId>
+                <version>1.10</version>
             </dependency>
 
             <dependency>
@@ -1604,7 +1628,7 @@
             <dependency>
                 <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
-                <version>1.16.1</version>
+                <version>1.17.0</version>
             </dependency>
 
             <dependency>

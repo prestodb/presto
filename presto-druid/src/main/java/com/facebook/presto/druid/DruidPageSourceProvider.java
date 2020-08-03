@@ -73,13 +73,14 @@ public class DruidPageSourceProvider
                     columns,
                     druidClient);
         }
+
         DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo().get();
         try {
-            Path hdfsPath = new Path(segmentInfo.getDeepStoragePath());
-            FileSystem fileSystem = hdfsPath.getFileSystem(hadoopConfiguration);
-            long fileSize = fileSystem.getFileStatus(hdfsPath).getLen();
-            FSDataInputStream inputStream = fileSystem.open(hdfsPath);
-            DataInputSourceId dataInputSourceId = new DataInputSourceId(hdfsPath.toString());
+            Path segmentPath = new Path(segmentInfo.getDeepStoragePath());
+            FileSystem fileSystem = segmentPath.getFileSystem(hadoopConfiguration);
+            long fileSize = fileSystem.getFileStatus(segmentPath).getLen();
+            FSDataInputStream inputStream = fileSystem.open(segmentPath);
+            DataInputSourceId dataInputSourceId = new DataInputSourceId(segmentPath.toString());
             HdfsDataInputSource dataInputSource = new HdfsDataInputSource(dataInputSourceId, inputStream, fileSize);
             IndexFileSource indexFileSource = new ZipIndexFileSource(dataInputSource);
             SegmentColumnSource segmentColumnSource = new SmooshedColumnSource(indexFileSource);

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto;
 
+import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.security.BasicPrincipal;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.security.TokenAuthenticator;

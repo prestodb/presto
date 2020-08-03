@@ -38,9 +38,11 @@ import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 import static com.facebook.presto.hive.CacheQuotaScope.PARTITION;
 import static com.facebook.presto.hive.CacheQuotaScope.TABLE;
+import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
@@ -88,6 +90,34 @@ public class TestHiveSplitSource
         // try to remove 20 splits, and verify we only got 5
         assertEquals(getSplits(hiveSplitSource, 20).size(), 5);
         assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 0);
+    }
+
+    @Test
+    public void testEvenlySizedSplitRemainder()
+    {
+        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                new CacheQuotaRequirement(TABLE, DEFAULT_QUOTA_SIZE),
+                10,
+                10,
+                new DataSize(1, MEGABYTE),
+                new TestingHiveSplitLoader(),
+                EXECUTOR,
+                new CounterStat());
+
+        // One byte larger than the initial split max size
+        DataSize fileSize = new DataSize(initialSplitSize.toBytes() + 1, BYTE);
+        long halfOfSize = fileSize.toBytes() / 2;
+        hiveSplitSource.addToQueue(new TestSplit(1, OptionalInt.empty(), fileSize));
+
+        HiveSplit first = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
+        assertEquals(first.getLength(), halfOfSize);
+
+        HiveSplit second = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
+        assertEquals(second.getLength(), fileSize.toBytes() - halfOfSize);
     }
 
     @Test
@@ -483,12 +513,17 @@ public class TestHiveSplitSource
 
         private TestSplit(int id, OptionalInt bucketNumber)
         {
+            this(id, bucketNumber, new DataSize(100, BYTE));
+        }
+
+        private TestSplit(int id, OptionalInt bucketNumber, DataSize fileSize)
+        {
             super(
                     "path",
                     0,
-                    100,
-                    100,
-                    ImmutableList.of(new InternalHiveBlock(100, ImmutableList.of())),
+                    fileSize.toBytes(),
+                    fileSize.toBytes(),
+                    ImmutableList.of(new InternalHiveBlock(fileSize.toBytes(), ImmutableList.of())),
                     bucketNumber,
                     bucketNumber,
                     true,

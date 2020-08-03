@@ -14,8 +14,10 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.ColumnHandle;
@@ -32,38 +34,29 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.tree.BooleanLiteral;
-import com.facebook.presto.sql.tree.ComparisonExpression;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
-import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.GenericLiteral;
-import com.facebook.presto.sql.tree.IsNullPredicate;
-import com.facebook.presto.sql.tree.LongLiteral;
-import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.sql.tree.SymbolReference;
+import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
+import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.testing.TestingHandle;
-import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
-import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
+import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -71,32 +64,41 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
+import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
+import static com.facebook.presto.expressions.LogicalRowExpressions.or;
 import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
-import static com.facebook.presto.sql.ExpressionUtils.and;
-import static com.facebook.presto.sql.ExpressionUtils.combineConjuncts;
-import static com.facebook.presto.sql.ExpressionUtils.or;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.EqualityInference.Builder.nonInferrableConjuncts;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.planner.optimizations.AggregationNodeUtils.count;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
-import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.sql.relational.Expressions.constant;
+import static com.facebook.presto.sql.relational.Expressions.specialForm;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestEffectivePredicateExtractor
 {
     private static final TableHandle DUAL_TABLE_HANDLE = new TableHandle(
             new ConnectorId("test"),
-            new TestingTableHandle(),
+            new TestingMetadata.TestingTableHandle(),
             TestingTransactionHandle.create(),
             Optional.empty());
 
     private static final TableHandle DUAL_TABLE_HANDLE_WITH_LAYOUT = new TableHandle(
             new ConnectorId("test"),
-            new TestingTableHandle(),
+            new TestingMetadata.TestingTableHandle(),
             TestingTransactionHandle.create(),
             Optional.of(TestingHandle.INSTANCE));
 
@@ -107,32 +109,30 @@ public class TestEffectivePredicateExtractor
     private static final VariableReferenceExpression EV = new VariableReferenceExpression("e", BIGINT);
     private static final VariableReferenceExpression FV = new VariableReferenceExpression("f", BIGINT);
     private static final VariableReferenceExpression GV = new VariableReferenceExpression("g", BIGINT);
-    private static final Expression AE = new SymbolReference(AV.getName());
-    private static final Expression BE = new SymbolReference(BV.getName());
-    private static final Expression CE = new SymbolReference(CV.getName());
-    private static final Expression DE = new SymbolReference(DV.getName());
-    private static final Expression EE = new SymbolReference(EV.getName());
-    private static final Expression FE = new SymbolReference(FV.getName());
-    private static final Expression GE = new SymbolReference(GV.getName());
 
-    private static final TypeProvider types = TypeProvider.fromVariables(ImmutableList.of(AV, BV, CV, DV, EV, FV, GV));
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
-    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(new ExpressionDomainTranslator(new LiteralEncoder(metadata.getBlockEncodingSerde())));
+    private final LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
+            new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
+            new FunctionResolution(metadata.getFunctionManager()),
+            metadata.getFunctionManager());
+    private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(
+            new RowExpressionDomainTranslator(metadata),
+            metadata.getFunctionManager(),
+            metadata.getTypeManager());
 
     private Map<VariableReferenceExpression, ColumnHandle> scanAssignments;
     private TableScanNode baseTableScan;
-    private ExpressionIdentityNormalizer expressionNormalizer;
 
-    @BeforeMethod
+    @BeforeClass
     public void setUp()
     {
         scanAssignments = ImmutableMap.<VariableReferenceExpression, ColumnHandle>builder()
-                .put(AV, new TestingColumnHandle("a"))
-                .put(BV, new TestingColumnHandle("b"))
-                .put(CV, new TestingColumnHandle("c"))
-                .put(DV, new TestingColumnHandle("d"))
-                .put(EV, new TestingColumnHandle("e"))
-                .put(FV, new TestingColumnHandle("f"))
+                .put(AV, new TestingMetadata.TestingColumnHandle("a"))
+                .put(BV, new TestingMetadata.TestingColumnHandle("b"))
+                .put(CV, new TestingMetadata.TestingColumnHandle("c"))
+                .put(DV, new TestingMetadata.TestingColumnHandle("d"))
+                .put(EV, new TestingMetadata.TestingColumnHandle("e"))
+                .put(FV, new TestingMetadata.TestingColumnHandle("f"))
                 .build();
 
         Map<VariableReferenceExpression, ColumnHandle> assignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(AV, BV, CV, DV, EV, FV)));
@@ -143,8 +143,6 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 TupleDomain.all(),
                 TupleDomain.all());
-
-        expressionNormalizer = new ExpressionIdentityNormalizer();
     }
 
     @Test
@@ -153,13 +151,13 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new AggregationNode(newId(),
                 filter(baseTableScan,
                         and(
-                                equals(AE, DE),
-                                equals(BE, EE),
-                                equals(CE, FE),
-                                lessThan(DE, bigintLiteral(10)),
-                                lessThan(CE, DE),
-                                greaterThan(AE, bigintLiteral(2)),
-                                equals(EE, FE))),
+                                equals(AV, DV),
+                                equals(BV, EV),
+                                equals(CV, FV),
+                                lessThan(DV, bigintLiteral(10)),
+                                lessThan(CV, DV),
+                                greaterThan(AV, bigintLiteral(2)),
+                                equals(EV, FV))),
                 ImmutableMap.of(
                         CV, count(metadata.getFunctionManager()),
                         DV, count(metadata.getFunctionManager())),
@@ -169,15 +167,15 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
-        // Rewrite in terms of group by variables
+        // Rewrite in terms of group by symbols
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(
-                        lessThan(AE, bigintLiteral(10)),
-                        lessThan(BE, AE),
-                        greaterThan(AE, bigintLiteral(2)),
-                        equals(BE, CE)));
+                        lessThan(AV, bigintLiteral(10)),
+                        lessThan(BV, AV),
+                        greaterThan(AV, bigintLiteral(2)),
+                        equals(BV, CV)));
     }
 
     @Test
@@ -185,7 +183,7 @@ public class TestEffectivePredicateExtractor
     {
         PlanNode node = new AggregationNode(
                 newId(),
-                filter(baseTableScan, FALSE_LITERAL),
+                filter(baseTableScan, FALSE_CONSTANT),
                 ImmutableMap.of(),
                 globalAggregation(),
                 ImmutableList.of(),
@@ -193,9 +191,9 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
-        assertEquals(effectivePredicate, TRUE_LITERAL);
+        assertEquals(effectivePredicate, TRUE_CONSTANT);
     }
 
     @Test
@@ -203,14 +201,14 @@ public class TestEffectivePredicateExtractor
     {
         PlanNode node = filter(baseTableScan,
                 and(
-                        greaterThan(AE, new FunctionCall(QualifiedName.of("rand"), ImmutableList.of())),
-                        lessThan(BE, bigintLiteral(10))));
+                        greaterThan(AV, call(metadata.getFunctionManager(), "rand", DOUBLE, ImmutableList.of())),
+                        lessThan(BV, bigintLiteral(10))));
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
         // Non-deterministic functions should be purged
         assertEquals(normalizeConjuncts(effectivePredicate),
-                normalizeConjuncts(lessThan(BE, bigintLiteral(10))));
+                normalizeConjuncts(lessThan(BV, bigintLiteral(10))));
     }
 
     @Test
@@ -219,18 +217,18 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new ProjectNode(newId(),
                 filter(baseTableScan,
                         and(
-                                equals(AE, BE),
-                                equals(BE, CE),
-                                lessThan(CE, bigintLiteral(10)))),
-                assignment(DV, AE, EV, CE));
+                                equals(AV, BV),
+                                equals(BV, CV),
+                                lessThan(CV, bigintLiteral(10)))),
+                assignment(DV, AV, EV, CV));
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
-        // Rewrite in terms of project output variables
+        // Rewrite in terms of project output symbols
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(
-                        lessThan(DE, bigintLiteral(10)),
-                        equals(DE, EE)));
+                        lessThan(DV, bigintLiteral(10)),
+                        equals(DV, EV)));
     }
 
     @Test
@@ -239,19 +237,19 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new TopNNode(newId(),
                 filter(baseTableScan,
                         and(
-                                equals(AE, BE),
-                                equals(BE, CE),
-                                lessThan(CE, bigintLiteral(10)))),
-                1, new OrderingScheme(ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_LAST))), TopNNode.Step.PARTIAL);
+                                equals(AV, BV),
+                                equals(BV, CV),
+                                lessThan(CV, bigintLiteral(10)))),
+                1, new OrderingScheme(ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_FIRST))), TopNNode.Step.PARTIAL);
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
         // Pass through
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(
-                        equals(AE, BE),
-                        equals(BE, CE),
-                        lessThan(CE, bigintLiteral(10))));
+                        equals(AV, BV),
+                        equals(BV, CV),
+                        lessThan(CV, bigintLiteral(10))));
     }
 
     @Test
@@ -260,20 +258,20 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new LimitNode(newId(),
                 filter(baseTableScan,
                         and(
-                                equals(AE, BE),
-                                equals(BE, CE),
-                                lessThan(CE, bigintLiteral(10)))),
+                                equals(AV, BV),
+                                equals(BV, CV),
+                                lessThan(CV, bigintLiteral(10)))),
                 1,
                 FINAL);
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
         // Pass through
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(
-                        equals(AE, BE),
-                        equals(BE, CE),
-                        lessThan(CE, bigintLiteral(10))));
+                        equals(AV, BV),
+                        equals(BV, CV),
+                        lessThan(CV, bigintLiteral(10))));
     }
 
     @Test
@@ -282,20 +280,20 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new SortNode(newId(),
                 filter(baseTableScan,
                         and(
-                                equals(AE, BE),
-                                equals(BE, CE),
-                                lessThan(CE, bigintLiteral(10)))),
+                                equals(AV, BV),
+                                equals(BV, CV),
+                                lessThan(CV, bigintLiteral(10)))),
                 new OrderingScheme(ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_LAST))),
                 false);
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
         // Pass through
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(
-                        equals(AE, BE),
-                        equals(BE, CE),
-                        lessThan(CE, bigintLiteral(10))));
+                        equals(AV, BV),
+                        equals(BV, CV),
+                        lessThan(CV, bigintLiteral(10))));
     }
 
     @Test
@@ -304,25 +302,26 @@ public class TestEffectivePredicateExtractor
         PlanNode node = new WindowNode(newId(),
                 filter(baseTableScan,
                         and(
-                                equals(AE, BE),
-                                equals(BE, CE),
-                                lessThan(CE, bigintLiteral(10)))),
+                                equals(AV, BV),
+                                equals(BV, CV),
+                                lessThan(CV, bigintLiteral(10)))),
                 new WindowNode.Specification(
                         ImmutableList.of(AV),
-                        Optional.of(new OrderingScheme(ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_LAST))))),
+                        Optional.of(new OrderingScheme(
+                                ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_LAST))))),
                 ImmutableMap.of(),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
         // Pass through
         assertEquals(normalizeConjuncts(effectivePredicate),
                 normalizeConjuncts(
-                        equals(AE, BE),
-                        equals(BE, CE),
-                        lessThan(CE, bigintLiteral(10))));
+                        equals(AV, BV),
+                        equals(BV, CV),
+                        lessThan(CV, bigintLiteral(10))));
     }
 
     @Test
@@ -337,8 +336,8 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 TupleDomain.all(),
                 TupleDomain.all());
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
-        assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
+        assertEquals(effectivePredicate, TRUE_CONSTANT);
 
         node = new TableScanNode(
                 newId(),
@@ -347,8 +346,8 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 TupleDomain.none(),
                 TupleDomain.all());
-        effectivePredicate = effectivePredicateExtractor.extract(node, types);
-        assertEquals(effectivePredicate, FALSE_LITERAL);
+        effectivePredicate = effectivePredicateExtractor.extract(node);
+        assertEquals(effectivePredicate, FALSE_CONSTANT);
 
         node = new TableScanNode(
                 newId(),
@@ -357,8 +356,8 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(AV), Domain.singleValue(BIGINT, 1L))),
                 TupleDomain.all());
-        effectivePredicate = effectivePredicateExtractor.extract(node, types);
-        assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(1L), AE)));
+        effectivePredicate = effectivePredicateExtractor.extract(node);
+        assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(1L), AV)));
 
         node = new TableScanNode(
                 newId(),
@@ -369,8 +368,8 @@ public class TestEffectivePredicateExtractor
                         scanAssignments.get(AV), Domain.singleValue(BIGINT, 1L),
                         scanAssignments.get(BV), Domain.singleValue(BIGINT, 2L))),
                 TupleDomain.all());
-        effectivePredicate = effectivePredicateExtractor.extract(node, types);
-        assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BE), equals(bigintLiteral(1L), AE)));
+        effectivePredicate = effectivePredicateExtractor.extract(node);
+        assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BV), equals(bigintLiteral(1L), AV)));
 
         node = new TableScanNode(
                 newId(),
@@ -379,8 +378,8 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 TupleDomain.all(),
                 TupleDomain.all());
-        effectivePredicate = effectivePredicateExtractor.extract(node, types);
-        assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
+        effectivePredicate = effectivePredicateExtractor.extract(node);
+        assertEquals(effectivePredicate, TRUE_CONSTANT);
     }
 
     @Test
@@ -388,17 +387,17 @@ public class TestEffectivePredicateExtractor
     {
         PlanNode node = new UnionNode(newId(),
                 ImmutableList.of(
-                        filter(baseTableScan, greaterThan(AE, bigintLiteral(10))),
-                        filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
-                        filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100))))),
+                        filter(baseTableScan, greaterThan(AV, bigintLiteral(10))),
+                        filter(baseTableScan, and(greaterThan(AV, bigintLiteral(10)), lessThan(AV, bigintLiteral(100)))),
+                        filter(baseTableScan, and(greaterThan(AV, bigintLiteral(10)), lessThan(AV, bigintLiteral(100))))),
                 ImmutableList.of(AV),
                 ImmutableMap.of(AV, ImmutableList.of(BV, CV, EV)));
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
         // Only the common conjuncts can be inferred through a Union
         assertEquals(normalizeConjuncts(effectivePredicate),
-                normalizeConjuncts(greaterThan(AE, bigintLiteral(10))));
+                normalizeConjuncts(greaterThan(AV, bigintLiteral(10))));
     }
 
     @Test
@@ -417,13 +416,13 @@ public class TestEffectivePredicateExtractor
 
         FilterNode left = filter(leftScan,
                 and(
-                        lessThan(BE, AE),
-                        lessThan(CE, bigintLiteral(10)),
-                        equals(GE, bigintLiteral(10))));
+                        lessThan(BV, AV),
+                        lessThan(CV, bigintLiteral(10)),
+                        equals(GV, bigintLiteral(10))));
         FilterNode right = filter(rightScan,
                 and(
-                        equals(DE, EE),
-                        lessThan(FE, bigintLiteral(100))));
+                        equals(DV, EV),
+                        lessThan(FV, bigintLiteral(100))));
 
         PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.INNER,
@@ -434,22 +433,22 @@ public class TestEffectivePredicateExtractor
                         .addAll(left.getOutputVariables())
                         .addAll(right.getOutputVariables())
                         .build(),
-                Optional.of(castToRowExpression(lessThanOrEqual(BE, EE))),
+                Optional.of(lessThanOrEqual(BV, EV)),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
-        // All predicates having output variable should be carried through
+        // All predicates having output symbol should be carried through
         assertEquals(normalizeConjuncts(effectivePredicate),
-                normalizeConjuncts(lessThan(BE, AE),
-                        lessThan(CE, bigintLiteral(10)),
-                        equals(DE, EE),
-                        lessThan(FE, bigintLiteral(100)),
-                        equals(AE, DE),
-                        equals(BE, EE),
-                        lessThanOrEqual(BE, EE)));
+                normalizeConjuncts(lessThan(BV, AV),
+                        lessThan(CV, bigintLiteral(10)),
+                        equals(DV, EV),
+                        lessThan(FV, bigintLiteral(100)),
+                        equals(AV, DV),
+                        equals(BV, EV),
+                        lessThanOrEqual(BV, EV)));
     }
 
     @Test
@@ -461,9 +460,9 @@ public class TestEffectivePredicateExtractor
         Map<VariableReferenceExpression, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(DV, EV, FV)));
         TableScanNode rightScan = tableScanNode(rightAssignments);
 
-        FilterNode left = filter(leftScan, equals(AE, bigintLiteral(10)));
+        FilterNode left = filter(leftScan, equals(AV, bigintLiteral(10)));
 
-        // predicates on "a" column should be propagated to output variables via join equi conditions
+        // predicates on "a" column should be propagated to output symbols via join equi conditions
         PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.INNER,
                 left,
@@ -477,11 +476,11 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
         assertEquals(
                 normalizeConjuncts(effectivePredicate),
-                normalizeConjuncts(equals(DE, bigintLiteral(10))));
+                normalizeConjuncts(equals(DV, bigintLiteral(10))));
     }
 
     @Test
@@ -502,14 +501,14 @@ public class TestEffectivePredicateExtractor
                         .addAll(leftScan.getOutputVariables())
                         .addAll(rightScan.getOutputVariables())
                         .build(),
-                Optional.of(castToRowExpression(FALSE_LITERAL)),
+                Optional.of(FALSE_CONSTANT),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
-        assertEquals(effectivePredicate, FALSE_LITERAL);
+        assertEquals(effectivePredicate, FALSE_CONSTANT);
     }
 
     @Test
@@ -528,13 +527,13 @@ public class TestEffectivePredicateExtractor
 
         FilterNode left = filter(leftScan,
                 and(
-                        lessThan(BE, AE),
-                        lessThan(CE, bigintLiteral(10)),
-                        equals(GE, bigintLiteral(10))));
+                        lessThan(BV, AV),
+                        lessThan(CV, bigintLiteral(10)),
+                        equals(GV, bigintLiteral(10))));
         FilterNode right = filter(rightScan,
                 and(
-                        equals(DE, EE),
-                        lessThan(FE, bigintLiteral(100))));
+                        equals(DV, EV),
+                        lessThan(FV, bigintLiteral(100))));
         PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.LEFT,
                 left,
@@ -549,16 +548,16 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
-        // All right side variables having output variables should be checked against NULL
+        // All right side symbols having output symbols should be checked against NULL
         assertEquals(normalizeConjuncts(effectivePredicate),
-                normalizeConjuncts(lessThan(BE, AE),
-                        lessThan(CE, bigintLiteral(10)),
-                        or(equals(DE, EE), and(isNull(DE), isNull(EE))),
-                        or(lessThan(FE, bigintLiteral(100)), isNull(FE)),
-                        or(equals(AE, DE), isNull(DE)),
-                        or(equals(BE, EE), isNull(EE))));
+                normalizeConjuncts(lessThan(BV, AV),
+                        lessThan(CV, bigintLiteral(10)),
+                        or(equals(DV, EV), and(isNull(DV), isNull(EV))),
+                        or(lessThan(FV, bigintLiteral(100)), isNull(FV)),
+                        or(equals(AV, DV), isNull(DV)),
+                        or(equals(BV, EV), isNull(EV))));
     }
 
     @Test
@@ -574,10 +573,10 @@ public class TestEffectivePredicateExtractor
 
         FilterNode left = filter(leftScan,
                 and(
-                        lessThan(BE, AE),
-                        lessThan(CE, bigintLiteral(10)),
-                        equals(GE, bigintLiteral(10))));
-        FilterNode right = filter(rightScan, FALSE_LITERAL);
+                        lessThan(BV, AV),
+                        lessThan(CV, bigintLiteral(10)),
+                        equals(GV, bigintLiteral(10))));
+        FilterNode right = filter(rightScan, FALSE_CONSTANT);
         PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.LEFT,
                 left,
@@ -592,13 +591,13 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
         // False literal on the right side should be ignored
         assertEquals(normalizeConjuncts(effectivePredicate),
-                normalizeConjuncts(lessThan(BE, AE),
-                        lessThan(CE, bigintLiteral(10)),
-                        or(equals(AE, DE), isNull(DE))));
+                normalizeConjuncts(lessThan(BV, AV),
+                        lessThan(CV, bigintLiteral(10)),
+                        or(equals(AV, DV), isNull(DV))));
     }
 
     @Test
@@ -617,13 +616,13 @@ public class TestEffectivePredicateExtractor
 
         FilterNode left = filter(leftScan,
                 and(
-                        lessThan(BE, AE),
-                        lessThan(CE, bigintLiteral(10)),
-                        equals(GE, bigintLiteral(10))));
+                        lessThan(BV, AV),
+                        lessThan(CV, bigintLiteral(10)),
+                        equals(GV, bigintLiteral(10))));
         FilterNode right = filter(rightScan,
                 and(
-                        equals(DE, EE),
-                        lessThan(FE, bigintLiteral(100))));
+                        equals(DV, EV),
+                        lessThan(FV, bigintLiteral(100))));
         PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.RIGHT,
                 left,
@@ -638,16 +637,16 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
-        // All left side variables should be checked against NULL
+        // All left side symbols should be checked against NULL
         assertEquals(normalizeConjuncts(effectivePredicate),
-                normalizeConjuncts(or(lessThan(BE, AE), and(isNull(BE), isNull(AE))),
-                        or(lessThan(CE, bigintLiteral(10)), isNull(CE)),
-                        equals(DE, EE),
-                        lessThan(FE, bigintLiteral(100)),
-                        or(equals(AE, DE), isNull(AE)),
-                        or(equals(BE, EE), isNull(BE))));
+                normalizeConjuncts(or(lessThan(BV, AV), and(isNull(BV), isNull(AV))),
+                        or(lessThan(CV, bigintLiteral(10)), isNull(CV)),
+                        equals(DV, EV),
+                        lessThan(FV, bigintLiteral(100)),
+                        or(equals(AV, DV), isNull(AV)),
+                        or(equals(BV, EV), isNull(BV))));
     }
 
     @Test
@@ -661,11 +660,11 @@ public class TestEffectivePredicateExtractor
         Map<VariableReferenceExpression, ColumnHandle> rightAssignments = Maps.filterKeys(scanAssignments, Predicates.in(ImmutableList.of(DV, EV, FV)));
         TableScanNode rightScan = tableScanNode(rightAssignments);
 
-        FilterNode left = filter(leftScan, FALSE_LITERAL);
+        FilterNode left = filter(leftScan, FALSE_CONSTANT);
         FilterNode right = filter(rightScan,
                 and(
-                        equals(DE, EE),
-                        lessThan(FE, bigintLiteral(100))));
+                        equals(DV, EV),
+                        lessThan(FV, bigintLiteral(100))));
         PlanNode node = new JoinNode(newId(),
                 JoinNode.Type.RIGHT,
                 left,
@@ -680,31 +679,31 @@ public class TestEffectivePredicateExtractor
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
         // False literal on the left side should be ignored
         assertEquals(normalizeConjuncts(effectivePredicate),
-                normalizeConjuncts(equals(DE, EE),
-                        lessThan(FE, bigintLiteral(100)),
-                        or(equals(AE, DE), isNull(AE))));
+                normalizeConjuncts(equals(DV, EV),
+                        lessThan(FV, bigintLiteral(100)),
+                        or(equals(AV, DV), isNull(AV))));
     }
 
     @Test
     public void testSemiJoin()
     {
         PlanNode node = new SemiJoinNode(newId(),
-                filter(baseTableScan, and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))),
-                filter(baseTableScan, greaterThan(AE, bigintLiteral(5))),
+                filter(baseTableScan, and(greaterThan(AV, bigintLiteral(10)), lessThan(AV, bigintLiteral(100)))),
+                filter(baseTableScan, greaterThan(AV, bigintLiteral(5))),
                 AV, BV, CV,
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
-        Expression effectivePredicate = effectivePredicateExtractor.extract(node, types);
+        RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
         // Currently, only pull predicates through the source plan
         assertEquals(normalizeConjuncts(effectivePredicate),
-                normalizeConjuncts(and(greaterThan(AE, bigintLiteral(10)), lessThan(AE, bigintLiteral(100)))));
+                normalizeConjuncts(and(greaterThan(AV, bigintLiteral(10)), lessThan(AV, bigintLiteral(100)))));
     }
 
     private static TableScanNode tableScanNode(Map<VariableReferenceExpression, ColumnHandle> scanAssignments)
@@ -723,98 +722,77 @@ public class TestEffectivePredicateExtractor
         return new PlanNodeId(UUID.randomUUID().toString());
     }
 
-    private static FilterNode filter(PlanNode source, Expression predicate)
+    private static FilterNode filter(PlanNode source, RowExpression predicate)
     {
-        return new FilterNode(newId(), source, castToRowExpression(predicate));
+        return new FilterNode(newId(), source, predicate);
     }
 
-    private static Expression bigintLiteral(long number)
+    private static RowExpression bigintLiteral(long number)
     {
-        if (number < Integer.MAX_VALUE && number > Integer.MIN_VALUE) {
-            return new GenericLiteral("BIGINT", String.valueOf(number));
-        }
-        return new LongLiteral(String.valueOf(number));
+        return constant(number, BIGINT);
     }
 
-    private static ComparisonExpression equals(Expression expression1, Expression expression2)
+    private RowExpression equals(RowExpression expression1, RowExpression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, expression1, expression2);
+        return compare(EQUAL, expression1, expression2);
     }
 
-    private static ComparisonExpression lessThan(Expression expression1, Expression expression2)
+    private RowExpression lessThan(RowExpression expression1, RowExpression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, expression1, expression2);
+        return compare(LESS_THAN, expression1, expression2);
     }
 
-    private static ComparisonExpression lessThanOrEqual(Expression expression1, Expression expression2)
+    private RowExpression lessThanOrEqual(RowExpression expression1, RowExpression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL, expression1, expression2);
+        return compare(LESS_THAN_OR_EQUAL, expression1, expression2);
     }
 
-    private static ComparisonExpression greaterThan(Expression expression1, Expression expression2)
+    private RowExpression greaterThan(RowExpression expression1, RowExpression expression2)
     {
-        return new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN, expression1, expression2);
+        return compare(GREATER_THAN, expression1, expression2);
     }
 
-    private static IsNullPredicate isNull(Expression expression)
+    private RowExpression compare(OperatorType type, RowExpression left, RowExpression right)
     {
-        return new IsNullPredicate(expression);
+        return call(
+                type.getFunctionName().getFunctionName(),
+                metadata.getFunctionManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
+                BOOLEAN,
+                left,
+                right);
     }
 
-    private Set<Expression> normalizeConjuncts(Expression... conjuncts)
+    private static RowExpression isNull(RowExpression expression)
+    {
+        return specialForm(IS_NULL, BOOLEAN, expression);
+    }
+
+    private Set<RowExpression> normalizeConjuncts(RowExpression... conjuncts)
     {
         return normalizeConjuncts(Arrays.asList(conjuncts));
     }
 
-    private Set<Expression> normalizeConjuncts(Collection<Expression> conjuncts)
+    private Set<RowExpression> normalizeConjuncts(Collection<RowExpression> conjuncts)
     {
-        return normalizeConjuncts(combineConjuncts(conjuncts));
+        return normalizeConjuncts(logicalRowExpressions.combineConjuncts(conjuncts));
     }
 
-    private Set<Expression> normalizeConjuncts(Expression predicate)
+    private Set<RowExpression> normalizeConjuncts(RowExpression predicate)
     {
         // Normalize the predicate by identity so that the EqualityInference will produce stable rewrites in this test
         // and thereby produce comparable Sets of conjuncts from this method.
-        predicate = expressionNormalizer.normalize(predicate);
 
         // Equality inference rewrites and equality generation will always be stable across multiple runs in the same JVM
-        EqualityInference inference = EqualityInference.createEqualityInference(predicate);
+        EqualityInference inference = EqualityInference.createEqualityInference(metadata, predicate);
 
-        Set<Expression> rewrittenSet = new HashSet<>();
-        for (Expression expression : EqualityInference.nonInferrableConjuncts(predicate)) {
-            Expression rewritten = inference.rewriteExpression(expression, Predicates.alwaysTrue(), types);
-            Preconditions.checkState(rewritten != null, "Rewrite with full variable scope should always be possible");
+        Set<RowExpression> rewrittenSet = new HashSet<>();
+        for (RowExpression expression : nonInferrableConjuncts(metadata, predicate)) {
+            RowExpression rewritten = inference.rewriteExpression(expression, Predicates.alwaysTrue());
+            Preconditions.checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
             rewrittenSet.add(rewritten);
         }
-        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(Predicates.alwaysTrue(), types).getScopeEqualities());
+        rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(Predicates.alwaysTrue()).getScopeEqualities());
 
         return rewrittenSet;
-    }
-
-    /**
-     * Normalizes Expression nodes (and all sub-expressions) by identity.
-     * <p>
-     * Identity equality of Expression nodes is necessary for EqualityInference to generate stable rewrites
-     * (as specified by Ordering.arbitrary())
-     */
-    private static class ExpressionIdentityNormalizer
-    {
-        private final Map<Expression, Expression> expressionCache = new HashMap<>();
-
-        private Expression normalize(Expression expression)
-        {
-            Expression identityNormalizedExpression = expressionCache.get(expression);
-            if (identityNormalizedExpression == null) {
-                // Make sure all sub-expressions are normalized first
-                for (Expression subExpression : Iterables.filter(SubExpressionExtractor.extract(expression), Predicates.not(Predicates.equalTo(expression)))) {
-                    normalize(subExpression);
-                }
-
-                // Since we have not seen this expression before, rewrite it entirely in terms of the normalized sub-expressions
-                identityNormalizedExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionNodeInliner(expressionCache), expression);
-                expressionCache.put(identityNormalizedExpression, identityNormalizedExpression);
-            }
-            return identityNormalizedExpression;
-        }
     }
 }

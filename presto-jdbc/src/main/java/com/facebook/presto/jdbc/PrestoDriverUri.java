@@ -14,6 +14,7 @@
 package com.facebook.presto.jdbc;
 
 import com.facebook.presto.client.ClientException;
+import com.facebook.presto.client.OkHttpUtil;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -31,6 +32,8 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_CREDENTIALS_PATH_KEY;
+import static com.facebook.presto.client.GCSOAuthInterceptor.GCS_OAUTH_SCOPES_KEY;
 import static com.facebook.presto.client.KerberosUtil.defaultCredentialCachePath;
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
 import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
@@ -192,6 +195,10 @@ final class PrestoDriverUri
                         Optional.ofNullable(KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties)
                                 .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))));
             }
+
+            Map<String, String> extraCredentials = EXTRA_CREDENTIALS.getValue(properties).orElse(ImmutableMap.of());
+            Optional.ofNullable(extraCredentials.get(GCS_CREDENTIALS_PATH_KEY))
+                    .ifPresent(credentialPath -> OkHttpUtil.setupGCSOauth(builder, credentialPath, Optional.ofNullable(extraCredentials.get(GCS_OAUTH_SCOPES_KEY))));
 
             if (ACCESS_TOKEN.getValue(properties).isPresent()) {
                 if (!useSecureConnection) {

@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -28,7 +31,7 @@ import static java.util.Objects.requireNonNull;
  * Kafka specific {@link ConnectorTableHandle}.
  */
 public final class KafkaTableHandle
-        implements ConnectorTableHandle
+        implements ConnectorTableHandle, ConnectorInsertTableHandle
 {
     /**
      * connector id
@@ -55,6 +58,7 @@ public final class KafkaTableHandle
     private final String messageDataFormat;
     private final Optional<String> keyDataSchemaLocation;
     private final Optional<String> messageDataSchemaLocation;
+    private final List<KafkaColumnHandle> columns;
 
     @JsonCreator
     public KafkaTableHandle(
@@ -65,7 +69,8 @@ public final class KafkaTableHandle
             @JsonProperty("keyDataFormat") String keyDataFormat,
             @JsonProperty("messageDataFormat") String messageDataFormat,
             @JsonProperty("keyDataSchemaLocation") Optional<String> keyDataSchemaLocation,
-            @JsonProperty("messageDataSchemaLocation") Optional<String> messageDataSchemaLocation)
+            @JsonProperty("messageDataSchemaLocation") Optional<String> messageDataSchemaLocation,
+            @JsonProperty("columns") List<KafkaColumnHandle> columns)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -73,8 +78,9 @@ public final class KafkaTableHandle
         this.topicName = requireNonNull(topicName, "topicName is null");
         this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
-        this.keyDataSchemaLocation = keyDataSchemaLocation;
-        this.messageDataSchemaLocation = messageDataSchemaLocation;
+        this.keyDataSchemaLocation = requireNonNull(keyDataSchemaLocation, "keyDataSchemaLocation is null");
+        this.messageDataSchemaLocation = requireNonNull(messageDataSchemaLocation, "messageDataSchemaLocation is null");
+        this.columns = requireNonNull(ImmutableList.copyOf(columns), "columns is null");
     }
 
     @JsonProperty
@@ -125,6 +131,12 @@ public final class KafkaTableHandle
         return keyDataSchemaLocation;
     }
 
+    @JsonProperty
+    public List<KafkaColumnHandle> getColumns()
+    {
+        return columns;
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -133,7 +145,7 @@ public final class KafkaTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation);
+        return Objects.hash(connectorId, schemaName, tableName, topicName, keyDataFormat, messageDataFormat, keyDataSchemaLocation, messageDataSchemaLocation, columns);
     }
 
     @Override
@@ -154,7 +166,8 @@ public final class KafkaTableHandle
                 && Objects.equals(this.keyDataFormat, other.keyDataFormat)
                 && Objects.equals(this.messageDataFormat, other.messageDataFormat)
                 && Objects.equals(this.keyDataSchemaLocation, other.keyDataSchemaLocation)
-                && Objects.equals(this.messageDataSchemaLocation, other.messageDataSchemaLocation);
+                && Objects.equals(this.messageDataSchemaLocation, other.messageDataSchemaLocation)
+                && Objects.equals(this.columns, other.columns);
     }
 
     @Override
@@ -169,6 +182,7 @@ public final class KafkaTableHandle
                 .add("messageDataFormat", messageDataFormat)
                 .add("keyDataSchemaLocation", keyDataSchemaLocation)
                 .add("messageDataSchemaLocation", messageDataSchemaLocation)
+                .add("columns", columns)
                 .toString();
     }
 }

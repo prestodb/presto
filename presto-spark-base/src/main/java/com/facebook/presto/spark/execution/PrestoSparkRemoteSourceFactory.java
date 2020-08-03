@@ -16,7 +16,7 @@ package com.facebook.presto.spark.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
@@ -50,7 +50,7 @@ public class PrestoSparkRemoteSourceFactory
     }
 
     @Override
-    public OperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
+    public SourceOperatorFactory createRemoteSource(Session session, int operatorId, PlanNodeId planNodeId, List<Type> types)
     {
         List<scala.collection.Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> rowInputs = rowInputsMap.get(planNodeId);
         List<java.util.Iterator<PrestoSparkSerializedPage>> pageInputs = pageInputsMap.get(planNodeId);
@@ -71,7 +71,7 @@ public class PrestoSparkRemoteSourceFactory
     }
 
     @Override
-    public OperatorFactory createMergeRemoteSource(
+    public SourceOperatorFactory createMergeRemoteSource(
             Session session,
             int operatorId,
             PlanNodeId planNodeId,

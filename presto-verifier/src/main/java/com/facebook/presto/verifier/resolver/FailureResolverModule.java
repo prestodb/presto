@@ -16,6 +16,7 @@ package com.facebook.presto.verifier.resolver;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
+import com.google.inject.Module;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +37,11 @@ public class FailureResolverModule
             .bind(ExceededTimeLimitFailureResolver.NAME, ExceededTimeLimitFailureResolver.class, Optional.empty())
             .bind(ChecksumExceededTimeLimitFailureResolver.NAME, ChecksumExceededTimeLimitFailureResolver.class, Optional.empty())
             .bind(VerifierLimitationFailureResolver.NAME, VerifierLimitationFailureResolver.class, Optional.empty())
-            .bindFactory(TooManyOpenPartitionsFailureResolver.NAME, TooManyOpenPartitionsFailureResolver.Factory.class, Optional.of(TooManyOpenPartitionsFailureResolverConfig.class))
+            .bindFactory(
+                    TooManyOpenPartitionsFailureResolver.NAME,
+                    TooManyOpenPartitionsFailureResolver.Factory.class,
+                    Optional.of(TooManyOpenPartitionsFailureResolverConfig.class),
+                    ImmutableList.of(new ClusterSizeFetcherModule()))
             // Result Mismatch Resolvers
             .bind(StructuredColumnMismatchResolver.NAME, StructuredColumnMismatchResolver.class, Optional.empty())
             .bind(IgnoredFunctionsMismatchResolver.NAME, IgnoredFunctionsMismatchResolver.class, Optional.of(IgnoredFunctionsMismatchResolverConfig.class))
@@ -59,14 +64,16 @@ public class FailureResolverModule
         configBinder(binder).bindConfig(FailureResolverConfig.class);
         binder.bind(FailureResolverManagerFactory.class).in(SINGLETON);
         if (!buildConfigObject(FailureResolverConfig.class).isEnabled()) {
+            newSetBinder(binder, FailureResolver.class);
+            newSetBinder(binder, FailureResolverFactory.class);
             return;
         }
 
         for (FailureResolverBinding binding : resolvers) {
-            bind(binder, binding.getName(), Optional.of(binding.getResolverClass()), Optional.empty(), binding.getConfigClass());
+            bind(binder, binding.getName(), Optional.of(binding.getResolverClass()), Optional.empty(), binding.getConfigClass(), binding.getAdditionalModules());
         }
         for (FailureResolverFactoryBinding binding : factories) {
-            bind(binder, binding.getName(), Optional.empty(), Optional.of(binding.getFactoryClass()), binding.getConfigClass());
+            bind(binder, binding.getName(), Optional.empty(), Optional.of(binding.getFactoryClass()), binding.getConfigClass(), binding.getAdditionalModules());
         }
     }
 
@@ -75,13 +82,15 @@ public class FailureResolverModule
             String name,
             Optional<Class<? extends FailureResolver>> failureResolverClass,
             Optional<Class<? extends FailureResolverFactory>> failureResolverFactoryClass,
-            Optional<Class<?>> failureResolverConfigClass)
+            Optional<Class<?>> failureResolverConfigClass,
+            List<Module> additionalModules)
     {
         configBinder(binder).bindConfig(FailureResolverConfig.class, named(name), name);
         if (buildConfigObject(FailureResolverConfig.class, name).isEnabled()) {
             failureResolverClass.ifPresent(clazz -> newSetBinder(binder, FailureResolver.class).addBinding().to(clazz).in(SINGLETON));
             failureResolverFactoryClass.ifPresent(clazz -> newSetBinder(binder, FailureResolverFactory.class).addBinding().to(clazz).in(SINGLETON));
             failureResolverConfigClass.ifPresent(clazz -> configBinder(binder).bindConfig(clazz, name));
+            additionalModules.forEach(this::install);
         }
     }
 
@@ -101,9 +110,13 @@ public class FailureResolverModule
             return this;
         }
 
-        public Builder bindFactory(String name, Class<? extends FailureResolverFactory> failureResolverFactoryClass, Optional<Class<?>> configClass)
+        public Builder bindFactory(
+                String name,
+                Class<? extends FailureResolverFactory> failureResolverFactoryClass,
+                Optional<Class<?>> configClass,
+                List<Module> additionalModules)
         {
-            factories.add(new FailureResolverFactoryBinding(name, failureResolverFactoryClass, configClass));
+            factories.add(new FailureResolverFactoryBinding(name, failureResolverFactoryClass, configClass, additionalModules));
             return this;
         }
 
@@ -120,7 +133,7 @@ public class FailureResolverModule
 
         public FailureResolverBinding(String name, Class<? extends FailureResolver> resolverClass, Optional<Class<?>> configClass)
         {
-            super(name, configClass);
+            super(name, configClass, ImmutableList.of());
             this.resolverClass = resolverClass;
         }
 
@@ -135,9 +148,9 @@ public class FailureResolverModule
     {
         private final Class<? extends FailureResolverFactory> factoryClass;
 
-        public FailureResolverFactoryBinding(String name, Class<? extends FailureResolverFactory> factoryClass, Optional<Class<?>> configClass)
+        public FailureResolverFactoryBinding(String name, Class<? extends FailureResolverFactory> factoryClass, Optional<Class<?>> configClass, List<Module> additionalModules)
         {
-            super(name, configClass);
+            super(name, configClass, additionalModules);
             this.factoryClass = factoryClass;
         }
 
@@ -151,11 +164,13 @@ public class FailureResolverModule
     {
         private final String name;
         private final Optional<Class<?>> configClass;
+        private final List<Module> additionalModules;
 
-        public AbstractFailureResolverBinding(String name, Optional<Class<?>> configClass)
+        public AbstractFailureResolverBinding(String name, Optional<Class<?>> configClass, List<Module> additionalModules)
         {
             this.name = requireNonNull(name, "name is null");
             this.configClass = requireNonNull(configClass, "configClass is null");
+            this.additionalModules = ImmutableList.copyOf(additionalModules);
         }
 
         public String getName()
@@ -166,6 +181,11 @@ public class FailureResolverModule
         public Optional<Class<?>> getConfigClass()
         {
             return configClass;
+        }
+
+        public List<Module> getAdditionalModules()
+        {
+            return additionalModules;
         }
     }
 }

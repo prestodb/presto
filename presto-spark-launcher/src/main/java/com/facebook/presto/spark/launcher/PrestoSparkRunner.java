@@ -65,17 +65,30 @@ public class PrestoSparkRunner
     public void run(
             String catalog,
             String schema,
+            String user,
             String query,
             Map<String, String> sessionProperties,
             Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<String> userAgent,
+            Optional<String> clientInfo,
+            Optional<String> sparkQueueName,
             Optional<Path> queryInfoOutputPath)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
-        PrestoSparkSession session = createSessionInfo(catalog, schema, sessionProperties, catalogSessionProperties);
+        PrestoSparkSession session = createSessionInfo(
+                catalog,
+                schema,
+                user,
+                sessionProperties,
+                catalogSessionProperties,
+                clientInfo,
+                userAgent);
+
         IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
                 distribution.getSparkContext(),
                 session,
                 query,
+                sparkQueueName,
                 new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
                 queryInfoOutputPath);
 
@@ -94,18 +107,22 @@ public class PrestoSparkRunner
     private static PrestoSparkSession createSessionInfo(
             String catalog,
             String schema,
+            String user,
             Map<String, String> sessionProperties,
-            Map<String, Map<String, String>> catalogSessionProperties)
+            Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<String> clientInfo,
+            Optional<String> userAgent)
     {
         // TODO: add all important session parameters to client options
         return new PrestoSparkSession(
-                "test",
+                user,
                 Optional.empty(),
                 ImmutableMap.of(),
                 Optional.ofNullable(catalog),
                 Optional.ofNullable(schema),
                 Optional.empty(),
-                Optional.empty(),
+                userAgent,
+                clientInfo,
                 ImmutableSet.of(),
                 Optional.empty(),
                 Optional.empty(),

@@ -73,6 +73,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.getFooterCount;
@@ -322,6 +323,7 @@ public class BackgroundHiveSplitLoader
                         inputFormat,
                         pathDomain,
                         getNodeSelectionStrategy(session),
+                        getMaxInitialSplitSize(session),
                         s3SelectPushdownEnabled,
                         new HiveSplitPartitionInfo(storage, path.toUri(), partitionKeys, partitionName, partitionDataColumnCount, partition.getPartitionSchemaDifference(), Optional.empty()),
                         schedulerUsesHostAddresses,
@@ -356,6 +358,7 @@ public class BackgroundHiveSplitLoader
                 inputFormat,
                 pathDomain,
                 getNodeSelectionStrategy(session),
+                getMaxInitialSplitSize(session),
                 s3SelectPushdownEnabled,
                 new HiveSplitPartitionInfo(
                         storage,
@@ -382,7 +385,8 @@ public class BackgroundHiveSplitLoader
         // S3 Select pushdown works at the granularity of individual S3 objects,
         // therefore we must not split files when it is enabled.
         Properties schema = getHiveSchema(storage.getSerdeParameters(), table.getParameters());
-        boolean splittable = getHeaderCount(schema) == 0 && getFooterCount(schema) == 0 && !s3SelectPushdownEnabled;
+        // Skip header / footer lines are not splittable except for a special case when skip.header.line.count=1
+        boolean splittable = !s3SelectPushdownEnabled && getFooterCount(schema) == 0 && getHeaderCount(schema) <= 1;
 
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {

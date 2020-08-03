@@ -41,7 +41,9 @@ public class TestVerifierConfig
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
                 .setSmartTeardown(false)
-                .setVerificationResubmissionLimit(2));
+                .setVerificationResubmissionLimit(2)
+                .setSetupOnMainClusters(true)
+                .setTeardownOnMainClusters(true));
     }
 
     @Test
@@ -62,6 +64,8 @@ public class TestVerifierConfig
                 .put("absolute-error-margin", "1e-14")
                 .put("smart-teardown", "true")
                 .put("verification-resubmission.limit", "1")
+                .put("setup-on-main-clusters", "false")
+                .put("teardown-on-main-clusters", "false")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -77,7 +81,9 @@ public class TestVerifierConfig
                 .setRelativeErrorMargin(2e-5)
                 .setAbsoluteErrorMargin(1e-14)
                 .setSmartTeardown(true)
-                .setVerificationResubmissionLimit(1);
+                .setVerificationResubmissionLimit(1)
+                .setSetupOnMainClusters(false)
+                .setTeardownOnMainClusters(false);
 
         assertFullMapping(properties, expected);
     }

@@ -13,22 +13,17 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator;
-import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Identifier;
-import com.facebook.presto.sql.tree.IsNullPredicate;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -37,14 +32,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.sql.tree.BooleanLiteral.FALSE_LITERAL;
 import static com.facebook.presto.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -205,11 +197,6 @@ public final class ExpressionUtils
         return and(conjuncts);
     }
 
-    public static Expression combineDisjuncts(Expression... expressions)
-    {
-        return combineDisjuncts(Arrays.asList(expressions));
-    }
-
     public static Expression combineDisjuncts(Collection<Expression> expressions)
     {
         return combineDisjunctsWithDefault(expressions, FALSE_LITERAL);
@@ -233,16 +220,6 @@ public final class ExpressionUtils
         return disjuncts.isEmpty() ? emptyDefault : or(disjuncts);
     }
 
-    public static Expression filterDeterministicConjuncts(Expression expression)
-    {
-        return filterConjuncts(expression, ExpressionDeterminismEvaluator::isDeterministic);
-    }
-
-    public static Expression filterNonDeterministicConjuncts(Expression expression)
-    {
-        return filterConjuncts(expression, not(ExpressionDeterminismEvaluator::isDeterministic));
-    }
-
     public static Expression filterConjuncts(Expression expression, Predicate<Expression> predicate)
     {
         List<Expression> conjuncts = extractConjuncts(expression).stream()
@@ -250,33 +227,6 @@ public final class ExpressionUtils
                 .collect(toList());
 
         return combineConjuncts(conjuncts);
-    }
-
-    public static Function<Expression, Expression> expressionOrNullVariables(TypeProvider types, final Predicate<VariableReferenceExpression>... nullVariableScopes)
-    {
-        return expression -> {
-            ImmutableList.Builder<Expression> resultDisjunct = ImmutableList.builder();
-            resultDisjunct.add(expression);
-
-            for (Predicate<VariableReferenceExpression> nullVariableScope : nullVariableScopes) {
-                List<VariableReferenceExpression> variables = VariablesExtractor.extractUnique(expression, types).stream()
-                        .filter(nullVariableScope)
-                        .collect(toImmutableList());
-
-                if (Iterables.isEmpty(variables)) {
-                    continue;
-                }
-
-                ImmutableList.Builder<Expression> nullConjuncts = ImmutableList.builder();
-                for (VariableReferenceExpression variable : variables) {
-                    nullConjuncts.add(new IsNullPredicate(new SymbolReference(variable.getName())));
-                }
-
-                resultDisjunct.add(and(nullConjuncts.build()));
-            }
-
-            return or(resultDisjunct.build());
-        };
     }
 
     /**

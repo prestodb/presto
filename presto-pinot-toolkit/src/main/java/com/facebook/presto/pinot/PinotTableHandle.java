@@ -33,7 +33,7 @@ public final class PinotTableHandle
     private final String schemaName;
     private final String tableName;
     private final Optional<Boolean> isQueryShort;
-    private final Optional<PinotQueryGenerator.GeneratedPql> pql;
+    private final Optional<PinotQueryGenerator.GeneratedPinotQuery> pinotQuery;
     private final Optional<List<PinotColumnHandle>> expectedColumnHandles;
 
     public PinotTableHandle(
@@ -51,20 +51,20 @@ public final class PinotTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("isQueryShort") Optional<Boolean> isQueryShort,
             @JsonProperty("expectedColumnHandles") Optional<List<PinotColumnHandle>> expectedColumnHandles,
-            @JsonProperty("pql") Optional<PinotQueryGenerator.GeneratedPql> pql)
+            @JsonProperty("pinotQuery") Optional<PinotQueryGenerator.GeneratedPinotQuery> pinotQuery)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.isQueryShort = requireNonNull(isQueryShort, "safe to execute is null");
-        this.pql = requireNonNull(pql, "broker pql is null");
+        this.pinotQuery = requireNonNull(pinotQuery, "broker pinotQuery is null");
         this.expectedColumnHandles = requireNonNull(expectedColumnHandles, "expected column handles is null");
     }
 
     @JsonProperty
-    public Optional<PinotQueryGenerator.GeneratedPql> getPql()
+    public Optional<PinotQueryGenerator.GeneratedPinotQuery> getPinotQuery()
     {
-        return pql;
+        return pinotQuery;
     }
 
     @JsonProperty
@@ -117,13 +117,13 @@ public final class PinotTableHandle
                 Objects.equals(tableName, that.tableName) &&
                 Objects.equals(isQueryShort, that.isQueryShort) &&
                 Objects.equals(expectedColumnHandles, that.expectedColumnHandles) &&
-                Objects.equals(pql, that.pql);
+                Objects.equals(pinotQuery, that.pinotQuery);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schemaName, tableName, isQueryShort, expectedColumnHandles, pql);
+        return Objects.hash(connectorId, schemaName, tableName, isQueryShort, expectedColumnHandles, pinotQuery);
     }
 
     @Override
@@ -135,7 +135,7 @@ public final class PinotTableHandle
                 .add("tableName", tableName)
                 .add("isQueryShort", isQueryShort)
                 .add("expectedColumnHandles", expectedColumnHandles)
-                .add("pql", pql)
+                .add("pinotQuery", pinotQuery)
                 .toString();
     }
 }

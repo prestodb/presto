@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.239-SNAPSHOT</version>
+        <version>0.240-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-main</artifactId>
@@ -168,11 +168,6 @@
 
         <dependency>
             <groupId>com.facebook.airlift</groupId>
-            <artifactId>security</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.facebook.airlift</groupId>
             <artifactId>stats</artifactId>
         </dependency>
 
@@ -189,11 +184,6 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>joni</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>joda-to-java-time-bridge</artifactId>
         </dependency>
 
         <dependency>
@@ -347,11 +337,6 @@
             <artifactId>lucene-analyzers-common</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt</artifactId>
-        </dependency>
-
         <!-- for testing -->
         <dependency>
             <groupId>org.testng</groupId>
@@ -459,9 +444,6 @@
                     <excludes>
                         <exclude>**/TestLocalExecutionPlanner.java</exclude>
                     </excludes>
-                    <systemPropertyVariables>
-                        <org.joda.time.DateTimeZone.Provider>io.airlift.jodabridge.JdkBasedZoneInfoProvider</org.joda.time.DateTimeZone.Provider>
-                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>

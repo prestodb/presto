@@ -29,6 +29,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.block.BlockAssertions.createTypedLongsBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -39,9 +40,12 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static com.facebook.presto.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
 import static com.facebook.presto.plugin.geospatial.BingTile.fromCoordinates;
 import static com.facebook.presto.plugin.geospatial.BingTileType.BING_TILE;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.MAX_LATITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.MAX_LONGITUDE;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LATITUDE;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.MIN_LONGITUDE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.String.format;
@@ -128,6 +132,57 @@ public class TestBingTileFunctions
 
         // Invalid calls: zoom level out of range
         assertInvalidFunction("bing_tile(2, 7, 37)", "Zoom level must be <= 23");
+    }
+
+    @Test
+    public void testBingTileChildren()
+    {
+        assertBingTileChildren("0", OptionalInt.empty(), ImmutableList.of("00", "01", "02", "03"));
+        assertBingTileChildren("0", OptionalInt.of(3), ImmutableList.of(
+                "000", "001", "002", "003",
+                "010", "011", "012", "013",
+                "020", "021", "022", "023",
+                "030", "031", "032", "033"));
+        assertInvalidFunction("bing_tile_children(bing_tile('0'), 0)", "newZoom must be greater than or equal to current zoom 1: 0");
+        assertInvalidFunction(format("bing_tile_children(bing_tile('0'), %s)", MAX_ZOOM_LEVEL + 1), format("newZoom must be less than or equal to %s: %s", MAX_ZOOM_LEVEL, MAX_ZOOM_LEVEL + 1));
+    }
+
+    private void assertBingTileChildren(String quadkey, OptionalInt newZoom, List<String> childQuadkeys)
+    {
+        String children;
+        if (newZoom.isPresent()) {
+            children = format("bing_tile_children(bing_tile('%s'), %s)", quadkey, newZoom.getAsInt());
+        }
+        else {
+            children = format("bing_tile_children(bing_tile('%s'))", quadkey);
+        }
+
+        assertFunction(
+                format("array_sort(transform(%s, x -> bing_tile_quadkey(x)))", children),
+                new ArrayType(VARCHAR),
+                ImmutableList.sortedCopyOf(childQuadkeys));
+    }
+
+    @Test
+    public void testBingTileParent()
+    {
+        assertBingTileParent("03", OptionalInt.empty(), "0");
+        assertBingTileParent("0123", OptionalInt.of(2), "01");
+        assertInvalidFunction("bing_tile_parent(bing_tile('0'), 2)", "newZoom must be less than or equal to current zoom 1: 2");
+        assertInvalidFunction(format("bing_tile_parent(bing_tile('0'), %s)", -1), "newZoom must be greater than or equal to 0: -1");
+    }
+
+    private void assertBingTileParent(String quadkey, OptionalInt newZoom, String parentQuadkey)
+    {
+        String parent;
+        if (newZoom.isPresent()) {
+            parent = format("bing_tile_parent(bing_tile('%s'), %s)", quadkey, newZoom.getAsInt());
+        }
+        else {
+            parent = format("bing_tile_parent(bing_tile('%s'))", quadkey);
+        }
+
+        assertFunction(format("bing_tile_quadkey(%s)", parent), VARCHAR, parentQuadkey);
     }
 
     @Test
@@ -432,6 +487,125 @@ public class TestBingTileFunctions
     }
 
     @Test
+    public void testGeometryToDissolvedBingTiles()
+    {
+        // Empty geometries
+        assertGeometryToDissolvedBingTiles("POINT EMPTY", 0, emptyList());
+        assertGeometryToDissolvedBingTiles("POINT EMPTY", 10, emptyList());
+        assertGeometryToDissolvedBingTiles("POINT EMPTY", MAX_ZOOM_LEVEL, emptyList());
+        assertGeometryToDissolvedBingTiles("POLYGON EMPTY", 10, emptyList());
+        assertGeometryToDissolvedBingTiles("GEOMETRYCOLLECTION EMPTY", 10, emptyList());
+
+        // Geometries at tile borders
+        assertGeometryToDissolvedBingTiles("POINT (0 0)", 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s 0)", MIN_LONGITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s 0)", MAX_LONGITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (0 %s)", MIN_LATITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (0 %s)", MAX_LATITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MIN_LATITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MAX_LATITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MAX_LATITUDE), 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MIN_LATITUDE), 0, ImmutableList.of(""));
+
+        assertGeometryToDissolvedBingTiles("POINT (0 0)", 1, ImmutableList.of("3"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s 0)", MIN_LONGITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s 0)", MAX_LONGITUDE), 1, ImmutableList.of("3"));
+        assertGeometryToDissolvedBingTiles(format("POINT (0 %s)", MIN_LATITUDE), 1, ImmutableList.of("3"));
+        assertGeometryToDissolvedBingTiles(format("POINT (0 %s)", MAX_LATITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MIN_LATITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MAX_LATITUDE), 1, ImmutableList.of("0"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MAX_LATITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToDissolvedBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MIN_LATITUDE), 1, ImmutableList.of("3"));
+
+        assertGeometryToDissolvedBingTiles("LINESTRING (-1 0, -2 0)", 1, ImmutableList.of("2"));
+        assertGeometryToDissolvedBingTiles("LINESTRING (1 0, 2 0)", 1, ImmutableList.of("3"));
+        assertGeometryToDissolvedBingTiles("LINESTRING (0 -1, 0 -2)", 1, ImmutableList.of("3"));
+        assertGeometryToDissolvedBingTiles("LINESTRING (0 1, 0 2)", 1, ImmutableList.of("1"));
+
+        assertGeometryToDissolvedBingTiles(format("LINESTRING (%s 1, %s 2)", MIN_LONGITUDE, MIN_LONGITUDE), 1, ImmutableList.of("0"));
+        assertGeometryToDissolvedBingTiles(format("LINESTRING (%s -1, %s -2)", MIN_LONGITUDE, MIN_LONGITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToDissolvedBingTiles(format("LINESTRING (%s 1, %s 2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToDissolvedBingTiles(format("LINESTRING (%s -1, %s -2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("3"));
+
+        // General Geometries
+        assertGeometryToDissolvedBingTiles("POINT (60 30.12)", 0, ImmutableList.of(""));
+        assertGeometryToDissolvedBingTiles("POINT (60 30.12)", 10, ImmutableList.of("1230301230"));
+        assertGeometryToDissolvedBingTiles("POINT (60 30.12)", 15, ImmutableList.of("123030123010121"));
+        assertGeometryToDissolvedBingTiles("POINT (60 30.12)", 16, ImmutableList.of("1230301230101212"));
+
+        assertGeometryToDissolvedBingTiles(
+                "POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))",
+                6,
+                ImmutableList.of("12222", "300000", "300001"));
+        assertGeometryToDissolvedBingTiles(
+                "POLYGON ((0 0, 0 10, 10 10, 0 0))",
+                6,
+                ImmutableList.of("122220", "122222", "122221", "300000"));
+        assertGeometryToDissolvedBingTiles(
+                "POLYGON ((10 10, -10 10, -20 -15, 10 10))",
+                3,
+                ImmutableList.of("033", "211", "122"));
+        assertGeometryToDissolvedBingTiles(
+                "POLYGON ((10 10, -10 10, -20 -15, 10 10))",
+                6,
+                ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "03333", "211110", "211112", "211111", "122220", "122222", "122221"));
+
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12))",
+                10,
+                ImmutableList.of("1230301230"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12))",
+                15,
+                ImmutableList.of("123030123010121"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POLYGON ((10 10, -10 10, -20 -15, 10 10)))",
+                3,
+                ImmutableList.of("033", "211", "122"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12), POLYGON ((10 10, -10 10, -20 -15, 10 10)))",
+                3,
+                ImmutableList.of("033", "211", "122", "123"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12), LINESTRING (61 31, 61.01 31.01), POLYGON EMPTY)",
+                15,
+                ImmutableList.of("123030123010121", "123030112310200", "123030112310202", "123030112310201"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12))",
+                10,
+                ImmutableList.of("1230301230"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12))",
+                15,
+                ImmutableList.of("123030123010121"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POLYGON ((10 10, -10 10, -20 -15, 10 10)))",
+                3,
+                ImmutableList.of("033", "211", "122"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12), POLYGON ((10 10, -10 10, -20 -15, 10 10)))",
+                3,
+                ImmutableList.of("033", "211", "122", "123"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12), LINESTRING (61 31, 61.01 31.01), POLYGON EMPTY)",
+                15,
+                ImmutableList.of("123030123010121", "123030112310200", "123030112310202", "123030112310201"));
+        assertGeometryToDissolvedBingTiles(
+                "GEOMETRYCOLLECTION (POINT (0.1 0.1), POINT(0.1 -0.1), POINT(-0.1 -0.1), POINT(-0.1 0.1))",
+                3,
+                ImmutableList.of("033", "122", "211", "300"));
+    }
+
+    private void assertGeometryToDissolvedBingTiles(String wkt, int maxZoomLevel, List<String> expectedQuadKeys)
+    {
+        expectedQuadKeys = ImmutableList.sortedCopyOf(expectedQuadKeys);
+        assertFunction(
+                format("array_sort(transform(geometry_to_dissolved_bing_tiles(ST_GeometryFromText('%s'), %s), x -> bing_tile_quadkey(x)))", wkt, maxZoomLevel),
+                new ArrayType(VARCHAR),
+                expectedQuadKeys);
+    }
+
+    @Test
     public void testLargeGeometryToBingTiles()
             throws Exception
     {
@@ -450,27 +624,63 @@ public class TestBingTileFunctions
     public void testGeometryToBingTiles()
             throws Exception
     {
+        // Geometries at boundaries of tiles
+        assertGeometryToBingTiles("POINT (0 0)", 1, ImmutableList.of("3"));
+        assertGeometryToBingTiles(format("POINT (%s 0)", MIN_LONGITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToBingTiles(format("POINT (%s 0)", MAX_LONGITUDE), 1, ImmutableList.of("3"));
+        assertGeometryToBingTiles(format("POINT (0 %s)", MIN_LATITUDE), 1, ImmutableList.of("3"));
+        assertGeometryToBingTiles(format("POINT (0 %s)", MAX_LATITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MIN_LATITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToBingTiles(format("POINT (%s %s)", MIN_LONGITUDE, MAX_LATITUDE), 1, ImmutableList.of("0"));
+        assertGeometryToBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MAX_LATITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToBingTiles(format("POINT (%s %s)", MAX_LONGITUDE, MIN_LATITUDE), 1, ImmutableList.of("3"));
+
+        assertGeometryToBingTiles("LINESTRING (-1 0, -2 0)", 1, ImmutableList.of("2"));
+        assertGeometryToBingTiles("LINESTRING (1 0, 2 0)", 1, ImmutableList.of("3"));
+        assertGeometryToBingTiles("LINESTRING (0 -1, 0 -2)", 1, ImmutableList.of("3"));
+        assertGeometryToBingTiles("LINESTRING (0 1, 0 2)", 1, ImmutableList.of("1"));
+
+        assertGeometryToBingTiles(format("LINESTRING (%s 1, %s 2)", MIN_LONGITUDE, MIN_LONGITUDE), 1, ImmutableList.of("0"));
+        assertGeometryToBingTiles(format("LINESTRING (%s -1, %s -2)", MIN_LONGITUDE, MIN_LONGITUDE), 1, ImmutableList.of("2"));
+        assertGeometryToBingTiles(format("LINESTRING (%s 1, %s 2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("1"));
+        assertGeometryToBingTiles(format("LINESTRING (%s -1, %s -2)", MAX_LONGITUDE, MAX_LONGITUDE), 1, ImmutableList.of("3"));
+
+        // Make sure corners are included
+        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 0, 0);
+        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 0, 10);
+        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 10, 10);
+        assertPointInCovering("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, 10, 0);
+
+        // General geometries
         assertGeometryToBingTiles("POINT (60 30.12)", 0, ImmutableList.of(""));
         assertGeometryToBingTiles("POINT (60 30.12)", 10, ImmutableList.of("1230301230"));
         assertGeometryToBingTiles("POINT (60 30.12)", 15, ImmutableList.of("123030123010121"));
         assertGeometryToBingTiles("POINT (60 30.12)", 16, ImmutableList.of("1230301230101212"));
 
-        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223"));
-        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 0 0))", 6, ImmutableList.of("122220", "122222", "122221"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 10 0, 0 0))", 6, ImmutableList.of("122220", "122222", "122221", "122223", "300000", "300001"));
+        assertGeometryToBingTiles("POLYGON ((0 0, 0 10, 10 10, 0 0))", 6, ImmutableList.of("122220", "122222", "122221", "300000"));
 
-        assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 3, ImmutableList.of("033", "211", "122"));
-        assertGeometryToBingTiles("POLYGON ((10 10, -10 10, -20 -15, 10 10))", 6, ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "033330", "033332", "211110", "211112", "033331", "033333", "211111", "122220", "122222", "122221"));
+        assertGeometryToBingTiles(
+                "POLYGON ((10 10, -10 10, -20 -15, 10 10))",
+                3,
+                ImmutableList.of("033", "211", "122"));
+        assertGeometryToBingTiles(
+                "POLYGON ((10 10, -10 10, -20 -15, 10 10))",
+                6,
+                ImmutableList.of("211102", "211120", "033321", "033323", "211101", "211103", "211121", "033330", "033332", "211110", "211112", "033331", "033333", "211111", "122220", "122222", "122221"));
 
         assertGeometryToBingTiles("GEOMETRYCOLLECTION (POINT (60 30.12))", 10, ImmutableList.of("1230301230"));
         assertGeometryToBingTiles("GEOMETRYCOLLECTION (POINT (60 30.12))", 15, ImmutableList.of("123030123010121"));
         assertGeometryToBingTiles("GEOMETRYCOLLECTION (POLYGON ((10 10, -10 10, -20 -15, 10 10)))", 3, ImmutableList.of("033", "211", "122"));
         assertGeometryToBingTiles("GEOMETRYCOLLECTION (POINT (60 30.12), POLYGON ((10 10, -10 10, -20 -15, 10 10)))", 3, ImmutableList.of("033", "211", "122", "123"));
-        assertGeometryToBingTiles("GEOMETRYCOLLECTION (POINT (60 30.12), LINESTRING (61 31, 61.01 31.01), POLYGON EMPTY)", 15, ImmutableList.of("123030123010121", "123030112310200", "123030112310202", "123030112310201"));
+        assertGeometryToBingTiles(
+                "GEOMETRYCOLLECTION (POINT (60 30.12), LINESTRING (61 31, 61.01 31.01), POLYGON EMPTY)",
+                15,
+                ImmutableList.of("123030123010121", "123030112310200", "123030112310202", "123030112310201"));
 
-        assertFunction("transform(geometry_to_bing_tiles(bing_tile_polygon(bing_tile('1230301230')), 10), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("1230301230"));
-        assertFunction("transform(geometry_to_bing_tiles(bing_tile_polygon(bing_tile('1230301230')), 11), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("12303012300", "12303012302", "12303012301", "12303012303"));
-
-        assertFunction("transform(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (59.765625 29.84064389983442, 60.2 30.14512718337612)')), 10), x -> bing_tile_quadkey(x))", new ArrayType(VARCHAR), ImmutableList.of("1230301230", "1230301231"));
+        assertToBingTiles("bing_tile_polygon(bing_tile('1230301230'))", 10, ImmutableList.of("1230301230", "1230301231", "1230301232", "1230301233"));
+        assertToBingTiles("bing_tile_polygon(bing_tile('1230301230'))", 11, ImmutableList.of("12303012300", "12303012302", "12303012301", "12303012303", "12303012310", "12303012312", "12303012320", "12303012321", "12303012330"));
+        assertToBingTiles("ST_Envelope(ST_GeometryFromText('LINESTRING (59.765625 29.84064389983442, 60.2 30.14512718337612)'))", 10, ImmutableList.of("1230301230", "1230301231", "1230301232", "1230301233"));
 
         // Empty geometries
         assertGeometryToBingTiles("POINT EMPTY", 10, emptyList());
@@ -485,34 +695,71 @@ public class TestBingTileFunctions
 
         // Invalid input
         // Longitude out of range
-        assertInvalidFunction("geometry_to_bing_tiles(ST_Point(600, 30.12), 10)", "Longitude span for the geometry must be in [-180.00, 180.00] range");
-        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((1000 10, -10 10, -20 -15, 1000 10))'), 10)", "Longitude span for the geometry must be in [-180.00, 180.00] range");
+        assertInvalidFunction(
+                "geometry_to_bing_tiles(ST_Point(600, 30.12), 10)",
+                "Longitude span for the geometry must be in [-180.00, 180.00] range");
+        assertInvalidFunction(
+                "geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((1000 10, -10 10, -20 -15, 1000 10))'), 10)",
+                "Longitude span for the geometry must be in [-180.00, 180.00] range");
         // Latitude out of range
-        assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 300.12), 10)", "Latitude span for the geometry must be in [-85.05, 85.05] range");
-        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((10 1000, -10 10, -20 -15, 10 1000))'), 10)", "Latitude span for the geometry must be in [-85.05, 85.05] range");
+        assertInvalidFunction(
+                "geometry_to_bing_tiles(ST_Point(60, 300.12), 10)",
+                "Latitude span for the geometry must be in [-85.05, 85.05] range");
+        assertInvalidFunction(
+                "geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((10 1000, -10 10, -20 -15, 10 1000))'), 10)",
+                "Latitude span for the geometry must be in [-85.05, 85.05] range");
         // Invalid zoom levels
         assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 30.12), -1)", "Zoom level must be >= 0");
         assertInvalidFunction("geometry_to_bing_tiles(ST_Point(60, 30.12), 40)", "Zoom level must be <= 23");
 
         // Input rectangle too large
-        assertInvalidFunction("geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 16)",
-                "The number of tiles covering input rectangle exceeds the limit of 1M. Number of tiles: 370085804. Rectangle: xMin=0.00, yMin=0.00, xMax=80.00, yMax=80.00. Zoom level: 16.");
-        assertFunction("cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 5))", BIGINT, 104L);
+        assertInvalidFunction(
+                "geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 16)",
+                "The zoom level is too high or the geometry is too large to compute a set of covering Bing tiles. Please use a lower zoom level, or tile only a section of the geometry.");
+        assertFunction(
+                "cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('LINESTRING (0 0, 80 80)')), 5))",
+                BIGINT,
+                112L);
 
-        // Input polygon too complex
+        // Complex input polygon
         String filePath = this.getClass().getClassLoader().getResource("too_large_polygon.txt").getPath();
         String largeWkt = Files.lines(Paths.get(filePath)).findFirst().get();
-        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16)", "The zoom level is too high or the geometry is too complex to compute a set of covering Bing tiles. Please use a lower zoom level or convert the geometry to its bounding box using the ST_Envelope function.");
-        assertFunction("cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('" + largeWkt + "')), 16))", BIGINT, 19939L);
+        assertFunction(
+                "cardinality(geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16))",
+                BIGINT,
+                9043L);
+        assertFunction(
+                "cardinality(geometry_to_bing_tiles(ST_Envelope(ST_GeometryFromText('" + largeWkt + "')), 16))",
+                BIGINT,
+                19939L);
 
         // Zoom level is too high
-        assertInvalidFunction("geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 20)", "The zoom level is too high to compute a set of covering Bing tiles.");
-        assertFunction("cardinality(geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 14))", BIGINT, 428787L);
+        assertInvalidFunction(
+                "geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 20)",
+                "The zoom level is too high or the geometry is too large to compute a set of covering Bing tiles. Please use a lower zoom level, or tile only a section of the geometry.");
+        assertFunction(
+                "cardinality(geometry_to_bing_tiles(ST_GeometryFromText('POLYGON ((0 0, 0 20, 20 20, 0 0))'), 14))",
+                BIGINT,
+                428788L);
+    }
+
+    private void assertToBingTiles(String sql, int zoomLevel, List<String> expectedQuadKeys)
+    {
+        assertFunction(
+                format("array_sort(transform(geometry_to_bing_tiles(%s, %s), x -> bing_tile_quadkey(x)))", sql, zoomLevel),
+                new ArrayType(VARCHAR),
+                ImmutableList.sortedCopyOf(expectedQuadKeys));
     }
 
     private void assertGeometryToBingTiles(String wkt, int zoomLevel, List<String> expectedQuadKeys)
     {
-        assertFunction(format("transform(geometry_to_bing_tiles(ST_GeometryFromText('%s'), %s), x -> bing_tile_quadkey(x))", wkt, zoomLevel), new ArrayType(VARCHAR), expectedQuadKeys);
+        assertToBingTiles(format("ST_GeometryFromText('%s')", wkt), zoomLevel, expectedQuadKeys);
+    }
+
+    private void assertPointInCovering(String wkt, int zoomLevel, double x, double y)
+    {
+        String needle = format("geometry_to_bing_tiles(ST_Point(%s, %s), %s)[1]", x, y, zoomLevel);
+        assertFunction(format("contains(geometry_to_bing_tiles(ST_GeometryFromText('%s'), %s), %s)", wkt, zoomLevel, needle), BOOLEAN, true);
     }
 
     @Test

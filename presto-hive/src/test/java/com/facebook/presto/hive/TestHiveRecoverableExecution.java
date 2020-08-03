@@ -43,7 +43,6 @@ import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_P
 import static com.facebook.presto.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
-import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.MAX_STAGE_RETRIES;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
@@ -312,56 +311,6 @@ public class TestHiveRecoverableExecution
                         "DROP TABLE IF EXISTS insert_unbucketed_table_with_grouped_execution_failure"));
     }
 
-    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
-    public void testScanFilterProjectionOnlyQueryOnUnbucketedTable(int writerConcurrency)
-            throws Exception
-    {
-        testRecoverableGroupedExecution(
-                queryRunner,
-                writerConcurrency,
-                ImmutableList.of(
-                        "CREATE TABLE scan_filter_projection_only_query_on_unbucketed_table AS\n" +
-                                "SELECT t.comment\n" +
-                                "FROM orders\n" +
-                                "CROSS JOIN UNNEST(REPEAT(comment, 10)) AS t (comment)"),
-                "CREATE TABLE scan_filter_projection_only_query_on_unbucketed_table_success AS\n" +
-                        "SELECT comment value1 FROM scan_filter_projection_only_query_on_unbucketed_table",
-                "CREATE TABLE scan_filter_projection_only_query_on_unbucketed_table_failure AS\n" +
-                        "SELECT comment value1 FROM scan_filter_projection_only_query_on_unbucketed_table",
-                15000 * 10,
-                ImmutableList.of(
-                        "DROP TABLE IF EXISTS scan_filter_projection_only_query_on_unbucketed_table",
-                        "DROP TABLE IF EXISTS scan_filter_projection_only_query_on_unbucketed_table_success",
-                        "DROP TABLE IF EXISTS scan_filter_projection_only_query_on_unbucketed_table_failure"));
-    }
-
-    @Test(timeOut = TEST_TIMEOUT, dataProvider = "writerConcurrency", invocationCount = INVOCATION_COUNT)
-    public void testUnionAll(int writerConcurrency)
-            throws Exception
-    {
-        testRecoverableGroupedExecution(
-                queryRunner,
-                writerConcurrency,
-                ImmutableList.of(
-                        "CREATE TABLE test_union_all AS\n" +
-                                "SELECT t.comment\n" +
-                                "FROM orders\n" +
-                                "CROSS JOIN UNNEST(REPEAT(comment, 10)) AS t (comment)"),
-                "CREATE TABLE test_union_all_success AS\n" +
-                        "SELECT comment value1 FROM test_union_all " +
-                        "UNION ALL " +
-                        "SELECT comment value1 FROM test_union_all",
-                "CREATE TABLE test_union_all_failure AS\n" +
-                        "SELECT comment value1 FROM test_union_all " +
-                        "UNION ALL " +
-                        "SELECT comment value1 FROM test_union_all",
-                30000 * 10,
-                ImmutableList.of(
-                        "DROP TABLE IF EXISTS test_union_all",
-                        "DROP TABLE IF EXISTS test_union_all_success",
-                        "DROP TABLE IF EXISTS test_union_all_failure"));
-    }
-
     @Test(invocationCount = INVOCATION_COUNT)
     public void testCountOnUnbucketedTable()
             throws Exception
@@ -495,7 +444,6 @@ public class TestHiveRecoverableExecution
                 .setSystemProperty(RECOVERABLE_GROUPED_EXECUTION, "true")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(REDISTRIBUTE_WRITES, "false")
-                .setSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, "true")
                 .setSystemProperty(TASK_WRITER_COUNT, Integer.toString(writerConcurrency))
                 .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, Integer.toString(writerConcurrency))
                 .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, "hive")

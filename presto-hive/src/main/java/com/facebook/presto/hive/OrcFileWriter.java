@@ -47,6 +47,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static com.facebook.presto.hive.HiveManifestUtils.createFileStatisticsPage;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -64,6 +65,7 @@ public class OrcFileWriter
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
 
     private long validationCpuNanos;
+    private long rowCount;
 
     public OrcFileWriter(
             DataSink dataSink,
@@ -146,6 +148,7 @@ public class OrcFileWriter
         Page page = new Page(dataPage.getPositionCount(), blocks);
         try {
             orcWriter.write(page);
+            rowCount += page.getPositionCount();
         }
         catch (IOException | UncheckedIOException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
@@ -153,7 +156,7 @@ public class OrcFileWriter
     }
 
     @Override
-    public void commit()
+    public Optional<Page> commit()
     {
         try {
             orcWriter.close();
@@ -180,6 +183,8 @@ public class OrcFileWriter
                 throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+
+        return Optional.of(createFileStatisticsPage(getWrittenBytes(), rowCount));
     }
 
     @Override

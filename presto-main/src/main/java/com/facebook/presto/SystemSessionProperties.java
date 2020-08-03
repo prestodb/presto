@@ -45,6 +45,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
@@ -71,7 +72,7 @@ public final class SystemSessionProperties
     public static final String USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT = "use_stream_exchange_for_mark_distinct";
     public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
     public static final String GROUPED_EXECUTION_FOR_JOIN = "grouped_execution_for_join";
-    public static final String GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS = "grouped_execution_for_eligible_table_scans";
+    public static final String GROUPED_EXECUTION = "grouped_execution";
     public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
     public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
@@ -90,6 +91,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
+    public static final String QUERY_MAX_SCAN_RAW_INPUT_BYTES = "query_max_scan_raw_input_bytes";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String SCALE_WRITERS = "scale_writers";
@@ -160,6 +162,7 @@ public final class SystemSessionProperties
     public static final String WARNING_HANDLING = "warning_handling";
     public static final String OPTIMIZE_NULLS_IN_JOINS = "optimize_nulls_in_join";
     public static final String TARGET_RESULT_SIZE = "target_result_size";
+    public static final String PUSHDOWN_DEREFERENCE_ENABLED = "pushdown_dereference_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -257,9 +260,9 @@ public final class SystemSessionProperties
                         featuresConfig.isGroupedExecutionForJoinEnabled(),
                         false),
                 booleanProperty(
-                        GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS,
-                        "Experimental: Use grouped execution for eligible table scans",
-                        featuresConfig.isGroupedExecutionForEligibleTableScansEnabled(),
+                        GROUPED_EXECUTION,
+                        "Use grouped execution when possible",
+                        featuresConfig.isGroupedExecutionEnabled(),
                         false),
                 booleanProperty(
                         DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION,
@@ -424,6 +427,11 @@ public final class SystemSessionProperties
                         "Use resources which are not guaranteed to be available to the query",
                         false,
                         false),
+                dataSizeProperty(
+                        QUERY_MAX_SCAN_RAW_INPUT_BYTES,
+                        "Maximum scan raw input bytes of a query",
+                        queryManagerConfig.getQueryMaxScanRawInputBytes(),
+                        false),
                 integerProperty(
                         QUERY_MAX_STAGE_COUNT,
                         "Temporary: Maximum number of stages a query can have",
@@ -450,7 +458,7 @@ public final class SystemSessionProperties
                         Duration::toString),
                 booleanProperty(
                         OPTIMIZE_METADATA_QUERIES,
-                        "Enable optimization for metadata queries",
+                        "Enable optimization for metadata queries. Note if metadata entry has empty data, the result might be different (e.g. empty Hive partition)",
                         featuresConfig.isOptimizeMetadataQueries(),
                         false),
                 integerProperty(
@@ -728,7 +736,12 @@ public final class SystemSessionProperties
                 booleanProperty(
                         PUSHDOWN_SUBFIELDS_ENABLED,
                         "Experimental: enable subfield pruning",
-                        true,
+                        featuresConfig.isPushdownSubfieldsEnabled(),
+                        false),
+                booleanProperty(
+                        PUSHDOWN_DEREFERENCE_ENABLED,
+                        "Experimental: enable dereference pushdown",
+                        featuresConfig.isPushdownDereferenceEnabled(),
                         false),
                 booleanProperty(
                         TABLE_WRITER_MERGE_OPERATOR_ENABLED,
@@ -892,17 +905,17 @@ public final class SystemSessionProperties
 
     public static boolean isGroupedExecutionForAggregationEnabled(Session session)
     {
-        return session.getSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, Boolean.class);
+        return session.getSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, Boolean.class) && isGroupedExecutionEnabled(session);
     }
 
     public static boolean isGroupedExecutionForJoinEnabled(Session session)
     {
-        return session.getSystemProperty(GROUPED_EXECUTION_FOR_JOIN, Boolean.class);
+        return session.getSystemProperty(GROUPED_EXECUTION_FOR_JOIN, Boolean.class) && isGroupedExecutionEnabled(session);
     }
 
-    public static boolean isGroupedExecutionForEligibleTableScansEnabled(Session session)
+    public static boolean isGroupedExecutionEnabled(Session session)
     {
-        return session.getSystemProperty(GROUPED_EXECUTION_FOR_ELIGIBLE_TABLE_SCANS, Boolean.class);
+        return session.getSystemProperty(GROUPED_EXECUTION, Boolean.class);
     }
 
     public static boolean isDynamicScheduleForGroupedExecution(Session session)
@@ -1113,6 +1126,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_CPU_TIME, Duration.class);
+    }
+
+    public static DataSize getQueryMaxScanRawInputBytes(Session session)
+    {
+        return session.getSystemProperty(QUERY_MAX_SCAN_RAW_INPUT_BYTES, DataSize.class);
     }
 
     public static boolean isSpillEnabled(Session session)
@@ -1327,6 +1345,11 @@ public final class SystemSessionProperties
     public static boolean isPushdownSubfieldsEnabled(Session session)
     {
         return session.getSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPushdownDereferenceEnabled(Session session)
+    {
+        return session.getSystemProperty(PUSHDOWN_DEREFERENCE_ENABLED, Boolean.class);
     }
 
     public static boolean isTableWriterMergeOperatorEnabled(Session session)

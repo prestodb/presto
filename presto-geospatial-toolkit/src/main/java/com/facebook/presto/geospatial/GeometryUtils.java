@@ -18,6 +18,7 @@ import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.GeometryEngine;
 import com.esri.core.geometry.MultiVertexGeometry;
+import com.esri.core.geometry.Operator;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
@@ -346,6 +347,27 @@ public final class GeometryUtils
             return ImmutableList.of();
         }
         return () -> new GeometryCollectionIterator(geometry);
+    }
+
+    public static void accelerateGeometry(OGCGeometry ogcGeometry, Operator relateOperator)
+    {
+        accelerateGeometry(ogcGeometry, relateOperator, Geometry.GeometryAccelerationDegree.enumMild);
+    }
+
+    public static void accelerateGeometry(
+            OGCGeometry ogcGeometry,
+            Operator relateOperator,
+            Geometry.GeometryAccelerationDegree accelerationDegree)
+    {
+        // Recurse into GeometryCollections
+        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
+        while (true) {
+            Geometry esriGeometry = cursor.next();
+            if (esriGeometry == null) {
+                break;
+            }
+            relateOperator.accelerateGeometry(esriGeometry, null, accelerationDegree);
+        }
     }
 
     private static class GeometryCollectionIterator

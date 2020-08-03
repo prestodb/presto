@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.NodeState;
 
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -33,6 +34,7 @@ import java.util.Set;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -40,6 +42,7 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/v1/worker")
+@RolesAllowed(ADMIN)
 public class WorkerResource
 {
     private final InternalNodeManager nodeManager;

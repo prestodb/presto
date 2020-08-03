@@ -172,7 +172,13 @@ public class KdbTree
 
     public Map<Integer, Rectangle> findIntersectingLeaves(Rectangle envelope)
     {
-        return findLeaves(node -> node.extent.intersects(envelope));
+        return findLeaves(node -> {
+            // Nodes don't include their upper (yMax) or right (xMax) boundaries
+            return node.extent.getXMin() <= envelope.getXMax()
+                    && node.extent.getXMax() > envelope.getXMin()
+                    && node.extent.getYMin() <= envelope.getYMax()
+                    && node.extent.getYMax() > envelope.getYMin();
+        });
     }
 
     private Map<Integer, Rectangle> findLeaves(Predicate<Node> predicate)

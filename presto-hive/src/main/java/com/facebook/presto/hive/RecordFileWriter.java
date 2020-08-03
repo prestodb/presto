@@ -39,6 +39,7 @@ import org.openjdk.jol.info.ClassLayout;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
@@ -175,11 +176,12 @@ public class RecordFileWriter
     }
 
     @Override
-    public void commit()
+    public Optional<Page> commit()
     {
         try {
             recordWriter.close(false);
             committed = true;
+            return Optional.empty();
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);

@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.239-SNAPSHOT</version>
+        <version>0.240-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-i18n-functions</artifactId>
@@ -25,13 +25,6 @@
             <groupId>com.google.myanmartools</groupId>
             <artifactId>myanmar-tools</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>joda-to-java-time-bridge</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
 
         <!-- Presto SPI -->
         <dependency>

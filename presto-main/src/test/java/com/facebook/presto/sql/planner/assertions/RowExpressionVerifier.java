@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -32,6 +33,7 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DecimalLiteral;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -68,7 +70,9 @@ import static com.facebook.presto.common.function.OperatorType.MODULUS;
 import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IN;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
@@ -77,7 +81,9 @@ import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpres
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.AND;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -136,7 +142,8 @@ final class RowExpressionVerifier
             return false;
         }
 
-        if (!expected.getType().equalsIgnoreCase(actual.getType().toString())) {
+        if (!expected.getType().equalsIgnoreCase(actual.getType().toString()) &&
+                !(expected.getType().toLowerCase(ENGLISH).equals(VARCHAR) && actual.getType().getTypeSignature().getBase().equals(VARCHAR))) {
             return false;
         }
 
@@ -320,6 +327,28 @@ final class RowExpressionVerifier
     protected Boolean visitBooleanLiteral(BooleanLiteral expected, RowExpression actual)
     {
         return compareLiteral(expected, actual);
+    }
+
+    @Override
+    protected Boolean visitDereferenceExpression(DereferenceExpression expected, RowExpression actual)
+    {
+        if (!(actual instanceof SpecialFormExpression) || !(((SpecialFormExpression) actual).getForm().equals(DEREFERENCE))) {
+            return false;
+        }
+        SpecialFormExpression actualDereference = (SpecialFormExpression) actual;
+        if (actualDereference.getArguments().size() == 2 &&
+                actualDereference.getArguments().get(0).getType() instanceof RowType &&
+                actualDereference.getArguments().get(1) instanceof ConstantExpression) {
+            RowType rowType = (RowType) actualDereference.getArguments().get(0).getType();
+            Object value = LiteralInterpreter.evaluate(TEST_SESSION.toConnectorSession(), (ConstantExpression) actualDereference.getArguments().get(1));
+            checkState(value instanceof Long);
+            long index = (Long) value;
+            checkState(index >= 0 && index < rowType.getFields().size());
+            RowType.Field field = rowType.getFields().get(toIntExact(index));
+            checkState(field.getName().isPresent());
+            return expected.getField().getValue().equals(field.getName().get()) && process(expected.getBase(), actualDereference.getArguments().get(0));
+        }
+        return false;
     }
 
     private static String getValueFromLiteral(Node expression)

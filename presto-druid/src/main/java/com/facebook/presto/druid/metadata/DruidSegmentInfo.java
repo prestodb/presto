@@ -19,6 +19,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.Nullable;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -31,7 +35,11 @@ import static java.util.Objects.requireNonNull;
 public class DruidSegmentInfo
 {
     private static final String DEEP_STORAGE_TYPE_KEY = "type";
-    private static final String SEGMENT_PATH_KEY = "path";
+    private static final String DEEP_STORAGE_S3_SCHEMA_KEY = "S3Schema";
+    private static final String DEEP_STORAGE_BUCKET_KEY = "bucket";
+    private static final String DEEP_STORAGE_PATH_KEY = "path";
+    private static final String S3A_SCHEMA = "s3a";
+    private static final String S3N_SCHEMA = "s3n";
 
     private final String dataSource;
     private final String version;
@@ -42,13 +50,26 @@ public class DruidSegmentInfo
 
     public enum DeepStorageType
     {
-        HDFS("hdfs");
+        HDFS("hdfs"),
+        S3("s3_zip"),
+        GCS("google"),
+        LOCAL("local");
 
         private final String type;
 
         DeepStorageType(String type)
         {
             this.type = type;
+        }
+
+        static DeepStorageType fromType(String type)
+        {
+            for (DeepStorageType deepStorageType : DeepStorageType.values()) {
+                if (deepStorageType.type.equalsIgnoreCase(type)) {
+                    return deepStorageType;
+                }
+            }
+            throw new IllegalArgumentException("Unknown deep storage type: " + type);
         }
     }
 
@@ -109,14 +130,41 @@ public class DruidSegmentInfo
     {
         Map<String, String> loadSpecification = getLoadSpecification()
                 .orElseThrow(() -> new PrestoException(DRUID_METADATA_ERROR, format("Malformed segment loadSpecification: %s", getLoadSpecification())));
-        return DeepStorageType.valueOf(loadSpecification.get(DEEP_STORAGE_TYPE_KEY).toUpperCase());
+        return DeepStorageType.fromType(loadSpecification.get(DEEP_STORAGE_TYPE_KEY));
     }
 
-    public String getDeepStoragePath()
+    public URI getDeepStoragePath()
     {
-        Map<String, String> loadSpecification = getLoadSpecification()
+        final Map<String, String> loadSpec = getLoadSpecification()
                 .orElseThrow(() -> new PrestoException(DRUID_METADATA_ERROR, format("Malformed segment loadSpecification: %s", getLoadSpecification())));
-        return loadSpecification.get(SEGMENT_PATH_KEY);
+        final String type = loadSpec.get(DEEP_STORAGE_TYPE_KEY);
+        final URI segmentLocURI;
+        try {
+            switch (DeepStorageType.fromType(type)) {
+                case S3:
+                    final String s3schema = S3A_SCHEMA.equals(loadSpec.get(DEEP_STORAGE_S3_SCHEMA_KEY)) ? S3A_SCHEMA : S3N_SCHEMA;
+                    segmentLocURI = URI.create(format("%s://%s/%s", s3schema, loadSpec.get(DEEP_STORAGE_BUCKET_KEY), loadSpec.get("key")));
+                    break;
+                case HDFS:
+                    segmentLocURI = URI.create(loadSpec.get(DEEP_STORAGE_PATH_KEY));
+                    break;
+                case GCS:
+                    segmentLocURI = URI.create(
+                            format("gs://%s/%s",
+                                loadSpec.get(DEEP_STORAGE_BUCKET_KEY),
+                                URLEncoder.encode(loadSpec.get(DEEP_STORAGE_PATH_KEY), "UTF-8")));
+                    break;
+                case LOCAL:
+                    segmentLocURI = new URI("file", null, loadSpec.get(DEEP_STORAGE_PATH_KEY), null, null);
+                    break;
+                default:
+                    throw new PrestoException(DRUID_METADATA_ERROR, format("Unsupported segment filesystem: %s", type));
+            }
+        }
+        catch (URISyntaxException | UnsupportedEncodingException e) {
+            throw new PrestoException(DRUID_METADATA_ERROR, e);
+        }
+        return segmentLocURI;
     }
 
     @Override

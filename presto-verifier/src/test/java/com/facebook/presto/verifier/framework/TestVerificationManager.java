@@ -14,17 +14,17 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.event.client.AbstractEventClient;
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
-import com.facebook.presto.verifier.prestoaction.NodeResourceClient;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableList;
@@ -72,7 +72,7 @@ public class TestVerificationManager
         }
 
         @Override
-        public QueryStats execute(Statement statement, QueryStage queryStage)
+        public QueryStatsEvent execute(Statement statement, QueryStage queryStage)
         {
             throw exceptionGenerator.apply(queryStage);
         }
@@ -84,16 +84,6 @@ public class TestVerificationManager
                 ResultSetConverter<R> converter)
         {
             throw exceptionGenerator.apply(queryStage);
-        }
-    }
-
-    private static class MockNodeResourceClient
-            implements NodeResourceClient
-    {
-        @Override
-        public int getClusterSize(String path)
-        {
-            throw new UnsupportedOperationException();
         }
     }
 
@@ -217,10 +207,9 @@ public class TestVerificationManager
                 () -> sourceQueries,
                 new VerificationFactory(
                         SQL_PARSER,
-                        (sourceQuery, verificationContext) -> prestoAction,
+                        (sourceQuery, verificationContext) -> new QueryActions(prestoAction, prestoAction, prestoAction),
                         presto -> new QueryRewriter(SQL_PARSER, createTypeManager(), presto, ImmutableMap.of(CONTROL, TABLE_PREFIX, TEST, TABLE_PREFIX), ImmutableMap.of()),
                         new FailureResolverManagerFactory(ImmutableSet.of(), ImmutableSet.of()),
-                        new MockNodeResourceClient(),
                         createChecksumValidator(verifierConfig),
                         PrestoExceptionClassifier.defaultBuilder().build(),
                         verifierConfig,
