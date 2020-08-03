@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>98</version>
+        <version>99</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
