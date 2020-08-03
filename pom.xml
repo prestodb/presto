@@ -66,7 +66,7 @@
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.17.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
-
+        <dep.hudi.version>0.5.3</dep.hudi.version>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -141,7 +141,7 @@
         <module>presto-password-authenticators</module>
         <module>presto-session-property-managers</module>
         <module>presto-benchto-benchmarks</module>
-        <module>presto-thrift-connector-api</module>
+        <module>presto-thrift-api</module>
         <module>presto-thrift-testing-server</module>
         <module>presto-thrift-connector</module>
         <module>presto-matching</module>
@@ -154,12 +154,14 @@
         <module>presto-benchmark-runner</module>
         <module>presto-spark-classloader-interface</module>
         <module>presto-spark-base</module>
+        <module>presto-spark-common</module>
         <module>presto-spark</module>
         <module>presto-spark-package</module>
         <module>presto-spark-launcher</module>
         <module>presto-spark-testing</module>
         <module>presto-druid</module>
         <module>presto-common</module>
+        <module>presto-thrift-testing-udf-server</module>
     </modules>
 
     <dependencyManagement>
@@ -523,6 +525,12 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spark-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spark-base</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -565,13 +573,13 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-thrift-connector-api</artifactId>
+                <artifactId>presto-thrift-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-thrift-connector-api</artifactId>
+                <artifactId>presto-thrift-api</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
             </dependency>
@@ -593,6 +601,12 @@
                 <artifactId>presto-thrift-connector</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-thrift-testing-udf-server</artifactId>
+                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -1002,7 +1016,7 @@
             <dependency>
                 <groupId>org.apache.hudi</groupId>
                 <artifactId>hudi-hadoop-mr</artifactId>
-                <version>0.5.1-incubating</version>
+                <version>${dep.hudi.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.objenesis</groupId>

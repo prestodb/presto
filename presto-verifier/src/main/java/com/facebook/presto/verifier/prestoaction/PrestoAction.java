@@ -14,7 +14,6 @@
 package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
 
@@ -44,7 +43,7 @@ public interface PrestoAction
         };
     }
 
-    QueryStatsEvent execute(Statement statement, QueryStage queryStage);
+    QueryActionStats execute(Statement statement, QueryStage queryStage);
 
     <R> QueryResult<R> execute(Statement statement, QueryStage queryStage, ResultSetConverter<R> converter);
 }

@@ -65,7 +65,6 @@ public class TestDistributedSpilledQueries
     }
 
     @Test(enabled = false)
-    @Override
     public void testJoinPredicatePushdown()
     {
         // TODO: disabled until join spilling is reworked
@@ -80,14 +79,12 @@ public class TestDistributedSpilledQueries
     }
 
     @Test(enabled = false)
-    @Override
     public void testLimitWithJoin()
     {
         // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.
     }
 
     @Test(enabled = false)
-    @Override
     public void testJoinDoubleClauseWithRightOverlap()
     {
         // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.

@@ -16,6 +16,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.airlift.stats.CpuTimer;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
@@ -173,7 +174,7 @@ public abstract class AbstractOperatorBenchmark
             public Operator createOperator(DriverContext driverContext)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, "BenchmarkSource");
-                ConnectorPageSource pageSource = localQueryRunner.getPageSourceManager().createPageSource(session, split, tableHandle, columnHandles);
+                ConnectorPageSource pageSource = localQueryRunner.getPageSourceManager().createPageSource(session, split, tableHandle.withDynamicFilter(TupleDomain::all), columnHandles);
                 return new PageSourceOperator(pageSource, operatorContext);
             }
 
@@ -248,7 +249,7 @@ public abstract class AbstractOperatorBenchmark
                 if (!driver.isFinished()) {
                     driver.process();
                     long lastPeakMemory = peakMemory;
-                    peakMemory = (long) taskContext.getTaskStats().getUserMemoryReservation().getValue(BYTE);
+                    peakMemory = taskContext.getTaskStats().getUserMemoryReservationInBytes();
                     if (peakMemory <= lastPeakMemory) {
                         peakMemory = lastPeakMemory;
                     }
@@ -294,9 +295,9 @@ public abstract class AbstractOperatorBenchmark
 
         TaskStats taskStats = taskContext.getTaskStats();
         long inputRows = taskStats.getRawInputPositions();
-        long inputBytes = taskStats.getRawInputDataSize().toBytes();
+        long inputBytes = taskStats.getRawInputDataSizeInBytes();
         long outputRows = taskStats.getOutputPositions();
-        long outputBytes = taskStats.getOutputDataSize().toBytes();
+        long outputBytes = taskStats.getOutputDataSizeInBytes();
 
         double inputMegaBytes = new DataSize(inputBytes, BYTE).getValue(MEGABYTE);
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.presto.verifier.event.QueryStatsEvent;
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +31,7 @@ public class VerifierLimitationFailureResolver
     public static final String NAME = "verifier-limitation";
 
     @Override
-    public Optional<String> resolveQueryFailure(QueryStatsEvent controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         return mapMatchingPrestoException(queryException, CONTROL_CHECKSUM, ImmutableSet.of(COMPILER_ERROR, GENERATED_BYTECODE_TOO_LARGE),
                 e -> Optional.of("Checksum query too large"));

@@ -66,6 +66,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.druid.DruidColumnHandle.DruidColumnType.REGULAR;
 import static com.facebook.presto.druid.DruidQueryGeneratorContext.Origin.DERIVED;
@@ -92,17 +93,21 @@ public class TestDruidQueryBase
     protected static DruidColumnHandle city = new DruidColumnHandle("city", VARCHAR, REGULAR);
     protected static final DruidColumnHandle fare = new DruidColumnHandle("fare", DOUBLE, REGULAR);
     protected static final DruidColumnHandle secondsSinceEpoch = new DruidColumnHandle("secondsSinceEpoch", BIGINT, REGULAR);
+    protected static final DruidColumnHandle datetime = new DruidColumnHandle("datetime", TIMESTAMP, REGULAR);
 
     protected static final Metadata metadata = MetadataManager.createTestMetadataManager();
 
     protected final DruidConfig druidConfig = new DruidConfig();
 
-    protected static final Map<VariableReferenceExpression, DruidQueryGeneratorContext.Selection> testInput = ImmutableMap.of(
-            new VariableReferenceExpression("region.id", BIGINT), new DruidQueryGeneratorContext.Selection("region.Id", TABLE_COLUMN),
-            new VariableReferenceExpression("city", VARCHAR), new DruidQueryGeneratorContext.Selection("city", TABLE_COLUMN),
-            new VariableReferenceExpression("fare", DOUBLE), new DruidQueryGeneratorContext.Selection("fare", TABLE_COLUMN),
-            new VariableReferenceExpression("totalfare", DOUBLE), new DruidQueryGeneratorContext.Selection("(fare + trip)", DERIVED),
-            new VariableReferenceExpression("secondssinceepoch", BIGINT), new DruidQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN));
+    protected static final Map<VariableReferenceExpression, DruidQueryGeneratorContext.Selection> testInput =
+            new ImmutableMap.Builder<VariableReferenceExpression, DruidQueryGeneratorContext.Selection>()
+                    .put(new VariableReferenceExpression("region.id", BIGINT), new DruidQueryGeneratorContext.Selection("region.Id", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression("city", VARCHAR), new DruidQueryGeneratorContext.Selection("city", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression("fare", DOUBLE), new DruidQueryGeneratorContext.Selection("fare", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression("totalfare", DOUBLE), new DruidQueryGeneratorContext.Selection("(fare + trip)", DERIVED))
+                    .put(new VariableReferenceExpression("secondssinceepoch", BIGINT), new DruidQueryGeneratorContext.Selection("secondsSinceEpoch", TABLE_COLUMN))
+                    .put(new VariableReferenceExpression("datetime", TIMESTAMP), new DruidQueryGeneratorContext.Selection("datetime", TABLE_COLUMN))
+                    .build();
 
     protected final TypeProvider typeProvider = TypeProvider.fromVariables(testInput.keySet());
 

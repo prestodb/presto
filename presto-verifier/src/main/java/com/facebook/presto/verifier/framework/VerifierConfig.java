@@ -50,6 +50,7 @@ public class VerifierConfig
 
     private boolean setupOnMainClusters = true;
     private boolean teardownOnMainClusters = true;
+    private boolean skipControl;
 
     @NotNull
     public Optional<Set<String>> getWhitelist()
@@ -286,6 +287,19 @@ public class VerifierConfig
     public VerifierConfig setTeardownOnMainClusters(boolean teardownOnMainClusters)
     {
         this.teardownOnMainClusters = teardownOnMainClusters;
+        return this;
+    }
+
+    public boolean isSkipControl()
+    {
+        return skipControl;
+    }
+
+    @ConfigDescription("Skip control queries and result comparison, only run test queries.")
+    @Config("skip-control")
+    public VerifierConfig setSkipControl(boolean skipControl)
+    {
+        this.skipControl = skipControl;
         return this;
     }
 }

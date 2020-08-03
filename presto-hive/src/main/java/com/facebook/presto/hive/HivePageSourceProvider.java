@@ -152,6 +152,10 @@ public class HivePageSourceProvider
             }
         }
 
+        TupleDomain<HiveColumnHandle> effectivePredicate = hiveLayout.getDomainPredicate()
+                .transform(Subfield::getRootName)
+                .transform(hiveLayout.getPredicateColumns()::get);
+
         CacheQuota cacheQuota = generateCacheQuota(hiveSplit);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
@@ -164,9 +168,7 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
                 hiveSplit.getStorage(),
-                hiveLayout.getDomainPredicate()
-                        .transform(Subfield::getRootName)
-                        .transform(hiveLayout.getPredicateColumns()::get),
+                splitContext.getDynamicFilterPredicate().map(filter -> filter.transform(handle -> (HiveColumnHandle) handle).intersect(effectivePredicate)).orElse(effectivePredicate),
                 selectedColumns,
                 hiveLayout.getPredicateColumns(),
                 hiveSplit.getPartitionKeys(),
@@ -184,7 +186,8 @@ public class HivePageSourceProvider
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService,
-                encryptionInformation);
+                encryptionInformation,
+                hiveSplit.getCustomSplitInfo());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -276,7 +279,8 @@ public class HivePageSourceProvider
                     coercers,
                     bucketAdaptation,
                     outputColumns,
-                    layout.getDomainPredicate(),
+                    splitContext.getDynamicFilterPredicate().map(filter -> filter.transform(
+                            handle -> new Subfield(((HiveColumnHandle) handle).getName())).intersect(layout.getDomainPredicate())).orElse(layout.getDomainPredicate()),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
                     new HiveFileContext(splitContext.isCacheable(), cacheQuota, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
@@ -318,7 +322,8 @@ public class HivePageSourceProvider
             RowExpression remainingPredicate,
             boolean isPushdownFilterEnabled,
             RowExpressionService rowExpressionService,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            Map<String, String> customSplitInfo)
     {
         List<HiveColumnHandle> allColumns;
 
@@ -422,7 +427,8 @@ public class HivePageSourceProvider
                     effectivePredicate,
                     hiveStorageTimeZone,
                     typeManager,
-                    s3SelectPushdownEnabled);
+                    s3SelectPushdownEnabled,
+                    customSplitInfo);
 
             if (cursor.isPresent()) {
                 RecordCursor delegate = cursor.get();

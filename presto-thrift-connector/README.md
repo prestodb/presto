@@ -3,7 +3,7 @@ Thrift Connector
 
 Thrift Connector makes it possible to integrate with external storage systems without a custom Presto connector implementation.
 
-In order to use Thrift Connector with external system you need to implement `PrestoThriftService` interface defined in `presto-thrift-connector-api` project.
+In order to use Thrift Connector with external system you need to implement `PrestoThriftService` interface defined in `presto-thrift-api` project.
 Next, you configure Thrift Connector to point to a set of machines, called thrift servers, implementing it.
 As part of the interface implementation thrift servers will provide metadata, splits and data.
 Thrift server instances are assumed to be stateless and independent from each other.
@@ -19,5 +19,5 @@ Instead of supporting all of the variations in the connector this task can be mo
 
 * You cannot or don't want to modify Presto code to add a custom connector to support your storage system.
 
-You can find thrift service interface that needs to be implemented together with related thrift structures in `presto-thrift-connector-api` project.
-Documentation of [`PrestoThriftService`](../presto-thrift-connector-api/src/main/java/com/facebook/presto/connector/thrift/api/PrestoThriftService.java) is a good starting point.
+You can find thrift service interface that needs to be implemented together with related thrift structures in `presto-thrift-api` project.
+Documentation of [`PrestoThriftService`](../presto-thrift-api/src/main/java/com/facebook/presto/thrift/api/connector/PrestoThriftService.java) is a good starting point.

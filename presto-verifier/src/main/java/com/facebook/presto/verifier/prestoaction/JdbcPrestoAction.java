@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
@@ -43,17 +41,14 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.verifier.prestoaction.QueryActionUtil.mangleSessionProperties;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcPrestoAction
         implements PrestoAction
 {
     public static final String QUERY_ACTION_TYPE = "presto-jdbc";
-    private static final JsonCodec<ClientInfo> CLIENT_INFO_JSON_CODEC = jsonCodec(ClientInfo.class);
 
     private final SqlExceptionClassifier exceptionClassifier;
     private final QueryConfiguration queryConfiguration;
@@ -104,7 +99,7 @@ public class JdbcPrestoAction
     }
 
     @Override
-    public QueryStatsEvent execute(Statement statement, QueryStage queryStage)
+    public QueryActionStats execute(Statement statement, QueryStage queryStage)
     {
         return execute(statement, queryStage, new NoResultStatementExecutor<>());
     }
@@ -202,9 +197,9 @@ public class JdbcPrestoAction
             this.queryStats = Optional.of(requireNonNull(queryStats, "queryStats is null"));
         }
 
-        public synchronized Optional<QueryStatsEvent> getLastQueryStats()
+        public synchronized QueryActionStats getLastQueryStats()
         {
-            return queryStats.map(stats -> new QueryStatsEvent(stats, Optional.empty()));
+            return new QueryActionStats(queryStats, Optional.empty());
         }
     }
 
@@ -236,8 +231,7 @@ public class JdbcPrestoAction
                 while (resultSet.next()) {
                     converter.apply(resultSet).ifPresent(rows::add);
                 }
-                checkState(progressMonitor.getLastQueryStats().isPresent(), "lastQueryStats is missing");
-                return new QueryResult<>(rows.build(), resultSet.getMetaData(), progressMonitor.getLastQueryStats().get());
+                return new QueryResult<>(rows.build(), resultSet.getMetaData(), progressMonitor.getLastQueryStats());
             }
         }
 
@@ -249,12 +243,12 @@ public class JdbcPrestoAction
     }
 
     private static class NoResultStatementExecutor<R>
-            implements StatementExecutor<QueryStatsEvent>
+            implements StatementExecutor<QueryActionStats>
     {
         private final ProgressMonitor progressMonitor = new ProgressMonitor();
 
         @Override
-        public QueryStatsEvent execute(PrestoStatement statement, String query)
+        public QueryActionStats execute(PrestoStatement statement, String query)
                 throws SQLException
         {
             boolean moreResults = statement.execute(query);
@@ -268,8 +262,7 @@ public class JdbcPrestoAction
                 }
             }
             while (moreResults || statement.getUpdateCount() != -1);
-            checkState(progressMonitor.getLastQueryStats().isPresent(), "lastQueryStats is missing");
-            return progressMonitor.getLastQueryStats().get();
+            return progressMonitor.getLastQueryStats();
         }
 
         @Override

@@ -974,6 +974,7 @@ public final class FunctionAssertions
                             Optional.empty()),
                     ImmutableList.of(),
                     ImmutableList.of(projection.getType()),
+                    Optional.empty(),
                     new DataSize(0, BYTE),
                     0);
         }

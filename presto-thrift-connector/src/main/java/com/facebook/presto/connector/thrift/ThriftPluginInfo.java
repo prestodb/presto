@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.thrift;
 
-import com.facebook.presto.connector.thrift.api.PrestoThriftService;
+import com.facebook.presto.thrift.api.connector.PrestoThriftService;
 import com.google.inject.Module;
 
 import static com.facebook.drift.client.guice.DriftClientBinder.driftClientBinder;

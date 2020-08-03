@@ -20,10 +20,10 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.type.TypeRegistry;
-import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.resolver.FailureResolverManagerFactory;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
@@ -51,6 +51,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QU
 import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
 import static com.facebook.presto.verifier.framework.SkippedReason.UNSUPPORTED_QUERY_TYPE;
 import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_INTERNAL_ERROR;
+import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertEquals;
 
@@ -63,7 +64,7 @@ public class TestVerificationManager
 
         public MockPrestoAction(ErrorCodeSupplier errorCode)
         {
-            this.exceptionGenerator = queryStage -> new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), Optional.empty());
+            this.exceptionGenerator = queryStage -> new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), EMPTY_STATS);
         }
 
         public MockPrestoAction(RuntimeException exception)
@@ -72,7 +73,7 @@ public class TestVerificationManager
         }
 
         @Override
-        public QueryStatsEvent execute(Statement statement, QueryStage queryStage)
+        public QueryActionStats execute(Statement statement, QueryStage queryStage)
         {
             throw exceptionGenerator.apply(queryStage);
         }

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.MatchResult;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 
 import java.util.Optional;
 import java.util.Set;
@@ -32,14 +32,17 @@ public class FailureResolverManager
         this.failureResolvers = requireNonNull(failureResolvers, "failureResolvers is null");
     }
 
-    public Optional<String> resolveException(QueryStatsEvent controlQueryStats, Throwable throwable, Optional<QueryBundle> test)
+    public Optional<String> resolveException(QueryActionStats controlStats, Throwable throwable, Optional<QueryBundle> test)
     {
         if (!(throwable instanceof QueryException)) {
             return Optional.of("Verifier Error");
         }
 
         for (FailureResolver failureResolver : failureResolvers) {
-            Optional<String> resolveMessage = failureResolver.resolveQueryFailure(controlQueryStats, (QueryException) throwable, test);
+            if (!controlStats.getQueryStats().isPresent()) {
+                continue;
+            }
+            Optional<String> resolveMessage = failureResolver.resolveQueryFailure(controlStats.getQueryStats().get(), (QueryException) throwable, test);
             if (resolveMessage.isPresent()) {
                 return resolveMessage;
             }

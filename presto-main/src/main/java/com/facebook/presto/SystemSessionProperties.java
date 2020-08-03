@@ -163,6 +163,9 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_NULLS_IN_JOINS = "optimize_nulls_in_join";
     public static final String TARGET_RESULT_SIZE = "target_result_size";
     public static final String PUSHDOWN_DEREFERENCE_ENABLED = "pushdown_dereference_enabled";
+    public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
+    public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
+    public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -841,7 +844,26 @@ public final class SystemSessionProperties
                         null,
                         false,
                         value -> value != null ? DataSize.valueOf((String) value) : null,
-                        value -> value != null ? value.toString() : null));
+                        value -> value != null ? value.toString() : null),
+                booleanProperty(
+                        ENABLE_DYNAMIC_FILTERING,
+                        "Experimental: Enable dynamic filtering",
+                        featuresConfig.isEnableDynamicFiltering(),
+                        false),
+                integerProperty(
+                        DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT,
+                        "Experimental: maximum number of build-side rows to be collected for dynamic filtering per-driver",
+                        featuresConfig.getDynamicFilteringMaxPerDriverRowCount(),
+                        false),
+                new PropertyMetadata<>(
+                        DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE,
+                        "Experimental: maximum number of bytes to be collected for dynamic filtering per-driver",
+                        VARCHAR,
+                        DataSize.class,
+                        featuresConfig.getDynamicFilteringMaxPerDriverSize(),
+                        false,
+                        value -> DataSize.valueOf((String) value),
+                        DataSize::toString));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1421,5 +1443,20 @@ public final class SystemSessionProperties
     public static Optional<DataSize> getTargetResultSize(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(TARGET_RESULT_SIZE, DataSize.class));
+    }
+
+    public static boolean isEnableDynamicFiltering(Session session)
+    {
+        return session.getSystemProperty(ENABLE_DYNAMIC_FILTERING, Boolean.class);
+    }
+
+    public static int getDynamicFilteringMaxPerDriverRowCount(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT, Integer.class);
+    }
+
+    public static DataSize getDynamicFilteringMaxPerDriverSize(Session session)
+    {
+        return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE, DataSize.class);
     }
 }

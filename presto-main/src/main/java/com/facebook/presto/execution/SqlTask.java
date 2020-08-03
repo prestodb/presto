@@ -39,7 +39,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -61,10 +60,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SqlTask
 {
@@ -249,22 +245,22 @@ public class SqlTask
 
         int queuedPartitionedDrivers = 0;
         int runningPartitionedDrivers = 0;
-        DataSize physicalWrittenDataSize = new DataSize(0, BYTE);
-        DataSize userMemoryReservation = new DataSize(0, BYTE);
-        DataSize systemMemoryReservation = new DataSize(0, BYTE);
+        long physicalWrittenDataSizeInBytes = 0L;
+        long userMemoryReservationInBytes = 0L;
+        long systemMemoryReservationInBytes = 0L;
         // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
-        Duration fullGcTime = new Duration(0, MILLISECONDS);
+        long fullGcTimeInMillis = 0L;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
-            physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
-            userMemoryReservation = taskStats.getUserMemoryReservation();
-            systemMemoryReservation = taskStats.getSystemMemoryReservation();
+            physicalWrittenDataSizeInBytes = taskStats.getPhysicalWrittenDataSizeInBytes();
+            userMemoryReservationInBytes = taskStats.getUserMemoryReservationInBytes();
+            systemMemoryReservationInBytes = taskStats.getSystemMemoryReservationInBytes();
             fullGcCount = taskStats.getFullGcCount();
-            fullGcTime = taskStats.getFullGcTime();
+            fullGcTimeInMillis = taskStats.getFullGcTimeInMillis();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -275,12 +271,12 @@ public class SqlTask
                 runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
-            physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
-            userMemoryReservation = taskContext.getMemoryReservation();
-            systemMemoryReservation = taskContext.getSystemMemoryReservation();
+            physicalWrittenDataSizeInBytes = physicalWrittenBytes;
+            userMemoryReservationInBytes = taskContext.getMemoryReservation().toBytes();
+            systemMemoryReservationInBytes = taskContext.getSystemMemoryReservation().toBytes();
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
-            fullGcTime = taskContext.getFullGcTime();
+            fullGcTimeInMillis = taskContext.getFullGcTime().toMillis();
         }
 
         return new TaskStatus(
@@ -295,11 +291,11 @@ public class SqlTask
                 runningPartitionedDrivers,
                 outputBuffer.getUtilization(),
                 isOutputBufferOverutilized(),
-                physicalWrittenDataSize.toBytes(),
-                userMemoryReservation.toBytes(),
-                systemMemoryReservation.toBytes(),
+                physicalWrittenDataSizeInBytes,
+                userMemoryReservationInBytes,
+                systemMemoryReservationInBytes,
                 fullGcCount,
-                fullGcTime.toMillis());
+                fullGcTimeInMillis);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)

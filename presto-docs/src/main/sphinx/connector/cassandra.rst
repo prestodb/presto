@@ -144,6 +144,16 @@ Property Name                                                 Description
 ``cassandra.speculative-execution.limit``                     The number of speculative executions (defaults to ``1``).
 
 ``cassandra.speculative-execution.delay``                     The delay between each speculative execution (defaults to ``500ms``).
+
+``cassandra.tls.enabled``                                     Whether TLS security is enabled (defaults to ``false``).
+
+``cassandra.tls.keystore-path``                               Path to the PEM or JKS key store.
+
+``cassandra.tls.truststore-path``                             Path to the PEM or JKS trust store.
+
+``cassandra.tls.keystore-password``                           Password for the key store.
+
+``cassandra.tls.truststore-password``                         Password for the trust store.
 ============================================================= ======================================================================
 
 Querying Cassandra Tables

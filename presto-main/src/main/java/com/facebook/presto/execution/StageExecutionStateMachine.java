@@ -261,22 +261,22 @@ public class StageExecutionStateMachine
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
 
-            long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
-            long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            long taskUserMemory = taskStats.getUserMemoryReservationInBytes();
+            long taskSystemMemory = taskStats.getSystemMemoryReservationInBytes();
             userMemoryReservation += taskUserMemory;
             totalMemoryReservation += taskUserMemory + taskSystemMemory;
 
-            totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-            totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+            totalScheduledTime += taskStats.getTotalScheduledTimeInNanos();
+            totalCpuTime += taskStats.getTotalCpuTimeInNanos();
             if (!taskState.isDone()) {
                 fullyBlocked &= taskStats.isFullyBlocked();
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
 
-            totalAllocation += taskStats.getTotalAllocation().toBytes();
+            totalAllocation += taskStats.getTotalAllocationInBytes();
 
             if (containsTableScans) {
-                rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
+                rawInputDataSize += taskStats.getRawInputDataSizeInBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }
         }

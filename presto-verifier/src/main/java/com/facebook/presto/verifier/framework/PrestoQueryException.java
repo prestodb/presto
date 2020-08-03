@@ -15,7 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.verifier.event.QueryStatsEvent;
+import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 
 import java.util.Optional;
 
@@ -26,18 +26,30 @@ public class PrestoQueryException
         extends QueryException
 {
     private final Optional<ErrorCodeSupplier> errorCode;
-    private final Optional<QueryStatsEvent> queryStats;
+    private final QueryActionStats queryActionStats;
+
+    public PrestoQueryException(
+            String message,
+            boolean retryable,
+            QueryStage queryStage,
+            Optional<ErrorCodeSupplier> errorCode,
+            QueryActionStats queryActionStats)
+    {
+        super(message, retryable, queryStage);
+        this.errorCode = requireNonNull(errorCode, "errorCode is null");
+        this.queryActionStats = requireNonNull(queryActionStats, "queryActionStats is null");
+    }
 
     public PrestoQueryException(
             Throwable cause,
             boolean retryable,
             QueryStage queryStage,
             Optional<ErrorCodeSupplier> errorCode,
-            Optional<QueryStatsEvent> queryStats)
+            QueryActionStats queryActionStats)
     {
         super(cause, retryable, queryStage);
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
-        this.queryStats = requireNonNull(queryStats, "queryStats is null");
+        this.queryActionStats = requireNonNull(queryActionStats, "queryActionStats is null");
     }
 
     public Optional<ErrorCodeSupplier> getErrorCode()
@@ -45,9 +57,9 @@ public class PrestoQueryException
         return errorCode;
     }
 
-    public Optional<QueryStatsEvent> getQueryStats()
+    public QueryActionStats getQueryActionStats()
     {
-        return queryStats;
+        return queryActionStats;
     }
 
     @Override
