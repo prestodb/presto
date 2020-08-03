@@ -30,6 +30,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
+    private boolean enableGlueColumnStat;
 
     public Optional<String> getGlueRegion()
     {
@@ -123,6 +124,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setGetPartitionThreads(int getPartitionThreads)
     {
         this.getPartitionThreads = getPartitionThreads;
+        return this;
+    }
+
+    public boolean getEnableGlueColumnStat()
+    {
+        return enableGlueColumnStat;
+    }
+
+    @Config("hive.metastore.glue.enable-column-stat")
+    @ConfigDescription("Enable glue column statistics for query planning")
+    public GlueHiveMetastoreConfig setEnableGlueColumnStat(boolean enableGlueColumnStat)
+    {
+        this.enableGlueColumnStat = enableGlueColumnStat;
         return this;
     }
 }

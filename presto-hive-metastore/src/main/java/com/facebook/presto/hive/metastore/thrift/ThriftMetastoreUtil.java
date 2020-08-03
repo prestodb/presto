@@ -808,7 +808,7 @@ public final class ThriftMetastoreUtil
         return new Decimal(ByteBuffer.wrap(decimal.unscaledValue().toByteArray()), (short) decimal.scale());
     }
 
-    private static OptionalLong toMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount)
+    public static OptionalLong toMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount)
     {
         // metastore counts null as a distinct value
         if (distinctValuesCount.isPresent() && nullsCount.isPresent()) {
@@ -817,7 +817,7 @@ public final class ThriftMetastoreUtil
         return OptionalLong.empty();
     }
 
-    private static OptionalDouble getAverageColumnLength(OptionalLong totalSizeInBytes, OptionalLong rowCount, OptionalLong nullsCount)
+    public static OptionalDouble getAverageColumnLength(OptionalLong totalSizeInBytes, OptionalLong rowCount, OptionalLong nullsCount)
     {
         if (totalSizeInBytes.isPresent() && rowCount.isPresent() && nullsCount.isPresent()) {
             long nonNullsCount = rowCount.getAsLong() - nullsCount.getAsLong();
