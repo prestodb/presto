@@ -67,6 +67,7 @@ public class HiveColumnHandle
     private final ColumnType columnType;
     private final Optional<String> comment;
     private final List<Subfield> requiredSubfields;
+    private final Optional<Subfield> pushdownSubfield;
 
     @JsonCreator
     public HiveColumnHandle(
@@ -76,16 +77,18 @@ public class HiveColumnHandle
             @JsonProperty("hiveColumnIndex") int hiveColumnIndex,
             @JsonProperty("columnType") ColumnType columnType,
             @JsonProperty("comment") Optional<String> comment,
-            @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields)
+            @JsonProperty("requiredSubfields") List<Subfield> requiredSubfields,
+            @JsonProperty("pushdownSubfield") Optional<Subfield> pushdownSubfield)
     {
         this.name = requireNonNull(name, "name is null");
-        checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED, "hiveColumnIndex is negative");
+        checkArgument(hiveColumnIndex >= 0 || columnType == PARTITION_KEY || columnType == SYNTHESIZED || pushdownSubfield.isPresent(), "hiveColumnIndex is negative");
         this.hiveColumnIndex = hiveColumnIndex;
         this.hiveType = requireNonNull(hiveType, "hiveType is null");
         this.typeName = requireNonNull(typeSignature, "type is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.comment = requireNonNull(comment, "comment is null");
         this.requiredSubfields = requireNonNull(requiredSubfields, "requiredSubfields is null");
+        this.pushdownSubfield = requireNonNull(pushdownSubfield, "pushdownSubfield is null");
     }
 
     public HiveColumnHandle(
@@ -96,7 +99,7 @@ public class HiveColumnHandle
             ColumnType columnType,
             Optional<String> comment)
     {
-        this(name, hiveType, typeSignature, hiveColumnIndex, columnType, comment, ImmutableList.of());
+        this(name, hiveType, typeSignature, hiveColumnIndex, columnType, comment, ImmutableList.of(), Optional.empty());
     }
 
     @JsonProperty
@@ -156,16 +159,22 @@ public class HiveColumnHandle
         return requiredSubfields;
     }
 
+    @JsonProperty
+    public Optional<Subfield> getPushdownSubfield()
+    {
+        return pushdownSubfield;
+    }
+
     @Override
     public ColumnHandle withRequiredSubfields(List<Subfield> subfields)
     {
-        return new HiveColumnHandle(name, hiveType, typeName, hiveColumnIndex, columnType, comment, subfields);
+        return new HiveColumnHandle(name, hiveType, typeName, hiveColumnIndex, columnType, comment, subfields, pushdownSubfield);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, hiveColumnIndex, hiveType, columnType, comment);
+        return Objects.hash(name, hiveColumnIndex, hiveType, columnType, comment, requiredSubfields, pushdownSubfield);
     }
 
     @Override
@@ -183,7 +192,8 @@ public class HiveColumnHandle
                 Objects.equals(this.hiveType, other.hiveType) &&
                 Objects.equals(this.columnType, other.columnType) &&
                 Objects.equals(this.comment, other.comment) &&
-                Objects.equals(this.requiredSubfields, other.requiredSubfields);
+                Objects.equals(this.requiredSubfields, other.requiredSubfields) &&
+                Objects.equals(this.pushdownSubfield, other.pushdownSubfield);
     }
 
     @Override
@@ -204,12 +214,12 @@ public class HiveColumnHandle
         // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
         // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
 
-        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, SYNTHESIZED, Optional.empty(), ImmutableList.of());
+        return new HiveColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, HIVE_LONG, BIGINT.getTypeSignature(), -1, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()
     {
-        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of());
+        return new HiveColumnHandle(PATH_COLUMN_NAME, PATH_HIVE_TYPE, PATH_TYPE_SIGNATURE, PATH_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
     }
 
     /**
@@ -219,7 +229,7 @@ public class HiveColumnHandle
      */
     public static HiveColumnHandle bucketColumnHandle()
     {
-        return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of());
+        return new HiveColumnHandle(BUCKET_COLUMN_NAME, BUCKET_HIVE_TYPE, BUCKET_TYPE_SIGNATURE, BUCKET_COLUMN_INDEX, SYNTHESIZED, Optional.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public static boolean isPathColumnHandle(HiveColumnHandle column)

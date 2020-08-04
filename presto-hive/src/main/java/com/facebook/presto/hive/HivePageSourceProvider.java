@@ -658,7 +658,8 @@ public class HivePageSourceProvider
                                 columnHandle.getHiveColumnIndex(),
                                 columnHandle.getColumnType(),
                                 Optional.empty(),
-                                columnHandle.getRequiredSubfields());
+                                columnHandle.getRequiredSubfields(),
+                                columnHandle.getPushdownSubfield());
                     })
                     .collect(toList());
         }
