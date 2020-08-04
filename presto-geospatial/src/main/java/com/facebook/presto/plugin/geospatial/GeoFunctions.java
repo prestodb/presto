@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.esri.core.geometry.NonSimpleResult.Reason.Clustering;
@@ -96,6 +97,8 @@ import static com.facebook.presto.geospatial.GeometryUtils.createJtsPoint;
 import static com.facebook.presto.geospatial.GeometryUtils.flattenCollection;
 import static com.facebook.presto.geospatial.GeometryUtils.getGeometryInvalidReason;
 import static com.facebook.presto.geospatial.GeometryUtils.getPointCount;
+import static com.facebook.presto.geospatial.GeometryUtils.jsonFromJtsGeometry;
+import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromJson;
 import static com.facebook.presto.geospatial.GeometryUtils.jtsGeometryFromWkt;
 import static com.facebook.presto.geospatial.GeometryUtils.wktFromJtsGeometry;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
@@ -1208,6 +1211,29 @@ public final class GeoFunctions
 
         Rectangle expandedEnvelope2D = new Rectangle(envelope.getXMin() - distance, envelope.getYMin() - distance, envelope.getXMax() + distance, envelope.getYMax() + distance);
         return spatialPartitions((KdbTree) kdbTree, expandedEnvelope2D);
+    }
+
+    @ScalarFunction("geometry_from_geojson")
+    @Description("Returns a geometry from a geo JSON string")
+    @SqlType(GEOMETRY_TYPE_NAME)
+    public static Slice geometryFromGeoJson(@SqlType(VARCHAR) Slice input)
+    {
+        return serialize(jtsGeometryFromJson(input.toStringUtf8()));
+    }
+
+    @SqlNullable
+    @ScalarFunction("geometry_as_geojson")
+    @Description("Returns geo JSON string based on the input geometry")
+    @SqlType(VARCHAR)
+    public static Slice geometryAsGeoJson(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    {
+        Optional<String> geoJson = jsonFromJtsGeometry(deserialize(input));
+        if (geoJson.isPresent()) {
+            return utf8Slice(geoJson.get());
+        }
+        else {
+            return null;
+        }
     }
 
     // Package visible for SphericalGeoFunctions
