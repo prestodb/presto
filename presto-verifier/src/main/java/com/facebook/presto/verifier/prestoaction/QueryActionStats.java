@@ -21,6 +21,8 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryActionStats
 {
+    public static final QueryActionStats EMPTY_STATS = new QueryActionStats(Optional.empty(), Optional.empty());
+
     private final Optional<QueryStats> queryStats;
     private final Optional<String> extraStats;
 

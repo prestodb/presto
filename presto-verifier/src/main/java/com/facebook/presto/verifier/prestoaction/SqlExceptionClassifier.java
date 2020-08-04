@@ -22,7 +22,7 @@ import java.util.Optional;
 
 public interface SqlExceptionClassifier
 {
-    QueryException createException(QueryStage queryStage, Optional<QueryActionStats> queryActionStats, SQLException cause);
+    QueryException createException(QueryStage queryStage, QueryActionStats queryActionStats, SQLException cause);
 
     Optional<ErrorCodeSupplier> getErrorCode(int code);
 

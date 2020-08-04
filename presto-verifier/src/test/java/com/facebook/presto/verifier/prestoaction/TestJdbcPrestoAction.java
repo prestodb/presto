@@ -130,8 +130,8 @@ public class TestJdbcPrestoAction
         catch (PrestoQueryException e) {
             assertFalse(e.isRetryable());
             assertEquals(e.getErrorCodeName(), "PRESTO(SYNTAX_ERROR)");
-            assertTrue(e.getQueryActionStats().isPresent());
-            assertEquals(e.getQueryActionStats().get().getQueryStats().map(QueryStats::getState).orElse(null), FAILED.name());
+            assertTrue(e.getQueryActionStats().getQueryStats().isPresent());
+            assertEquals(e.getQueryActionStats().getQueryStats().map(QueryStats::getState).orElse(null), FAILED.name());
 
             QueryFailure queryFailure = getOnlyElement(verificationContext.getQueryFailures());
             assertEquals(queryFailure.getClusterType(), CONTROL.name());

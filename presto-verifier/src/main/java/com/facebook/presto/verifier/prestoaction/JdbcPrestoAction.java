@@ -43,7 +43,6 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.verifier.prestoaction.QueryActionUtil.mangleSessionProperties;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcPrestoAction
@@ -198,9 +197,9 @@ public class JdbcPrestoAction
             this.queryStats = Optional.of(requireNonNull(queryStats, "queryStats is null"));
         }
 
-        public synchronized Optional<QueryActionStats> getLastQueryStats()
+        public synchronized QueryActionStats getLastQueryStats()
         {
-            return queryStats.map(stats -> new QueryActionStats(Optional.of(stats), Optional.empty()));
+            return new QueryActionStats(queryStats, Optional.empty());
         }
     }
 
@@ -232,8 +231,7 @@ public class JdbcPrestoAction
                 while (resultSet.next()) {
                     converter.apply(resultSet).ifPresent(rows::add);
                 }
-                checkState(progressMonitor.getLastQueryStats().isPresent(), "lastQueryStats is missing");
-                return new QueryResult<>(rows.build(), resultSet.getMetaData(), progressMonitor.getLastQueryStats().get());
+                return new QueryResult<>(rows.build(), resultSet.getMetaData(), progressMonitor.getLastQueryStats());
             }
         }
 
@@ -264,8 +262,7 @@ public class JdbcPrestoAction
                 }
             }
             while (moreResults || statement.getUpdateCount() != -1);
-            checkState(progressMonitor.getLastQueryStats().isPresent(), "lastQueryStats is missing");
-            return progressMonitor.getLastQueryStats().get();
+            return progressMonitor.getLastQueryStats();
         }
 
         @Override
