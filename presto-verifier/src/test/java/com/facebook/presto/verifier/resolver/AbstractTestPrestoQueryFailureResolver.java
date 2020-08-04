@@ -13,9 +13,10 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.presto.verifier.event.QueryStatsEvent;
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
+import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import org.testng.annotations.Test;
 
 import java.net.SocketTimeoutException;
@@ -32,7 +33,7 @@ public class AbstractTestPrestoQueryFailureResolver
 {
     protected static final long CONTROL_CPU_TIME_MILLIS = 100000;
     protected static final long CONTROL_PEAK_TOTAL_MEMORY_BYTES = 600L * 1024 * 1024 * 1024;
-    protected static final QueryStatsEvent CONTROL_QUERY_STATS = createQueryStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_TOTAL_MEMORY_BYTES);
+    protected static final QueryStats CONTROL_QUERY_STATS = createQueryStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_TOTAL_MEMORY_BYTES);
 
     private final FailureResolver failureResolver;
 
@@ -51,7 +52,7 @@ public class AbstractTestPrestoQueryFailureResolver
                         false,
                         TEST_SETUP,
                         Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
-                        Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_TOTAL_MEMORY_BYTES / 2))),
+                        Optional.of(createQueryActionStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_TOTAL_MEMORY_BYTES / 2))),
                 Optional.empty())
                 .isPresent());
     }
@@ -101,8 +102,13 @@ public class AbstractTestPrestoQueryFailureResolver
         return failureResolver;
     }
 
-    protected static QueryStatsEvent createQueryStats(long cpuTimeMillls, long peakTotalMemoryBytes)
+    protected static QueryStats createQueryStats(long cpuTimeMillis, long peakTotalMemoryBytes)
     {
-        return new QueryStatsEvent("id", "", false, false, 1, 2, 3, 4, 5, cpuTimeMillls, 7, 8, 9, 10, 11, 12, peakTotalMemoryBytes, 13, Optional.empty());
+        return new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, cpuTimeMillis, 7, 8, 9, 10, 11, 12, peakTotalMemoryBytes, 13, Optional.empty());
+    }
+
+    protected static QueryActionStats createQueryActionStats(long cpuTimeMillis, long peakTotalMemoryBytes)
+    {
+        return new QueryActionStats(Optional.of(createQueryStats(cpuTimeMillis, peakTotalMemoryBytes)), Optional.empty());
     }
 }

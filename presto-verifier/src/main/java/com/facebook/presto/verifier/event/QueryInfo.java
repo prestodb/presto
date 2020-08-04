@@ -15,7 +15,10 @@ package com.facebook.presto.verifier.event;
 
 import com.facebook.airlift.event.client.EventField;
 import com.facebook.airlift.event.client.EventType;
+import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -23,6 +26,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Immutable
 @EventType("QueryInfo")
@@ -39,25 +44,37 @@ public class QueryInfo
     private final List<String> setupQueries;
     private final List<String> teardownQueries;
     private final String checksumQuery;
+
     private final Double cpuTimeSecs;
     private final Double wallTimeSecs;
     private final Long peakTotalMemoryBytes;
     private final Long peakTaskTotalMemoryBytes;
-    private final QueryStatsEvent queryStats;
+
+    private final String extraStats;
 
     public QueryInfo(
             String catalog,
             String schema,
             String originalQuery)
     {
-        this(catalog, schema, originalQuery, Optional.empty(), ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        this(
+                catalog,
+                schema,
+                originalQuery,
+                ImmutableList.of(),
+                ImmutableList.of(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 
     public QueryInfo(
             String catalog,
             String schema,
             String originalQuery,
-            Optional<String> queryId,
             List<String> setupQueryIds,
             List<String> teardownQueryIds,
             Optional<String> checksumQueryId,
@@ -65,16 +82,13 @@ public class QueryInfo
             Optional<List<String>> setupQueries,
             Optional<List<String>> teardownQueries,
             Optional<String> checksumQuery,
-            Optional<Double> cpuTimeSecs,
-            Optional<Double> wallTimeSecs,
-            Optional<Long> peakTotalMemoryBytes,
-            Optional<Long> peakTaskTotalMemoryBytes,
-            Optional<QueryStatsEvent> queryStats)
+            Optional<QueryActionStats> queryActionStats)
     {
+        Optional<QueryStats> stats = queryActionStats.flatMap(QueryActionStats::getQueryStats);
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.originalQuery = requireNonNull(originalQuery, "originalQuery is null");
-        this.queryId = queryId.orElse(null);
+        this.queryId = stats.map(QueryStats::getQueryId).orElse(null);
         this.setupQueryIds = ImmutableList.copyOf(setupQueryIds);
         this.teardownQueryIds = ImmutableList.copyOf(teardownQueryIds);
         this.checksumQueryId = checksumQueryId.orElse(null);
@@ -82,11 +96,16 @@ public class QueryInfo
         this.setupQueries = setupQueries.orElse(null);
         this.teardownQueries = teardownQueries.orElse(null);
         this.checksumQuery = checksumQuery.orElse(null);
-        this.cpuTimeSecs = cpuTimeSecs.orElse(null);
-        this.wallTimeSecs = wallTimeSecs.orElse(null);
-        this.peakTotalMemoryBytes = peakTotalMemoryBytes.orElse(null);
-        this.peakTaskTotalMemoryBytes = peakTaskTotalMemoryBytes.orElse(null);
-        this.queryStats = queryStats.orElse(null);
+        this.cpuTimeSecs = stats.map(QueryStats::getCpuTimeMillis).map(QueryInfo::millisToSeconds).orElse(null);
+        this.wallTimeSecs = stats.map(QueryStats::getWallTimeMillis).map(QueryInfo::millisToSeconds).orElse(null);
+        this.peakTotalMemoryBytes = stats.map(QueryStats::getPeakTotalMemoryBytes).orElse(null);
+        this.peakTaskTotalMemoryBytes = stats.map(QueryStats::getPeakTaskTotalMemoryBytes).orElse(null);
+        this.extraStats = queryActionStats.flatMap(QueryActionStats::getExtraStats).orElse(null);
+    }
+
+    private static double millisToSeconds(long millis)
+    {
+        return new Duration(millis, MILLISECONDS).getValue(SECONDS);
     }
 
     @EventField
@@ -180,8 +199,8 @@ public class QueryInfo
     }
 
     @EventField
-    public QueryStatsEvent getQueryStats()
+    public String getExtraStats()
     {
-        return queryStats;
+        return extraStats;
     }
 }

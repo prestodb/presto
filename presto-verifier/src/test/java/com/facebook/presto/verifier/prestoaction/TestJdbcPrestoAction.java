@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -96,13 +97,13 @@ public class TestJdbcPrestoAction
         assertEquals(
                 prestoAction.execute(
                         sqlParser.createStatement("SELECT 1", PARSING_OPTIONS),
-                        QUERY_STAGE).getState(),
+                        QUERY_STAGE).getQueryStats().map(QueryStats::getState).orElse(null),
                 FINISHED.name());
 
         assertEquals(
                 prestoAction.execute(
                         sqlParser.createStatement("CREATE TABLE test_table (x int)", PARSING_OPTIONS),
-                        QUERY_STAGE).getState(),
+                        QUERY_STAGE).getQueryStats().map(QueryStats::getState).orElse(null),
                 FINISHED.name());
     }
 
@@ -113,7 +114,7 @@ public class TestJdbcPrestoAction
                 sqlParser.createStatement("SELECT x FROM (VALUES (1), (2), (3)) t(x)", PARSING_OPTIONS),
                 QUERY_STAGE,
                 resultSet -> Optional.of(resultSet.getInt("x") * resultSet.getInt("x")));
-        assertEquals(result.getQueryStats().getState(), FINISHED.name());
+        assertEquals(result.getQueryActionStats().getQueryStats().map(QueryStats::getState).orElse(null), FINISHED.name());
         assertEquals(result.getResults(), ImmutableList.of(1, 4, 9));
     }
 
@@ -129,8 +130,8 @@ public class TestJdbcPrestoAction
         catch (PrestoQueryException e) {
             assertFalse(e.isRetryable());
             assertEquals(e.getErrorCodeName(), "PRESTO(SYNTAX_ERROR)");
-            assertTrue(e.getQueryStats().isPresent());
-            assertEquals(e.getQueryStats().get().getState(), FAILED.name());
+            assertTrue(e.getQueryActionStats().isPresent());
+            assertEquals(e.getQueryActionStats().get().getQueryStats().map(QueryStats::getState).orElse(null), FAILED.name());
 
             QueryFailure queryFailure = getOnlyElement(verificationContext.getQueryFailures());
             assertEquals(queryFailure.getClusterType(), CONTROL.name());
