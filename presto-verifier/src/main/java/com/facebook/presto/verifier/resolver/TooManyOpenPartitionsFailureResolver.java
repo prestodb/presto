@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -21,7 +22,6 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Property;
 import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.verifier.annotation.ForTest;
-import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
@@ -73,7 +73,7 @@ public class TooManyOpenPartitionsFailureResolver
     }
 
     @Override
-    public Optional<String> resolveQueryFailure(QueryStatsEvent controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         if (!test.isPresent()) {
             return Optional.empty();

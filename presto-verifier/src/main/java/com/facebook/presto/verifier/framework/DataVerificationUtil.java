@@ -21,9 +21,9 @@ import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
-import com.facebook.presto.verifier.event.QueryStatsEvent;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.QueryAction;
+import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -47,7 +47,7 @@ public class DataVerificationUtil
 
     private DataVerificationUtil() {}
 
-    public static void teardownSafely(QueryAction queryAction, Optional<QueryBundle> bundle, Consumer<QueryStatsEvent> queryStatsConsumer)
+    public static void teardownSafely(QueryAction queryAction, Optional<QueryBundle> bundle, Consumer<QueryActionStats> queryStatsConsumer)
     {
         if (!bundle.isPresent()) {
             return;
