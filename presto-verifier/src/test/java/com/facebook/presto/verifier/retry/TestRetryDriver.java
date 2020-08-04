@@ -30,6 +30,7 @@ import java.util.Optional;
 import static com.facebook.airlift.log.Level.DEBUG;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
+import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -70,7 +71,7 @@ public class TestRetryDriver
     private static final String NAME = "test-query";
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
     private static final QueryException RETRYABLE_EXCEPTION = new ClusterConnectionException(new SocketTimeoutException(), QUERY_STAGE);
-    private static final QueryException NON_RETRYABLE_EXCEPTION = new PrestoQueryException(new RuntimeException(), false, QUERY_STAGE, Optional.of(REMOTE_HOST_GONE), Optional.empty());
+    private static final QueryException NON_RETRYABLE_EXCEPTION = new PrestoQueryException(new RuntimeException(), false, QUERY_STAGE, Optional.of(REMOTE_HOST_GONE), EMPTY_STATS);
 
     private VerificationContext verificationContext;
     private RetryDriver<QueryException> retryDriver;

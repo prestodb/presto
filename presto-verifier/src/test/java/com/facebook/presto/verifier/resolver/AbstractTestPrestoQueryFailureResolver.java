@@ -26,6 +26,7 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_L
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
+import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertFalse;
 
@@ -52,7 +53,7 @@ public class AbstractTestPrestoQueryFailureResolver
                         false,
                         TEST_SETUP,
                         Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
-                        Optional.of(createQueryActionStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_TOTAL_MEMORY_BYTES / 2))),
+                        createQueryActionStats(CONTROL_CPU_TIME_MILLIS, CONTROL_PEAK_TOTAL_MEMORY_BYTES / 2)),
                 Optional.empty())
                 .isPresent());
     }
@@ -77,7 +78,7 @@ public class AbstractTestPrestoQueryFailureResolver
                         false,
                         TEST_MAIN,
                         Optional.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
-                        Optional.empty()),
+                        EMPTY_STATS),
                 Optional.empty())
                 .isPresent());
     }
@@ -92,7 +93,7 @@ public class AbstractTestPrestoQueryFailureResolver
                         false,
                         TEST_MAIN,
                         Optional.of(EXCEEDED_LOCAL_MEMORY_LIMIT),
-                        Optional.empty()),
+                        EMPTY_STATS),
                 Optional.empty())
                 .isPresent());
     }

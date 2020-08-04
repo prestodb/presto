@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
+import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryException
@@ -34,10 +35,10 @@ public class TestQueryException
                 new ClusterConnectionException(new SocketTimeoutException(), QUERY_STAGE).getErrorCodeName(),
                 "CLUSTER_CONNECTION(SocketTimeoutException)");
         assertEquals(
-                new PrestoQueryException(new SQLException(), false, QUERY_STAGE, Optional.of(REMOTE_TASK_ERROR), Optional.empty()).getErrorCodeName(),
+                new PrestoQueryException(new SQLException(), false, QUERY_STAGE, Optional.of(REMOTE_TASK_ERROR), EMPTY_STATS).getErrorCodeName(),
                 "PRESTO(REMOTE_TASK_ERROR)");
         assertEquals(
-                new PrestoQueryException(new SQLException(), false, QUERY_STAGE, Optional.empty(), Optional.empty()).getErrorCodeName(),
+                new PrestoQueryException(new SQLException(), false, QUERY_STAGE, Optional.empty(), EMPTY_STATS).getErrorCodeName(),
                 "PRESTO(UNKNOWN)");
     }
 }

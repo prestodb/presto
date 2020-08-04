@@ -71,7 +71,7 @@ public class VerifierUtil
             return result;
         }
         catch (PrestoQueryException e) {
-            e.getQueryActionStats().ifPresent(queryStatsConsumer);
+            queryStatsConsumer.accept(e.getQueryActionStats());
             queryExceptionConsumer.accept(e);
             throw e;
         }

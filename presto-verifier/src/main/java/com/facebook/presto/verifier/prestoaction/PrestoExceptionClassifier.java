@@ -142,7 +142,7 @@ public class PrestoExceptionClassifier
                 .addResubmittedError(SYNTAX_ERROR, Optional.of(TEST_SETUP), Optional.of(TABLE_ALREADY_EXISTS_PATTERN));
     }
 
-    public QueryException createException(QueryStage queryStage, Optional<QueryActionStats> queryActionStats, SQLException cause)
+    public QueryException createException(QueryStage queryStage, QueryActionStats queryActionStats, SQLException cause)
     {
         Optional<Throwable> clusterConnectionExceptionCause = getClusterConnectionExceptionCause(cause);
         if (clusterConnectionExceptionCause.isPresent()) {

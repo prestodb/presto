@@ -93,7 +93,7 @@ public class TestTooManyOpenPartitionsFailureResolver
             false,
             TEST_MAIN,
             Optional.of(HIVE_TOO_MANY_OPEN_PARTITIONS),
-            Optional.of(createQueryActionStats(0, 0)));
+            createQueryActionStats(0, 0));
 
     private static final AtomicReference<String> createTable = new AtomicReference<>();
 

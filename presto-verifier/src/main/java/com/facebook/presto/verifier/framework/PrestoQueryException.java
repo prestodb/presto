@@ -26,14 +26,14 @@ public class PrestoQueryException
         extends QueryException
 {
     private final Optional<ErrorCodeSupplier> errorCode;
-    private final Optional<QueryActionStats> queryActionStats;
+    private final QueryActionStats queryActionStats;
 
     public PrestoQueryException(
             Throwable cause,
             boolean retryable,
             QueryStage queryStage,
             Optional<ErrorCodeSupplier> errorCode,
-            Optional<QueryActionStats> queryActionStats)
+            QueryActionStats queryActionStats)
     {
         super(cause, retryable, queryStage);
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
@@ -45,7 +45,7 @@ public class PrestoQueryException
         return errorCode;
     }
 
-    public Optional<QueryActionStats> getQueryActionStats()
+    public QueryActionStats getQueryActionStats()
     {
         return queryActionStats;
     }
