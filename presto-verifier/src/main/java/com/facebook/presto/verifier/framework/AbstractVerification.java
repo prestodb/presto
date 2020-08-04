@@ -82,6 +82,7 @@ public abstract class AbstractVerification
 
     private final boolean setupOnMainClusters;
     private final boolean teardownOnMainClusters;
+    private final boolean skipControl;
 
     public AbstractVerification(
             QueryActions queryActions,
@@ -106,6 +107,7 @@ public abstract class AbstractVerification
         this.verificationResubmissionLimit = verifierConfig.getVerificationResubmissionLimit();
         this.setupOnMainClusters = verifierConfig.isSetupOnMainClusters();
         this.teardownOnMainClusters = verifierConfig.isTeardownOnMainClusters();
+        this.skipControl = verifierConfig.isSkipControl();
     }
 
     protected abstract MatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext);
@@ -145,25 +147,32 @@ public abstract class AbstractVerification
 
         try {
             // Rewrite queries
-            control = Optional.of(queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL));
+            if (!skipControl) {
+                control = Optional.of(queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL));
+            }
             test = Optional.of(queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST));
 
-            // Run queries
-            QueryBundle controlQueryBundle = control.get();
+            // Run control queries
+            if (skipControl) {
+                controlQueryContext.setState(NOT_RUN);
+            }
+            else {
+                QueryBundle controlQueryBundle = control.get();
+                QueryAction controlSetupAction = setupOnMainClusters ? queryActions.getControlAction() : queryActions.getHelperAction();
+                controlQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
+                        () -> controlSetupAction.execute(query, CONTROL_SETUP),
+                        controlQueryContext::addSetupQuery,
+                        controlQueryContext::setException));
+                runAndConsume(
+                        () -> queryActions.getControlAction().execute(controlQueryBundle.getQuery(), CONTROL_MAIN),
+                        controlQueryContext::setMainQueryStats,
+                        controlQueryContext::setException);
+                controlQueryContext.setState(QueryState.SUCCEEDED);
+            }
+
+            // Run test queries
             QueryBundle testQueryBundle = test.get();
-
-            QueryAction controlSetupAction = setupOnMainClusters ? queryActions.getControlAction() : queryActions.getHelperAction();
             QueryAction testSetupAction = setupOnMainClusters ? queryActions.getTestAction() : queryActions.getHelperAction();
-            controlQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
-                    () -> controlSetupAction.execute(query, CONTROL_SETUP),
-                    controlQueryContext::addSetupQuery,
-                    controlQueryContext::setException));
-            runAndConsume(
-                    () -> queryActions.getControlAction().execute(controlQueryBundle.getQuery(), CONTROL_MAIN),
-                    controlQueryContext::setMainQueryStats,
-                    controlQueryContext::setException);
-            controlQueryContext.setState(QueryState.SUCCEEDED);
-
             testQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
                     () -> testSetupAction.execute(query, TEST_SETUP),
                     testQueryContext::addSetupQuery,
@@ -175,14 +184,16 @@ public abstract class AbstractVerification
             testQueryContext.setState(QueryState.SUCCEEDED);
 
             // Verify results
-            matchResult = Optional.of(verify(controlQueryBundle, test.get(), controlChecksumQueryContext, testChecksumQueryContext));
+            if (!skipControl) {
+                matchResult = Optional.of(verify(control.get(), test.get(), controlChecksumQueryContext, testChecksumQueryContext));
 
-            // Determinism analysis
-            if (matchResult.get().isMismatchPossiblyCausedByNonDeterminism()) {
-                determinismAnalysis = Optional.of(determinismAnalyzer.analyze(controlQueryBundle, matchResult.get().getControlChecksum(), determinismAnalysisDetails));
+                // Determinism analysis
+                if (matchResult.get().isMismatchPossiblyCausedByNonDeterminism()) {
+                    determinismAnalysis = Optional.of(determinismAnalyzer.analyze(control.get(), matchResult.get().getControlChecksum(), determinismAnalysisDetails));
+                }
             }
 
-            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, matchResult, determinismAnalysis, Optional.empty()));
+            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, testQueryContext, matchResult, determinismAnalysis, Optional.empty()));
         }
         catch (Throwable t) {
             if (exceptionClassifier.shouldResubmit(t)
@@ -190,7 +201,7 @@ public abstract class AbstractVerification
                 return new VerificationResult(this, true, Optional.empty());
             }
             throwable = Optional.of(t);
-            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, matchResult, determinismAnalysis, Optional.of(t)));
+            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, testQueryContext, matchResult, determinismAnalysis, Optional.of(t)));
         }
         finally {
             if (!smartTeardown
@@ -203,18 +214,20 @@ public abstract class AbstractVerification
             }
         }
 
-        return concludeVerification(
-                partialResult.get(),
-                control,
-                test,
-                controlQueryContext,
-                testQueryContext,
-                matchResult,
-                determinismAnalysis,
-                controlChecksumQueryContext,
-                testChecksumQueryContext,
-                determinismAnalysisDetails.build(),
-                throwable);
+        return
+
+                concludeVerification(
+                        partialResult.get(),
+                        control,
+                        test,
+                        controlQueryContext,
+                        testQueryContext,
+                        matchResult,
+                        determinismAnalysis,
+                        controlChecksumQueryContext,
+                        testChecksumQueryContext,
+                        determinismAnalysisDetails.build(),
+                        throwable);
     }
 
     private Optional<String> resolveFailure(
@@ -238,7 +251,8 @@ public abstract class AbstractVerification
     private EventStatus getEventStatus(
             Optional<SkippedReason> skippedReason,
             Optional<String> resolveMessage,
-            Optional<MatchResult> matchResult)
+            Optional<MatchResult> matchResult,
+            QueryContext testQueryContext)
     {
         if (skippedReason.isPresent()) {
             return SKIPPED;
@@ -246,7 +260,8 @@ public abstract class AbstractVerification
         if (resolveMessage.isPresent()) {
             return FAILED_RESOLVED;
         }
-        if (matchResult.isPresent() && matchResult.get().isMatched()) {
+        if ((skipControl && testQueryContext.getState() == QueryState.SUCCEEDED)
+                || (!skipControl && matchResult.isPresent() && matchResult.get().isMatched())) {
             return SUCCEEDED;
         }
         return FAILED;
@@ -256,13 +271,14 @@ public abstract class AbstractVerification
             Optional<QueryBundle> control,
             Optional<QueryBundle> test,
             QueryContext controlQueryContext,
+            QueryContext testQueryContext,
             Optional<MatchResult> matchResult,
             Optional<DeterminismAnalysis> determinismAnalysis,
             Optional<Throwable> throwable)
     {
         Optional<SkippedReason> skippedReason = getSkippedReason(throwable, controlQueryContext.getState(), determinismAnalysis);
         Optional<String> resolveMessage = resolveFailure(control, test, controlQueryContext, matchResult, throwable);
-        EventStatus status = getEventStatus(skippedReason, resolveMessage, matchResult);
+        EventStatus status = getEventStatus(skippedReason, resolveMessage, matchResult, testQueryContext);
         return new PartialVerificationResult(skippedReason, resolveMessage, status);
     }
 
@@ -300,12 +316,14 @@ public abstract class AbstractVerification
                         Optional.of(determinismAnalysisDetails) :
                         Optional.empty(),
                 partialResult.getResolveMessage(),
-                buildQueryInfo(
-                        sourceQuery.getControlConfiguration(),
-                        sourceQuery.getControlQuery(),
-                        controlChecksumQueryContext,
-                        control,
-                        controlQueryContext),
+                skipControl ?
+                        Optional.empty() :
+                        Optional.of(buildQueryInfo(
+                                sourceQuery.getControlConfiguration(),
+                                sourceQuery.getControlQuery(),
+                                controlChecksumQueryContext,
+                                control,
+                                controlQueryContext)),
                 buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
                         sourceQuery.getTestQuery(),
@@ -359,6 +377,9 @@ public abstract class AbstractVerification
     {
         if (throwable.isPresent() && !(throwable.get() instanceof QueryException)) {
             return Optional.of(VERIFIER_INTERNAL_ERROR);
+        }
+        if (skipControl) {
+            return Optional.empty();
         }
         switch (controlState) {
             case FAILED:
