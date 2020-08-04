@@ -72,7 +72,7 @@ public class VerifierQueryEvent
             Optional<DeterminismAnalysis> determinismAnalysis,
             Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<String> resolveMessage,
-            QueryInfo controlQueryInfo,
+            Optional<QueryInfo> controlQueryInfo,
             QueryInfo testQueryInfo,
             Optional<String> errorCode,
             Optional<String> errorMessage,
@@ -89,7 +89,7 @@ public class VerifierQueryEvent
         this.determinismAnalysis = determinismAnalysis.map(DeterminismAnalysis::name).orElse(null);
         this.determinismAnalysisDetails = determinismAnalysisDetails.orElse(null);
         this.resolveMessage = resolveMessage.orElse(null);
-        this.controlQueryInfo = requireNonNull(controlQueryInfo, "controlQueryInfo is null");
+        this.controlQueryInfo = controlQueryInfo.orElse(null);
         this.testQueryInfo = requireNonNull(testQueryInfo, "testQueryInfo is null");
         this.errorCode = errorCode.orElse(null);
         this.errorMessage = errorMessage.orElse(null);
@@ -102,7 +102,8 @@ public class VerifierQueryEvent
             String suite,
             String testId,
             SourceQuery sourceQuery,
-            SkippedReason skippedReason)
+            SkippedReason skippedReason,
+            boolean skipControl)
     {
         return new VerifierQueryEvent(
                 suite,
@@ -113,10 +114,12 @@ public class VerifierQueryEvent
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                new QueryInfo(
-                        sourceQuery.getControlConfiguration().getCatalog(),
-                        sourceQuery.getControlConfiguration().getSchema(),
-                        sourceQuery.getControlQuery()),
+                skipControl ?
+                        Optional.empty() :
+                        Optional.of(new QueryInfo(
+                                sourceQuery.getControlConfiguration().getCatalog(),
+                                sourceQuery.getControlConfiguration().getSchema(),
+                                sourceQuery.getControlQuery())),
                 new QueryInfo(
                         sourceQuery.getTestConfiguration().getCatalog(),
                         sourceQuery.getTestConfiguration().getSchema(),
