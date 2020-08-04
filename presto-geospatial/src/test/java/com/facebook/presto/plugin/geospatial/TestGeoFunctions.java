@@ -1266,4 +1266,68 @@ public class TestGeoFunctions
     {
         assertFunction(format("ST_AsText(ST_GeomFromBinary(ST_AsBinary(ST_GeometryFromText('%s'))))", wkt), VARCHAR, wkt);
     }
+
+    @Test
+    public void testGeometryJsonConversion()
+    {
+        // empty atomic (non-multi) geometries should return null
+        assertEmptyGeoToJson("POINT EMPTY");
+        assertEmptyGeoToJson("LINESTRING EMPTY");
+        assertEmptyGeoToJson("POLYGON EMPTY");
+
+        // empty multi geometries should return empty
+        assertGeoToAndFromJson("MULTIPOINT EMPTY");
+        assertGeoToAndFromJson("MULTILINESTRING EMPTY");
+        assertGeoToAndFromJson("MULTIPOLYGON EMPTY");
+        assertGeoToAndFromJson("GEOMETRYCOLLECTION EMPTY");
+
+        // valid nonempty geometries should return as is.
+        assertGeoToAndFromJson("POINT (1 2)");
+        assertGeoToAndFromJson("MULTIPOINT ((1 2), (3 4))");
+        assertGeoToAndFromJson("LINESTRING (0 0, 1 2, 3 4)");
+        assertGeoToAndFromJson("MULTILINESTRING ((1 1, 5 1), (2 4, 4 4))");
+        assertGeoToAndFromJson("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))");
+        assertGeoToAndFromJson("POLYGON ((0 0, 0 3, 3 3, 3 0, 0 0), (1 1, 2 1, 2 2, 1 2, 1 1))");
+        assertGeoToAndFromJson("MULTIPOLYGON (((1 1, 1 3, 3 3, 3 1, 1 1)), ((2 4, 2 6, 6 6, 6 4, 2 4)))");
+        assertGeoToAndFromJson("GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 2, 3 4), POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0)))");
+
+        // invalid geometries should return as is.
+        assertGeoToAndFromJson("MULTIPOINT ((0 0), (0 1), (1 1), (0 1))");
+        assertGeoToAndFromJson("LINESTRING (0 0, 0 1, 0 1, 1 1, 1 0, 0 0)");
+        assertGeoToAndFromJson("LINESTRING (0 0, 1 1, 1 0, 0 1)");
+
+        // explicit JSON test cases should valid but return empty or null
+        assertValidGeometryJson("{\"type\":\"LineString\",\"coordinates\":[]}", "LINESTRING EMPTY");
+        assertValidGeometryJson("{\"type\":\"MultiPoint\",\"coordinates\":[]}", "MULTIPOINT EMPTY");
+        assertValidGeometryJson("{\"type\":\"MultiPolygon\",\"coordinates\":[]}", "MULTIPOLYGON EMPTY");
+        assertValidGeometryJson("{\"type\":\"MultiLineString\",\"coordinates\":[[[0.0,0.0],[1,10]],[[10,10],[20,30]],[[123,123],[456,789]]]}", "MULTILINESTRING ((0 0, 1 10), (10 10, 20 30), (123 123, 456 789))");
+
+        // Valid JSON with invalid Geometry definition
+        assertInvalidGeometryJson("{\"type\":\"Polygon\",\"coordinates\":[]}");
+        assertInvalidGeometryJson("{\"type\":\"MultiPoint\",\"invalidField\":[]}");
+        assertInvalidGeometryJson("{\"coordinates\":[[[0.0,0.0],[1,10]],[[10,10],[20,30]],[[123,123],[456,789]]]}");
+
+        // Invalid JSON
+        assertInvalidGeometryJson("{\"type\":\"MultiPoint\",\"crashMe\"}");
+    }
+
+    private void assertEmptyGeoToJson(String wkt)
+    {
+        assertFunction(format("geometry_as_geojson(ST_GeometryFromText('%s'))", wkt), VARCHAR, null);
+    }
+
+    private void assertGeoToAndFromJson(String wkt)
+    {
+        assertFunction(format("ST_AsText(geometry_from_geojson(geometry_as_geojson(ST_GeometryFromText('%s'))))", wkt), VARCHAR, wkt);
+    }
+
+    private void assertValidGeometryJson(String json, String wkt)
+    {
+        assertFunction("ST_AsText(geometry_from_geojson('" + json + "'))", VARCHAR, wkt);
+    }
+
+    private void assertInvalidGeometryJson(String json)
+    {
+        assertInvalidFunction("geometry_from_geojson('" + json + "')", "Invalid GeoJSON:.*");
+    }
 }
