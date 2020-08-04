@@ -267,6 +267,17 @@ public class PlanPrinter
         return builder.toString();
     }
 
+    public static String textPlanFragment(PlanFragment fragment, FunctionManager functionManager, Session session, boolean verbose)
+    {
+        return formatFragment(
+                functionManager,
+                session,
+                fragment,
+                Optional.empty(),
+                Optional.empty(),
+                verbose);
+    }
+
     public static String jsonLogicalPlan(
             PlanNode plan,
             TypeProvider types,
@@ -881,7 +892,11 @@ public class PlanPrinter
             }
 
             TupleDomain<ColumnHandle> predicate = node.getCurrentConstraint();
-            if (predicate.isNone()) {
+            if (predicate == null) {
+                // This happens when printing the plan framgnet on worker for debug purpose
+                nodeOutput.appendDetailsLine(":: PREDICATE INFORMATION UNAVAILABLE");
+            }
+            else if (predicate.isNone()) {
                 nodeOutput.appendDetailsLine(":: NONE");
             }
             else {
