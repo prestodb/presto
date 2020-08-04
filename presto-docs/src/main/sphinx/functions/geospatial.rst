@@ -463,6 +463,16 @@ Accessors
 
     Returns the great-circle distance between two points on Earth's surface in kilometers.
 
+.. function:: geometry_as_geojson(Geometry) -> varchar
+
+    Returns the GeoJSON encoded defined by the input geometry.
+    If the geometry is atomic (non-multi) empty, this function would return null.
+
+.. function:: geometry_from_geojson(varchar) -> Geometry
+
+    Returns the geometry type object from the GeoJSON representation.
+    The geometry cannot be empty if it is an atomic (non-multi) geometry type.
+
 Aggregations
 ------------
 .. function:: convex_hull_agg(Geometry) -> Geometry
