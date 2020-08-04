@@ -20,6 +20,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
@@ -35,6 +36,7 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
@@ -54,6 +56,7 @@ import com.facebook.presto.spark.classloader_interface.SerializedTaskInfo;
 import com.facebook.presto.spark.execution.PrestoSparkPageOutputOperator.PrestoSparkPageOutputFactory;
 import com.facebook.presto.spark.execution.PrestoSparkRowBatch.RowTupleSupplier;
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -65,6 +68,7 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -83,6 +87,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -110,6 +115,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final SessionPropertyManager sessionPropertyManager;
     private final BlockEncodingManager blockEncodingManager;
+    private final FunctionManager functionManager;
 
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final JsonCodec<TaskSource> taskSourceJsonCodec;
@@ -140,6 +146,7 @@ public class PrestoSparkTaskExecutorFactory
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
             BlockEncodingManager blockEncodingManager,
+            FunctionManager functionManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskSource> taskSourceJsonCodec,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
@@ -157,6 +164,7 @@ public class PrestoSparkTaskExecutorFactory
         this(
                 sessionPropertyManager,
                 blockEncodingManager,
+                functionManager,
                 taskDescriptorJsonCodec,
                 taskSourceJsonCodec,
                 taskInfoJsonCodec,
@@ -180,6 +188,7 @@ public class PrestoSparkTaskExecutorFactory
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
             BlockEncodingManager blockEncodingManager,
+            FunctionManager functionManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskSource> taskSourceJsonCodec,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
@@ -201,6 +210,7 @@ public class PrestoSparkTaskExecutorFactory
     {
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
         this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
         this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
@@ -268,6 +278,15 @@ public class PrestoSparkTaskExecutorFactory
                 taskSources.stream()
                         .mapToInt(taskSource -> taskSource.getSplits().size())
                         .sum());
+
+        OptionalLong totalSplitSize = computeAllSplitsSize(taskSources);
+        if (totalSplitSize.isPresent()) {
+            log.info("Total split size: %s bytes.", totalSplitSize.getAsLong());
+        }
+
+        // TODO: Remove this once we can display the plan on Spark UI.
+
+        log.info(PlanPrinter.textPlanFragment(fragment, functionManager, session, true));
 
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("spark-executor-memory-pool"), maxTotalMemory);
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillMemory);
@@ -383,6 +402,23 @@ public class PrestoSparkTaskExecutorFactory
                 executionExceptionFactory,
                 output.getOutputBufferType(),
                 outputBuffer);
+    }
+
+    private static OptionalLong computeAllSplitsSize(List<TaskSource> taskSources)
+    {
+        long sum = 0;
+        for (TaskSource taskSource : taskSources) {
+            for (ScheduledSplit scheduledSplit : taskSource.getSplits()) {
+                ConnectorSplit connectorSplit = scheduledSplit.getSplit().getConnectorSplit();
+                if (!connectorSplit.getSplitSizeInBytes().isPresent()) {
+                    return OptionalLong.empty();
+                }
+
+                sum += connectorSplit.getSplitSizeInBytes().getAsLong();
+            }
+        }
+
+        return OptionalLong.of(sum);
     }
 
     private List<TaskSource> getTaskSources(Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources)

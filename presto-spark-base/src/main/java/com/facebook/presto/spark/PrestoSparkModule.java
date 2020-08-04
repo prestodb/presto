@@ -136,6 +136,7 @@ import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
@@ -212,6 +213,7 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkTaskDescriptor.class);
+        jsonCodecBinder(binder).bindJsonCodec(PlanFragment.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskSource.class);
         jsonCodecBinder(binder).bindJsonCodec(TableCommitContext.class);
         jsonCodecBinder(binder).bindJsonCodec(ExplainAnalyzeContext.class);
