@@ -21,6 +21,7 @@ import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.GroupField;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -93,5 +94,27 @@ public class ColumnIOConverter
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
         return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+    }
+
+    public static Optional<ColumnIO> findNestedColumnIO(ColumnIO columnIO, List<String> path)
+    {
+        if (columnIO == null) {
+            return Optional.empty();
+        }
+
+        for (String pathElement : path) {
+            if (columnIO instanceof GroupColumnIO) {
+                GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
+                columnIO = lookupColumnByName(groupColumnIO, pathElement);
+                if (columnIO == null) {
+                    return Optional.empty();
+                }
+                continue;
+            }
+            throw new IllegalArgumentException("Invalid ColumnIO received. Expected a GroupColumnIO, but got " + columnIO.getClass().getSimpleName() +
+                    ", path=" + Joiner.on(".").join(path));
+        }
+
+        return Optional.of(columnIO);
     }
 }

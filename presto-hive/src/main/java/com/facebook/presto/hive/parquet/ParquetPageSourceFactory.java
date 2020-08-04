@@ -98,6 +98,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getSubfieldType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -416,18 +417,9 @@ public class ParquetPageSourceFactory
 
     public static Optional<org.apache.parquet.schema.Type> getColumnType(Type prestoType, MessageType messageType, boolean useParquetColumnNames, HiveColumnHandle column, SchemaTableName tableName, Path path)
     {
-        if (useParquetColumnNames && !column.getRequiredSubfields().isEmpty()) {
-            MessageType result = null;
-            for (Subfield subfield : column.getRequiredSubfields()) {
-                MessageType type = getSubfieldType(messageType, subfield);
-                if (result == null) {
-                    result = type;
-                }
-                else {
-                    result = result.union(type);
-                }
-            }
-            return Optional.of(result);
+        if (useParquetColumnNames && column.getPushdownSubfield().isPresent()) {
+            Subfield subfield = column.getPushdownSubfield().get();
+            return getSubfieldType(messageType, subfield.getRootName(), nestedColumnPath(subfield));
         }
         return getParquetType(prestoType, messageType, useParquetColumnNames, column, tableName, path);
     }
