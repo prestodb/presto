@@ -11,24 +11,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.verifier.resolver;
+package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.verifier.framework.MatchResult;
-import com.facebook.presto.verifier.framework.QueryBundle;
-import com.facebook.presto.verifier.framework.QueryException;
 
 import java.util.Optional;
 
-public interface FailureResolver
+import static java.util.Objects.requireNonNull;
+
+public class QueryActionStats
 {
-    default Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    private final Optional<QueryStats> queryStats;
+    private final Optional<String> extraStats;
+
+    public QueryActionStats(Optional<QueryStats> queryStats, Optional<String> extraStats)
     {
-        return Optional.empty();
+        this.queryStats = requireNonNull(queryStats, "queryStats is null");
+        this.extraStats = requireNonNull(extraStats, "extraStats is null");
     }
 
-    default Optional<String> resolveResultMismatch(MatchResult matchResult, QueryBundle control)
+    public Optional<QueryStats> getQueryStats()
     {
-        return Optional.empty();
+        return queryStats;
+    }
+
+    public Optional<String> getExtraStats()
+    {
+        return extraStats;
     }
 }

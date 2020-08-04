@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -247,7 +248,7 @@ class LimitQueryDeterminismAnalyzer
 
         QueryResult<Long> result = callAndConsume(
                 () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS_MAIN, resultSet -> Optional.of(resultSet.getLong(1))),
-                stats -> determinismAnalysisDetails.setLimitQueryAnalysisQueryId(stats.getQueryId()));
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(determinismAnalysisDetails::setLimitQueryAnalysisQueryId));
 
         long rowCountHigherLimit = getOnlyElement(result.getResults());
         if (rowCountHigherLimit == rowCount) {
@@ -263,7 +264,7 @@ class LimitQueryDeterminismAnalyzer
     {
         QueryResult<List<Object>> result = callAndConsume(
                 () -> prestoAction.execute(tieInspectorQuery, DETERMINISM_ANALYSIS_MAIN, new TieInspector(limit)),
-                stats -> determinismAnalysisDetails.setLimitQueryAnalysisQueryId(stats.getQueryId()));
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(determinismAnalysisDetails::setLimitQueryAnalysisQueryId));
         if (result.getResults().isEmpty()) {
             return FAILED_DATA_CHANGED;
         }

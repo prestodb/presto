@@ -478,6 +478,5 @@ public class TestDataVerification
         assertNotNull(queryInfo.getWallTimeSecs());
         assertNotNull(queryInfo.getPeakTotalMemoryBytes());
         assertNotNull(queryInfo.getPeakTaskTotalMemoryBytes());
-        assertNotNull(queryInfo.getQueryStats());
     }
 }
