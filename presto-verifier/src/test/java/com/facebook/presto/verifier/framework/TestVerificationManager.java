@@ -51,6 +51,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QU
 import static com.facebook.presto.verifier.framework.SkippedReason.SYNTAX_ERROR;
 import static com.facebook.presto.verifier.framework.SkippedReason.UNSUPPORTED_QUERY_TYPE;
 import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_INTERNAL_ERROR;
+import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertEquals;
 
@@ -63,7 +64,7 @@ public class TestVerificationManager
 
         public MockPrestoAction(ErrorCodeSupplier errorCode)
         {
-            this.exceptionGenerator = queryStage -> new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), Optional.empty());
+            this.exceptionGenerator = queryStage -> new PrestoQueryException(new RuntimeException(), false, queryStage, Optional.of(errorCode), EMPTY_STATS);
         }
 
         public MockPrestoAction(RuntimeException exception)

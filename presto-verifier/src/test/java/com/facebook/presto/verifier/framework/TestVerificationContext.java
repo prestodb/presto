@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_MAIN;
+import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -36,7 +37,7 @@ public class TestVerificationContext
     public void testDuplicateExceptions()
     {
         VerificationContext context = VerificationContext.create(SUITE, NAME);
-        QueryException queryException = new PrestoQueryException(new RuntimeException(), false, QUERY_STAGE, Optional.of(REMOTE_HOST_GONE), Optional.empty());
+        QueryException queryException = new PrestoQueryException(new RuntimeException(), false, QUERY_STAGE, Optional.of(REMOTE_HOST_GONE), EMPTY_STATS);
 
         context.addException(queryException);
         context.addException(queryException);
