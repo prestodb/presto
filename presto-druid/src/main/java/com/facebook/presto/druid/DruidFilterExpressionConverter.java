@@ -200,7 +200,7 @@ public class DruidFilterExpressionConverter
     @Override
     public DruidExpression visitConstant(ConstantExpression literal, Function<VariableReferenceExpression, Selection> context)
     {
-        return new DruidExpression(getLiteralAsString(literal), Origin.LITERAL);
+        return new DruidExpression(getLiteralAsString(session, literal), Origin.LITERAL);
     }
 
     @Override

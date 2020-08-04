@@ -21,9 +21,14 @@ import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.SqlTimestamp;
+import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -150,7 +155,7 @@ public class DruidPushdownUtils
     }
 
     // Copied from com.facebook.presto.sql.planner.LiteralInterpreter.evaluate
-    public static String getLiteralAsString(ConstantExpression node)
+    public static String getLiteralAsString(ConnectorSession session, ConstantExpression node)
     {
         Type type = node.getType();
 
@@ -184,6 +189,19 @@ public class DruidPushdownUtils
         if (type instanceof VarcharType || type instanceof CharType) {
             return "'" + ((Slice) node.getValue()).toStringUtf8() + "'";
         }
+        if (type instanceof TimestampType) {
+            return getTimestampLiteralAsString(session, (long) node.getValue());
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            return getTimestampLiteralAsString(session, new SqlTimestampWithTimeZone((long) node.getValue()).getMillisUtc());
+        }
         throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Cannot handle the constant expression: " + node + " with value of type: " + type);
+    }
+
+    private static String getTimestampLiteralAsString(ConnectorSession session, long millisUtc)
+    {
+        SqlTimestamp sqlTimestamp = session.getSqlFunctionProperties().isLegacyTimestamp() ?
+                new SqlTimestamp(millisUtc, session.getSqlFunctionProperties().getTimeZoneKey()) : new SqlTimestamp(millisUtc);
+        return "TIMESTAMP '" + sqlTimestamp.toString() + "'";
     }
 }
