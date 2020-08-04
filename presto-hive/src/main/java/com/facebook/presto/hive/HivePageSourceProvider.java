@@ -14,6 +14,8 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.Subfield.NestedField;
+import com.facebook.presto.common.Subfield.PathElement;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -611,8 +613,20 @@ public class HivePageSourceProvider
                 }
 
                 if (column.getColumnType() == REGULAR) {
-                    checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
-                    columnMappings.add(regular(column, regularIndex, coercionFrom));
+                    if (column.getPushdownSubfield().isPresent()) {
+                        Optional<HiveType> coercionFromType = getHiveType(coercionFrom, column.getPushdownSubfield().get());
+                        HiveType coercionToType = column.getHiveType();
+                        if (coercionFromType.isPresent() && coercionFromType.get().equals(coercionToType)) {
+                            // In nested columns, if the resolved type is same as requested type don't add the coercion mapping
+                            coercionFromType = Optional.empty();
+                        }
+                        ColumnMapping columnMapping = new ColumnMapping(ColumnMappingKind.REGULAR, column, Optional.empty(), OptionalInt.of(regularIndex), coercionFromType);
+                        columnMappings.add(columnMapping);
+                    }
+                    else {
+                        checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
+                        columnMappings.add(regular(column, regularIndex, coercionFrom));
+                    }
                     regularIndex++;
                 }
                 else {
@@ -634,6 +648,17 @@ public class HivePageSourceProvider
                 regularIndex++;
             }
             return columnMappings.build();
+        }
+
+        private static Optional<HiveType> getHiveType(Optional<HiveType> baseType, Subfield subfield)
+        {
+            List<PathElement> pathElements = subfield.getPath();
+            ImmutableList.Builder<String> nestedColumnPathBuilder = ImmutableList.builder();
+            for (PathElement pathElement : pathElements) {
+                checkArgument(pathElement instanceof NestedField, "Unsupported subfield. Expected only nested path elements. " + subfield);
+                nestedColumnPathBuilder.add(((NestedField) pathElement).getName());
+            }
+            return baseType.flatMap(type -> type.findChildType(nestedColumnPathBuilder.build()));
         }
 
         public static List<ColumnMapping> extractRegularAndInterimColumnMappings(List<ColumnMapping> columnMappings)

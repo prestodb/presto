@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
@@ -29,6 +30,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 
@@ -42,9 +44,11 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getParquetType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
+import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
+import static org.apache.parquet.io.ColumnIOConverter.findNestedColumnIO;
 
 public class ParquetPageSource
         implements ConnectorPageSource
@@ -77,7 +81,7 @@ public class ParquetPageSource
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
         for (HiveColumnHandle column : columns) {
-            checkState(column.getColumnType() == REGULAR, "column type must be regular");
+            checkState(column.getColumnType() == REGULAR, "column type must be regular column");
 
             String name = column.getName();
             Type type = typeManager.getType(column.getTypeSignature());
@@ -85,7 +89,18 @@ public class ParquetPageSource
             namesBuilder.add(name);
             typesBuilder.add(type);
 
-            if (getParquetType(type, fileSchema, useParquetColumnNames, column, tableName, path).isPresent()) {
+            if (column.getPushdownSubfield().isPresent()) {
+                Subfield pushdownSubfield = column.getPushdownSubfield().get();
+                List<String> nestedColumnPath = nestedColumnPath(pushdownSubfield);
+                Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushdownSubfield.getRootName()), nestedColumnPath);
+                if (columnIO.isPresent()) {
+                    fieldsBuilder.add(constructField(type, columnIO.get()));
+                }
+                else {
+                    fieldsBuilder.add(Optional.empty());
+                }
+            }
+            else if (getParquetType(type, fileSchema, useParquetColumnNames, column, tableName, path).isPresent()) {
                 String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
                 fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
             }
