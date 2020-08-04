@@ -56,9 +56,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES;
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.predicate.Domain.multipleValues;
 import static com.facebook.presto.common.predicate.Domain.notNull;
@@ -72,10 +74,12 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
+import static com.facebook.presto.hive.HiveSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteExchangesCount;
+import static com.facebook.presto.parquet.ParquetTypeUtils.pushdownColumnNameForSubfield;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.match;
@@ -954,6 +958,132 @@ public class TestHiveLogicalPlanner
     }
 
     @Test
+    public void testParquetDereferencePushDown()
+    {
+        assertUpdate("CREATE TABLE test_pushdown_nestedcolumn_parquet(" +
+                "id bigint, " +
+                "x row(a bigint, b varchar, c double, d row(d1 bigint, d2 double))," +
+                "y array(row(a bigint, b varchar, c double, d row(d1 bigint, d2 double)))) " +
+                "with (format = 'PARQUET')");
+
+        assertParquetDereferencePushDown("SELECT x.a FROM test_pushdown_nestedcolumn_parquet",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a"));
+
+        assertParquetDereferencePushDown("SELECT x.a, mod(x.d.d1, 2) FROM test_pushdown_nestedcolumn_parquet",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a", "x.d.d1"));
+
+        assertParquetDereferencePushDown("SELECT x.d, mod(x.d.d1, 2), x.d.d2 FROM test_pushdown_nestedcolumn_parquet",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.d"));
+
+        assertParquetDereferencePushDown("SELECT x.a FROM test_pushdown_nestedcolumn_parquet WHERE x.b LIKE 'abc%'",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a", "x.b"));
+
+        assertParquetDereferencePushDown("SELECT x.a FROM test_pushdown_nestedcolumn_parquet WHERE x.a > 10 AND x.b LIKE 'abc%'",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a", "x.b"));
+
+        // Join
+        assertPlan(withParquetDereferencePushDownEnabled(), "SELECT l.orderkey, x.a, mod(x.d.d1, 2) FROM lineitem l, test_pushdown_nestedcolumn_parquet a WHERE l.linenumber = a.id",
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(tableScan("lineitem", ImmutableMap.of())),
+                                anyTree(tableScanParquetDeferencePushDowns("test_pushdown_nestedcolumn_parquet", nestedColumnMap("x.a", "x.d.d1"))))));
+
+        assertPlan(withParquetDereferencePushDownEnabled(), "SELECT l.orderkey, x.a, mod(x.d.d1, 2) FROM lineitem l, test_pushdown_nestedcolumn_parquet a WHERE l.linenumber = a.id AND x.a > 10",
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(tableScan("lineitem", ImmutableMap.of())),
+                                anyTree(tableScanParquetDeferencePushDowns("test_pushdown_nestedcolumn_parquet", nestedColumnMap("x.a", "x.d.d1"))))));
+        // Aggregation
+        assertParquetDereferencePushDown("SELECT id, min(x.a) FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a"));
+
+        assertParquetDereferencePushDown("SELECT id, min(mod(x.a, 3)) FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a"));
+
+        assertParquetDereferencePushDown("SELECT id, min(x.a) FILTER (WHERE x.b LIKE 'abc%') FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a", "x.b"));
+
+        assertParquetDereferencePushDown("SELECT id, min(x.a + 1) * avg(x.d.d1) FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a", "x.d.d1"));
+
+        assertParquetDereferencePushDown("SELECT id, arbitrary(x.a) FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a"));
+
+        // Dereference can't be pushed down, but the subfield pushdown will help in pruning the number of columns to read
+        assertPushdownSubfields("SELECT id, arbitrary(x.a) FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                ImmutableMap.of("x", toSubfields("x.a")));
+
+        // Dereference can't be pushed down, but the subfield pushdown will help in pruning the number of columns to read
+        assertPushdownSubfields("SELECT id, arbitrary(x).d.d1 FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                ImmutableMap.of("x", toSubfields("x.d.d1")));
+
+        assertParquetDereferencePushDown("SELECT id, arbitrary(x.d).d1 FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.d"));
+
+        assertParquetDereferencePushDown("SELECT id, arbitrary(x.d.d2) FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.d.d2"));
+
+        // Unnest
+        assertParquetDereferencePushDown("SELECT t.a, t.d.d1, x.a FROM test_pushdown_nestedcolumn_parquet CROSS JOIN UNNEST(y) as t(a, b, c, d)",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a"));
+
+        assertParquetDereferencePushDown("SELECT t.*, x.a FROM test_pushdown_nestedcolumn_parquet CROSS JOIN UNNEST(y) as t(a, b, c, d)",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a"));
+
+        assertParquetDereferencePushDown("SELECT id, x.a FROM test_pushdown_nestedcolumn_parquet CROSS JOIN UNNEST(y) as t(a, b, c, d)",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a"));
+
+        // Legacy unnest
+        Session legacyUnnest = Session.builder(withParquetDereferencePushDownEnabled())
+                .setSystemProperty("legacy_unnest", "true")
+                .build();
+        assertParquetDereferencePushDown(legacyUnnest, "SELECT t.y.a, t.y.d.d1, x.a FROM test_pushdown_nestedcolumn_parquet CROSS JOIN UNNEST(y) as t(y)",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a"));
+
+        assertParquetDereferencePushDown(legacyUnnest, "SELECT t.*, x.a FROM test_pushdown_nestedcolumn_parquet CROSS JOIN UNNEST(y) as t(y)",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a"));
+
+        assertParquetDereferencePushDown(legacyUnnest, "SELECT id, x.a FROM test_pushdown_nestedcolumn_parquet CROSS JOIN UNNEST(y) as t(y)",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a"));
+
+        // Case sensitivity
+        assertParquetDereferencePushDown("SELECT x.a, x.b, x.A + 2 FROM test_pushdown_nestedcolumn_parquet WHERE x.B LIKE 'abc%'",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.a", "x.b"));
+
+        // No pass-through nested column pruning
+        assertParquetDereferencePushDown("SELECT id, min(x.d).d1 FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.d"));
+
+        assertParquetDereferencePushDown("SELECT id, min(x.d).d1, min(x.d.d2) FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.d"));
+
+        assertUpdate("DROP TABLE test_pushdown_nestedcolumn_parquet");
+    }
+
+    @Test
     public void testBucketPruning()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1079,6 +1209,11 @@ public class TestHiveLogicalPlanner
         return PlanMatchPattern.tableScan(expectedTableName).with(new HiveTableScanMatcher(expectedRequiredSubfields));
     }
 
+    private static PlanMatchPattern tableScanParquetDeferencePushDowns(String expectedTableName, Map<String, Subfield> expectedDeferencePushDowns)
+    {
+        return PlanMatchPattern.tableScan(expectedTableName).with(new HiveParquetDereferencePushdownMatcher(expectedDeferencePushDowns));
+    }
+
     private static boolean isTableScanNode(PlanNode node, String tableName)
     {
         return node instanceof TableScanNode && ((HiveTableHandle) ((TableScanNode) node).getTable().getConnectorHandle()).getTableName().equals(tableName);
@@ -1097,6 +1232,16 @@ public class TestHiveLogicalPlanner
                         predicateDomains.keySet().stream().map(Subfield::getRootName).collect(toImmutableSet())));
     }
 
+    private void assertParquetDereferencePushDown(String query, String tableName, Map<String, Subfield> expectedDeferencePushDowns)
+    {
+        assertParquetDereferencePushDown(withParquetDereferencePushDownEnabled(), query, tableName, expectedDeferencePushDowns);
+    }
+
+    private void assertParquetDereferencePushDown(Session session, String query, String tableName, Map<String, Subfield> expectedDeferencePushDowns)
+    {
+        assertPlan(session, query, anyTree(tableScanParquetDeferencePushDowns(tableName, expectedDeferencePushDowns)));
+    }
+
     private Session pushdownFilterEnabled()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
@@ -1109,6 +1254,14 @@ public class TestHiveLogicalPlanner
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
                 .setCatalogSessionProperty(HIVE_CATALOG, RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED, "true")
+                .build();
+    }
+
+    private Session withParquetDereferencePushDownEnabled()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(PUSHDOWN_DEREFERENCE_ENABLED, "true")
+                .setCatalogSessionProperty(HIVE_CATALOG, PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, "true")
                 .build();
     }
 
@@ -1270,5 +1423,69 @@ public class TestHiveLogicalPlanner
                     .add("requiredSubfields", requiredSubfields)
                     .toString();
         }
+    }
+
+    private static final class HiveParquetDereferencePushdownMatcher
+            implements Matcher
+    {
+        private final Map<String, Subfield> dereferenceColumns;
+
+        private HiveParquetDereferencePushdownMatcher(Map<String, Subfield> dereferenceColumns)
+        {
+            this.dereferenceColumns = requireNonNull(dereferenceColumns, "dereferenceColumns is null");
+        }
+
+        @Override
+        public boolean shapeMatches(PlanNode node)
+        {
+            return node instanceof TableScanNode;
+        }
+
+        @Override
+        public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+        {
+            TableScanNode tableScan = (TableScanNode) node;
+            for (ColumnHandle column : tableScan.getAssignments().values()) {
+                HiveColumnHandle hiveColumn = (HiveColumnHandle) column;
+                String columnName = hiveColumn.getName();
+                if (dereferenceColumns.containsKey(columnName)) {
+                    if (!hiveColumn.getPushdownSubfield().isPresent() || !hiveColumn.getPushdownSubfield().get().equals(dereferenceColumns.get(columnName))) {
+                        return NO_MATCH;
+                    }
+                    dereferenceColumns.remove(columnName);
+                }
+                else {
+                    if (hiveColumn.getPushdownSubfield().isPresent()) {
+                        return NO_MATCH;
+                    }
+                }
+            }
+
+            if (!dereferenceColumns.isEmpty()) {
+                return NO_MATCH;
+            }
+
+            return match();
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("dereferenceColumns", dereferenceColumns)
+                    .toString();
+        }
+    }
+
+    private static Map<String, Subfield> nestedColumnMap(String... columns)
+    {
+        return Arrays.stream(columns).collect(Collectors.toMap(
+                column -> pushdownColumnNameForSubfield(nestedColumn(column)),
+                column -> nestedColumn(column)));
+    }
+
+    private static Subfield nestedColumn(String column)
+    {
+        return new Subfield(column);
     }
 }

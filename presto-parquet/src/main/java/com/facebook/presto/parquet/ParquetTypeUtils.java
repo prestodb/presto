@@ -39,6 +39,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.Subfield.NestedField;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.stream.Collectors.joining;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
@@ -303,5 +304,24 @@ public final class ParquetTypeUtils
             type = new MessageType(groupType.getName(), ImmutableList.of(type));
         }
         return new MessageType(rootName, ImmutableList.of(type));
+    }
+
+    public static List<String> nestedColumnPath(Subfield subfield)
+    {
+        ImmutableList.Builder<String> nestedColumnPathBuilder = ImmutableList.builder();
+        for (Subfield.PathElement pathElement : subfield.getPath()) {
+            checkArgument(pathElement instanceof Subfield.NestedField, "Unsupported subfield. Expected only nested field path elements. " + subfield);
+            nestedColumnPathBuilder.add(((Subfield.NestedField) pathElement).getName());
+        }
+        return nestedColumnPathBuilder.build();
+    }
+
+    public static String pushdownColumnNameForSubfield(Subfield subfield)
+    {
+        // Using the delimiter `$_$_$` to avoid conflict with Subfield serialization when `.` is used as delimiter
+        ImmutableList.Builder<String> nestedColumnPathBuilder = ImmutableList.builder();
+        nestedColumnPathBuilder.add(subfield.getRootName());
+        nestedColumnPathBuilder.addAll(nestedColumnPath(subfield));
+        return nestedColumnPathBuilder.build().stream().collect(joining("$_$_$"));
     }
 }
