@@ -15,6 +15,7 @@ package com.facebook.presto.druid;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -50,11 +51,17 @@ public class DruidAggregationProjectConverter
     private static final String DATE_TRUNC = "date_trunc";
 
     private final FunctionMetadataManager functionMetadataManager;
+    private final ConnectorSession session;
 
-    public DruidAggregationProjectConverter(TypeManager typeManager, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution standardFunctionResolution)
+    public DruidAggregationProjectConverter(
+            ConnectorSession session,
+            TypeManager typeManager,
+            FunctionMetadataManager functionMetadataManager,
+            StandardFunctionResolution standardFunctionResolution)
     {
         super(typeManager, standardFunctionResolution);
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
+        this.session = requireNonNull(session, "session is null");
     }
 
     @Override
@@ -86,7 +93,7 @@ public class DruidAggregationProjectConverter
             ConstantExpression literal,
             Map<VariableReferenceExpression, DruidQueryGeneratorContext.Selection> context)
     {
-        return new DruidExpression(getLiteralAsString(literal), DruidQueryGeneratorContext.Origin.LITERAL);
+        return new DruidExpression(getLiteralAsString(session, literal), DruidQueryGeneratorContext.Origin.LITERAL);
     }
 
     private DruidExpression handleDateTruncationViaDateTruncation(

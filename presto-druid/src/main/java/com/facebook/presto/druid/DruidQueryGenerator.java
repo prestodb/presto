@@ -225,7 +225,7 @@ public class DruidQueryGenerator
                 RowExpression expression = node.getAssignments().get(variable);
                 DruidProjectExpressionConverter projectExpressionConverter = druidProjectExpressionConverter;
                 if (contextIn.getVariablesInAggregation().contains(variable)) {
-                    projectExpressionConverter = new DruidAggregationProjectConverter(typeManager, functionMetadataManager, standardFunctionResolution);
+                    projectExpressionConverter = new DruidAggregationProjectConverter(session, typeManager, functionMetadataManager, standardFunctionResolution);
                 }
                 DruidExpression druidExpression = expression.accept(
                         projectExpressionConverter,
