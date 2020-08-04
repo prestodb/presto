@@ -106,7 +106,8 @@ public class TestAbstractDwrfEncryptionInformationSource
                                 0,
                                 REGULAR,
                                 Optional.empty(),
-                                ImmutableList.of(new Subfield("col_struct.a"), new Subfield("col_struct.b.b2"))))),
+                                ImmutableList.of(new Subfield("col_struct.a"), new Subfield("col_struct.b.b2")),
+                                Optional.empty()))),
                 ImmutableMap.of(
                         "ds=2020-01-01", new Partition("dbName", "tableName", ImmutableList.of("2020-01-01"), table.getStorage(), table.getDataColumns(), ImmutableMap.of()),
                         "ds=2020-01-02", new Partition("dbName", "tableName", ImmutableList.of("2020-01-02"), table.getStorage(), table.getDataColumns(), ImmutableMap.of())));
@@ -157,7 +158,8 @@ public class TestAbstractDwrfEncryptionInformationSource
                                 0,
                                 REGULAR,
                                 Optional.empty(),
-                                ImmutableList.of(new Subfield("col_struct.a"), new Subfield("col_struct.b.b2"))))),
+                                ImmutableList.of(new Subfield("col_struct.a"), new Subfield("col_struct.b.b2")),
+                                Optional.empty()))),
                 ImmutableMap.of(
                         "ds=2020-01-01", new Partition("dbName", "tableName", ImmutableList.of("2020-01-01"), table.getStorage(), table.getDataColumns(), ImmutableMap.of()),
                         "ds=2020-01-02", new Partition("dbName", "tableName", ImmutableList.of("2020-01-02"), table.getStorage(), table.getDataColumns(), ImmutableMap.of())));
@@ -189,7 +191,8 @@ public class TestAbstractDwrfEncryptionInformationSource
                                 0,
                                 REGULAR,
                                 Optional.empty(),
-                                ImmutableList.of(new Subfield("col_struct.a"), new Subfield("col_struct.b.b2"))))));
+                                ImmutableList.of(new Subfield("col_struct.a"), new Subfield("col_struct.b.b2")),
+                                Optional.empty()))));
 
         Map<String, byte[]> expectedFieldToKeyData = ImmutableMap.of("col_bigint", "key2".getBytes(), "col_struct.a", "key2".getBytes(), "col_struct.b.b2", "key1".getBytes());
         assertTrue(encryptionInformation.isPresent());
