@@ -59,6 +59,7 @@ import org.testng.annotations.Test;
 import javax.inject.Singleton;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
@@ -173,6 +174,12 @@ public class TestThriftServerInfoIntegration
                 public String getTaskInstanceId(TaskId taskId)
                 {
                     throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Map<TaskId, TaskStatus> getAllTaskStatus(String sessionId)
+                {
+                    return null;
                 }
 
                 @Override

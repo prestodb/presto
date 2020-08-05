@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface TaskManager
@@ -43,6 +44,12 @@ public interface TaskManager
      * queried.
      */
     TaskInfo getTaskInfo(TaskId taskId);
+
+    /**
+     * Gets all of the currently tracked task status.
+     *
+     */
+    Map<TaskId, TaskStatus> getAllTaskStatus(String sessionId);
 
     /**
      * Gets the status for the specified task.

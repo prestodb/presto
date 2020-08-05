@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.concurrent.ConcurrentScheduledExecutor;
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
@@ -46,6 +48,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -54,19 +58,27 @@ import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
@@ -81,8 +93,10 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
@@ -113,6 +127,12 @@ public class SqlTaskManager
     private String coordinatorId;
 
     private final CounterStat failedTasks = new CounterStat();
+
+    private final LoadingCache<String, Map<TaskId, TaskState>> sessionTaskIdStatusMap;
+    private final Executor statusBoundedExecutor;
+    private final Duration waitTime;
+
+    private final ScheduledExecutorService timeoutExecutor;
 
     @Inject
     public SqlTaskManager(
@@ -178,6 +198,11 @@ public class SqlTaskManager
                         },
                         maxBufferSize,
                         failedTasks)));
+
+        sessionTaskIdStatusMap = CacheBuilder.newBuilder().build(CacheLoader.from(sessionId -> new ConcurrentHashMap<>()));
+        statusBoundedExecutor = new BoundedExecutor(newCachedThreadPool(daemonThreadsNamed("task-status-endpoint-%s")), 100);
+        waitTime = new Duration(1, TimeUnit.SECONDS);
+        timeoutExecutor = new ConcurrentScheduledExecutor(10, 1, "task-status-endpoint-timeout");
     }
 
     private QueryContext createQueryContext(
@@ -321,6 +346,54 @@ public class SqlTaskManager
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
         return sqlTask.getTaskInfo();
+    }
+
+    @Override
+    public Map<TaskId, TaskStatus> getAllTaskStatus(String sessionId)
+    {
+        Map<TaskId, TaskState> lastTaskIdStatusMap = sessionTaskIdStatusMap.getUnchecked(sessionId);
+        List<ListenableFuture<TaskStatus>> listenableFutures = new ArrayList<>();
+        Map<TaskId, TaskStatus> finalTaskIdTaskStatusMap = new ConcurrentHashMap<>();
+        Set<TaskId> taskIds = tasks.asMap().keySet();
+        for (TaskId taskId : taskIds) {
+            statusBoundedExecutor.execute(() -> {
+                TaskState lastTaskState = lastTaskIdStatusMap.getOrDefault(taskId, null);
+                if (lastTaskState == null) {
+                    TaskStatus taskStatus = getTaskStatus(taskId);
+                    finalTaskIdTaskStatusMap.put(taskId, taskStatus);
+                }
+                else {
+                    ListenableFuture<TaskStatus> listenableTaskStateFuture = addTimeout(
+                            getTaskStatus(taskId, lastTaskState),
+                            () -> getTaskStatus(taskId),
+                            waitTime,
+                            timeoutExecutor);
+                    Futures.addCallback(listenableTaskStateFuture, new FutureCallback<TaskStatus>() {
+                        @Override
+                        public void onSuccess(@Nullable TaskStatus taskStatus)
+                        {
+                            finalTaskIdTaskStatusMap.put(taskId, taskStatus);
+                        }
+
+                        @Override
+                        public void onFailure(Throwable t)
+                        {
+                            log.error("Failed to get t");
+                        }
+                    }, directExecutor());
+                    listenableFutures.add(listenableTaskStateFuture);
+                }
+            });
+        }
+
+        try {
+            Futures.allAsList(listenableFutures).get();
+        }
+        catch (Exception e) {
+            log.error("Exception in getAllTaskStatus: " + e);
+        }
+
+        return finalTaskIdTaskStatusMap;
     }
 
     @Override

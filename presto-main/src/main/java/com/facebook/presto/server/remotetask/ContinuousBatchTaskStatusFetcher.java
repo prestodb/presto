@@ -76,7 +76,7 @@ public class ContinuousBatchTaskStatusFetcher
     @Inject
     public ContinuousBatchTaskStatusFetcher(
             @ForScheduler HttpClient httpClient,
-            // ScheduledExecutorService errorScheduledExecutor,
+            @ForScheduler ScheduledExecutorService errorScheduledExecutor,
             RemoteTaskStats stats,
             TaskManagerConfig taskConfig,
             QueryManagerConfig config,
