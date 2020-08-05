@@ -8318,6 +8318,14 @@ public abstract class AbstractTestQueries
                 "select null");
     }
 
+    @Test
+    public void testMultipleSqlFunctionsWithLambda()
+    {
+        assertQuery(
+                "SELECT array_sum(zip_with(a, b, (x, y) -> x * y)), array_sum(zip_with(a, b, (x, y) -> x * y)) + array_sum(zip_with(a, a, (x, y) -> x * y)) FROM (VALUES (ARRAY[1, 2, 3], ARRAY[1, 0, 0])) t(a, b)",
+                "SELECT 1, 15");
+    }
+
     protected Session noJoinReordering()
     {
         return Session.builder(getSession())
