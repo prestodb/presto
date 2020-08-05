@@ -15,10 +15,12 @@ package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.expressions.DynamicFilters;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
@@ -26,19 +28,21 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
+import com.facebook.presto.sql.relational.Expressions;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.intersection;
 
 /**
- * When dynamic filter assignments are present on a Join node, they should be consumed by a Filter node on it's probe side
+ * When dynamic filter assignments are present on a Join node, they should be consumed by a Filter node on its probe side
  */
 public class DynamicFiltersChecker
         implements PlanChecker.Checker
@@ -84,10 +88,12 @@ public class DynamicFiltersChecker
                 Set<String> consumedProbeSide = node.getProbe().accept(this, context);
                 verify(
                         difference(currentJoinDynamicFilters, consumedProbeSide).isEmpty(),
-                        "Dynamic filters present in join were not fully consumed by it's probe side.");
+                        "Dynamic filters present in join were not fully consumed by its probe side.");
 
                 Set<String> consumedBuildSide = node.getBuild().accept(this, context);
-                verify(intersection(currentJoinDynamicFilters, consumedBuildSide).isEmpty());
+                verify(
+                        intersection(currentJoinDynamicFilters, consumedBuildSide).isEmpty(),
+                        "Dynamic filters present in join were consumed by its build side.");
 
                 Set<String> unmatched = new HashSet<>(consumedBuildSide);
                 unmatched.addAll(consumedProbeSide);
@@ -99,13 +105,21 @@ public class DynamicFiltersChecker
             public Set<String> visitFilter(FilterNode node, Void context)
             {
                 ImmutableSet.Builder<String> consumed = ImmutableSet.builder();
-                List<DynamicFilterPlaceholder> dynamicFilters = extractDynamicFilters(node.getPredicate()).getDynamicConjuncts();
-                dynamicFilters.stream()
+                extractDynamicPredicates(node.getPredicate()).stream()
                         .map(DynamicFilterPlaceholder::getId)
                         .forEach(consumed::add);
                 consumed.addAll(node.getSource().accept(this, context));
                 return consumed.build();
             }
         }, null);
+    }
+
+    private static List<DynamicFilterPlaceholder> extractDynamicPredicates(RowExpression expression)
+    {
+        return Expressions.uniqueSubExpressions(expression).stream()
+            .map(DynamicFilters::getPlaceholder)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(toImmutableList());
     }
 }
