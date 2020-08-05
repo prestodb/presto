@@ -157,7 +157,6 @@ public class TestAccumuloDistributedQueries
         }
     }
 
-    @Override
     public void testBuildFilteredLeftJoin()
     {
         // Override because of extra UUID column in lineitem table, cannot SELECT *
@@ -168,7 +167,6 @@ public class TestAccumuloDistributedQueries
                 + "FROM lineitem LEFT JOIN (SELECT * FROM orders WHERE orderkey % 2 = 0) a ON lineitem.orderkey = a.orderkey");
     }
 
-    @Override
     @Test
     public void testJoinWithAlias()
     {
@@ -176,7 +174,6 @@ public class TestAccumuloDistributedQueries
         // Cannot munge test to pass due to aliased data set 'x' containing duplicate orderkey and comment columns
     }
 
-    @Override
     public void testProbeFilteredLeftJoin()
     {
         // Override because of extra UUID column in lineitem table, cannot SELECT *
@@ -187,7 +184,6 @@ public class TestAccumuloDistributedQueries
                 + "FROM (SELECT * FROM lineitem WHERE orderkey % 2 = 0) a LEFT JOIN orders ON a.orderkey = orders.orderkey");
     }
 
-    @Override
     public void testLeftJoinWithEmptyInnerTable()
     {
         // Override because of extra UUID column in lineitem table, cannot SELECT *
