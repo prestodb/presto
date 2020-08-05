@@ -217,7 +217,8 @@ public final class HttpRemoteTask
             boolean isBinaryTransportEnabled,
             TableWriteInfo tableWriteInfo,
             int maxTaskUpdateSizeInBytes,
-            ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher)
+            ContinuousBatchTaskStatusFetcher continuousBatchTaskStatusFetcher,
+            Codec<Map<TaskId, TaskStatus>> taskIdStatusCodec)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -284,6 +285,7 @@ public final class HttpRemoteTask
 
             if (useBatchTaskStatusFetcher) {
                 this.continuousBatchTaskStatusFetcher = continuousBatchTaskStatusFetcher;
+                this.continuousBatchTaskStatusFetcher.addTask(taskId, initialTask.getTaskStatus(), taskIdStatusCodec);
                 this.taskStatusFetcher = null;
             }
             else {

@@ -67,6 +67,7 @@ class WorkerTaskStatusFetcher
     private static final Logger log = Logger.get(ContinuousTaskStatusFetcher.class);
 
     private final String worker;
+    private final URI workerURI;
     private final Consumer<Throwable> onFail;
     private final Codec<Map<TaskId, TaskStatus>> taskListStatusCodec;
     private final Duration refreshMaxWait;
@@ -87,6 +88,7 @@ class WorkerTaskStatusFetcher
 
     public WorkerTaskStatusFetcher(
             String worker,
+            URI workerURI,
             Consumer<Throwable> onFail,
             Duration refreshMaxWait,
             Codec<Map<TaskId, TaskStatus>> taskListStatusCodec,
@@ -99,6 +101,7 @@ class WorkerTaskStatusFetcher
             String sessionId)
     {
         this.worker = worker;
+        this.workerURI = workerURI;
         idTaskMap = new ConcurrentHashMap<>();
 
         this.onFail = requireNonNull(onFail, "onFail is null");
@@ -109,6 +112,8 @@ class WorkerTaskStatusFetcher
         this.executor = requireNonNull(executor, "executor is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
+        this.sessionId = sessionId;
+
         this.errorTracker = new BatchRequestErrorTracker(
                 Collections.list(idTaskMap.keys()),
                 getWorkerURI(),
@@ -117,8 +122,6 @@ class WorkerTaskStatusFetcher
                 "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;
-
-        this.sessionId = sessionId;
     }
 
     public void addTask(ContinuousBatchTaskStatusFetcher.Task task)
@@ -140,7 +143,7 @@ class WorkerTaskStatusFetcher
     {
         URI uri;
         try {
-            uri = uriBuilderFrom(new URI(worker)).appendPath("v1/task/status?session_id=" + sessionId).build();
+            uri = uriBuilderFrom(new URI("http://" + worker + ":8080/")).appendPath("v1/task/status?session_id=" + sessionId).build();
         }
         catch (URISyntaxException e) {
             uri = null;

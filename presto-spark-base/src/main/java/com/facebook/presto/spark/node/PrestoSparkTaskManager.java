@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class PrestoSparkTaskManager
@@ -45,6 +46,12 @@ public class PrestoSparkTaskManager
     public TaskInfo getTaskInfo(TaskId taskId)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<TaskId, TaskStatus> getAllTaskStatus(String sessionId)
+    {
+        return null;
     }
 
     @Override

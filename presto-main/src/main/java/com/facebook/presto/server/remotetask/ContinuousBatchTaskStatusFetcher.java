@@ -34,6 +34,7 @@ import io.airlift.units.Duration;
 import javax.annotation.PostConstruct;
 import javax.annotation.concurrent.GuardedBy;
 
+import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -117,6 +118,7 @@ public class ContinuousBatchTaskStatusFetcher
         newTask.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
         newTask.taskListStatusCodec = requireNonNull(taskListStatusCodec, "taskListStatusCodec is null");
 
+        URI workerURI = initialTaskStatus.getSelf();
         String worker = initialTaskStatus.getSelf().getHost();
         idWorkerMap.put(taskId, worker);
         if (!workerTaskMap.containsKey(worker)) {
@@ -124,6 +126,7 @@ public class ContinuousBatchTaskStatusFetcher
                     worker,
                     new WorkerTaskStatusFetcher(
                             worker,
+                            workerURI,
                             onFail,
                             refreshMaxWait,
                             taskListStatusCodec,

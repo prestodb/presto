@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.LocationFactory;
@@ -37,6 +38,7 @@ import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
+import com.facebook.presto.server.smile.SmileCodecFactory;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
@@ -47,6 +49,7 @@ import org.weakref.jmx.Nested;
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -67,6 +70,7 @@ public class HttpRemoteTaskFactory
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final Codec<TaskStatus> taskStatusCodec;
+    private final Codec<Map<TaskId, TaskStatus>> taskIdStatusCodec;
     private final Codec<TaskInfo> taskInfoCodec;
     private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Codec<PlanFragment> planFragmentCodec;
@@ -114,11 +118,17 @@ public class HttpRemoteTaskFactory
         this.maxTaskUpdateSizeInBytes = toIntExact(requireNonNull(communicationConfig, "communicationConfig is null").getMaxTaskUpdateSize().toBytes());
 
         if (isBinaryTransportEnabled) {
+            SmileCodecFactory factory = new SmileCodecFactory();
+            this.taskIdStatusCodec = factory.mapSmileCodec(TaskId.class, TaskStatus.class);
+
             this.taskStatusCodec = taskStatusSmileCodec;
             this.taskInfoCodec = taskInfoSmileCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestSmileCodec;
         }
         else {
+            JsonCodecFactory factory = new JsonCodecFactory();
+            this.taskIdStatusCodec = wrapJsonCodec(factory.mapJsonCodec(TaskId.class, TaskStatus.class));
+
             this.taskStatusCodec = wrapJsonCodec(taskStatusJsonCodec);
             this.taskInfoCodec = wrapJsonCodec(taskInfoJsonCodec);
             this.taskUpdateRequestCodec = wrapJsonCodec(taskUpdateRequestJsonCodec);
@@ -184,6 +194,7 @@ public class HttpRemoteTaskFactory
                 isBinaryTransportEnabled,
                 tableWriteInfo,
                 maxTaskUpdateSizeInBytes,
-                continuousBatchTaskStatusFetcher);
+                continuousBatchTaskStatusFetcher,
+                taskIdStatusCodec);
     }
 }
