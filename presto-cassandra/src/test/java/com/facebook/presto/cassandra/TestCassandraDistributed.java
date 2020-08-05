@@ -44,7 +44,6 @@ public class TestCassandraDistributed
         return false;
     }
 
-    @Override
     public void testJoinWithLessThanOnDatesInJoinClause()
     {
         // Cassandra does not support DATE

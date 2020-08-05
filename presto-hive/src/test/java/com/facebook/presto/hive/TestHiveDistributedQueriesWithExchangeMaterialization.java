@@ -162,7 +162,6 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
         // decimal type is not supported by the Hive hash code function
     }
 
-    @Override
     public void testSemiJoin()
     {
         // decimal type is not supported by the Hive hash code function

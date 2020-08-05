@@ -125,7 +125,6 @@ public class TestPrestoSparkAbstractTestQueries
         // prepared statement is not supported by Presto on Spark
     }
 
-    @Override
     public void testExecuteUsingComplexJoinCriteria()
     {
         // prepared statement is not supported by Presto on Spark
@@ -137,7 +136,6 @@ public class TestPrestoSparkAbstractTestQueries
         // prepared statement is not supported by Presto on Spark
     }
 
-    @Override
     public void testExecuteUsingWithSubqueryInJoin()
     {
         // prepared statement is not supported by Presto on Spark
