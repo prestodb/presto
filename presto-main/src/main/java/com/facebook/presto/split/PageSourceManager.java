@@ -20,8 +20,10 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
@@ -58,6 +60,11 @@ public class PageSourceManager
 
         // TODO: push the tuple domain to underlying connectors
         Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter = table.getDynamicFilter();
+
+        // directly return the result if the given constraint is always false
+        if (dynamicFilter.isPresent() && dynamicFilter.get().get().isNone()) {
+            return new FixedPageSource(ImmutableList.of());
+        }
 
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
         if (table.getLayout().isPresent()) {
