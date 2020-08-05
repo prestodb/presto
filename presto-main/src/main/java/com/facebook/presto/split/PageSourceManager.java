@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
+import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.google.common.collect.ImmutableList;
@@ -58,12 +59,20 @@ public class PageSourceManager
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
 
-        // TODO: push the tuple domain to underlying connectors
         Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter = table.getDynamicFilter();
 
         // directly return the result if the given constraint is always false
         if (dynamicFilter.isPresent() && dynamicFilter.get().get().isNone()) {
             return new FixedPageSource(ImmutableList.of());
+        }
+
+        if (dynamicFilter.isPresent()) {
+            split = new Split(
+                    split.getConnectorId(),
+                    split.getTransactionHandle(),
+                    split.getConnectorSplit(),
+                    split.getLifespan(),
+                    new SplitContext(split.getSplitContext().isCacheable(), dynamicFilter.get().get()));
         }
 
         ConnectorSession connectorSession = session.toConnectorSession(split.getConnectorId());
