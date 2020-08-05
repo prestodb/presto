@@ -57,6 +57,7 @@ import static com.facebook.presto.verifier.framework.SkippedReason.VERIFIER_INTE
 import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -406,7 +407,7 @@ public abstract class AbstractVerification
                         .append(" query failed on ")
                         .append(exception.getQueryStage().getTargetCluster())
                         .append(" cluster:\n")
-                        .append(getStackTraceAsString(exception.getCause()));
+                        .append(exception.getCause() == null ? nullToEmpty(exception.getMessage()) : getStackTraceAsString(exception.getCause()));
             }
             else {
                 message.append(getStackTraceAsString(throwable.get()));

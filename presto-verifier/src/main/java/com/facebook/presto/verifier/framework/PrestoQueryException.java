@@ -29,6 +29,18 @@ public class PrestoQueryException
     private final QueryActionStats queryActionStats;
 
     public PrestoQueryException(
+            String message,
+            boolean retryable,
+            QueryStage queryStage,
+            Optional<ErrorCodeSupplier> errorCode,
+            QueryActionStats queryActionStats)
+    {
+        super(message, retryable, queryStage);
+        this.errorCode = requireNonNull(errorCode, "errorCode is null");
+        this.queryActionStats = requireNonNull(queryActionStats, "queryActionStats is null");
+    }
+
+    public PrestoQueryException(
             Throwable cause,
             boolean retryable,
             QueryStage queryStage,
