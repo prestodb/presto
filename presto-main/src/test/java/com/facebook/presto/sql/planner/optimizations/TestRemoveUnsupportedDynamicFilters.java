@@ -47,6 +47,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.sql.ExpressionUtils.combineDisjuncts;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
@@ -168,6 +169,74 @@ public class TestRemoveUnsupportedDynamicFilters
                                 ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 filter("LINEITEM_OK > 0",
+                                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
+    }
+
+    @Test
+    public void testNestedDynamicFilterDisjunctionRewrite()
+    {
+        PlanNode root = builder.output(
+                ImmutableList.of(),
+                ImmutableList.of(),
+                builder.join(
+                        INNER,
+                        ordersTableScanNode,
+                        builder.filter(
+                                logicalRowExpressions.combineConjuncts(
+                                        logicalRowExpressions.combineDisjuncts(
+                                                builder.rowExpression("LINEITEM_OK IS NULL"),
+                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager())),
+                                        logicalRowExpressions.combineDisjuncts(
+                                                builder.rowExpression("LINEITEM_OK IS NOT NULL"),
+                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager()))),
+                                lineitemTableScanNode),
+                        ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
+                        ImmutableList.of(ordersOrderKeyVariable),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of()));
+        assertPlan(
+                removeUnsupportedDynamicFilters(root),
+                output(
+                        join(INNER,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
+    }
+
+    @Test
+    public void testNestedDynamicFilterConjunctionRewrite()
+    {
+        PlanNode root = builder.output(ImmutableList.of(), ImmutableList.of(),
+                builder.join(
+                        INNER,
+                        ordersTableScanNode,
+                        builder.filter(
+                                logicalRowExpressions.combineDisjuncts(
+                                        logicalRowExpressions.combineConjuncts(
+                                                builder.rowExpression("LINEITEM_OK IS NULL"),
+                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager())),
+                                        logicalRowExpressions.combineConjuncts(
+                                                builder.rowExpression("LINEITEM_OK IS NOT NULL"),
+                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager()))),
+                                lineitemTableScanNode),
+                        ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
+                        ImmutableList.of(ordersOrderKeyVariable),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of()));
+        assertPlan(
+                removeUnsupportedDynamicFilters(root),
+                output(
+                        join(INNER,
+                                ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                                filter(
+                                        combineDisjuncts(ImmutableList.of(
+                                                PlanBuilder.expression("LINEITEM_OK IS NULL"),
+                                                PlanBuilder.expression("LINEITEM_OK IS NOT NULL"))),
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
 
