@@ -45,6 +45,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 
 public class LocalQueryProvider
+        implements QueryProvider
 {
     private static final Logger log = Logger.get(LocalQueryProvider.class);
 
@@ -104,6 +105,7 @@ public class LocalQueryProvider
         queryPurger.shutdownNow();
     }
 
+    @Override
     public Query getQuery(QueryId queryId, String slug)
     {
         Query query = queries.get(queryId);
@@ -140,6 +142,7 @@ public class LocalQueryProvider
         return query;
     }
 
+    @Override
     public void cancel(QueryId queryId, String slug)
     {
         Query query = queries.get(queryId);

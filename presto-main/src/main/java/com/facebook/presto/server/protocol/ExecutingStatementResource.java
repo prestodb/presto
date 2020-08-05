@@ -58,12 +58,12 @@ public class ExecutingStatementResource
     private static final DataSize MAX_TARGET_RESULT_SIZE = new DataSize(128, MEGABYTE);
 
     private final BoundedExecutor responseExecutor;
-    private final LocalQueryProvider queryProvider;
+    private final QueryProvider queryProvider;
 
     @Inject
     public ExecutingStatementResource(
             @ForStatementResource BoundedExecutor responseExecutor,
-            LocalQueryProvider queryProvider)
+            QueryProvider queryProvider)
     {
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.queryProvider = requireNonNull(queryProvider, "queryProvider is null");

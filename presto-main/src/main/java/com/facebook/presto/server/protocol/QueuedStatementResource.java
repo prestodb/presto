@@ -102,7 +102,7 @@ public class QueuedStatementResource
     private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
     private final DispatchManager dispatchManager;
-    private final LocalQueryProvider queryResultsProvider;
+    private final QueryProvider queryResultsProvider;
 
     private final Executor responseExecutor;
     private final ScheduledExecutorService timeoutExecutor;
@@ -114,7 +114,7 @@ public class QueuedStatementResource
     public QueuedStatementResource(
             DispatchManager dispatchManager,
             DispatchExecutor executor,
-            LocalQueryProvider queryResultsProvider)
+            QueryProvider queryResultsProvider)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryResultsProvider = queryResultsProvider;
@@ -292,7 +292,7 @@ public class QueuedStatementResource
         private final String query;
         private final SessionContext sessionContext;
         private final DispatchManager dispatchManager;
-        private final LocalQueryProvider queryProvider;
+        private final QueryProvider queryProvider;
         private final ScheduledExecutorService timeoutExecutor;
         private final QueryId queryId;
         private final String slug = "x" + randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
@@ -301,7 +301,7 @@ public class QueuedStatementResource
         @GuardedBy("this")
         private ListenableFuture<?> querySubmissionFuture;
 
-        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, LocalQueryProvider queryResultsProvider, ScheduledExecutorService timeoutExecutor)
+        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryProvider queryResultsProvider, ScheduledExecutorService timeoutExecutor)
         {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");

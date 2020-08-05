@@ -98,6 +98,7 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
 import com.facebook.presto.server.protocol.LocalQueryProvider;
+import com.facebook.presto.server.protocol.QueryProvider;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
 import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
@@ -234,7 +235,7 @@ public class CoordinatorModule
         binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
 
-        binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
+        binder.bind(QueryProvider.class).to(LocalQueryProvider.class).in(Scopes.SINGLETON);
 
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
