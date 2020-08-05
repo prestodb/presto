@@ -20,6 +20,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
+import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
@@ -206,6 +207,24 @@ public class BasePlanTest
     {
         try {
             return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
+        }
+        catch (RuntimeException e) {
+            throw new AssertionError("Planning failed for SQL: " + sql, e);
+        }
+    }
+
+    protected SubPlan subplan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
+    {
+        return subplan(sql, stage, forceSingleNode, getQueryRunner().getDefaultSession());
+    }
+
+    protected SubPlan subplan(String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, Session session)
+    {
+        try {
+            return queryRunner.inTransaction(session, transactionSession -> {
+                Plan plan = queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP);
+                return queryRunner.createSubPlans(transactionSession, plan, forceSingleNode);
+            });
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);
