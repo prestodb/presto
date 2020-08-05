@@ -63,7 +63,6 @@ public class ScanFilterAndProjectOperator
     private final TableHandle table;
     private final List<ColumnHandle> columns;
     private final PageBuilder pageBuilder;
-    private final CursorProcessor cursorProcessor;
     private final PageProcessor pageProcessor;
     private final LocalMemoryContext pageSourceMemoryContext;
     private final LocalMemoryContext pageProcessorMemoryContext;
@@ -71,7 +70,6 @@ public class ScanFilterAndProjectOperator
     private final SettableFuture<?> blocked = SettableFuture.create();
     private final MergingPageOutput mergingOutput;
 
-    private RecordCursor cursor;
     private ConnectorPageSource pageSource;
 
     private Split split;
@@ -93,7 +91,6 @@ public class ScanFilterAndProjectOperator
             Iterable<Type> types,
             MergingPageOutput mergingOutput)
     {
-        this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
         this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(sourceId, "sourceId is null");
@@ -178,9 +175,6 @@ public class ScanFilterAndProjectOperator
                 throw new UncheckedIOException(e);
             }
         }
-        else if (cursor != null) {
-            cursor.close();
-        }
         finishing = true;
         mergingOutput.finish();
     }
@@ -223,46 +217,13 @@ public class ScanFilterAndProjectOperator
             return null;
         }
 
-        if (!finishing && pageSource == null && cursor == null) {
+        if (!finishing && pageSource == null) {
             ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns);
-            if (source instanceof RecordPageSource) {
-                cursor = ((RecordPageSource) source).getCursor();
-            }
-            else {
-                pageSource = source;
-            }
+            pageSource = source;
         }
 
-        if (pageSource != null) {
-            return processPageSource();
-        }
-        else {
-            return processColumnSource();
-        }
-    }
-
-    private Page processColumnSource()
-    {
-        DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
-        if (!finishing && !yieldSignal.isSet()) {
-            CursorProcessorOutput output = cursorProcessor.process(operatorContext.getSession().getSqlFunctionProperties(), yieldSignal, cursor, pageBuilder);
-            pageSourceMemoryContext.setBytes(cursor.getSystemMemoryUsage());
-
-            recordCursorInputStats(output.getProcessedRows());
-            if (output.isNoMoreRows()) {
-                finishing = true;
-                mergingOutput.finish();
-            }
-        }
-
-        // only return a page if buffer is full or we are finishing
-        Page page = null;
-        if (!pageBuilder.isEmpty() && (finishing || pageBuilder.isFull())) {
-            page = pageBuilder.build();
-            pageBuilder.reset();
-        }
-        outputMemoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
-        return page;
+        checkState(pageSource != null);
+        return processPageSource();
     }
 
     private Page processPageSource()
@@ -313,18 +274,6 @@ public class ScanFilterAndProjectOperator
             recordPageSourceRawInputStats();
             block.setBlock(loadedBlock);
         }
-    }
-
-    private void recordCursorInputStats(long positionCount)
-    {
-        checkState(cursor != null, "cursor is null");
-        long endCompletedBytes = cursor.getCompletedBytes();
-        long endReadTimeNanos = cursor.getReadTimeNanos();
-        long inputBytes = endCompletedBytes - completedBytes;
-        operatorContext.recordProcessedInput(inputBytes, positionCount);
-        operatorContext.recordRawInputWithTiming(inputBytes, positionCount, endReadTimeNanos - readTimeNanos);
-        completedBytes = endCompletedBytes;
-        readTimeNanos = endReadTimeNanos;
     }
 
     private void recordPageSourceRawInputStats()
