@@ -166,6 +166,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
+    public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -863,7 +864,12 @@ public final class SystemSessionProperties
                         featuresConfig.getDynamicFilteringMaxPerDriverSize(),
                         false,
                         value -> DataSize.valueOf((String) value),
-                        DataSize::toString));
+                        DataSize::toString),
+                booleanProperty(
+                        LEGACY_TYPE_COERCION_WARNING_ENABLED,
+                        "Enable warning for query relying on legacy type coercion",
+                        featuresConfig.isLegacyDateTimestampToVarcharCoercion(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1458,5 +1464,10 @@ public final class SystemSessionProperties
     public static DataSize getDynamicFilteringMaxPerDriverSize(Session session)
     {
         return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE, DataSize.class);
+    }
+
+    public static boolean isLegacyTypeCoercionWarningEnabled(Session session)
+    {
+        return session.getSystemProperty(LEGACY_TYPE_COERCION_WARNING_ENABLED, Boolean.class);
     }
 }
