@@ -98,7 +98,6 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
-import com.facebook.presto.server.remotetask.ContinuousBatchTaskStatusFetcher;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
@@ -308,8 +307,6 @@ public class ServerMainModule
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
-        binder.bind(ContinuousBatchTaskStatusFetcher.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(ContinuousBatchTaskStatusFetcher.class).withGeneratedName();
 
         // memory revoking scheduler
         binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);

@@ -98,6 +98,7 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
 import com.facebook.presto.server.protocol.LocalQueryProvider;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
+import com.facebook.presto.server.remotetask.ContinuousBatchTaskStatusFetcher;
 import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
@@ -353,6 +354,9 @@ public class CoordinatorModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+
+        binder.bind(ContinuousBatchTaskStatusFetcher.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(ContinuousBatchTaskStatusFetcher.class).withGeneratedName();
     }
 
     @Provides

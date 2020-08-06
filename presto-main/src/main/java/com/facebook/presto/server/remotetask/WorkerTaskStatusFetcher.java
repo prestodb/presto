@@ -30,7 +30,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import javafx.util.Pair;
+import org.apache.commons.math3.util.Pair;
 
 import javax.annotation.concurrent.GuardedBy;
 
