@@ -286,6 +286,16 @@ public final class HttpRemoteTask
             if (useBatchTaskStatusFetcher) {
                 this.continuousBatchTaskStatusFetcher = continuousBatchTaskStatusFetcher;
                 this.continuousBatchTaskStatusFetcher.addTask(taskId, initialTask.getTaskStatus(), taskIdStatusCodec);
+                this.continuousBatchTaskStatusFetcher.addStateChangeListener(taskId, newStatus -> {
+                    TaskState state = newStatus.getState();
+                    if (state.isDone()) {
+                        cleanUpTask();
+                    }
+                    else {
+                        partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+                        updateSplitQueueSpace();
+                    }
+                });
                 this.taskStatusFetcher = null;
             }
             else {

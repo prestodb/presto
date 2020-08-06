@@ -140,7 +140,7 @@ public class ContinuousBatchTaskStatusFetcher
             scheduleNextRequest(workerTaskMap.get(worker));
         }
         workerTaskMap.get(worker).addTask(newTask);
-        workerTaskMap.get(worker).addStateChangeListener(newTask.taskStatus, newStatus -> {
+        workerTaskMap.get(worker).addStateChangeListener(newTask.taskId, newStatus -> {
             TaskState state = newStatus.getState();
             if (state.isDone()) { // We can worry about the details later
                 // cleanUpTask();
@@ -194,8 +194,7 @@ public class ContinuousBatchTaskStatusFetcher
 
     public void addStateChangeListener(TaskId taskId, StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
-        WorkerTaskStatusFetcher worker = workerTaskMap.get(idWorkerMap.get(taskId));
-        StateMachine<TaskStatus> taskStatus = worker.getTaskStateMachine(taskId);
-        taskStatus.addStateChangeListener(stateChangeListener);
+        //workerTaskMap.get(idWorkerMap.get(taskId)).getTaskStateMachine(taskId).addStateChangeListener(stateChangeListener);
+        workerTaskMap.get(idWorkerMap.get(taskId)).addStateChangeListener(taskId, stateChangeListener);
     }
 }

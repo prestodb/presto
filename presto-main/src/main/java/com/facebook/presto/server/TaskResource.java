@@ -206,7 +206,7 @@ public class TaskResource
     {
         String session = getSession(uriInfo);
 
-        Map<TaskId, TaskStatus> allTaskStatus = taskManager.getAllTaskStatus("abc");
+        Map<TaskId, TaskStatus> allTaskStatus = taskManager.getAllTaskStatus(session);
         asyncResponse.resume(allTaskStatus);
         return;
     }

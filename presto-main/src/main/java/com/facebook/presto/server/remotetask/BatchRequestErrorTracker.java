@@ -44,7 +44,6 @@ import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
@@ -83,7 +82,7 @@ class BatchRequestErrorTracker
         }
 
         ListenableFutureTask<Object> futureTask = ListenableFutureTask.create(() -> null);
-        scheduledExecutor.schedule(futureTask, delayNanos, NANOSECONDS);
+        //scheduledExecutor.schedule(futureTask, delayNanos, NANOSECONDS);
         return futureTask;
     }
 

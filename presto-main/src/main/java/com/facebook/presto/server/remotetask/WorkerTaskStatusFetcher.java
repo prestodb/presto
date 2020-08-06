@@ -21,7 +21,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
-import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
@@ -149,7 +148,7 @@ class WorkerTaskStatusFetcher
     {
         URI uri;
         try {
-            uri = uriBuilderFrom(new URI("http://" + worker + ":8080/")).appendPath("v1/task/status?session_id=" + sessionId).build();
+            uri = uriBuilderFrom(new URI("http://" + worker + ":8080/v1/task/status")).addParameter("session", sessionId) .build();
         }
         catch (URISyntaxException e) {
             uri = null;
@@ -159,10 +158,10 @@ class WorkerTaskStatusFetcher
 
     public synchronized void scheduleNextRequest()
     {
-        // stopped or done?
-        if (!running) {
-            return;
-        }
+//        // stopped or done?
+//        if (!running) {
+//            return;
+//        }
 
         // outstanding request?
         if (future != null && !future.isDone()) {
@@ -176,6 +175,15 @@ class WorkerTaskStatusFetcher
         if (!errorRateLimit.isDone()) {
             errorRateLimit.addListener(this::scheduleNextRequest, executor);
             return;
+        }
+
+        if (idTaskMap.isEmpty()) {
+            try {
+                Thread.sleep(1000);
+            }
+            catch (InterruptedException e) {
+                log.error("Exception: " + e);
+            }
         }
 
         HashMap<TaskId, TaskState> idStateMap = new HashMap<>(); // Maybe we need to make this JSON instead?
@@ -267,7 +275,7 @@ class WorkerTaskStatusFetcher
 
     void updateTaskStatus(TaskId taskId, TaskStatus newValue)
     {
-        StateMachine<TaskStatus> taskStatus = idTaskMap.get(taskId).getValue();
+        StateMachine<TaskStatus> taskStatus = idTaskMap.get(taskId).getKey().taskStatus;
 
         // change to new value if old value is not changed and new value has a newer version
         AtomicBoolean taskMismatch = new AtomicBoolean();
@@ -310,9 +318,9 @@ class WorkerTaskStatusFetcher
      * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution.
      */
-    public void addStateChangeListener(StateMachine<TaskStatus> taskStatus, StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
+    public void addStateChangeListener(TaskId taskId, StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
-        taskStatus.addStateChangeListener(stateChangeListener);
+        idTaskMap.get(taskId).getKey().taskStatus.addStateChangeListener(stateChangeListener);
     }
 
     private void updateStats(long currentRequestStartNanos)
