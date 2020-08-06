@@ -131,7 +131,7 @@ public final class QueryResourceUtil
         }
     }
 
-    private static Set<String> globalUniqueNodes(StageInfo stageInfo)
+    public static Set<String> globalUniqueNodes(StageInfo stageInfo)
     {
         if (stageInfo == null) {
             return ImmutableSet.of();

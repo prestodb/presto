@@ -165,7 +165,7 @@ public class PrestoSparkQueryExecutionFactory
     private final QueryMonitor queryMonitor;
     private final JsonCodec<TaskInfo> taskInfoJsonCodec;
     private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
-    private final JsonCodec<QueryInfo> queryInfoJsonCodec;
+    private final JsonCodec<PrestoSparkQueryInfo> queryInfoJsonCodec;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
@@ -188,7 +188,7 @@ public class PrestoSparkQueryExecutionFactory
             QueryMonitor queryMonitor,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
             JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
-            JsonCodec<QueryInfo> queryInfoJsonCodec,
+            JsonCodec<PrestoSparkQueryInfo> queryInfoJsonCodec,
             TransactionManager transactionManager,
             AccessControl accessControl,
             Metadata metadata,
@@ -338,7 +338,10 @@ public class PrestoSparkQueryExecutionFactory
                         Optional.empty(),
                         warningCollector);
                 queryMonitor.queryCompletedEvent(queryInfo);
-                queryInfoOutputPath.ifPresent(path -> writeQueryInfo(path, queryInfo, queryInfoJsonCodec));
+                queryInfoOutputPath.ifPresent(path -> writeQueryInfo(
+                        path,
+                        PrestoSparkQueryInfo.createFromQueryInfo(queryInfo),
+                        queryInfoJsonCodec));
             }
             catch (RuntimeException eventFailure) {
                 log.error(eventFailure, "Error publishing query immediate failure event");
@@ -519,7 +522,10 @@ public class PrestoSparkQueryExecutionFactory
                 false);
     }
 
-    private static void writeQueryInfo(Path queryInfoOutputPath, QueryInfo queryInfo, JsonCodec<QueryInfo> queryInfoJsonCodec)
+    private static void writeQueryInfo(
+            Path queryInfoOutputPath,
+            PrestoSparkQueryInfo queryInfo,
+            JsonCodec<PrestoSparkQueryInfo> queryInfoJsonCodec)
     {
         try {
             Files.write(queryInfoOutputPath, queryInfoJsonCodec.toJsonBytes(queryInfo));
@@ -550,7 +556,7 @@ public class PrestoSparkQueryExecutionFactory
 
         private final JsonCodec<TaskInfo> taskInfoJsonCodec;
         private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
-        private final JsonCodec<QueryInfo> queryInfoJsonCodec;
+        private final JsonCodec<PrestoSparkQueryInfo> queryInfoJsonCodec;
         private final PrestoSparkRddFactory rddFactory;
         private final TableWriteInfo tableWriteInfo;
         private final TransactionManager transactionManager;
@@ -574,7 +580,7 @@ public class PrestoSparkQueryExecutionFactory
                 Optional<String> sparkQueueName,
                 JsonCodec<TaskInfo> taskInfoJsonCodec,
                 JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
-                JsonCodec<QueryInfo> queryInfoJsonCodec,
+                JsonCodec<PrestoSparkQueryInfo> queryInfoJsonCodec,
                 PrestoSparkRddFactory rddFactory,
                 TableWriteInfo tableWriteInfo,
                 TransactionManager transactionManager,
@@ -790,7 +796,10 @@ public class PrestoSparkQueryExecutionFactory
                     warningCollector);
 
             queryMonitor.queryCompletedEvent(queryInfo);
-            queryInfoOutputPath.ifPresent(path -> writeQueryInfo(path, queryInfo, queryInfoJsonCodec));
+            queryInfoOutputPath.ifPresent(path -> writeQueryInfo(
+                    path,
+                    PrestoSparkQueryInfo.createFromQueryInfo(queryInfo),
+                    queryInfoJsonCodec));
         }
 
         private void processShuffleStats()
