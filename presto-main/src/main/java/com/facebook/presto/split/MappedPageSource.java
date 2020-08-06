@@ -14,12 +14,10 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.google.common.primitives.Ints;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -67,10 +65,7 @@ public class MappedPageSource
         if (nextPage == null) {
             return null;
         }
-        Block[] blocks = Arrays.stream(delegateFieldIndex)
-                .mapToObj(nextPage::getBlock)
-                .toArray(Block[]::new);
-        return new Page(nextPage.getPositionCount(), blocks);
+        return nextPage.extractChannels(delegateFieldIndex);
     }
 
     @Override

@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.project;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
 import com.google.common.primitives.Ints;
 
 import java.util.Arrays;
@@ -49,11 +48,7 @@ public class InputChannels
 
     public Page getInputChannels(Page page)
     {
-        Block[] blocks = new Block[inputChannels.length];
-        for (int i = 0; i < inputChannels.length; i++) {
-            blocks[i] = page.getBlock(inputChannels[i]);
-        }
-        return new Page(page.getPositionCount(), blocks);
+        return page.extractChannels(inputChannels);
     }
 
     @Override

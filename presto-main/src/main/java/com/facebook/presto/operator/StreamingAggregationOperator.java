@@ -188,9 +188,9 @@ public class StreamingAggregationOperator
     {
         requireNonNull(page, "page is null");
 
-        Page groupByPage = extractColumns(page, groupByChannels);
+        Page groupByPage = page.extractChannels(groupByChannels);
         if (currentGroup != null) {
-            if (!pagesHashStrategy.rowEqualsRow(0, extractColumns(currentGroup, groupByChannels), 0, groupByPage)) {
+            if (!pagesHashStrategy.rowEqualsRow(0, currentGroup.extractChannels(groupByChannels), 0, groupByPage)) {
                 // page starts with new group, so flush it
                 evaluateAndFlushGroup(currentGroup, 0);
             }
@@ -213,15 +213,6 @@ public class StreamingAggregationOperator
                 return;
             }
         }
-    }
-
-    private static Page extractColumns(Page page, int[] channels)
-    {
-        Block[] newBlocks = new Block[channels.length];
-        for (int i = 0; i < channels.length; i++) {
-            newBlocks[i] = page.getBlock(channels[i]);
-        }
-        return new Page(page.getPositionCount(), newBlocks);
     }
 
     private void addRowsToAggregates(Page page, int startPosition, int endPosition)
