@@ -27,17 +27,17 @@ public class Union
 {
     private final List<Relation> relations;
 
-    public Union(List<Relation> relations, boolean distinct)
+    public Union(List<Relation> relations, Optional<Boolean> distinct)
     {
         this(Optional.empty(), relations, distinct);
     }
 
-    public Union(NodeLocation location, List<Relation> relations, boolean distinct)
+    public Union(NodeLocation location, List<Relation> relations, Optional<Boolean> distinct)
     {
         this(Optional.of(location), relations, distinct);
     }
 
-    private Union(Optional<NodeLocation> location, List<Relation> relations, boolean distinct)
+    private Union(Optional<NodeLocation> location, List<Relation> relations, Optional<Boolean> distinct)
     {
         super(location, distinct);
         requireNonNull(relations, "relations is null");

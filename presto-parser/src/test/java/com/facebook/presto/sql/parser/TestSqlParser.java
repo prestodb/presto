@@ -486,9 +486,9 @@ public class TestSqlParser
                 new Query(
                         Optional.empty(),
                         new Intersect(ImmutableList.of(
-                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true),
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), Optional.of(true)),
                                 createSelect123()
-                        ), false),
+                        ), Optional.of(false)),
                         Optional.empty(),
                         Optional.empty()));
     }
@@ -500,9 +500,9 @@ public class TestSqlParser
                 new Query(
                         Optional.empty(),
                         new Union(ImmutableList.of(
-                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true),
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), Optional.of(true)),
                                 createSelect123()
-                        ), false),
+                        ), Optional.of(false)),
                         Optional.empty(),
                         Optional.empty()));
     }

@@ -801,7 +801,7 @@ class RelationPlanner
         SetOperationPlan setOperationPlan = process(node);
 
         PlanNode planNode = new UnionNode(idAllocator.getNextId(), setOperationPlan.getSources(), setOperationPlan.getOutputVariables(), setOperationPlan.getVariableMapping());
-        if (node.isDistinct()) {
+        if (node.isDistinct().orElse(true)) {
             planNode = distinct(planNode);
         }
         return new RelationPlan(planNode, analysis.getScope(node), planNode.getOutputVariables());

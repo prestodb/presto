@@ -499,9 +499,7 @@ public final class SqlFormatter
 
                 if (relations.hasNext()) {
                     builder.append("UNION ");
-                    if (!node.isDistinct()) {
-                        builder.append("ALL ");
-                    }
+                    node.isDistinct().map(distinct -> distinct ? builder.append("DISTINCT ") : builder.append("ALL "));
                 }
             }
 
@@ -514,9 +512,7 @@ public final class SqlFormatter
             processRelation(node.getLeft(), indent);
 
             builder.append("EXCEPT ");
-            if (!node.isDistinct()) {
-                builder.append("ALL ");
-            }
+            node.isDistinct().map(distinct -> distinct ? builder.append("DISTINCT ") : builder.append("ALL "));
 
             processRelation(node.getRight(), indent);
 
@@ -533,9 +529,7 @@ public final class SqlFormatter
 
                 if (relations.hasNext()) {
                     builder.append("INTERSECT ");
-                    if (!node.isDistinct()) {
-                        builder.append("ALL ");
-                    }
+                    node.isDistinct().map(distinct -> distinct ? builder.append("DISTINCT ") : builder.append("ALL "));
                 }
             }
 

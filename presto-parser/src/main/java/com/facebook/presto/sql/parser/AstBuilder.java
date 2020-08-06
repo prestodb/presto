@@ -749,7 +749,15 @@ class AstBuilder
         QueryBody left = (QueryBody) visit(context.left);
         QueryBody right = (QueryBody) visit(context.right);
 
-        boolean distinct = context.setQuantifier() == null || context.setQuantifier().DISTINCT() != null;
+        Optional<Boolean> distinct = Optional.empty();
+        if (context.setQuantifier() != null) {
+            if (context.setQuantifier().DISTINCT() != null) {
+                distinct = Optional.of(true);
+            }
+            else if (context.setQuantifier().ALL() != null) {
+                distinct = Optional.of(false);
+            }
+        }
 
         switch (context.operator.getType()) {
             case SqlBaseLexer.UNION:
