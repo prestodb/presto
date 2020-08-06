@@ -48,6 +48,11 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spi</artifactId>
         </dependency>
 
