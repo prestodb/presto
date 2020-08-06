@@ -43,25 +43,27 @@ public class PrestoSparkRowBatch
     private final int rowCount;
     private final byte[] rowData;
     private final int[] rowPartitions;
-    private final int[] rowSizes;
+    private final int[] rowOffsets;
+    private final int totalSize;
     private final long retainedSizeInBytes;
 
-    private PrestoSparkRowBatch(int partitionCount, int rowCount, byte[] rowData, int[] rowPartitions, int[] rowSizes)
+    private PrestoSparkRowBatch(int partitionCount, int rowCount, byte[] rowData, int[] rowPartitions, int[] rowOffsets, int totalSize)
     {
         this.partitionCount = partitionCount;
         this.rowCount = rowCount;
         this.rowData = requireNonNull(rowData, "rowData is null");
         this.rowPartitions = requireNonNull(rowPartitions, "rowPartitions is null");
-        this.rowSizes = requireNonNull(rowSizes, "rowSizes is null");
+        this.rowOffsets = requireNonNull(rowOffsets, "rowOffsets is null");
         this.retainedSizeInBytes = INSTANCE_SIZE
                 + sizeOf(rowData)
                 + sizeOf(rowPartitions)
-                + sizeOf(rowSizes);
+                + sizeOf(rowOffsets);
+        this.totalSize = totalSize;
     }
 
     public RowTupleSupplier createRowTupleSupplier()
     {
-        return new RowTupleSupplier(partitionCount, rowCount, rowData, rowPartitions, rowSizes);
+        return new RowTupleSupplier(partitionCount, rowCount, rowData, rowPartitions, rowOffsets, totalSize);
     }
 
     public long getRetainedSizeInBytes()
@@ -92,7 +94,8 @@ public class PrestoSparkRowBatch
         private final int partitionCount;
         private final int targetSizeInBytes;
         private final DynamicSliceOutput sliceOutput;
-        private int[] rowSizes;
+        private int[] rowOffsets;
+        private int totalSize;
         private int[] rowPartitions;
         private int rowCount;
 
@@ -105,13 +108,13 @@ public class PrestoSparkRowBatch
             this.partitionCount = partitionCount;
             this.targetSizeInBytes = targetSizeInBytes;
             sliceOutput = new DynamicSliceOutput((int) (targetSizeInBytes * 1.2f));
-            rowSizes = new int[expectedRowsCount];
+            rowOffsets = new int[expectedRowsCount];
             rowPartitions = new int[expectedRowsCount];
         }
 
         public long getRetainedSizeInBytes()
         {
-            return BUILDER_INSTANCE_SIZE + sliceOutput.getRetainedSize() + sizeOf(rowSizes) + sizeOf(rowPartitions);
+            return BUILDER_INSTANCE_SIZE + sliceOutput.getRetainedSize() + sizeOf(rowOffsets) + sizeOf(rowPartitions);
         }
 
         public boolean isFull()
@@ -147,13 +150,14 @@ public class PrestoSparkRowBatch
             checkState(openEntry, "entry must be opened first");
             openEntry = false;
 
-            rowSizes = ensureCapacity(rowSizes, rowCount + 1);
-            rowSizes[rowCount] = sliceOutput.size() - currentRowOffset;
+            rowOffsets = ensureCapacity(rowOffsets, rowCount + 1);
+            rowOffsets[rowCount] = currentRowOffset;
 
             rowPartitions = ensureCapacity(rowPartitions, rowCount + 1);
             rowPartitions[rowCount] = partitionId;
 
             rowCount++;
+            totalSize += sliceOutput.size() - currentRowOffset;
         }
 
         private static int[] ensureCapacity(int[] array, int capacity)
@@ -167,7 +171,13 @@ public class PrestoSparkRowBatch
         public PrestoSparkRowBatch build()
         {
             checkState(!openEntry, "entry must be closed before creating a row batch");
-            return new PrestoSparkRowBatch(partitionCount, rowCount, sliceOutput.getUnderlyingSlice().byteArray(), rowPartitions, rowSizes);
+            return new PrestoSparkRowBatch(
+                    partitionCount,
+                    rowCount,
+                    sliceOutput.getUnderlyingSlice().byteArray(),
+                    rowPartitions,
+                    rowOffsets,
+                    totalSize);
         }
     }
 
@@ -176,21 +186,22 @@ public class PrestoSparkRowBatch
         private final int partitionCount;
         private final int rowCount;
         private final int[] rowPartitions;
-        private final int[] rowSizes;
+        private final int[] rowOffsets;
+        private final int totalSize;
 
         private int remainingReplicasCount;
         private int currentRow;
-        private int currentOffset;
         private final ByteBuffer rowData;
         private final MutablePartitionId mutablePartitionId;
         private final Tuple2<MutablePartitionId, PrestoSparkMutableRow> tuple;
 
-        private RowTupleSupplier(int partitionCount, int rowCount, byte[] rowData, int[] rowPartitions, int[] rowSizes)
+        private RowTupleSupplier(int partitionCount, int rowCount, byte[] rowData, int[] rowPartitions, int[] rowOffsets, int totalSize)
         {
             this.partitionCount = partitionCount;
             this.rowCount = rowCount;
             this.rowPartitions = requireNonNull(rowPartitions, "rowPartitions is null");
-            this.rowSizes = requireNonNull(rowSizes, "rowSizes is null");
+            this.rowOffsets = requireNonNull(rowOffsets, "rowSizes is null");
+            this.totalSize = totalSize;
 
             this.rowData = ByteBuffer.wrap(requireNonNull(rowData, "rowData is null"));
             mutablePartitionId = new MutablePartitionId();
@@ -206,9 +217,12 @@ public class PrestoSparkRowBatch
                 return null;
             }
 
-            int rowSize = rowSizes[currentRow];
-            rowData.limit(currentOffset + rowSize);
-            rowData.position(currentOffset);
+            int currentRowOffset = rowOffsets[currentRow];
+            int nextRow = currentRow + 1;
+            int nextRowOffset = nextRow < rowCount ? rowOffsets[nextRow] : totalSize;
+            int rowSize = nextRowOffset - currentRowOffset;
+            rowData.limit(currentRowOffset + rowSize);
+            rowData.position(currentRowOffset);
 
             int partition = rowPartitions[currentRow];
             if (partition == REPLICATED_ROW_PARTITION_ID) {
@@ -219,13 +233,11 @@ public class PrestoSparkRowBatch
                 remainingReplicasCount--;
                 if (remainingReplicasCount == 0) {
                     currentRow++;
-                    currentOffset += rowSize;
                 }
             }
             else {
                 mutablePartitionId.setPartition(partition);
                 currentRow++;
-                currentOffset += rowSize;
             }
             return tuple;
         }
