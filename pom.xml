@@ -154,6 +154,7 @@
         <module>presto-benchmark-runner</module>
         <module>presto-spark-classloader-interface</module>
         <module>presto-spark-base</module>
+        <module>presto-spark-common</module>
         <module>presto-spark</module>
         <module>presto-spark-package</module>
         <module>presto-spark-launcher</module>
@@ -519,6 +520,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spark</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-spark-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
