@@ -1243,7 +1243,7 @@ class StatementAnalyzer
         private boolean isExpensiveUnionDistinct(SetOperation setOperation, Type[] outputTypes)
         {
             return setOperation instanceof Union &&
-                    setOperation.isDistinct() &&
+                    setOperation.isDistinct().orElse(false) &&
                     outputTypes.length > UNION_DISTINCT_FIELDS_WARNING_THRESHOLD &&
                     Arrays.stream(outputTypes)
                             .anyMatch(
@@ -1255,9 +1255,21 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitUnion(Union node, Optional<Scope> scope)
+        {
+            if (!node.isDistinct().isPresent()) {
+                warningCollector.add(new PrestoWarning(
+                        PERFORMANCE_WARNING,
+                        "UNION specified without ALL or DISTINCT keyword is equivalent to UNION DISTINCT, which is computationally expensive. " +
+                                "Consider using UNION ALL when possible, or specifically add the keyword DISTINCT if absolutely necessary"));
+            }
+            return visitSetOperation(node, scope);
+        }
+
+        @Override
         protected Scope visitIntersect(Intersect node, Optional<Scope> scope)
         {
-            if (!node.isDistinct()) {
+            if (!node.isDistinct().orElse(true)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "INTERSECT ALL not yet implemented");
             }
 
@@ -1267,7 +1279,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitExcept(Except node, Optional<Scope> scope)
         {
-            if (!node.isDistinct()) {
+            if (!node.isDistinct().orElse(true)) {
                 throw new SemanticException(NOT_SUPPORTED, node, "EXCEPT ALL not yet implemented");
             }
 
