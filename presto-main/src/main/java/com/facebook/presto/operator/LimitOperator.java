@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.spi.plan.PlanNodeId;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -106,12 +105,7 @@ public class LimitOperator
             nextPage = page;
         }
         else {
-            Block[] blocks = new Block[page.getChannelCount()];
-            for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                Block block = page.getBlock(channel);
-                blocks[channel] = block.getRegion(0, (int) remainingLimit);
-            }
-            nextPage = new Page((int) remainingLimit, blocks);
+            nextPage = page.getRegion(0, (int) remainingLimit);
             remainingLimit = 0;
         }
     }
