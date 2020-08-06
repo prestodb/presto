@@ -302,6 +302,17 @@ public final class TypeRegistry
 
         String fromTypeBaseName = fromType.getTypeSignature().getBase();
         String toTypeBaseName = toType.getTypeSignature().getBase();
+
+        if (featuresConfig.isLegacyDateTimestampToVarcharCoercion()) {
+            if ((fromTypeBaseName.equals(StandardTypes.DATE) || fromTypeBaseName.equals(StandardTypes.TIMESTAMP)) && toTypeBaseName.equals(StandardTypes.VARCHAR)) {
+                return TypeCompatibility.compatible(toType, true);
+            }
+
+            if (fromTypeBaseName.equals(StandardTypes.VARCHAR) && (toTypeBaseName.equals(StandardTypes.DATE) || toTypeBaseName.equals(StandardTypes.TIMESTAMP))) {
+                return TypeCompatibility.compatible(fromType, true);
+            }
+        }
+
         if (fromTypeBaseName.equals(toTypeBaseName)) {
             if (fromTypeBaseName.equals(StandardTypes.DECIMAL)) {
                 Type commonSuperType = getCommonSuperTypeForDecimal((DecimalType) fromType, (DecimalType) toType);

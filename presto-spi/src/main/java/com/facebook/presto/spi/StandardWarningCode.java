@@ -18,7 +18,8 @@ public enum StandardWarningCode
 {
     TOO_MANY_STAGES(0x0000_0001),
     PARSER_WARNING(0x0000_0002),
-    PERFORMANCE_WARNING(0x0000_0003)
+    PERFORMANCE_WARNING(0x0000_0003),
+    SEMANTIC_WARNING(0x0000_0004)
     /**/;
     private final WarningCode warningCode;
 
