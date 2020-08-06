@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.expressions.DynamicFilters;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.spi.ConnectorSession;
@@ -916,7 +917,11 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!functionMetadata.isDeterministic() || hasUnresolvedValue(argumentValues) || node.getName().equals(QualifiedName.of("fail")))) {
+            if (optimize &&
+                    (!functionMetadata.isDeterministic() ||
+                            hasUnresolvedValue(argumentValues) ||
+                            node.getName().equals(QualifiedName.of(DynamicFilters.DynamicFilterPlaceholderFunction.NAME)) ||
+                            node.getName().equals(QualifiedName.of("fail")))) {
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
             }
 

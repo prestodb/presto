@@ -59,6 +59,7 @@ public class DummySpillerFactory
             @Override
             public void close()
             {
+                spills.clear();
             }
         };
     }

@@ -57,6 +57,7 @@ import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingSplit;
@@ -164,7 +165,8 @@ public final class TaskTestUtils
                 new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()),
                 new LookupJoinOperators(),
                 new OrderingCompiler(),
-                jsonCodec(TableCommitContext.class));
+                jsonCodec(TableCommitContext.class),
+                new RowExpressionDeterminismEvaluator(metadata));
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

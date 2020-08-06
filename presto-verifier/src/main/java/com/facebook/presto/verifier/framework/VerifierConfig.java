@@ -38,6 +38,7 @@ public class VerifierConfig
     private Optional<String> humanReadableEventLogFile = Optional.empty();
 
     private String testId;
+    private Optional<String> testName = Optional.empty();
     private int maxConcurrency = 10;
     private int suiteRepetitions = 1;
     private int queryRepetitions = 1;
@@ -49,6 +50,7 @@ public class VerifierConfig
 
     private boolean setupOnMainClusters = true;
     private boolean teardownOnMainClusters = true;
+    private boolean skipControl;
 
     @NotNull
     public Optional<Set<String>> getWhitelist()
@@ -144,11 +146,25 @@ public class VerifierConfig
         return testId;
     }
 
-    @ConfigDescription("A customizable string that will be logged with the results")
+    @ConfigDescription("A customizable string that will be passed into query client info and logged with the results")
     @Config("test-id")
     public VerifierConfig setTestId(String testId)
     {
         this.testId = testId;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getTestName()
+    {
+        return testName;
+    }
+
+    @ConfigDescription("A customizable string that will be passed into query client info")
+    @Config("test-name")
+    public VerifierConfig setTestName(String testName)
+    {
+        this.testName = Optional.ofNullable(testName);
         return this;
     }
 
@@ -271,6 +287,19 @@ public class VerifierConfig
     public VerifierConfig setTeardownOnMainClusters(boolean teardownOnMainClusters)
     {
         this.teardownOnMainClusters = teardownOnMainClusters;
+        return this;
+    }
+
+    public boolean isSkipControl()
+    {
+        return skipControl;
+    }
+
+    @ConfigDescription("Skip control queries and result comparison, only run test queries.")
+    @Config("skip-control")
+    public VerifierConfig setSkipControl(boolean skipControl)
+    {
+        this.skipControl = skipControl;
         return this;
     }
 }

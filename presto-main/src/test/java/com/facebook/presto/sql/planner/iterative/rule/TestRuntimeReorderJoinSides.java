@@ -221,7 +221,8 @@ public class TestRuntimeReorderJoinSides
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.of(REPLICATED));
+                            Optional.of(REPLICATED),
+                            ImmutableMap.of());
                 })
                 .overrideStats(nationNodeId.get(0), PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(25)
@@ -255,7 +256,8 @@ public class TestRuntimeReorderJoinSides
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.of(PARTITIONED));
+                            Optional.of(PARTITIONED),
+                            ImmutableMap.of());
                 })
                 .overrideStats(nationNodeId.get(0), PlanNodeStatsEstimate.builder()
                         .setOutputRowCount(25)

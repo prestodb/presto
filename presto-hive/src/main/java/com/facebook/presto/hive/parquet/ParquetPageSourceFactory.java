@@ -91,6 +91,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedPa
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
+import static com.facebook.presto.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
@@ -142,7 +143,7 @@ public class ParquetPageSourceFactory
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation)
     {
-        if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
+        if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe()) || shouldUseRecordReaderFromInputFormat(configuration, storage)) {
             return Optional.empty();
         }
 

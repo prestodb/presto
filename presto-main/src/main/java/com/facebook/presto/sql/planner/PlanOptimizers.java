@@ -76,6 +76,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughMarkDistin
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughOuterJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughProject;
 import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughSemiJoin;
+import com.facebook.presto.sql.planner.iterative.rule.PushLimitThroughUnion;
 import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import com.facebook.presto.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
 import com.facebook.presto.sql.planner.iterative.rule.PushProjectionThroughExchange;
@@ -89,6 +90,7 @@ import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityPro
 import com.facebook.presto.sql.planner.iterative.rule.RemoveTrivialFilters;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveUnreferencedScalarLateralNodes;
+import com.facebook.presto.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteFilterWithExternalFunctionToProject;
 import com.facebook.presto.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
@@ -305,6 +307,7 @@ public class PlanOptimizers
                                         new PushLimitThroughMarkDistinct(),
                                         new PushLimitThroughOuterJoin(),
                                         new PushLimitThroughSemiJoin(),
+                                        new PushLimitThroughUnion(),
                                         new RemoveTrivialFilters(),
                                         new ImplementFilteredAggregations(),
                                         new SingleDistinctAggregationToGroupBy(),
@@ -535,6 +538,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveEmptyDelete()))); // Run RemoveEmptyDelete after table scan is removed by PickTableLayout/AddExchanges
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
+        builder.add(new RemoveUnsupportedDynamicFilters(metadata.getFunctionManager()));
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
         builder.add(inlineProjections);

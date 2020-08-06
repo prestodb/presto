@@ -35,6 +35,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-parquet</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.parquet</groupId>
+                    <artifactId>parquet-encoding</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -55,6 +61,10 @@
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -78,6 +88,7 @@
         <dependency>
             <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-hadoop-mr</artifactId>
+            <version>${dep.hudi.version}</version>
         </dependency>
 
         <dependency>

@@ -82,6 +82,7 @@ public class VerificationManager
     private final int suiteRepetitions;
     private final int queryRepetitions;
     private int verificationResubmissionLimit;
+    private boolean skipControl;
 
     private ExecutorService executor;
     private CompletionService<VerificationResult> completionService;
@@ -115,6 +116,7 @@ public class VerificationManager
         this.suiteRepetitions = config.getSuiteRepetitions();
         this.queryRepetitions = config.getQueryRepetitions();
         this.verificationResubmissionLimit = config.getVerificationResubmissionLimit();
+        this.skipControl = config.isSkipControl();
     }
 
     @PostConstruct
@@ -213,10 +215,10 @@ public class VerificationManager
                 QueryType testQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getTestQuery(), PARSING_OPTIONS));
 
                 if (controlQueryType != testQueryType) {
-                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, MISMATCHED_QUERY_TYPE));
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, MISMATCHED_QUERY_TYPE, skipControl));
                 }
                 else if (controlQueryType.getCategory() != DATA_PRODUCING) {
-                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, UNSUPPORTED_QUERY_TYPE));
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, UNSUPPORTED_QUERY_TYPE, skipControl));
                 }
                 else {
                     selected.add(sourceQuery);
@@ -224,10 +226,10 @@ public class VerificationManager
             }
             catch (ParsingException e) {
                 log.warn("Failed to parse query: %s", sourceQuery.getName());
-                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, SYNTAX_ERROR));
+                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, SYNTAX_ERROR, skipControl));
             }
             catch (UnsupportedQueryTypeException ignored) {
-                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, UNSUPPORTED_QUERY_TYPE));
+                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, UNSUPPORTED_QUERY_TYPE, skipControl));
             }
         }
         List<SourceQuery> selectQueries = selected.build();
@@ -249,7 +251,7 @@ public class VerificationManager
                 SourceQuery sourceQuery = iterator.next();
                 if (!filter.test(sourceQuery)) {
                     iterator.remove();
-                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, CUSTOM_FILTER));
+                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, CUSTOM_FILTER, skipControl));
                 }
             }
             log.info("Applying custom filter %s... Remaining queries: %s", filter.getClass().getSimpleName(), sourceQueries.size());

@@ -41,6 +41,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -63,6 +64,7 @@ public class TestHiveSplit
     {
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
+        Map<String, String> customSplitInfo = ImmutableMap.of("key", "value");
         HiveSplit expected = new HiveSplit(
                 "db",
                 "table",
@@ -96,7 +98,8 @@ public class TestHiveSplit
                         ImmutableMap.of("field1", "test1".getBytes()),
                         ImmutableMap.of(),
                         "test_algo",
-                        "test_provider"))));
+                        "test_provider"))),
+                customSplitInfo);
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);
@@ -119,6 +122,7 @@ public class TestHiveSplit
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
         assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
         assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
+        assertEquals(actual.getCustomSplitInfo(), expected.getCustomSplitInfo());
     }
 
     private JsonCodec<HiveSplit> getJsonCodec()

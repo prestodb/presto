@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.presto.verifier.event.QueryStatsEvent;
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.framework.MatchResult;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
@@ -22,7 +22,7 @@ import java.util.Optional;
 
 public interface FailureResolver
 {
-    default Optional<String> resolveQueryFailure(QueryStatsEvent controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    default Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         return Optional.empty();
     }

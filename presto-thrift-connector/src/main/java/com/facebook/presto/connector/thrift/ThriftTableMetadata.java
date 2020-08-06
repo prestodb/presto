@@ -14,12 +14,12 @@
 package com.facebook.presto.connector.thrift;
 
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.connector.thrift.api.PrestoThriftColumnMetadata;
-import com.facebook.presto.connector.thrift.api.PrestoThriftTableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.thrift.api.connector.PrestoThriftColumnMetadata;
+import com.facebook.presto.thrift.api.connector.PrestoThriftTableMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

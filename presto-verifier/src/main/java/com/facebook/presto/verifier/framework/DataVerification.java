@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
@@ -69,10 +70,10 @@ public class DataVerification
 
         QueryResult<ChecksumResult> controlChecksum = callAndConsume(
                 () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
-                stats -> controlContext.setChecksumQueryId(stats.getQueryId()));
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlContext::setChecksumQueryId));
         QueryResult<ChecksumResult> testChecksum = callAndConsume(
                 () -> getHelperAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
-                stats -> testContext.setChecksumQueryId(stats.getQueryId()));
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testContext::setChecksumQueryId));
 
         return match(checksumValidator, controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));
     }

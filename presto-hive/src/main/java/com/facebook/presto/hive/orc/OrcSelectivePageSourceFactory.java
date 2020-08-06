@@ -21,6 +21,7 @@ import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.expressions.DynamicFilters.DynamicFilterExtractResult;
 import com.facebook.presto.hive.BucketAdaptation;
 import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
@@ -95,7 +96,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.expressions.DynamicFilters.extractDynamicFilters;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.binaryExpression;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
@@ -624,6 +627,11 @@ public class OrcSelectivePageSourceFactory
         if (TRUE_CONSTANT.equals(filter)) {
             return filterFunctions.build();
         }
+
+        DynamicFilterExtractResult extractDynamicFilterResult = extractDynamicFilters(filter);
+
+        // dynamic filter will be added through subfield pushdown
+        filter = and(extractDynamicFilterResult.getStaticConjuncts());
 
         if (!isAdaptiveFilterReorderingEnabled(session)) {
             filterFunctions.add(new FilterFunction(session.getSqlFunctionProperties(), determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));

@@ -358,7 +358,8 @@ public class ExtractSpatialJoins
                 Optional.of(newFilter),
                 joinNode.getLeftHashVariable(),
                 joinNode.getRightHashVariable(),
-                joinNode.getDistributionType());
+                joinNode.getDistributionType(),
+                joinNode.getDynamicFilters());
 
         return tryCreateSpatialJoin(context, newJoinNode, newFilter, nodeId, outputVariables, (CallExpression) newComparison.getArguments().get(0), Optional.of(newComparison.getArguments().get(1)), metadata, splitManager, pageSourceManager);
     }

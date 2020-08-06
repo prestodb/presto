@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Query;
@@ -110,16 +111,16 @@ public class DeterminismAnalyzer
                 // Rerun setup and main query
                 queryBundle.getSetupQueries().forEach(query -> runAndConsume(
                         () -> prestoAction.execute(query, DETERMINISM_ANALYSIS_SETUP),
-                        queryStats -> run.addSetupQueryId(queryStats.getQueryId())));
+                        stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::addSetupQueryId)));
                 runAndConsume(
                         () -> prestoAction.execute(queryBundle.getQuery(), DETERMINISM_ANALYSIS_MAIN),
-                        stats -> run.setQueryId(stats.getQueryId()));
+                        stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setQueryId));
 
                 // Run checksum query
                 Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getTableName(), columns);
                 ChecksumResult testChecksum = getOnlyElement(callAndConsume(
                         () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
-                        stats -> run.setChecksumQueryId(stats.getQueryId())).getResults());
+                        stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setChecksumQueryId)).getResults());
 
                 DeterminismAnalysis analysis = matchResultToDeterminism(match(checksumValidator, columns, columns, controlChecksum, testChecksum));
                 if (analysis != DETERMINISTIC) {
@@ -158,7 +159,7 @@ public class DeterminismAnalyzer
                 queryRuns.forEach((queryBundle, run) -> teardownSafely(
                         prestoAction,
                         Optional.of(queryBundle),
-                        queryStats -> run.addTeardownQueryId(queryStats.getQueryId())));
+                        queryStats -> queryStats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::addTeardownQueryId)));
             }
         }
     }
