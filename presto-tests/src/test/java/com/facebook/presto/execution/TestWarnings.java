@@ -29,6 +29,7 @@ import java.util.Set;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
+import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
@@ -64,7 +65,7 @@ public class TestWarnings
                     .append(stageIndex);
         }
         String query = queryBuilder.toString();
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(TOO_MANY_STAGES.toWarningCode()));
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(TOO_MANY_STAGES.toWarningCode(), PERFORMANCE_WARNING.toWarningCode()));
         assertWarnings(queryRunner, TEST_SESSION, noWarningsQuery, ImmutableSet.of());
     }
 
