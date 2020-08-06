@@ -510,14 +510,20 @@ public class PredicatePushDown
                 }
             }
 
-            DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, session, idAllocator, metadata.getFunctionManager());
-            Map<String, VariableReferenceExpression> dynamicFilters = dynamicFiltersResult.getDynamicFilters();
-            leftPredicate = logicalRowExpressions.combineConjuncts(leftPredicate, logicalRowExpressions.combineConjuncts(dynamicFiltersResult.getPredicates()));
-
             PlanNode leftSource;
             PlanNode rightSource;
+
+            boolean dynamicFilterEnabled = isEnableDynamicFiltering(session);
+            Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
+            if (dynamicFilterEnabled) {
+                DynamicFiltersResult dynamicFiltersResult = createDynamicFilters(node, equiJoinClauses, idAllocator, metadata.getFunctionManager());
+                dynamicFilters = dynamicFiltersResult.getDynamicFilters();
+                leftPredicate = logicalRowExpressions.combineConjuncts(leftPredicate, logicalRowExpressions.combineConjuncts(dynamicFiltersResult.getPredicates()));
+            }
+
             boolean equiJoinClausesUnmodified = ImmutableSet.copyOf(equiJoinClauses).equals(ImmutableSet.copyOf(node.getCriteria()));
-            if (!equiJoinClausesUnmodified && isEnableDynamicFiltering(session)) {
+
+            if (dynamicFilterEnabled && !equiJoinClausesUnmodified) {
                 leftSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getLeft(), leftProjections.build()), leftPredicate);
                 rightSource = context.rewrite(new ProjectNode(idAllocator.getNextId(), node.getRight(), rightProjections.build()), rightPredicate);
             }
@@ -548,7 +554,7 @@ public class PredicatePushDown
             if (leftSource != node.getLeft() ||
                     rightSource != node.getRight() ||
                     !filtersEquivalent ||
-                    !dynamicFilters.equals(node.getDynamicFilters()) ||
+                    (dynamicFilterEnabled && !dynamicFilters.equals(node.getDynamicFilters())) ||
                     !equiJoinClausesUnmodified) {
                 leftSource = new ProjectNode(idAllocator.getNextId(), leftSource, leftProjections.build(), leftLocality);
                 rightSource = new ProjectNode(idAllocator.getNextId(), rightSource, rightProjections.build(), rightLocality);
@@ -596,13 +602,12 @@ public class PredicatePushDown
         private static DynamicFiltersResult createDynamicFilters(
                 JoinNode node,
                 List<JoinNode.EquiJoinClause> equiJoinClauses,
-                Session session,
                 PlanNodeIdAllocator idAllocator,
                 FunctionManager functionManager)
         {
             Map<String, VariableReferenceExpression> dynamicFilters = ImmutableMap.of();
             List<RowExpression> predicates = ImmutableList.of();
-            if (node.getType() == INNER && isEnableDynamicFiltering(session)) {
+            if (node.getType() == INNER) {
                 // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
                 // Since we use PredicatePushdown to push dynamic filters themselves,
                 // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
