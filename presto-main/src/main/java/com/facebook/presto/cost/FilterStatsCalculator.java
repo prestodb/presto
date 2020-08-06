@@ -71,6 +71,8 @@ import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.addStatsAndSumD
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.capStats;
 import static com.facebook.presto.cost.PlanNodeStatsEstimateMath.subtractSubsetStats;
 import static com.facebook.presto.cost.StatsUtil.toStatsRepresentation;
+import static com.facebook.presto.expressions.DynamicFilters.isDynamicFilter;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
@@ -655,6 +657,10 @@ public class FilterStatsCalculator
                     transformed = and(upperBound, lowerBound);
                 }
                 return process(transformed);
+            }
+
+            if (isDynamicFilter(node)) {
+                return process(TRUE_CONSTANT);
             }
 
             return PlanNodeStatsEstimate.unknown();

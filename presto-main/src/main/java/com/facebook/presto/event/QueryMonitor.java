@@ -73,6 +73,7 @@ import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
 import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class QueryMonitor
 {
@@ -150,6 +151,7 @@ public class QueryMonitor
                         ofMillis(0),
                         ofMillis(queryInfo.getQueryStats().getQueuedTime().toMillis()),
                         Optional.empty(),
+                        0,
                         0,
                         0,
                         0,
@@ -273,6 +275,7 @@ public class QueryMonitor
                 queryStats.getWrittenOutputLogicalDataSize().toBytes(),
                 queryStats.getWrittenOutputPositions(),
                 queryStats.getWrittenIntermediatePhysicalDataSize().toBytes(),
+                queryStats.getSpilledDataSize().toBytes(),
                 queryStats.getCumulativeUserMemory(),
                 queryStats.getStageGcStatistics(),
                 queryStats.getCompletedDrivers(),
@@ -541,7 +544,7 @@ public class QueryMonitor
         Distribution memoryDistribution = new Distribution();
 
         for (TaskInfo taskInfo : stageInfo.getLatestAttemptExecutionInfo().getTasks()) {
-            cpuDistribution.add(taskInfo.getStats().getTotalCpuTime().toMillis());
+            cpuDistribution.add(NANOSECONDS.toMillis(taskInfo.getStats().getTotalCpuTimeInNanos()));
             memoryDistribution.add(taskInfo.getStats().getPeakTotalMemoryInBytes());
         }
 

@@ -254,7 +254,8 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.of(castToRowExpression(joinExpression)),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
     }
 
     private AggregationNode.Aggregation countWithFilter(Expression condition)

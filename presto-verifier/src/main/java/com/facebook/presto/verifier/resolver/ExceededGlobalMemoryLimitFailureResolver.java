@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.presto.verifier.event.QueryStatsEvent;
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.google.common.collect.ImmutableSet;
@@ -30,10 +30,11 @@ public class ExceededGlobalMemoryLimitFailureResolver
     public static final String NAME = "exceeded-global-memory-limit";
 
     @Override
-    public Optional<String> resolveQueryFailure(QueryStatsEvent controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
+    public Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryBundle> test)
     {
         return mapMatchingPrestoException(queryException, TEST_MAIN, ImmutableSet.of(EXCEEDED_GLOBAL_MEMORY_LIMIT),
-                e -> e.getQueryStats().isPresent() && controlQueryStats.getPeakTotalMemoryBytes() > e.getQueryStats().get().getPeakTotalMemoryBytes()
+                e -> e.getQueryActionStats().getQueryStats().isPresent()
+                        && controlQueryStats.getPeakTotalMemoryBytes() > e.getQueryActionStats().getQueryStats().get().getPeakTotalMemoryBytes()
                         ? Optional.of("Control query uses more memory than the test cluster memory limit")
                         : Optional.empty());
     }

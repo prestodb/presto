@@ -17,6 +17,7 @@ import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForHelper;
 import com.facebook.presto.verifier.annotation.ForTest;
+import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
 import com.facebook.presto.verifier.retry.ForPresto;
 import com.facebook.presto.verifier.retry.RetryConfig;
@@ -113,7 +114,8 @@ public class QueryActionsModule
                     injector.getInstance(Key.get(RetryConfig.class, ForClusterConnection.class)),
                     injector.getInstance(Key.get(RetryConfig.class, ForPresto.class)),
                     queryActionsConfig.getMetadataTimeout(),
-                    queryActionsConfig.getChecksumTimeout());
+                    queryActionsConfig.getChecksumTimeout(),
+                    injector.getInstance(VerifierConfig.class));
         }
     }
 }

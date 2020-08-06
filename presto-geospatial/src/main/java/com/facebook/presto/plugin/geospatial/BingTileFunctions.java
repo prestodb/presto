@@ -60,8 +60,8 @@ import static com.facebook.presto.plugin.geospatial.BingTileUtils.checkZoomLevel
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.findDissolvedTileCovering;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.findMinimalTileCovering;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.latitudeLongitudeToTile;
+import static com.facebook.presto.plugin.geospatial.BingTileUtils.latitudeToTileY;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.longitudeToTileX;
-import static com.facebook.presto.plugin.geospatial.BingTileUtils.longitudeToTileY;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.mapSize;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.tileToEnvelope;
 import static com.facebook.presto.plugin.geospatial.BingTileUtils.tileXYToLatitudeLongitude;
@@ -216,7 +216,7 @@ public class BingTileFunctions
         long maxTileIndex = (mapSize / TILE_PIXELS) - 1;
 
         int tileX = longitudeToTileX(longitude, mapSize);
-        int tileY = longitudeToTileY(latitude, mapSize);
+        int tileY = latitudeToTileY(latitude, mapSize);
 
         BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 9);
         for (int i = -1; i <= 1; i++) {
@@ -252,7 +252,7 @@ public class BingTileFunctions
         long mapSize = mapSize(zoomLevel);
         int maxTileIndex = (int) (mapSize / TILE_PIXELS) - 1;
 
-        int tileY = longitudeToTileY(latitude, mapSize);
+        int tileY = latitudeToTileY(latitude, mapSize);
         int tileX = longitudeToTileX(longitude, mapSize);
 
         // Find top, bottom, left and right tiles from center of circle

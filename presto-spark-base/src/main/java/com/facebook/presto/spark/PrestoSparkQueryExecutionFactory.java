@@ -53,6 +53,8 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitialize
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
@@ -81,11 +83,14 @@ import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -107,8 +112,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
@@ -141,6 +148,7 @@ import static java.lang.Math.max;
 import static java.nio.file.Files.notExists;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
 public class PrestoSparkQueryExecutionFactory
@@ -270,6 +278,8 @@ public class PrestoSparkQueryExecutionFactory
             JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector = new CollectionAccumulator<>();
             taskInfoCollector.register(sparkContext, new Some<>("taskInfoCollector"), false);
+            CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector = new CollectionAccumulator<>();
+            shuffleStatsCollector.register(sparkContext, new Some<>("shuffleStatsCollector"), false);
 
             queryStateTimer.endAnalysis();
 
@@ -278,6 +288,7 @@ public class PrestoSparkQueryExecutionFactory
                     session,
                     queryMonitor,
                     taskInfoCollector,
+                    shuffleStatsCollector,
                     prestoSparkTaskExecutorFactory,
                     executorFactoryProvider,
                     queryStateTimer,
@@ -414,7 +425,7 @@ public class PrestoSparkQueryExecutionFactory
                 // there's no way to know how many tasks were running in parallel in Spark
                 // for now let's assume that all the tasks were running in parallel
                 peakRunningTasks++;
-                long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservation().toBytes();
+                long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservationInBytes();
                 long taskPeakTotalMemoryInBytes = taskInfo.getStats().getPeakTotalMemoryInBytes();
                 peakUserMemoryReservationInBytes += taskPeakUserMemoryInBytes;
                 peakTotalMemoryReservationInBytes += taskPeakTotalMemoryInBytes;
@@ -482,7 +493,7 @@ public class PrestoSparkQueryExecutionFactory
         List<TaskInfo> taskInfos = taskInfoMap.get(planFragmentId);
         long peakUserMemoryReservationInBytes = 0;
         for (TaskInfo taskInfo : taskInfos) {
-            long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservation().toBytes();
+            long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservationInBytes();
             peakUserMemoryReservationInBytes += taskPeakUserMemoryInBytes;
         }
         StageExecutionInfo stageExecutionInfo = StageExecutionInfo.create(
@@ -525,6 +536,7 @@ public class PrestoSparkQueryExecutionFactory
         private final Session session;
         private final QueryMonitor queryMonitor;
         private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
+        private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
         // used to create tasks on the Driver
         private final PrestoSparkTaskExecutorFactory taskExecutorFactory;
         // used to create tasks on executor, serializable
@@ -551,6 +563,7 @@ public class PrestoSparkQueryExecutionFactory
                 Session session,
                 QueryMonitor queryMonitor,
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+                CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
                 PrestoSparkTaskExecutorFactory taskExecutorFactory,
                 PrestoSparkTaskExecutorFactoryProvider taskExecutorFactoryProvider,
                 QueryStateTimer queryStateTimer,
@@ -573,6 +586,7 @@ public class PrestoSparkQueryExecutionFactory
             this.session = requireNonNull(session, "session is null");
             this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
             this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
+            this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
             this.taskExecutorFactory = requireNonNull(taskExecutorFactory, "taskExecutorFactory is null");
             this.taskExecutorFactoryProvider = requireNonNull(taskExecutorFactoryProvider, "taskExecutorFactoryProvider is null");
             this.queryStateTimer = requireNonNull(queryStateTimer, "queryStateTimer is null");
@@ -636,6 +650,8 @@ public class PrestoSparkQueryExecutionFactory
 
                 throw failureInfo.get().toFailure();
             }
+
+            processShuffleStats();
 
             // successfully finished
             try {
@@ -705,6 +721,7 @@ public class PrestoSparkQueryExecutionFactory
                         emptyScalaIterator(),
                         new PrestoSparkTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs),
                         taskInfoCollector,
+                        shuffleStatsCollector,
                         PrestoSparkSerializedPage.class);
                 return collectScalaIterator(prestoSparkTaskExecutor);
             }
@@ -744,6 +761,7 @@ public class PrestoSparkQueryExecutionFactory
                     broadcastInputs.build(),
                     taskExecutorFactoryProvider,
                     taskInfoCollector,
+                    shuffleStatsCollector,
                     tableWriteInfo,
                     outputType);
             return new RddAndMore<>(rdd, broadcastDependencies.build());
@@ -773,6 +791,53 @@ public class PrestoSparkQueryExecutionFactory
 
             queryMonitor.queryCompletedEvent(queryInfo);
             queryInfoOutputPath.ifPresent(path -> writeQueryInfo(path, queryInfo, queryInfoJsonCodec));
+        }
+
+        private void processShuffleStats()
+        {
+            List<PrestoSparkShuffleStats> statsList = new ArrayList<>(shuffleStatsCollector.value());
+            Map<ShuffleStatsKey, List<PrestoSparkShuffleStats>> statsMap = new TreeMap<>();
+            for (PrestoSparkShuffleStats stats : statsList) {
+                ShuffleStatsKey key = new ShuffleStatsKey(stats.getFragmentId(), stats.getOperation());
+                statsMap.computeIfAbsent(key, (ignored) -> new ArrayList<>()).add(stats);
+            }
+            log.info("Shuffle statistics summary:");
+            for (Map.Entry<ShuffleStatsKey, List<PrestoSparkShuffleStats>> fragment : statsMap.entrySet()) {
+                logShuffleStatsSummary(fragment.getKey(), fragment.getValue());
+            }
+        }
+
+        private void logShuffleStatsSummary(ShuffleStatsKey key, List<PrestoSparkShuffleStats> statsList)
+        {
+            long totalProcessedRows = 0;
+            long totalProcessedBytes = 0;
+            long totalElapsedWallTimeMills = 0;
+            for (PrestoSparkShuffleStats stats : statsList) {
+                totalProcessedRows += stats.getProcessedRows();
+                totalProcessedBytes += stats.getProcessedBytes();
+                totalElapsedWallTimeMills += stats.getElapsedWallTimeMills();
+            }
+            long totalElapsedWallTimeSeconds = totalElapsedWallTimeMills / 1000;
+            long rowsPerSecond = totalProcessedRows;
+            long bytesPerSecond = totalProcessedBytes;
+            if (totalElapsedWallTimeSeconds > 0) {
+                rowsPerSecond = totalProcessedRows / totalElapsedWallTimeSeconds;
+                bytesPerSecond = totalProcessedBytes / totalElapsedWallTimeSeconds;
+            }
+            long averageRowSize = 0;
+            if (totalProcessedRows > 0) {
+                averageRowSize = totalProcessedBytes / totalProcessedRows;
+            }
+            log.info(
+                    "Fragment: %s, Operation: %s, Rows: %s, Size: %s, Avg Row Size: %s, Time: %s, %srows/s, %s/s",
+                    key.getFragmentId(),
+                    key.getOperation(),
+                    totalProcessedRows,
+                    DataSize.succinctBytes(totalProcessedBytes),
+                    DataSize.succinctBytes(averageRowSize),
+                    Duration.succinctDuration(totalElapsedWallTimeMills, MILLISECONDS),
+                    rowsPerSecond,
+                    DataSize.succinctBytes(bytesPerSecond));
         }
 
         private static <T> void waitFor(Collection<Future<T>> futures)
@@ -834,6 +899,58 @@ public class PrestoSparkQueryExecutionFactory
         public List<Broadcast<?>> getBroadcastDependencies()
         {
             return broadcastDependencies;
+        }
+    }
+
+    private static class ShuffleStatsKey
+            implements Comparable<ShuffleStatsKey>
+    {
+        private final int fragmentId;
+        private final Operation operation;
+
+        private ShuffleStatsKey(int fragmentId, Operation operation)
+        {
+            this.fragmentId = fragmentId;
+            this.operation = requireNonNull(operation, "operation is null");
+        }
+
+        public int getFragmentId()
+        {
+            return fragmentId;
+        }
+
+        public Operation getOperation()
+        {
+            return operation;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ShuffleStatsKey that = (ShuffleStatsKey) o;
+            return fragmentId == that.fragmentId &&
+                    operation == that.operation;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(fragmentId, operation);
+        }
+
+        @Override
+        public int compareTo(ShuffleStatsKey that)
+        {
+            return ComparisonChain.start()
+                    .compare(this.fragmentId, that.fragmentId)
+                    .compare(this.operation, that.operation)
+                    .result();
         }
     }
 }

@@ -39,8 +39,8 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class StageExecutionInfo
 {
@@ -122,40 +122,40 @@ public class StageExecutionInfo
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
 
-            long taskUserMemory = taskStats.getUserMemoryReservation().toBytes();
-            long taskSystemMemory = taskStats.getSystemMemoryReservation().toBytes();
+            long taskUserMemory = taskStats.getUserMemoryReservationInBytes();
+            long taskSystemMemory = taskStats.getSystemMemoryReservationInBytes();
             userMemoryReservation += taskUserMemory;
             totalMemoryReservation += taskUserMemory + taskSystemMemory;
 
-            totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
-            totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+            totalScheduledTime += taskStats.getTotalScheduledTimeInNanos();
+            totalCpuTime += taskStats.getTotalCpuTimeInNanos();
             if (state == FINISHED && taskInfo.getTaskStatus().getState() == TaskState.FAILED) {
-                retriedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
+                retriedCpuTime += taskStats.getTotalCpuTimeInNanos();
             }
-            totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
+            totalBlockedTime += taskStats.getTotalBlockedTimeInNanos();
             if (!taskState.isDone()) {
                 fullyBlocked &= taskStats.isFullyBlocked();
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
 
-            totalAllocation += taskStats.getTotalAllocation().toBytes();
+            totalAllocation += taskStats.getTotalAllocationInBytes();
 
-            rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
+            rawInputDataSize += taskStats.getRawInputDataSizeInBytes();
             rawInputPositions += taskStats.getRawInputPositions();
 
-            processedInputDataSize += taskStats.getProcessedInputDataSize().toBytes();
+            processedInputDataSize += taskStats.getProcessedInputDataSizeInBytes();
             processedInputPositions += taskStats.getProcessedInputPositions();
 
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
-            outputDataSize += taskStats.getOutputDataSize().toBytes();
+            outputDataSize += taskStats.getOutputDataSizeInBytes();
             outputPositions += taskStats.getOutputPositions();
 
-            physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
+            physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSizeInBytes();
 
             fullGcCount += taskStats.getFullGcCount();
             fullGcTaskCount += taskStats.getFullGcCount() > 0 ? 1 : 0;
 
-            int gcSec = toIntExact(taskStats.getFullGcTime().roundTo(SECONDS));
+            int gcSec = toIntExact(MILLISECONDS.toSeconds(taskStats.getFullGcTimeInMillis()));
             totalFullGcSec += gcSec;
             minFullGcSec = min(minFullGcSec, gcSec);
             maxFullGcSec = max(maxFullGcSec, gcSec);

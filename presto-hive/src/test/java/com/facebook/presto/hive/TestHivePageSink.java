@@ -246,7 +246,9 @@ public class TestHivePageSink
                 false,
                 Optional.empty(),
                 NO_CACHE_REQUIREMENT,
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
+
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),
                 new HiveTableHandle(SCHEMA_NAME, TABLE_NAME),

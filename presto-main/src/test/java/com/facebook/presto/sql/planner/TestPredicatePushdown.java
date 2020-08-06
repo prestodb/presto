@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -53,6 +54,15 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 public class TestPredicatePushdown
         extends BasePlanTest
 {
+    public TestPredicatePushdown()
+    {
+    }
+
+    public TestPredicatePushdown(Map<String, String> sessionProperties)
+    {
+        super(sessionProperties);
+    }
+
     @Test
     public void testNonStraddlingJoinExpression()
     {
@@ -437,7 +447,8 @@ public class TestPredicatePushdown
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.of(PARTITIONED)))
+                                Optional.of(PARTITIONED),
+                                ImmutableMap.of()))
                 .matches(
                         project(
                                 join(

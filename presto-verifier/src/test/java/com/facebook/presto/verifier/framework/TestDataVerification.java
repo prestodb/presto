@@ -109,7 +109,7 @@ public class TestDataVerification
     private Optional<VerifierQueryEvent> runVerification(SourceQuery sourceQuery, Optional<PrestoAction> mockPrestoAction, DeterminismAnalyzerConfig determinismAnalyzerConfig)
     {
         PrestoExceptionClassifier exceptionClassifier = PrestoExceptionClassifier.defaultBuilder().build();
-        VerificationContext verificationContext = VerificationContext.create();
+        VerificationContext verificationContext = VerificationContext.create(NAME, SUITE);
         VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         RetryConfig retryConfig = new RetryConfig();
         QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
@@ -125,7 +125,8 @@ public class TestDataVerification
                     queryActionsConfig.getMetadataTimeout(),
                     queryActionsConfig.getChecksumTimeout(),
                     retryConfig,
-                    retryConfig);
+                    retryConfig,
+                    verifierConfig);
         });
         QueryRewriter queryRewriter = new VerificationQueryRewriterFactory(
                 new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN)),
@@ -477,6 +478,5 @@ public class TestDataVerification
         assertNotNull(queryInfo.getWallTimeSecs());
         assertNotNull(queryInfo.getPeakTotalMemoryBytes());
         assertNotNull(queryInfo.getPeakTaskTotalMemoryBytes());
-        assertNotNull(queryInfo.getQueryStats());
     }
 }

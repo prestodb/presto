@@ -66,7 +66,6 @@ public class InMemoryHashAggregationBuilder
     private final boolean useSystemMemory;
 
     private boolean full;
-    private boolean hasBuiltFinalResult;
 
     public InMemoryHashAggregationBuilder(
             List<AccumulatorFactory> accumulatorFactories,
@@ -254,7 +253,6 @@ public class InMemoryHashAggregationBuilder
     @Override
     public WorkProcessor<Page> buildResult()
     {
-        hasBuiltFinalResult = true;
         for (Aggregator aggregator : aggregators) {
             aggregator.prepareFinal();
         }
@@ -273,11 +271,6 @@ public class InMemoryHashAggregationBuilder
             types.add(aggregator.getIntermediateType());
         }
         return types;
-    }
-
-    public boolean hasBuiltFinalResult()
-    {
-        return hasBuiltFinalResult;
     }
 
     @VisibleForTesting

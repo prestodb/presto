@@ -24,6 +24,7 @@ import com.facebook.presto.verifier.framework.ClusterType;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.VerificationContext;
+import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
@@ -56,6 +57,8 @@ import static org.testng.Assert.assertTrue;
 @Test
 public class TestQueryRewriter
 {
+    private static final String SUITE = "test-suite";
+    private static final String NAME = "test-query";
     private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
     private static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
     private static final QueryRewriteConfig QUERY_REWRITE_CONFIG = new QueryRewriteConfig()
@@ -75,14 +78,15 @@ public class TestQueryRewriter
         prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 CONFIGURATION,
-                VerificationContext.create(),
+                VerificationContext.create(SUITE, NAME),
                 new PrestoActionConfig()
                         .setHost(queryRunner.getServer().getAddress().getHost())
                         .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
                 new QueryActionsConfig().getMetadataTimeout(),
                 new QueryActionsConfig().getChecksumTimeout(),
                 new RetryConfig(),
-                new RetryConfig());
+                new RetryConfig(),
+                new VerifierConfig().setTestId("test"));
     }
 
     @AfterClass

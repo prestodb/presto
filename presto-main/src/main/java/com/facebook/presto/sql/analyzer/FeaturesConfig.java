@@ -133,6 +133,9 @@ public class FeaturesConfig
     private boolean optimizeFullOuterJoinWithCoalesce = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
+    private boolean enableDynamicFiltering;
+    private int dynamicFilteringMaxPerDriverRowCount = 100;
+    private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
 
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -156,6 +159,7 @@ public class FeaturesConfig
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
+    private boolean pushdownDereferenceEnabled;
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -936,6 +940,43 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isEnableDynamicFiltering()
+    {
+        return enableDynamicFiltering;
+    }
+
+    @Config("experimental.enable-dynamic-filtering")
+    public FeaturesConfig setEnableDynamicFiltering(boolean value)
+    {
+        this.enableDynamicFiltering = value;
+        return this;
+    }
+
+    public int getDynamicFilteringMaxPerDriverRowCount()
+    {
+        return dynamicFilteringMaxPerDriverRowCount;
+    }
+
+    @Config("experimental.dynamic-filtering-max-per-driver-row-count")
+    public FeaturesConfig setDynamicFilteringMaxPerDriverRowCount(int dynamicFilteringMaxPerDriverRowCount)
+    {
+        this.dynamicFilteringMaxPerDriverRowCount = dynamicFilteringMaxPerDriverRowCount;
+        return this;
+    }
+
+    @MaxDataSize("1MB")
+    public DataSize getDynamicFilteringMaxPerDriverSize()
+    {
+        return dynamicFilteringMaxPerDriverSize;
+    }
+
+    @Config("experimental.dynamic-filtering-max-per-driver-size")
+    public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
+    {
+        this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
+        return this;
+    }
+
     public boolean isOptimizeMixedDistinctAggregations()
     {
         return optimizeMixedDistinctAggregations;
@@ -1168,6 +1209,19 @@ public class FeaturesConfig
     public boolean isPushdownSubfieldsEnabled()
     {
         return pushdownSubfieldsEnabled;
+    }
+
+    @Config("experimental.pushdown-dereference-enabled")
+    @ConfigDescription("Experimental: enable dereference pushdown")
+    public FeaturesConfig setPushdownDereferenceEnabled(boolean pushdownDereferenceEnabled)
+    {
+        this.pushdownDereferenceEnabled = pushdownDereferenceEnabled;
+        return this;
+    }
+
+    public boolean isPushdownDereferenceEnabled()
+    {
+        return pushdownDereferenceEnabled;
     }
 
     public boolean isTableWriterMergeOperatorEnabled()

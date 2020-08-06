@@ -44,6 +44,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestDeterminismAnalyzer
 {
+    private static final String SUITE = "test-suite";
+    private static final String NAME = "test-query";
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     @Test
@@ -62,7 +64,7 @@ public class TestDeterminismAnalyzer
     private static DeterminismAnalyzer createDeterminismAnalyzer(String mutableCatalogPattern)
     {
         QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
-        VerificationContext verificationContext = VerificationContext.create();
+        VerificationContext verificationContext = VerificationContext.create(SUITE, NAME);
         VerifierConfig verifierConfig = new VerifierConfig().setTestId("test-id");
         RetryConfig retryConfig = new RetryConfig();
         QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
@@ -75,7 +77,8 @@ public class TestDeterminismAnalyzer
                 queryActionsConfig.getMetadataTimeout(),
                 queryActionsConfig.getChecksumTimeout(),
                 retryConfig,
-                retryConfig);
+                retryConfig,
+                verifierConfig);
         QueryRewriter queryRewriter = new QueryRewriter(
                 sqlParser,
                 typeManager,

@@ -57,7 +57,7 @@ public final class QueryCardinalityUtil
         return isAtMost(node, lookup, 1L);
     }
 
-    private static boolean isAtMost(PlanNode node, Lookup lookup, long maxCardinality)
+    public static boolean isAtMost(PlanNode node, Lookup lookup, long maxCardinality)
     {
         return Range.closed(0L, maxCardinality).encloses(extractCardinality(node, lookup));
     }

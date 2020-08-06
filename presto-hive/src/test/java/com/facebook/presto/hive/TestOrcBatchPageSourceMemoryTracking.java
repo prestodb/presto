@@ -513,7 +513,8 @@ public class TestOrcBatchPageSourceMemoryTracking
                     null,
                     false,
                     ROW_EXPRESSION_SERVICE,
-                    Optional.empty())
+                    Optional.empty(),
+                    ImmutableMap.of())
                     .get();
         }
 
@@ -550,6 +551,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     table,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
                     types,
+                    Optional.empty(),
                     new DataSize(0, BYTE),
                     0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);

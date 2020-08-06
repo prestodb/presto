@@ -179,7 +179,7 @@ public class TestMemoryTracking
                 pipelineLocalAllocation + taskLocalAllocation,
                 0,
                 taskLocalAllocation);
-        assertEquals(pipelineContext.getPipelineStats().getSystemMemoryReservation().toBytes(),
+        assertEquals(pipelineContext.getPipelineStats().getSystemMemoryReservationInBytes(),
                 pipelineLocalAllocation,
                 "task level allocations should not be visible at the pipeline level");
         pipelineLocalSystemMemoryContext.setBytes(pipelineLocalSystemMemoryContext.getBytes() - pipelineLocalAllocation);
@@ -366,18 +366,18 @@ public class TestMemoryTracking
     {
         assertEquals(operatorStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
         assertEquals(driverStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(pipelineStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(taskStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
+        assertEquals(pipelineStats.getUserMemoryReservationInBytes(), expectedUserMemory);
+        assertEquals(taskStats.getUserMemoryReservationInBytes(), expectedUserMemory);
 
         assertEquals(operatorStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
         assertEquals(driverStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
-        assertEquals(pipelineStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
-        assertEquals(taskStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
+        assertEquals(pipelineStats.getSystemMemoryReservationInBytes(), expectedSystemMemory);
+        assertEquals(taskStats.getSystemMemoryReservationInBytes(), expectedSystemMemory);
 
         assertEquals(operatorStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
         assertEquals(driverStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
-        assertEquals(pipelineStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
-        assertEquals(taskStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
+        assertEquals(pipelineStats.getRevocableMemoryReservationInBytes(), expectedRevocableMemory);
+        assertEquals(taskStats.getRevocableMemoryReservationInBytes(), expectedRevocableMemory);
     }
 
     private void assertAllocationFails(Consumer<Void> allocationFunction, String expectedPattern)
