@@ -29,5 +29,5 @@ public interface DigestAndPercentileState
 
     void setPercentile(double percentile);
 
-    void addMemoryUsage(int value);
+    void addMemoryUsage(long value);
 }

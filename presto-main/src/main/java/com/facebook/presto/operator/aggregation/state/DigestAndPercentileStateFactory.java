@@ -90,7 +90,7 @@ public class DigestAndPercentileStateFactory
         }
 
         @Override
-        public void addMemoryUsage(int value)
+        public void addMemoryUsage(long value)
         {
             size += value;
         }
@@ -134,7 +134,7 @@ public class DigestAndPercentileStateFactory
         }
 
         @Override
-        public void addMemoryUsage(int value)
+        public void addMemoryUsage(long value)
         {
             // noop
         }
