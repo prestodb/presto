@@ -318,6 +318,28 @@ public final class Page
         return wrapBlocksWithoutCopy(length, blocks);
     }
 
+    public Page copyPositions(int[] retainedPositions, int offset, int length)
+    {
+        requireNonNull(retainedPositions, "retainedPositions is null");
+
+        Block[] blocks = new Block[this.blocks.length];
+        for (int i = 0; i < blocks.length; i++) {
+            blocks[i] = this.blocks[i].copyPositions(retainedPositions, offset, length);
+        }
+        return wrapBlocksWithoutCopy(length, blocks);
+    }
+
+    public Page extractChannels(int[] channels)
+    {
+        requireNonNull(channels, "channels is null");
+
+        Block[] blocks = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            blocks[i] = this.blocks[channels[i]];
+        }
+        return wrapBlocksWithoutCopy(positionCount, blocks);
+    }
+
     public Page prependColumn(Block column)
     {
         if (column.getPositionCount() != positionCount) {
