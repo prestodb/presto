@@ -557,7 +557,7 @@ public final class HttpRemoteTask
     {
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             if (useBatchTaskStatusFetcher) {
-                // We do this directly from the ContinuousBatchTaskStatusFetcher on addTask
+                continuousBatchTaskStatusFetcher.addStateChangeListener(taskId, stateChangeListener);
             }
             else {
                 taskStatusFetcher.addStateChangeListener(stateChangeListener);

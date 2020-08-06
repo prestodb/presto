@@ -21,6 +21,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskState;
+import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.Codec;
@@ -137,6 +138,11 @@ class WorkerTaskStatusFetcher
     TaskStatus getTaskStatus(TaskId taskId)
     {
         return idTaskMap.get(taskId).getKey().taskStatus.get();
+    }
+
+    StateMachine<TaskStatus> getTaskStateMachine(TaskId taskId)
+    {
+        return idTaskMap.get(taskId).getValue();
     }
 
     private URI getWorkerURI()

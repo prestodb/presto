@@ -191,4 +191,11 @@ public class ContinuousBatchTaskStatusFetcher
         }
         return false;
     }
+
+    public void addStateChangeListener(TaskId taskId, StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
+    {
+        WorkerTaskStatusFetcher worker = workerTaskMap.get(idWorkerMap.get(taskId));
+        StateMachine<TaskStatus> taskStatus = worker.getTaskStateMachine(taskId);
+        taskStatus.addStateChangeListener(stateChangeListener);
+    }
 }
