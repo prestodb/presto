@@ -54,7 +54,9 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
 public class CallTask
@@ -114,10 +116,14 @@ public class CallTask
             }
         }
 
-        // verify argument count
-        if (names.size() < positions.size()) {
-            throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, "Too few arguments for procedure");
-        }
+        procedure.getArguments().stream()
+                .filter(Argument::isRequired)
+                .filter(argument -> !names.containsKey(argument.getName()))
+                .map(Argument::getName)
+                .findFirst()
+                .ifPresent(argument -> {
+                    throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, call, format("Required procedure argument '%s' is missing", argument));
+                });
 
         // get argument values
         Object[] values = new Object[procedure.getArguments().size()];
@@ -133,6 +139,16 @@ public class CallTask
             Object value = evaluateConstantExpression(expression, type, metadata, session, parameters);
 
             values[index] = toTypeObjectValue(session, type, value);
+        }
+
+        // fill values with optional arguments defaults
+        for (int i = 0; i < procedure.getArguments().size(); i++) {
+            Argument argument = procedure.getArguments().get(i);
+
+            if (!names.containsKey(argument.getName())) {
+                verify(argument.isOptional());
+                values[i] = toTypeObjectValue(session, metadata.getType(argument.getType()), argument.getDefaultValue());
+            }
         }
 
         // validate arguments
