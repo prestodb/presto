@@ -18,8 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class ResourceDistribution
 {
-    private final int stageId;
-    private final int tasks;
     private final long p25;
     private final long p50;
     private final long p75;
@@ -33,8 +31,6 @@ public class ResourceDistribution
 
     @JsonCreator
     public ResourceDistribution(
-            @JsonProperty("stageId") int stageId,
-            @JsonProperty("tasks") int tasks,
             @JsonProperty("p25") long p25,
             @JsonProperty("p50") long p50,
             @JsonProperty("p75") long p75,
@@ -46,8 +42,6 @@ public class ResourceDistribution
             @JsonProperty("total") long total,
             @JsonProperty("average") double average)
     {
-        this.stageId = stageId;
-        this.tasks = tasks;
         this.p25 = p25;
         this.p50 = p50;
         this.p75 = p75;
@@ -58,18 +52,6 @@ public class ResourceDistribution
         this.max = max;
         this.total = total;
         this.average = average;
-    }
-
-    @JsonProperty
-    public int getStageId()
-    {
-        return stageId;
-    }
-
-    @JsonProperty
-    public int getTasks()
-    {
-        return tasks;
     }
 
     @JsonProperty
