@@ -15,9 +15,11 @@ package com.facebook.presto.druid;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.druid.ingestion.DruidPageSinkProvider;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -42,6 +44,7 @@ public class DruidConnector
     private final DruidMetadata metadata;
     private final DruidSplitManager splitManager;
     private final DruidPageSourceProvider pageSourceProvider;
+    private final DruidPageSinkProvider pageSinkProvider;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final ConnectorPlanOptimizer planOptimizer;
 
@@ -51,6 +54,7 @@ public class DruidConnector
             DruidMetadata metadata,
             DruidSplitManager splitManager,
             DruidPageSourceProvider pageSourceProvider,
+            DruidPageSinkProvider pageSinkProvider,
             DruidSessionProperties druidSessionProperties,
             DruidPlanOptimizer planOptimizer)
     {
@@ -58,6 +62,7 @@ public class DruidConnector
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvide is null");
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(druidSessionProperties, "sessionProperties is null").getSessionProperties());
         this.planOptimizer = requireNonNull(planOptimizer, "plan optimizer is null");
     }
@@ -84,6 +89,12 @@ public class DruidConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return pageSinkProvider;
     }
 
     @Override
