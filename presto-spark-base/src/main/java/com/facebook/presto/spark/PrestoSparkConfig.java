@@ -17,13 +17,17 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 
+import javax.validation.constraints.NotNull;
+
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
 public class PrestoSparkConfig
 {
     private boolean sparkPartitionCountAutoTuneEnabled = true;
     private int initialSparkPartitionCount = 16;
     private DataSize maxSplitsDataSizePerSparkPartition = new DataSize(2, GIGABYTE);
+    private DataSize shuffleOutputTargetAverageRowSize = new DataSize(1, KILOBYTE);
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -61,6 +65,20 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setMaxSplitsDataSizePerSparkPartition(DataSize maxSplitsDataSizePerSparkPartition)
     {
         this.maxSplitsDataSizePerSparkPartition = maxSplitsDataSizePerSparkPartition;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getShuffleOutputTargetAverageRowSize()
+    {
+        return shuffleOutputTargetAverageRowSize;
+    }
+
+    @Config("spark.shuffle-output-target-average-row-size")
+    @ConfigDescription("Target average size for row entries produced by Presto on Spark for shuffle")
+    public PrestoSparkConfig setShuffleOutputTargetAverageRowSize(DataSize shuffleOutputTargetAverageRowSize)
+    {
+        this.shuffleOutputTargetAverageRowSize = shuffleOutputTargetAverageRowSize;
         return this;
     }
 }
