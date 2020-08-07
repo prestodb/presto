@@ -97,6 +97,30 @@ public final class TestingProcedures
     }
 
     @UsedByGeneratedCode
+    public void optionals(ConnectorSession session, String x)
+    {
+        tester.recordCalled("optionals", x);
+    }
+
+    @UsedByGeneratedCode
+    public void optionals2(ConnectorSession session, String x, String y)
+    {
+        tester.recordCalled("optionals2", x, y);
+    }
+
+    @UsedByGeneratedCode
+    public void optionals3(ConnectorSession session, String x, String y, String z)
+    {
+        tester.recordCalled("optionals3", x, y, z);
+    }
+
+    @UsedByGeneratedCode
+    public void optionals4(ConnectorSession session, String x, String y, String z, String v)
+    {
+        tester.recordCalled("optionals4", x, y, z, v);
+    }
+
+    @UsedByGeneratedCode
     public void error()
     {
         tester.recordCalled("error");
@@ -124,6 +148,20 @@ public final class TestingProcedures
                         new Argument("x", BIGINT))))
                 .add(procedure(schema, "test_session_last", "sessionLast", ImmutableList.of(
                         new Argument("x", VARCHAR))))
+                .add(procedure(schema, "test_optionals", "optionals", ImmutableList.of(
+                        new Argument("x", VARCHAR, false, "hello"))))
+                .add(procedure(schema, "test_optionals2", "optionals2", ImmutableList.of(
+                        new Argument("x", VARCHAR),
+                        new Argument("y", VARCHAR, false, "world"))))
+                .add(procedure(schema, "test_optionals3", "optionals3", ImmutableList.of(
+                        new Argument("x", VARCHAR, false, "this"),
+                        new Argument("y", VARCHAR, false, "is"),
+                        new Argument("z", VARCHAR, false, "default"))))
+                .add(procedure(schema, "test_optionals4", "optionals4", ImmutableList.of(
+                        new Argument("x", VARCHAR),
+                        new Argument("y", VARCHAR),
+                        new Argument("z", VARCHAR, false, "z default"),
+                        new Argument("v", VARCHAR, false, "v default"))))
                 .add(procedure(schema, "test_exception", "exception", ImmutableList.of()))
                 .add(procedure(schema, "test_error", "error", ImmutableList.of()))
                 .build();
