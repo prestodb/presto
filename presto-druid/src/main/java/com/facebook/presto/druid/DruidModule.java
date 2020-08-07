@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.druid;
 
+import com.facebook.presto.druid.ingestion.DruidPageSinkProvider;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -37,6 +38,7 @@ public class DruidModule
         binder.bind(DruidPlanOptimizer.class).in(Scopes.SINGLETON);
         binder.bind(DruidSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(DruidPageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(DruidPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(DruidQueryGenerator.class).in(Scopes.SINGLETON);
         binder.bind(DruidSessionProperties.class).in(Scopes.SINGLETON);
     }
