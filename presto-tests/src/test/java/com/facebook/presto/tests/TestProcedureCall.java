@@ -113,13 +113,44 @@ public class TestProcedureCall
         assertCallFails("CALL test_args(123, 4.5, 'hello', null)", "Procedure argument cannot be null: q");
 
         assertCallFails("CALL test_simple(123)", "line 1:1: Too many arguments for procedure");
-        assertCallFails("CALL test_args(123, 4.5, 'hello')", "line 1:1: Too few arguments for procedure");
-        assertCallFails("CALL test_args(x => 123, y => 4.5, q => true)", "line 1:1: Too few arguments for procedure");
+        assertCallFails("CALL test_args(123, 4.5, 'hello')", "line 1:1: Required procedure argument 'q' is missing");
+        assertCallFails("CALL test_args(x => 123, y => 4.5, q => true)", "line 1:1: Required procedure argument 'z' is missing");
         assertCallFails("CALL test_args(123, 4.5, 'hello', q => true)", "line 1:1: Named and positional arguments cannot be mixed");
         assertCallFails("CALL test_args(x => 3, x => 4)", "line 1:24: Duplicate procedure argument: x");
         assertCallFails("CALL test_args(t => 404)", "line 1:16: Unknown argument name: t");
         assertCallFails("CALL test_nulls('hello', null)", "line 1:17: Cannot cast type varchar(5) to bigint");
         assertCallFails("CALL test_nulls(null, 123)", "line 1:23: Cannot cast type integer to varchar");
+    }
+
+    @Test
+    public void testProcedureCallWithOptionals()
+    {
+        // test_optionals(x => Optional['hello'])
+        // test_optionals2(x, y => Optional['world])
+        // test_optionals3(x => Optional['this'], y => Optional['is'], z => Optional['default'])
+        // test_optionals4(x, y, z => Optional['z default'], v => Optional['v default'])
+        assertCall("CALL test_optionals()", "optionals", "hello");
+        assertCall("CALL test_optionals(x => 'x')", "optionals", "x");
+        assertCall("CALL test_optionals2(x => 'ab')", "optionals2", "ab", "world");
+        assertCall("CALL test_optionals2('ab')", "optionals2", "ab", "world");
+        assertCall("CALL test_optionals2(x => 'ab', y => 'cd')", "optionals2", "ab", "cd");
+        assertCall("CALL test_optionals2(y => 'cd', x => 'ab')", "optionals2", "ab", "cd");
+        assertCall("CALL test_optionals2('ab', 'cd')", "optionals2", "ab", "cd");
+        assertCall("CALL test_optionals3(x => 'ab', z => 'cd')", "optionals3", "ab", "is", "cd");
+        assertCall("CALL test_optionals3('ab', 'cd', 'ef')", "optionals3", "ab", "cd", "ef");
+        assertCall("CALL test_optionals3('ab', 'cd')", "optionals3", "ab", "cd", "default");
+        assertCall("CALL test_optionals3('ab')", "optionals3", "ab", "is", "default");
+        assertCall("CALL test_optionals3(y => 'ab', z => 'cd')", "optionals3", "this", "ab", "cd");
+        assertCall("CALL test_optionals3(z => 'cd')", "optionals3", "this", "is", "cd");
+        assertCall("CALL test_optionals4('a', 'b')", "optionals4", "a", "b", "z default", "v default");
+        assertCall("CALL test_optionals4(x => 'x val', y => 'y val')", "optionals4", "x val", "y val", "z default", "v default");
+        assertCall("CALL test_optionals4(z => 'z val', v => 'v val', x => 'x val', y => 'y val')", "optionals4", "x val", "y val", "z val", "v val");
+        assertCall("CALL test_optionals4(v => 'v val', x => 'x val', y => 'y val', z => 'z val')", "optionals4", "x val", "y val", "z val", "v val");
+
+        assertCallFails("CALL test_optionals2()", "line 1:1: Required procedure argument 'x' is missing");
+        assertCallFails("CALL test_optionals4(z => 'cd')", "line 1:1: Required procedure argument 'x' is missing");
+        assertCallFails("CALL test_optionals4(z => 'cd', v => 'value')", "line 1:1: Required procedure argument 'x' is missing");
+        assertCallFails("CALL test_optionals4(y => 'cd', v => 'value')", "line 1:1: Required procedure argument 'x' is missing");
     }
 
     private void assertCall(@Language("SQL") String sql, String name, Object... arguments)
