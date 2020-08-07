@@ -38,6 +38,8 @@ public class PrestoSparkMutableRow
     private int offset;
     private int length;
 
+    private int positionCount;
+
     public ByteBuffer getBuffer()
     {
         return buffer;
@@ -81,6 +83,11 @@ public class PrestoSparkMutableRow
         return this;
     }
 
+    public void setPositionCount(int positionCount)
+    {
+        this.positionCount = positionCount;
+    }
+
     @Override
     public void write(Kryo kryo, Output output)
     {
@@ -113,9 +120,9 @@ public class PrestoSparkMutableRow
     }
 
     @Override
-    public long getRowCount()
+    public long getPositionCount()
     {
-        return 1;
+        return positionCount;
     }
 
     @Override

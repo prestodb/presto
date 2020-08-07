@@ -38,7 +38,8 @@ public class PrestoSparkSerializedPage
         return bytes;
     }
 
-    public int getPositionCount()
+    @Override
+    public long getPositionCount()
     {
         return positionCount;
     }
@@ -51,12 +52,6 @@ public class PrestoSparkSerializedPage
     public byte getPageCodecMarkers()
     {
         return pageCodecMarkers;
-    }
-
-    @Override
-    public long getRowCount()
-    {
-        return positionCount;
     }
 
     @Override

@@ -819,33 +819,44 @@ public class PrestoSparkQueryExecutionFactory
         private void logShuffleStatsSummary(ShuffleStatsKey key, List<PrestoSparkShuffleStats> statsList)
         {
             long totalProcessedRows = 0;
+            long totalProcessedRowBatches = 0;
             long totalProcessedBytes = 0;
             long totalElapsedWallTimeMills = 0;
             for (PrestoSparkShuffleStats stats : statsList) {
                 totalProcessedRows += stats.getProcessedRows();
+                totalProcessedRowBatches += stats.getProcessedRowBatches();
                 totalProcessedBytes += stats.getProcessedBytes();
                 totalElapsedWallTimeMills += stats.getElapsedWallTimeMills();
             }
             long totalElapsedWallTimeSeconds = totalElapsedWallTimeMills / 1000;
             long rowsPerSecond = totalProcessedRows;
+            long rowBatchesPerSecond = totalProcessedRowBatches;
             long bytesPerSecond = totalProcessedBytes;
             if (totalElapsedWallTimeSeconds > 0) {
                 rowsPerSecond = totalProcessedRows / totalElapsedWallTimeSeconds;
+                rowBatchesPerSecond = totalProcessedRowBatches / totalElapsedWallTimeSeconds;
                 bytesPerSecond = totalProcessedBytes / totalElapsedWallTimeSeconds;
             }
             long averageRowSize = 0;
             if (totalProcessedRows > 0) {
                 averageRowSize = totalProcessedBytes / totalProcessedRows;
             }
+            long averageRowBatchSize = 0;
+            if (totalProcessedRowBatches > 0) {
+                averageRowBatchSize = totalProcessedBytes / totalProcessedRowBatches;
+            }
             log.info(
-                    "Fragment: %s, Operation: %s, Rows: %s, Size: %s, Avg Row Size: %s, Time: %s, %srows/s, %s/s",
+                    "Fragment: %s, Operation: %s, Rows: %s, Row Batches: %s, Size: %s, Avg Row Size: %s, Avg Row Batch Size: %s, Time: %s, %s rows/s, %s batches/s, %s/s",
                     key.getFragmentId(),
                     key.getOperation(),
                     totalProcessedRows,
+                    totalProcessedRowBatches,
                     DataSize.succinctBytes(totalProcessedBytes),
                     DataSize.succinctBytes(averageRowSize),
+                    DataSize.succinctBytes(averageRowBatchSize),
                     Duration.succinctDuration(totalElapsedWallTimeMills, MILLISECONDS),
                     rowsPerSecond,
+                    rowBatchesPerSecond,
                     DataSize.succinctBytes(bytesPerSecond));
         }
 

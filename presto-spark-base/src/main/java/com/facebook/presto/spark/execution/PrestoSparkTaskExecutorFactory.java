@@ -98,6 +98,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getShuffleOutputTargetAverageRowSize;
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation.WRITE;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
@@ -372,7 +373,11 @@ public class PrestoSparkTaskExecutorFactory
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
                 notificationExecutor);
         PagesSerde pagesSerde = new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty());
-        Output<T> output = configureOutput(outputType, pagesSerde, memoryManager);
+        Output<T> output = configureOutput(
+                outputType,
+                pagesSerde,
+                memoryManager,
+                getShuffleOutputTargetAverageRowSize(session));
         PrestoSparkOutputBuffer<?> outputBuffer = output.getOutputBuffer();
 
         LocalExecutionPlan localExecutionPlan = localExecutionPlanner.plan(
@@ -450,11 +455,12 @@ public class PrestoSparkTaskExecutorFactory
     private static <T extends PrestoSparkTaskOutput> Output<T> configureOutput(
             Class<T> outputType,
             PagesSerde pagesSerde,
-            OutputBufferMemoryManager memoryManager)
+            OutputBufferMemoryManager memoryManager,
+            DataSize targetAverageRowSize)
     {
         if (outputType.equals(PrestoSparkMutableRow.class)) {
             PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer = new PrestoSparkOutputBuffer<>(memoryManager);
-            OutputFactory outputFactory = new PrestoSparkRowOutputFactory(outputBuffer);
+            OutputFactory outputFactory = new PrestoSparkRowOutputFactory(outputBuffer, targetAverageRowSize);
             OutputSupplier<T> outputSupplier = (OutputSupplier<T>) new RowOutputSupplier(outputBuffer);
             return new Output<>(OutputBufferType.SPARK_ROW_OUTPUT_BUFFER, outputBuffer, outputFactory, outputSupplier);
         }
@@ -489,6 +495,7 @@ public class PrestoSparkTaskExecutorFactory
 
         private final long start = System.currentTimeMillis();
         private long processedRows;
+        private long processedRowBatches;
         private long processedBytes;
 
         private PrestoSparkTaskExecutor(
@@ -557,7 +564,8 @@ public class PrestoSparkTaskExecutorFactory
             Tuple2<MutablePartitionId, T> output = outputSupplier.getNext();
 
             if (output != null) {
-                processedRows += output._2.getRowCount();
+                processedRows += output._2.getPositionCount();
+                processedRowBatches++;
                 processedBytes += output._2.getSize();
                 return output;
             }
@@ -572,6 +580,7 @@ public class PrestoSparkTaskExecutorFactory
                     taskContext.getTaskId().getId(),
                     WRITE,
                     processedRows,
+                    processedRowBatches,
                     processedBytes,
                     end - start - outputSupplier.getTimeSpentWaitingForOutputInMillis());
             shuffleStatsCollector.add(shuffleStats);

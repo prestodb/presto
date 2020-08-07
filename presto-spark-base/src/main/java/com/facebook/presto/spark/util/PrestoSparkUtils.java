@@ -31,6 +31,7 @@ import java.util.zip.InflaterOutputStream;
 import static com.facebook.presto.common.block.BlockUtil.compactArray;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.ByteStreams.toByteArray;
+import static java.lang.Math.toIntExact;
 
 public class PrestoSparkUtils
 {
@@ -52,7 +53,7 @@ public class PrestoSparkUtils
         return new SerializedPage(
                 Slices.wrappedBuffer(prestoSparkSerializedPage.getBytes()),
                 prestoSparkSerializedPage.getPageCodecMarkers(),
-                prestoSparkSerializedPage.getPositionCount(),
+                toIntExact(prestoSparkSerializedPage.getPositionCount()),
                 prestoSparkSerializedPage.getUncompressedSizeInBytes());
     }
 
