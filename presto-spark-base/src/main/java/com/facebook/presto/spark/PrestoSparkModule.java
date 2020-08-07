@@ -78,6 +78,7 @@ import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
@@ -353,6 +354,7 @@ public class PrestoSparkModule
         binder.bind(SpillerStats.class).in(Scopes.SINGLETON);
 
         // monitoring
+        jsonCodecBinder(binder).bindJsonCodec(OperatorInfo.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);
