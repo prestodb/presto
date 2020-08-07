@@ -76,32 +76,48 @@ public class PrestoSparkShufflePageInput
             while (currentIteratorIndex < shuffleInputs.size()) {
                 PrestoSparkShuffleInput input = shuffleInputs.get(currentIteratorIndex);
                 Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> iterator = input.getIterator();
-                long processedBytes = 0;
+                long currentIteratorProcessedBytes = 0;
+                long currentIteratorProcessedRows = 0;
+                long currentIteratorProcessedRowBatches = 0;
                 long start = System.currentTimeMillis();
                 while (iterator.hasNext() && output.size() <= TARGET_SIZE && rowCount <= MAX_ROWS_PER_PAGE) {
+                    currentIteratorProcessedRowBatches++;
                     PrestoSparkMutableRow row = iterator.next()._2;
                     if (row.getBuffer() != null) {
                         ByteBuffer buffer = row.getBuffer();
+                        verify(buffer.remaining() >= 2, "row data is expected to be at least 2 bytes long");
+                        currentIteratorProcessedBytes += buffer.remaining();
+                        short entryRowCount = getShortLittleEndian(buffer);
+                        rowCount += entryRowCount;
+                        currentIteratorProcessedRows += entryRowCount;
+                        buffer.position(buffer.position() + 2);
                         output.writeBytes(buffer.array(), buffer.arrayOffset() + buffer.position(), buffer.remaining());
-                        processedBytes += buffer.remaining();
                     }
                     else if (row.getArray() != null) {
-                        output.writeBytes(row.getArray(), row.getOffset(), row.getLength());
-                        processedBytes += row.getLength();
+                        verify(row.getLength() >= 2, "row data is expected to be at least 2 bytes long");
+                        currentIteratorProcessedBytes += row.getLength();
+                        short entryRowCount = getShortLittleEndian(row.getArray(), row.getOffset());
+                        rowCount += entryRowCount;
+                        currentIteratorProcessedRows += entryRowCount;
+                        output.writeBytes(row.getArray(), row.getOffset() + 2, row.getLength() - 2);
                     }
                     else {
                         throw new IllegalArgumentException("Unexpected PrestoSparkMutableRow: 'buffer' and 'array' fields are both null");
                     }
-                    rowCount++;
                 }
                 long end = System.currentTimeMillis();
-                shuffleStats.accumulate(rowCount, processedBytes, end - start);
+                shuffleStats.accumulate(
+                        currentIteratorProcessedRows,
+                        currentIteratorProcessedRowBatches,
+                        currentIteratorProcessedBytes,
+                        end - start);
                 if (!iterator.hasNext()) {
                     shuffleStatsCollector.add(new PrestoSparkShuffleStats(
                             input.getFragmentId(),
                             taskId,
                             READ,
                             shuffleStats.getProcessedRows(),
+                            shuffleStats.getProcessedRowBatches(),
                             shuffleStats.getProcessedBytes(),
                             shuffleStats.getElapsedWallTimeMills()));
                     shuffleStats.reset();
@@ -139,15 +155,36 @@ public class PrestoSparkShufflePageInput
         return page;
     }
 
+    private static short getShortLittleEndian(ByteBuffer byteBuffer)
+    {
+        byte leastSignificant = byteBuffer.get(byteBuffer.position());
+        byte mostSignificant = byteBuffer.get(byteBuffer.position() + 1);
+        return getShort(leastSignificant, mostSignificant);
+    }
+
+    private static short getShortLittleEndian(byte[] bytes, int offset)
+    {
+        byte leastSignificant = bytes[offset];
+        byte mostSignificant = bytes[offset + 1];
+        return getShort(leastSignificant, mostSignificant);
+    }
+
+    private static short getShort(byte leastSignificant, byte mostSignificant)
+    {
+        return (short) ((leastSignificant & 0xFF) | ((mostSignificant & 0xFF) << 8));
+    }
+
     private static class ShuffleStats
     {
         private long processedRows;
+        private long processedRowBatches;
         private long processedBytes;
         private long elapsedWallTimeMills;
 
-        public void accumulate(long processedRows, long processedBytes, long elapsedWallTimeMills)
+        public void accumulate(long processedRows, long processedRowBatches, long processedBytes, long elapsedWallTimeMills)
         {
             this.processedRows += processedRows;
+            this.processedRowBatches += processedRowBatches;
             this.processedBytes += processedBytes;
             this.elapsedWallTimeMills += elapsedWallTimeMills;
         }
@@ -155,6 +192,7 @@ public class PrestoSparkShufflePageInput
         public void reset()
         {
             processedRows = 0;
+            processedRowBatches = 0;
             processedBytes = 0;
             elapsedWallTimeMills = 0;
         }
@@ -162,6 +200,11 @@ public class PrestoSparkShufflePageInput
         public long getProcessedRows()
         {
             return processedRows;
+        }
+
+        public long getProcessedRowBatches()
+        {
+            return processedRowBatches;
         }
 
         public long getProcessedBytes()

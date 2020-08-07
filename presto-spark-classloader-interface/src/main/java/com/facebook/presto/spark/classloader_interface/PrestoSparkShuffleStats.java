@@ -27,6 +27,7 @@ public class PrestoSparkShuffleStats
     private final int taskId;
     private final Operation operation;
     private final long processedRows;
+    private final long processedRowBatches;
     private final long processedBytes;
     private final long elapsedWallTimeMills;
 
@@ -35,6 +36,7 @@ public class PrestoSparkShuffleStats
             int taskId,
             Operation operation,
             long processedRows,
+            long processedRowBatches,
             long processedBytes,
             long elapsedWallTimeMills)
     {
@@ -43,6 +45,8 @@ public class PrestoSparkShuffleStats
         this.operation = requireNonNull(operation, "operation is null");
         checkArgument(processedRows >= 0, "processedRows must be greater than or equal to zero: %s", processedRows);
         this.processedRows = processedRows;
+        checkArgument(processedRowBatches >= 0, "processedRowBatches must be greater than or equal to zero: %s", processedRowBatches);
+        this.processedRowBatches = processedRowBatches;
         checkArgument(processedBytes >= 0, "processedBytes must be greater than or equal to zero: %s", processedBytes);
         this.processedBytes = processedBytes;
         checkArgument(elapsedWallTimeMills >= 0, "elapsedWallTimeMills must be greater than or equal to zero: %s", elapsedWallTimeMills);
@@ -67,6 +71,11 @@ public class PrestoSparkShuffleStats
     public long getProcessedRows()
     {
         return processedRows;
+    }
+
+    public long getProcessedRowBatches()
+    {
+        return processedRowBatches;
     }
 
     public long getProcessedBytes()

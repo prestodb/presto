@@ -32,6 +32,7 @@ import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.SliceOutput;
+import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +40,7 @@ import java.util.OptionalInt;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkRowOutputOperator
@@ -55,10 +57,12 @@ public class PrestoSparkRowOutputOperator
                 OptionalInt.empty());
 
         private final PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer;
+        private final DataSize targetAverageRowSize;
 
-        public PrestoSparkRowOutputFactory(PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer)
+        public PrestoSparkRowOutputFactory(PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer, DataSize targetAverageRowSize)
         {
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+            this.targetAverageRowSize = requireNonNull(targetAverageRowSize, "targetAverageRowSize is null");
         }
 
         @Override
@@ -82,7 +86,8 @@ public class PrestoSparkRowOutputOperator
                             .map(constant -> constant.map(ConstantExpression::getValueBlock))
                             .collect(toImmutableList()),
                     partitioning.isReplicateNullsAndAny(),
-                    partitioning.getNullChannel());
+                    partitioning.getNullChannel(),
+                    toIntExact(targetAverageRowSize.toBytes()));
         }
     }
 
@@ -114,6 +119,7 @@ public class PrestoSparkRowOutputOperator
         private final List<Optional<Block>> partitionConstants;
         private final boolean replicateNullsAndAny;
         private final OptionalInt nullChannel;
+        private final int targetAverageRowSizeInBytes;
 
         public PrestoSparkRowOutputOperatorFactory(
                 int operatorId,
@@ -124,7 +130,8 @@ public class PrestoSparkRowOutputOperator
                 List<Integer> partitionChannels,
                 List<Optional<Block>> partitionConstants,
                 boolean replicateNullsAndAny,
-                OptionalInt nullChannel)
+                OptionalInt nullChannel,
+                int targetAverageRowSizeInBytes)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -135,6 +142,7 @@ public class PrestoSparkRowOutputOperator
             this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null");
             this.replicateNullsAndAny = replicateNullsAndAny;
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
+            this.targetAverageRowSizeInBytes = targetAverageRowSizeInBytes;
         }
 
         @Override
@@ -150,7 +158,8 @@ public class PrestoSparkRowOutputOperator
                     partitionChannels,
                     partitionConstants,
                     replicateNullsAndAny,
-                    nullChannel);
+                    nullChannel,
+                    targetAverageRowSizeInBytes);
         }
 
         @Override
@@ -170,7 +179,8 @@ public class PrestoSparkRowOutputOperator
                     partitionChannels,
                     partitionConstants,
                     replicateNullsAndAny,
-                    nullChannel);
+                    nullChannel,
+                    targetAverageRowSizeInBytes);
         }
     }
 
@@ -183,6 +193,7 @@ public class PrestoSparkRowOutputOperator
     private final List<Optional<Block>> partitionConstants;
     private final boolean replicateNullsAndAny;
     private final OptionalInt nullChannel;
+    private final int targetAverageRowSizeInBytes;
 
     private PrestoSparkRowBatchBuilder rowBatchBuilder;
 
@@ -198,7 +209,8 @@ public class PrestoSparkRowOutputOperator
             List<Integer> partitionChannels,
             List<Optional<Block>> partitionConstants,
             boolean replicateNullsAndAny,
-            OptionalInt nullChannel)
+            OptionalInt nullChannel,
+            int targetAverageRowSizeInBytes)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -209,6 +221,7 @@ public class PrestoSparkRowOutputOperator
         this.partitionConstants = ImmutableList.copyOf(requireNonNull(partitionConstants, "partitionConstants is null"));
         this.replicateNullsAndAny = replicateNullsAndAny;
         this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
+        this.targetAverageRowSizeInBytes = targetAverageRowSizeInBytes;
     }
 
     @Override
@@ -242,7 +255,7 @@ public class PrestoSparkRowOutputOperator
         int partitionCount = partitionFunction.getPartitionCount();
 
         if (rowBatchBuilder == null) {
-            rowBatchBuilder = PrestoSparkRowBatch.builder(partitionCount);
+            rowBatchBuilder = PrestoSparkRowBatch.builder(partitionCount, targetAverageRowSizeInBytes);
         }
 
         int channelCount = page.getChannelCount();
@@ -250,7 +263,7 @@ public class PrestoSparkRowOutputOperator
         for (int position = 0; position < positionCount; position++) {
             if (rowBatchBuilder.isFull()) {
                 outputBuffer.enqueue(rowBatchBuilder.build());
-                rowBatchBuilder = PrestoSparkRowBatch.builder(partitionCount);
+                rowBatchBuilder = PrestoSparkRowBatch.builder(partitionCount, targetAverageRowSizeInBytes);
             }
 
             SliceOutput output = rowBatchBuilder.beginRowEntry();
