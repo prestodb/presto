@@ -275,6 +275,7 @@ public class CoordinatorModule
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(PlanFragmenter.class).withGeneratedName();
 
         // query explainer
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);
