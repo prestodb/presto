@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.druid.ingestion;
 
+import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -27,14 +29,17 @@ public class DruidIngestionTableHandle
 {
     private final String schemaName;
     private final String tableName;
+    private final List<DruidColumnInfo> columns;
 
     @JsonCreator
     public DruidIngestionTableHandle(
             @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName)
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("columns") List<DruidColumnInfo> columns)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.columns = requireNonNull(columns, "columns is null");
     }
 
     @JsonProperty
@@ -47,6 +52,12 @@ public class DruidIngestionTableHandle
     public String getTableName()
     {
         return tableName;
+    }
+
+    @JsonProperty
+    public List<DruidColumnInfo> getColumns()
+    {
+        return columns;
     }
 
     @Override
