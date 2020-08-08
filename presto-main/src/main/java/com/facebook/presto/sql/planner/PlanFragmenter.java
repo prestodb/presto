@@ -78,6 +78,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
@@ -89,6 +90,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
@@ -146,6 +148,7 @@ public class PlanFragmenter
     public static final int ROOT_FRAGMENT_ID = 0;
     public static final String TOO_MANY_STAGES_MESSAGE = "If the query contains multiple DISTINCTs, please set the 'use_mark_distinct' session property to false. " +
             "If the query contains multiple CTEs that are referenced more than once, please create temporary table(s) for one or more of the CTEs.";
+    private static final AtomicInteger sourceDistributionOverwrite = new AtomicInteger();
 
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
@@ -512,6 +515,12 @@ public class PlanFragmenter
                 default:
                     throw new IllegalArgumentException("Unexpected exchange scope: " + exchange.getScope());
             }
+        }
+
+        @Managed
+        public long getSourceDistributionOverwrite()
+        {
+            return sourceDistributionOverwrite.get();
         }
 
         private PlanNode createRemoteStreamingExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
@@ -893,7 +902,8 @@ public class PlanFragmenter
             }
 
             if (currentPartitioning.equals(SOURCE_DISTRIBUTION)) {
-                this.partitioningHandle = Optional.of(distribution);
+                //this.partitioningHandle = Optional.of(distribution);
+                //sourceDistributionOverwrite.incrementAndGet();
                 return this;
             }
 
