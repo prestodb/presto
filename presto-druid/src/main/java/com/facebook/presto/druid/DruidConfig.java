@@ -16,12 +16,16 @@ package com.facebook.presto.druid;
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.common.base.Splitter;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
+import java.util.Map;
 
 public class DruidConfig
 {
@@ -33,6 +37,7 @@ public class DruidConfig
     private DruidAuthenticationType druidAuthenticationType = DruidAuthenticationType.NONE;
     private String basicAuthenticationUsername;
     private String basicAuthenticationPassword;
+    private String ingestionStoragePath = StandardSystemProperty.JAVA_IO_TMPDIR.value();
 
     public enum DruidAuthenticationType
     {
@@ -102,6 +107,23 @@ public class DruidConfig
         return hadoopConfiguration;
     }
 
+    public Configuration readHadoopConfiguration()
+    {
+        Configuration configuration = new Configuration(false);
+        if (hadoopConfiguration.isEmpty()) {
+            configuration.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
+            configuration.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
+        }
+        for (String resourcePath : hadoopConfiguration) {
+            Configuration resourceProperties = new Configuration(false);
+            resourceProperties.addResource(new Path(resourcePath));
+            for (Map.Entry<String, String> entry : resourceProperties) {
+                configuration.set(entry.getKey(), entry.getValue());
+            }
+        }
+        return configuration;
+    }
+
     @Config("druid.hadoop.config.resources")
     public DruidConfig setHadoopConfiguration(String files)
     {
@@ -157,6 +179,19 @@ public class DruidConfig
     public DruidConfig setBasicAuthenticationPassword(String basicAuthenticationPassword)
     {
         this.basicAuthenticationPassword = basicAuthenticationPassword;
+        return this;
+    }
+
+    @Nullable
+    public String getIngestionStoragePath()
+    {
+        return ingestionStoragePath;
+    }
+
+    @Config("druid.ingestion.storage.path")
+    public DruidConfig setIngestionStoragePath(String ingestionStoragePath)
+    {
+        this.ingestionStoragePath = ingestionStoragePath;
         return this;
     }
 }

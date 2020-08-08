@@ -14,6 +14,7 @@
 package com.facebook.presto.druid;
 
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -38,7 +39,8 @@ public class TestDruidConfig
                 .setHadoopConfiguration("")
                 .setDruidAuthenticationType(NONE)
                 .setBasicAuthenticationUsername(null)
-                .setBasicAuthenticationPassword(null));
+                .setBasicAuthenticationPassword(null)
+                .setIngestionStoragePath(StandardSystemProperty.JAVA_IO_TMPDIR.value()));
     }
 
     @Test
@@ -53,6 +55,7 @@ public class TestDruidConfig
                 .put("druid.authentication.type", "BASIC")
                 .put("druid.basic.authentication.username", "http_basic_username")
                 .put("druid.basic.authentication.password", "http_basic_password")
+                .put("druid.ingestion.storage.path", "hdfs://foo/bar/")
                 .build();
 
         DruidConfig expected = new DruidConfig()
@@ -63,7 +66,8 @@ public class TestDruidConfig
                 .setHadoopConfiguration(ImmutableList.of("/etc/core-site.xml", "/etc/hdfs-site.xml"))
                 .setDruidAuthenticationType(BASIC)
                 .setBasicAuthenticationUsername("http_basic_username")
-                .setBasicAuthenticationPassword("http_basic_password");
+                .setBasicAuthenticationPassword("http_basic_password")
+                .setIngestionStoragePath("hdfs://foo/bar/");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
