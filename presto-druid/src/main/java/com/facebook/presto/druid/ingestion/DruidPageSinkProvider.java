@@ -14,6 +14,7 @@
 package com.facebook.presto.druid.ingestion;
 
 import com.facebook.presto.druid.DruidClient;
+import com.facebook.presto.druid.DruidConfig;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -29,12 +30,19 @@ import static java.util.Objects.requireNonNull;
 public class DruidPageSinkProvider
         implements ConnectorPageSinkProvider
 {
+    private final DruidConfig druidConfig;
     private final DruidClient druidClient;
+    private final DruidPageWriter druidPageWriter;
 
     @Inject
-    public DruidPageSinkProvider(DruidClient druidClient)
+    public DruidPageSinkProvider(
+            DruidConfig druidConfig,
+            DruidClient druidClient,
+            DruidPageWriter druidPageWriter)
     {
+        this.druidConfig = requireNonNull(druidConfig, "druid config is null");
         this.druidClient = requireNonNull(druidClient, "druid client is null");
+        this.druidPageWriter = requireNonNull(druidPageWriter, "page writer is null");
     }
 
     @Override
@@ -47,6 +55,6 @@ public class DruidPageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkProperties pageSinkProperties)
     {
         DruidIngestionTableHandle tableHandle = (DruidIngestionTableHandle) insertTableHandle;
-        return new DruidPageSink(druidClient, tableHandle);
+        return new DruidPageSink(druidConfig, druidClient, tableHandle, druidPageWriter);
     }
 }

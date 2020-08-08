@@ -145,7 +145,8 @@ public class DruidMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         DruidTableHandle druidTableHandle = (DruidTableHandle) tableHandle;
-        return new DruidIngestionTableHandle(druidTableHandle.getSchemaName(), druidTableHandle.getTableName());
+        List<DruidColumnInfo> columns = druidClient.getColumnDataType(druidTableHandle.getTableName());
+        return new DruidIngestionTableHandle(druidTableHandle.getSchemaName(), druidTableHandle.getTableName(), columns);
     }
 
     @Override

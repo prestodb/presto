@@ -15,30 +15,45 @@ package com.facebook.presto.druid.ingestion;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.druid.DruidClient;
+import com.facebook.presto.druid.DruidConfig;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class DruidPageSink
         implements ConnectorPageSink
 {
+    private final DruidConfig druidConfig;
     private final DruidClient druidClient;
     private final DruidIngestionTableHandle tableHandle;
+    private final DruidPageWriter druidPageWriter;
+    private final Path dataPath;
 
-    public DruidPageSink(DruidClient druidClient, DruidIngestionTableHandle tableHandle)
+    public DruidPageSink(
+            DruidConfig druidConfig,
+            DruidClient druidClient,
+            DruidIngestionTableHandle tableHandle,
+            DruidPageWriter druidPageWriter)
     {
-        this.druidClient = druidClient;
-        this.tableHandle = tableHandle;
+        this.druidConfig = requireNonNull(druidConfig, "druidConfig is null");
+        this.druidClient = requireNonNull(druidClient, "druidClient is null");
+        this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.druidPageWriter = requireNonNull(druidPageWriter, "pageWriter is null");
+        this.dataPath = new Path(druidConfig.getIngestionStoragePath(), tableHandle.getTableName() + UUID.randomUUID());
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
+        druidPageWriter.append(page, tableHandle, dataPath);
         return NOT_BLOCKED;
     }
 
