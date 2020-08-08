@@ -39,7 +39,6 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_DEEP_STORAGE_ERROR;
 import static com.facebook.presto.druid.DruidSplit.SplitType.BROKER;
@@ -55,7 +54,7 @@ public class DruidPageSourceProvider
     public DruidPageSourceProvider(DruidClient druidClient, DruidConfig config)
     {
         this.druidClient = requireNonNull(druidClient, "druid client is null");
-        this.hadoopConfiguration = readConfiguration(config.getHadoopConfiguration());
+        this.hadoopConfiguration = config.readHadoopConfiguration();
     }
 
     @Override
@@ -94,19 +93,5 @@ public class DruidPageSourceProvider
         catch (IOException e) {
             throw new PrestoException(DRUID_DEEP_STORAGE_ERROR, "Failed to create page source on " + segmentInfo.getDeepStoragePath(), e);
         }
-    }
-
-    private static Configuration readConfiguration(List<String> resourcePaths)
-    {
-        Configuration configuration = new Configuration(false);
-
-        for (String resourcePath : resourcePaths) {
-            Configuration resourceProperties = new Configuration(false);
-            resourceProperties.addResource(new Path(resourcePath));
-            for (Map.Entry<String, String> entry : resourceProperties) {
-                configuration.set(entry.getKey(), entry.getValue());
-            }
-        }
-        return configuration;
     }
 }
