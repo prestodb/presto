@@ -14,7 +14,6 @@
 package com.facebook.presto.thrift.api.udf;
 
 import com.facebook.drift.TException;
-import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,8 +23,8 @@ public interface ThriftUdfService
 {
     @ThriftMethod
     ListenableFuture<ThriftUdfResult> invokeUdf(
-            @ThriftField ThriftFunctionHandle functionHandle,
-            @ThriftField ThriftUdfPage inputs)
+            ThriftFunctionHandle functionHandle,
+            ThriftUdfPage inputs)
             throws TException,
             ThriftUdfServiceException;
 }
