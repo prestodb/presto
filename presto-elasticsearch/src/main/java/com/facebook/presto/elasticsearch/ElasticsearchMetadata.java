@@ -15,7 +15,10 @@ package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.facebook.presto.elasticsearch.client.IndexMetadata;
 import com.facebook.presto.elasticsearch.client.IndexMetadata.DateTimeType;
@@ -65,11 +68,13 @@ public class ElasticsearchMetadata
 {
     private final ElasticsearchClient client;
     private final String schemaName;
+    private final Type ipAddressType;
 
     @Inject
-    public ElasticsearchMetadata(ElasticsearchClient client, ElasticsearchConfig config)
+    public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
     {
         requireNonNull(config, "config is null");
+        this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
         this.schemaName = config.getDefaultSchema();
     }
@@ -244,6 +249,8 @@ public class ElasticsearchMetadata
                     return BOOLEAN;
                 case "binary":
                     return VARBINARY;
+                case "ip":
+                    return ipAddressType;
             }
         }
         else if (type instanceof DateTimeType) {

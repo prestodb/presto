@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
 import com.facebook.presto.elasticsearch.decoders.ArrayDecoder;
@@ -29,6 +30,7 @@ import com.facebook.presto.elasticsearch.decoders.Decoder;
 import com.facebook.presto.elasticsearch.decoders.DoubleDecoder;
 import com.facebook.presto.elasticsearch.decoders.IdColumnDecoder;
 import com.facebook.presto.elasticsearch.decoders.IntegerDecoder;
+import com.facebook.presto.elasticsearch.decoders.IpAddressDecoder;
 import com.facebook.presto.elasticsearch.decoders.RealDecoder;
 import com.facebook.presto.elasticsearch.decoders.RowDecoder;
 import com.facebook.presto.elasticsearch.decoders.ScoreColumnDecoder;
@@ -308,6 +310,9 @@ public class ScanQueryPageSource
         }
         else if (type.equals(BIGINT)) {
             return new BigintDecoder(path);
+        }
+        else if (type.getTypeSignature().getBase().equals(StandardTypes.IPADDRESS)) {
+            return new IpAddressDecoder(path, type);
         }
         else if (type instanceof RowType) {
             RowType rowType = (RowType) type;
