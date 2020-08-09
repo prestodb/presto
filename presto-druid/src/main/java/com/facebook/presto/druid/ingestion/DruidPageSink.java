@@ -16,6 +16,7 @@ package com.facebook.presto.druid.ingestion;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.druid.DruidClient;
 import com.facebook.presto.druid.DruidConfig;
+import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -24,6 +25,7 @@ import org.apache.hadoop.fs.Path;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -31,6 +33,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class DruidPageSink
         implements ConnectorPageSink
 {
+    public static final String TIMESTAMP_COLUMN = "__time";
+
     private final DruidConfig druidConfig;
     private final DruidClient druidClient;
     private final DruidIngestionTableHandle tableHandle;
@@ -60,6 +64,17 @@ public class DruidPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
+        DruidIngestTask ingestTask = new DruidIngestTask.Builder()
+                .withDataSource(tableHandle.getTableName())
+                .withBaseDir(dataPath.toString())
+                .withTimestampColumn(TIMESTAMP_COLUMN)
+                .withDimensions(tableHandle.getColumns().stream()
+                        .filter(column -> !column.getColumnName().equals(TIMESTAMP_COLUMN))
+                        .map(DruidColumnInfo::getColumnName)
+                        .collect(Collectors.toList()))
+                .withAppendToExisting(true)
+                .build();
+        druidClient.ingestData(ingestTask);
         return completedFuture(ImmutableList.of());
     }
 
