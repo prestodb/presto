@@ -257,7 +257,7 @@ public class DruidQueryGenerator
                 checkArgument(druidColumn.getType().equals(DruidColumnHandle.DruidColumnType.REGULAR), "Unexpected druid column handle that is not regular: " + druidColumn);
                 selections.put(outputColumn, new Selection(druidColumn.getColumnName(), TABLE_COLUMN));
             });
-            return new DruidQueryGeneratorContext(selections, tableHandle.getTableName());
+            return new DruidQueryGeneratorContext(selections, tableHandle.getTableName(), node.getId());
         }
 
         @Override

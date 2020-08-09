@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.execution.warnings.WarningCollector;
@@ -150,10 +151,13 @@ public class TestDruidQueryBase
                 connectorTableHandle,
                 TestingTransactionHandle.create(),
                 Optional.empty());
-        return planBuilder.tableScan(
+        return new TableScanNode(
+                planBuilder.getIdAllocator().getNextId(),
                 tableHandle,
                 variables,
-                assignments.build());
+                assignments.build(),
+                TupleDomain.all(),
+                TupleDomain.all());
     }
 
     protected FilterNode filter(PlanBuilder planBuilder, PlanNode source, RowExpression predicate)
