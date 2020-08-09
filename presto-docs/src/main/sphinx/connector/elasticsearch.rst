@@ -203,6 +203,7 @@ Elasticsearch Presto
 ``long``      ``BIGINT``
 ``text``      ``VARCHAR``
 ``date``      ``TIMESTAMP``
+``ip``        ``IPADDRESS``
 (others)      (unsupported)
 ============= =============
 

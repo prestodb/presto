@@ -70,6 +70,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
@@ -227,6 +228,9 @@ public class TestingPrestoClient
         }
         else if (INTERVAL_YEAR_MONTH.equals(type)) {
             return new SqlIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
+        }
+        else if (IPADDRESS.equals(type)) {
+            return value;
         }
         else if (type instanceof ArrayType) {
             return ((List<Object>) value).stream()
