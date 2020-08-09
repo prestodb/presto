@@ -130,7 +130,7 @@ public class LocalQueryProvider
 
         query = queries.computeIfAbsent(queryId, id -> {
             ExchangeClient exchangeClient = exchangeClientSupplier.get(new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), LocalQueryProvider.class.getSimpleName()));
-            return Query.create(
+            return LocalQuery.create(
                     session,
                     slug,
                     queryManager,
