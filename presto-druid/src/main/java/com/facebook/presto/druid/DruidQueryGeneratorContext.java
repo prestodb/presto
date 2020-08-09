@@ -14,6 +14,7 @@
 package com.facebook.presto.druid;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +48,7 @@ public class DruidQueryGeneratorContext
     private final Optional<String> filter;
     private final OptionalLong limit;
     private final int aggregations;
+    private final Optional<PlanNodeId> tableScanNodeId;
 
     @Override
     public String toString()
@@ -60,17 +62,19 @@ public class DruidQueryGeneratorContext
                 .add("filter", filter)
                 .add("limit", limit)
                 .add("aggregations", aggregations)
+                .add("tableScanNodeId", tableScanNodeId)
                 .toString();
     }
 
     DruidQueryGeneratorContext()
     {
-        this(new LinkedHashMap<>(), null);
+        this(new LinkedHashMap<>(), null, null);
     }
 
     DruidQueryGeneratorContext(
             Map<VariableReferenceExpression, Selection> selections,
-            String from)
+            String from,
+            PlanNodeId planNodeId)
     {
         this(
                 selections,
@@ -80,7 +84,8 @@ public class DruidQueryGeneratorContext
                 0,
                 new HashSet<>(),
                 new HashSet<>(),
-                new HashSet<>());
+                new HashSet<>(),
+                Optional.ofNullable(planNodeId));
     }
 
     private DruidQueryGeneratorContext(
@@ -91,7 +96,8 @@ public class DruidQueryGeneratorContext
             int aggregations,
             Set<VariableReferenceExpression> groupByColumns,
             Set<VariableReferenceExpression> variablesInAggregation,
-            Set<VariableReferenceExpression> hiddenColumnSet)
+            Set<VariableReferenceExpression> hiddenColumnSet,
+            Optional<PlanNodeId> tableScanNodeId)
     {
         this.selections = new LinkedHashMap<>(requireNonNull(selections, "selections can't be null"));
         this.from = requireNonNull(from, "source can't be null");
@@ -101,6 +107,7 @@ public class DruidQueryGeneratorContext
         this.groupByColumns = new LinkedHashSet<>(requireNonNull(groupByColumns, "groupByColumns can't be null. It could be empty if not available"));
         this.hiddenColumnSet = requireNonNull(hiddenColumnSet, "hidden column set is null");
         this.variablesInAggregation = requireNonNull(variablesInAggregation, "variables in aggregation is null");
+        this.tableScanNodeId = requireNonNull(tableScanNodeId, "tableScanNodeId can't be null");
     }
 
     public DruidQueryGeneratorContext withFilter(String filter)
@@ -117,7 +124,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                tableScanNodeId);
     }
 
     public DruidQueryGeneratorContext withProject(Map<VariableReferenceExpression, Selection> newSelections)
@@ -130,7 +138,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                tableScanNodeId);
     }
 
     public DruidQueryGeneratorContext withLimit(long limit)
@@ -147,7 +156,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                tableScanNodeId);
     }
 
     public DruidQueryGeneratorContext withAggregation(
@@ -195,7 +205,8 @@ public class DruidQueryGeneratorContext
                 newAggregations,
                 newGroupByColumns,
                 variablesInAggregation,
-                newHiddenColumnSet);
+                newHiddenColumnSet,
+                tableScanNodeId);
     }
 
     private static String escapeSqlIdentifier(String identifier)
@@ -213,7 +224,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 newVariablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                tableScanNodeId);
     }
 
     private boolean hasLimit()
@@ -244,6 +256,11 @@ public class DruidQueryGeneratorContext
     Set<VariableReferenceExpression> getVariablesInAggregation()
     {
         return variablesInAggregation;
+    }
+
+    public Optional<PlanNodeId> getTableScanNodeId()
+    {
+        return tableScanNodeId;
     }
 
     public DruidQueryGenerator.GeneratedDql toQuery()
@@ -316,7 +333,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                tableScanNodeId);
     }
 
     public enum Origin
