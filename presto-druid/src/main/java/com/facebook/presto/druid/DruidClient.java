@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.druid.ingestion.DruidIngestTask;
 import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.druid.metadata.DruidSegmentIdWrapper;
 import com.facebook.presto.druid.metadata.DruidSegmentInfo;
@@ -58,6 +59,7 @@ public class DruidClient
 {
     private static final String METADATA_PATH = "/druid/coordinator/v1/metadata";
     private static final String SQL_ENDPOINT = "/druid/v2/sql";
+    private static final String INDEXER_TASK_ENDPOINT = "/druid/indexer/v1/task";
     private static final String APPLICATION_JSON = "application/json";
     private static final String LIST_TABLE_QUERY = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'druid'";
     private static final String GET_COLUMN_TEMPLATE = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'druid' AND TABLE_NAME = '%s'";
@@ -135,6 +137,11 @@ public class DruidClient
         return httpClient.execute(prepareDataQuery(dql), new StreamingJsonResponseHandler());
     }
 
+    public InputStream ingestData(DruidIngestTask ingestTask)
+    {
+        return httpClient.execute(prepareDataIngestion(ingestTask), new StreamingJsonResponseHandler());
+    }
+
     private static Request.Builder setContentTypeHeaders(Request.Builder requestBuilder)
     {
         return requestBuilder
@@ -166,6 +173,14 @@ public class DruidClient
                 .build();
     }
 
+    private Request prepareDataIngestion(DruidIngestTask ingestTask)
+    {
+        HttpUriBuilder uriBuilder = uriBuilderFrom(druidCoordinator).replacePath(INDEXER_TASK_ENDPOINT);
+        return setContentTypeHeaders(preparePost())
+                .setUri(uriBuilder.build())
+                .setBodyGenerator(createStaticBodyGenerator(ingestTask.toJson().getBytes()))
+                .build();
+    }
     private static class StreamingJsonResponseHandler
             implements ResponseHandler<InputStream, RuntimeException>
     {
