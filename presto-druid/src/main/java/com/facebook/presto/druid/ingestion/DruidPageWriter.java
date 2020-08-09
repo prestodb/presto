@@ -28,7 +28,6 @@ import org.apache.hadoop.fs.Path;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.UUID;
 import java.util.zip.GZIPOutputStream;
 
@@ -62,7 +61,6 @@ public class DruidPageWriter
                 FSDataOutputStream outputStream = fileSystem.create(dataFile);
                 GZIPOutputStream zipOutputStream = new GZIPOutputStream(outputStream);
                 JsonGenerator jsonGen = JSON_FACTORY.createGenerator(zipOutputStream)) {
-            jsonGen.writeStartArray();
             for (int position = 0; position < page.getPositionCount(); position++) {
                 jsonGen.writeStartObject();
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
@@ -72,8 +70,8 @@ public class DruidPageWriter
                     writeFieldValue(jsonGen, column.getDataType(), block, position);
                 }
                 jsonGen.writeEndObject();
+                jsonGen.writeRaw('\n');
             }
-            jsonGen.writeEndArray();
         }
         catch (IOException e) {
             throw new PrestoException(DRUID_DEEP_STORAGE_ERROR, "Ingestion failed on " + tableHandle.getTableName(), e);
