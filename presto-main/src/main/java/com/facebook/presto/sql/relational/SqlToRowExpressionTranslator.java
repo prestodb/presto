@@ -121,6 +121,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
@@ -562,6 +563,12 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitDereferenceExpression(DereferenceExpression node, Void context)
         {
+            Type returnType = getType(node);
+            Optional<Object> maybeEnumLiteral = tryResolveEnumLiteral(node, returnType);
+            if (maybeEnumLiteral.isPresent()) {
+                return constant(maybeEnumLiteral.get(), returnType);
+            }
+
             RowType rowType = (RowType) getType(node.getBase());
             String fieldName = node.getField().getValue();
             List<Field> fields = rowType.getFields();
@@ -582,7 +589,6 @@ public final class SqlToRowExpressionTranslator
             }
 
             checkState(index >= 0, "could not find field name: %s", node.getField());
-            Type returnType = getType(node);
             return specialForm(DEREFERENCE, returnType, process(node.getBase(), context), constant((long) index, INTEGER));
         }
 

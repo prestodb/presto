@@ -47,7 +47,7 @@ public class TestJoinUsing
                 "SELECT t.k FROM " +
                         "(VALUES (1, 'a')) AS t(k, v1) JOIN" +
                         "(VALUES (1, 'b')) AS u(k, v2) USING (k)",
-                ".*Column 't.k' cannot be resolved.*");
+                ".*'t.k' cannot be resolved.*");
     }
 
     @Test
