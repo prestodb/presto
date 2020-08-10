@@ -932,7 +932,7 @@ public class ExpressionInterpreter
                     result = functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), argumentValues);
                     break;
                 case SQL:
-                    Expression function = getSqlFunctionExpression(functionMetadata, (SqlInvokedScalarFunctionImplementation) metadata.getFunctionManager().getScalarFunctionImplementation(functionHandle), session.getSqlFunctionProperties(), node.getArguments());
+                    Expression function = getSqlFunctionExpression(functionMetadata, (SqlInvokedScalarFunctionImplementation) metadata.getFunctionManager().getScalarFunctionImplementation(functionHandle), metadata, session.getSqlFunctionProperties(), node.getArguments());
                     ExpressionInterpreter functionInterpreter = new ExpressionInterpreter(
                             function,
                             metadata,
