@@ -15,6 +15,7 @@ package com.facebook.presto.druid.ingestion;
 
 import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -25,7 +26,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class DruidIngestionTableHandle
-        implements ConnectorInsertTableHandle
+        implements ConnectorInsertTableHandle, ConnectorOutputTableHandle
 {
     private final String schemaName;
     private final String tableName;

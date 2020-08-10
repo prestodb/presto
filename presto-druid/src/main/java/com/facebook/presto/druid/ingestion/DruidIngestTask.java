@@ -33,7 +33,7 @@ public class DruidIngestTask
     {
         private String dataSource;
         private String timestampColumn;
-        private List<String> dimentions;
+        private List<DruidIngestDimension> dimentions;
         private String baseDir;
         private boolean appendToExisting;
 
@@ -49,7 +49,7 @@ public class DruidIngestTask
             return this;
         }
 
-        public Builder withDimensions(List<String> dimensions)
+        public Builder withDimensions(List<DruidIngestDimension> dimensions)
         {
             this.dimentions = dimensions;
             return this;
@@ -174,17 +174,41 @@ public class DruidIngestTask
 
     public static class DruidIngestDimensionsSpec
     {
-        private final List<String> dimensions;
+        private final List<DruidIngestDimension> dimensions;
 
-        public DruidIngestDimensionsSpec(List<String> dimensions)
+        public DruidIngestDimensionsSpec(List<DruidIngestDimension> dimensions)
         {
             this.dimensions = dimensions;
         }
 
         @JsonProperty("dimensions")
-        public List<String> getDimensions()
+        public List<DruidIngestDimension> getDimensions()
         {
             return dimensions;
+        }
+    }
+
+    public static class DruidIngestDimension
+    {
+        private final String type;
+        private final String name;
+
+        public DruidIngestDimension(String type, String name)
+        {
+            this.type = type;
+            this.name = name;
+        }
+
+        @JsonProperty("type")
+        public String getType()
+        {
+            return type;
+        }
+
+        @JsonProperty("name")
+        public String getName()
+        {
+            return name;
         }
     }
 

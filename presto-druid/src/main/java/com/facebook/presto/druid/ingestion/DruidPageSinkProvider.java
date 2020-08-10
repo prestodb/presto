@@ -48,7 +48,8 @@ public class DruidPageSinkProvider
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkProperties pageSinkProperties)
     {
-        throw new UnsupportedOperationException("Table creation is not supported by the druid connector");
+        DruidIngestionTableHandle tableHandle = (DruidIngestionTableHandle) outputTableHandle;
+        return new DruidPageSink(druidConfig, druidClient, tableHandle, druidPageWriter);
     }
 
     @Override
