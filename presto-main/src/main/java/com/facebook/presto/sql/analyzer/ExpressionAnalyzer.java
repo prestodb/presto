@@ -19,6 +19,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -58,6 +59,7 @@ import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.ExistsPredicate;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Extract;
@@ -140,6 +142,7 @@ import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteralType;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
@@ -432,14 +435,21 @@ public class ExpressionAnalyzer
         {
             QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
 
-            // If this Dereference looks like column reference, try match it to column first.
+            // Handle qualified name
             if (qualifiedName != null) {
+                // first, try to match it to a column name
                 Scope scope = context.getContext().getScope();
                 Optional<ResolvedField> resolvedField = scope.tryResolveField(node, qualifiedName);
                 if (resolvedField.isPresent()) {
                     return handleResolvedField(node, resolvedField.get(), context);
                 }
+                // otherwise, try to match it to an enum literal (eg Mood.HAPPY)
                 if (!scope.isColumnReference(qualifiedName)) {
+                    Optional<EnumType> enumType = tryResolveEnumLiteralType(qualifiedName, typeManager);
+                    if (enumType.isPresent()) {
+                        setExpressionType(node.getBase(), enumType.get());
+                        return setExpressionType(node, enumType.get());
+                    }
                     throw missingAttributeException(node, qualifiedName);
                 }
             }
@@ -768,6 +778,20 @@ public class ExpressionAnalyzer
                 catch (IllegalArgumentException e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "No literal form for type %s", type);
                 }
+            }
+
+            return setExpressionType(node, type);
+        }
+
+        @Override
+        protected Type visitEnumLiteral(EnumLiteral node, StackableAstVisitorContext<Context> context)
+        {
+            Type type;
+            try {
+                type = typeManager.getType(parseTypeSignature(node.getType()));
+            }
+            catch (IllegalArgumentException e) {
+                throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
             return setExpressionType(node, type);
