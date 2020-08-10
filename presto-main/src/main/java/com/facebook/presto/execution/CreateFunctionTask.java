@@ -29,6 +29,8 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.RoutineBody;
 import com.facebook.presto.transaction.TransactionManager;
@@ -103,10 +105,32 @@ public class CreateFunctionTask
             Expression bodyExpression = ((Return) statement.getBody()).getExpression();
             Type bodyType = analysis.getType(bodyExpression);
 
+            // Coerce expressions in body if necessary
+            bodyExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+            {
+                @Override
+                public Expression rewriteExpression(Expression expression, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    Expression rewritten = treeRewriter.defaultRewrite(expression, null);
+
+                    Type coercion = analysis.getCoercion(expression);
+                    if (coercion != null) {
+                        return new Cast(
+                                rewritten,
+                                coercion.getTypeSignature().toString(),
+                                false,
+                                analysis.isTypeOnlyCoercion(expression));
+                    }
+                    return rewritten;
+                }
+            }, bodyExpression, null);
+
             if (!bodyType.equals(metadata.getType(returnType))) {
-                // Casting is safe-here, since we have verified that the actual type of the body is coercible to declared return type.
-                body = new Return(new Cast(bodyExpression, statement.getReturnType()));
+                // Casting is safe here, since we have verified at analysis time that the actual type of the body is coercible to declared return type.
+                bodyExpression = new Cast(bodyExpression, statement.getReturnType());
             }
+
+            body = new Return(bodyExpression);
         }
 
         return new SqlInvokedFunction(

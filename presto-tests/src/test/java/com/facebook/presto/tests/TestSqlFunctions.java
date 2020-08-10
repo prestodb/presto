@@ -162,6 +162,19 @@ public class TestSqlFunctions
 
         rows = computeActual("SELECT testing.test.return_int() + 3");
         assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), 4);
+
+        assertQuerySucceeds("CREATE FUNCTION testing.test.add_1_bigint(x array(bigint)) RETURNS array(bigint) RETURN transform(x, x -> x + 1)");
+        String createFunctionAdd1BigintFormatted = "CREATE FUNCTION testing.test.add_1_bigint (\n" +
+                "   x array(bigint)\n" +
+                ")\n" +
+                "RETURNS array(bigint)\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN \"transform\"(x, (x) -> (x + CAST(1 AS bigint)))";
+        rows = computeActual("SHOW CREATE FUNCTION testing.test.add_1_bigint(array(bigint))");
+        assertEquals(rows.getMaterializedRows().get(0).getFields(), ImmutableList.of(createFunctionAdd1BigintFormatted, "array(bigint)"));
     }
 
     @Test
