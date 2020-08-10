@@ -57,7 +57,8 @@ public final class PlanChecker
                         new NoSubqueryExpressionLeftChecker(),
                         new NoIdentifierLeftChecker(),
                         new VerifyNoFilteredAggregations(),
-                        new VerifyNoOriginalExpression())
+                        new VerifyNoOriginalExpression(),
+                        new ValidateStreamingJoins())
                 .putAll(
                         Stage.FINAL,
                         new CheckUnsupportedExternalFunctions(),
