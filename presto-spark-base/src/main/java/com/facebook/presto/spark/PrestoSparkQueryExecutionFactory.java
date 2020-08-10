@@ -126,6 +126,8 @@ import static com.facebook.presto.execution.QueryState.PLANNING;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
+import static com.facebook.presto.spark.SparkErrorCode.GENERIC_SPARK_ERROR;
+import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collectScalaIterator;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toSerializedPage;
@@ -625,7 +627,7 @@ public class PrestoSparkQueryExecutionFactory
                 commit(session, transactionManager);
                 queryStateTimer.endQuery();
             }
-            catch (Exception executionFailure) {
+            catch (Exception executionException) {
                 queryStateTimer.beginFinishing();
                 try {
                     rollback(session, transactionManager);
@@ -635,14 +637,29 @@ public class PrestoSparkQueryExecutionFactory
                 }
 
                 Optional<ExecutionFailureInfo> failureInfo = Optional.empty();
-                if (executionFailure instanceof SparkException) {
-                    failureInfo = executionExceptionFactory.extractExecutionFailureInfo((SparkException) executionFailure);
+                if (executionException instanceof SparkException) {
+                    SparkException sparkException = (SparkException) executionException;
+                    failureInfo = executionExceptionFactory.extractExecutionFailureInfo(sparkException);
+
+                    if (!failureInfo.isPresent()) {
+                        // not a SparkException with Presto failure info encoded
+                        PrestoException wrappedPrestoException;
+                        if (sparkException.getMessage().contains("most recent failure: JVM_OOM")) {
+                            wrappedPrestoException = new PrestoException(SPARK_EXECUTOR_OOM, executionException);
+                        }
+                        else {
+                            wrappedPrestoException = new PrestoException(GENERIC_SPARK_ERROR, executionException);
+                        }
+
+                        failureInfo = Optional.of(toFailure(wrappedPrestoException));
+                    }
                 }
-                if (!failureInfo.isPresent() && executionFailure instanceof PrestoSparkExecutionException) {
-                    failureInfo = executionExceptionFactory.extractExecutionFailureInfo((PrestoSparkExecutionException) executionFailure);
+                else if (executionException instanceof PrestoSparkExecutionException) {
+                    failureInfo = executionExceptionFactory.extractExecutionFailureInfo((PrestoSparkExecutionException) executionException);
                 }
+
                 if (!failureInfo.isPresent()) {
-                    failureInfo = Optional.of(toFailure(executionFailure));
+                    failureInfo = Optional.of(toFailure(executionException));
                 }
 
                 queryStateTimer.endQuery();

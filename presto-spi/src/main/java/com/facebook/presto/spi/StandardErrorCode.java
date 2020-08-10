@@ -110,6 +110,9 @@ public enum StandardErrorCode
     EXCEEDED_SCAN_RAW_BYTES_READ_LIMIT(0x0002_0009, INSUFFICIENT_RESOURCES),
     /**/;
 
+    // Error code range 0x0003 is reserved for Presto-on-Spark
+    // See com.facebook.presto.spark.SparkErrorCode
+
     // Connectors can use error codes starting at the range 0x0100_0000
     // See https://github.com/prestodb/presto/wiki/Error-Codes
 
