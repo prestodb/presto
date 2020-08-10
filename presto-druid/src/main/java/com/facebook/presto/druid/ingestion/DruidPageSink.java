@@ -16,7 +16,6 @@ package com.facebook.presto.druid.ingestion;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.druid.DruidClient;
 import com.facebook.presto.druid.DruidConfig;
-import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -70,7 +69,7 @@ public class DruidPageSink
                 .withTimestampColumn(TIMESTAMP_COLUMN)
                 .withDimensions(tableHandle.getColumns().stream()
                         .filter(column -> !column.getColumnName().equals(TIMESTAMP_COLUMN))
-                        .map(DruidColumnInfo::getColumnName)
+                        .map(column -> new DruidIngestTask.DruidIngestDimension(column.getDataType().getIngestType(), column.getColumnName()))
                         .collect(Collectors.toList()))
                 .withAppendToExisting(true)
                 .build();

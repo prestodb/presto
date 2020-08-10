@@ -27,34 +27,42 @@ public class TestDruidIngestTask
                 .withDataSource("test_table_name")
                 .withBaseDir("file://test_path")
                 .withTimestampColumn("__time")
-                .withDimensions(ImmutableList.of("__time", "test_column"))
+                .withDimensions(ImmutableList.of(
+                        new DruidIngestTask.DruidIngestDimension("string", "__time"),
+                        new DruidIngestTask.DruidIngestDimension("double", "test_double_column")))
                 .withAppendToExisting(true)
                 .build();
         assertEquals(ingestTask.toJson(), "{\n" +
-                        "  \"type\" : \"index_parallel\",\n" +
-                        "  \"spec\" : {\n" +
-                        "    \"dataSchema\" : {\n" +
-                        "      \"dataSource\" : \"test_table_name\",\n" +
-                        "      \"timestampSpec\" : {\n" +
-                        "        \"column\" : \"__time\"\n" +
-                        "      },\n" +
-                        "      \"dimensionsSpec\" : {\n" +
-                        "        \"dimensions\" : [ \"__time\", \"test_column\" ]\n" +
-                        "      }\n" +
-                        "    },\n" +
-                        "    \"ioConfig\" : {\n" +
-                        "      \"type\" : \"index_parallel\",\n" +
-                        "      \"inputSource\" : {\n" +
-                        "        \"type\" : \"local\",\n" +
-                        "        \"baseDir\" : \"file://test_path\",\n" +
-                        "        \"filter\" : \"*.json.gz\"\n" +
-                        "      },\n" +
-                        "      \"inputFormat\" : {\n" +
-                        "        \"type\" : \"json\"\n" +
-                        "      },\n" +
-                        "      \"appendToExisting\" : true\n" +
-                        "    }\n" +
-                        "  }\n" +
-                        "}");
+                "  \"type\" : \"index_parallel\",\n" +
+                "  \"spec\" : {\n" +
+                "    \"dataSchema\" : {\n" +
+                "      \"dataSource\" : \"test_table_name\",\n" +
+                "      \"timestampSpec\" : {\n" +
+                "        \"column\" : \"__time\"\n" +
+                "      },\n" +
+                "      \"dimensionsSpec\" : {\n" +
+                "        \"dimensions\" : [ {\n" +
+                "          \"type\" : \"string\",\n" +
+                "          \"name\" : \"__time\"\n" +
+                "        }, {\n" +
+                "          \"type\" : \"double\",\n" +
+                "          \"name\" : \"test_double_column\"\n" +
+                "        } ]\n" +
+                "      }\n" +
+                "    },\n" +
+                "    \"ioConfig\" : {\n" +
+                "      \"type\" : \"index_parallel\",\n" +
+                "      \"inputSource\" : {\n" +
+                "        \"type\" : \"local\",\n" +
+                "        \"baseDir\" : \"file://test_path\",\n" +
+                "        \"filter\" : \"*.json.gz\"\n" +
+                "      },\n" +
+                "      \"inputFormat\" : {\n" +
+                "        \"type\" : \"json\"\n" +
+                "      },\n" +
+                "      \"appendToExisting\" : true\n" +
+                "    }\n" +
+                "  }\n" +
+                "}");
     }
 }
