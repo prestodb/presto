@@ -480,7 +480,10 @@ public class SqlQueryExecution
                         runtimePlanOptimizers,
                         stateMachine.getWarningCollector(),
                         idAllocator,
-                        variableAllocator.get()) :
+                        variableAllocator.get(),
+                        planChecker,
+                        metadata,
+                        sqlParser) :
                 SqlQueryScheduler.createSqlQueryScheduler(
                         locationFactory,
                         executionPolicy,
@@ -498,7 +501,10 @@ public class SqlQueryExecution
                         runtimePlanOptimizers,
                         stateMachine.getWarningCollector(),
                         idAllocator,
-                        variableAllocator.get());
+                        variableAllocator.get(),
+                        planChecker,
+                        metadata,
+                        sqlParser);
 
         queryScheduler.set(scheduler);
 

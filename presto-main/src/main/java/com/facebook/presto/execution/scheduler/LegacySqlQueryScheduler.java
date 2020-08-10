@@ -33,15 +33,18 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -127,6 +130,9 @@ public class LegacySqlQueryScheduler
     private final RemoteTaskFactory remoteTaskFactory;
     private final SplitSourceFactory splitSourceFactory;
     private final Set<StageId> runtimeOptimizedStages = Collections.synchronizedSet(new HashSet<>());
+    private final PlanChecker planChecker;
+    private final Metadata metadata;
+    private final SqlParser sqlParser;
 
     private final Map<StageId, StageExecutionAndScheduler> stageExecutions = new ConcurrentHashMap<>();
     private final ExecutorService executor;
@@ -150,7 +156,10 @@ public class LegacySqlQueryScheduler
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator)
+            PlanVariableAllocator variableAllocator,
+            PlanChecker planChecker,
+            Metadata metadata,
+            SqlParser sqlParser)
     {
         LegacySqlQueryScheduler sqlQueryScheduler = new LegacySqlQueryScheduler(
                 locationFactory,
@@ -169,7 +178,10 @@ public class LegacySqlQueryScheduler
                 runtimePlanOptimizers,
                 warningCollector,
                 idAllocator,
-                variableAllocator);
+                variableAllocator,
+                planChecker,
+                metadata,
+                sqlParser);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -191,7 +203,10 @@ public class LegacySqlQueryScheduler
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
-            PlanVariableAllocator variableAllocator)
+            PlanVariableAllocator variableAllocator,
+            PlanChecker planChecker,
+            Metadata metadata,
+            SqlParser sqlParser)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
@@ -205,6 +220,9 @@ public class LegacySqlQueryScheduler
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+        this.planChecker = requireNonNull(planChecker, "planChecker is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
@@ -538,6 +556,7 @@ public class LegacySqlQueryScheduler
                 .forEach(currentSubPlan -> {
                     Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
                     if (newPlanFragment.isPresent()) {
+                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, variableAllocator.getTypes(), warningCollector);
                         oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
                     }
                 });
