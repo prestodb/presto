@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.druid.DruidConfig;
 import com.facebook.presto.druid.metadata.DruidColumnInfo;
+import com.facebook.presto.druid.metadata.DruidColumnType;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -33,8 +34,6 @@ import java.util.zip.GZIPOutputStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.RealType.REAL;
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_DEEP_STORAGE_ERROR;
 import static java.util.Objects.requireNonNull;
@@ -78,26 +77,22 @@ public class DruidPageWriter
         }
     }
 
-    private void writeFieldValue(JsonGenerator jsonGen, String dataType, Block block, int position)
+    private void writeFieldValue(JsonGenerator jsonGen, DruidColumnType dataType, Block block, int position)
             throws IOException
     {
-        switch (dataType.toUpperCase()) {
-            case "VARCHAR":
-            case "OTHER":
+        switch (dataType) {
+            case VARCHAR:
+            case OTHER:
                 //hyperUnique, approxHistogram Druid column types
                 jsonGen.writeString(VARCHAR.getSlice(block, position).toStringUtf8());
                 return;
-            case "BIGINT":
+            case BIGINT:
+            case TIMESTAMP:
                 jsonGen.writeNumber(BIGINT.getLong(block, position));
                 return;
-            case "FLOAT":
-                jsonGen.writeNumber(REAL.getDouble(block, position));
-                return;
-            case "DOUBLE":
+            case FLOAT:
+            case DOUBLE:
                 jsonGen.writeNumber(DOUBLE.getDouble(block, position));
-                return;
-            case "TIMESTAMP":
-                jsonGen.writeNumber(TIMESTAMP.getLong(block, position));
                 return;
             default:
                 throw new IllegalArgumentException("unsupported type: " + dataType);
