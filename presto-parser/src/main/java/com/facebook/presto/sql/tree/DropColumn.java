@@ -27,22 +27,26 @@ public class DropColumn
 {
     private final QualifiedName table;
     private final Identifier column;
+    private final boolean tableExists;
+    private final boolean columnExists;
 
-    public DropColumn(QualifiedName table, Identifier column)
+    public DropColumn(QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
     {
-        this(Optional.empty(), table, column);
+        this(Optional.empty(), table, column, tableExists, columnExists);
     }
 
-    public DropColumn(NodeLocation location, QualifiedName table, Identifier column)
+    public DropColumn(NodeLocation location, QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
     {
-        this(Optional.of(location), table, column);
+        this(Optional.of(location), table, column, tableExists, columnExists);
     }
 
-    private DropColumn(Optional<NodeLocation> location, QualifiedName table, Identifier column)
+    private DropColumn(Optional<NodeLocation> location, QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");
         this.column = requireNonNull(column, "column is null");
+        this.tableExists = tableExists;
+        this.columnExists = columnExists;
     }
 
     public QualifiedName getTable()
@@ -53,6 +57,16 @@ public class DropColumn
     public Identifier getColumn()
     {
         return column;
+    }
+
+    public boolean isTableExists()
+    {
+        return tableExists;
+    }
+
+    public boolean isColumnExists()
+    {
+        return columnExists;
     }
 
     @Override

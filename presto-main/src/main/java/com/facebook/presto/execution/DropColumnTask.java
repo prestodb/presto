@@ -26,6 +26,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
@@ -48,8 +49,15 @@ public class DropColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
-        TableHandle tableHandle = metadata.getTableHandle(session, tableName)
-                .orElseThrow(() -> new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName));
+        Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
+
+        if (!tableHandleOptional.isPresent()) {
+            if (!statement.isTableExists()) {
+                throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            }
+            return immediateFuture(null);
+        }
+        TableHandle tableHandle = tableHandleOptional.get();
 
         String column = statement.getColumn().getValue().toLowerCase(ENGLISH);
 
@@ -57,7 +65,10 @@ public class DropColumnTask
 
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
         if (columnHandle == null) {
-            throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", column);
+            if (!statement.isColumnExists()) {
+                throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", column);
+            }
+            return immediateFuture(null);
         }
 
         if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {
