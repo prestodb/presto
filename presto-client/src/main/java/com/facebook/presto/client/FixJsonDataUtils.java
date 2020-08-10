@@ -124,6 +124,9 @@ final class FixJsonDataUtils
             }
             return fixedValue;
         }
+        if (signature.isVarcharEnum()) {
+            return String.class.cast(value);
+        }
         switch (signature.getBase()) {
             case BIGINT:
                 if (value instanceof String) {

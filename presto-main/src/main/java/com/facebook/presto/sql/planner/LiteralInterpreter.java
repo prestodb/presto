@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral;
@@ -231,6 +232,12 @@ public final class LiteralInterpreter
 
         @Override
         protected Slice visitBinaryLiteral(BinaryLiteral node, ConnectorSession session)
+        {
+            return node.getValue();
+        }
+
+        @Override
+        protected Object visitEnumLiteral(EnumLiteral node, ConnectorSession context)
         {
             return node.getValue();
         }
