@@ -126,6 +126,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static com.facebook.presto.sql.planner.ExpressionDeterminismEvaluator.isDeterministic;
@@ -298,6 +299,12 @@ public class ExpressionInterpreter
         @Override
         protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
         {
+            Type returnType = type(node);
+            Optional<Object> maybeEnumValue = tryResolveEnumLiteral(node, returnType);
+            if (maybeEnumValue.isPresent()) {
+                return maybeEnumValue.get();
+            }
+
             Type type = type(node.getBase());
             // if there is no type for the base of Dereference, it must be QualifiedName
             if (type == null) {
@@ -315,7 +322,6 @@ public class ExpressionInterpreter
             }
 
             RowType rowType = (RowType) type;
-            Type returnType = type(node);
             String fieldName = node.getField().getValue();
             List<Field> fields = rowType.getFields();
             int index = -1;
