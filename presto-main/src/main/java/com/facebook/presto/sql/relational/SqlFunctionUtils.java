@@ -61,11 +61,12 @@ public final class SqlFunctionUtils
 {
     private SqlFunctionUtils() {}
 
-    public static Expression getSqlFunctionExpression(FunctionMetadata functionMetadata, SqlInvokedScalarFunctionImplementation implementation, SqlFunctionProperties sqlFunctionProperties, List<Expression> arguments)
+    public static Expression getSqlFunctionExpression(FunctionMetadata functionMetadata, SqlInvokedScalarFunctionImplementation implementation, Metadata metadata, SqlFunctionProperties sqlFunctionProperties, List<Expression> arguments)
     {
         checkArgument(functionMetadata.getImplementationType().equals(SQL), format("Expect SQL function, get %s", functionMetadata.getImplementationType()));
         checkArgument(functionMetadata.getArgumentNames().isPresent(), "ArgumentNames is missing");
         Expression expression = normalizeParameters(functionMetadata.getArgumentNames().get(), parseSqlFunctionExpression(implementation, sqlFunctionProperties));
+        expression = coerceIfNecessary(functionMetadata, expression, sqlFunctionProperties, metadata);
         return SqlFunctionArgumentBinder.bindFunctionArguments(expression, functionMetadata.getArgumentNames().get(), arguments);
     }
 
