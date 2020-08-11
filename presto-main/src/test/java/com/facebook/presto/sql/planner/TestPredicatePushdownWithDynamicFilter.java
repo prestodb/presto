@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -22,6 +24,9 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 
@@ -50,5 +55,103 @@ public class TestPredicatePushdownWithDynamicFilter
                                                 tableScan("lineitem", ImmutableMap.of(
                                                         "LINEITEM_OK", "orderkey",
                                                         "LINEITEM_LINENUMBER", "linenumber")))))));
+    }
+
+    @Override
+    @Test
+    public void testEqualPredicateFromSourceSidePropagatesToFilterSideOfSemiJoin()
+    {
+        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey = 2)",
+                anyTree(
+                        project(
+                                node(
+                                        FilterNode.class,
+                                        tableScan(
+                                                "lineitem",
+                                                ImmutableMap.of("LINE_ORDER_KEY", "orderkey", "LINE_QUANTITY", "quantity")))),
+                        node(
+                                ExchangeNode.class,
+                                project(
+                                        node(
+                                                FilterNode.class,
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+    }
+
+    @Override
+    @Test
+    public void testEqualsPredicateFromFilterSidePropagatesToSourceSideOfSemiJoin()
+    {
+        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 2))",
+                anyTree(
+                        semiJoin(
+                                "LINE_ORDER_KEY",
+                                "ORDERS_ORDER_KEY",
+                                "SEMI_JOIN_RESULT",
+                                project(
+                                        node(
+                                                FilterNode.class,
+                                                tableScan(
+                                                        "lineitem",
+                                                        ImmutableMap.of("LINE_ORDER_KEY", "orderkey", "LINE_QUANTITY", "quantity")))),
+                                node(
+                                        ExchangeNode.class,
+                                        project(
+                                                node(
+                                                        FilterNode.class,
+                                                        tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))))));
+    }
+
+    @Override
+    @Test
+    public void testNonDeterministicPredicateDoesNotPropagateFromFilteringSideToSourceSideOfSemiJoin()
+    {
+        assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = random(5))",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                project(
+                                        node(
+                                                FilterNode.class,
+                                                tableScan(
+                                                        "lineitem",
+                                                        ImmutableMap.of("LINE_ORDER_KEY", "orderkey")))),
+                                node(
+                                        ExchangeNode.class,
+                                        project(filter(
+                                                "ORDERS_ORDER_KEY = CAST(random(5) AS bigint)",
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))))));
+    }
+
+    @Override
+    @Test
+    public void testPredicateFromFilterSideNotPropagatesToSourceSideOfSemiJoinIfNotIn()
+    {
+        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE orderkey > 2))",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                // There should be no Filter above table scan, because we don't know whether SemiJoin's filtering source is empty.
+                                // And filter would filter out NULLs from source side which is not what we need then.
+                                project(
+                                        tableScan(
+                                                "lineitem",
+                                                ImmutableMap.of("LINE_ORDER_KEY", "orderkey", "LINE_QUANTITY", "quantity"))),
+                                anyTree(
+                                        filter("ORDERS_ORDER_KEY > BIGINT '2'",
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+    }
+
+    @Override
+    @Test
+    public void testPredicateFromFilterSideNotPropagatesToSourceSideOfSemiJoinUsedInProjection()
+    {
+        assertPlan("SELECT orderkey IN (SELECT orderkey FROM orders WHERE orderkey > 2) FROM lineitem",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                // NO filter here
+                                project(tableScan(
+                                                "lineitem",
+                                                ImmutableMap.of("LINE_ORDER_KEY", "orderkey"))),
+                                anyTree(
+                                        filter("ORDERS_ORDER_KEY > BIGINT '2'",
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 }

@@ -56,7 +56,8 @@ public class ReplicateSemiJoinInDelete
                     node.getSemiJoinOutput(),
                     node.getSourceHashVariable(),
                     node.getFilteringSourceHashVariable(),
-                    node.getDistributionType());
+                    node.getDistributionType(),
+                    node.getDynamicFilters());
 
             if (isDeleteQuery) {
                 return rewrittenNode.withDistributionType(REPLICATED);

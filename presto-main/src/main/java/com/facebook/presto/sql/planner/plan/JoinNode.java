@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class JoinNode
-        extends InternalPlanNode
+        extends AbstractJoinNode
 {
     private final Type type;
     private final PlanNode left;
@@ -231,8 +231,20 @@ public class JoinNode
         return left;
     }
 
+    @Override
+    public PlanNode getProbe()
+    {
+        return left;
+    }
+
     @JsonProperty
     public PlanNode getRight()
+    {
+        return right;
+    }
+
+    @Override
+    public PlanNode getBuild()
     {
         return right;
     }
@@ -286,6 +298,7 @@ public class JoinNode
         return distributionType;
     }
 
+    @Override
     @JsonProperty
     public Map<String, VariableReferenceExpression> getDynamicFilters()
     {
