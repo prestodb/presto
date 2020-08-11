@@ -164,6 +164,7 @@ import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunction
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
+import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -2179,7 +2180,7 @@ public class LocalExecutionPlanner
             factoriesBuilder.addAll(buildSource.getOperatorFactories());
 
             createDynamicFilter(node, context, partitionCount).ifPresent(
-                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node, buildSource, buildContext)));
+                    filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -2211,7 +2212,7 @@ public class LocalExecutionPlanner
 
         private DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory createDynamicFilterSourceOperatorFactory(
                 LocalDynamicFilter dynamicFilter,
-                JoinNode node,
+                PlanNodeId planNodeId,
                 PhysicalOperation buildSource,
                 LocalExecutionPlanContext context)
         {
@@ -2225,14 +2226,14 @@ public class LocalExecutionPlanner
                     .collect(Collectors.toList());
             return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                     context.getNextOperatorId(),
-                    node.getId(),
+                    planNodeId,
                     dynamicFilter.getTupleDomainConsumer(),
                     filterBuildChannels,
                     getDynamicFilteringMaxPerDriverRowCount(context.getSession()),
                     getDynamicFilteringMaxPerDriverSize(context.getSession()));
         }
 
-        private Optional<LocalDynamicFilter> createDynamicFilter(JoinNode node, LocalExecutionPlanContext context, int partitionCount)
+        private Optional<LocalDynamicFilter> createDynamicFilter(AbstractJoinNode node, LocalExecutionPlanContext context, int partitionCount)
         {
             if (!isEnableDynamicFiltering(context.getSession())) {
                 return Optional.empty();
@@ -2348,14 +2349,22 @@ public class LocalExecutionPlanner
                     buildHashChannel,
                     10_000,
                     joinCompiler);
+
+            ImmutableList.Builder<OperatorFactory> factoriesBuilder = ImmutableList.builder();
+            factoriesBuilder.addAll(buildSource.getOperatorFactories());
+
+            // add collector to the source
+            int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
+            Optional<LocalDynamicFilter> localDynamicFilter = createDynamicFilter(node, context, partitionCount);
+            localDynamicFilter.ifPresent(filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
+
+            factoriesBuilder.add(setBuilderOperatorFactory);
+
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
             context.addDriverFactory(
                     buildContext.isInputDriver(),
                     false,
-                    ImmutableList.<OperatorFactory>builder()
-                            .addAll(buildSource.getOperatorFactories())
-                            .add(setBuilderOperatorFactory)
-                            .build(),
+                    factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
                     buildSource.getPipelineExecutionStrategy());
 
