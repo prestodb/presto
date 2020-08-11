@@ -15,6 +15,9 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkNonRetryableExecutionException;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkRetryableExecutionException;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import org.apache.spark.SparkException;
