@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.parser;
 
-import io.airlift.log.Logger;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import io.airlift.log.Logger;
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.NoViableAltException;
 import org.antlr.v4.runtime.Parser;
