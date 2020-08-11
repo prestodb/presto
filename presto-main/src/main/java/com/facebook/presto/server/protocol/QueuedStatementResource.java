@@ -402,7 +402,9 @@ public class QueuedStatementResource
             // If this future completes successfully, the next URI will redirect to the executing statement endpoint.
             // Hence it is safe to hardcode the token to be 0.
             return transform(
-                    query.waitForResults(0, uriInfo, getScheme(xForwardedProto, uriInfo), maxWait, TARGET_RESULT_SIZE),
+                    dispatchInfo.get().getCoordinatorLocation()
+                            .map(coordinatorLocation -> query.waitForResults(0, uriInfo, getScheme(xForwardedProto, uriInfo), Optional.of(coordinatorLocation), maxWait, TARGET_RESULT_SIZE))
+                            .orElse(immediateFuture(createQueryResults(token + 1, uriInfo, xForwardedProto, dispatchInfo.get()))),
                     results -> QueryResourceUtil.toResponse(query, results),
                     directExecutor());
         }

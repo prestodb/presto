@@ -24,6 +24,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.dispatcher.CoordinatorLocation;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -275,7 +276,13 @@ class LocalQuery
     }
 
     @Override
-    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
+    public synchronized ListenableFuture<QueryResults> waitForResults(
+            long token,
+            UriInfo uriInfo,
+            String scheme,
+            Optional<CoordinatorLocation> nextCoordinatorLocation,
+            Duration wait,
+            DataSize targetResultSize)
     {
         // before waiting, check if this request has already been processed and cached
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -291,7 +298,7 @@ class LocalQuery
                 timeoutExecutor);
 
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, scheme, nextCoordinatorLocation, targetResultSize), resultsProcessorExecutor);
     }
 
     private synchronized ListenableFuture<?> getFutureStateChange()
@@ -344,7 +351,7 @@ class LocalQuery
         return Optional.empty();
     }
 
-    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, DataSize targetResultSize)
+    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, String scheme, Optional<CoordinatorLocation> nextCoordinatorLocation, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -431,7 +438,7 @@ class LocalQuery
 
         URI nextResultsUri = null;
         if (nextToken.isPresent()) {
-            nextResultsUri = createNextResultsUri(scheme, uriInfo, nextToken.getAsLong());
+            nextResultsUri = createNextResultsUri(scheme, uriInfo, nextCoordinatorLocation, nextToken.getAsLong());
         }
 
         // update catalog, schema, and path
@@ -515,9 +522,11 @@ class LocalQuery
         return Futures.transformAsync(queryManager.getStateChange(queryId, currentState), this::queryDoneFuture, directExecutor());
     }
 
-    private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo, long nextToken)
+    private synchronized URI createNextResultsUri(String scheme, UriInfo uriInfo, Optional<CoordinatorLocation> nextCoordinatorLocation, long nextToken)
     {
-        UriBuilder uri = uriInfo.getBaseUriBuilder()
+        UriBuilder uri = nextCoordinatorLocation
+                .map(coordinatorLocation -> coordinatorLocation.getUriBuilder(uriInfo, scheme))
+                .orElseGet(uriInfo::getRequestUriBuilder)
                 .scheme(scheme)
                 .replacePath("/v1/statement/executing")
                 .path(queryId.toString())

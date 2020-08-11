@@ -14,6 +14,7 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.presto.client.QueryResults;
+import com.facebook.presto.dispatcher.CoordinatorLocation;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.transaction.TransactionId;
@@ -53,5 +54,11 @@ public interface Query
 
     boolean isClearTransactionId();
 
-    ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize);
+    ListenableFuture<QueryResults> waitForResults(
+            long token,
+            UriInfo uriInfo,
+            String scheme,
+            Optional<CoordinatorLocation> nextCoordinatorLocation,
+            Duration wait,
+            DataSize targetResultSize);
 }

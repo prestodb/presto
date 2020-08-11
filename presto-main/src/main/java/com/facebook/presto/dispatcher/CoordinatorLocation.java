@@ -13,11 +13,17 @@
  */
 package com.facebook.presto.dispatcher;
 
+import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 
 public interface CoordinatorLocation
 {
-    URI getUri(UriInfo uriInfo, String xForwardedProto);
+    UriBuilder getUriBuilder(UriInfo uriInfo, String xForwardedProto);
+
+    default URI getUri(UriInfo uriInfo, String xForwardedProto)
+    {
+        return getUriBuilder(uriInfo, xForwardedProto).build();
+    }
 }

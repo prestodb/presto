@@ -37,6 +37,8 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
+import java.util.Optional;
+
 import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toResponse;
 import static com.facebook.presto.server.security.RoleType.USER;
@@ -95,7 +97,7 @@ public class ExecutingStatementResource
 
         Query query = queryProvider.getQuery(queryId, slug);
         ListenableFuture<Response> queryResultsFuture = transform(
-                query.waitForResults(token, uriInfo, proto, wait, targetResultSize),
+                query.waitForResults(token, uriInfo, proto, Optional.empty(), wait, targetResultSize),
                 results -> toResponse(query, results),
                 directExecutor());
         bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);

@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.dispatcher;
 
+import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
-
-import java.net.URI;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
@@ -23,13 +22,12 @@ public class LocalCoordinatorLocation
         implements CoordinatorLocation
 {
     @Override
-    public URI getUri(UriInfo uriInfo, String xForwardedProto)
+    public UriBuilder getUriBuilder(UriInfo uriInfo, String xForwardedProto)
     {
         String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
         return uriInfo.getRequestUriBuilder()
                 .scheme(scheme)
                 .replacePath("")
-                .replaceQuery("")
-                .build();
+                .replaceQuery("");
     }
 }
