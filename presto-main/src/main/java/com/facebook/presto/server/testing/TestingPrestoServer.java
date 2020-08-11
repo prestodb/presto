@@ -15,11 +15,11 @@ package com.facebook.presto.server.testing;
 
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.airlift.discovery.client.Announcer;
-import io.airlift.discovery.client.DiscoveryModule;
-import io.airlift.discovery.client.ServiceAnnouncement;
-import io.airlift.discovery.client.ServiceSelectorManager;
-import io.airlift.discovery.client.testing.TestingDiscoveryModule;
+import com.facebook.airlift.discovery.client.Announcer;
+import com.facebook.airlift.discovery.client.DiscoveryModule;
+import com.facebook.airlift.discovery.client.ServiceAnnouncement;
+import com.facebook.airlift.discovery.client.ServiceSelectorManager;
+import com.facebook.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.event.client.EventModule;
 import io.airlift.http.server.TheServlet;
 import io.airlift.http.server.testing.TestingHttpServer;
@@ -108,7 +108,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
-import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
+import static com.facebook.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;

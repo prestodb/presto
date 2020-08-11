@@ -222,7 +222,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift.discovery</groupId>
+            <groupId>com.facebook.airlift.discovery</groupId>
             <artifactId>discovery-server</artifactId>
         </dependency>
 

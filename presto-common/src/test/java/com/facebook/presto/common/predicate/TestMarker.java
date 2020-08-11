@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.predicate;
 
-import io.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.block.TestingBlockJsonSerde;
@@ -25,6 +24,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
+import io.airlift.json.ObjectMapperProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.failureDetector;
 
-import io.airlift.discovery.client.ServiceDescriptor;
+import com.facebook.airlift.discovery.client.ServiceDescriptor;
 import com.facebook.presto.spi.HostAddress;
 
 import java.util.Set;

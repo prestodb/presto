@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.postgresql;
 
-import io.airlift.testing.postgresql.TestingPostgreSqlServer;
+import com.facebook.airlift.testing.postgresql.TestingPostgreSqlServer;
 import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;

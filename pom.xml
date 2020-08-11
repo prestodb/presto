@@ -1070,7 +1070,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift.discovery</groupId>
+                <groupId>com.facebook.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
                 <version>1.32</version>
             </dependency>
@@ -1422,7 +1422,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.airlift</groupId>
+                <groupId>com.facebook.airlift</groupId>
                 <artifactId>testing-postgresql-server</artifactId>
                 <version>9.6.3-4</version>
             </dependency>

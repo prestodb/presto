@@ -14,8 +14,8 @@
 package com.facebook.presto.failureDetector;
 
 import io.airlift.bootstrap.Bootstrap;
-import io.airlift.discovery.client.ServiceSelector;
-import io.airlift.discovery.client.testing.TestingDiscoveryModule;
+import com.facebook.airlift.discovery.client.ServiceSelector;
+import com.facebook.airlift.discovery.client.testing.TestingDiscoveryModule;
 import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
@@ -41,8 +41,8 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
-import static io.airlift.discovery.client.ServiceTypes.serviceType;
+import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static com.facebook.airlift.discovery.client.ServiceTypes.serviceType;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceDescriptorsRepresentation;
+import com.facebook.airlift.discovery.client.ServiceDescriptor;
+import com.facebook.airlift.discovery.client.ServiceDescriptorsRepresentation;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.JsonResponseHandler;
