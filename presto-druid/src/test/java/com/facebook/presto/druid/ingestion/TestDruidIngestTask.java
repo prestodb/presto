@@ -14,7 +14,10 @@
 package com.facebook.presto.druid.ingestion;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
+
+import java.util.Collections;
 
 import static org.testng.Assert.assertEquals;
 
@@ -25,7 +28,7 @@ public class TestDruidIngestTask
     {
         DruidIngestTask ingestTask = new DruidIngestTask.Builder()
                 .withDataSource("test_table_name")
-                .withBaseDir("file://test_path")
+                .withInputSource(new Path("file://test_path"), Collections.emptyList())
                 .withTimestampColumn("__time")
                 .withDimensions(ImmutableList.of(
                         new DruidIngestTask.DruidIngestDimension("string", "__time"),
