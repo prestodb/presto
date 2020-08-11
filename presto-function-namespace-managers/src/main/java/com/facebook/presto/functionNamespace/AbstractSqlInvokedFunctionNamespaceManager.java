@@ -220,11 +220,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         return new FunctionMetadata(
                 function.getSignature().getName(),
                 function.getSignature().getArgumentTypes(),
-                Optional.of(function.getParameters().stream()
+                function.getParameters().stream()
                         .map(Parameter::getName)
-                        .collect(toImmutableList())),
+                        .collect(toImmutableList()),
                 function.getSignature().getReturnType(),
                 SCALAR,
+                function.getRoutineCharacteristics().getLanguage(),
                 getFunctionImplementationType(function),
                 function.isDeterministic(),
                 function.isCalledOnNullInput());
