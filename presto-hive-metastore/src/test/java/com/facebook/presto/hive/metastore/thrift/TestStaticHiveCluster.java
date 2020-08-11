@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.airlift.testing.Assertions.assertContains;
+import static io.airlift.testing.Assertions.assertContains;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.TimeUnit.SECONDS;

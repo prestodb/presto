@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.presto.memory.LocalMemoryManager.validateHeapHeadroom;
 import static com.facebook.presto.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 import static io.airlift.units.DataSize.Unit.BYTE;

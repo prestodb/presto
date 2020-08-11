@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 

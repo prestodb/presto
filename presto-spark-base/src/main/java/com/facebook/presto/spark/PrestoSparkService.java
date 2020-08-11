@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.airlift.bootstrap.LifeCycleManager;
+import io.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkService;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;

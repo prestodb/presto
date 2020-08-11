@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraColumnHandle

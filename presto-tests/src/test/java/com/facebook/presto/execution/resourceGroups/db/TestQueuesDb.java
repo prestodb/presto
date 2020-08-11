@@ -35,8 +35,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.airlift.testing.Assertions.assertContains;
-import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static io.airlift.testing.Assertions.assertContains;
+import static io.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;

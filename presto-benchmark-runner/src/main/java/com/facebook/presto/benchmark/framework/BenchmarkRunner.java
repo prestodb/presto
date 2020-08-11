@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark.framework;
 
-import com.facebook.airlift.event.client.EventClient;
+import io.airlift.event.client.EventClient;
 import com.facebook.presto.benchmark.event.BenchmarkPhaseEvent;
 import com.facebook.presto.benchmark.event.BenchmarkSuiteEvent;
 import com.facebook.presto.benchmark.source.BenchmarkSuiteSupplier;

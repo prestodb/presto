@@ -21,9 +21,9 @@ import java.io.File;
 import java.net.URI;
 import java.util.Map;
 
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestProxyConfig

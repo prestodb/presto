@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kafka.util;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.kafka.KafkaPlugin;
 import com.facebook.presto.kafka.KafkaTopicDescription;
 import com.facebook.presto.metadata.QualifiedObjectName;

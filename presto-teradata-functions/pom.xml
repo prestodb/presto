@@ -17,7 +17,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 

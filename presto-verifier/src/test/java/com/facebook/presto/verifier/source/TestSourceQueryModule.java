@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.source;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.Bootstrap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.bootstrap.LifeCycleManager;
-import com.facebook.airlift.log.Logger;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 import com.facebook.presto.benchmark.event.EventClientModule;
 import com.facebook.presto.benchmark.framework.BenchmarkModule;
 import com.facebook.presto.benchmark.source.BenchmarkCommand;

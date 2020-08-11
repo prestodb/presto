@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.security;
 
-import com.facebook.airlift.http.server.BasicPrincipal;
+import io.airlift.http.server.BasicPrincipal;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;

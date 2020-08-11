@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import org.apache.kafka.clients.consumer.KafkaConsumer;

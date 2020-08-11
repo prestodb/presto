@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.log.Logging;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
@@ -66,8 +66,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.LongStream;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;

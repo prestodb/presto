@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.airlift.stats.TestingGcMonitor;
+import io.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
@@ -42,7 +42,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.String.format;

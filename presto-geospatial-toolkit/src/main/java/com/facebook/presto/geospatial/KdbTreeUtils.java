@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.geospatial;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.JsonCodecFactory;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
 
 import static java.util.Objects.requireNonNull;
 

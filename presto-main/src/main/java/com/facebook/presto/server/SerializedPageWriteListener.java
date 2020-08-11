@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.spi.page.SerializedPage;
 import io.airlift.slice.Slice;
 

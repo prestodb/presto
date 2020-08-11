@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.transaction;
 
-import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;

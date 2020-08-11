@@ -19,9 +19,9 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static org.testng.Assert.assertEquals;
 
 public class TestIgnoredFunctionsMismatchResolverConfig

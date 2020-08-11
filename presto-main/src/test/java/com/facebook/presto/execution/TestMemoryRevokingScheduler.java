@@ -14,8 +14,8 @@
 
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.TestingGcMonitor;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
@@ -53,7 +53,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.execution.SqlTask.createSqlTask;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor;

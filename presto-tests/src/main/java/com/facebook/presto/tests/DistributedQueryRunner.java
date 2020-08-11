@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.airlift.discovery.server.testing.TestingDiscoveryServer;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.testing.Assertions;
+import io.airlift.discovery.server.testing.TestingDiscoveryServer;
+import io.airlift.log.Logger;
+import io.airlift.testing.Assertions;
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.cost.StatsCalculator;

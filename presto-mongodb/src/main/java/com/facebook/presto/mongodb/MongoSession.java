@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;

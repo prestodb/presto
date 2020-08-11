@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import java.util.OptionalLong;
 import java.util.UUID;
 
-import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

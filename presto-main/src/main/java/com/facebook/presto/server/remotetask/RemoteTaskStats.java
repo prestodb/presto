@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.airlift.stats.DistributionStat;
+import io.airlift.stats.DistributionStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

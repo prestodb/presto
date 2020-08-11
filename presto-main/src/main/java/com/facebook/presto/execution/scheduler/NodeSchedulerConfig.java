@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.DefunctConfig;
-import com.facebook.airlift.configuration.LegacyConfig;
+import io.airlift.configuration.Config;
+import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.LegacyConfig;
 
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;

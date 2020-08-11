@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.stats.Distribution;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
+import io.airlift.stats.Distribution;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
@@ -119,7 +119,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.PLANNING;

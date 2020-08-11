@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.security;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.spi.security.PasswordAuthenticator;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.google.common.collect.ImmutableMap;

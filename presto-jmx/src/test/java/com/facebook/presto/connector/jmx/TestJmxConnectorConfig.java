@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -22,9 +22,9 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 
 public class TestJmxConnectorConfig
 {

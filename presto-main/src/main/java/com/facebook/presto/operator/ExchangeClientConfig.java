@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.http.client.HttpClientConfig;
+import io.airlift.configuration.Config;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;

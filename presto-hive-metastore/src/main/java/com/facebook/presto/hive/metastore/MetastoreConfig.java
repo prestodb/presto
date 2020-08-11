@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.airlift.configuration.Config;
+import io.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
 

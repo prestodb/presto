@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.client;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import io.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
 import com.facebook.presto.common.type.TypeSignatureParameter;

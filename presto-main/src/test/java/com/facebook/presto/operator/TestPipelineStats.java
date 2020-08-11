@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.stats.Distribution;
-import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
+import io.airlift.json.JsonCodec;
+import io.airlift.stats.Distribution;
+import io.airlift.stats.Distribution.DistributionSnapshot;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.joda.time.DateTime;

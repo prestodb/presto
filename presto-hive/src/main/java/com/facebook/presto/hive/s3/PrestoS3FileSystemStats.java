@@ -14,8 +14,8 @@
 package com.facebook.presto.hive.s3;
 
 import com.amazonaws.AbortedException;
-import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.TimeStat;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;

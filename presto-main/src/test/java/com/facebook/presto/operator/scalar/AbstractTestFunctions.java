@@ -39,7 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;

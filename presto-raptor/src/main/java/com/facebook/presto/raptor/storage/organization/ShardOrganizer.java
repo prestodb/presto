@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.stats.CounterStat;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.facebook.presto.raptor.util.PrioritizedFifoExecutor;
 import com.google.common.annotations.VisibleForTesting;
@@ -38,7 +38,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;

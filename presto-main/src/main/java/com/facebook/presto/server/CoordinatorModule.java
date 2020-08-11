@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.airlift.discovery.server.EmbeddedDiscoveryModule;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.discovery.server.EmbeddedDiscoveryModule;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
@@ -157,15 +157,15 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
-import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
-import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
-import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
-import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.execution.DataDefinitionExecution.DataDefinitionExecutionFactory;
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;

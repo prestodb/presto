@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.resourceGroups.ResourceGroupNameTemplate;
 import com.facebook.presto.resourceGroups.SelectorResourceEstimate;
 import com.facebook.presto.resourceGroups.SelectorResourceEstimate.Range;
@@ -31,8 +31,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.spi.resourceGroups.QueryType.DELETE;
 import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
 import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.airlift.log.Logging;
+import io.airlift.log.Logging;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
@@ -33,7 +33,7 @@ import java.sql.Types;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
-import static com.facebook.airlift.testing.Assertions.assertContains;
+import static io.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.common.type.VarcharType.MAX_LENGTH;
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;

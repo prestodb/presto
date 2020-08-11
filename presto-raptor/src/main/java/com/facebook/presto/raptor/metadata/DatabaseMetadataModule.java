@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.airlift.dbpool.H2EmbeddedDataSourceModule;
-import com.facebook.airlift.dbpool.MySqlDataSource;
-import com.facebook.airlift.dbpool.MySqlDataSourceConfig;
-import com.facebook.airlift.discovery.client.ServiceDescriptor;
-import com.facebook.airlift.discovery.client.testing.StaticServiceSelector;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.dbpool.H2EmbeddedDataSourceModule;
+import io.airlift.dbpool.MySqlDataSource;
+import io.airlift.dbpool.MySqlDataSourceConfig;
+import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.client.testing.StaticServiceSelector;
 import com.facebook.presto.raptor.RaptorMetadataFactory;
 import com.facebook.presto.raptor.RaptorTableProperties;
 import com.facebook.presto.raptor.util.DaoSupplier;
@@ -41,9 +41,9 @@ import javax.sql.DataSource;
 
 import java.lang.reflect.Type;
 
-import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 

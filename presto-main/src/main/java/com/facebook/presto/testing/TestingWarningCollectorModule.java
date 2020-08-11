@@ -20,7 +20,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class TestingWarningCollectorModule

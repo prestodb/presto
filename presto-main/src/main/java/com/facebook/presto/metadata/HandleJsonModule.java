@@ -18,7 +18,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static io.airlift.json.JsonBinder.jsonBinder;
 
 public class HandleJsonModule
         implements Module

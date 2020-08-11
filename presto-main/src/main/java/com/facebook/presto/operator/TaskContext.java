@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.GcMonitor;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;

@@ -14,7 +14,7 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.CostProvider;

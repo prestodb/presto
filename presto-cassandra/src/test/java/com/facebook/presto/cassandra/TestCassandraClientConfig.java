@@ -15,7 +15,7 @@ package com.facebook.presto.cassandra;
 
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.SocketOptions;
-import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.configuration.testing.ConfigAssertions;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;

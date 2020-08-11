@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spark.testing;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;

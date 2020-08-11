@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.backup;
 
-import com.facebook.airlift.node.NodeInfo;
+import io.airlift.node.NodeInfo;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -24,8 +24,8 @@ import javax.inject.Singleton;
 import java.net.URI;
 import java.util.function.Supplier;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
 public class HttpBackupModule
         implements Module

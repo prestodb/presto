@@ -42,8 +42,8 @@ import java.util.List;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
-import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
+import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.raptor.metadata.Distribution.serializeColumnTypes;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;

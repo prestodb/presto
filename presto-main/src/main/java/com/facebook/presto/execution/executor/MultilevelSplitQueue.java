@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.executor;
 
-import com.facebook.airlift.stats.CounterStat;
+import io.airlift.stats.CounterStat;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;

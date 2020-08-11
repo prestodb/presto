@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpRequestFilter;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
-import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpRequestFilter;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.StringResponseHandler.StringResponse;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
@@ -37,13 +37,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.List;
 
-import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static com.facebook.airlift.http.client.TraceTokenRequestFilter.TRACETOKEN_HEADER;
-import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
-import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
-import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static io.airlift.http.client.TraceTokenRequestFilter.TRACETOKEN_HEADER;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.testing.Closeables.closeQuietly;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static org.testng.Assert.assertEquals;

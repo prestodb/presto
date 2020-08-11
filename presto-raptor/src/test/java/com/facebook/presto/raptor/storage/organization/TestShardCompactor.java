@@ -51,7 +51,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;

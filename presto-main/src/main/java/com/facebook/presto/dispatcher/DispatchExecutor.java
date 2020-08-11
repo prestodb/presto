@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.dispatcher;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -30,7 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;

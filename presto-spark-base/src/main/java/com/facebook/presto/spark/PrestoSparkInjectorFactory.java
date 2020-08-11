@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.json.JsonModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;

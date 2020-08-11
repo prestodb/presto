@@ -37,8 +37,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.airlift.security.pem.PemReader.loadKeyStore;
-import static com.facebook.airlift.security.pem.PemReader.readCertificateChain;
+import static io.airlift.security.pem.PemReader.loadKeyStore;
+import static io.airlift.security.pem.PemReader.readCertificateChain;
 import static com.facebook.presto.cassandra.CassandraErrorCode.CASSANDRA_SSL_INITIALIZATION_FAILURE;
 import static java.util.Collections.list;
 

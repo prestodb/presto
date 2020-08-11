@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.security;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.stats.CounterStat;
+import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.ConnectorId;

@@ -20,7 +20,7 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 

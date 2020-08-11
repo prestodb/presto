@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.stats.GarbageCollectionNotificationInfo;
+import io.airlift.log.Logger;
+import io.airlift.stats.GarbageCollectionNotificationInfo;
 import com.facebook.presto.execution.SqlTask;
 import com.facebook.presto.execution.SqlTaskIoStats;
 import com.facebook.presto.execution.SqlTaskManager;

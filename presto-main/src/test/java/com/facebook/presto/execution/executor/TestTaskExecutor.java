@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.executor;
 
-import com.facebook.airlift.testing.TestingTicker;
+import io.airlift.testing.TestingTicker;
 import com.facebook.presto.execution.SplitRunner;
 import com.facebook.presto.execution.TaskId;
 import com.google.common.collect.ImmutableList;
@@ -31,8 +31,8 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
-import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.QUERY_FAIR;
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spark;
 
-import com.facebook.airlift.bootstrap.LifeCycleManager;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.log.Logging;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
@@ -82,8 +82,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static com.facebook.airlift.log.Level.ERROR;
-import static com.facebook.airlift.log.Level.WARN;
+import static io.airlift.log.Level.ERROR;
+import static io.airlift.log.Level.WARN;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_EXECUTOR_CORES_PROPERTY;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_TASK_CPUS_PROPERTY;
 import static com.facebook.presto.spark.classloader_interface.SparkProcessType.DRIVER;
@@ -284,7 +284,7 @@ public class PrestoSparkQueryRunner
         logging.setLevel("org.apache.spark.util.ClosureCleaner", ERROR);
         logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
         logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
-        logging.setLevel("com.facebook.airlift.bootstrap.LifeCycleManager", WARN);
+        logging.setLevel("io.airlift.bootstrap.LifeCycleManager", WARN);
         logging.setLevel("org.apache.parquet.hadoop", WARN);
         logging.setLevel("parquet.hadoop", WARN);
     }

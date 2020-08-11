@@ -27,7 +27,7 @@ import com.google.inject.Scopes;
 
 import javax.inject.Singleton;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class H2ResourceGroupsModule
         implements Module

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kudu;
 
-import com.facebook.airlift.configuration.Config;
+import io.airlift.configuration.Config;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;

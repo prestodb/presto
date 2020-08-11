@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.DistributionStat;
-import com.facebook.airlift.stats.TimeStat;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.DistributionStat;
+import io.airlift.stats.TimeStat;
 import com.facebook.presto.dispatcher.DispatchQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;

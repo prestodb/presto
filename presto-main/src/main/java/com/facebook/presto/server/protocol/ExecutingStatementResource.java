@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.protocol;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.server.ForStatementResource;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.Ordering;
@@ -37,7 +37,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
-import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toResponse;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;

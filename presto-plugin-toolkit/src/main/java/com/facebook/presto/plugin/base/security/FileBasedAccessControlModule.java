@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.plugin.base.security;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

@@ -25,8 +25,8 @@ import com.google.inject.Scopes;
 
 import javax.inject.Singleton;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.cache.CacheType.FILE_MERGE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;

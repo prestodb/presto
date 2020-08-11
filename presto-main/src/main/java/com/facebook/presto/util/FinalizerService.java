@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.google.common.collect.Sets;
 
 import javax.annotation.PostConstruct;
@@ -28,7 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.decoder.DecoderModule;
@@ -25,9 +25,9 @@ import com.google.inject.Scopes;
 
 import javax.inject.Inject;
 
-import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.elasticsearch.ElasticsearchConfig.Security.AWS;
 import static com.google.common.base.Preconditions.checkArgument;

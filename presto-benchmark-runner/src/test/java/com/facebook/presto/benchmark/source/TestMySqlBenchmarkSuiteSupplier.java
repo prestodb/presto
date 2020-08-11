@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static io.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.CATALOG;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.SCHEMA;
 import static com.facebook.presto.benchmark.BenchmarkTestUtil.XDB;

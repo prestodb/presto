@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;

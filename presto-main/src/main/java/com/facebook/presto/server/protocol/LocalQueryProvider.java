@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server.protocol;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.log.Logger;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.execution.QueryManager;
@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;

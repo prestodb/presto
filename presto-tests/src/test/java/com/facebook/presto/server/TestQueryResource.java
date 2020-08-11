@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.resourceGroups.FileResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -28,14 +28,14 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.airlift.http.client.Request.Builder.preparePost;
-import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
-import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.listJsonCodec;
+import static io.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;

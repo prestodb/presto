@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.functionNamespace;
 
-import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.configuration.Config;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
@@ -22,7 +22,7 @@ import io.airlift.units.MinDuration;
 
 import java.util.Map;
 
-import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static java.util.concurrent.TimeUnit.HOURS;

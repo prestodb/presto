@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.ForRecordingHiveMetastore;
 import com.facebook.presto.hive.MetastoreClientConfig;
@@ -23,7 +23,7 @@ import com.facebook.presto.hive.metastore.RecordingHiveMetastore;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;

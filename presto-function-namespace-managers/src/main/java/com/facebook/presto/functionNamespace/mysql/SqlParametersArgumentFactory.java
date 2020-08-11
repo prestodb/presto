@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.spi.function.Parameter;
 import org.jdbi.v3.core.argument.AbstractArgumentFactory;
 import org.jdbi.v3.core.argument.Argument;
@@ -22,7 +22,7 @@ import org.jdbi.v3.core.config.ConfigRegistry;
 
 import java.util.List;
 
-import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 import static java.sql.Types.VARCHAR;
 
 public class SqlParametersArgumentFactory

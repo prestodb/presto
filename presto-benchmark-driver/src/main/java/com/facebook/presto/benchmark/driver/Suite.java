@@ -27,7 +27,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;

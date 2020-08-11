@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.hive.metastore.alluxio.AlluxioMetastoreModule;
 import com.facebook.presto.hive.metastore.file.FileMetastoreModule;
 import com.facebook.presto.hive.metastore.glue.GlueMetastoreModule;
@@ -23,7 +23,7 @@ import com.google.inject.Module;
 
 import java.util.Optional;
 
-import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 
 public class HiveMetastoreModule
         extends AbstractConfigurationAwareModule

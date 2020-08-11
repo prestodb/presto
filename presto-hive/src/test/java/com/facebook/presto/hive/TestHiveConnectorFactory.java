@@ -25,8 +25,8 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.airlift.testing.Assertions.assertContains;
-import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.testing.Assertions.assertContains;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static org.testng.Assert.fail;
 

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpUriBuilder;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.ResponseHandler;
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpUriBuilder;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.ResponseHandler;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.druid.metadata.DruidColumnInfo;
 import com.facebook.presto.druid.metadata.DruidSegmentIdWrapper;
 import com.facebook.presto.druid.metadata.DruidSegmentInfo;
@@ -37,13 +37,13 @@ import java.net.URI;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.airlift.http.client.Request.Builder.preparePost;
-import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_BROKER_RESULT_ERROR;
 import static com.facebook.presto.druid.DruidResultFormat.ARRAY_LINES;
 import static com.facebook.presto.druid.DruidResultFormat.OBJECT;
@@ -176,7 +176,7 @@ public class DruidClient
         }
 
         @Override
-        public InputStream handle(Request request, com.facebook.airlift.http.client.Response response)
+        public InputStream handle(Request request, io.airlift.http.client.Response response)
         {
             try {
                 if (response.getStatusCode() != HTTP_OK) {

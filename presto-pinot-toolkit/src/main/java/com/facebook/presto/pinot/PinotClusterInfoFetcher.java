@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.StaticBodyGenerator;
-import com.facebook.airlift.http.client.StringResponseHandler;
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.JsonCodecBinder;
-import com.facebook.airlift.log.Logger;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.StaticBodyGenerator;
+import io.airlift.http.client.StringResponseHandler;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecBinder;
+import io.airlift.log.Logger;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -49,7 +49,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_HTTP_ERROR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;

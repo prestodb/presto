@@ -82,7 +82,7 @@
             <artifactId>testng</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
         </dependency>
         <dependency>
@@ -90,7 +90,7 @@
             <artifactId>javax.inject</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
         <dependency>
@@ -98,7 +98,7 @@
             <artifactId>units</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>
         </dependency>
         <dependency>
@@ -106,7 +106,7 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
         <dependency>

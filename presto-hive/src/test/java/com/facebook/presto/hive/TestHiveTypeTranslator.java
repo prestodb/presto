@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.facebook.airlift.testing.Assertions.assertContains;
+import static io.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;

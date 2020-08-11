@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.connector.ConnectorManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

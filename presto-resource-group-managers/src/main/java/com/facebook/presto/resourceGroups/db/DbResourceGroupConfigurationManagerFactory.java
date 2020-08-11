@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.json.JsonModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
 import com.facebook.presto.resourceGroups.VariableMap;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;

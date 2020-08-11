@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.http.client.Request.Builder;
+import io.airlift.http.client.Request.Builder;
 
 import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
 import static com.google.common.net.HttpHeaders.ACCEPT;

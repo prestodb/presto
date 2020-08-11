@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static org.testng.Assert.assertEquals;
 

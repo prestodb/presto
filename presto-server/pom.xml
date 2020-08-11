@@ -34,7 +34,7 @@
         <!-- The scope of all of the following dependencies are provided to avoid them being added to lib -->
         <!-- bin -->
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>launcher</artifactId>
             <version>${dep.packaging.version}</version>
             <classifier>bin</classifier>
@@ -43,7 +43,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.airlift</groupId>
+            <groupId>io.airlift</groupId>
             <artifactId>launcher</artifactId>
             <version>${dep.packaging.version}</version>
             <classifier>properties</classifier>

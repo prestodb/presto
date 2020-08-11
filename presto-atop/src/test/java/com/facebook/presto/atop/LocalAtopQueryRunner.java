@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.TimeZone;
 
-import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public final class LocalAtopQueryRunner

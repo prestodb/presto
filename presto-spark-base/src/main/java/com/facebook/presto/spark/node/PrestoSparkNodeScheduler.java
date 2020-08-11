@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spark.node;
 
-import com.facebook.airlift.stats.CounterStat;
+import io.airlift.stats.CounterStat;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.NetworkLocationCache;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
-import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.TimeStat;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.TimeStat;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;

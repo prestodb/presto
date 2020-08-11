@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.benchmark.source;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.benchmark.framework.BenchmarkRunnerConfig;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 
 import java.util.Set;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.benchmark.source.MySqlBenchmarkSuiteSupplier.MYSQL_BENCHMARK_SUITE_SUPPLIER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.Scopes.SINGLETON;

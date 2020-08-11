@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.dispatcher;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;

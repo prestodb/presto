@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.session;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.json.JsonModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
 import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;

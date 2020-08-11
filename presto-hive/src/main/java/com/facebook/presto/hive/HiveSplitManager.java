@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.stats.CounterStat;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.stats.CounterStat;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;

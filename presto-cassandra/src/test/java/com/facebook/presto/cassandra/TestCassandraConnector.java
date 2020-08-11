@@ -48,8 +48,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
-import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createTestTables;
 import static com.facebook.presto.common.type.BigintType.BIGINT;

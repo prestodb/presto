@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.backup;
 
-import com.facebook.airlift.node.NodeInfo;
+import io.airlift.node.NodeInfo;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 

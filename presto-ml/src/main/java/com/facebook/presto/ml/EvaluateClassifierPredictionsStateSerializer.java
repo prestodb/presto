@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.ml;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import io.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;

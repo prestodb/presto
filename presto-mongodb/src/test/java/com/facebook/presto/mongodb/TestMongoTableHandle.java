@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.mongodb;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.spi.SchemaTableName;
 import org.testng.annotations.Test;
 

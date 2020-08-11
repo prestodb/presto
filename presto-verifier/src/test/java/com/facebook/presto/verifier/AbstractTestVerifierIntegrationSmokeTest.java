@@ -32,7 +32,7 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static io.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.verifier.VerifierTestUtil.getHandle;
 import static com.facebook.presto.verifier.VerifierTestUtil.insertSourceQuery;
 import static com.facebook.presto.verifier.VerifierTestUtil.setupMySql;

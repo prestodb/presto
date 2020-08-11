@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.node.NodeInfo;
-import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.GcMonitor;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.event.SplitMonitor;
@@ -67,7 +67,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;

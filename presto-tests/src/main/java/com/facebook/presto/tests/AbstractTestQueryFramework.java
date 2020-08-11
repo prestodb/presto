@@ -53,7 +53,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 
-import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;

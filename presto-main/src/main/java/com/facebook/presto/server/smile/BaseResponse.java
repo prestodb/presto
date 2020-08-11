@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.smile;
 
-import com.facebook.airlift.http.client.HeaderName;
+import io.airlift.http.client.HeaderName;
 import com.google.common.collect.ListMultimap;
 
 import java.util.List;

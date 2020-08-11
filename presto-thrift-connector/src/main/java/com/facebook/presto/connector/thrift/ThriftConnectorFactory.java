@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.thrift;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.Bootstrap;
 import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.thrift.util.RebindSafeMBeanServer;

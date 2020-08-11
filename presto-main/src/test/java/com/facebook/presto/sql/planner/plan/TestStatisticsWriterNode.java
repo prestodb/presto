@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.JsonModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonModule;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
@@ -43,8 +43,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.facebook.airlift.json.JsonBinder.jsonBinder;
-import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.airlift.json.JsonBinder.jsonBinder;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.collect.ImmutableList.toImmutableList;

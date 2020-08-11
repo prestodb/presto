@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;

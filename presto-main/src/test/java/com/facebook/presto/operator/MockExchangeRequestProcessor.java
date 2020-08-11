@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.http.client.HttpStatus;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.Response;
-import com.facebook.airlift.http.client.testing.TestingHttpClient;
-import com.facebook.airlift.http.client.testing.TestingResponse;
+import io.airlift.http.client.HttpStatus;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.Response;
+import io.airlift.http.client.testing.TestingHttpClient;
+import io.airlift.http.client.testing.TestingResponse;
 import com.facebook.presto.client.PrestoHeaders;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.buffer.BufferResult;

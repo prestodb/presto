@@ -16,7 +16,7 @@ package com.facebook.presto.cassandra;
 import com.datastax.driver.core.CloseFuture;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.DelegatingCluster;
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

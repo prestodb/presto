@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import org.antlr.v4.runtime.BaseErrorListener;

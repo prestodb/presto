@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.teradata.functions;
 
-import com.facebook.airlift.concurrent.ThreadLocalCache;
+import io.airlift.concurrent.ThreadLocalCache;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeZoneKey;

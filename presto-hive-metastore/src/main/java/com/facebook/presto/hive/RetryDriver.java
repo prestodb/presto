@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 

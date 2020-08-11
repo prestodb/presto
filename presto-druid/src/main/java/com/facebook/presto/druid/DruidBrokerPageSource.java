@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import io.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;

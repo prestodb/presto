@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.concurrent.SetThreadName;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.stats.CounterStat;
+import io.airlift.concurrent.SetThreadName;
+import io.airlift.log.Logger;
+import io.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;

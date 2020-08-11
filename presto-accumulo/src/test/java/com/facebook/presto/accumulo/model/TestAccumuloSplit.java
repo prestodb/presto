@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.accumulo.model;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.accumulo.serializers.LexicoderRowSerializer;
 import com.google.common.collect.ImmutableList;
 import org.apache.accumulo.core.data.Range;

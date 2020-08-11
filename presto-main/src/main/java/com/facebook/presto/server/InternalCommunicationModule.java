@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.airlift.http.client.HttpClientConfig;
-import com.facebook.airlift.http.client.spnego.KerberosConfig;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.spnego.KerberosConfig;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
@@ -24,9 +24,9 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Locale;
 
-import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.airlift.http.server.KerberosConfig.HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.server.KerberosConfig.HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB;
 import static com.facebook.presto.server.InternalCommunicationConfig.INTERNAL_COMMUNICATION_KERBEROS_ENABLED;
 import static com.google.common.base.Verify.verify;
 
@@ -56,7 +56,7 @@ public class InternalCommunicationModule
     {
         return binder -> {
             InternalCommunicationConfig clientKerberosConfig = buildConfigObject(InternalCommunicationConfig.class);
-            com.facebook.airlift.http.server.KerberosConfig serverKerberosConfig = buildConfigObject(com.facebook.airlift.http.server.KerberosConfig.class);
+            io.airlift.http.server.KerberosConfig serverKerberosConfig = buildConfigObject(io.airlift.http.server.KerberosConfig.class);
             verify(serverKerberosConfig.getKeytab() != null, "%s must be set when %s is true", HTTP_SERVER_AUTHENTICATION_KRB5_KEYTAB, INTERNAL_COMMUNICATION_KERBEROS_ENABLED);
 
             configBinder(binder).bindConfigGlobalDefaults(KerberosConfig.class, kerberosConfig -> {

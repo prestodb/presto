@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.accumulo.metadata;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import io.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.accumulo.AccumuloModule;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.common.type.Type;

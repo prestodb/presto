@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.system;
 
-import com.facebook.airlift.node.NodeInfo;
+import io.airlift.node.NodeInfo;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;

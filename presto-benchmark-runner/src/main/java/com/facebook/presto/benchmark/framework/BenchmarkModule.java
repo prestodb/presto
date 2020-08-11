@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark.framework;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.benchmark.prestoaction.BenchmarkPrestoActionFactory;
 import com.facebook.presto.benchmark.prestoaction.PrestoActionFactory;
 import com.facebook.presto.benchmark.prestoaction.PrestoClusterConfig;
@@ -24,7 +24,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.inject.Binder;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.inject.Scopes.SINGLETON;
 import static java.util.Objects.requireNonNull;
 

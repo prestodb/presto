@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.proxy;
 
-import com.facebook.airlift.http.client.HeaderName;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.Response;
-import com.facebook.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.HeaderName;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.Response;
+import io.airlift.http.client.ResponseHandler;
 import com.facebook.presto.proxy.ProxyResponseHandler.ProxyResponse;
 import com.google.common.collect.ListMultimap;
 import com.google.common.net.MediaType;
 
 import java.io.IOException;
 
-import static com.facebook.airlift.http.client.HttpStatus.NO_CONTENT;
-import static com.facebook.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpStatus.NO_CONTENT;
+import static io.airlift.http.client.HttpStatus.OK;
 import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static java.lang.String.format;

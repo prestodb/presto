@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector.thrift.server;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.log.Logger;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.log.Logger;
 import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;

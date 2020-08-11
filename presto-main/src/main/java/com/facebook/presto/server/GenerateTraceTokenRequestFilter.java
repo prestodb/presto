@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.http.client.HttpRequestFilter;
-import com.facebook.airlift.http.client.Request;
+import io.airlift.http.client.HttpRequestFilter;
+import io.airlift.http.client.Request;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.airlift.http.client.Request.Builder.fromRequest;
-import static com.facebook.airlift.http.client.TraceTokenRequestFilter.TRACETOKEN_HEADER;
+import static io.airlift.http.client.Request.Builder.fromRequest;
+import static io.airlift.http.client.TraceTokenRequestFilter.TRACETOKEN_HEADER;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;

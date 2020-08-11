@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.util;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -34,7 +34,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This class is based on com.facebook.airlift.concurrent.BoundedExecutor
+ * This class is based on io.airlift.concurrent.BoundedExecutor
  */
 @ThreadSafe
 public class PrioritizedFifoExecutor<T extends Runnable>

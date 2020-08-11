@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.airlift.testing.TestingTicker;
+import io.airlift.testing.TestingTicker;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;

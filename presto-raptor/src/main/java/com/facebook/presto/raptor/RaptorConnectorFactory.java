@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.json.JsonModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.raptor.backup.BackupModule;
 import com.facebook.presto.raptor.filesystem.FileSystemModule;

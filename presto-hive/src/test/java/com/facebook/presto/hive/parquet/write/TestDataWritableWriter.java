@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.parquet.write;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils;

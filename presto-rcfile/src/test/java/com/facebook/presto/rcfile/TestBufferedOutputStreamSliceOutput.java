@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 
-import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
+import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static org.testng.Assert.assertEquals;
 
 public class TestBufferedOutputStreamSliceOutput

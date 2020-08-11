@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.node.NodeInfo;
+import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;

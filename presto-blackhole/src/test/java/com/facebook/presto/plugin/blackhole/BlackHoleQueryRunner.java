@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.blackhole;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.log.Logging;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -22,7 +22,7 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
-import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
 public final class BlackHoleQueryRunner

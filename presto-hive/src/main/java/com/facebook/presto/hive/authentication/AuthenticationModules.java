@@ -24,7 +24,7 @@ import com.google.inject.Singleton;
 
 import javax.inject.Inject;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.hive.authentication.KerberosHadoopAuthentication.createKerberosHadoopAuthentication;
 import static com.google.inject.Scopes.SINGLETON;
 

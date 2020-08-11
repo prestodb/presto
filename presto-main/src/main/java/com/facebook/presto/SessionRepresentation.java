@@ -13,7 +13,7 @@
  */
 package com.facebook.presto;
 
-import com.facebook.airlift.http.server.BasicPrincipal;
+import io.airlift.http.server.BasicPrincipal;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;

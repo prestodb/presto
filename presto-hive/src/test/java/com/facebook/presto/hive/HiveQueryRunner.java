@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.log.Logging;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
@@ -40,8 +40,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.airlift.log.Level.ERROR;
-import static com.facebook.airlift.log.Level.WARN;
+import static io.airlift.log.Level.ERROR;
+import static io.airlift.log.Level.WARN;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
@@ -219,7 +219,7 @@ public final class HiveQueryRunner
         logging.setLevel("com.facebook.presto.event", WARN);
         logging.setLevel("com.facebook.presto.security.AccessControlManager", WARN);
         logging.setLevel("com.facebook.presto.server.PluginManager", WARN);
-        logging.setLevel("com.facebook.airlift.bootstrap.LifeCycleManager", WARN);
+        logging.setLevel("io.airlift.bootstrap.LifeCycleManager", WARN);
         logging.setLevel("org.apache.parquet.hadoop", WARN);
         logging.setLevel("org.eclipse.jetty.server.handler.ContextHandler", WARN);
         logging.setLevel("org.eclipse.jetty.server.AbstractConnector", WARN);

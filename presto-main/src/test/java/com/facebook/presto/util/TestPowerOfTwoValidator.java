@@ -15,8 +15,8 @@ package com.facebook.presto.util;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.airlift.testing.ValidationAssertions.assertFailsValidation;
-import static com.facebook.airlift.testing.ValidationAssertions.assertValidates;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static io.airlift.testing.ValidationAssertions.assertValidates;
 
 public class TestPowerOfTwoValidator
 {

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cli;
 
-import com.facebook.airlift.log.Logging;
-import com.facebook.airlift.log.LoggingConfiguration;
+import io.airlift.log.Logging;
+import io.airlift.log.LoggingConfiguration;
 import com.facebook.presto.cli.ClientOptions.OutputFormat;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.spi.security.SelectedRole;

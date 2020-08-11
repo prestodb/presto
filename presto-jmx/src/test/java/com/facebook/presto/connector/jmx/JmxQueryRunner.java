@@ -16,7 +16,7 @@ package com.facebook.presto.connector.jmx;
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 
-import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.connector.jmx.JmxMetadata.JMX_SCHEMA_NAME;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 

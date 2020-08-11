@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.util;
 
-import com.facebook.airlift.stats.TimeStat;
+import io.airlift.stats.TimeStat;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.hive.NestedDirectoryPolicy;

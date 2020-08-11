@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server.smile;
 
-import com.facebook.airlift.http.client.HttpStatus;
-import com.facebook.airlift.http.client.Response;
-import com.facebook.airlift.http.client.testing.TestingResponse;
+import io.airlift.http.client.HttpStatus;
+import io.airlift.http.client.Response;
+import io.airlift.http.client.testing.TestingResponse;
 import com.facebook.presto.server.smile.FullSmileResponseHandler.SmileResponse;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,9 +23,9 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.net.MediaType;
 import org.testng.annotations.Test;
 
-import static com.facebook.airlift.http.client.HttpStatus.INTERNAL_SERVER_ERROR;
-import static com.facebook.airlift.http.client.HttpStatus.OK;
-import static com.facebook.airlift.http.client.testing.TestingResponse.contentType;
+import static io.airlift.http.client.HttpStatus.INTERNAL_SERVER_ERROR;
+import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.testing.TestingResponse.contentType;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
 import static java.lang.String.format;

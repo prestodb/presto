@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.protocol;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StatementStats;
@@ -63,9 +63,9 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
-import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.security.RoleType.USER;

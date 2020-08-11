@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.resourceGroups.db;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import com.facebook.presto.resourceGroups.ResourceGroupSelector;
 import com.facebook.presto.resourceGroups.VariableMap;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;

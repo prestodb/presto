@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark.retry;
 
-import com.facebook.airlift.log.Logging;
+import io.airlift.log.Logging;
 import com.facebook.presto.benchmark.framework.QueryException;
 import io.airlift.units.Duration;
 import org.testng.annotations.BeforeMethod;
@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 import java.net.SocketTimeoutException;
 import java.util.Optional;
 
-import static com.facebook.airlift.log.Level.DEBUG;
+import static io.airlift.log.Level.DEBUG;
 import static com.facebook.presto.benchmark.framework.QueryException.Type.CLUSTER_CONNECTION;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static java.lang.Boolean.FALSE;

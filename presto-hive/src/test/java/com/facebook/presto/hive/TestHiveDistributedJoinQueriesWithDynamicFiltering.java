@@ -30,8 +30,8 @@ import com.facebook.presto.tests.ResultWithQueryId;
 import com.google.common.collect.MoreCollectors;
 import org.testng.annotations.Test;
 
-import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
-import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
+import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;

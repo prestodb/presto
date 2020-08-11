@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.Request;
+import io.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.retry.RetryConfig;
@@ -28,9 +28,9 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
-import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.StringResponseHandler.StringResponse;
+import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;

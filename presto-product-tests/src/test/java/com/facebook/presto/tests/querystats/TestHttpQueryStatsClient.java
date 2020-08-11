@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.tests.querystats;
 
-import com.facebook.airlift.http.client.HttpStatus;
-import com.facebook.airlift.http.client.Response;
-import com.facebook.airlift.http.client.testing.TestingHttpClient;
-import com.facebook.airlift.http.client.testing.TestingResponse;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import io.airlift.http.client.HttpStatus;
+import io.airlift.http.client.Response;
+import io.airlift.http.client.testing.TestingHttpClient;
+import io.airlift.http.client.testing.TestingResponse;
+import io.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.execution.QueryStats;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableListMultimap;

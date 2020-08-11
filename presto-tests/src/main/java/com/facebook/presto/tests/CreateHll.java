@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.airlift.stats.cardinality.HyperLogLog;
+import io.airlift.stats.cardinality.HyperLogLog;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;

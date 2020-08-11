@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;

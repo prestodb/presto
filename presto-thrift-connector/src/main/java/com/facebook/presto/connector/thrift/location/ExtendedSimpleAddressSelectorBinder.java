@@ -24,7 +24,7 @@ import com.google.inject.Key;
 
 import java.lang.annotation.Annotation;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class ExtendedSimpleAddressSelectorBinder
         implements AddressSelectorBinder

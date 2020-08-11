@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.functionNamespace.mysql.MySqlFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.mysql.MySqlFunctionNamespaceManagerModule;
 import com.facebook.presto.spi.function.FunctionHandleResolver;

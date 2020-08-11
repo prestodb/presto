@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spark.testing;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.hive.HiveHadoop2Plugin;
 import com.facebook.presto.metadata.Metadata;

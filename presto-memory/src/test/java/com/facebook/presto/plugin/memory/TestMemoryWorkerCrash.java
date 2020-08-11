@@ -19,7 +19,7 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import static com.facebook.airlift.testing.Assertions.assertLessThan;
+import static io.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;

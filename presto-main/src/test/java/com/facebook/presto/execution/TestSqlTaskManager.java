@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.node.NodeInfo;
-import com.facebook.airlift.stats.TestingGcMonitor;
+import io.airlift.node.NodeInfo;
+import io.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;

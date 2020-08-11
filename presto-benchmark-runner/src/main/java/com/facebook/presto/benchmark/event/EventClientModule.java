@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.benchmark.event;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.airlift.event.client.EventClient;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.event.client.EventClient;
 import com.facebook.presto.benchmark.framework.BenchmarkRunnerConfig;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

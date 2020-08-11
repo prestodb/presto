@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.bootstrap.LifeCycleManager;
-import com.facebook.airlift.concurrent.BoundedExecutor;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.concurrent.BoundedExecutor;
 import com.facebook.drift.client.DriftClientFactory;
 import com.facebook.drift.client.address.AddressSelector;
 import com.facebook.drift.client.address.SimpleAddressSelector;
@@ -63,7 +63,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.drift.client.ExceptionClassifier.NORMAL_RESULT;
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.drift.transport.netty.client.DriftNettyMethodInvokerFactory.createStaticDriftNettyMethodInvokerFactory;

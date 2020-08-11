@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.ResponseHandler;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.NodeState;
@@ -32,8 +32,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Set;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
@@ -97,7 +97,7 @@ public class WorkerResource
         }
 
         @Override
-        public InputStream handle(Request request, com.facebook.airlift.http.client.Response response)
+        public InputStream handle(Request request, io.airlift.http.client.Response response)
         {
             try {
                 if (APPLICATION_JSON.equals(response.getHeader(CONTENT_TYPE))) {

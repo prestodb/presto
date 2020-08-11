@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.airlift.http.client.FullJsonResponseHandler.JsonResponse;
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpClient.HttpResponseFuture;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.log.Logger;
+import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClient.HttpResponseFuture;
+import io.airlift.http.client.Request;
+import io.airlift.log.Logger;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -32,10 +32,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
-import static com.facebook.airlift.http.client.HttpStatus.OK;
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.Duration.nanosSince;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.filesystem;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.airlift.configuration.ConfigurationAwareModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.ConfigurationAwareModule;
 import com.facebook.presto.raptor.storage.StorageManagerConfig;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
@@ -22,7 +22,7 @@ import com.google.inject.Module;
 
 import java.util.Map;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class FileSystemModule
         extends AbstractConfigurationAwareModule

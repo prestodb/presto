@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cache;
 
-import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import com.facebook.presto.hive.CacheQuotaScope;
 import io.airlift.units.DataSize;
 

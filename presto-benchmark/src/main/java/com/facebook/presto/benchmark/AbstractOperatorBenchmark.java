@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.airlift.stats.CpuTimer;
-import com.facebook.airlift.stats.TestingGcMonitor;
+import io.airlift.stats.CpuTimer;
+import io.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -64,8 +64,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
-import static com.facebook.airlift.stats.CpuTimer.CpuDuration;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.stats.CpuTimer.CpuDuration;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static com.facebook.presto.common.type.BigintType.BIGINT;

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.kafka;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.log.Logging;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.kafka.util.CodecSupplier;
 import com.facebook.presto.kafka.util.EmbeddedKafka;
@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.kafka.util.TestUtils.installKafkaPlugin;
 import static com.facebook.presto.kafka.util.TestUtils.loadTpchTopicDescription;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;

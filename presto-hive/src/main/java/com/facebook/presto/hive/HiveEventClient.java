@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.event.client.AbstractEventClient;
-import com.facebook.airlift.log.Logger;
+import io.airlift.event.client.AbstractEventClient;
+import io.airlift.log.Logger;
 
 public class HiveEventClient
         extends AbstractEventClient

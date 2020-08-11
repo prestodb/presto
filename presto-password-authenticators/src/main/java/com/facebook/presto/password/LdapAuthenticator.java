@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.password;
 
-import com.facebook.airlift.http.server.BasicPrincipal;
-import com.facebook.airlift.log.Logger;
+import io.airlift.http.server.BasicPrincipal;
+import io.airlift.log.Logger;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.PasswordAuthenticator;
 import com.google.common.base.VerifyException;

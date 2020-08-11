@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.example;
 
-import com.facebook.airlift.testing.EquivalenceTester;
+import io.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;

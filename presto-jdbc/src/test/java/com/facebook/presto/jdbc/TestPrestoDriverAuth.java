@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.airlift.log.Logging;
-import com.facebook.airlift.security.pem.PemReader;
+import io.airlift.log.Logging;
+import io.airlift.security.pem.PemReader;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tpch.TpchPlugin;

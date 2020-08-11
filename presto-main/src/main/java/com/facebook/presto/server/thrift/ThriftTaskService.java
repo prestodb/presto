@@ -30,7 +30,7 @@ import javax.inject.Inject;
 
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
+import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.presto.util.TaskUtils.DEFAULT_MAX_WAIT_TIME;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;

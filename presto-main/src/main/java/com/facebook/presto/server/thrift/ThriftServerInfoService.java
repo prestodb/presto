@@ -22,7 +22,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 
 import javax.inject.Inject;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;

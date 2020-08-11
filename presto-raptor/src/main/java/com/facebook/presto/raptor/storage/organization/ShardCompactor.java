@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage.organization;
 
-import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.DistributionStat;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.DistributionStat;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -46,7 +46,7 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.UUID;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
 import static com.facebook.presto.raptor.filesystem.FileSystemUtil.DEFAULT_RAPTOR_CONTEXT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;

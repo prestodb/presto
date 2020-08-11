@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.proxy;
 
-import com.facebook.airlift.security.pem.PemReader;
+import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;

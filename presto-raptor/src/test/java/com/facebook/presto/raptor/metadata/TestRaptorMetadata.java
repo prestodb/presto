@@ -58,8 +58,8 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
-import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
-import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;

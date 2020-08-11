@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.thrift.server;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -50,8 +50,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.connector.thrift.server.SplitInfo.normalSplit;
 import static com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock.fromBlock;

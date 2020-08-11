@@ -14,7 +14,7 @@
 
 package com.facebook.presto.type.setdigest;
 
-import com.facebook.airlift.stats.cardinality.HyperLogLog;
+import io.airlift.stats.cardinality.HyperLogLog;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Shorts;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor;
 
-import com.facebook.airlift.bootstrap.LifeCycleManager;
+import io.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.SqlDate;

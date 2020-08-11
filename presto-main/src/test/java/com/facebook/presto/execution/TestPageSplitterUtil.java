@@ -25,8 +25,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
-import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
+import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.SequencePageBuilder.createSequencePage;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.presto.raptor.filesystem.RaptorHdfsConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

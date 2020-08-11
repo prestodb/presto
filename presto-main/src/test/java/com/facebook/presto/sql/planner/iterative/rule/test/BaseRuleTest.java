@@ -22,7 +22,7 @@ import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 
-import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
 public abstract class BaseRuleTest
 {

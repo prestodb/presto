@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.airlift.http.client.HttpStatus;
+import io.airlift.http.client.HttpStatus;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.JsonResponseWrapper;
 import com.facebook.presto.spi.PrestoException;
@@ -21,7 +21,7 @@ import com.google.common.util.concurrent.FutureCallback;
 
 import java.net.URI;
 
-import static com.facebook.airlift.http.client.HttpStatus.OK;
+import static io.airlift.http.client.HttpStatus.OK;
 import static com.facebook.presto.server.smile.JsonResponseWrapper.unwrapJsonResponse;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static java.lang.String.format;

@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.http.client.FullJsonResponseHandler.JsonResponse;
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpUriBuilder;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.StatusResponseHandler;
-import com.facebook.airlift.http.client.jetty.JettyHttpClient;
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.testing.Closeables;
+import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpUriBuilder;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.StatusResponseHandler;
+import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.json.JsonCodec;
+import io.airlift.testing.Closeables;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
@@ -35,14 +35,14 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.util.List;
 
-import static com.facebook.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
-import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.airlift.http.client.Request.Builder.prepareHead;
-import static com.facebook.airlift.http.client.Request.Builder.preparePost;
-import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
-import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.Request.Builder.prepareHead;
+import static io.airlift.http.client.Request.Builder.preparePost;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;

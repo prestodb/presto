@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative;
 
-import com.facebook.airlift.stats.TimeDistribution;
+import io.airlift.stats.TimeDistribution;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

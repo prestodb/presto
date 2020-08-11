@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.stats.DistributionStat;
-import com.facebook.airlift.stats.TimeStat;
+import io.airlift.stats.DistributionStat;
+import io.airlift.stats.TimeStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.airlift.configuration.Config;
+import io.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
 

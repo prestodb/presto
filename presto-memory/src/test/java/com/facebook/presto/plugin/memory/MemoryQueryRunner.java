@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.plugin.memory;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.log.Logging;
+import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -23,7 +23,7 @@ import io.airlift.tpch.TpchTable;
 
 import java.util.Map;
 
-import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import com.facebook.airlift.discovery.client.ServiceDescriptor;
-import com.facebook.airlift.discovery.client.ServiceDescriptorsRepresentation;
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpClientConfig;
-import com.facebook.airlift.http.client.JsonResponseHandler;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.client.ServiceDescriptorsRepresentation;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.JsonResponseHandler;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryError;
@@ -38,11 +38,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.failResult;
 import static com.facebook.presto.benchmark.driver.BenchmarkQueryResult.passResult;
 import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;

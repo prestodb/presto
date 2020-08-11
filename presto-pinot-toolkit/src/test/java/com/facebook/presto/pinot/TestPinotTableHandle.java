@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 import io.airlift.json.JsonCodec;
 import io.airlift.testing.EquivalenceTester;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestPinotTableHandle

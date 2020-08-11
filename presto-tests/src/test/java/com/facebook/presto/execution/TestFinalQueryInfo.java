@@ -29,7 +29,7 @@ import org.testng.annotations.Test;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static java.util.concurrent.TimeUnit.MINUTES;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.thrift.api.connector;
 
-import com.facebook.airlift.stats.cardinality.HyperLogLog;
+import io.airlift.stats.cardinality.HyperLogLog;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;

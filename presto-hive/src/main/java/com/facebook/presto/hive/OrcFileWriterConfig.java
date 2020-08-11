@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.configuration.Config;
+import io.airlift.configuration.Config;
 import com.facebook.presto.orc.OrcWriterOptions;
 import io.airlift.units.DataSize;
 

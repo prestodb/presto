@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.airlift.http.client.HttpClient;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -52,7 +52,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.server.smile.JsonCodecWrapper.wrapJsonCodec;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.cache.alluxio;
 
-import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;

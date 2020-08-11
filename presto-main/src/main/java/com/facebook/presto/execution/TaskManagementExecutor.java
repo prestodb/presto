@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -22,7 +22,7 @@ import javax.annotation.PreDestroy;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 /**

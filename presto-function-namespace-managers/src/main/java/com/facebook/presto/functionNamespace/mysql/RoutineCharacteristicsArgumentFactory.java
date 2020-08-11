@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import org.jdbi.v3.core.argument.AbstractArgumentFactory;
 import org.jdbi.v3.core.argument.Argument;
 import org.jdbi.v3.core.argument.ObjectArgument;
 import org.jdbi.v3.core.config.ConfigRegistry;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.sql.Types.VARCHAR;
 
 public class RoutineCharacteristicsArgumentFactory

@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.proxy;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.bootstrap.LifeCycleManager;
-import com.facebook.airlift.http.server.HttpServerInfo;
-import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
-import com.facebook.airlift.jaxrs.JaxrsModule;
-import com.facebook.airlift.jmx.testing.TestingJmxModule;
-import com.facebook.airlift.json.JsonModule;
-import com.facebook.airlift.log.Logging;
-import com.facebook.airlift.node.testing.TestingNodeModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.http.server.HttpServerInfo;
+import io.airlift.http.server.testing.TestingHttpServerModule;
+import io.airlift.jaxrs.JaxrsModule;
+import io.airlift.jmx.testing.TestingJmxModule;
+import io.airlift.json.JsonModule;
+import io.airlift.log.Logging;
+import io.airlift.node.testing.TestingNodeModule;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.jdbc.PrestoResultSet;
 import com.facebook.presto.jdbc.PrestoStatement;
@@ -46,7 +46,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;

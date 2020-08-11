@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.raptor.backup;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.bootstrap.LifeCycleManager;
-import com.facebook.airlift.http.server.HttpServerInfo;
-import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
-import com.facebook.airlift.jaxrs.JaxrsModule;
-import com.facebook.airlift.json.JsonModule;
-import com.facebook.airlift.node.testing.TestingNodeModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.http.server.HttpServerInfo;
+import io.airlift.http.server.testing.TestingHttpServerModule;
+import io.airlift.jaxrs.JaxrsModule;
+import io.airlift.json.JsonModule;
+import io.airlift.node.testing.TestingNodeModule;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -35,7 +35,7 @@ import java.net.URI;
 import java.util.Map;
 import java.util.function.Supplier;
 
-import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;

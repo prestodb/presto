@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.backup;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

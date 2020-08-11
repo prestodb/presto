@@ -38,7 +38,7 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 
-import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.presto.common.block.MethodHandleUtil.compose;
 import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;

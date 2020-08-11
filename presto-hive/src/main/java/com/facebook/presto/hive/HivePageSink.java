@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.concurrent.MoreFutures;
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
+import io.airlift.concurrent.MoreFutures;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.IntArrayBlockBuilder;

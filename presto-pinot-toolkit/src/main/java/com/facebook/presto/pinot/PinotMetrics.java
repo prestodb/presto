@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.StringResponseHandler.StringResponse;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.StringResponseHandler.StringResponse;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

@@ -14,7 +14,7 @@
 package com.facebook.presto.cache.filemerge;
 
 import alluxio.collections.ConcurrentHashSet;
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheResult;

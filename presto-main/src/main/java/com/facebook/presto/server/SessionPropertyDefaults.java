@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.node.NodeInfo;
+import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;

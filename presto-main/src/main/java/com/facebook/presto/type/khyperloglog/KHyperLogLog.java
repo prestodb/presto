@@ -14,7 +14,7 @@
 
 package com.facebook.presto.type.khyperloglog;
 
-import com.facebook.airlift.stats.cardinality.HyperLogLog;
+import io.airlift.stats.cardinality.HyperLogLog;
 import com.google.common.collect.Sets;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Murmur3Hash128;

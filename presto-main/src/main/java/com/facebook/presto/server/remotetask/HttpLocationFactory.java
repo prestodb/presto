@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.airlift.http.client.HttpUriBuilder;
-import com.facebook.airlift.http.server.HttpServerInfo;
+import io.airlift.http.client.HttpUriBuilder;
+import io.airlift.http.server.HttpServerInfo;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskId;
@@ -29,7 +29,7 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.util.OptionalInt;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static java.util.Objects.requireNonNull;
 
 public class HttpLocationFactory

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClient;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
@@ -23,7 +23,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 
-import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 
 public class ClusterSizeFetcherModule
         implements Module

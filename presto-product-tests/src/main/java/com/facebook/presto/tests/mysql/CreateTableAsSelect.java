@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests.mysql;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import io.prestodb.tempto.AfterTestWithContext;
 import io.prestodb.tempto.BeforeTestWithContext;
 import io.prestodb.tempto.ProductTest;

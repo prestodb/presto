@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.druid;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.testing.EquivalenceTester;
+import io.airlift.json.JsonCodec;
+import io.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;
 
 public class TestDruidTableHandle

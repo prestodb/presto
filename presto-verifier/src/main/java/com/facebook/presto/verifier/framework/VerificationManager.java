@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.airlift.event.client.EventClient;
-import com.facebook.airlift.log.Logger;
+import io.airlift.event.client.EventClient;
+import io.airlift.log.Logger;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.verifier.annotation.ForControl;

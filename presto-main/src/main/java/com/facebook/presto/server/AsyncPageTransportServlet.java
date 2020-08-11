@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.log.Logger;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.log.Logger;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.buffer.BufferResult;
@@ -43,7 +43,7 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
+import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark.source;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import org.jdbi.v3.core.mapper.ColumnMapper;
 import org.jdbi.v3.core.statement.StatementContext;
 
@@ -21,7 +21,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 
-import static com.facebook.airlift.json.JsonCodec.mapJsonCodec;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 
 public class StringToStringMapColumnMapper
         implements ColumnMapper<Map<String, String>>

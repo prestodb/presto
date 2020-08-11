@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.airlift.discovery.client.ServiceDescriptor;
-import com.facebook.airlift.discovery.client.ServiceSelector;
-import com.facebook.airlift.discovery.client.ServiceType;
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.node.NodeInfo;
+import io.airlift.discovery.client.ServiceDescriptor;
+import io.airlift.discovery.client.ServiceSelector;
+import io.airlift.discovery.client.ServiceType;
+import io.airlift.http.client.HttpClient;
+import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
@@ -57,8 +57,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.spi.NodeState.ACTIVE;
 import static com.facebook.presto.spi.NodeState.INACTIVE;
 import static com.facebook.presto.spi.NodeState.SHUTTING_DOWN;

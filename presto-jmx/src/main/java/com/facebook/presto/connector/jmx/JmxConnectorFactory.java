@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.connector.jmx.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
@@ -27,7 +27,7 @@ import javax.management.MBeanServer;
 
 import java.util.Map;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 

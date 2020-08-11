@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.airlift.event.client.EventField;
-import com.facebook.airlift.event.client.EventField.EventFieldMapping;
-import com.facebook.airlift.event.client.EventType;
+import io.airlift.event.client.EventField;
+import io.airlift.event.client.EventField.EventFieldMapping;
+import io.airlift.event.client.EventType;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;

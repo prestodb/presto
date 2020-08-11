@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark.framework;
 
-import com.facebook.airlift.event.client.AbstractEventClient;
+import io.airlift.event.client.AbstractEventClient;
 import com.facebook.presto.benchmark.event.BenchmarkPhaseEvent;
 import com.facebook.presto.benchmark.event.BenchmarkQueryEvent;
 import com.google.common.collect.ImmutableListMultimap;

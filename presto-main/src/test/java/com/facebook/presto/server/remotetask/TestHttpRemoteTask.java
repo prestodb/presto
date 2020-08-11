@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.http.client.testing.TestingHttpClient;
-import com.facebook.airlift.jaxrs.JsonMapper;
-import com.facebook.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.JsonModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.http.client.testing.TestingHttpClient;
+import io.airlift.jaxrs.JsonMapper;
+import io.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonModule;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -89,9 +89,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.airlift.json.JsonBinder.jsonBinder;
-import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.json.JsonBinder.jsonBinder;
+import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;

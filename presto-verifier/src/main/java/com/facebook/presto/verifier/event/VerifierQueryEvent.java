@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.verifier.event;
 
-import com.facebook.airlift.event.client.EventField;
-import com.facebook.airlift.event.client.EventType;
+import io.airlift.event.client.EventField;
+import io.airlift.event.client.EventType;
 import com.facebook.presto.verifier.framework.DeterminismAnalysis;
 import com.facebook.presto.verifier.framework.SkippedReason;
 import com.facebook.presto.verifier.framework.SourceQuery;

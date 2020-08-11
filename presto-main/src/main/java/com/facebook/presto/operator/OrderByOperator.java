@@ -30,8 +30,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.airlift.concurrent.MoreFutures.checkSuccess;
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.MoreFutures.checkSuccess;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;

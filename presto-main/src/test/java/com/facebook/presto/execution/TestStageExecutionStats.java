@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.stats.Distribution;
-import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
+import io.airlift.json.JsonCodec;
+import io.airlift.stats.Distribution;
+import io.airlift.stats.Distribution.DistributionSnapshot;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;

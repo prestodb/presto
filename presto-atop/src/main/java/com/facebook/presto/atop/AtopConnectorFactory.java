@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.atop;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.json.JsonModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.json.JsonModule;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControlModule;
 import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
 import com.facebook.presto.spi.ConnectorHandleResolver;
@@ -26,7 +26,7 @@ import com.google.inject.Injector;
 
 import java.util.Map;
 
-import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_FILE;
 import static com.facebook.presto.atop.AtopConnectorConfig.SECURITY_NONE;
 import static com.google.common.base.Throwables.throwIfUnchecked;

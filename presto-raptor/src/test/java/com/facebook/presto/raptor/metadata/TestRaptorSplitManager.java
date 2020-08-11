@@ -55,8 +55,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
-import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DELTA_DELETE;
 import static com.facebook.presto.raptor.metadata.DatabaseShardManager.shardIndexTable;

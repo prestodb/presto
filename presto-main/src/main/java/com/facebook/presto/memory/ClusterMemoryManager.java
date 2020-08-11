@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
+import io.airlift.http.client.HttpClient;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryIdGenerator;

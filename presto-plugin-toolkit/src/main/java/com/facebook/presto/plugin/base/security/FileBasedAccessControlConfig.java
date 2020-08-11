@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.base.security;
 
-import com.facebook.airlift.configuration.Config;
+import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 

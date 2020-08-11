@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getDone;
+import static io.airlift.concurrent.MoreFutures.getDone;
 import static com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.SpatialJoinNode.Type.LEFT;
 import static com.google.common.base.Preconditions.checkArgument;

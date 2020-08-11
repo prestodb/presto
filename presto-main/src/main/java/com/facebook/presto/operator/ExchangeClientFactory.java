@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
-import com.facebook.airlift.http.client.HttpClient;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.airlift.http.client.HttpClient;
 import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
@@ -30,7 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;

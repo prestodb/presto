@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.functionNamespace.mysql.FunctionNamespaceDao;
 import com.facebook.presto.functionNamespace.mysql.MySqlFunctionNamespaceManagerConfig;
 import com.google.inject.Binder;

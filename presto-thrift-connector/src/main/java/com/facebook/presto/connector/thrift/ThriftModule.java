@@ -28,8 +28,8 @@ import javax.inject.Singleton;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.drift.client.ExceptionClassification.NORMAL_EXCEPTION;
 import static com.facebook.drift.client.guice.DriftClientBinder.driftClientBinder;
 import static java.util.Objects.requireNonNull;

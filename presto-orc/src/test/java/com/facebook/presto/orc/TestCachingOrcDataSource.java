@@ -40,8 +40,8 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.stream.Stream;
 
-import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
-import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.AbstractOrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;

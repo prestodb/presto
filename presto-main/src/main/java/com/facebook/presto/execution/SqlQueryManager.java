@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
-import com.facebook.airlift.log.Logger;
+import io.airlift.concurrent.ThreadPoolExecutorMBean;
+import io.airlift.log.Logger;
 import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.ExceededScanLimitException;
 import com.facebook.presto.Session;
@@ -50,7 +50,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxCpuTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxScanRawInputBytes;
 import static com.facebook.presto.execution.QueryState.RUNNING;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.airlift.stats.QuantileDigest;
+import io.airlift.stats.QuantileDigest;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;

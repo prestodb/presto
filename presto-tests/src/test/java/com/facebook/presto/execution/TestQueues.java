@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.jetty.JettyHttpClient;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
@@ -45,10 +45,10 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
-import static com.facebook.airlift.http.client.Request.Builder.preparePut;
-import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static io.airlift.http.client.Request.Builder.prepareGet;
+import static io.airlift.http.client.Request.Builder.preparePut;
+import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
+import static io.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;

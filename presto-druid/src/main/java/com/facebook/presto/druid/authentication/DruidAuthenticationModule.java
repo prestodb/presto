@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.druid.authentication;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.druid.DruidConfig;
 import com.facebook.presto.druid.ForDruidClient;
 import com.google.inject.Binder;
@@ -21,8 +21,8 @@ import com.google.inject.Module;
 
 import java.util.function.Predicate;
 
-import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
-import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.BASIC;
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.KERBEROS;
 import static com.facebook.presto.druid.DruidConfig.DruidAuthenticationType.NONE;

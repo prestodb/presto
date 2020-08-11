@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.verifier.framework;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.bootstrap.LifeCycleManager;
-import com.facebook.airlift.log.Logger;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.bootstrap.LifeCycleManager;
+import io.airlift.log.Logger;
 import com.facebook.presto.verifier.event.EventClientModule;
 import com.facebook.presto.verifier.prestoaction.QueryActionsModule;
 import com.facebook.presto.verifier.source.SourceQueryModule;

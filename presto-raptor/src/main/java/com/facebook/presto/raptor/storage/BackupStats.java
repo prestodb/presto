@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.DistributionStat;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.DistributionStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;

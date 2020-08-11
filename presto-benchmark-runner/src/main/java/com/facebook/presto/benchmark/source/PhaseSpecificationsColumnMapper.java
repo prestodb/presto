@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.benchmark.source;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.benchmark.framework.PhaseSpecification;
 import org.jdbi.v3.core.mapper.ColumnMapper;
 import org.jdbi.v3.core.statement.StatementContext;
@@ -22,7 +22,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
-import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 
 public class PhaseSpecificationsColumnMapper
         implements ColumnMapper<List<PhaseSpecification>>

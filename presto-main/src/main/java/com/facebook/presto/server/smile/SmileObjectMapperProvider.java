@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.smile;
 
-import com.facebook.airlift.json.ObjectMapperProvider;
+import io.airlift.json.ObjectMapperProvider;
 import com.fasterxml.jackson.dataformat.smile.SmileFactory;
 import com.google.inject.Inject;
 

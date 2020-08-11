@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests.cli;
 
-import com.facebook.airlift.testing.TempFile;
+import io.airlift.testing.TempFile;
 import com.facebook.presto.cli.Presto;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;

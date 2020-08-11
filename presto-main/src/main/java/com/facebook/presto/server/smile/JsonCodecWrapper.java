@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.smile;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;

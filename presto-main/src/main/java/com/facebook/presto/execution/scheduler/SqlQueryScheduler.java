@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution.scheduler;
 
-import com.facebook.airlift.concurrent.SetThreadName;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.stats.TimeStat;
+import io.airlift.concurrent.SetThreadName;
+import io.airlift.log.Logger;
+import io.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -73,9 +73,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
 import static com.facebook.presto.SystemSessionProperties.getMaxStageRetries;
 import static com.facebook.presto.SystemSessionProperties.isRuntimeOptimizerEnabled;

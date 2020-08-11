@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.airlift.configuration.Config;
+import io.airlift.configuration.Config;
 
 public class H2ConnectionConfig
 {

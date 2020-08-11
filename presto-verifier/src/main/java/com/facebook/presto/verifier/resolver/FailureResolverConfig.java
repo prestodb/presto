@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.airlift.configuration.Config;
+import io.airlift.configuration.Config;
 
 public class FailureResolverConfig
 {

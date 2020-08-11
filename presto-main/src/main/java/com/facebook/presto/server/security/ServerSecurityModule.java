@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.server.security;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.airlift.http.server.Authenticator;
-import com.facebook.airlift.http.server.CertificateAuthenticator;
-import com.facebook.airlift.http.server.JsonWebTokenAuthenticator;
-import com.facebook.airlift.http.server.JsonWebTokenConfig;
-import com.facebook.airlift.http.server.KerberosAuthenticator;
-import com.facebook.airlift.http.server.KerberosConfig;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.http.server.Authenticator;
+import io.airlift.http.server.CertificateAuthenticator;
+import io.airlift.http.server.JsonWebTokenAuthenticator;
+import io.airlift.http.server.JsonWebTokenConfig;
+import io.airlift.http.server.KerberosAuthenticator;
+import io.airlift.http.server.KerberosConfig;
 import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
@@ -27,7 +27,7 @@ import com.google.inject.multibindings.Multibinder;
 
 import java.util.List;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.JWT;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;

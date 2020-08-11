@@ -21,8 +21,8 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.ExecutorService;
 
-import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;

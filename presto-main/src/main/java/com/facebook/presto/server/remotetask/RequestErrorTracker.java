@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.airlift.event.client.ServiceUnavailableException;
-import com.facebook.airlift.log.Logger;
+import io.airlift.event.client.ServiceUnavailableException;
+import io.airlift.log.Logger;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;

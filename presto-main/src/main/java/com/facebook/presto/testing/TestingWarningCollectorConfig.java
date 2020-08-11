@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
 import static com.google.common.base.Preconditions.checkArgument;
 

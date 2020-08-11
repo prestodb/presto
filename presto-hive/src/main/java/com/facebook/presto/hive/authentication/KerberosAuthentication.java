@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.authentication;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 

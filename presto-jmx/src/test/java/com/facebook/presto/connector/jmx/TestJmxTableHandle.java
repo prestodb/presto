@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.airlift.testing.EquivalenceTester;
+import io.airlift.testing.EquivalenceTester;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;

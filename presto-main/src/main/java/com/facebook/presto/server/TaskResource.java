@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.stats.TimeStat;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.json.JsonCodec;
+import io.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.TaskId;
@@ -64,8 +64,8 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
-import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
+import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.airlift.http.server.AsyncResponseHandler.bindAsyncResponse;
 import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;

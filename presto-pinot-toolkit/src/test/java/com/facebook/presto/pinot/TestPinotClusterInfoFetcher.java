@@ -14,10 +14,10 @@
 
 package com.facebook.presto.pinot;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpStatus;
-import com.facebook.airlift.http.client.testing.TestingHttpClient;
-import com.facebook.airlift.http.client.testing.TestingResponse;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpStatus;
+import io.airlift.http.client.testing.TestingHttpClient;
+import io.airlift.http.client.testing.TestingResponse;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.MediaType;

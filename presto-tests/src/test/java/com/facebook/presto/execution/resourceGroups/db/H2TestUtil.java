@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.resourceGroups.db;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static io.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;

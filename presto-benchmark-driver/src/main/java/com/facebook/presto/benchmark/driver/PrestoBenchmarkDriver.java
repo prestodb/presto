@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.benchmark.driver;
 
-import com.facebook.airlift.log.Level;
-import com.facebook.airlift.log.Logging;
-import com.facebook.airlift.log.LoggingConfiguration;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
+import io.airlift.log.LoggingConfiguration;
 import com.facebook.presto.client.ClientSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.airline.Command;

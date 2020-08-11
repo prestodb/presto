@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.airlift.testing.TestingTicker;
+import io.airlift.testing.TestingTicker;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.spi.ErrorCodeSupplier;

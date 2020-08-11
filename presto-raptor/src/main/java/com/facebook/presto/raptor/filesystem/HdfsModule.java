@@ -31,8 +31,8 @@ import org.apache.hadoop.fs.Path;
 
 import javax.inject.Singleton;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.cache.CacheType.FILE_MERGE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;

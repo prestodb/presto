@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor.backup;
 
-import com.facebook.airlift.stats.CounterStat;
-import com.facebook.airlift.stats.TimeStat;
+import io.airlift.stats.CounterStat;
+import io.airlift.stats.TimeStat;
 import com.facebook.presto.spi.PrestoException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;

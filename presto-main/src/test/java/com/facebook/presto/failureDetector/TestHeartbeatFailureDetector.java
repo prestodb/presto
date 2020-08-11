@@ -13,16 +13,16 @@
  */
 package com.facebook.presto.failureDetector;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.discovery.client.ServiceSelector;
-import com.facebook.airlift.discovery.client.testing.TestingDiscoveryModule;
-import com.facebook.airlift.http.server.testing.TestingHttpServerModule;
-import com.facebook.airlift.jaxrs.JaxrsModule;
-import com.facebook.airlift.jmx.testing.TestingJmxModule;
-import com.facebook.airlift.json.JsonModule;
-import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.airlift.node.testing.TestingNodeModule;
-import com.facebook.airlift.tracetoken.TraceTokenModule;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.discovery.client.ServiceSelector;
+import io.airlift.discovery.client.testing.TestingDiscoveryModule;
+import io.airlift.http.server.testing.TestingHttpServerModule;
+import io.airlift.jaxrs.JaxrsModule;
+import io.airlift.jmx.testing.TestingJmxModule;
+import io.airlift.json.JsonModule;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.node.testing.TestingNodeModule;
+import io.airlift.tracetoken.TraceTokenModule;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.failureDetector.HeartbeatFailureDetector.Stats;
 import com.facebook.presto.server.InternalCommunicationConfig;
@@ -40,10 +40,10 @@ import javax.ws.rs.Path;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
-import static com.facebook.airlift.discovery.client.ServiceTypes.serviceType;
-import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
+import static io.airlift.discovery.client.ServiceTypes.serviceType;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

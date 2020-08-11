@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.pinot.query;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.pinot.PinotColumnHandle;

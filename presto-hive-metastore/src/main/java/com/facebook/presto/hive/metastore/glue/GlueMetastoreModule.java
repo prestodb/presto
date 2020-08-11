@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.glue;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
+import io.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -25,8 +25,8 @@ import com.google.inject.Singleton;
 
 import java.util.concurrent.Executor;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;

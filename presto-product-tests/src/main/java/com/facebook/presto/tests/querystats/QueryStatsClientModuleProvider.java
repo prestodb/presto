@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests.querystats;
 
-import com.facebook.airlift.http.client.HttpClientConfig;
-import com.facebook.airlift.http.client.jetty.JettyHttpClient;
-import com.facebook.airlift.json.ObjectMapperProvider;
+import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.json.ObjectMapperProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.Exposed;
 import com.google.inject.Inject;

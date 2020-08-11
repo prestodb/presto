@@ -28,7 +28,7 @@ import java.io.Closeable;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;

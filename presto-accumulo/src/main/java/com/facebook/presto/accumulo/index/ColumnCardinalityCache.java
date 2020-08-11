@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.accumulo.index;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.log.Logger;
+import io.airlift.concurrent.BoundedExecutor;
+import io.airlift.log.Logger;
 import com.facebook.presto.accumulo.conf.AccumuloConfig;
 import com.facebook.presto.accumulo.model.AccumuloColumnConstraint;
 import com.facebook.presto.spi.PrestoException;
@@ -56,7 +56,7 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.accumulo.AccumuloErrorCode.UNEXPECTED_ACCUMULO_ERROR;
 import static com.facebook.presto.accumulo.index.Indexer.CARDINALITY_CQ_AS_TEXT;
 import static com.facebook.presto.accumulo.index.Indexer.getIndexColumnFamily;

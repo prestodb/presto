@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.airlift.log.Logging;
+import io.airlift.log.Logging;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.HiveHadoop2Plugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;

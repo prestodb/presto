@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.server.smile;
 
-import com.facebook.airlift.http.client.FullJsonResponseHandler;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.Response;
-import com.facebook.airlift.http.client.ResponseHandler;
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.http.client.FullJsonResponseHandler;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.Response;
+import io.airlift.http.client.ResponseHandler;
+import io.airlift.json.JsonCodec;
 
-import static com.facebook.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
 import static com.facebook.presto.server.smile.JsonResponseWrapper.wrapJsonResponse;
 import static java.util.Objects.requireNonNull;
 

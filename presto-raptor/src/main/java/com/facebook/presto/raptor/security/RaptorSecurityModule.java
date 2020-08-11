@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.raptor.security;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControlModule;
 import com.facebook.presto.plugin.base.security.FileBasedAccessControlModule;
 import com.facebook.presto.plugin.base.security.ReadOnlySecurityModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
-import static com.facebook.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 
 public class RaptorSecurityModule
         extends AbstractConfigurationAwareModule

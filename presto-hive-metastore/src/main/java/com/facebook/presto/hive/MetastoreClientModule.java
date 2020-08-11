@@ -16,7 +16,7 @@ package com.facebook.presto.hive;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class MetastoreClientModule
         implements Module

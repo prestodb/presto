@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import com.facebook.presto.client.ClientException;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.JsonResponse;
@@ -25,7 +25,7 @@ import okhttp3.Request;
 
 import java.net.URI;
 
-import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.redis;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -31,7 +31,7 @@ import io.airlift.tpch.TpchTable;
 
 import java.util.Map;
 
-import static com.facebook.airlift.testing.Closeables.closeAllSuppress;
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static com.facebook.presto.redis.util.RedisTestUtils.installRedisPlugin;
 import static com.facebook.presto.redis.util.RedisTestUtils.loadTpchTableDescription;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;

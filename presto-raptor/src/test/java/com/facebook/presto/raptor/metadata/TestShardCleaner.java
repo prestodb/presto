@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.airlift.testing.TestingTicker;
+import io.airlift.testing.TestingTicker;
 import com.facebook.presto.raptor.backup.BackupStore;
 import com.facebook.presto.raptor.backup.FileBackupStore;
 import com.facebook.presto.raptor.filesystem.LocalFileStorageService;
@@ -45,7 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.util.UuidUtil.uuidFromBytes;
 import static com.google.common.io.Files.createTempDir;

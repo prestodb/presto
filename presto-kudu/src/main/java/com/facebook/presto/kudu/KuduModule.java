@@ -33,7 +33,7 @@ import org.apache.kudu.client.KuduClient;
 
 import javax.inject.Singleton;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class KuduModule

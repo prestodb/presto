@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.druid.authentication;
 
-import com.facebook.airlift.http.client.BasicAuthRequestFilter;
-import com.facebook.airlift.http.client.HttpRequestFilter;
-import com.facebook.airlift.http.client.Request;
+import io.airlift.http.client.BasicAuthRequestFilter;
+import io.airlift.http.client.HttpRequestFilter;
+import io.airlift.http.client.Request;
 import com.facebook.presto.druid.DruidConfig;
 
 import javax.inject.Inject;
