@@ -171,7 +171,6 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
@@ -807,13 +806,8 @@ public class BuiltInFunctionNamespaceManager
             throw e;
         }
         SqlFunction function = functionKey.getFunction();
-        FunctionImplementationType implementationType = function instanceof SqlInvokedFunction ? SQL : BUILTIN;
-        Optional<List<String>> argumentNames = (function instanceof SqlInvokedFunction)
-                ? Optional.of(((SqlInvokedFunction) function).getParameters().stream().map(Parameter::getName).collect(toImmutableList()))
-                : Optional.empty();
         Optional<OperatorType> operatorType = tryGetOperatorType(signature.getName());
         if (operatorType.isPresent()) {
-            checkArgument(implementationType == BUILTIN, "Operator must be implemented as built-in, found: %s", implementationType);
             return new FunctionMetadata(
                     operatorType.get(),
                     signature.getArgumentTypes(),
@@ -823,14 +817,27 @@ public class BuiltInFunctionNamespaceManager
                     function.isDeterministic(),
                     function.isCalledOnNullInput());
         }
-        else {
+        else if (function instanceof SqlInvokedFunction) {
+            SqlInvokedFunction sqlFunction = (SqlInvokedFunction) function;
+            List<String> argumentNames = sqlFunction.getParameters().stream().map(Parameter::getName).collect(toImmutableList());
             return new FunctionMetadata(
                     signature.getName(),
                     signature.getArgumentTypes(),
                     argumentNames,
                     signature.getReturnType(),
                     signature.getKind(),
-                    implementationType,
+                    sqlFunction.getRoutineCharacteristics().getLanguage(),
+                    SQL,
+                    function.isDeterministic(),
+                    function.isCalledOnNullInput());
+        }
+        else {
+            return new FunctionMetadata(
+                    signature.getName(),
+                    signature.getArgumentTypes(),
+                    signature.getReturnType(),
+                    signature.getKind(),
+                    BUILTIN,
                     function.isDeterministic(),
                     function.isCalledOnNullInput());
         }
