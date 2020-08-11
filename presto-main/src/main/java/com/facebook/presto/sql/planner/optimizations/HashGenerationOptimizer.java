@@ -401,7 +401,8 @@ public class HashGenerationOptimizer
                             node.getSemiJoinOutput(),
                             Optional.of(sourceHashVariable),
                             Optional.of(filteringSourceHashVariable),
-                            node.getDistributionType()),
+                            node.getDistributionType(),
+                            node.getDynamicFilters()),
                     source.getHashVariables());
         }
 

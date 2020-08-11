@@ -568,7 +568,8 @@ public class PlanBuilder
                 semiJoinOutput,
                 sourceHashVariable,
                 filteringSourceHashVariable,
-                distributionType);
+                distributionType,
+                ImmutableMap.of());
     }
 
     public IndexSourceNode indexSource(
