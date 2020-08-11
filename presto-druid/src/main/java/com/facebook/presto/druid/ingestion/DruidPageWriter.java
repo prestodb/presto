@@ -53,24 +53,26 @@ public class DruidPageWriter
         this.hadoopConfiguration = druidConfig.readHadoopConfiguration();
     }
 
-    public void append(Page page, DruidIngestionTableHandle tableHandle, Path dataPath)
+    public Path append(Page page, DruidIngestionTableHandle tableHandle, Path dataPath)
     {
         Path dataFile = new Path(dataPath, UUID.randomUUID() + DATA_FILE_EXTENSION);
-        try (FileSystem fileSystem = dataFile.getFileSystem(hadoopConfiguration);
-                FSDataOutputStream outputStream = fileSystem.create(dataFile);
-                GZIPOutputStream zipOutputStream = new GZIPOutputStream(outputStream);
-                JsonGenerator jsonGen = JSON_FACTORY.createGenerator(zipOutputStream)) {
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                jsonGen.writeStartObject();
-                for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                    DruidColumnInfo column = tableHandle.getColumns().get(channel);
-                    Block block = page.getBlock(channel);
-                    jsonGen.writeFieldName(column.getColumnName());
-                    writeFieldValue(jsonGen, column.getDataType(), block, position);
+        try {
+            FileSystem fileSystem = dataFile.getFileSystem(hadoopConfiguration);
+            try (FSDataOutputStream outputStream = fileSystem.create(dataFile);
+                    GZIPOutputStream zipOutputStream = new GZIPOutputStream(outputStream);
+                    JsonGenerator jsonGen = JSON_FACTORY.createGenerator(zipOutputStream)) {
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    jsonGen.writeStartObject();
+                    for (int channel = 0; channel < page.getChannelCount(); channel++) {
+                        DruidColumnInfo column = tableHandle.getColumns().get(channel);
+                        Block block = page.getBlock(channel);
+                        jsonGen.writeFieldName(column.getColumnName());
+                        writeFieldValue(jsonGen, column.getDataType(), block, position);
+                    }
+                    jsonGen.writeEndObject();
                 }
-                jsonGen.writeEndObject();
-                jsonGen.writeRaw('\n');
             }
+            return dataFile;
         }
         catch (IOException e) {
             throw new PrestoException(DRUID_DEEP_STORAGE_ERROR, "Ingestion failed on " + tableHandle.getTableName(), e);

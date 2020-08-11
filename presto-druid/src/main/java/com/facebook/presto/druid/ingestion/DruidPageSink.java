@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.Path;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -39,6 +41,7 @@ public class DruidPageSink
     private final DruidIngestionTableHandle tableHandle;
     private final DruidPageWriter druidPageWriter;
     private final Path dataPath;
+    private List<String> dataFileList;
 
     public DruidPageSink(
             DruidConfig druidConfig,
@@ -51,12 +54,13 @@ public class DruidPageSink
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.druidPageWriter = requireNonNull(druidPageWriter, "pageWriter is null");
         this.dataPath = new Path(druidConfig.getIngestionStoragePath(), tableHandle.getTableName() + UUID.randomUUID());
+        this.dataFileList = new ArrayList<String>();
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
-        druidPageWriter.append(page, tableHandle, dataPath);
+        dataFileList.add(druidPageWriter.append(page, tableHandle, dataPath).toString());
         return NOT_BLOCKED;
     }
 
@@ -65,7 +69,7 @@ public class DruidPageSink
     {
         DruidIngestTask ingestTask = new DruidIngestTask.Builder()
                 .withDataSource(tableHandle.getTableName())
-                .withBaseDir(dataPath.toString())
+                .withInputSource(dataPath, dataFileList)
                 .withTimestampColumn(TIMESTAMP_COLUMN)
                 .withDimensions(tableHandle.getColumns().stream()
                         .filter(column -> !column.getColumnName().equals(TIMESTAMP_COLUMN))
