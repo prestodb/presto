@@ -152,7 +152,7 @@ public class TestMySqlFunctionNamespaceManager
 
         createFunction(function1, false);
         createFunction(function2, false);
-        assertListFunctions(function1.withVersion(1), function2.withVersion(1));
+        assertListFunctions(function1.withVersion("1"), function2.withVersion("1"));
     }
 
     @Test
@@ -161,20 +161,20 @@ public class TestMySqlFunctionNamespaceManager
         assertListFunctions();
 
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
 
         createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, true);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2));
-        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"));
 
         createFunction(FUNCTION_POWER_TOWER_INT, true);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1));
-        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"), FUNCTION_POWER_TOWER_INT.withVersion("1"));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"), FUNCTION_POWER_TOWER_INT.withVersion("1"));
 
         createFunction(FUNCTION_TANGENT, true);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1), FUNCTION_TANGENT.withVersion(1));
-        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1));
-        assertGetFunctions(TANGENT, FUNCTION_TANGENT.withVersion(1));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"), FUNCTION_POWER_TOWER_INT.withVersion("1"), FUNCTION_TANGENT.withVersion("1"));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"), FUNCTION_POWER_TOWER_INT.withVersion("1"));
+        assertGetFunctions(TANGENT, FUNCTION_TANGENT.withVersion("1"));
     }
 
     @Test
@@ -188,16 +188,16 @@ public class TestMySqlFunctionNamespaceManager
     public void testCreateFunctionRepeatedly()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
 
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, true);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*function 'unittest\\.memory\\.power_tower\\(x double\\):double:1 \\{RETURN pow\\(x, x\\)\\} \\(SQL, DETERMINISTIC, CALLED_ON_NULL_INPUT\\)' is already versioned")
     public void testCreateFunctionFailedVersioned()
     {
-        createFunction(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1), true);
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"), true);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Schema name exceeds max length of 128.*")
@@ -277,7 +277,7 @@ public class TestMySqlFunctionNamespaceManager
         alterFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), new AlterRoutineCharacteristics(Optional.of(RETURNS_NULL_ON_NULL_INPUT)));
         assertGetFunctions(
                 POWER_TOWER,
-                FUNCTION_POWER_TOWER_INT.withVersion(1L),
+                FUNCTION_POWER_TOWER_INT.withVersion("1"),
                 new SqlInvokedFunction(
                         POWER_TOWER,
                         ImmutableList.of(new Parameter("x", parseTypeSignature(DOUBLE))),
@@ -285,7 +285,7 @@ public class TestMySqlFunctionNamespaceManager
                         "power tower",
                         RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
                         "RETURN pow(x, x)",
-                        Optional.of(2L)));
+                        Optional.of("2")));
 
         // Drop function and alter function by name
         dropFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), false);
@@ -300,7 +300,7 @@ public class TestMySqlFunctionNamespaceManager
                 FUNCTION_TANGENT.getDescription(),
                 RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
                 FUNCTION_TANGENT.getBody(),
-                Optional.of(2L));
+                Optional.of("2"));
         assertGetFunctions(TANGENT, tangentV2);
 
         // Alter function with no change
@@ -341,10 +341,10 @@ public class TestMySqlFunctionNamespaceManager
 
         // Drop a specific function by name and parameter types
         dropFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), true);
-        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_INT.withVersion(1));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_INT.withVersion("1"));
 
         dropFunction(TANGENT, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), true);
-        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_INT.withVersion(1));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_INT.withVersion("1"));
         assertGetFunctions(TANGENT);
 
         // Recreate functions, power_double(double) is created with a different definition
@@ -401,7 +401,7 @@ public class TestMySqlFunctionNamespaceManager
     public void testInvalidFunctionHandle()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, true);
-        SqlFunctionHandle functionHandle = new SqlFunctionHandle(FUNCTION_POWER_TOWER_DOUBLE.getFunctionId(), 2);
+        SqlFunctionHandle functionHandle = new SqlFunctionHandle(FUNCTION_POWER_TOWER_DOUBLE.getFunctionId(), "2");
         functionNamespaceManager.getFunctionMetadata(functionHandle);
     }
 

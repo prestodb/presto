@@ -50,7 +50,7 @@ public class SqlInvokedFunction
             String description,
             RoutineCharacteristics routineCharacteristics,
             String body,
-            Optional<Long> version)
+            Optional<String> version)
     {
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.description = requireNonNull(description, "description is null");
@@ -65,7 +65,7 @@ public class SqlInvokedFunction
         this.functionHandle = version.map(v -> new SqlFunctionHandle(this.functionId, v));
     }
 
-    public SqlInvokedFunction withVersion(long version)
+    public SqlInvokedFunction withVersion(String version)
     {
         if (getVersion().isPresent()) {
             throw new IllegalArgumentException(format("function %s is already with version %s", signature.getName(), getVersion().get()));
@@ -135,7 +135,7 @@ public class SqlInvokedFunction
         return functionHandle;
     }
 
-    public Optional<Long> getVersion()
+    public Optional<String> getVersion()
     {
         return functionHandle.map(SqlFunctionHandle::getVersion);
     }
@@ -149,9 +149,9 @@ public class SqlInvokedFunction
         return functionHandle.get();
     }
 
-    public long getRequiredVersion()
+    public String getRequiredVersion()
     {
-        Optional<Long> version = getVersion();
+        Optional<String> version = getVersion();
         if (!version.isPresent()) {
             throw new IllegalStateException("missing version");
         }

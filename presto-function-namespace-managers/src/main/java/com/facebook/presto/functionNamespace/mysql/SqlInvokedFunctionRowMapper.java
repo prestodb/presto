@@ -49,7 +49,7 @@ public class SqlInvokedFunctionRowMapper
         String description = rs.getString("description");
         RoutineCharacteristics routineCharacteristics = ROUTINE_CHARACTERISTICS_CODEC.fromJson(rs.getString("routine_characteristics"));
         String body = rs.getString("body");
-        long version = rs.getLong("version");
+        String version = String.valueOf(rs.getLong("version"));
 
         return new SqlInvokedFunction(
                 QualifiedFunctionName.of(new CatalogSchemaName(catalog, schema), functionName),
