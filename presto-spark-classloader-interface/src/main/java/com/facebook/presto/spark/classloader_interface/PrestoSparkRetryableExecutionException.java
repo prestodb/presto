@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.execution;
+package com.facebook.presto.spark.classloader_interface;
 
-public class PrestoSparkNonRetryableExecutionException
+public class PrestoSparkRetryableExecutionException
         extends PrestoSparkExecutionException
 {
-    public PrestoSparkNonRetryableExecutionException(String message, String encodedExecutionFailureInfo, Throwable cause)
+    public PrestoSparkRetryableExecutionException(String message, String encodedExecutionFailureInfo, Throwable cause)
     {
         super(message, encodedExecutionFailureInfo, cause);
     }
