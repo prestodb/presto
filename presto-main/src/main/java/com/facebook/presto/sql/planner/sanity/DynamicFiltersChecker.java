@@ -21,9 +21,11 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
@@ -67,13 +69,24 @@ public class DynamicFiltersChecker
             @Override
             public Set<String> visitJoin(JoinNode node, Void context)
             {
+                return extractUnmatchedDynamicFilters(node, context);
+            }
+
+            @Override
+            public Set<String> visitSemiJoin(SemiJoinNode node, Void context)
+            {
+                return extractUnmatchedDynamicFilters(node, context);
+            }
+
+            private Set<String> extractUnmatchedDynamicFilters(AbstractJoinNode node, Void context)
+            {
                 Set<String> currentJoinDynamicFilters = node.getDynamicFilters().keySet();
-                Set<String> consumedProbeSide = node.getLeft().accept(this, context);
+                Set<String> consumedProbeSide = node.getProbe().accept(this, context);
                 verify(
                         difference(currentJoinDynamicFilters, consumedProbeSide).isEmpty(),
                         "Dynamic filters present in join were not fully consumed by it's probe side.");
 
-                Set<String> consumedBuildSide = node.getRight().accept(this, context);
+                Set<String> consumedBuildSide = node.getBuild().accept(this, context);
                 verify(intersection(currentJoinDynamicFilters, consumedBuildSide).isEmpty());
 
                 Set<String> unmatched = new HashSet<>(consumedBuildSide);

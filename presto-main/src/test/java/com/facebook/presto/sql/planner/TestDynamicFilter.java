@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -240,5 +241,136 @@ public class TestDynamicFilter
                                         anyTree(node(FilterNode.class, tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))),
                                 exchange(
                                         project(tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))));
+    }
+
+    @Test
+    public void testSemiJoin()
+    {
+        assertPlan(
+                "select o.orderkey,totalprice from orders o WHERE o.orderkey IN ( SELECT l.orderkey FROM lineitem l)",
+                anyTree(
+                        filter(
+                                "S",
+                                project(
+                                        semiJoin(
+                                                "X",
+                                                "Y",
+                                                "S",
+                                                anyTree(
+                                                        node(
+                                                                FilterNode.class,
+                                                                tableScan("orders", ImmutableMap.of("X", "orderkey")))),
+                                                //tableScan("orders", ImmutableMap.of("X", "orderkey"))),
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
+    }
+
+    @Test
+    public void testSemiJoinWithFilter()
+    {
+        assertPlan(
+                "SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
+                anyTree(
+                        filter(
+                                "S",
+                                project(
+                                        semiJoin(
+                                                "X",
+                                                "Y",
+                                                "S",
+                                                anyTree(
+                                                        tableScan("orders", ImmutableMap.of("X", "orderkey"))),
+                                                anyTree(
+                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
+    }
+
+    @Test
+    public void testPushDownToLhsOfSemiJoin()
+    {
+        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders)) " +
+                        "WHERE linenumber = 2",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                anyTree(
+                                        filter("LINE_NUMBER = 2",
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINE_ORDER_KEY", "orderkey",
+                                                        "LINE_NUMBER", "linenumber",
+                                                        "LINE_QUANTITY", "quantity")))),
+                                anyTree(tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey"))))));
+    }
+
+    @Test
+    public void testNonDeterministicPredicatePropagatesOnlyToSourceSideOfSemiJoin()
+    {
+        assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey = random(5)",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                anyTree(
+                                        filter("LINE_ORDER_KEY = CAST(random(5) AS bigint)",
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINE_ORDER_KEY", "orderkey")))),
+                                node(ExchangeNode.class, // NO filter here
+                                        project(
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+
+        assertPlan("SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders) AND orderkey = random(5)",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                anyTree(
+                                        filter("LINE_ORDER_KEY = CAST(random(5) AS bigint)",
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINE_ORDER_KEY", "orderkey")))),
+                                anyTree(
+                                        project(// NO filter here
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testGreaterPredicateFromFilterSidePropagatesToSourceSideOfSemiJoin()
+    {
+        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey > 2))",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                anyTree(
+                                        filter("LINE_ORDER_KEY > BIGINT '2'",
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINE_ORDER_KEY", "orderkey",
+                                                        "LINE_QUANTITY", "quantity")))),
+                                anyTree(
+                                        filter("ORDERS_ORDER_KEY > BIGINT '2'",
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testGreaterPredicateFromSourceSidePropagatesToFilterSideOfSemiJoin()
+    {
+        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey > 2)",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                anyTree(
+                                        filter("LINE_ORDER_KEY > BIGINT '2'",
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINE_ORDER_KEY", "orderkey",
+                                                        "LINE_QUANTITY", "quantity")))),
+                                anyTree(
+                                        filter("ORDERS_ORDER_KEY > BIGINT '2'",
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+    }
+
+    @Test
+    public void testPredicateFromSourceSideNotPropagatesToFilterSideOfSemiJoinIfNotIn()
+    {
+        assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders) AND orderkey > 2)",
+                anyTree(
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                                project(
+                                        filter("LINE_ORDER_KEY > BIGINT '2'",
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINE_ORDER_KEY", "orderkey",
+                                                        "LINE_QUANTITY", "quantity")))),
+                                node(ExchangeNode.class, // NO filter here
+                                        project(
+                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
     }
 }

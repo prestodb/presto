@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -30,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class SemiJoinNode
-        extends InternalPlanNode
+        extends AbstractJoinNode
 {
     private final PlanNode source;
     private final PlanNode filteringSource;
@@ -40,6 +41,7 @@ public class SemiJoinNode
     private final Optional<VariableReferenceExpression> sourceHashVariable;
     private final Optional<VariableReferenceExpression> filteringSourceHashVariable;
     private final Optional<DistributionType> distributionType;
+    private final Map<String, VariableReferenceExpression> dynamicFilters;
 
     @JsonCreator
     public SemiJoinNode(@JsonProperty("id") PlanNodeId id,
@@ -50,7 +52,8 @@ public class SemiJoinNode
             @JsonProperty("semiJoinOutput") VariableReferenceExpression semiJoinOutput,
             @JsonProperty("sourceHashVariable") Optional<VariableReferenceExpression> sourceHashVariable,
             @JsonProperty("filteringSourceHashVariable") Optional<VariableReferenceExpression> filteringSourceHashVariable,
-            @JsonProperty("distributionType") Optional<DistributionType> distributionType)
+            @JsonProperty("distributionType") Optional<DistributionType> distributionType,
+            @JsonProperty("dynamicFilters") Map<String, VariableReferenceExpression> dynamicFilters)
     {
         super(id);
         this.source = requireNonNull(source, "source is null");
@@ -61,6 +64,7 @@ public class SemiJoinNode
         this.sourceHashVariable = requireNonNull(sourceHashVariable, "sourceHashVariable is null");
         this.filteringSourceHashVariable = requireNonNull(filteringSourceHashVariable, "filteringSourceHashVariable is null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
+        this.dynamicFilters = requireNonNull(dynamicFilters, "dynamicFilters is null");
 
         checkArgument(source.getOutputVariables().contains(sourceJoinVariable), "Source does not contain join symbol");
         checkArgument(filteringSource.getOutputVariables().contains(filteringSourceJoinVariable), "Filtering source does not contain filtering join symbol");
@@ -78,8 +82,20 @@ public class SemiJoinNode
         return source;
     }
 
+    @Override
+    public PlanNode getProbe()
+    {
+        return source;
+    }
+
     @JsonProperty
     public PlanNode getFilteringSource()
+    {
+        return filteringSource;
+    }
+
+    @Override
+    public PlanNode getBuild()
     {
         return filteringSource;
     }
@@ -121,6 +137,13 @@ public class SemiJoinNode
     }
 
     @Override
+    @JsonProperty
+    public Map<String, VariableReferenceExpression> getDynamicFilters()
+    {
+        return dynamicFilters;
+    }
+
+    @Override
     public List<PlanNode> getSources()
     {
         return ImmutableList.of(source, filteringSource);
@@ -154,7 +177,8 @@ public class SemiJoinNode
                 semiJoinOutput,
                 sourceHashVariable,
                 filteringSourceHashVariable,
-                distributionType);
+                distributionType,
+                dynamicFilters);
     }
 
     public SemiJoinNode withDistributionType(DistributionType distributionType)
@@ -168,6 +192,7 @@ public class SemiJoinNode
                 semiJoinOutput,
                 sourceHashVariable,
                 filteringSourceHashVariable,
-                Optional.of(distributionType));
+                Optional.of(distributionType),
+                dynamicFilters);
     }
 }
