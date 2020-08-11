@@ -640,6 +640,19 @@ Procedures
 
     Create an empty partition in the specified table.
 
+* ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)``
+
+    Check and update partitions list in metastore. There are three modes available:
+
+    * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
+    * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
+    * ``FULL``: perform both ``ADD`` and ``DROP``.
+
+    The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
+    with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
+    file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
+    not conforming to this convention are ignored, unless the argument is set to ``false``.
+
 Examples
 --------
 
