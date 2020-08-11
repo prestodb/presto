@@ -56,6 +56,7 @@ public class LocalDynamicFilter
 
     // Number of partitions left to be processed.
     private int partitionsLeft;
+    private boolean bucketExecution;
 
     public LocalDynamicFilter(Multimap<String, VariableReferenceExpression> probeVariables, Map<String, Integer> buildChannels, int partitionCount)
     {
@@ -67,6 +68,15 @@ public class LocalDynamicFilter
 
         this.result = TupleDomain.none();
         this.partitionsLeft = partitionCount;
+    }
+
+    public synchronized void increaseBucketExecutionPartitionCount(int count)
+    {
+        if (!bucketExecution) {
+            partitionsLeft = 0;
+            bucketExecution = true;
+        }
+        partitionsLeft += count;
     }
 
     private synchronized void addPartition(TupleDomain<String> tupleDomain)

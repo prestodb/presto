@@ -2226,6 +2226,7 @@ public class LocalExecutionPlanner
             return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
+                    dynamicFilter,
                     dynamicFilter.getTupleDomainConsumer(),
                     filterBuildChannels,
                     getDynamicFilteringMaxPerDriverRowCount(context.getSession()),

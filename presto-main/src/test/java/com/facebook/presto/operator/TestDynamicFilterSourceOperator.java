@@ -20,9 +20,11 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.LocalDynamicFilter;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -97,6 +99,7 @@ public class TestDynamicFilterSourceOperator
         return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                 0,
                 new PlanNodeId("PLAN_NODE_ID"),
+                new LocalDynamicFilter(ImmutableMultimap.of(), ImmutableMap.of(), 2),
                 this::consumePredicate,
                 Arrays.stream(buildChannels).collect(toList()),
                 getDynamicFilteringMaxPerDriverRowCount(TEST_SESSION),

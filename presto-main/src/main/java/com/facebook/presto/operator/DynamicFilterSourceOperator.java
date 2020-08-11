@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.LocalDynamicFilter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -82,6 +83,7 @@ public class DynamicFilterSourceOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
+        private final LocalDynamicFilter localDynamicFilter;
         private final Consumer<TupleDomain<String>> dynamicPredicateConsumer;
         private final List<Channel> channels;
         private final int maxFilterPositionsCount;
@@ -92,6 +94,7 @@ public class DynamicFilterSourceOperator
         public DynamicFilterSourceOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
+                LocalDynamicFilter localDynamicFilter,
                 Consumer<TupleDomain<String>> dynamicPredicateConsumer,
                 List<Channel> channels,
                 int maxFilterPositionsCount,
@@ -99,6 +102,7 @@ public class DynamicFilterSourceOperator
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+            this.localDynamicFilter = requireNonNull(localDynamicFilter, "localDynamicFilter is null");
             this.dynamicPredicateConsumer = requireNonNull(dynamicPredicateConsumer, "dynamicPredicateConsumer is null");
             this.channels = requireNonNull(channels, "channels is null");
             verify(
@@ -135,6 +139,11 @@ public class DynamicFilterSourceOperator
         public OperatorFactory duplicate()
         {
             throw new UnsupportedOperationException("duplicate() is not supported for DynamicFilterSourceOperatorFactory");
+        }
+
+        public LocalDynamicFilter getLocalDynamicFilter()
+        {
+            return localDynamicFilter;
         }
     }
 

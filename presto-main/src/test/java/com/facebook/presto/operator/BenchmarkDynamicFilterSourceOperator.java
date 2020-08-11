@@ -16,8 +16,11 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.LocalDynamicFilter;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;
 import io.airlift.units.DataSize;
@@ -85,6 +88,7 @@ public class BenchmarkDynamicFilterSourceOperator
             operatorFactory = new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
                     1,
                     new PlanNodeId("joinNodeId"),
+                    new LocalDynamicFilter(ImmutableMultimap.of(), ImmutableMap.of(), 2),
                     (tupleDomain -> {}),
                     ImmutableList.of(new DynamicFilterSourceOperator.Channel("0", BIGINT, 0)),
                     getDynamicFilteringMaxPerDriverRowCount(TEST_SESSION),

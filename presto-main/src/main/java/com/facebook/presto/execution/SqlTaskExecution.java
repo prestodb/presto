@@ -24,6 +24,7 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.DriverStats;
+import com.facebook.presto.operator.DynamicFilterSourceOperator;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
 import com.facebook.presto.operator.StageExecutionDescriptor;
@@ -537,6 +538,12 @@ public class SqlTaskExecution
             for (int i = 0; i < driverSplitRunnerFactory.getDriverInstances().orElse(1); i++) {
                 runners.add(driverSplitRunnerFactory.createDriverRunner(null, lifespan));
             }
+            driverSplitRunnerFactory.driverFactory.getOperatorFactories().stream()
+                    .filter(operatorFactory -> operatorFactory instanceof DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory)
+                    .forEach(operatorFactory -> {
+                        DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory dynamicFilterSourceOperatorFactory = (DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory) operatorFactory;
+                        dynamicFilterSourceOperatorFactory.getLocalDynamicFilter().increaseBucketExecutionPartitionCount(driverSplitRunnerFactory.getDriverInstances().orElse(1));
+                    });
         }
         enqueueDriverSplitRunner(true, runners);
         for (DriverSplitRunnerFactory driverRunnerFactory : driverRunnerFactoriesWithDriverGroupLifeCycle) {
