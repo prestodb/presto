@@ -162,7 +162,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
                         functionDescription,
                         routineCharacteristics,
                         body,
-                        Optional.of(1L)))
+                        Optional.of("unique")))
                 .collect(toImmutableList());
     }
 

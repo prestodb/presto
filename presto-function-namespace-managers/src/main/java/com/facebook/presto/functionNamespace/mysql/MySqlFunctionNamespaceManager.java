@@ -49,6 +49,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.hash.Hashing.sha256;
+import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -110,7 +111,7 @@ public class MySqlFunctionNamespaceManager
     protected FunctionMetadata fetchFunctionMetadataDirect(SqlFunctionHandle functionHandle)
     {
         checkCatalog(functionHandle);
-        Optional<SqlInvokedFunction> function = functionNamespaceDao.getFunction(hash(functionHandle.getFunctionId()), functionHandle.getFunctionId(), functionHandle.getVersion());
+        Optional<SqlInvokedFunction> function = functionNamespaceDao.getFunction(hash(functionHandle.getFunctionId()), functionHandle.getFunctionId(), getLongVersion(functionHandle));
         if (!function.isPresent()) {
             throw new InvalidFunctionHandleException(functionHandle);
         }
@@ -121,7 +122,7 @@ public class MySqlFunctionNamespaceManager
     protected ScalarFunctionImplementation fetchFunctionImplementationDirect(SqlFunctionHandle functionHandle)
     {
         checkCatalog(functionHandle);
-        Optional<SqlInvokedFunction> function = functionNamespaceDao.getFunction(hash(functionHandle.getFunctionId()), functionHandle.getFunctionId(), functionHandle.getVersion());
+        Optional<SqlInvokedFunction> function = functionNamespaceDao.getFunction(hash(functionHandle.getFunctionId()), functionHandle.getFunctionId(), getLongVersion(functionHandle));
         if (!function.isPresent()) {
             throw new InvalidFunctionHandleException(functionHandle);
         }
@@ -166,13 +167,13 @@ public class MySqlFunctionNamespaceManager
             }
 
             if (!latestVersion.isPresent() || !latestVersion.get().getFunction().hasSameDefinitionAs(function)) {
-                long newVersion = latestVersion.map(SqlInvokedFunctionRecord::getFunction).flatMap(SqlInvokedFunction::getVersion).orElse(0L) + 1;
+                long newVersion = latestVersion.map(SqlInvokedFunctionRecord::getFunction).map(MySqlFunctionNamespaceManager::getLongVersion).orElse(0L) + 1;
                 insertSqlInvokedFunction(transactionDao, function, newVersion);
             }
             else if (latestVersion.get().isDeleted()) {
                 SqlInvokedFunction latest = latestVersion.get().getFunction();
                 checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
-                transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), latest.getVersion().get(), false);
+                transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), false);
             }
         });
         refreshFunctionsCache(functionName);
@@ -202,7 +203,7 @@ public class MySqlFunctionNamespaceManager
                     Optional.empty());
             if (!altered.hasSameDefinitionAs(latest)) {
                 checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
-                insertSqlInvokedFunction(transactionDao, altered, latest.getVersion().get() + 1);
+                insertSqlInvokedFunction(transactionDao, altered, getLongVersion(latest) + 1);
             }
         });
         refreshFunctionsCache(functionName);
@@ -221,7 +222,7 @@ public class MySqlFunctionNamespaceManager
 
             SqlInvokedFunction latest = functions.get(0);
             checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
-            transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), latest.getVersion().get(), true);
+            transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), true);
         });
 
         refreshFunctionsCache(functionName);
@@ -259,6 +260,16 @@ public class MySqlFunctionNamespaceManager
                 function.getDescription(),
                 function.getRoutineCharacteristics(),
                 function.getBody());
+    }
+
+    private static long getLongVersion(SqlFunctionHandle functionHandle)
+    {
+        return parseLong(functionHandle.getVersion());
+    }
+
+    private static long getLongVersion(SqlInvokedFunction function)
+    {
+        return parseLong(function.getVersion().get());
     }
 
     private static void checkFieldLength(String fieldName, String field, int maxLength)

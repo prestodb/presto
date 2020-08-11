@@ -37,6 +37,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
+import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 
 @ThreadSafe
@@ -62,9 +63,9 @@ public class InMemoryFunctionNamespaceManager
         SqlInvokedFunction replacedFunction = latestFunctions.get(functionId);
         long version = 1;
         if (replacedFunction != null) {
-            version = replacedFunction.getRequiredVersion() + 1;
+            version = parseLong(replacedFunction.getRequiredVersion()) + 1;
         }
-        latestFunctions.put(functionId, function.withVersion(version));
+        latestFunctions.put(functionId, function.withVersion(String.valueOf(version)));
     }
 
     @Override
