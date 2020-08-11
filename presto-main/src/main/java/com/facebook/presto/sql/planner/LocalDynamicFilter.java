@@ -22,7 +22,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
-import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -101,11 +101,11 @@ public class LocalDynamicFilter
         return TupleDomain.withColumnDomains(builder.build());
     }
 
-    public static Optional<LocalDynamicFilter> create(JoinNode planNode, int partitionCount)
+    public static Optional<LocalDynamicFilter> create(AbstractJoinNode planNode, int partitionCount)
     {
         Set<String> joinDynamicFilters = planNode.getDynamicFilters().keySet();
         List<FilterNode> filterNodes = PlanNodeSearcher
-                .searchFrom(planNode.getLeft())
+                .searchFrom(planNode.getProbe())
                 .where(LocalDynamicFilter::isFilterAboveTableScan)
                 .findAll();
 
@@ -125,7 +125,7 @@ public class LocalDynamicFilter
         }
 
         Multimap<String, VariableReferenceExpression> probeVariables = probeVariablesBuilder.build();
-        PlanNode buildNode = planNode.getRight();
+        PlanNode buildNode = planNode.getBuild();
         Map<String, Integer> buildChannels = planNode.getDynamicFilters().entrySet().stream()
                 // Skip build channels that don't match local probe dynamic filters.
                 .filter(entry -> probeVariables.containsKey(entry.getKey()))
