@@ -15,11 +15,16 @@ package com.facebook.presto.druid.ingestion;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.hadoop.fs.Path;
 
 import java.util.List;
 
 public class DruidIngestTask
 {
+    public static final String TASK_TYPE_INDEX_PARALLEL = "index_parallel";
+    public static final String INPUT_FORMAT_JSON = "json";
+    public static final String DEFAULT_INPUT_FILE_FILTER = "*.json.gz";
+
     private final String type;
     private final DruidIngestSpec spec;
 
@@ -34,7 +39,7 @@ public class DruidIngestTask
         private String dataSource;
         private String timestampColumn;
         private List<DruidIngestDimension> dimentions;
-        private String baseDir;
+        private DruidIngestInputSource inputSource;
         private boolean appendToExisting;
 
         public Builder withDataSource(String dataSource)
@@ -55,9 +60,19 @@ public class DruidIngestTask
             return this;
         }
 
-        public Builder withBaseDir(String baseDir)
+        public Builder withInputSource(Path baseDir, List<String> dataFileList)
         {
-            this.baseDir = baseDir;
+            switch (baseDir.toUri().getScheme()) {
+                case "file":
+                    inputSource = new DruidIngestLocalInput("local", baseDir.toString(), DEFAULT_INPUT_FILE_FILTER);
+                    break;
+                case "hdfs":
+                    inputSource = new DruidIngestHDFSInput("hdfs", dataFileList);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported ingestion input source:" + baseDir.toUri().getScheme());
+            }
+
             return this;
         }
 
@@ -74,12 +89,12 @@ public class DruidIngestTask
                     new DruidIngestTimestampSpec(timestampColumn),
                     new DruidIngestDimensionsSpec(dimentions));
             DruidIngestIOConfig ioConfig = new DruidIngestIOConfig(
-                    "index_parallel",
-                    new DruidIngestInputSource("local", baseDir, "*.json.gz"),
-                    new DruidIngestInputFormat("json"),
+                    TASK_TYPE_INDEX_PARALLEL,
+                    inputSource,
+                    new DruidIngestInputFormat(INPUT_FORMAT_JSON),
                     appendToExisting);
             DruidIngestSpec spec = new DruidIngestSpec(dataSchema, ioConfig);
-            return new DruidIngestTask("index_parallel", spec);
+            return new DruidIngestTask(TASK_TYPE_INDEX_PARALLEL, spec);
         }
     }
 
@@ -256,13 +271,18 @@ public class DruidIngestTask
         }
     }
 
-    public static class DruidIngestInputSource
+    public interface DruidIngestInputSource
+    {
+    }
+
+    public static class DruidIngestLocalInput
+            implements DruidIngestInputSource
     {
         private final String type;
         private final String baseDir;
         private final String filter;
 
-        public DruidIngestInputSource(String type, String baseDir, String filter)
+        public DruidIngestLocalInput(String type, String baseDir, String filter)
         {
             this.type = type;
             this.baseDir = baseDir;
@@ -285,6 +305,31 @@ public class DruidIngestTask
         public String getFilter()
         {
             return filter;
+        }
+    }
+
+    public static class DruidIngestHDFSInput
+            implements DruidIngestInputSource
+    {
+        private final String type;
+        private final List<String> paths;
+
+        public DruidIngestHDFSInput(String type, List<String> paths)
+        {
+            this.type = type;
+            this.paths = paths;
+        }
+
+        @JsonProperty("type")
+        public String getType()
+        {
+            return type;
+        }
+
+        @JsonProperty("paths")
+        public List<String> getBaseDir()
+        {
+            return paths;
         }
     }
 
