@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.airlift.http.client.HttpClient;
-import com.facebook.airlift.http.client.HttpClientConfig;
-import com.facebook.airlift.http.client.HttpStatus;
-import com.facebook.airlift.http.client.Request;
-import com.facebook.airlift.http.client.Response;
-import com.facebook.airlift.http.client.ResponseHandler;
-import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.google.common.base.Stopwatch;
 import com.google.common.io.Closer;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.HttpStatus;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.Response;
+import io.airlift.http.client.ResponseHandler;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import io.prestodb.tempto.AfterTestWithContext;
 import io.prestodb.tempto.BeforeTestWithContext;
 import io.prestodb.tempto.ProductTest;
@@ -39,11 +39,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
-import static com.facebook.airlift.http.client.Request.Builder.prepareDelete;
-import static com.facebook.airlift.http.client.ResponseHandlerUtils.propagate;
 import static com.facebook.presto.tests.TestGroups.CANCEL_QUERY;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.http.client.Request.Builder.prepareDelete;
+import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static java.lang.String.format;

@@ -19,12 +19,12 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;

@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.plugin.mysql;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.mysql.jdbc.Driver;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import java.sql.SQLException;
 import java.util.Properties;
 
-import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class MySqlClientModule

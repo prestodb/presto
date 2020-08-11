@@ -18,11 +18,11 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.NO_ACTION;
 import static com.facebook.presto.verifier.framework.QueryConfigurationOverrides.SessionPropertiesOverrideStrategy.SUBSTITUTE;
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
 public class TestQueryConfigurationOverridesConfig
 {

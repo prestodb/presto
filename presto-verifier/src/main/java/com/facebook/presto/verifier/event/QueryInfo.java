@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.verifier.event;
 
-import com.facebook.airlift.event.client.EventField;
-import com.facebook.airlift.event.client.EventType;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
+import io.airlift.event.client.EventField;
+import io.airlift.event.client.EventType;
 
 import javax.annotation.concurrent.Immutable;
 

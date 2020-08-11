@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.verifier.event;
 
-import com.facebook.airlift.event.client.AbstractEventClient;
 import com.facebook.presto.verifier.framework.VerifierConfig;
+import io.airlift.event.client.AbstractEventClient;
 
 import javax.inject.Inject;
 

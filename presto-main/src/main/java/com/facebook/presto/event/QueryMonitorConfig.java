@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.event;
 
-import com.facebook.airlift.configuration.Config;
+import io.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.MaxDataSize;

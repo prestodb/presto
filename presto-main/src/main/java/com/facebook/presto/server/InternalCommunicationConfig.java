@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.server;
 
-import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.ConfigDescription;
-import com.facebook.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.DataSize;
 
 import java.util.Optional;

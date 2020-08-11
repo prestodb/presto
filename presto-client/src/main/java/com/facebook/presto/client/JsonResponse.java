@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.client;
 
-import com.facebook.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodec;
 import okhttp3.Headers;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;

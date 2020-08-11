@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.airlift.stats.GcMonitor;
-import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
@@ -24,6 +22,8 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
+import io.airlift.stats.GcMonitor;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 
 import java.util.concurrent.Executor;

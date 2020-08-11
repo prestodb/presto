@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.verifier.event;
 
-import com.facebook.airlift.event.client.AbstractEventClient;
-import com.facebook.airlift.event.client.JsonEventSerializer;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import io.airlift.event.client.AbstractEventClient;
+import io.airlift.event.client.JsonEventSerializer;
 
 import javax.inject.Inject;
 

@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.spark.execution;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.event.SplitMonitor;
@@ -73,6 +70,9 @@ import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
+import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.airlift.log.Logger;
+import io.airlift.log.Logger;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

@@ -15,8 +15,8 @@ package com.facebook.presto.atop;
 
 import org.testng.annotations.Test;
 
-import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 
 public class TestAtopPlugin
 {

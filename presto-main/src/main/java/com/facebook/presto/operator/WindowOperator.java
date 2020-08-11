@@ -44,7 +44,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
-import static com.facebook.airlift.concurrent.MoreFutures.checkSuccess;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.operator.WorkProcessor.TransformationState.needsMoreData;
 import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
@@ -56,6 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 

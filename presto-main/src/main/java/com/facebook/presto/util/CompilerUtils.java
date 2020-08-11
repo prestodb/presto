@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.bytecode.ByteCodeTooLargeException;
 import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.DynamicClassLoader;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.spi.PrestoException;
+import io.airlift.log.Logger;
 
 import java.lang.invoke.MethodHandle;
 import java.time.Instant;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.localfile;
 
-import com.facebook.airlift.configuration.Config;
-import com.facebook.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
 public class LocalFileConfig
 {

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
+import io.airlift.log.Logger;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;

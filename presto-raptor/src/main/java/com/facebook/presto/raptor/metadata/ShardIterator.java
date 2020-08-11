@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.raptor.metadata;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.ResultIterator;
 

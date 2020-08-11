@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.testing.EquivalenceTester;
 import org.testng.annotations.Test;
+import io.airlift.json.JsonCodec;
+import io.airlift.testing.EquivalenceTester;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;

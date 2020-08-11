@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.tests.hive;
 
-import com.facebook.airlift.log.Logger;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.log.Logger;
 import io.prestodb.tempto.AfterTestWithContext;
 import io.prestodb.tempto.BeforeTestWithContext;
 import io.prestodb.tempto.ProductTest;

@@ -23,8 +23,8 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.function.Supplier;
 
-import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

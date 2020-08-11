@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.airlift.stats.QuantileDigest;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.DoubleType;
@@ -21,6 +20,7 @@ import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
 import com.google.common.collect.ImmutableList;
+import io.airlift.stats.QuantileDigest;
 
 import java.util.List;
 import java.util.function.BiFunction;

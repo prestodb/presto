@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.spark.execution;
 
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import org.apache.spark.SparkException;
+import io.airlift.json.JsonCodec;
 
 import javax.inject.Inject;
 

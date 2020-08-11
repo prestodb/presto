@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.event;
 
-import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
-import com.facebook.airlift.node.NodeInfo;
-import com.facebook.airlift.stats.Distribution;
-import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -53,6 +48,11 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
+import io.airlift.node.NodeInfo;
+import io.airlift.stats.Distribution;
+import io.airlift.stats.Distribution.DistributionSnapshot;
 import org.joda.time.DateTime;
 
 import javax.inject.Inject;

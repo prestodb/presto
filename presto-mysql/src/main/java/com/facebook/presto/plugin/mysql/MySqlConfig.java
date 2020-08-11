@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.mysql;
 
-import com.facebook.airlift.configuration.Config;
+import io.airlift.configuration.Config;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.Min;

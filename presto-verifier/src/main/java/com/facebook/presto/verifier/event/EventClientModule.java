@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.verifier.event;
 
-import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.airlift.event.client.EventClient;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets.SetView;
 import com.google.inject.Binder;
 import com.google.inject.multibindings.Multibinder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.event.client.EventClient;
 
 import java.util.Map;
 import java.util.Set;
