@@ -48,17 +48,17 @@ public class TestSqlInvokedFunctionNamespaceManager
     {
         InMemoryFunctionNamespaceManager functionNamespaceManager = createFunctionNamespaceManager();
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
-        assertEquals(functionNamespaceManager.listFunctions(), ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1)));
+        assertEquals(functionNamespaceManager.listFunctions(), ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1")));
 
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_INT, false);
         assertEquals(
                 ImmutableSet.copyOf(functionNamespaceManager.listFunctions()),
-                ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1), FUNCTION_POWER_TOWER_INT.withVersion(1)));
+                ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"), FUNCTION_POWER_TOWER_INT.withVersion("1")));
 
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, true);
         assertEquals(
                 ImmutableSet.copyOf(functionNamespaceManager.listFunctions()),
-                ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1)));
+                ImmutableSet.of(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"), FUNCTION_POWER_TOWER_INT.withVersion("1")));
     }
 
     @Test
@@ -93,19 +93,19 @@ public class TestSqlInvokedFunctionNamespaceManager
         FunctionNamespaceTransactionHandle transaction2 = functionNamespaceManager.beginTransaction();
         Collection<SqlInvokedFunction> functions2 = functionNamespaceManager.getFunctions(Optional.of(transaction2), POWER_TOWER);
         assertEquals(functions2.size(), 1);
-        assertEquals(getOnlyElement(functions2), FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+        assertEquals(getOnlyElement(functions2), FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
 
         // update the function, second transaction still sees the old functions
         functionNamespaceManager.createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, true);
         functions2 = functionNamespaceManager.getFunctions(Optional.of(transaction2), POWER_TOWER);
         assertEquals(functions2.size(), 1);
-        assertEquals(getOnlyElement(functions2), FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+        assertEquals(getOnlyElement(functions2), FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
 
         // third transaction sees the updated function
         FunctionNamespaceTransactionHandle transaction3 = functionNamespaceManager.beginTransaction();
         Collection<SqlInvokedFunction> functions3 = functionNamespaceManager.getFunctions(Optional.of(transaction3), POWER_TOWER);
         assertEquals(functions3.size(), 1);
-        assertEquals(getOnlyElement(functions3), FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2));
+        assertEquals(getOnlyElement(functions3), FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"));
 
         functionNamespaceManager.commit(transaction1);
         functionNamespaceManager.commit(transaction2);
