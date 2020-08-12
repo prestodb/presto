@@ -566,8 +566,16 @@ public class PushDownDereferences
 
     private static boolean isValidDereference(SpecialFormExpression dereference)
     {
-        RowExpression base = dereference.getArguments().get(0);
-        return (base instanceof VariableReferenceExpression) || (base instanceof SpecialFormExpression && ((SpecialFormExpression) base).getForm() == DEREFERENCE);
+        RowExpression expression = dereference;
+        while (true) {
+            if (expression instanceof VariableReferenceExpression) {
+                return true;
+            }
+            if (!(expression instanceof SpecialFormExpression) || ((SpecialFormExpression) expression).getForm() != DEREFERENCE) {
+                return false;
+            }
+            expression = ((SpecialFormExpression) expression).getArguments().get(0);
+        }
     }
 
     private static VariableReferenceExpression getBase(RowExpression expression)
