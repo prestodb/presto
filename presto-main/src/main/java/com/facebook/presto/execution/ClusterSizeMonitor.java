@@ -47,17 +47,25 @@ public class ClusterSizeMonitor
 {
     private final InternalNodeManager nodeManager;
     private final boolean includeCoordinator;
-    private final int executionMinCount;
+    private final int workerMinCount;
     private final Duration executionMaxWait;
+    private final int coordinatorMinCount;
+    private final Duration coordinatorMaxWait;
     private final ScheduledExecutorService executor;
 
     private final Consumer<AllNodes> listener = this::updateAllNodes;
 
     @GuardedBy("this")
-    private int currentCount;
+    private int currentWorkerCount;
 
     @GuardedBy("this")
-    private final List<SettableFuture<?>> futures = new ArrayList<>();
+    private int currentCoordinatorCount;
+
+    @GuardedBy("this")
+    private final List<SettableFuture<?>> workerSizeFutures = new ArrayList<>();
+
+    @GuardedBy("this")
+    private final List<SettableFuture<?>> coordinatorSizeFutures = new ArrayList<>();
 
     @Inject
     public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig)
@@ -66,20 +74,27 @@ public class ClusterSizeMonitor
                 nodeManager,
                 requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator(),
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getRequiredWorkers(),
-                queryManagerConfig.getRequiredWorkersMaxWait());
+                queryManagerConfig.getRequiredWorkersMaxWait(),
+                queryManagerConfig.getRequiredCoordinators(),
+                queryManagerConfig.getRequiredCoordinatorsMaxWait());
     }
 
     public ClusterSizeMonitor(
             InternalNodeManager nodeManager,
             boolean includeCoordinator,
-            int executionMinCount,
-            Duration executionMaxWait)
+            int workerMinCount,
+            Duration executionMaxWait,
+            int coordinatorMinCount,
+            Duration coordinatorMaxWait)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.includeCoordinator = includeCoordinator;
-        checkArgument(executionMinCount >= 0, "executionMinCount is negative");
-        this.executionMinCount = executionMinCount;
+        checkArgument(workerMinCount >= 0, "executionMinCount is negative");
+        this.workerMinCount = workerMinCount;
         this.executionMaxWait = requireNonNull(executionMaxWait, "executionMaxWait is null");
+        checkArgument(coordinatorMinCount >= 0, "coordinatorMinCount is negative");
+        this.coordinatorMinCount = coordinatorMinCount;
+        this.coordinatorMaxWait = requireNonNull(coordinatorMaxWait, "coordinatorMaxWait is null");
         this.executor = newSingleThreadScheduledExecutor(threadsNamed("node-monitor-%s"));
     }
 
@@ -103,12 +118,12 @@ public class ClusterSizeMonitor
      */
     public synchronized ListenableFuture<?> waitForMinimumWorkers()
     {
-        if (currentCount >= executionMinCount) {
+        if (currentWorkerCount >= workerMinCount) {
             return immediateFuture(null);
         }
 
         SettableFuture<?> future = SettableFuture.create();
-        futures.add(future);
+        workerSizeFutures.add(future);
 
         // if future does not finish in wait period, complete with an exception
         ScheduledFuture<?> timeoutTask = executor.schedule(
@@ -116,7 +131,7 @@ public class ClusterSizeMonitor
                     synchronized (this) {
                         future.setException(new PrestoException(
                                 GENERIC_INSUFFICIENT_RESOURCES,
-                                format("Insufficient active worker nodes. Waited %s for at least %s workers, but only %s workers are active", executionMaxWait, executionMinCount, currentCount)));
+                                format("Insufficient active worker nodes. Waited %s for at least %s workers, but only %s workers are active", executionMaxWait, workerMinCount, currentWorkerCount)));
                     }
                 },
                 executionMaxWait.toMillis(),
@@ -125,28 +140,69 @@ public class ClusterSizeMonitor
         // remove future if finished (e.g., canceled, timed out)
         future.addListener(() -> {
             timeoutTask.cancel(true);
-            removeFuture(future);
+            removeWorkerFuture(future);
         }, executor);
 
         return future;
     }
 
-    private synchronized void removeFuture(SettableFuture<?> future)
+    public synchronized ListenableFuture<?> waitForMinimumCoordinators()
     {
-        futures.remove(future);
+        if (currentCoordinatorCount >= coordinatorMinCount) {
+            return immediateFuture(null);
+        }
+
+        SettableFuture<?> future = SettableFuture.create();
+        coordinatorSizeFutures.add(future);
+
+        // if future does not finish in wait period, complete with an exception
+        ScheduledFuture<?> timeoutTask = executor.schedule(
+                () -> {
+                    synchronized (this) {
+                        future.setException(new PrestoException(
+                                GENERIC_INSUFFICIENT_RESOURCES,
+                                format("Insufficient active coordinator nodes. Waited %s for at least %s coordinators, but only %s coordinators are active", executionMaxWait, 2, currentCoordinatorCount)));
+                    }
+                },
+                coordinatorMaxWait.toMillis(),
+                MILLISECONDS);
+
+        // remove future if finished (e.g., canceled, timed out)
+        future.addListener(() -> {
+            timeoutTask.cancel(true);
+            removeCoordinatorFuture(future);
+        }, executor);
+
+        return future;
+    }
+
+    private synchronized void removeWorkerFuture(SettableFuture<?> future)
+    {
+        workerSizeFutures.remove(future);
+    }
+
+    private synchronized void removeCoordinatorFuture(SettableFuture<?> future)
+    {
+        coordinatorSizeFutures.remove(future);
     }
 
     private synchronized void updateAllNodes(AllNodes allNodes)
     {
         if (includeCoordinator) {
-            currentCount = allNodes.getActiveNodes().size();
+            currentWorkerCount = allNodes.getActiveNodes().size();
         }
         else {
-            currentCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
+            currentWorkerCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
         }
-        if (currentCount >= executionMinCount) {
-            ImmutableList<SettableFuture<?>> listeners = ImmutableList.copyOf(futures);
-            futures.clear();
+        currentCoordinatorCount = allNodes.getActiveCoordinators().size();
+        if (currentWorkerCount >= workerMinCount) {
+            List<SettableFuture<?>> listeners = ImmutableList.copyOf(workerSizeFutures);
+            workerSizeFutures.clear();
+            executor.submit(() -> listeners.forEach(listener -> listener.set(null)));
+        }
+        if (currentCoordinatorCount >= coordinatorMinCount) {
+            List<SettableFuture<?>> listeners = ImmutableList.copyOf(coordinatorSizeFutures);
+            coordinatorSizeFutures.clear();
             executor.submit(() -> listeners.forEach(listener -> listener.set(null)));
         }
     }
