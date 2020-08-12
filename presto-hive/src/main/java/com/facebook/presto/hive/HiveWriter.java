@@ -75,6 +75,11 @@ public class HiveWriter
         return rowCount;
     }
 
+    public Optional<String> getPartitionName()
+    {
+        return partitionName;
+    }
+
     public void append(Page dataPage)
     {
         // getRegionSizeInBytes for each row can be expensive; use getRetainedSizeInBytes for estimation

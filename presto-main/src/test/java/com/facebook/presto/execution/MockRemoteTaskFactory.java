@@ -81,6 +81,7 @@ import static com.facebook.presto.execution.StateMachine.StateChangeListener;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.BROADCAST;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
@@ -268,7 +269,8 @@ public class MockRemoteTaskFactory
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
                     taskContext.getTaskStats(),
-                    true);
+                    true,
+                    DEFAULT_METADATA_UPDATES);
         }
 
         @Override
