@@ -381,7 +381,7 @@ public class OrcSelectivePageSourceFactory
             return new OrcSelectivePageSource(
                     recordReader,
                     orcDataSource,
-                    systemMemoryUsage.newOrcAggregatedMemoryContext(),
+                    systemMemoryUsage,
                     stats);
         }
         catch (Exception e) {
