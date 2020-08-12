@@ -64,6 +64,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -223,7 +224,7 @@ public class TestLocalDispatchQuery
 
     private ClusterSizeMonitor createClusterSizeMonitor(int minimumNodes)
     {
-        return new ClusterSizeMonitor(new InMemoryNodeManager(), true, minimumNodes, new Duration(10, MILLISECONDS));
+        return new ClusterSizeMonitor(new InMemoryNodeManager(), true, minimumNodes, new Duration(10, MILLISECONDS), 1, new Duration(1, SECONDS));
     }
 
     private QueryMonitor createQueryMonitor(CountingEventListener eventListener)
