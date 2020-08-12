@@ -18,7 +18,6 @@ import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
@@ -49,6 +48,8 @@ public class ClusterSizeMonitor
     private final boolean includeCoordinator;
     private final int executionMinCount;
     private final Duration executionMaxWait;
+    private final int minCoordinatorCount;
+    private final Duration maxCoordinatorWait;
     private final ScheduledExecutorService executor;
 
     private final Consumer<AllNodes> listener = this::updateAllNodes;
@@ -57,7 +58,13 @@ public class ClusterSizeMonitor
     private int currentCount;
 
     @GuardedBy("this")
-    private final List<SettableFuture<?>> futures = new ArrayList<>();
+    private int currentCoordinatorCount;
+
+    @GuardedBy("this")
+    private final List<SettableFuture<?>> workerSizeFutures = new ArrayList<>();
+
+    @GuardedBy("this")
+    private final List<SettableFuture<?>> coordinatorSizeFutures = new ArrayList<>();
 
     @Inject
     public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig)
@@ -66,20 +73,27 @@ public class ClusterSizeMonitor
                 nodeManager,
                 requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator(),
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getRequiredWorkers(),
-                queryManagerConfig.getRequiredWorkersMaxWait());
+                queryManagerConfig.getRequiredWorkersMaxWait(),
+                requireNonNull(queryManagerConfig, "queryManagerConfig is null").getRequiredCoordinators(),
+                queryManagerConfig.getRequiredCoordinatorsMaxWait());
     }
 
     public ClusterSizeMonitor(
             InternalNodeManager nodeManager,
             boolean includeCoordinator,
             int executionMinCount,
-            Duration executionMaxWait)
+            Duration executionMaxWait,
+            int minCoordinatorCount,
+            Duration maxCoordinatorWait)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.includeCoordinator = includeCoordinator;
         checkArgument(executionMinCount >= 0, "executionMinCount is negative");
         this.executionMinCount = executionMinCount;
         this.executionMaxWait = requireNonNull(executionMaxWait, "executionMaxWait is null");
+        checkArgument(minCoordinatorCount >= 0, "minCoordinatorCount is negative");
+        this.minCoordinatorCount = minCoordinatorCount;
+        this.maxCoordinatorWait = requireNonNull(maxCoordinatorWait, "maxCoordinatorWait is null");
         this.executor = newSingleThreadScheduledExecutor(threadsNamed("node-monitor-%s"));
     }
 
@@ -108,7 +122,7 @@ public class ClusterSizeMonitor
         }
 
         SettableFuture<?> future = SettableFuture.create();
-        futures.add(future);
+        workerSizeFutures.add(future);
 
         // if future does not finish in wait period, complete with an exception
         ScheduledFuture<?> timeoutTask = executor.schedule(
@@ -131,22 +145,62 @@ public class ClusterSizeMonitor
         return future;
     }
 
+    public synchronized ListenableFuture<?> waitForMinimumCoordinators()
+    {
+        if (currentCoordinatorCount >= minCoordinatorCount) {
+            return immediateFuture(null);
+        }
+
+        SettableFuture<?> future = SettableFuture.create();
+        coordinatorSizeFutures.add(future);
+
+        // if future does not finish in wait period, complete with an exception
+        ScheduledFuture<?> timeoutTask = executor.schedule(
+                () -> {
+                    synchronized (this) {
+                        future.setException(new PrestoException(
+                                GENERIC_INSUFFICIENT_RESOURCES,
+                                format("Insufficient active coordinator nodes. Waited %s for at least %s coordinators, but only %s coordinators are active", executionMaxWait, 2, currentCoordinatorCount)));
+                    }
+                },
+                maxCoordinatorWait.toMillis(),
+                MILLISECONDS);
+
+        // remove future if finished (e.g., canceled, timed out)
+        future.addListener(() -> {
+            timeoutTask.cancel(true);
+            removeFuture(future);
+        }, executor);
+
+        return future;
+    }
+
     private synchronized void removeFuture(SettableFuture<?> future)
     {
-        futures.remove(future);
+        workerSizeFutures.remove(future);
     }
 
     private synchronized void updateAllNodes(AllNodes allNodes)
     {
-        if (includeCoordinator) {
-            currentCount = allNodes.getActiveNodes().size();
-        }
-        else {
-            currentCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
-        }
+        currentCount = 0;
+        currentCoordinatorCount = 0;
+        allNodes.getActiveNodes().forEach(node -> {
+            if (node.isCoordinator()) {
+                currentCoordinatorCount += 1;
+                if (!includeCoordinator) {
+                    return;
+                }
+            }
+            currentCount += 1;
+        });
         if (currentCount >= executionMinCount) {
-            ImmutableList<SettableFuture<?>> listeners = ImmutableList.copyOf(futures);
-            futures.clear();
+            ImmutableList<SettableFuture<?>> listeners = ImmutableList.copyOf(workerSizeFutures);
+            workerSizeFutures.clear();
+            executor.submit(() -> listeners.forEach(listener -> listener.set(null)));
+        }
+        if (currentCoordinatorCount >= minCoordinatorCount) {
+            ImmutableList<SettableFuture<?>> listeners = ImmutableList.copyOf(coordinatorSizeFutures);
+            coordinatorSizeFutures.clear();
             executor.submit(() -> listeners.forEach(listener -> listener.set(null)));
         }
     }
