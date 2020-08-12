@@ -18,6 +18,7 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import com.facebook.airlift.configuration.DefunctConfig;
 import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
+import com.facebook.presto.spi.api.Experimental;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
@@ -75,6 +76,8 @@ public class QueryManagerConfig
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
+    private int requiredCoordinators = 1;
+    private Duration requiredCoordinatorsMaxWait = new Duration(5, TimeUnit.MINUTES);
 
     private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
 
@@ -473,12 +476,43 @@ public class QueryManagerConfig
     }
 
     @Min(1)
+    public int getRequiredCoordinators()
+    {
+        return requiredCoordinators;
+    }
+
+    @Experimental
+    @Config("query-manager.experimental.required-coordinators")
+    @ConfigDescription("Minimum number of active coordinators that must be available before a query will start")
+    public QueryManagerConfig setRequiredCoordinators(int requiredCoordinators)
+    {
+        this.requiredCoordinators = requiredCoordinators;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRequiredCoordinatorsMaxWait()
+    {
+        return requiredCoordinatorsMaxWait;
+    }
+
+    @Experimental
+    @Config("query-manager.experimental.required-coordinators-max-wait")
+    @ConfigDescription("Maximum time to wait for minimum number of coordinators before the query is failed")
+    public QueryManagerConfig setRequiredCoordinatorsMaxWait(Duration requiredCoordinatorsMaxWait)
+    {
+        this.requiredCoordinatorsMaxWait = requiredCoordinatorsMaxWait;
+        return this;
+    }
+
+    @Min(1)
     public int getQuerySubmissionMaxThreads()
     {
         return querySubmissionMaxThreads;
     }
 
-    @Config("query-manager.query-submission-max-threads")
+    @Experimental
+    @Config("query-manager.experimental.query-submission-max-threads")
     public QueryManagerConfig setQuerySubmissionMaxThreads(int querySubmissionMaxThreads)
     {
         this.querySubmissionMaxThreads = querySubmissionMaxThreads;
