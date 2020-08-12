@@ -62,12 +62,16 @@ import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATE
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
+import static com.facebook.presto.common.predicate.Domain.create;
 import static com.facebook.presto.common.predicate.Domain.multipleValues;
 import static com.facebook.presto.common.predicate.Domain.notNull;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
+import static com.facebook.presto.common.predicate.Range.greaterThan;
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
+import static com.facebook.presto.common.predicate.ValueSet.ofRanges;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -984,7 +988,10 @@ public class TestHiveLogicalPlanner
 
         assertParquetDereferencePushDown("SELECT x.a FROM test_pushdown_nestedcolumn_parquet WHERE x.a > 10 AND x.b LIKE 'abc%'",
                 "test_pushdown_nestedcolumn_parquet",
-                nestedColumnMap("x.a", "x.b"));
+                nestedColumnMap("x.a", "x.b"),
+                withColumnDomains(ImmutableMap.of(pushdownColumnNameForSubfield(nestedColumn("x.a")), create(ofRanges(greaterThan(BIGINT, 10L)), false))),
+                ImmutableSet.of(pushdownColumnNameForSubfield(nestedColumn("x.a"))),
+                TRUE_CONSTANT);
 
         // Join
         assertPlan(withParquetDereferencePushDownEnabled(), "SELECT l.orderkey, x.a, mod(x.d.d1, 2) FROM lineitem l, test_pushdown_nestedcolumn_parquet a WHERE l.linenumber = a.id",
@@ -997,7 +1004,12 @@ public class TestHiveLogicalPlanner
                 anyTree(
                         node(JoinNode.class,
                                 anyTree(tableScan("lineitem", ImmutableMap.of())),
-                                anyTree(tableScanParquetDeferencePushDowns("test_pushdown_nestedcolumn_parquet", nestedColumnMap("x.a", "x.d.d1"))))));
+                                anyTree(tableScanParquetDeferencePushDowns(
+                                        "test_pushdown_nestedcolumn_parquet",
+                                        nestedColumnMap("x.a", "x.d.d1"),
+                                        withColumnDomains(ImmutableMap.of(pushdownColumnNameForSubfield(nestedColumn("x.a")), create(ofRanges(greaterThan(BIGINT, 10L)), false))),
+                                        ImmutableSet.of(pushdownColumnNameForSubfield(nestedColumn("x.a"))),
+                                        TRUE_CONSTANT)))));
         // Aggregation
         assertParquetDereferencePushDown("SELECT id, min(x.a) FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
                 "test_pushdown_nestedcolumn_parquet",
@@ -1079,6 +1091,26 @@ public class TestHiveLogicalPlanner
         assertParquetDereferencePushDown("SELECT id, min(x.d).d1, min(x.d.d2) FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
                 "test_pushdown_nestedcolumn_parquet",
                 nestedColumnMap("x.d"));
+
+        // Test pushdown of filters on dereference columns
+        assertParquetDereferencePushDown("SELECT id, x.d.d1 FROM test_pushdown_nestedcolumn_parquet WHERE x.d.d1 = 1",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.d.d1"),
+                withColumnDomains(ImmutableMap.of(
+                        pushdownColumnNameForSubfield(nestedColumn("x.d.d1")), singleValue(BIGINT, 1L))),
+                ImmutableSet.of(pushdownColumnNameForSubfield(nestedColumn("x.d.d1"))),
+                TRUE_CONSTANT);
+
+        assertParquetDereferencePushDown("SELECT id, x.d.d1 FROM test_pushdown_nestedcolumn_parquet WHERE x.d.d1 = 1 and x.d.d2 = 5.0",
+                "test_pushdown_nestedcolumn_parquet",
+                nestedColumnMap("x.d.d1", "x.d.d2"),
+                withColumnDomains(ImmutableMap.of(
+                        pushdownColumnNameForSubfield(nestedColumn("x.d.d1")), singleValue(BIGINT, 1L),
+                        pushdownColumnNameForSubfield(nestedColumn("x.d.d2")), singleValue(DOUBLE, 5.0))),
+                ImmutableSet.of(
+                        pushdownColumnNameForSubfield(nestedColumn("x.d.d1")),
+                        pushdownColumnNameForSubfield(nestedColumn("x.d.d2"))),
+                TRUE_CONSTANT);
 
         assertUpdate("DROP TABLE test_pushdown_nestedcolumn_parquet");
     }
@@ -1211,7 +1243,13 @@ public class TestHiveLogicalPlanner
 
     private static PlanMatchPattern tableScanParquetDeferencePushDowns(String expectedTableName, Map<String, Subfield> expectedDeferencePushDowns)
     {
-        return PlanMatchPattern.tableScan(expectedTableName).with(new HiveParquetDereferencePushdownMatcher(expectedDeferencePushDowns));
+        return PlanMatchPattern.tableScan(expectedTableName).with(new HiveParquetDereferencePushdownMatcher(expectedDeferencePushDowns, TupleDomain.all(), ImmutableSet.of(), TRUE_CONSTANT));
+    }
+
+    private static PlanMatchPattern tableScanParquetDeferencePushDowns(String expectedTableName, Map<String, Subfield> expectedDeferencePushDowns,
+            TupleDomain<String> domainPredicate, Set<String> predicateColumns, RowExpression remainingPredicate)
+    {
+        return PlanMatchPattern.tableScan(expectedTableName).with(new HiveParquetDereferencePushdownMatcher(expectedDeferencePushDowns, domainPredicate, predicateColumns, remainingPredicate));
     }
 
     private static boolean isTableScanNode(PlanNode node, String tableName)
@@ -1235,6 +1273,13 @@ public class TestHiveLogicalPlanner
     private void assertParquetDereferencePushDown(String query, String tableName, Map<String, Subfield> expectedDeferencePushDowns)
     {
         assertParquetDereferencePushDown(withParquetDereferencePushDownEnabled(), query, tableName, expectedDeferencePushDowns);
+    }
+
+    private void assertParquetDereferencePushDown(String query, String tableName, Map<String, Subfield> expectedDeferencePushDowns, TupleDomain<String> domainPredicate,
+            Set<String> predicateColumns, RowExpression remainingPredicate)
+    {
+        assertPlan(withParquetDereferencePushDownEnabled(), query,
+                anyTree(tableScanParquetDeferencePushDowns(tableName, expectedDeferencePushDowns, domainPredicate, predicateColumns, remainingPredicate)));
     }
 
     private void assertParquetDereferencePushDown(Session session, String query, String tableName, Map<String, Subfield> expectedDeferencePushDowns)
@@ -1429,10 +1474,20 @@ public class TestHiveLogicalPlanner
             implements Matcher
     {
         private final Map<String, Subfield> dereferenceColumns;
+        private final TupleDomain<String> domainPredicate;
+        private final Set<String> predicateColumns;
+        private final RowExpression remainingPredicate;
 
-        private HiveParquetDereferencePushdownMatcher(Map<String, Subfield> dereferenceColumns)
+        private HiveParquetDereferencePushdownMatcher(
+                Map<String, Subfield> dereferenceColumns,
+                TupleDomain<String> domainPredicate,
+                Set<String> predicateColumns,
+                RowExpression remainingPredicate)
         {
             this.dereferenceColumns = requireNonNull(dereferenceColumns, "dereferenceColumns is null");
+            this.domainPredicate = requireNonNull(domainPredicate, "domainPredicate is null");
+            this.predicateColumns = requireNonNull(predicateColumns, "predicateColumns is null");
+            this.remainingPredicate = requireNonNull(remainingPredicate, "remainingPredicate is null");
         }
 
         @Override
@@ -1465,6 +1520,20 @@ public class TestHiveLogicalPlanner
                 return NO_MATCH;
             }
 
+            Optional<ConnectorTableLayoutHandle> layout = tableScan.getTable().getLayout();
+
+            if (!layout.isPresent()) {
+                return NO_MATCH;
+            }
+
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) layout.get();
+
+            if (!Objects.equals(layoutHandle.getPredicateColumns().keySet(), predicateColumns) ||
+                    !Objects.equals(layoutHandle.getDomainPredicate(), domainPredicate.transform(Subfield::new)) ||
+                    !Objects.equals(layoutHandle.getRemainingPredicate(), remainingPredicate)) {
+                return NO_MATCH;
+            }
+
             return match();
         }
 
@@ -1473,6 +1542,9 @@ public class TestHiveLogicalPlanner
         {
             return toStringHelper(this)
                     .add("dereferenceColumns", dereferenceColumns)
+                    .add("domainPredicate", domainPredicate)
+                    .add("predicateColumns", predicateColumns)
+                    .add("remainingPredicate", remainingPredicate)
                     .toString();
         }
     }
