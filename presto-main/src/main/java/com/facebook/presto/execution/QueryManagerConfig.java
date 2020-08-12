@@ -73,6 +73,8 @@ public class QueryManagerConfig
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
+    private int requiredCoordinators = 1;
+    private Duration requiredCoordinatorsMaxWait = new Duration(5, TimeUnit.MINUTES);
 
     private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
 
@@ -454,6 +456,34 @@ public class QueryManagerConfig
     public QueryManagerConfig setRequiredWorkersMaxWait(Duration requiredWorkersMaxWait)
     {
         this.requiredWorkersMaxWait = requiredWorkersMaxWait;
+        return this;
+    }
+
+    @Min(1)
+    public int getRequiredCoordinators()
+    {
+        return requiredCoordinators;
+    }
+
+    @Config("query-manager.required-coordinators")
+    @ConfigDescription("Minimum number of active coordinators that must be available before a query will start")
+    public QueryManagerConfig setRequiredCoordinators(int requiredCoordinators)
+    {
+        this.requiredCoordinators = requiredCoordinators;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRequiredCoordinatorsMaxWait()
+    {
+        return requiredCoordinatorsMaxWait;
+    }
+
+    @Config("query-manager.required-coordinators-max-wait")
+    @ConfigDescription("Maximum time to wait for minimum number of coordinators before the query is failed")
+    public QueryManagerConfig setRequiredCoordinatorsMaxWait(Duration requiredCoordinatorsMaxWait)
+    {
+        this.requiredCoordinatorsMaxWait = requiredCoordinatorsMaxWait;
         return this;
     }
 
