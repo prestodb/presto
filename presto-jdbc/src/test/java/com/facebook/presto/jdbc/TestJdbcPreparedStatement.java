@@ -83,12 +83,12 @@ public class TestJdbcPreparedStatement
         try (Connection connection = createConnection();
                 PreparedStatement statement = connection.prepareStatement("SELECT ? LIMIT ?")) {
             statement.setInt(1, 123);
-            statement.setString(2, "ALL");
+            statement.setString(2, "5");
 
             try (ResultSet rs = statement.executeQuery()) {
                 assertTrue(rs.next());
                 assertEquals(rs.getInt(1), 123);
-                assertEquals(rs.getString(2), "ALL");
+                assertEquals(rs.getString(2), "5");
                 assertFalse(rs.next());
             }
 
@@ -96,7 +96,7 @@ public class TestJdbcPreparedStatement
             try (ResultSet rs = statement.getResultSet()) {
                 assertTrue(rs.next());
                 assertEquals(rs.getInt(1), 123);
-                assertEquals(rs.getString(2), "ALL");
+                assertEquals(rs.getString(2), "5");
                 assertFalse(rs.next());
             }
         }
