@@ -94,6 +94,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnN
 import static com.facebook.presto.hive.HiveUtil.shouldUseRecordReaderFromInputFormat;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
@@ -287,7 +288,14 @@ public class ParquetPageSourceFactory
                 continue;
             }
 
-            RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+            RichColumnDescriptor descriptor;
+            if (columnHandle.getPushdownSubfield().isPresent()) {
+                List<String> subfieldPath = columnPathFromSubfield(columnHandle.getPushdownSubfield().get());
+                descriptor = descriptorsByPath.get(subfieldPath);
+            }
+            else {
+                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+            }
             if (descriptor != null) {
                 predicate.put(descriptor, entry.getValue());
             }

@@ -317,9 +317,14 @@ public final class ParquetTypeUtils
     public static String pushdownColumnNameForSubfield(Subfield subfield)
     {
         // Using the delimiter `$_$_$` to avoid conflict with Subfield serialization when `.` is used as delimiter
-        ImmutableList.Builder<String> nestedColumnPathBuilder = ImmutableList.builder();
-        nestedColumnPathBuilder.add(subfield.getRootName());
-        nestedColumnPathBuilder.addAll(nestedColumnPath(subfield));
-        return nestedColumnPathBuilder.build().stream().collect(joining("$_$_$"));
+        return columnPathFromSubfield(subfield).stream().collect(joining("$_$_$"));
+    }
+
+    public static List<String> columnPathFromSubfield(Subfield subfield)
+    {
+        ImmutableList.Builder<String> columnPath = ImmutableList.builder();
+        columnPath.add(subfield.getRootName());
+        columnPath.addAll(nestedColumnPath(subfield));
+        return columnPath.build();
     }
 }
