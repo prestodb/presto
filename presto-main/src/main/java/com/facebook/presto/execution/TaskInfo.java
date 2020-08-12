@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBufferInfo;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -30,6 +31,7 @@ import java.util.Set;
 
 import static com.facebook.presto.execution.TaskStatus.initialTaskStatus;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
+import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -44,6 +46,7 @@ public class TaskInfo
     private final TaskStats stats;
 
     private final boolean needsPlan;
+    private final MetadataUpdates metadataUpdates;
 
     @JsonCreator
     public TaskInfo(
@@ -53,7 +56,8 @@ public class TaskInfo
             @JsonProperty("outputBuffers") OutputBufferInfo outputBuffers,
             @JsonProperty("noMoreSplits") Set<PlanNodeId> noMoreSplits,
             @JsonProperty("stats") TaskStats stats,
-            @JsonProperty("needsPlan") boolean needsPlan)
+            @JsonProperty("needsPlan") boolean needsPlan,
+            @JsonProperty("metadataUpdates") MetadataUpdates metadataUpdates)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
@@ -63,6 +67,7 @@ public class TaskInfo
         this.stats = requireNonNull(stats, "stats is null");
 
         this.needsPlan = needsPlan;
+        this.metadataUpdates = metadataUpdates;
     }
 
     @JsonProperty
@@ -107,12 +112,18 @@ public class TaskInfo
         return needsPlan;
     }
 
+    @JsonProperty
+    public MetadataUpdates getMetadataUpdates()
+    {
+        return metadataUpdates;
+    }
+
     public TaskInfo summarize()
     {
         if (taskStatus.getState().isDone()) {
-            return new TaskInfo(taskId, taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan);
+            return new TaskInfo(taskId, taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarizeFinal(), needsPlan, metadataUpdates);
         }
-        return new TaskInfo(taskId, taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan);
+        return new TaskInfo(taskId, taskStatus, lastHeartbeat, outputBuffers.summarize(), noMoreSplits, stats.summarize(), needsPlan, metadataUpdates);
     }
 
     @Override
@@ -133,11 +144,12 @@ public class TaskInfo
                 new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),
                 taskStats,
-                true);
+                true,
+                DEFAULT_METADATA_UPDATES);
     }
 
     public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(taskId, newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan);
+        return new TaskInfo(taskId, newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan, metadataUpdates);
     }
 }

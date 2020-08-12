@@ -471,7 +471,8 @@ public class TestHttpRemoteTask
                     initialTaskInfo.getOutputBuffers(),
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),
-                    initialTaskInfo.isNeedsPlan());
+                    initialTaskInfo.isNeedsPlan(),
+                    initialTaskInfo.getMetadataUpdates());
         }
 
         private TaskStatus buildTaskStatus()

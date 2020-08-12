@@ -68,6 +68,9 @@ public class HivePageSink
 
     private final HiveWriterFactory writerFactory;
 
+    private final String schemaName;
+    private final String tableName;
+
     private final int[] dataColumnInputIndex; // ordinal of columns (not counting sample weight column)
     private final int[] partitionColumnsInputIndex; // ordinal of columns (not counting sample weight column)
 
@@ -95,6 +98,8 @@ public class HivePageSink
             HiveWriterFactory writerFactory,
             List<HiveColumnHandle> inputColumns,
             Optional<HiveBucketProperty> bucketProperty,
+            String schemaName,
+            String tableName,
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
@@ -107,6 +112,9 @@ public class HivePageSink
         this.writerFactory = requireNonNull(writerFactory, "writerFactory is null");
 
         requireNonNull(inputColumns, "inputColumns is null");
+
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
 
         requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
 
@@ -339,6 +347,15 @@ public class HivePageSink
         }
     }
 
+    private void sendMetadataUpdateRequest(Optional<String> partitionName, int writerIndex)
+    {
+        // Bucketed tables already have unique bucket number as part of fileName. So no need to rename.
+        if (bucketFunction != null) {
+            return;
+        }
+        hiveMetadataUpdater.addMetadataUpdateRequest(schemaName, tableName, partitionName, writerIndex);
+    }
+
     private int[] getWriterIndexes(Page page)
     {
         Page partitionColumns = extractColumns(page, partitionColumnsInputIndex);
@@ -366,6 +383,9 @@ public class HivePageSink
             }
             HiveWriter writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
             writers.set(writerIndex, writer);
+
+            // Send metadata update request if needed
+            sendMetadataUpdateRequest(writer.getPartitionName(), writerIndex);
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
         verify(!writers.contains(null));
