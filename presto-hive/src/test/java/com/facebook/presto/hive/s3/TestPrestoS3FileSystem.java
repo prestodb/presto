@@ -29,16 +29,22 @@ import com.amazonaws.services.s3.model.EncryptionMaterials;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.model.StorageClass;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem.UnrecoverableS3OperationException;
 import com.google.common.base.VerifyException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -51,6 +57,10 @@ import java.lang.reflect.Field;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -83,6 +93,7 @@ import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.createTempFile;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoS3FileSystem
@@ -663,5 +674,72 @@ public class TestPrestoS3FileSystem
                 assertEquals(inputStream.read(0, new byte[1], 0, 1), -1);
             }
         }
+    }
+
+    @Test
+    public void testListPrefixModes()
+            throws Exception
+    {
+        S3ObjectSummary rootObject = new S3ObjectSummary();
+        rootObject.setStorageClass(StorageClass.Standard.toString());
+        rootObject.setKey("standard-object-at-root.txt");
+        rootObject.setLastModified(new Date());
+
+        S3ObjectSummary childObject = new S3ObjectSummary();
+        childObject.setStorageClass(StorageClass.Standard.toString());
+        childObject.setKey("prefix/child-object.txt");
+        childObject.setLastModified(new Date());
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            MockAmazonS3 s3 = new MockAmazonS3()
+            {
+                @Override
+                public ObjectListing listObjects(ListObjectsRequest listObjectsRequest)
+                {
+                    ObjectListing listing = new ObjectListing();
+                    // Shallow listing
+                    if ("/".equals(listObjectsRequest.getDelimiter())) {
+                        listing.getCommonPrefixes().add("prefix");
+                        listing.getObjectSummaries().add(rootObject);
+                        return listing;
+                    }
+                    // Recursive listing of object keys only
+                    listing.getObjectSummaries().addAll(Arrays.asList(childObject, rootObject));
+                    return listing;
+                }
+            };
+            Path rootPath = new Path("s3n://test-bucket/");
+            fs.initialize(rootPath.toUri(), new Configuration());
+            fs.setS3Client(s3);
+
+            List<LocatedFileStatus> shallowAll = remoteIteratorToList(fs.listLocatedStatus(rootPath));
+            assertEquals(shallowAll.size(), 2);
+            assertTrue(shallowAll.get(0).isDirectory());
+            assertFalse(shallowAll.get(1).isDirectory());
+            assertEquals(shallowAll.get(0).getPath(), new Path(rootPath, "prefix"));
+            assertEquals(shallowAll.get(1).getPath(), new Path(rootPath, rootObject.getKey()));
+
+            List<LocatedFileStatus> shallowFiles = remoteIteratorToList(fs.listFiles(rootPath, false));
+            assertEquals(shallowFiles.size(), 1);
+            assertFalse(shallowFiles.get(0).isDirectory());
+            assertEquals(shallowFiles.get(0).getPath(), new Path(rootPath, rootObject.getKey()));
+
+            List<LocatedFileStatus> recursiveFiles = remoteIteratorToList(fs.listFiles(rootPath, true));
+            assertEquals(recursiveFiles.size(), 2);
+            assertFalse(recursiveFiles.get(0).isDirectory());
+            assertFalse(recursiveFiles.get(1).isDirectory());
+            assertEquals(recursiveFiles.get(0).getPath(), new Path(rootPath, childObject.getKey()));
+            assertEquals(recursiveFiles.get(1).getPath(), new Path(rootPath, rootObject.getKey()));
+        }
+    }
+
+    private static List<LocatedFileStatus> remoteIteratorToList(RemoteIterator<LocatedFileStatus> statuses)
+            throws IOException
+    {
+        List<LocatedFileStatus> result = new ArrayList<>();
+        while (statuses.hasNext()) {
+            result.add(statuses.next());
+        }
+        return result;
     }
 }
