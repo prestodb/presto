@@ -56,6 +56,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -155,6 +156,10 @@ public class HivePageSourceProvider
         TupleDomain<HiveColumnHandle> effectivePredicate = hiveLayout.getDomainPredicate()
                 .transform(Subfield::getRootName)
                 .transform(hiveLayout.getPredicateColumns()::get);
+
+        if (shouldSkipBucket(hiveLayout, hiveSplit, splitContext)) {
+            return new HiveEmptySplitPageSource();
+        }
 
         CacheQuota cacheQuota = generateCacheQuota(hiveSplit);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
@@ -263,6 +268,10 @@ public class HivePageSourceProvider
                 .collect(toImmutableList());
 
         RowExpression optimizedRemainingPredicate = rowExpressionCache.getUnchecked(new RowExpressionCacheKey(layout.getRemainingPredicate(), session));
+
+        if (shouldSkipBucket(layout, split, splitContext)) {
+            return Optional.of(new HiveEmptySplitPageSource());
+        }
 
         CacheQuota cacheQuota = generateCacheQuota(split);
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
@@ -475,6 +484,20 @@ public class HivePageSourceProvider
         }
 
         return Optional.empty();
+    }
+
+    private static boolean shouldSkipBucket(HiveTableLayoutHandle hiveLayout, HiveSplit hiveSplit, SplitContext splitContext)
+    {
+        if (!splitContext.getDynamicFilterPredicate().isPresent()
+                || !hiveSplit.getReadBucketNumber().isPresent()
+                || !hiveSplit.getStorage().getBucketProperty().isPresent()) {
+            return false;
+        }
+
+        TupleDomain<ColumnHandle> dynamicFilter = splitContext.getDynamicFilterPredicate().get();
+        Optional<HiveBucketing.HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveSplit.getStorage().getBucketProperty(), hiveLayout.getDataColumns(), dynamicFilter);
+
+        return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getReadBucketNumber().getAsInt())).orElse(false);
     }
 
     private static BucketAdaptation toBucketAdaptation(BucketConversion conversion, List<ColumnMapping> columnMappings, OptionalInt tableBucketNumber, Function<ColumnMapping, Integer> bucketColumnIndexProducer)
