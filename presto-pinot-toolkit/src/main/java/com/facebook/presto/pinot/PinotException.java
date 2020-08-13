@@ -22,19 +22,19 @@ import static java.util.Objects.requireNonNull;
 public class PinotException
         extends PrestoException
 {
-    private final Optional<String> pql;
+    private final Optional<String> pinotQuery;
     private final PinotErrorCode pinotErrorCode;
 
-    public PinotException(PinotErrorCode errorCode, Optional<String> pql, String message)
+    public PinotException(PinotErrorCode errorCode, Optional<String> pinotQuery, String message)
     {
-        this(errorCode, pql, message, null);
+        this(errorCode, pinotQuery, message, null);
     }
 
-    public PinotException(PinotErrorCode pinotErrorCode, Optional<String> pql, String message, Throwable throwable)
+    public PinotException(PinotErrorCode pinotErrorCode, Optional<String> pinotQuery, String message, Throwable throwable)
     {
         super(requireNonNull(pinotErrorCode, "error code is null"), requireNonNull(message, "message is null"), throwable);
         this.pinotErrorCode = pinotErrorCode;
-        this.pql = requireNonNull(pql, "pql is null");
+        this.pinotQuery = requireNonNull(pinotQuery, "pinot query is null");
     }
 
     public PinotErrorCode getPinotErrorCode()
@@ -46,8 +46,8 @@ public class PinotException
     public String getMessage()
     {
         String message = super.getMessage();
-        if (pql.isPresent()) {
-            message += " with pql \"" + pql.get() + "\"";
+        if (pinotQuery.isPresent()) {
+            message += " with pinot query \"" + pinotQuery.get() + "\"";
         }
         return message;
     }
