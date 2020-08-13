@@ -448,6 +448,11 @@ public class SqlTask
         return getTaskInfo();
     }
 
+    public TaskMetadataContext getTaskMetadataContext()
+    {
+        return taskHolderReference.get().taskExecution.getTaskContext().getTaskMetadataContext();
+    }
+
     public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
     {
         requireNonNull(bufferId, "bufferId is null");
