@@ -493,7 +493,7 @@ public class PrestoSparkTaskExecutorFactory
 
         private Tuple2<MutablePartitionId, T> next;
 
-        private final long start = System.currentTimeMillis();
+        private Long start;
         private long processedRows;
         private long processedRowBatches;
         private long processedBytes;
@@ -561,6 +561,9 @@ public class PrestoSparkTaskExecutorFactory
         private Tuple2<MutablePartitionId, T> doComputeNext()
                 throws InterruptedException
         {
+            if (start == null) {
+                start = System.currentTimeMillis();
+            }
             Tuple2<MutablePartitionId, T> output = outputSupplier.getNext();
 
             if (output != null) {
