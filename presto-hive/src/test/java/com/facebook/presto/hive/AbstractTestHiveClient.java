@@ -957,7 +957,8 @@ public abstract class AbstractTestHiveClient
                 TEST_SERVER_VERSION,
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
-                new HivePartitionStats());
+                new HivePartitionStats(),
+                new HiveFileRenamer());
         transactionManager = new HiveTransactionManager();
         encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of());
         splitManager = new HiveSplitManager(
