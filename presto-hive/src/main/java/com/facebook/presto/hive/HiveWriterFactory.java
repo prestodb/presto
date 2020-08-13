@@ -325,7 +325,8 @@ public class HiveWriterFactory
         String extension = getFileExtension(writerParameters.getOutputStorageFormat(), compressionCodec);
         String targetFileName;
         if (bucketNumber.isPresent()) {
-            targetFileName = computeBucketedFileName(filePrefix, bucketNumber.getAsInt()) + extension;
+            // Use the bucket number for file name.
+            targetFileName = bucketNumber.getAsInt() + extension;
         }
         else {
             targetFileName = filePrefix + "_" + randomUUID() + extension;

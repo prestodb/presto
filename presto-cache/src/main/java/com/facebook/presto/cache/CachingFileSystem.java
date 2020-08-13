@@ -16,6 +16,7 @@ package com.facebook.presto.cache;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.ContentSummary;
@@ -497,5 +498,12 @@ public abstract class CachingFileSystem
             throws IOException
     {
         return dataTier.listFiles(path);
+    }
+
+    @Override
+    public ListenableFuture<Void> renameFileAsync(Path source, Path destination)
+            throws IOException
+    {
+        return dataTier.renameFileAsync(source, destination);
     }
 }
