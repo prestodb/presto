@@ -21,6 +21,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
@@ -31,6 +32,8 @@ import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.InternalCommunicationConfig;
@@ -70,6 +73,7 @@ public class HttpRemoteTaskFactory
     private final Codec<TaskInfo> taskInfoCodec;
     private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Codec<PlanFragment> planFragmentCodec;
+    private final Codec<MetadataUpdates> metadataUpdatesCodec;
     private final Duration maxErrorDuration;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoRefreshMaxWait;
@@ -82,6 +86,8 @@ public class HttpRemoteTaskFactory
     private final RemoteTaskStats stats;
     private final boolean isBinaryTransportEnabled;
     private final int maxTaskUpdateSizeInBytes;
+    private final MetadataManager metadataManager;
+    private final QueryManager queryManager;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -97,8 +103,12 @@ public class HttpRemoteTaskFactory
             SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
             JsonCodec<PlanFragment> planFragmentJsonCodec,
             SmileCodec<PlanFragment> planFragmentSmileCodec,
+            JsonCodec<MetadataUpdates> metadataUpdatesJsonCodec,
+            SmileCodec<MetadataUpdates> metadataUpdatesSmileCodec,
             RemoteTaskStats stats,
-            InternalCommunicationConfig communicationConfig)
+            InternalCommunicationConfig communicationConfig,
+            MetadataManager metadataManager,
+            QueryManager queryManager)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
@@ -117,13 +127,18 @@ public class HttpRemoteTaskFactory
             this.taskStatusCodec = taskStatusSmileCodec;
             this.taskInfoCodec = taskInfoSmileCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestSmileCodec;
+            this.metadataUpdatesCodec = metadataUpdatesSmileCodec;
         }
         else {
             this.taskStatusCodec = wrapJsonCodec(taskStatusJsonCodec);
             this.taskInfoCodec = wrapJsonCodec(taskInfoJsonCodec);
             this.taskUpdateRequestCodec = wrapJsonCodec(taskUpdateRequestJsonCodec);
+            this.metadataUpdatesCodec = wrapJsonCodec(metadataUpdatesJsonCodec);
         }
         this.planFragmentCodec = wrapJsonCodec(planFragmentJsonCodec);
+
+        this.metadataManager = metadataManager;
+        this.queryManager = queryManager;
 
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
@@ -178,10 +193,13 @@ public class HttpRemoteTaskFactory
                 taskInfoCodec,
                 taskUpdateRequestCodec,
                 planFragmentCodec,
+                metadataUpdatesCodec,
                 partitionedSplitCountTracker,
                 stats,
                 isBinaryTransportEnabled,
                 tableWriteInfo,
-                maxTaskUpdateSizeInBytes);
+                maxTaskUpdateSizeInBytes,
+                metadataManager,
+                queryManager);
     }
 }

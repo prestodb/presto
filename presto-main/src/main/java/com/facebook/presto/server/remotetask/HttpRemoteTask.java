@@ -24,6 +24,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -36,6 +37,8 @@ import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.PageBufferInfo;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.RequestErrorTracker;
@@ -215,11 +218,14 @@ public final class HttpRemoteTask
             Codec<TaskInfo> taskInfoCodec,
             Codec<TaskUpdateRequest> taskUpdateRequestCodec,
             Codec<PlanFragment> planFragmentCodec,
+            Codec<MetadataUpdates> metadataUpdatesCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled,
             TableWriteInfo tableWriteInfo,
-            int maxTaskUpdateSizeInBytes)
+            int maxTaskUpdateSizeInBytes,
+            MetadataManager metadataManager,
+            QueryManager queryManager)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -239,6 +245,8 @@ public final class HttpRemoteTask
         requireNonNull(stats, "stats is null");
         requireNonNull(taskInfoRefreshMaxWait, "taskInfoRefreshMaxWait is null");
         requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+        requireNonNull(metadataManager, "metadataManager is null");
+        requireNonNull(queryManager, "queryManager is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -304,13 +312,17 @@ public final class HttpRemoteTask
                     taskInfoUpdateInterval,
                     taskInfoRefreshMaxWait,
                     taskInfoCodec,
+                    metadataUpdatesCodec,
                     maxErrorDuration,
                     summarizeTaskInfo,
                     executor,
                     updateScheduledExecutor,
                     errorScheduledExecutor,
                     stats,
-                    isBinaryTransportEnabled);
+                    isBinaryTransportEnabled,
+                    session,
+                    metadataManager,
+                    queryManager);
 
             taskStatusFetcher.addStateChangeListener(newStatus -> {
                 TaskState state = newStatus.getState();

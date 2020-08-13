@@ -209,7 +209,8 @@ public abstract class AbstractTestHiveFileSystem
                 new NodeVersion("test_version"),
                 new HivePartitionObjectBuilder(),
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
-                new HivePartitionStats());
+                new HivePartitionStats(),
+                new HiveFileRenamer());
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionManager,
