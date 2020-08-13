@@ -180,7 +180,7 @@ public class HivePageSinkProvider
                 handle.getInputColumns(),
                 handle.getBucketProperty(),
                 handle.getSchemaName(),
-                handle.getSchemaName(),
+                handle.getTableName(),
                 pageIndexerFactory,
                 typeManager,
                 hdfsEnvironment,
