@@ -18,6 +18,9 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.airlift.slice.DynamicSliceOutput;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -46,11 +49,7 @@ public final class Marker
      * LOWER UNBOUNDED is specified with an empty value and a ABOVE bound
      * UPPER UNBOUNDED is specified with an empty value and a BELOW bound
      */
-    @JsonCreator
-    public Marker(
-            @JsonProperty("type") Type type,
-            @JsonProperty("valueBlock") Optional<Block> valueBlock,
-            @JsonProperty("bound") Bound bound)
+    public Marker(Type type, Optional<Block> valueBlock, Bound bound)
     {
         requireNonNull(type, "type is null");
         requireNonNull(valueBlock, "valueBlock is null");
@@ -68,6 +67,20 @@ public final class Marker
         this.type = type;
         this.valueBlock = valueBlock;
         this.bound = bound;
+    }
+
+    @JsonCreator
+    public static Marker createMarker(
+            @JsonProperty("type") Type type,
+            @JsonProperty("valueBlock") Optional<byte[]> valueBlockBytes,
+            @JsonProperty("bound") Bound bound)
+    {
+        requireNonNull(valueBlockBytes, "valueBlockBytes is null");
+        Optional<Block> valueBlock = valueBlockBytes.map(bytes -> {
+            Slice slice = Slices.wrappedBuffer(bytes);
+            return type.createBlockBuilder(null, 1).readPositionFrom(slice.getInput()).build();
+        });
+        return new Marker(type, valueBlock, bound);
     }
 
     private static Marker create(Type type, Optional<Object> value, Bound bound)
@@ -114,7 +127,16 @@ public final class Marker
         return type;
     }
 
-    @JsonProperty
+    @JsonProperty("valueBlock")
+    public Optional<byte[]> getValueBlockForSerialization()
+    {
+        return valueBlock.map(values -> {
+            DynamicSliceOutput sliceOutput = new DynamicSliceOutput((int) values.getSizeInBytes());
+            values.writePositionTo(0, sliceOutput);
+            return sliceOutput.copySlice().getBytes();
+        });
+    }
+
     public Optional<Block> getValueBlock()
     {
         return valueBlock;
