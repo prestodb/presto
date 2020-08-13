@@ -32,12 +32,14 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.TestQueryManager;
 import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
@@ -98,6 +100,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
@@ -248,10 +251,12 @@ public class TestHttpRemoteTask
                         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
                         smileCodecBinder(binder).bindSmileCodec(TaskUpdateRequest.class);
                         smileCodecBinder(binder).bindSmileCodec(PlanFragment.class);
+                        smileCodecBinder(binder).bindSmileCodec(MetadataUpdates.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
                         jsonCodecBinder(binder).bindJsonCodec(PlanFragment.class);
+                        jsonCodecBinder(binder).bindJsonCodec(MetadataUpdates.class);
                         jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionSerializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionDeserializer.class);
                     }
@@ -266,7 +271,9 @@ public class TestHttpRemoteTask
                             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
                             SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
                             JsonCodec<PlanFragment> planFragmentJsonCodec,
-                            SmileCodec<PlanFragment> planFragmentSmileCodec)
+                            SmileCodec<PlanFragment> planFragmentSmileCodec,
+                            JsonCodec<MetadataUpdates> metadataUpdatesJsonCodec,
+                            SmileCodec<MetadataUpdates> metadataUpdatesSmileCodec)
                     {
                         JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper);
                         TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
@@ -284,8 +291,12 @@ public class TestHttpRemoteTask
                                 taskUpdateRequestSmileCodec,
                                 planFragmentJsonCodec,
                                 planFragmentSmileCodec,
+                                metadataUpdatesJsonCodec,
+                                metadataUpdatesSmileCodec,
                                 new RemoteTaskStats(),
-                                new InternalCommunicationConfig());
+                                new InternalCommunicationConfig(),
+                                createTestMetadataManager(),
+                                new TestQueryManager());
                     }
                 });
         Injector injector = app
