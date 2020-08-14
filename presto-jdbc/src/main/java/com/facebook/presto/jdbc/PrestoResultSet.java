@@ -95,6 +95,7 @@ public class PrestoResultSet
             .toFormatter()
             .withOffsetParsed();
 
+    private final Statement statement;
     private final StatementClient client;
     private final DateTimeZone sessionTimeZone;
     private final String queryId;
@@ -107,9 +108,10 @@ public class PrestoResultSet
     private final AtomicBoolean closed = new AtomicBoolean();
     private final WarningsManager warningsManager;
 
-    PrestoResultSet(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
+    PrestoResultSet(Statement statement, StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
+        this.statement = requireNonNull(statement, "statement is null");
         this.client = requireNonNull(client, "client is null");
         requireNonNull(progressCallback, "progressCallback is null");
 
@@ -1082,9 +1084,8 @@ public class PrestoResultSet
 
     @Override
     public Statement getStatement()
-            throws SQLException
     {
-        throw new NotImplementedException("ResultSet", "getStatement");
+        return statement;
     }
 
     @Override
