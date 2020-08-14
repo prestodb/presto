@@ -20,6 +20,7 @@ import com.facebook.presto.server.remotetask.Backoff;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
+import com.facebook.presto.spi.QueryId;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
@@ -39,8 +40,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.spi.HostAddress.fromUri;
+import static com.facebook.presto.spi.StandardErrorCode.REMOTE_QUERY_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static com.facebook.presto.util.Failures.COORDINATOR_NODE_ERROR;
 import static com.facebook.presto.util.Failures.WORKER_NODE_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -76,6 +79,11 @@ public class RequestErrorTracker
     public static RequestErrorTracker taskRequestErrorTracker(TaskId taskId, URI taskUri, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
     {
         return new RequestErrorTracker(taskId, taskUri, REMOTE_TASK_ERROR, WORKER_NODE_ERROR, maxErrorDuration, scheduledExecutor, jobDescription);
+    }
+
+    public static RequestErrorTracker queryRequestErrorTracker(QueryId queryId, URI queryUri, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor)
+    {
+        return new RequestErrorTracker(queryId, queryUri, REMOTE_QUERY_ERROR, COORDINATOR_NODE_ERROR, maxErrorDuration, scheduledExecutor, "getting query status");
     }
 
     public ListenableFuture<?> acquireRequestPermit()

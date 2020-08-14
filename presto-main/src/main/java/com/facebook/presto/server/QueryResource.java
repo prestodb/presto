@@ -14,7 +14,6 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.dispatcher.DispatchManager;
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageId;
@@ -25,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -76,13 +76,14 @@ public class QueryResource
 
     @GET
     @Path("{queryId}")
-    public Response getQueryInfo(@PathParam("queryId") QueryId queryId)
+    public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @QueryParam("basic") @DefaultValue("false") boolean useBasic)
     {
         requireNonNull(queryId, "queryId is null");
-
         try {
-            QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
-            return Response.ok(queryInfo).build();
+            if (useBasic) {
+                return Response.ok(queryManager.getQueryInfo(queryId)).build();
+            }
+            return Response.ok(queryManager.getFullQueryInfo(queryId)).build();
         }
         catch (NoSuchElementException e) {
             try {

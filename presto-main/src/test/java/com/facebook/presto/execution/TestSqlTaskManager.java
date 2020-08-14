@@ -305,6 +305,12 @@ public class TestSqlTaskManager
         }
 
         @Override
+        public URI createQueryLocation(InternalNode node, QueryId queryId)
+        {
+            return null;
+        }
+
+        @Override
         public URI createStageLocation(StageId stageId)
         {
             return URI.create("http://fake.invalid/stage/" + stageId);

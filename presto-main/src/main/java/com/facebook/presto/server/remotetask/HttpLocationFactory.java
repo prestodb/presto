@@ -63,6 +63,16 @@ public class HttpLocationFactory
     }
 
     @Override
+    public URI createQueryLocation(InternalNode node, QueryId queryId)
+    {
+        requireNonNull(queryId, "queryId is null");
+        return uriBuilderFrom(node.getInternalUri())
+                .appendPath("/v1/query")
+                .appendPath(queryId.toString())
+                .build();
+    }
+
+    @Override
     public URI createStageLocation(StageId stageId)
     {
         requireNonNull(stageId, "stageId is null");
