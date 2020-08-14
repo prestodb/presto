@@ -18,6 +18,7 @@ import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrestoSparkQueryRunner
         extends AbstractTestQueryFramework
@@ -336,6 +337,14 @@ public class TestPrestoSparkQueryRunner
         assertEquals(actual.getRowCount(), 10);
         actual = computeActual("SELECT 'a' FROM orders LIMIT 10");
         assertEquals(actual.getRowCount(), 10);
+    }
+
+    @Test
+    public void testTableSampleSystem()
+    {
+        long totalRows = (Long) computeActual("SELECT count(*) FROM orders").getOnlyValue();
+        long sampledRows = (Long) computeActual("SELECT count(*) FROM orders TABLESAMPLE SYSTEM (1)").getOnlyValue();
+        assertThat(sampledRows).isLessThan(totalRows);
     }
 
     private void assertBucketedQuery(String sql)
