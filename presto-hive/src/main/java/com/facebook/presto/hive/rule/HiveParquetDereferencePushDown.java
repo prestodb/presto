@@ -54,7 +54,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.expressions.RowExpressionTreeRewriter.rewriteWith;
-import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetDereferencePushdownEnabled;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
@@ -375,10 +375,9 @@ public class HiveParquetDereferencePushDown
                         nestedColumnHiveType.get(),
                         dereferenceExpression.getType().getTypeSignature(),
                         -1,
-                        REGULAR,
+                        SYNTHESIZED,
                         Optional.of("nested column pushdown"),
-                        ImmutableList.of(),
-                        Optional.of(nestedColumn));
+                        ImmutableList.of(nestedColumn));
 
                 VariableReferenceExpression newOutputVariable = variableAllocator.newVariable(pushdownColumnName, dereferenceExpression.getType());
                 newOutputVariables.add(newOutputVariable);

@@ -40,11 +40,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HiveColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getParquetType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
@@ -81,7 +84,7 @@ public class ParquetPageSource
         ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
         for (HiveColumnHandle column : columns) {
-            checkState(column.getColumnType() == REGULAR, "column type must be regular column");
+            checkArgument(column.getColumnType() == REGULAR || column.getColumnType() == SYNTHESIZED, "column type must be regular or synthesized column");
 
             String name = column.getName();
             Type type = typeManager.getType(column.getTypeSignature());
@@ -89,10 +92,10 @@ public class ParquetPageSource
             namesBuilder.add(name);
             typesBuilder.add(type);
 
-            if (column.getPushdownSubfield().isPresent()) {
-                Subfield pushdownSubfield = column.getPushdownSubfield().get();
-                List<String> nestedColumnPath = nestedColumnPath(pushdownSubfield);
-                Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushdownSubfield.getRootName()), nestedColumnPath);
+            if (column.getColumnType() == SYNTHESIZED) {
+                Subfield pushedDownSubfield = getPushedDownSubfield(column);
+                List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
+                Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
                 if (columnIO.isPresent()) {
                     fieldsBuilder.add(constructField(type, columnIO.get()));
                 }

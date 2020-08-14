@@ -63,6 +63,7 @@ import static com.facebook.presto.hive.HiveCoercer.createCoercer;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
@@ -74,6 +75,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
@@ -613,20 +615,19 @@ public class HivePageSourceProvider
                 }
 
                 if (column.getColumnType() == REGULAR) {
-                    if (column.getPushdownSubfield().isPresent()) {
-                        Optional<HiveType> coercionFromType = getHiveType(coercionFrom, column.getPushdownSubfield().get());
-                        HiveType coercionToType = column.getHiveType();
-                        if (coercionFromType.isPresent() && coercionFromType.get().equals(coercionToType)) {
-                            // In nested columns, if the resolved type is same as requested type don't add the coercion mapping
-                            coercionFromType = Optional.empty();
-                        }
-                        ColumnMapping columnMapping = new ColumnMapping(ColumnMappingKind.REGULAR, column, Optional.empty(), OptionalInt.of(regularIndex), coercionFromType);
-                        columnMappings.add(columnMapping);
+                    checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
+                    columnMappings.add(regular(column, regularIndex, coercionFrom));
+                    regularIndex++;
+                }
+                else if (isPushedDownSubfield(column)) {
+                    Optional<HiveType> coercionFromType = getHiveType(coercionFrom, getOnlyElement(column.getRequiredSubfields()));
+                    HiveType coercionToType = column.getHiveType();
+                    if (coercionFromType.isPresent() && coercionFromType.get().equals(coercionToType)) {
+                        // In nested columns, if the resolved type is same as requested type don't add the coercion mapping
+                        coercionFromType = Optional.empty();
                     }
-                    else {
-                        checkArgument(regularColumnIndices.add(column.getHiveColumnIndex()), "duplicate hiveColumnIndex in columns list");
-                        columnMappings.add(regular(column, regularIndex, coercionFrom));
-                    }
+                    ColumnMapping columnMapping = new ColumnMapping(ColumnMappingKind.REGULAR, column, Optional.empty(), OptionalInt.of(regularIndex), coercionFromType);
+                    columnMappings.add(columnMapping);
                     regularIndex++;
                 }
                 else {
@@ -683,8 +684,7 @@ public class HivePageSourceProvider
                                 columnHandle.getHiveColumnIndex(),
                                 columnHandle.getColumnType(),
                                 Optional.empty(),
-                                columnHandle.getRequiredSubfields(),
-                                columnHandle.getPushdownSubfield());
+                                columnHandle.getRequiredSubfields());
                     })
                     .collect(toList());
         }
