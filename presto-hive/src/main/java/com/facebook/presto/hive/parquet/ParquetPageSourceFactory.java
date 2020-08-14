@@ -82,6 +82,8 @@ import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.getPushedDownSubfield;
+import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -201,7 +203,7 @@ public class ParquetPageSourceFactory
             dataSource = buildHdfsParquetDataSource(inputStream, path, stats);
 
             Optional<MessageType> message = columns.stream()
-                    .filter(column -> column.getColumnType() == REGULAR)
+                    .filter(column -> column.getColumnType() == REGULAR || isPushedDownSubfield(column))
                     .map(column -> getColumnType(typeManager.getType(column.getTypeSignature()), fileSchema, useParquetColumnNames, column, tableName, path))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
@@ -289,8 +291,9 @@ public class ParquetPageSourceFactory
             }
 
             RichColumnDescriptor descriptor;
-            if (columnHandle.getPushdownSubfield().isPresent()) {
-                List<String> subfieldPath = columnPathFromSubfield(columnHandle.getPushdownSubfield().get());
+            if (isPushedDownSubfield(columnHandle)) {
+                Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
+                List<String> subfieldPath = columnPathFromSubfield(pushedDownSubfield);
                 descriptor = descriptorsByPath.get(subfieldPath);
             }
             else {
@@ -425,9 +428,9 @@ public class ParquetPageSourceFactory
 
     public static Optional<org.apache.parquet.schema.Type> getColumnType(Type prestoType, MessageType messageType, boolean useParquetColumnNames, HiveColumnHandle column, SchemaTableName tableName, Path path)
     {
-        if (useParquetColumnNames && column.getPushdownSubfield().isPresent()) {
-            Subfield subfield = column.getPushdownSubfield().get();
-            return getSubfieldType(messageType, subfield.getRootName(), nestedColumnPath(subfield));
+        if (useParquetColumnNames && isPushedDownSubfield(column)) {
+            Subfield pushedDownSubfield = getPushedDownSubfield(column);
+            return getSubfieldType(messageType, pushedDownSubfield.getRootName(), nestedColumnPath(pushedDownSubfield));
         }
         return getParquetType(prestoType, messageType, useParquetColumnNames, column, tableName, path);
     }

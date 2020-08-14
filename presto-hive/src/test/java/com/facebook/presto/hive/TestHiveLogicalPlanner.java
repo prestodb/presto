@@ -75,6 +75,8 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.COLLECT_COLUMN_STATISTICS_ON_WRITE;
@@ -1504,13 +1506,15 @@ public class TestHiveLogicalPlanner
                 HiveColumnHandle hiveColumn = (HiveColumnHandle) column;
                 String columnName = hiveColumn.getName();
                 if (dereferenceColumns.containsKey(columnName)) {
-                    if (!hiveColumn.getPushdownSubfield().isPresent() || !hiveColumn.getPushdownSubfield().get().equals(dereferenceColumns.get(columnName))) {
+                    if (hiveColumn.getColumnType() != SYNTHESIZED ||
+                            hiveColumn.getRequiredSubfields().size() != 1 ||
+                            !hiveColumn.getRequiredSubfields().get(0).equals(dereferenceColumns.get(columnName))) {
                         return NO_MATCH;
                     }
                     dereferenceColumns.remove(columnName);
                 }
                 else {
-                    if (hiveColumn.getPushdownSubfield().isPresent()) {
+                    if (isPushedDownSubfield(hiveColumn)) {
                         return NO_MATCH;
                     }
                 }
