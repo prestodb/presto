@@ -330,6 +330,15 @@ public class TestJdbcResultSet
         statement.getMaxRows();
     }
 
+    @Test
+    public void testGetStatement()
+            throws SQLException
+    {
+        try (ResultSet rs = statement.executeQuery("SELECT * FROM (VALUES (1), (2), (3))")) {
+            assertEquals(rs.getStatement(), statement);
+        }
+    }
+
     private Connection createConnection()
             throws SQLException
     {
