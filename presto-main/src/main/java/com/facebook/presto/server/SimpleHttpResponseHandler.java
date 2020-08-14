@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.remotetask;
+package com.facebook.presto.server;
 
 import com.facebook.airlift.http.client.HttpStatus;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.smile.JsonResponseWrapper;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.FutureCallback;
 
@@ -23,7 +24,6 @@ import java.net.URI;
 
 import static com.facebook.airlift.http.client.HttpStatus.OK;
 import static com.facebook.presto.server.smile.JsonResponseWrapper.unwrapJsonResponse;
-import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -33,13 +33,15 @@ public class SimpleHttpResponseHandler<T>
     private final SimpleHttpResponseCallback<T> callback;
 
     private final URI uri;
-    private final RemoteTaskStats stats;
+    private final SimpleHttpResponseHandlerStats stats;
+    private final ErrorCodeSupplier errorCode;
 
-    public SimpleHttpResponseHandler(SimpleHttpResponseCallback<T> callback, URI uri, RemoteTaskStats stats)
+    public SimpleHttpResponseHandler(SimpleHttpResponseCallback<T> callback, URI uri, SimpleHttpResponseHandlerStats stats, ErrorCodeSupplier errorCode)
     {
         this.callback = callback;
         this.uri = uri;
         this.stats = requireNonNull(stats, "stats is null");
+        this.errorCode = requireNonNull(errorCode, "errorCode is null");
     }
 
     @Override
@@ -55,18 +57,18 @@ public class SimpleHttpResponseHandler<T>
                 callback.failed(new ServiceUnavailableException(uri));
             }
             else {
-                // Something is broken in the server or the client, so fail the task immediately (includes 500 errors)
+                // Something is broken in the server or the client, so fail immediately (includes 500 errors)
                 Exception cause = response.getException();
                 if (cause == null) {
                     if (response.getStatusCode() == OK.code()) {
-                        cause = new PrestoException(REMOTE_TASK_ERROR, format("Expected response from %s is empty", uri));
+                        cause = new PrestoException(errorCode, format("Expected response from %s is empty", uri));
                     }
                     else {
-                        cause = new PrestoException(REMOTE_TASK_ERROR, createErrorMessage(response));
+                        cause = new PrestoException(errorCode, createErrorMessage(response));
                     }
                 }
                 else {
-                    cause = new PrestoException(REMOTE_TASK_ERROR, format("Unexpected response from %s", uri), cause);
+                    cause = new PrestoException(errorCode, format("Unexpected response from %s", uri), cause);
                 }
                 callback.fatal(cause);
             }
