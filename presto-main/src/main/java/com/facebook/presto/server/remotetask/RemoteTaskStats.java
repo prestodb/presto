@@ -14,22 +14,21 @@
 package com.facebook.presto.server.remotetask;
 
 import com.facebook.airlift.stats.DistributionStat;
+import com.facebook.presto.server.SimpleHttpResponseHandlerStats;
+import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import javax.annotation.concurrent.ThreadSafe;
+import static com.facebook.presto.server.SimpleHttpResponseHandlerStats.IncrementalAverage;
 
 public class RemoteTaskStats
 {
+    private final SimpleHttpResponseHandlerStats httpResponseStats = new SimpleHttpResponseHandlerStats();
     private final IncrementalAverage updateRoundTripMillis = new IncrementalAverage();
     private final IncrementalAverage infoRoundTripMillis = new IncrementalAverage();
     private final IncrementalAverage statusRoundTripMillis = new IncrementalAverage();
-    private final IncrementalAverage responseSizeBytes = new IncrementalAverage();
     private final DistributionStat updateWithPlanSize = new DistributionStat();
     private final DistributionStat updateWithoutPlanSize = new DistributionStat();
-
-    private long requestSuccess;
-    private long requestFailure;
 
     public void statusRoundTripMillis(long roundTripMillis)
     {
@@ -46,21 +45,6 @@ public class RemoteTaskStats
         updateRoundTripMillis.add(roundTripMillis);
     }
 
-    public void responseSize(long responseSizeBytes)
-    {
-        this.responseSizeBytes.add(responseSizeBytes);
-    }
-
-    public void updateSuccess()
-    {
-        requestSuccess++;
-    }
-
-    public void updateFailure()
-    {
-        requestFailure++;
-    }
-
     public void updateWithPlanSize(long bytes)
     {
         updateWithPlanSize.add(bytes);
@@ -72,9 +56,10 @@ public class RemoteTaskStats
     }
 
     @Managed
-    public double getResponseSizeBytes()
+    @Flatten
+    public SimpleHttpResponseHandlerStats getHttpResponseStats()
     {
-        return responseSizeBytes.getAverage();
+        return httpResponseStats;
     }
 
     @Managed
@@ -114,18 +99,6 @@ public class RemoteTaskStats
     }
 
     @Managed
-    public long getRequestSuccess()
-    {
-        return requestSuccess;
-    }
-
-    @Managed
-    public long getRequestFailure()
-    {
-        return requestFailure;
-    }
-
-    @Managed
     @Nested
     public DistributionStat getUpdateWithPlanSize()
     {
@@ -137,28 +110,5 @@ public class RemoteTaskStats
     public DistributionStat getUpdateWithoutPlanSize()
     {
         return updateWithoutPlanSize;
-    }
-
-    @ThreadSafe
-    private static class IncrementalAverage
-    {
-        private volatile long count;
-        private volatile double average;
-
-        synchronized void add(long value)
-        {
-            count++;
-            average = average + (value - average) / count;
-        }
-
-        double getAverage()
-        {
-            return average;
-        }
-
-        long getCount()
-        {
-            return count;
-        }
     }
 }
