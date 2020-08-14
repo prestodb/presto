@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -76,12 +77,14 @@ public class QueryResource
 
     @GET
     @Path("{queryId}")
-    public Response getQueryInfo(@PathParam("queryId") QueryId queryId)
+    public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @QueryParam("basic") @DefaultValue("false") boolean useBasic)
     {
         requireNonNull(queryId, "queryId is null");
-
         try {
             QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
+            if (useBasic) {
+                return Response.ok(new BasicQueryInfo(queryInfo)).build();
+            }
             return Response.ok(queryInfo).build();
         }
         catch (NoSuchElementException e) {

@@ -22,6 +22,8 @@ public interface LocationFactory
 {
     URI createQueryLocation(QueryId queryId);
 
+    URI createQueryLocation(InternalNode node, QueryId queryId);
+
     URI createStageLocation(StageId stageId);
 
     URI createLocalTaskLocation(TaskId taskId);

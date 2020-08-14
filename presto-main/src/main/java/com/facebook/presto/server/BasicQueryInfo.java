@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.server.BasicQueryStats.immediateFailureQueryStats;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -143,6 +144,23 @@ public class BasicQueryInfo
                 queryInfo.getFailureInfo(),
                 queryInfo.getQueryType(),
                 queryInfo.getWarnings());
+    }
+
+    public static BasicQueryInfo dispatchedQueryInfo(QueryId queryId, String query, Session session)
+    {
+        return new BasicQueryInfo(
+                queryId,
+                session.toSessionRepresentation(),
+                Optional.empty(),
+                QUEUED,
+                GENERAL_POOL,
+                false,
+                URI.create(""),
+                query,
+                immediateFailureQueryStats(),
+                null,
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     public static BasicQueryInfo immediateFailureQueryInfo(Session session, String query, URI self, Optional<ResourceGroupId> resourceGroupId, ExecutionFailureInfo failure)
