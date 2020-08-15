@@ -102,6 +102,11 @@ public final class FunctionResolution
         return functionManager.getFunctionMetadata(functionHandle).getOperatorType().equals(Optional.of(OperatorType.CAST));
     }
 
+    public boolean isTryCastFunction(FunctionHandle functionHandle)
+    {
+        return functionManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "TRY_CAST"));
+    }
+
     public boolean isArrayConstructor(FunctionHandle functionHandle)
     {
         return functionManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, ARRAY_CONSTRUCTOR));
