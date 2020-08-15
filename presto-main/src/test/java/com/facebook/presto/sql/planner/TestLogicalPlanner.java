@@ -1002,8 +1002,7 @@ public class TestLogicalPlanner
                         join(INNER, ImmutableList.of(equiJoinClause("l_suppkey", "p_suppkey")),
                                 anyTree(
                                         filter(
-                                                // cast function cannot be optimized on coordinator; it will only be optimized on workers
-                                                "l_comment = '42' and '42' = cast(l_comment as varchar)",
+                                                "l_comment = '42'",
                                                 tableScan("lineitem", ImmutableMap.of("l_suppkey", "suppkey", "l_comment", "comment")))),
                                 anyTree(
                                         filter(
