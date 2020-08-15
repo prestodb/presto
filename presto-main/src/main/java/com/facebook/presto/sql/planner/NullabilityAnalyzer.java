@@ -76,9 +76,13 @@ public final class NullabilityAnalyzer
                         if (!typeManager.isTypeOnlyCoercion(sourceType, targetType)) {
                             result.set(true);
                         }
+                        break;
                     }
                     case SUBSCRIPT:
                         result.set(true);
+                        break;
+                    default:
+                        // no-op
                 }
             }
             else if (!functionReturnsNullForNotNullInput(function)) {
