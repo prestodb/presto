@@ -22,6 +22,7 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.sql.relational.FunctionResolution;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,11 +34,13 @@ public final class NullabilityAnalyzer
 {
     private final FunctionManager functionManager;
     private final TypeManager typeManager;
+    private final FunctionResolution functionResolution;
 
     public NullabilityAnalyzer(FunctionManager functionManager, TypeManager typeManager)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionResolution = new FunctionResolution(functionManager);
     }
 
     public boolean mayReturnNullOnNonNullInput(RowExpression expression)
@@ -45,7 +48,7 @@ public final class NullabilityAnalyzer
         requireNonNull(expression, "expression is null");
 
         AtomicBoolean result = new AtomicBoolean(false);
-        expression.accept(new RowExpressionVisitor(functionManager, typeManager), result);
+        expression.accept(new RowExpressionVisitor(functionManager, typeManager, functionResolution), result);
         return result.get();
     }
 
@@ -54,11 +57,13 @@ public final class NullabilityAnalyzer
     {
         private final FunctionManager functionManager;
         private final TypeManager typeManager;
+        private final FunctionResolution functionResolution;
 
-        public RowExpressionVisitor(FunctionManager functionManager, TypeManager typeManager)
+        public RowExpressionVisitor(FunctionManager functionManager, TypeManager typeManager, FunctionResolution functionResolution)
         {
             this.functionManager = functionManager;
             this.typeManager = typeManager;
+            this.functionResolution = functionResolution;
         }
 
         @Override
@@ -70,10 +75,7 @@ public final class NullabilityAnalyzer
                 switch (operator.get()) {
                     case SATURATED_FLOOR_CAST:
                     case CAST: {
-                        checkArgument(call.getArguments().size() == 1);
-                        Type sourceType = call.getArguments().get(0).getType();
-                        Type targetType = call.getType();
-                        if (!typeManager.isTypeOnlyCoercion(sourceType, targetType)) {
+                        if (!isCastTypeOnlyCoercion(call)) {
                             result.set(true);
                         }
                         break;
@@ -85,12 +87,25 @@ public final class NullabilityAnalyzer
                         // no-op
                 }
             }
+            else if (functionResolution.isTryCastFunction(call.getFunctionHandle())) {
+                if (!isCastTypeOnlyCoercion(call)) {
+                    result.set(true);
+                }
+            }
             else if (!functionReturnsNullForNotNullInput(function)) {
                 // TODO: use function annotation instead of assume all function can return NULL
                 result.set(true);
             }
             call.getArguments().forEach(argument -> argument.accept(this, result));
             return null;
+        }
+
+        private boolean isCastTypeOnlyCoercion(CallExpression castCallExpression)
+        {
+            checkArgument(castCallExpression.getArguments().size() == 1);
+            Type sourceType = castCallExpression.getArguments().get(0).getType();
+            Type targetType = castCallExpression.getType();
+            return typeManager.isTypeOnlyCoercion(sourceType, targetType);
         }
 
         private boolean functionReturnsNullForNotNullInput(FunctionMetadata function)
