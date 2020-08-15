@@ -81,7 +81,6 @@ public class TestNullabilityAnalyzer
         Expression rawExpression = rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(expression, new ParsingOptions()));
         Expression desugaredExpression = new TestingDesugarExpressions(TYPES.allVariables()).rewrite(rawExpression);
         RowExpression rowExpression = TRANSLATOR.translate(desugaredExpression, TYPES);
-        assertEquals(NullabilityAnalyzer.mayReturnNullOnNonNullInput(rawExpression), mayReturnNullForNotNullInput);
         assertEquals(analyzer.mayReturnNullOnNonNullInput(rowExpression), mayReturnNullForNotNullInput);
     }
 
