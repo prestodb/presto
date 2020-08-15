@@ -55,9 +55,10 @@ public class TestNullabilityAnalyzer
         assertNullability("TRY_CAST(a AS VARCHAR)", true);
         assertNullability("CAST(a AS VARCHAR)", true);
 
-        //TODO following two tests should return false but we are not yet smart enough to infer it.
+        //TODO following test should return false but we are not yet smart enough to infer it.
         assertNullability("TRY_CAST('123' AS VARCHAR)", true);
-        assertNullability("CAST('123' AS VARCHAR)", true);
+
+        assertNullability("CAST('123' AS VARCHAR)", false);
 
         assertNullability("a = 1", false);
         assertNullability("(a/9+1)*5-10 > 10", false);
