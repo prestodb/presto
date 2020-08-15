@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.common.FileSystemCommunicationException;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
@@ -23,6 +24,7 @@ import java.io.InputStream;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.propagateIfPossible;
 import static java.util.Objects.requireNonNull;
 
 public class ExceptionWrappingMetadataReader
@@ -112,6 +114,7 @@ public class ExceptionWrappingMetadataReader
 
     private OrcCorruptionException propagate(Throwable throwable, String message)
     {
+        propagateIfPossible(throwable, FileSystemCommunicationException.class);
         return new OrcCorruptionException(throwable, orcDataSourceId, message);
     }
 }
