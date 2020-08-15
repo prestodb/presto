@@ -55,9 +55,7 @@ public class TestNullabilityAnalyzer
         assertNullability("TRY_CAST(a AS VARCHAR)", true);
         assertNullability("CAST(a AS VARCHAR)", true);
 
-        //TODO following test should return false but we are not yet smart enough to infer it.
-        assertNullability("TRY_CAST('123' AS VARCHAR)", true);
-
+        assertNullability("TRY_CAST('123' AS VARCHAR)", false);
         assertNullability("CAST('123' AS VARCHAR)", false);
 
         assertNullability("a = 1", false);
