@@ -144,7 +144,8 @@ public class TestHiveClientConfig
                 .setIgnoreUnreadablePartition(false)
                 .setMaxMetadataUpdaterThreads(100)
                 .setPartialAggregationPushdownEnabled(false)
-                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false));
+                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false)
+                .setFileRenamingEnabled(false));
     }
 
     @Test
@@ -250,6 +251,7 @@ public class TestHiveClientConfig
                 .put("hive.max-metadata-updater-threads", "1000")
                 .put("hive.partial_aggregation_pushdown_enabled", "true")
                 .put("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
+                .put("hive.file_renaming_enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -352,7 +354,8 @@ public class TestHiveClientConfig
                 .setIgnoreUnreadablePartition(true)
                 .setMaxMetadataUpdaterThreads(1000)
                 .setPartialAggregationPushdownEnabled(true)
-                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true);
+                .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true)
+                .setFileRenamingEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

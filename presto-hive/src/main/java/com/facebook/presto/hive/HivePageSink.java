@@ -98,6 +98,7 @@ public class HivePageSink
 
     private final ConnectorSession session;
     private final HiveMetadataUpdater hiveMetadataUpdater;
+    private final boolean fileRenamingEnabled;
 
     private long writtenBytes;
     private long systemMemoryUsage;
@@ -189,6 +190,7 @@ public class HivePageSink
 
         this.session = requireNonNull(session, "session is null");
         this.hiveMetadataUpdater = requireNonNull(hiveMetadataUpdater, "hiveMetadataUpdater is null");
+        this.fileRenamingEnabled = HiveSessionProperties.isFileRenamingEnabled(session);
     }
 
     @Override
@@ -374,7 +376,7 @@ public class HivePageSink
     private void sendMetadataUpdateRequest(Optional<String> partitionName, int writerIndex)
     {
         // Bucketed tables already have unique bucket number as part of fileName. So no need to rename.
-        if (bucketFunction != null) {
+        if (!fileRenamingEnabled || bucketFunction != null) {
             return;
         }
         hiveMetadataUpdater.addMetadataUpdateRequest(schemaName, tableName, partitionName, writerIndex);
