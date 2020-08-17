@@ -31,7 +31,12 @@ public class TestHivePushdownDistributedQueries
 {
     public TestHivePushdownDistributedQueries()
     {
-        super(() -> createQueryRunner(getTables(), ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), "sql-standard", ImmutableMap.of("hive.pushdown-filter-enabled", "true"), Optional.empty()));
+        super(() -> createQueryRunner(
+                    getTables(),
+                    ImmutableMap.of("experimental.pushdown-subfields-enabled", "true", "experimental.pushdown-dereference-enabled", "true"),
+                    "sql-standard",
+                    ImmutableMap.of("hive.pushdown-filter-enabled", "true", "hive.enable-parquet-dereference-pushdown", "true"),
+                    Optional.empty()));
     }
 
     @Override
