@@ -123,6 +123,13 @@ public class InMemoryNodeManager
     }
 
     @Override
+    public Set<InternalNode> getResourceManagers()
+    {
+        // always use localNode as resource manager
+        return ImmutableSet.of(localNode);
+    }
+
+    @Override
     public void refreshNodes()
     {
         // no-op
