@@ -32,4 +32,6 @@ public interface Node
     String getVersion();
 
     boolean isCoordinator();
+
+    boolean isResourceManager();
 }
