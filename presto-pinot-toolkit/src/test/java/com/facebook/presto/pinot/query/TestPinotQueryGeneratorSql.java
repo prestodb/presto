@@ -182,6 +182,14 @@ public class TestPinotQueryGeneratorSql
                 defaultSessionHolder,
                 ImmutableMap.of());
 
+        TopNNode topNNode = topN(planBuilder, 50L, ImmutableList.of("fare", "city"), ImmutableList.of(true, false), tableScanNode);
+        testPinotQuery(
+                pinotConfig,
+                project(planBuilder, topNNode, ImmutableList.of("regionid", "city")),
+                "SELECT regionId, city FROM realtimeOnly ORDER BY fare, city DESC LIMIT 50",
+                defaultSessionHolder,
+                ImmutableMap.of());
+
         tableScanNode = tableScan(planBuilder, pinotTable, fare, city, regionId);
         testPinotQuery(
                 pinotConfig,

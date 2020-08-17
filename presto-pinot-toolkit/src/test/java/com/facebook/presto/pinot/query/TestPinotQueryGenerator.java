@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -366,6 +367,8 @@ public class TestPinotQueryGenerator
                 "SELECT regionId, city, fare FROM realtimeOnly ORDER BY fare, city DESC LIMIT 50",
                 defaultSessionHolder,
                 ImmutableMap.of());
+        ProjectNode projectNode = project(planBuilder, topnFareAndCity, ImmutableList.of("regionid", "city"));
+        testPinotQuery(pinotConfig, projectNode, "SELECT regionId, city FROM realtimeOnly ORDER BY fare, city DESC LIMIT 50", defaultSessionHolder, ImmutableMap.of());
     }
 
     @Test(expectedExceptions = NoSuchElementException.class)
