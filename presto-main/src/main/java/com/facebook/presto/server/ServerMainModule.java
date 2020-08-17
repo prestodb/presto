@@ -190,6 +190,7 @@ import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinde
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -217,7 +218,10 @@ public class ServerMainModule
     {
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
-        if (serverConfig.isCoordinator()) {
+        if (serverConfig.isResourceManager()) {
+            // No op
+        }
+        else if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());
         }
         else {
@@ -470,9 +474,12 @@ public class ServerMainModule
         binder.bind(NodeVersion.class).toInstance(nodeVersion);
 
         // presto announcement
+        checkArgument(!(serverConfig.isResourceManager() && serverConfig.isCoordinator()),
+                "Server cannot be configured as both resource manager and coordinator");
         discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
+                .addProperty("resource_manager", String.valueOf(serverConfig.isResourceManager()))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
 
         // server info resource
