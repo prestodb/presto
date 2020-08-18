@@ -25,7 +25,6 @@ import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.RowExpressionVariableInliner;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -39,9 +38,6 @@ import static com.facebook.presto.sql.planner.iterative.rule.Util.restrictOutput
 import static com.facebook.presto.sql.planner.plan.Patterns.exchange;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.isExpression;
-import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Transforms:
@@ -105,7 +101,7 @@ public class PushProjectionThroughExchange
             if (exchange.getPartitioningScheme().getHashColumn().isPresent()) {
                 // Need to retain the hash symbol for the exchange
                 VariableReferenceExpression hashVariable = exchange.getPartitioningScheme().getHashColumn().get();
-                projections.put(hashVariable, castToRowExpression(new SymbolReference(hashVariable.getName())));
+                projections.put(hashVariable, hashVariable);
                 inputs.add(hashVariable);
             }
 
@@ -122,7 +118,6 @@ public class PushProjectionThroughExchange
             }
 
             for (Map.Entry<VariableReferenceExpression, RowExpression> projection : project.getAssignments().entrySet()) {
-                checkArgument(!isExpression(projection.getValue()), "Cannot contain RowExpression after AddExchange");
                 RowExpression translatedExpression = RowExpressionVariableInliner.inlineVariables(outputToInputMap, projection.getValue());
                 VariableReferenceExpression variable = context.getVariableAllocator().newVariable(translatedExpression);
                 projections.put(variable, translatedExpression);
