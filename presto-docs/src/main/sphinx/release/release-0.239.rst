@@ -2,6 +2,10 @@
 Release 0.239
 =============
 
+.. warning::
+
+   There is a reliability issue in ZSTD compression that causes frequent excessive GC events in this release.
+
 **Highlights**
 ==============
 * Add support for ``DEFINER`` and ``INVOKER`` view security models.
