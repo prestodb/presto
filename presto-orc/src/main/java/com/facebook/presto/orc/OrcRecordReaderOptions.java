@@ -17,25 +17,23 @@ import io.airlift.units.DataSize;
 
 import static java.util.Objects.requireNonNull;
 
-public class OrcReaderOptions
+public class OrcRecordReaderOptions
 {
     private final DataSize maxMergeDistance;
     private final DataSize tinyStripeThreshold;
     private final DataSize maxBlockSize;
-    private final boolean zstdJniDecompressionEnabled;
     private final boolean mapNullKeysEnabled;
 
-    public OrcReaderOptions(DataSize maxMergeDistance, DataSize tinyStripeThreshold, DataSize maxBlockSize, boolean zstdJniDecompressionEnabled)
+    public OrcRecordReaderOptions(OrcReaderOptions options)
     {
-        this(maxMergeDistance, tinyStripeThreshold, maxBlockSize, zstdJniDecompressionEnabled, false);
+        this(options.getMaxMergeDistance(), options.getTinyStripeThreshold(), options.getMaxBlockSize(), options.mapNullKeysEnabled());
     }
 
-    public OrcReaderOptions(DataSize maxMergeDistance, DataSize tinyStripeThreshold, DataSize maxBlockSize, boolean zstdJniDecompressionEnabled, boolean mapNullKeysEnabled)
+    public OrcRecordReaderOptions(DataSize maxMergeDistance, DataSize tinyStripeThreshold, DataSize maxBlockSize, boolean mapNullKeysEnabled)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
         this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
-        this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
         this.mapNullKeysEnabled = mapNullKeysEnabled;
     }
 
@@ -47,11 +45,6 @@ public class OrcReaderOptions
     public DataSize getMaxBlockSize()
     {
         return maxBlockSize;
-    }
-
-    public boolean isOrcZstdJniDecompressionEnabled()
-    {
-        return zstdJniDecompressionEnabled;
     }
 
     public DataSize getTinyStripeThreshold()

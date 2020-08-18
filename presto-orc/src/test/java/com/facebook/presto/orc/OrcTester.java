@@ -890,7 +890,8 @@ public class OrcTester
                 requiredSubfields,
                 intermediateEncryptionKeys,
                 includedColumns,
-                outputColumns)) {
+                outputColumns,
+                false)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1017,7 +1018,7 @@ public class OrcTester
             return;
         }
 
-        try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), false, intermediateEncryptionKeys)) {
+        try (OrcBatchRecordReader recordReader = createCustomOrcRecordReader(tempFile, orcEncoding, orcPredicate, types, MAX_BATCH_SIZE, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), false, intermediateEncryptionKeys, false)) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1419,16 +1420,16 @@ public class OrcTester
         }
     }
 
-    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type, int initialBatchSize, boolean cacheable)
+    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, Type type, int initialBatchSize, boolean cacheable, boolean mapNullKeysEnabled)
             throws IOException
     {
-        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, ImmutableList.of(type), initialBatchSize, cacheable);
+        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, ImmutableList.of(type), initialBatchSize, cacheable, mapNullKeysEnabled);
     }
 
-    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, List<Type> types, int initialBatchSize, boolean cacheable)
+    static OrcBatchRecordReader createCustomOrcRecordReader(TempFile tempFile, OrcEncoding orcEncoding, OrcPredicate predicate, List<Type> types, int initialBatchSize, boolean cacheable, boolean mapNullKeysEnabled)
             throws IOException
     {
-        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, types, initialBatchSize, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), cacheable, ImmutableMap.of());
+        return createCustomOrcRecordReader(tempFile, orcEncoding, predicate, types, initialBatchSize, new StorageOrcFileTailSource(), new StorageStripeMetadataSource(), cacheable, ImmutableMap.of(), mapNullKeysEnabled);
     }
 
     static OrcBatchRecordReader createCustomOrcRecordReader(
@@ -1440,7 +1441,8 @@ public class OrcTester
             OrcFileTailSource orcFileTailSource,
             StripeMetadataSource stripeMetadataSource,
             boolean cacheable,
-            Map<Integer, Slice> intermediateEncryptionKeys)
+            Map<Integer, Slice> intermediateEncryptionKeys,
+            boolean mapNullKeysEnabled)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -1455,7 +1457,8 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
-                        false),
+                        false,
+                        mapNullKeysEnabled),
                 cacheable,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()));
 
@@ -1528,7 +1531,32 @@ public class OrcTester
                                 Slices.utf8Slice("encryptionKey"))));
     }
 
-    private static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReader(
+    static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReader(
+            TempFile tempFile,
+            OrcEncoding orcEncoding,
+            OrcPredicate predicate,
+            Type type,
+            int initialBatchSize,
+            boolean mapNullKeysEnabled)
+            throws IOException
+    {
+        return createCustomOrcSelectiveRecordReader(
+                tempFile.getFile(),
+                orcEncoding,
+                predicate,
+                ImmutableList.of(type),
+                initialBatchSize,
+                ImmutableMap.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(0, type),
+                ImmutableList.of(0),
+                mapNullKeysEnabled);
+    }
+
+    public static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReader(
             File file,
             OrcEncoding orcEncoding,
             OrcPredicate predicate,
@@ -1540,7 +1568,8 @@ public class OrcTester
             Map<Integer, List<Subfield>> requiredSubfields,
             Map<Integer, Slice> intermediateEncryptionKeys,
             Map<Integer, Type> includedColumns,
-            List<Integer> outputColumns)
+            List<Integer> outputColumns,
+            boolean mapNullKeysEnabled)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -1554,7 +1583,8 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
-                        false),
+                        false,
+                        mapNullKeysEnabled),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()));
 

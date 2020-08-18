@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
@@ -99,8 +100,9 @@ public class MapFlatBatchStreamReader
     private boolean rowGroupOpen;
 
     private OrcAggregatedMemoryContext systemMemoryContext;
+    private final OrcRecordReaderOptions options;
 
-    public MapFlatBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcAggregatedMemoryContext systemMemoryContext)
+    public MapFlatBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcRecordReaderOptions options, OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -111,6 +113,7 @@ public class MapFlatBatchStreamReader
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.keyOrcType = streamDescriptor.getNestedStreams().get(0).getOrcTypeKind();
         this.baseValueStreamDescriptor = streamDescriptor.getNestedStreams().get(1);
+        this.options = requireNonNull(options);
     }
 
     @Override
@@ -255,7 +258,7 @@ public class MapFlatBatchStreamReader
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
-            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(type.getValueType(), valueStreamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(type.getValueType(), valueStreamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
             valueStreamReader.startStripe(dictionaryStreamSources, encodings);
             valueStreamReaders.add(valueStreamReader);
         }
