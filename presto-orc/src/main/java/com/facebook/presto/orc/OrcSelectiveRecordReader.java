@@ -40,7 +40,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
@@ -164,12 +163,10 @@ public class OrcSelectiveRecordReader
             Map<Integer, Slice> intermediateKeyMetadata,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
             boolean legacyMapSubscript,
             PostScript.HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
-            DataSize maxMergeDistance,
-            DataSize tinyStripeThreshold,
-            DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
@@ -183,6 +180,7 @@ public class OrcSelectiveRecordReader
                         orcDataSource,
                         types,
                         hiveStorageTimeZone,
+                        options,
                         legacyMapSubscript,
                         includedColumns,
                         outputColumns,
@@ -208,9 +206,9 @@ public class OrcSelectiveRecordReader
                 hiveStorageTimeZone,
                 hiveWriterVersion,
                 metadataReader,
-                maxMergeDistance,
-                tinyStripeThreshold,
-                maxBlockSize,
+                options.getMaxMergeDistance(),
+                options.getTinyStripeThreshold(),
+                options.getMaxBlockSize(),
                 userMetadata,
                 systemMemoryUsage,
                 writeValidation,
@@ -564,6 +562,7 @@ public class OrcSelectiveRecordReader
             OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
             boolean legacyMapSubscript,
             Map<Integer, Type> includedColumns,
             List<Integer> outputColumns,
@@ -596,6 +595,7 @@ public class OrcSelectiveRecordReader
                         outputRequired ? Optional.of(includedColumns.get(columnId)) : Optional.empty(),
                         Optional.ofNullable(requiredSubfields.get(columnId)).orElse(ImmutableList.of()),
                         hiveStorageTimeZone,
+                        options,
                         legacyMapSubscript,
                         systemMemoryContext);
             }

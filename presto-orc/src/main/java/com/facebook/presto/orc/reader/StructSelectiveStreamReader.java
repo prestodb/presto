@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -107,6 +108,7 @@ public class StructSelectiveStreamReader
             List<Subfield> requiredSubfields,
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
             boolean legacyMapSubscript,
             OrcAggregatedMemoryContext systemMemoryContext)
     {
@@ -184,6 +186,7 @@ public class StructSelectiveStreamReader
                                 fieldOutputType,
                                 nestedRequiredSubfields,
                                 hiveStorageTimeZone,
+                                options,
                                 legacyMapSubscript,
                                 systemMemoryContext.newOrcAggregatedMemoryContext());
                         nestedReaders.put(fieldName, nestedReader);
