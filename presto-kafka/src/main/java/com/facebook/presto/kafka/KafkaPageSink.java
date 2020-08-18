@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.kafka.KafkaErrorCode.KAFKA_PRODUCER_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -44,7 +45,8 @@ public class KafkaPageSink
     private final RowEncoder keyEncoder;
     private final RowEncoder messageEncoder;
     private final KafkaProducer<byte[], byte[]> producer;
-    private final ErrorCountingCallback errorCounter;
+    private final ProducerCallback producerCallback;
+    private long expectedWrittenBytes;
 
     public KafkaPageSink(
             String topicName,
@@ -59,17 +61,20 @@ public class KafkaPageSink
         this.messageEncoder = requireNonNull(messageEncoder, "messageEncoder is null");
         requireNonNull(producerFactory, "producerFactory is null");
         this.producer = producerFactory.create();
-        this.errorCounter = new ErrorCountingCallback();
+        this.producerCallback = new ProducerCallback();
+        this.expectedWrittenBytes = 0;
     }
 
-    private static class ErrorCountingCallback
+    private static class ProducerCallback
             implements Callback
     {
         private final AtomicLong errorCounter;
+        private long writtenBytes;
 
-        public ErrorCountingCallback()
+        public ProducerCallback()
         {
             this.errorCounter = new AtomicLong(0);
+            this.writtenBytes = 0;
         }
 
         @Override
@@ -78,17 +83,34 @@ public class KafkaPageSink
             if (e != null) {
                 errorCounter.incrementAndGet();
             }
+            else {
+                writtenBytes += recordMetadata.serializedValueSize() + recordMetadata.serializedKeySize();
+            }
         }
 
         public long getErrorCount()
         {
             return errorCounter.get();
         }
+
+        public long getWrittenBytes()
+        {
+            return writtenBytes;
+        }
+    }
+
+    @Override
+    public long getCompletedBytes()
+    {
+        return producerCallback.getWrittenBytes();
     }
 
     @Override
     public CompletableFuture<?> appendPage(Page page)
     {
+        byte[] keyBytes;
+        byte[] messageBytes;
+
         for (int position = 0; position < page.getPositionCount(); position++) {
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 if (columns.get(channel).isKeyCodec()) {
@@ -98,7 +120,13 @@ public class KafkaPageSink
                     messageEncoder.appendColumnValue(page.getBlock(channel), position);
                 }
             }
-            producer.send(new ProducerRecord<>(topicName, keyEncoder.toByteArray(), messageEncoder.toByteArray()), errorCounter);
+
+            keyBytes = keyEncoder.toByteArray();
+            messageBytes = messageEncoder.toByteArray();
+
+            expectedWrittenBytes += keyBytes.length + messageBytes.length;
+
+            producer.send(new ProducerRecord<>(topicName, keyBytes, messageBytes), producerCallback);
         }
         return NOT_BLOCKED;
     }
@@ -116,9 +144,15 @@ public class KafkaPageSink
             throw new UncheckedIOException("Failed to close row encoders", e);
         }
 
-        if (errorCounter.getErrorCount() > 0) {
-            throw new PrestoException(KAFKA_PRODUCER_ERROR, format("%d producer record('s) failed to send", errorCounter.getErrorCount()));
+        checkArgument(producerCallback.getWrittenBytes() == expectedWrittenBytes,
+                format("Actual written bytes: '%s' not equal to expected written bytes: '%s'",
+                        producerCallback.getWrittenBytes(),
+                        expectedWrittenBytes));
+
+        if (producerCallback.getErrorCount() > 0) {
+            throw new PrestoException(KAFKA_PRODUCER_ERROR, format("%d producer record(s) failed to send", producerCallback.getErrorCount()));
         }
+
         return completedFuture(ImmutableList.of());
     }
 
