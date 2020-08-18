@@ -27,7 +27,6 @@ import com.facebook.presto.orc.reader.BatchStreamReaders;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -58,11 +57,9 @@ public class OrcBatchRecordReader
             Map<Integer, Slice> intermediateKeyMetadata,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
-            DataSize maxMergeDistance,
-            DataSize tinyStripeThreshold,
-            DataSize maxBlockSize,
             Map<String, Slice> userMetadata,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
@@ -79,7 +76,7 @@ public class OrcBatchRecordReader
                 // doesn't have a local buffer. All non-leaf level StreamReaders' (e.g. MapStreamReader, LongStreamReader,
                 // ListStreamReader and StructStreamReader) instance sizes were not counted, because calling setBytes() in
                 // their constructors is confusing.
-                createStreamReaders(orcDataSource, types, hiveStorageTimeZone, includedColumns, systemMemoryUsage.newOrcAggregatedMemoryContext()),
+                createStreamReaders(orcDataSource, types, hiveStorageTimeZone, options, includedColumns, systemMemoryUsage.newOrcAggregatedMemoryContext()),
                 predicate,
                 numberOfRows,
                 fileStripes,
@@ -97,9 +94,9 @@ public class OrcBatchRecordReader
                 hiveStorageTimeZone,
                 hiveWriterVersion,
                 metadataReader,
-                maxMergeDistance,
-                tinyStripeThreshold,
-                maxBlockSize,
+                options.getMaxMergeDistance(),
+                options.getTinyStripeThreshold(),
+                options.getMaxBlockSize(),
                 userMetadata,
                 systemMemoryUsage,
                 writeValidation,
@@ -162,6 +159,7 @@ public class OrcBatchRecordReader
             OrcDataSource orcDataSource,
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
             Map<Integer, Type> includedColumns,
             OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
@@ -175,7 +173,7 @@ public class OrcBatchRecordReader
                 Type type = includedColumns.get(columnId);
                 if (type != null) {
                     StreamDescriptor streamDescriptor = streamDescriptors.get(columnId);
-                    streamReaders[columnId] = BatchStreamReaders.createStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+                    streamReaders[columnId] = BatchStreamReaders.createStreamReader(type, streamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
                 }
             }
         }

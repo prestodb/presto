@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
@@ -46,12 +47,12 @@ public class MapBatchStreamReader
     private final MapFlatBatchStreamReader flatReader;
     private BatchStreamReader currentReader;
 
-    public MapBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcAggregatedMemoryContext systemMemoryContext)
+    public MapBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcRecordReaderOptions options, OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.directReader = new MapDirectBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
-        this.flatReader = new MapFlatBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+        this.directReader = new MapDirectBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
+        this.flatReader = new MapFlatBatchStreamReader(type, streamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
     }
 
     @Override

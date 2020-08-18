@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -71,7 +72,7 @@ public class StructBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    StructBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcAggregatedMemoryContext systemMemoryContext)
+    StructBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcRecordReaderOptions options, OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -91,7 +92,7 @@ public class StructBatchStreamReader
 
             StreamDescriptor fieldStream = nestedStreams.get(fieldName);
             if (fieldStream != null) {
-                structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, hiveStorageTimeZone, systemMemoryContext));
+                structFields.put(fieldName, createStreamReader(field.getType(), fieldStream, hiveStorageTimeZone, options, systemMemoryContext));
             }
         }
         this.fieldNames = fieldNames.build();
