@@ -5,6 +5,7 @@ Release 0.238
 .. warning::
 
    There is a bug in this release that will cause certain queries with lambda expressions to fail.
+   There is a reliability issue in ZSTD compression that causes frequent excessive GC events in this release.
 
 **Highlights**
 ==============
