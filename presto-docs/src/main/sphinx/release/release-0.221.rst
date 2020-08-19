@@ -36,12 +36,12 @@ Hive Connector Changes
 
 SPI Changes
 -----------
-* Add ``PageSinkProperties`` for ``createPageSink`` in ``PageSinkProvider`` and
+* Add ``pageSinkContext`` for ``createPageSink`` in ``PageSinkProvider`` and
   ``ConnectorPageSinkProvider``. It contains a boolean ``partitionCommitRequired``, which is
   false by default.  See the note below about ``commitPartition`` for more information.
 * Add ``commitPartition`` to ``Metadata`` and ``ConnectorMetadata``. This SPI is coupled with
-  ``PageSinkProperties#partitionCommitRequired`` and is used by the engine to commit a partition of data to the target
-  connector. The connector that implements this SPI should ensure that if ``PageSinkProperties#isPartitionCommitRequired``
+  ``pageSinkContext#partitionCommitRequired`` and is used by the engine to commit a partition of data to the target
+  connector. The connector that implements this SPI should ensure that if ``pageSinkContext#isPartitionCommitRequired``
   is true in ``ConnectorPageSinkProvider#createPageSink``, the written data is not published until
   ``ConnectorMetadata#commitPartition`` is called. Also, it is expected for the connector to add ``SUPPORTS_PARTITION_COMMIT``
   in ``Connector#getCapabilities``.

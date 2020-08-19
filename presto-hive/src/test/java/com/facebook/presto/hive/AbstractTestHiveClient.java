@@ -82,7 +82,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
-import com.facebook.presto.spi.PageSinkProperties;
+import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
@@ -1331,7 +1331,7 @@ public abstract class AbstractTestHiveClient
             ConnectorTableHandle tableHandle = getTableHandle(metadata, schemaTableName);
 
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, PageSinkProperties.defaultProperties());
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, PageSinkContext.defaultContext());
             sink.appendPage(dataBefore.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
@@ -1429,7 +1429,7 @@ public abstract class AbstractTestHiveClient
             ConnectorTableHandle tableHandle = getTableHandle(metadata, schemaTableName);
 
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, PageSinkProperties.defaultProperties());
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, PageSinkContext.defaultContext());
             sink.appendPage(dataAfter.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
@@ -1691,7 +1691,7 @@ public abstract class AbstractTestHiveClient
         SchemaTableName tableName = temporaryTable("test_encrypt_with_partitions");
         ConnectorTableHandle tableHandle = new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
         try {
-            doInsertIntoNewPartition(ORC, tableName, PageSinkProperties.defaultProperties());
+            doInsertIntoNewPartition(ORC, tableName, PageSinkContext.defaultContext());
 
             try (Transaction transaction = newTransaction()) {
                 ConnectorMetadata metadata = transaction.getMetadata();
@@ -1722,7 +1722,7 @@ public abstract class AbstractTestHiveClient
         SchemaTableName tableName = temporaryTable("test_encrypt_with_no_partitions");
         ConnectorTableHandle tableHandle = new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
         try {
-            doInsert(ORC, tableName, PageSinkProperties.defaultProperties());
+            doInsert(ORC, tableName, PageSinkContext.defaultContext());
 
             try (Transaction transaction = newTransaction()) {
                 ConnectorMetadata metadata = transaction.getMetadata();
@@ -2689,8 +2689,8 @@ public abstract class AbstractTestHiveClient
             SchemaTableName temporaryCreateTable = temporaryTable("create");
             SchemaTableName temporaryCreateTableForPageSinkCommit = temporaryTable("create_table_page_sink_commit");
             try {
-                doCreateTable(temporaryCreateTable, storageFormat, PageSinkProperties.defaultProperties());
-                doCreateTable(temporaryCreateTableForPageSinkCommit, storageFormat, PageSinkProperties.builder().setCommitRequired(true).build());
+                doCreateTable(temporaryCreateTable, storageFormat, PageSinkContext.defaultContext());
+                doCreateTable(temporaryCreateTableForPageSinkCommit, storageFormat, PageSinkContext.builder().setCommitRequired(true).build());
             }
             finally {
                 dropTable(temporaryCreateTable);
@@ -2716,7 +2716,7 @@ public abstract class AbstractTestHiveClient
                 ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
 
                 // write the data
-                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, PageSinkProperties.defaultProperties());
+                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, PageSinkContext.defaultContext());
                 sink.appendPage(CREATE_TABLE_DATA.toPage());
                 getFutureValue(sink.finish());
 
@@ -2877,7 +2877,7 @@ public abstract class AbstractTestHiveClient
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
 
             // write the data
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, PageSinkProperties.defaultProperties());
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, PageSinkContext.defaultContext());
             List<Type> types = tableMetadata.getColumns().stream()
                     .map(ColumnMetadata::getType)
                     .collect(toList());
@@ -2987,8 +2987,8 @@ public abstract class AbstractTestHiveClient
             SchemaTableName temporaryInsertTable = temporaryTable("insert");
             SchemaTableName temporaryInsertTableForPageSinkCommit = temporaryTable("insert_table_page_sink_commit");
             try {
-                doInsert(storageFormat, temporaryInsertTable, PageSinkProperties.defaultProperties());
-                doInsert(storageFormat, temporaryInsertTableForPageSinkCommit, PageSinkProperties.builder().setCommitRequired(true).build());
+                doInsert(storageFormat, temporaryInsertTable, PageSinkContext.defaultContext());
+                doInsert(storageFormat, temporaryInsertTableForPageSinkCommit, PageSinkContext.builder().setCommitRequired(true).build());
             }
             finally {
                 dropTable(temporaryInsertTable);
@@ -3005,8 +3005,8 @@ public abstract class AbstractTestHiveClient
             SchemaTableName temporaryInsertIntoNewPartitionTable = temporaryTable("insert_new_partitioned");
             SchemaTableName temporaryInsertIntoNewPartitionTableForPageSinkCommit = temporaryTable("insert_new_partitioned_page_sink_commit");
             try {
-                doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTable, PageSinkProperties.defaultProperties());
-                doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTableForPageSinkCommit, PageSinkProperties.builder().setCommitRequired(true).build());
+                doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTable, PageSinkContext.defaultContext());
+                doInsertIntoNewPartition(storageFormat, temporaryInsertIntoNewPartitionTableForPageSinkCommit, PageSinkContext.builder().setCommitRequired(true).build());
             }
             finally {
                 dropTable(temporaryInsertIntoNewPartitionTable);
@@ -3023,8 +3023,8 @@ public abstract class AbstractTestHiveClient
             SchemaTableName temporaryInsertIntoExistingPartitionTable = temporaryTable("insert_existing_partitioned");
             SchemaTableName temporaryInsertIntoExistingPartitionTableForPageSinkCommit = temporaryTable("insert_existing_partitioned_page_sink_commit");
             try {
-                doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTable, PageSinkProperties.defaultProperties());
-                doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTableForPageSinkCommit, PageSinkProperties.builder().setCommitRequired(true).build());
+                doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTable, PageSinkContext.defaultContext());
+                doInsertIntoExistingPartition(storageFormat, temporaryInsertIntoExistingPartitionTableForPageSinkCommit, PageSinkContext.builder().setCommitRequired(true).build());
             }
             finally {
                 dropTable(temporaryInsertIntoExistingPartitionTable);
@@ -3193,7 +3193,7 @@ public abstract class AbstractTestHiveClient
             insertLocations.add(firstInsert.getLocationHandle().getWritePath());
 
             // insert into temporary table
-            ConnectorPageSink firstSink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, firstInsert, PageSinkProperties.defaultProperties());
+            ConnectorPageSink firstSink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, firstInsert, PageSinkContext.defaultContext());
             firstSink.appendPage(inputRows.toPage());
             Collection<Slice> firstFragments = getFutureValue(firstSink.finish());
 
@@ -3207,7 +3207,7 @@ public abstract class AbstractTestHiveClient
             insertLocations.add(secondInsert.getLocationHandle().getWritePath());
 
             // insert into temporary table
-            ConnectorPageSink secondSink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, secondInsert, PageSinkProperties.defaultProperties());
+            ConnectorPageSink secondSink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, secondInsert, PageSinkContext.defaultContext());
             secondSink.appendPage(inputRows.toPage());
             Collection<Slice> secondFragments = getFutureValue(secondSink.finish());
 
@@ -3758,7 +3758,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    protected void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat, PageSinkProperties pageSinkProperties)
+    protected void doCreateTable(SchemaTableName tableName, HiveStorageFormat storageFormat, PageSinkContext pageSinkContext)
             throws Exception
     {
         String queryId;
@@ -3773,11 +3773,11 @@ public abstract class AbstractTestHiveClient
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
 
             // write the data
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, pageSinkProperties);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, pageSinkContext);
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
-            if (pageSinkProperties.isCommitRequired()) {
+            if (pageSinkContext.isCommitRequired()) {
                 assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPageSinkAsync(session, outputHandle, fragments).get();
             }
@@ -3891,7 +3891,7 @@ public abstract class AbstractTestHiveClient
         assertEquals(statistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
     }
 
-    private void doInsert(HiveStorageFormat storageFormat, SchemaTableName tableName, PageSinkProperties pageSinkProperties)
+    private void doInsert(HiveStorageFormat storageFormat, SchemaTableName tableName, PageSinkContext pageSinkContext)
             throws Exception
     {
         // creating the table
@@ -3942,11 +3942,11 @@ public abstract class AbstractTestHiveClient
 
             // "stage" insert data
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, pageSinkProperties);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, pageSinkContext);
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             sink.appendPage(CREATE_TABLE_DATA.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
-            if (pageSinkProperties.isCommitRequired()) {
+            if (pageSinkContext.isCommitRequired()) {
                 assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPageSinkAsync(session, insertTableHandle, fragments).get();
             }
@@ -4106,7 +4106,7 @@ public abstract class AbstractTestHiveClient
         return result;
     }
 
-    private void doInsertIntoNewPartition(HiveStorageFormat storageFormat, SchemaTableName tableName, PageSinkProperties pageSinkProperties)
+    private void doInsertIntoNewPartition(HiveStorageFormat storageFormat, SchemaTableName tableName, PageSinkContext pageSinkContext)
             throws Exception
     {
         // creating the table
@@ -4166,10 +4166,10 @@ public abstract class AbstractTestHiveClient
             // "stage" insert data
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, pageSinkProperties);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, pageSinkContext);
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA_2ND.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
-            if (pageSinkProperties.isCommitRequired()) {
+            if (pageSinkContext.isCommitRequired()) {
                 assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPageSinkAsync(session, insertTableHandle, fragments).get();
             }
@@ -4227,7 +4227,7 @@ public abstract class AbstractTestHiveClient
         }
     }
 
-    private void doInsertIntoExistingPartition(HiveStorageFormat storageFormat, SchemaTableName tableName, PageSinkProperties pageSinkProperties)
+    private void doInsertIntoExistingPartition(HiveStorageFormat storageFormat, SchemaTableName tableName, PageSinkContext pageSinkContext)
             throws Exception
     {
         // creating the table
@@ -4284,11 +4284,11 @@ public abstract class AbstractTestHiveClient
             // "stage" insert data
             ConnectorInsertTableHandle insertTableHandle = metadata.beginInsert(session, tableHandle);
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, pageSinkProperties);
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, pageSinkContext);
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage());
             sink.appendPage(CREATE_TABLE_PARTITIONED_DATA.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
-            if (pageSinkProperties.isCommitRequired()) {
+            if (pageSinkContext.isCommitRequired()) {
                 assertValidPageSinkCommitFragments(fragments);
                 metadata.commitPageSinkAsync(session, insertTableHandle, fragments).get();
             }
@@ -4439,7 +4439,7 @@ public abstract class AbstractTestHiveClient
             writePath = getStagingPathRoot(insertTableHandle);
             targetPath = getTargetPathRoot(insertTableHandle);
 
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, PageSinkProperties.defaultProperties());
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, PageSinkContext.defaultContext());
 
             // write data
             sink.appendPage(data.toPage());
@@ -5361,7 +5361,7 @@ public abstract class AbstractTestHiveClient
                 rollbackIfEquals(tag, ROLLBACK_AFTER_BEGIN_INSERT);
                 writePath = getStagingPathRoot(insertTableHandle);
                 targetPath = getTargetPathRoot(insertTableHandle);
-                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, PageSinkProperties.defaultProperties());
+                ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insertTableHandle, PageSinkContext.defaultContext());
                 sink.appendPage(insertData.toPage());
                 rollbackIfEquals(tag, ROLLBACK_AFTER_APPEND_PAGE);
                 Collection<Slice> fragments = getFutureValue(sink.finish());

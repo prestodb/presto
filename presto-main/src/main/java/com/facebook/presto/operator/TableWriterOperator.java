@@ -27,7 +27,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.InsertHandl
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.OperationTimer.OperationTiming;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.PageSinkProperties;
+import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.util.AutoCloseableCloser;
@@ -124,14 +124,14 @@ public class TableWriterOperator
 
         private ConnectorPageSink createPageSink()
         {
-            PageSinkProperties pageSinkProperties = PageSinkProperties.builder()
+            PageSinkContext pageSinkContext = PageSinkContext.builder()
                     .setCommitRequired(pageSinkCommitStrategy.isCommitRequired())
                     .build();
             if (target instanceof CreateHandle) {
-                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), pageSinkProperties);
+                return pageSinkManager.createPageSink(session, ((CreateHandle) target).getHandle(), pageSinkContext);
             }
             if (target instanceof InsertHandle) {
-                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkProperties);
+                return pageSinkManager.createPageSink(session, ((InsertHandle) target).getHandle(), pageSinkContext);
             }
             throw new UnsupportedOperationException("Unhandled target type: " + target.getClass().getName());
         }

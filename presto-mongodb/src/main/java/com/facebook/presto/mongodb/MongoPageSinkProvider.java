@@ -17,7 +17,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PageSinkProperties;
+import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
@@ -39,18 +39,18 @@ public class MongoPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkProperties pageSinkProperties)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
     {
-        checkArgument(!pageSinkProperties.isCommitRequired(), "Mongo connector does not support page sink commit");
+        checkArgument(!pageSinkContext.isCommitRequired(), "Mongo connector does not support page sink commit");
 
         MongoOutputTableHandle handle = (MongoOutputTableHandle) outputTableHandle;
         return new MongoPageSink(config, mongoSession, session, handle.getSchemaTableName(), handle.getColumns());
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkProperties pageSinkProperties)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
-        checkArgument(!pageSinkProperties.isCommitRequired(), "Mongo connector does not support page sink commit");
+        checkArgument(!pageSinkContext.isCommitRequired(), "Mongo connector does not support page sink commit");
 
         MongoInsertTableHandle handle = (MongoInsertTableHandle) insertTableHandle;
         return new MongoPageSink(config, mongoSession, session, handle.getSchemaTableName(), handle.getColumns());
