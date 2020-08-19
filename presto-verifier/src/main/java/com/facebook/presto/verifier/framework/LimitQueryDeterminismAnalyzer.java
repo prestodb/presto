@@ -46,6 +46,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_QUERY_FAILURE;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_MAIN;
@@ -89,7 +90,14 @@ class LimitQueryDeterminismAnalyzer
 
     public LimitQueryDeterminismAnalysis analyze()
     {
-        LimitQueryDeterminismAnalysis analysis = analyzeInternal();
+        LimitQueryDeterminismAnalysis analysis;
+        try {
+            analysis = analyzeInternal();
+        }
+        catch (QueryException queryException) {
+            analysis = FAILED_QUERY_FAILURE;
+        }
+
         determinismAnalysisDetails.setLimitQueryAnalysis(analysis);
         return analysis;
     }

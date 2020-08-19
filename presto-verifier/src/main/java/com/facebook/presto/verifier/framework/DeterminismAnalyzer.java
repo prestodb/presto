@@ -40,7 +40,6 @@ import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.teardownSafely;
-import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_DATA_CHANGED;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_INCONSISTENT_SCHEMA;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.ANALYSIS_FAILED_QUERY_FAILURE;
@@ -98,11 +97,33 @@ public class DeterminismAnalyzer
             return NON_DETERMINISTIC_CATALOG;
         }
 
+        // Handle limit query
+        LimitQueryDeterminismAnalysis limitQueryAnalysis = new LimitQueryDeterminismAnalyzer(
+                prestoAction,
+                handleLimitQuery,
+                control.getQuery(),
+                controlChecksum.getRowCount(),
+                determinismAnalysisDetails).analyze();
+
+        switch (limitQueryAnalysis) {
+            case NOT_RUN:
+            case FAILED_QUERY_FAILURE:
+                // try the next analysis
+                break;
+            case NON_DETERMINISTIC:
+                return NON_DETERMINISTIC_LIMIT_CLAUSE;
+            case DETERMINISTIC:
+                return DETERMINISTIC;
+            case FAILED_DATA_CHANGED:
+                return ANALYSIS_FAILED_DATA_CHANGED;
+            default:
+                throw new IllegalArgumentException(format("Invalid limitQueryAnalysis: %s", limitQueryAnalysis));
+        }
+
+        // Rerun control query multiple times
         List<Column> columns = getColumns(prestoAction, typeManager, control.getTableName());
         Map<QueryBundle, DeterminismAnalysisRun.Builder> queryRuns = new HashMap<>();
-
         try {
-            // Rerun control query
             for (int i = 0; i < maxAnalysisRuns; i++) {
                 QueryBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
                 DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getTableName().toString());
@@ -128,31 +149,10 @@ public class DeterminismAnalyzer
                 }
             }
 
-            // Handle limit query
-            LimitQueryDeterminismAnalysis limitQueryAnalysis = new LimitQueryDeterminismAnalyzer(
-                    prestoAction,
-                    handleLimitQuery,
-                    control.getQuery(),
-                    controlChecksum.getRowCount(),
-                    determinismAnalysisDetails).analyze();
-
-            switch (limitQueryAnalysis) {
-                case NON_DETERMINISTIC:
-                    return NON_DETERMINISTIC_LIMIT_CLAUSE;
-                case NOT_RUN:
-                case DETERMINISTIC:
-                    return DETERMINISTIC;
-                case FAILED_DATA_CHANGED:
-                    return ANALYSIS_FAILED_DATA_CHANGED;
-                default:
-                    throw new IllegalArgumentException(format("Invalid limitQueryAnalysis: %s", limitQueryAnalysis));
-            }
+            return DETERMINISTIC;
         }
         catch (QueryException qe) {
             return ANALYSIS_FAILED_QUERY_FAILURE;
-        }
-        catch (Throwable t) {
-            return ANALYSIS_FAILED;
         }
         finally {
             if (runTeardown) {
