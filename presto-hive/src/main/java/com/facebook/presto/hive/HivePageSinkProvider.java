@@ -25,7 +25,7 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
-import com.facebook.presto.spi.PageSinkProperties;
+import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -110,17 +110,17 @@ public class HivePageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkProperties pageSinkProperties)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         HiveWritableTableHandle handle = (HiveOutputTableHandle) tableHandle;
-        return createPageSink(handle, true, session, pageSinkProperties.isCommitRequired());
+        return createPageSink(handle, true, session, pageSinkContext.isCommitRequired());
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkProperties pageSinkProperties)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
-        return createPageSink(handle, false, session, pageSinkProperties.isCommitRequired());
+        return createPageSink(handle, false, session, pageSinkContext.isCommitRequired());
     }
 
     private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, boolean commitRequired)
