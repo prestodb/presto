@@ -13,20 +13,20 @@
  */
 package com.facebook.presto.spi;
 
-public class PageSinkProperties
+public class PageSinkContext
 {
-    private static final PageSinkProperties DEFAULT_PAGE_SINK_PROPERTIES = PageSinkProperties.builder().build();
+    private static final PageSinkContext DEFAULT_PAGE_SINK_CONTEXT = PageSinkContext.builder().build();
 
     private final boolean commitRequired;
 
-    private PageSinkProperties(boolean commitRequired)
+    private PageSinkContext(boolean commitRequired)
     {
         this.commitRequired = commitRequired;
     }
 
-    public static PageSinkProperties defaultProperties()
+    public static PageSinkContext defaultContext()
     {
-        return DEFAULT_PAGE_SINK_PROPERTIES;
+        return DEFAULT_PAGE_SINK_CONTEXT;
     }
 
     public boolean isCommitRequired()
@@ -49,9 +49,9 @@ public class PageSinkProperties
             return this;
         }
 
-        public PageSinkProperties build()
+        public PageSinkContext build()
         {
-            return new PageSinkProperties(commitRequired);
+            return new PageSinkContext(commitRequired);
         }
     }
 }
