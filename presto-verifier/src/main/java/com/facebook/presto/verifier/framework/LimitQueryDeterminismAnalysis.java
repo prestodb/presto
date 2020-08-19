@@ -19,4 +19,5 @@ public enum LimitQueryDeterminismAnalysis
     NON_DETERMINISTIC,
     DETERMINISTIC,
     FAILED_DATA_CHANGED,
+    FAILED_QUERY_FAILURE,
 }
