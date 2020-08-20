@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -56,13 +57,19 @@ public class PrestoSparkRowOutputOperator
                 false,
                 OptionalInt.empty());
 
+        private final Optional<OutputPartitioning> preDeterminedPartition;
+
         private final PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer;
         private final DataSize targetAverageRowSize;
 
-        public PrestoSparkRowOutputFactory(PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer, DataSize targetAverageRowSize)
+        public PrestoSparkRowOutputFactory(
+                PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer,
+                DataSize targetAverageRowSize,
+                Optional<OutputPartitioning> preDeterminedPartition)
         {
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.targetAverageRowSize = requireNonNull(targetAverageRowSize, "targetAverageRowSize is null");
+            this.preDeterminedPartition = requireNonNull(preDeterminedPartition, "preDeterminedPartition is null");
         }
 
         @Override
@@ -74,7 +81,7 @@ public class PrestoSparkRowOutputOperator
                 Optional<OutputPartitioning> outputPartitioning,
                 PagesSerdeFactory serdeFactory)
         {
-            OutputPartitioning partitioning = outputPartitioning.orElse(SINGLE_PARTITION);
+            OutputPartitioning partitioning = outputPartitioning.orElse(preDeterminedPartition.orElse(SINGLE_PARTITION));
             return new PrestoSparkRowOutputOperatorFactory(
                     operatorId,
                     planNodeId,
@@ -104,6 +111,33 @@ public class PrestoSparkRowOutputOperator
         public int getPartition(Page page, int position)
         {
             return 0;
+        }
+    }
+
+    public static class PreDeterminedPartitionFunction
+            implements PartitionFunction
+    {
+        private final int partitionId;
+        private final int partitionCount;
+
+        public PreDeterminedPartitionFunction(int partitionId, int partitionCount)
+        {
+            checkArgument(partitionId >= 0 && partitionId < partitionCount,
+                    "partitionId should be non-negative and less than partitionCount");
+            this.partitionId = partitionId;
+            this.partitionCount = partitionCount;
+        }
+
+        @Override
+        public int getPartitionCount()
+        {
+            return partitionCount;
+        }
+
+        @Override
+        public int getPartition(Page page, int position)
+        {
+            return partitionId;
         }
     }
 
