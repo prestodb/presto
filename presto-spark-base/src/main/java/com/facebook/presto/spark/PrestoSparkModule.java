@@ -223,6 +223,7 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkQueryStatusInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(PrestoSparkQueryData.class);
 
         // index manager
         binder.bind(IndexManager.class).in(Scopes.SINGLETON);

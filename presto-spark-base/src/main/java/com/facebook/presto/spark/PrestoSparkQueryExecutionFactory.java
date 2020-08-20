@@ -178,6 +178,7 @@ public class PrestoSparkQueryExecutionFactory
     private final JsonCodec<TaskInfo> taskInfoJsonCodec;
     private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
     private final JsonCodec<PrestoSparkQueryStatusInfo> queryStatusInfoJsonCodec;
+    private final JsonCodec<PrestoSparkQueryData> queryDataJsonCodec;
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
@@ -201,6 +202,7 @@ public class PrestoSparkQueryExecutionFactory
             JsonCodec<TaskInfo> taskInfoJsonCodec,
             JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
             JsonCodec<PrestoSparkQueryStatusInfo> queryStatusInfoJsonCodec,
+            JsonCodec<PrestoSparkQueryData> queryDataJsonCodec,
             TransactionManager transactionManager,
             AccessControl accessControl,
             Metadata metadata,
@@ -221,6 +223,7 @@ public class PrestoSparkQueryExecutionFactory
         this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
         this.sparkTaskDescriptorJsonCodec = requireNonNull(sparkTaskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
         this.queryStatusInfoJsonCodec = requireNonNull(queryStatusInfoJsonCodec, "queryStatusInfoJsonCodec is null");
+        this.queryDataJsonCodec = requireNonNull(queryDataJsonCodec, "queryDataJsonCodec is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -239,11 +242,13 @@ public class PrestoSparkQueryExecutionFactory
             String sql,
             Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
-            Optional<Path> queryStatusInfoOutputPath)
+            Optional<Path> queryStatusInfoOutputPath,
+            Optional<Path> queryDataOutputPath)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
 
         queryStatusInfoOutputPath.ifPresent(path -> checkArgument(notExists(path), "File already exist: %s", path));
+        queryDataOutputPath.ifPresent(path -> checkArgument(notExists(path), "File already exist: %s", path));
 
         QueryStateTimer queryStateTimer = new QueryStateTimer(systemTicker());
 
@@ -312,12 +317,14 @@ public class PrestoSparkQueryExecutionFactory
                     taskInfoJsonCodec,
                     sparkTaskDescriptorJsonCodec,
                     queryStatusInfoJsonCodec,
+                    queryDataJsonCodec,
                     rddFactory,
                     tableWriteInfo,
                     transactionManager,
                     new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()),
                     executionExceptionFactory,
-                    queryStatusInfoOutputPath);
+                    queryStatusInfoOutputPath,
+                    queryDataOutputPath);
         }
         catch (RuntimeException executionFailure) {
             queryStateTimer.beginFinishing();
@@ -356,7 +363,7 @@ public class PrestoSparkQueryExecutionFactory
                             Optional.ofNullable(planAndMore),
                             warningCollector,
                             OptionalLong.empty());
-                    writePrestoSparkQueryInfo(
+                    writeJsonFile(
                             queryStatusInfoOutputPath.get(),
                             prestoSparkQueryStatusInfo,
                             queryStatusInfoJsonCodec);
@@ -619,13 +626,10 @@ public class PrestoSparkQueryExecutionFactory
                 executionFailureInfo.toFailureInfo());
     }
 
-    private static void writePrestoSparkQueryInfo(
-            Path queryStatusInfoOutputPath,
-            PrestoSparkQueryStatusInfo queryInfo,
-            JsonCodec<PrestoSparkQueryStatusInfo> queryInfoJsonCodec)
+    private static <T> void writeJsonFile(Path outputPath, T object, JsonCodec<T> codec)
     {
         try {
-            Files.write(queryStatusInfoOutputPath, queryInfoJsonCodec.toJsonBytes(queryInfo));
+            Files.write(outputPath, codec.toJsonBytes(object));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -654,12 +658,14 @@ public class PrestoSparkQueryExecutionFactory
         private final JsonCodec<TaskInfo> taskInfoJsonCodec;
         private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
         private final JsonCodec<PrestoSparkQueryStatusInfo> queryStatusInfoJsonCodec;
+        private final JsonCodec<PrestoSparkQueryData> queryDataJsonCodec;
         private final PrestoSparkRddFactory rddFactory;
         private final TableWriteInfo tableWriteInfo;
         private final TransactionManager transactionManager;
         private final PagesSerde pagesSerde;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
         private final Optional<Path> queryStatusInfoOutputPath;
+        private final Optional<Path> queryDataOutputPath;
 
         private PrestoSparkQueryExecution(
                 JavaSparkContext sparkContext,
@@ -678,12 +684,14 @@ public class PrestoSparkQueryExecutionFactory
                 JsonCodec<TaskInfo> taskInfoJsonCodec,
                 JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
                 JsonCodec<PrestoSparkQueryStatusInfo> queryStatusInfoJsonCodec,
+                JsonCodec<PrestoSparkQueryData> queryDataJsonCodec,
                 PrestoSparkRddFactory rddFactory,
                 TableWriteInfo tableWriteInfo,
                 TransactionManager transactionManager,
                 PagesSerde pagesSerde,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
-                Optional<Path> queryStatusInfoOutputPath)
+                Optional<Path> queryStatusInfoOutputPath,
+                Optional<Path> queryDataOutputPath)
         {
             this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
             this.session = requireNonNull(session, "session is null");
@@ -702,12 +710,14 @@ public class PrestoSparkQueryExecutionFactory
             this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
             this.sparkTaskDescriptorJsonCodec = requireNonNull(sparkTaskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
             this.queryStatusInfoJsonCodec = requireNonNull(queryStatusInfoJsonCodec, "queryStatusInfoJsonCodec is null");
+            this.queryDataJsonCodec = requireNonNull(queryDataJsonCodec, "queryDataJsonCodec is null");
             this.rddFactory = requireNonNull(rddFactory, "rddFactory is null");
             this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
             this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
             this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
             this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
             this.queryStatusInfoOutputPath = requireNonNull(queryStatusInfoOutputPath, "queryStatusInfoOutputPath is null");
+            this.queryDataOutputPath = requireNonNull(queryDataOutputPath, "queryDataOutputPath is null");
         }
 
         @Override
@@ -804,6 +814,13 @@ public class PrestoSparkQueryExecutionFactory
             catch (RuntimeException eventFailure) {
                 log.error(eventFailure, "Error publishing query completed event");
             }
+
+            queryDataOutputPath.ifPresent(path -> writeJsonFile(
+                    path,
+                    new PrestoSparkQueryData(
+                            getOutputColumns(planAndMore),
+                            results),
+                    queryDataJsonCodec));
 
             return results;
         }
@@ -926,7 +943,7 @@ public class PrestoSparkQueryExecutionFactory
                         Optional.of(planAndMore),
                         warningCollector,
                         updateCount);
-                writePrestoSparkQueryInfo(
+                writeJsonFile(
                         queryStatusInfoOutputPath.get(),
                         prestoSparkQueryStatusInfo,
                         queryStatusInfoJsonCodec);
