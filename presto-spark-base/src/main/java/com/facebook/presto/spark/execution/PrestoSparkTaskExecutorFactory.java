@@ -88,6 +88,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
@@ -95,6 +96,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
@@ -103,6 +105,7 @@ import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffle
 import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_MODULAR_HASH_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -373,11 +376,17 @@ public class PrestoSparkTaskExecutorFactory
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
                 notificationExecutor);
         PagesSerde pagesSerde = new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty());
+
+        OptionalInt outputPartitionId = OptionalInt.empty();
+        if (fragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_MODULAR_HASH_DISTRIBUTION)) {
+            outputPartitionId = OptionalInt.of(partitionId % getHashPartitionCount(session));
+        }
         Output<T> output = configureOutput(
                 outputType,
                 pagesSerde,
                 memoryManager,
-                getShuffleOutputTargetAverageRowSize(session));
+                getShuffleOutputTargetAverageRowSize(session),
+                outputPartitionId);
         PrestoSparkOutputBuffer<?> outputBuffer = output.getOutputBuffer();
 
         LocalExecutionPlan localExecutionPlan = localExecutionPlanner.plan(
@@ -456,11 +465,12 @@ public class PrestoSparkTaskExecutorFactory
             Class<T> outputType,
             PagesSerde pagesSerde,
             OutputBufferMemoryManager memoryManager,
-            DataSize targetAverageRowSize)
+            DataSize targetAverageRowSize,
+            OptionalInt outputPartitionId)
     {
         if (outputType.equals(PrestoSparkMutableRow.class)) {
             PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer = new PrestoSparkOutputBuffer<>(memoryManager);
-            OutputFactory outputFactory = new PrestoSparkRowOutputFactory(outputBuffer, targetAverageRowSize);
+            OutputFactory outputFactory = new PrestoSparkRowOutputFactory(outputBuffer, targetAverageRowSize, outputPartitionId);
             OutputSupplier<T> outputSupplier = (OutputSupplier<T>) new RowOutputSupplier(outputBuffer);
             return new Output<>(OutputBufferType.SPARK_ROW_OUTPUT_BUFFER, outputBuffer, outputFactory, outputSupplier);
         }

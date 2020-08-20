@@ -56,13 +56,29 @@ public class PrestoSparkRowOutputOperator
                 false,
                 OptionalInt.empty());
 
+        private final Optional<OutputPartitioning> preDeterminedPartition;
+
         private final PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer;
         private final DataSize targetAverageRowSize;
 
-        public PrestoSparkRowOutputFactory(PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer, DataSize targetAverageRowSize)
+        public PrestoSparkRowOutputFactory(
+                PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer,
+                DataSize targetAverageRowSize,
+                OptionalInt outputPartitionId)
         {
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.targetAverageRowSize = requireNonNull(targetAverageRowSize, "targetAverageRowSize is null");
+            if (requireNonNull(outputPartitionId, "outputPartitionId is null").isPresent()) {
+                preDeterminedPartition = Optional.of(new OutputPartitioning(
+                        new PreDeterminedPartitionFunction(outputPartitionId.getAsInt()),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        false,
+                        OptionalInt.empty()));
+            }
+            else {
+                preDeterminedPartition = Optional.empty();
+            }
         }
 
         @Override
@@ -74,7 +90,7 @@ public class PrestoSparkRowOutputOperator
                 Optional<OutputPartitioning> outputPartitioning,
                 PagesSerdeFactory serdeFactory)
         {
-            OutputPartitioning partitioning = outputPartitioning.orElse(SINGLE_PARTITION);
+            OutputPartitioning partitioning = outputPartitioning.orElse(preDeterminedPartition.orElse(SINGLE_PARTITION));
             return new PrestoSparkRowOutputOperatorFactory(
                     operatorId,
                     planNodeId,
@@ -104,6 +120,31 @@ public class PrestoSparkRowOutputOperator
         public int getPartition(Page page, int position)
         {
             return 0;
+        }
+    }
+
+    private static class PreDeterminedPartitionFunction
+            implements PartitionFunction
+    {
+        private final int partitionId;
+
+        public PreDeterminedPartitionFunction(int partitionId)
+        {
+            this.partitionId = partitionId;
+        }
+
+        @Override
+        public int getPartitionCount()
+        {
+            // To be compatible with RowIndex in PrestoSparkRowBatchBuilder
+            // where RowIndex requires an array size of at least partitionId + 1
+            return partitionId + 1;
+        }
+
+        @Override
+        public int getPartition(Page page, int position)
+        {
+            return partitionId;
         }
     }
 

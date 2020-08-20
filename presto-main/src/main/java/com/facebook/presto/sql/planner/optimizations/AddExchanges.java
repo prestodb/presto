@@ -117,6 +117,7 @@ import static com.facebook.presto.sql.planner.FragmentTableScanCounter.getNumber
 import static com.facebook.presto.sql.planner.FragmentTableScanCounter.hasMultipleTableScans;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_MODULAR_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isCompatibleSystemPartitioning;
@@ -1229,15 +1230,22 @@ public class AddExchanges
                                         false,
                                         Optional.empty()));
                     }
+                    else {
+                        // TODO: Add a session property to control this branch
+                        return new PlanWithProperties(
+                                new ExchangeNode(
+                                        idAllocator.getNextId(),
+                                        REPARTITION,
+                                        REMOTE_STREAMING,
+                                        new PartitioningScheme(Partitioning.create(FIXED_MODULAR_HASH_DISTRIBUTION, ImmutableList.of()), node.getOutputVariables()),
+                                        distributedChildren,
+                                        distributedOutputLayouts,
+                                        false,
+                                        Optional.empty()));
+                    }
                 }
 
-                // This can happen in two cases:
-                // 1. Parent node doesn't prefer distributed partitioning (e.g. TableFinish, Sort)
-                // 2. Parent node prefers distributed partitioning but prefer_distributed_union is disabled
-                // In the second case the gather exchange will unnecessarily decrease query parallelism.
-                // If presto supported multiple table scans this exchange could be avoided completely.
-                // We should consider supporting multiple table scans, at least for Presto on Spark where
-                // it could be easier to implement and round robin exchanges are much more expensive.
+                // This can happen when Parent node doesn't prefer distributed partitioning (e.g. TableFinish, Sort)
                 result = new ExchangeNode(
                         idAllocator.getNextId(),
                         GATHER,

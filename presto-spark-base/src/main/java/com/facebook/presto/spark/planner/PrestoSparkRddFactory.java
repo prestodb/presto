@@ -95,6 +95,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINAT
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_MODULAR_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -176,6 +177,7 @@ public class PrestoSparkRddFactory
 
         if (partitioning.equals(SINGLE_DISTRIBUTION) ||
                 partitioning.equals(FIXED_HASH_DISTRIBUTION) ||
+                partitioning.equals(FIXED_MODULAR_HASH_DISTRIBUTION) ||
                 partitioning.equals(SOURCE_DISTRIBUTION) ||
                 partitioning.getConnectorId().isPresent()) {
             for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
@@ -214,6 +216,15 @@ public class PrestoSparkRddFactory
             int hashPartitionCount = getHashPartitionCount(session);
             return fragment.withBucketToPartition(Optional.of(IntStream.range(0, hashPartitionCount).toArray()));
         }
+        //  FIXED_MODULAR_HASH_DISTRIBUTION is used for UNION ALL
+        //  UNION ALL inputs could be source inputs or shuffle inputs
+        if (outputPartitioningHandle.equals(FIXED_MODULAR_HASH_DISTRIBUTION)) {
+            // given modular hash function, partition count could be arbitrary size
+            // simply reuse hash_partition_count for convenience
+            // it can also be set by a separate session property if needed
+            int partitionCount = getHashPartitionCount(session);
+            return fragment.withBucketToPartition(Optional.of(IntStream.range(0, partitionCount).toArray()));
+        }
         if (outputPartitioningHandle.getConnectorId().isPresent()) {
             int connectorPartitionCount = getPartitionCount(session, outputPartitioningHandle);
             return fragment.withBucketToPartition(Optional.of(IntStream.range(0, connectorPartitionCount).toArray()));
@@ -240,6 +251,10 @@ public class PrestoSparkRddFactory
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION)) {
             int hashPartitionCount = getHashPartitionCount(session);
             return new PrestoSparkPartitioner(hashPartitionCount);
+        }
+        if (partitioning.equals(FIXED_MODULAR_HASH_DISTRIBUTION)) {
+            int partitionCount = getHashPartitionCount(session);
+            return new PrestoSparkPartitioner(partitionCount);
         }
         if (partitioning.getConnectorId().isPresent()) {
             int connectorPartitionCount = getPartitionCount(session, partitioning);
