@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -123,6 +124,9 @@ public class RemoveUnsupportedDynamicFilters
         {
             JoinDynamicFilterResult joinDynamicFilterResult = extractDynamicFilterFromJoin(node, allowedDynamicFilterIds);
             if (!joinDynamicFilterResult.getProbe().equals(node.getLeft()) || !joinDynamicFilterResult.getBuild().equals(node.getRight()) || !joinDynamicFilterResult.getDynamicFilters().equals(node.getDynamicFilters())) {
+                Optional<RowExpression> filter = node
+                        .getFilter().map(this::removeAllDynamicFilters)  // dynamic filtering is not supported for LookupJoinOperators
+                        .filter(expression -> !expression.equals(TRUE_CONSTANT));
                 return new PlanWithConsumedDynamicFilters(
                         new JoinNode(
                             node.getId(),
@@ -131,7 +135,7 @@ public class RemoveUnsupportedDynamicFilters
                                 joinDynamicFilterResult.getBuild(),
                             node.getCriteria(),
                             node.getOutputVariables(),
-                            node.getFilter(),
+                            filter,
                             node.getLeftHashVariable(),
                             node.getRightHashVariable(),
                             node.getDistributionType(),
