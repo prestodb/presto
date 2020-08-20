@@ -26,5 +26,5 @@ public interface IPrestoSparkQueryExecutionFactory
             String sql,
             Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
-            Optional<Path> queryInfoOutputPath);
+            Optional<Path> queryStatusInfoOutputPath);
 }
