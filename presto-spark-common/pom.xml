@@ -17,8 +17,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
@@ -28,12 +28,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-spi</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-spi</artifactId>
+            <artifactId>presto-client</artifactId>
         </dependency>
 
         <dependency>
