@@ -147,8 +147,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
 
         configProperties = new File(tempDir, "config.properties");
         storeProperties(configProperties, ImmutableMap.of(
-                "query.hash-partition-count", "10",
-                "prefer-distributed-union", "false"));
+                "query.hash-partition-count", "10"));
         catalogDirectory = new File(tempDir, "catalogs");
         createDirectories(catalogDirectory.toPath());
         storeProperties(new File(catalogDirectory, "hive.properties"), ImmutableMap.of(
