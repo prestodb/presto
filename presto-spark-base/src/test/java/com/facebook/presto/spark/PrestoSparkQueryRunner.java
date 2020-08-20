@@ -203,8 +203,7 @@ public class PrestoSparkQueryRunner
                 DRIVER,
                 ImmutableMap.of(
                         "presto.version", "testversion",
-                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2),
-                        "prefer-distributed-union", "false"),
+                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2)),
                 ImmutableMap.of(),
                 Optional.empty(),
                 new SqlParserOptions(),

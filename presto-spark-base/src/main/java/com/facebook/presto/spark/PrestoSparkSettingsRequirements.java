@@ -95,7 +95,7 @@ public class PrestoSparkSettingsRequirements
         config.setColocatedJoinsEnabled(true);
         config.setRedistributeWrites(false);
         config.setScaleWriters(false);
-        config.setPreferDistributedUnion(false);
+        config.setPreferDistributedUnion(true);
         config.setForceSingleNodeOutput(false);
     }
 
