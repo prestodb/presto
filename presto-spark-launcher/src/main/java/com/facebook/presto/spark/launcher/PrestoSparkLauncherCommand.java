@@ -15,6 +15,7 @@ package com.facebook.presto.spark.launcher;
 
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
 import org.apache.spark.SparkConf;
@@ -63,14 +64,19 @@ public class PrestoSparkLauncherCommand
 
         try (PrestoSparkRunner runner = new PrestoSparkRunner(distribution)) {
             runner.run(
+                    "test",
+                    Optional.empty(),
+                    ImmutableMap.of(),
                     clientOptions.catalog,
                     clientOptions.schema,
-                    "test",
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableSet.of(),
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    Optional.empty(),
                     query,
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    Optional.empty(),
-                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
         }

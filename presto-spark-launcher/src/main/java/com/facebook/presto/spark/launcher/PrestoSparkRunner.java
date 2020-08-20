@@ -22,8 +22,6 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.apache.spark.TaskContext;
 
 import java.io.File;
@@ -31,12 +29,14 @@ import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.Set;
 
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkDirectory;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,26 +63,39 @@ public class PrestoSparkRunner
     }
 
     public void run(
+            String user,
+            Optional<Principal> principal,
+            Map<String, String> extraCredentials,
             String catalog,
             String schema,
-            String user,
-            String query,
-            Map<String, String> sessionProperties,
-            Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<String> source,
             Optional<String> userAgent,
             Optional<String> clientInfo,
+            Set<String> clientTags,
+            Map<String, String> sessionProperties,
+            Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<String> traceToken,
+            String query,
             Optional<String> sparkQueueName,
             Optional<Path> queryInfoOutputPath)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
-        PrestoSparkSession session = createSessionInfo(
-                catalog,
-                schema,
+
+        PrestoSparkSession session = new PrestoSparkSession(
                 user,
+                principal,
+                extraCredentials,
+                Optional.ofNullable(catalog),
+                Optional.ofNullable(schema),
+                source,
+                userAgent,
+                clientInfo,
+                clientTags,
+                Optional.empty(),
+                Optional.empty(),
                 sessionProperties,
                 catalogSessionProperties,
-                clientInfo,
-                userAgent);
+                traceToken);
 
         IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
                 distribution.getSparkContext(),
@@ -102,33 +115,6 @@ public class PrestoSparkRunner
     public void close()
     {
         driverPrestoSparkService.close();
-    }
-
-    private static PrestoSparkSession createSessionInfo(
-            String catalog,
-            String schema,
-            String user,
-            Map<String, String> sessionProperties,
-            Map<String, Map<String, String>> catalogSessionProperties,
-            Optional<String> clientInfo,
-            Optional<String> userAgent)
-    {
-        // TODO: add all important session parameters to client options
-        return new PrestoSparkSession(
-                user,
-                Optional.empty(),
-                ImmutableMap.of(),
-                Optional.ofNullable(catalog),
-                Optional.ofNullable(schema),
-                Optional.empty(),
-                userAgent,
-                clientInfo,
-                ImmutableSet.of(),
-                Optional.empty(),
-                Optional.empty(),
-                sessionProperties,
-                catalogSessionProperties,
-                Optional.empty());
     }
 
     private static IPrestoSparkServiceFactory createServiceFactory(File directory)
