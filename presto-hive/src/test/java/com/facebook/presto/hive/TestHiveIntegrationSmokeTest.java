@@ -3918,6 +3918,18 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateViewWithNonHiveType()
+    {
+        String testTable = "test_create_view_table";
+        String testView = "test_view_with_hll";
+        assertUpdate(format("CREATE TABLE %s AS SELECT user_name, account_name" +
+                "  FROM (VALUES ('user1', 'account1'), ('user2', 'account2'))" +
+                "  t (user_name, account_name)", testTable), 2);
+        assertUpdate(format("CREATE VIEW %s AS SELECT approx_set(account_name) as hll FROM %s", testView, testTable));
+        assertQuery(format("SELECT cardinality(hll) from %s", testView), "VALUES '2'");
+    }
+
+    @Test
     public void testCollectColumnStatisticsOnCreateTable()
     {
         String tableName = "test_collect_column_statistics_on_create_table";
