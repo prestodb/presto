@@ -60,6 +60,7 @@ public class BasicQueryInfo
     private final BasicQueryStats queryStats;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
+    private final ExecutionFailureInfo failureInfo;
     private final Optional<QueryType> queryType;
     private final List<PrestoWarning> warnings;
 
@@ -76,6 +77,7 @@ public class BasicQueryInfo
             @JsonProperty("queryStats") BasicQueryStats queryStats,
             @JsonProperty("errorType") ErrorType errorType,
             @JsonProperty("errorCode") ErrorCode errorCode,
+            @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("queryType") Optional<QueryType> queryType,
             @JsonProperty("warnings") List<PrestoWarning> warnings)
     {
@@ -86,6 +88,7 @@ public class BasicQueryInfo
         this.memoryPool = memoryPool;
         this.errorType = errorType;
         this.errorCode = errorCode;
+        this.failureInfo = failureInfo;
         this.scheduled = scheduled;
         this.self = requireNonNull(self, "self is null");
         this.query = requireNonNull(query, "query is null");
@@ -118,8 +121,9 @@ public class BasicQueryInfo
                 self,
                 query,
                 queryStats,
-                failureInfo != null && failureInfo.getErrorCode() != null ? failureInfo.getErrorCode().getType() : null,
+                (failureInfo != null && failureInfo.getErrorCode() != null) ? failureInfo.getErrorCode().getType() : null,
                 failureInfo != null ? failureInfo.getErrorCode() : null,
+                failureInfo,
                 queryType, warnings);
     }
 
@@ -136,6 +140,7 @@ public class BasicQueryInfo
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode(),
+                queryInfo.getFailureInfo(),
                 queryInfo.getQueryType(),
                 queryInfo.getWarnings());
     }
@@ -223,6 +228,13 @@ public class BasicQueryInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
+    }
+
+    @Nullable
+    @JsonProperty
+    public ExecutionFailureInfo getFailureInfo()
+    {
+        return failureInfo;
     }
 
     @JsonProperty

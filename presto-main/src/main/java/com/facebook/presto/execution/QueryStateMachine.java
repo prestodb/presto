@@ -320,14 +320,6 @@ public class QueryStateMachine
         // never be visible.
         QueryState state = queryState.get();
 
-        ErrorCode errorCode = null;
-        if (state == QueryState.FAILED) {
-            ExecutionFailureInfo failureCause = this.failureCause.get();
-            if (failureCause != null) {
-                errorCode = failureCause.getErrorCode();
-            }
-        }
-
         BasicStageExecutionStats stageStats = rootStage.orElse(EMPTY_STAGE_STATS);
         BasicQueryStats queryStats = new BasicQueryStats(
                 queryStateTimer.getCreateTime(),
@@ -373,8 +365,7 @@ public class QueryStateMachine
                 self,
                 query,
                 queryStats,
-                errorCode == null ? null : errorCode.getType(),
-                errorCode,
+                failureCause.get(),
                 queryType,
                 warningCollector.getWarnings());
     }
