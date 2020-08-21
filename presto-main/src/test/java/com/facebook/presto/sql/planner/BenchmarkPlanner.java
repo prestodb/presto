@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.ColumnNaming;
 import com.facebook.presto.tpch.TpchConnectorFactory;

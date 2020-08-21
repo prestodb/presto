@@ -16,6 +16,7 @@ package com.facebook.presto.execution.warnings;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.WarningCollector;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.GuardedBy;
