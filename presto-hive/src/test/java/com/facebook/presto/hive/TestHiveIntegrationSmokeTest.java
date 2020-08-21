@@ -4733,12 +4733,12 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(
                 smallStripeSession,
                 "CREATE TABLE test_pagefile_small_stripe\n" +
-                "WITH (\n" +
-                "format = 'PAGEFILE'\n" +
-                ") AS\n" +
-                "SELECT\n" +
-                "*\n" +
-                "FROM tpch.orders",
+                        "WITH (\n" +
+                        "format = 'PAGEFILE'\n" +
+                        ") AS\n" +
+                        "SELECT\n" +
+                        "*\n" +
+                        "FROM tpch.orders",
                 "SELECT count(*) FROM orders");
 
         assertQuery("SELECT count(*) FROM test_pagefile_small_stripe", "SELECT count(*) FROM orders");
