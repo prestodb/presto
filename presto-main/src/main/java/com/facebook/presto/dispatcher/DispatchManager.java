@@ -272,11 +272,6 @@ public class DispatchManager
         return queryTracker.getQuery(queryId).getBasicQueryInfo();
     }
 
-    public QueryInfo getFullQueryInfo(QueryId queryId)
-    {
-        return queryTracker.getQuery(queryId).getQueryInfo();
-    }
-
     public Optional<DispatchInfo> getDispatchInfo(QueryId queryId)
     {
         return queryTracker.tryGetQuery(queryId)

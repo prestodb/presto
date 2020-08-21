@@ -81,11 +81,17 @@ public class QueryResource
         requireNonNull(queryId, "queryId is null");
 
         try {
-            QueryInfo queryInfo = dispatchManager.getFullQueryInfo(queryId);
+            QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
             return Response.ok(queryInfo).build();
         }
         catch (NoSuchElementException e) {
-            return Response.status(Status.GONE).build();
+            try {
+                BasicQueryInfo basicQueryInfo = dispatchManager.getQueryInfo(queryId);
+                return Response.ok(basicQueryInfo).build();
+            }
+            catch (NoSuchElementException ex) {
+                return Response.status(Status.GONE).build();
+            }
         }
     }
 
