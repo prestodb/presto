@@ -103,7 +103,6 @@ public class TestClusterMemoryLeakDetector
                         DataSize.valueOf("123MB"),
                         OptionalDouble.of(20)),
                 null,
-                null,
                 Optional.empty(),
                 ImmutableList.of());
     }
