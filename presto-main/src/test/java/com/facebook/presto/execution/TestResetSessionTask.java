@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -26,6 +25,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;

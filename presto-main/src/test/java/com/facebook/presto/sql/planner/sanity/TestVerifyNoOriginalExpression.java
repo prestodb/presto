@@ -15,8 +15,8 @@ package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.BooleanType;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;

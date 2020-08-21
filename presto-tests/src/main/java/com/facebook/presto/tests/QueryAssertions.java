@@ -15,8 +15,8 @@ package com.facebook.presto.tests;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;

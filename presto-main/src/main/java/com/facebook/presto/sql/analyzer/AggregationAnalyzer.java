@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.planner.ParameterRewriter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;

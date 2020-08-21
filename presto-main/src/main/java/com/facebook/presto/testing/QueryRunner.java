@@ -15,10 +15,10 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
