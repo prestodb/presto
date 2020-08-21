@@ -24,4 +24,6 @@ public interface SqlFunction
     boolean isCalledOnNullInput();
 
     String getDescription();
+
+    boolean isNullable();
 }

@@ -39,15 +39,19 @@ public class ParametricScalar
 {
     private final ScalarHeader details;
     private final ParametricImplementationsGroup<ParametricScalarImplementation> implementations;
+    private final boolean isNullable;
 
     public ParametricScalar(
             Signature signature,
             ScalarHeader details,
-            ParametricImplementationsGroup<ParametricScalarImplementation> implementations)
+            ParametricImplementationsGroup<ParametricScalarImplementation> implementations,
+            boolean nullable
+    )
     {
         super(signature);
         this.details = requireNonNull(details);
         this.implementations = requireNonNull(implementations);
+        this.isNullable = nullable;
     }
 
     @Override
@@ -114,5 +118,11 @@ public class ParametricScalar
         }
 
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundVariables, getSignature()));
+    }
+
+    @Override
+    public boolean isNullable()
+    {
+        return isNullable;
     }
 }

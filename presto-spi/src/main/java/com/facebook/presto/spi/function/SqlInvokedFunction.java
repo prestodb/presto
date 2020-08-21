@@ -209,4 +209,7 @@ public class SqlInvokedFunction
                 body,
                 routineCharacteristics);
     }
+
+    @Override
+    public boolean isNullable() { return true; }
 }

@@ -23,13 +23,15 @@ public class ScalarHeader
     private final SqlFunctionVisibility visibility;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
+    private final boolean nullable;
 
-    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput)
+    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput, boolean nullable)
     {
         this.description = description;
         this.visibility = visibility;
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
+        this.nullable = nullable;
     }
 
     public Optional<String> getDescription()
@@ -51,4 +53,6 @@ public class ScalarHeader
     {
         return calledOnNullInput;
     }
+
+    public boolean isNullable() { return nullable; }
 }

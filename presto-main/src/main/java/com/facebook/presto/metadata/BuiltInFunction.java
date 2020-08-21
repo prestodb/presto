@@ -23,4 +23,7 @@ public abstract class BuiltInFunction
     {
         return false;
     }
+
+    @Override
+    public boolean isNullable() { return true; }
 }

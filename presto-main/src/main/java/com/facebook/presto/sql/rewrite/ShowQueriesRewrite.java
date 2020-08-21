@@ -614,7 +614,10 @@ final class ShowQueriesRewrite
                         builtIn ? TRUE_LITERAL : FALSE_LITERAL,
                         function instanceof SqlInvokedFunction
                                 ? new StringLiteral(((SqlInvokedFunction) function).getRoutineCharacteristics().getLanguage().getLanguage().toLowerCase(ENGLISH))
-                                : new StringLiteral("")));
+                                : new StringLiteral(""),
+                        function.isNullable() ? TRUE_LITERAL : FALSE_LITERAL
+                        )
+                );
             }
 
             Map<String, String> columns = ImmutableMap.<String, String>builder()
@@ -627,6 +630,7 @@ final class ShowQueriesRewrite
                     .put("variable_arity", "Variable Arity")
                     .put("built_in", "Built In")
                     .put("language", "Language")
+                    .put("is_nullable", "Is Nullable")
                     .build();
 
             return simpleQuery(

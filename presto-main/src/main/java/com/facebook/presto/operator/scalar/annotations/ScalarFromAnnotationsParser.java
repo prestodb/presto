@@ -130,7 +130,7 @@ public final class ScalarFromAnnotationsParser
         header.getOperatorType().ifPresent(operatorType ->
                 validateOperator(operatorType, scalarSignature.getReturnType(), scalarSignature.getArgumentTypes()));
 
-        return new ParametricScalar(scalarSignature, header.getHeader(), implementations);
+        return new ParametricScalar(scalarSignature, header.getHeader(), implementations, header.isNullable());
     }
 
     private static class ScalarHeaderAndMethods
