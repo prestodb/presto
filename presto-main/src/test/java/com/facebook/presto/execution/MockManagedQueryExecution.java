@@ -133,7 +133,6 @@ public class MockManagedQueryExecution
                         new DataSize(24, BYTE),
                         OptionalDouble.empty()),
                 null,
-                null,
                 Optional.empty(),
                 ImmutableList.of());
     }
