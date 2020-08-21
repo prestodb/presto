@@ -28,6 +28,7 @@ import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorS
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import com.facebook.presto.operator.aggregation.GenericAccumulatorFactoryBinder;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AccumulatorState;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.facebook.presto.spi.function.AccumulatorStateSerializer;
@@ -42,6 +43,7 @@ import static com.facebook.presto.operator.aggregation.AggregationMetadata.Param
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -127,7 +129,14 @@ public class ArrayAggregationFunction
 
     public static void combine(Type type, ArrayAggregationState state, ArrayAggregationState otherState)
     {
-        state.merge(otherState);
+        try {
+            state.merge(otherState);
+        } catch (IndexOutOfBoundsException e) {
+            // An IndexOutOfBoundsException can happen when we try to array_agg on a column
+            // whose combined size overflows integer range. Classify this exception to be a USER_ERROR as
+            // we can't index into array more than Integer.MAX and such aggregation should be avoided.
+            throw new PrestoException(GENERIC_USER_ERROR, e);
+        }
     }
 
     public static void output(Type elementType, ArrayAggregationState state, BlockBuilder out)
