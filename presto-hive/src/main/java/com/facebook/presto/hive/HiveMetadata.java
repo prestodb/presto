@@ -233,6 +233,7 @@ import static com.facebook.presto.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static com.facebook.presto.hive.HiveTableProperties.getPartitionedBy;
 import static com.facebook.presto.hive.HiveTableProperties.getPreferredOrderingColumns;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
+import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveType.toHiveType;
 import static com.facebook.presto.hive.HiveUtil.columnExtraInfo;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
@@ -1974,9 +1975,26 @@ public class HiveMetadata
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .build();
 
-        List<Column> columns = viewMetadata.getColumns().stream()
-                .map(col -> new Column(col.getName(), toHiveType(typeTranslator, col.getType()), Optional.ofNullable(col.getComment())))
-                .collect(toImmutableList());
+        List<Column> columns = new ArrayList<>();
+        for (ColumnMetadata column : viewMetadata.getColumns()) {
+            try {
+                columns.add(new Column(column.getName(), toHiveType(typeTranslator, column.getType()), Optional.ofNullable(column.getComment())));
+            }
+            catch (PrestoException e) {
+                // if a view uses any unsupported hive types, include only a dummy column value
+                if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
+                    columns = ImmutableList.of(
+                            new Column(
+                                    "dummy",
+                                    HIVE_STRING,
+                                    Optional.of(format("Using dummy because column %s uses unsupported Hive type %s ", column.getName(), column.getType()))));
+                    break;
+                }
+                else {
+                    throw e;
+                }
+            }
+        }
 
         SchemaTableName viewName = viewMetadata.getTable();
 
