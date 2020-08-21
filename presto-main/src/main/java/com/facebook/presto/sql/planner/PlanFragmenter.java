@@ -192,7 +192,7 @@ public class PlanFragmenter
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
-        subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
+        //subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
         if (!forceSingleNode) {
             // grouped execution is not supported for SINGLE_DISTRIBUTION
             subPlan = analyzeGroupedExecution(session, subPlan, false);
