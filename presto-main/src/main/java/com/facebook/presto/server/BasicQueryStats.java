@@ -28,7 +28,9 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Lightweight version of QueryStats. Parts of the web UI depend on the fields
@@ -161,6 +163,36 @@ public class BasicQueryStats
                 queryStats.getBlockedReasons(),
                 queryStats.getTotalAllocation(),
                 queryStats.getProgressPercentage());
+    }
+
+    public static BasicQueryStats immediateFailureQueryStats()
+    {
+        DateTime now = DateTime.now();
+        return new BasicQueryStats(
+                now,
+                now,
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                0,
+                0,
+                0,
+                0,
+                0,
+                new DataSize(0, BYTE),
+                0,
+                0,
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new DataSize(0, BYTE),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                false,
+                ImmutableSet.of(),
+                new DataSize(0, BYTE),
+                OptionalDouble.empty());
     }
 
     @JsonProperty
