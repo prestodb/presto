@@ -32,6 +32,7 @@ import com.facebook.presto.sql.relational.Expressions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -41,6 +42,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.intersection;
+import static java.lang.String.format;
 
 /**
  * When dynamic filter assignments are present on a Join node, they should be consumed by a Filter node on its probe side
@@ -99,7 +101,12 @@ public class DynamicFiltersChecker
 
                 Set<String> consumedBuildSide = node.getBuild().accept(this, context);
                 Set<String> unconsumedByBuildSide = intersection(currentJoinDynamicFilters, consumedBuildSide);
-                verify(unconsumedByBuildSide.isEmpty(), "Dynamic filters %s present in join were consumed by its build side.", unconsumedByBuildSide);
+                verify(unconsumedByBuildSide.isEmpty(),
+                        format(
+                                "Dynamic filters %s present in join were consumed by its build side. consumedBuildSide %s, currentJoinDynamicFilters %s",
+                                Arrays.toString(unconsumedByBuildSide.toArray()),
+                                Arrays.toString(consumedBuildSide.toArray()),
+                                Arrays.toString(currentJoinDynamicFilters.toArray())));
 
                 Set<String> unmatched = new HashSet<>(consumedBuildSide);
                 unmatched.addAll(consumedProbeSide);
