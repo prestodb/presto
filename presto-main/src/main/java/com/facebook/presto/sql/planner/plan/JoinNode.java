@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -124,7 +125,11 @@ public class JoinNode
         }
 
         for (VariableReferenceExpression variableReferenceExpression : dynamicFilters.values()) {
-            checkArgument(right.getOutputVariables().contains(variableReferenceExpression), "Right join input doesn't contain symbol for dynamic filter: %s", variableReferenceExpression);
+            checkArgument(right.getOutputVariables().contains(variableReferenceExpression), format(
+                    "Right join input doesn't contain symbol for dynamic filter: %s, rightVariables: %s, dynamicFilters.values(): %s",
+                    variableReferenceExpression,
+                    Arrays.toString(right.getOutputVariables().toArray()),
+                    Arrays.toString(dynamicFilters.values().toArray())));
         }
     }
 
