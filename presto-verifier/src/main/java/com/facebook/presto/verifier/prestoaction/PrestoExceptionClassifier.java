@@ -16,6 +16,7 @@ package com.facebook.presto.verifier.prestoaction;
 import com.facebook.presto.connector.thrift.ThriftErrorCode;
 import com.facebook.presto.hive.HiveErrorCode;
 import com.facebook.presto.plugin.jdbc.JdbcErrorCode;
+import com.facebook.presto.spark.SparkErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.verifier.framework.ClusterConnectionException;
@@ -108,6 +109,7 @@ public class PrestoExceptionClassifier
                 .addRecognizedErrors(asList(HiveErrorCode.values()))
                 .addRecognizedErrors(asList(JdbcErrorCode.values()))
                 .addRecognizedErrors(asList(ThriftErrorCode.values()))
+                .addRecognizedErrors(asList(SparkErrorCode.values()))
                 // From StandardErrorCode
                 .addRetryableError(NO_NODES_AVAILABLE)
                 .addRetryableError(REMOTE_TASK_ERROR)
