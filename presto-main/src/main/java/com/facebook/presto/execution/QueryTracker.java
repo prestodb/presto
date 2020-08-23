@@ -230,10 +230,10 @@ public class QueryTracker<T extends TrackedQuery>
         int highestRunningTaskCount = 0;
         Optional<T> highestRunningTaskQuery = Optional.empty();
         for (T query : queries.values()) {
-            if (query.isDone()) {
+            if (query.isDone() || !(query instanceof QueryExecution)) {
                 continue;
             }
-            int runningTaskCount = query.getRunningTaskCount();
+            int runningTaskCount = ((QueryExecution) query).getRunningTaskCount();
             totalRunningTaskCount += runningTaskCount;
             if (runningTaskCount > highestRunningTaskCount) {
                 highestRunningTaskCount = runningTaskCount;
@@ -355,8 +355,6 @@ public class QueryTracker<T extends TrackedQuery>
         DateTime getLastHeartbeat();
 
         Optional<DateTime> getEndTime();
-
-        int getRunningTaskCount();
 
         void fail(Throwable cause);
 

@@ -190,12 +190,6 @@ public class LocalDispatchQuery
     }
 
     @Override
-    public int getRunningTaskCount()
-    {
-        return stateMachine.getCurrentRunningTaskCount();
-    }
-
-    @Override
     public Duration getTotalCpuTime()
     {
         return tryGetQueryExecution()
