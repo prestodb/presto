@@ -406,7 +406,7 @@ public class OrcSelectivePageSourceFactory
 
             return new OrcSelectivePageSource(
                     recordReader,
-                    orcDataSource,
+                    reader.getOrcDataSource(),
                     systemMemoryUsage,
                     stats);
         }
