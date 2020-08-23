@@ -280,7 +280,7 @@ public class OrcBatchPageSourceFactory
 
             return new OrcBatchPageSource(
                     recordReader,
-                    orcDataSource,
+                    reader.getOrcDataSource(),
                     physicalColumns,
                     typeManager,
                     systemMemoryUsage,

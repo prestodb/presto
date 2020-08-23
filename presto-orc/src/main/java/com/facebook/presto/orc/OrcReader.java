@@ -225,7 +225,7 @@ public class OrcReader
             Map<Integer, Slice> columnsToIntermediateKeys)
             throws OrcCorruptionException
     {
-        return createBatchRecordReader(includedColumns, predicate, 0, orcDataSource.getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, columnsToIntermediateKeys);
+        return createBatchRecordReader(includedColumns, predicate, 0, getOrcDataSource().getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, columnsToIntermediateKeys);
     }
 
     public OrcBatchRecordReader createBatchRecordReader(
@@ -246,7 +246,7 @@ public class OrcReader
                 footer.getStripes(),
                 footer.getFileStats(),
                 metadata.getStripeStatsList(),
-                orcDataSource,
+                getOrcDataSource(),
                 offset,
                 length,
                 footer.getTypes(),
@@ -302,7 +302,7 @@ public class OrcReader
                 footer.getStripes(),
                 footer.getFileStats(),
                 metadata.getStripeStatsList(),
-                orcDataSource,
+                getOrcDataSource(),
                 offset,
                 length,
                 footer.getTypes(),
@@ -387,5 +387,10 @@ public class OrcReader
         if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
             throw new OrcCorruptionException(orcDataSource.getId(), "Write validation failed: " + messageFormat, args);
         }
+    }
+
+    public OrcDataSource getOrcDataSource()
+    {
+        return orcDataSource;
     }
 }
