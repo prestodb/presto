@@ -143,12 +143,6 @@ public class FailedDispatchQuery
     public void recordHeartbeat() {}
 
     @Override
-    public int getRunningTaskCount()
-    {
-        return 0;
-    }
-
-    @Override
     public DateTime getLastHeartbeat()
     {
         return queryInfo.getQueryStats().getEndTime();
