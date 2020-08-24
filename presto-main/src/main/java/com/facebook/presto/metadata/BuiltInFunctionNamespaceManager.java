@@ -28,6 +28,7 @@ import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggre
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateLongPercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateLongPercentileArrayAggregations;
+import com.facebook.presto.operator.aggregation.ApproximateMostFrequentAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateRealPercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateSetAggregation;
@@ -465,6 +466,7 @@ public class BuiltInFunctionNamespaceManager
                 .aggregates(CountAggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
+                .aggregates(ApproximateMostFrequentAggregations.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)
                 .aggregates(ApproximateLongPercentileArrayAggregations.class)
                 .aggregates(ApproximateDoublePercentileAggregations.class)
