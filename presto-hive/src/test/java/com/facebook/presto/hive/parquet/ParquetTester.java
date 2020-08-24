@@ -69,6 +69,10 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.parquet.example.data.Group;
+import org.apache.parquet.example.data.simple.SimpleGroupFactory;
+import org.apache.parquet.hadoop.example.ExampleParquetWriter;
+import org.apache.parquet.hadoop.example.GroupWriteSupport;
 import org.joda.time.DateTimeZone;
 import parquet.column.ParquetProperties.WriterVersion;
 import parquet.hadoop.metadata.CompressionCodecName;
@@ -228,6 +232,22 @@ public class ParquetTester
         testRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), parquetSchema, false);
     }
 
+    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, org.apache.parquet.schema.MessageType parquetSchema)
+            throws Exception
+    {
+        // forward order
+        assertNonHiveWriterRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), parquetSchema);
+
+        // reverse order
+        assertNonHiveWriterRoundTrip(singletonList(objectInspector), reverse(new Iterable<?>[] {writeValues}), reverse(new Iterable<?>[] {readValues}), TEST_COLUMN, singletonList(type), parquetSchema);
+
+        // forward order with nulls
+        assertNonHiveWriterRoundTrip(singletonList(objectInspector), insertNullEvery(5, new Iterable<?>[] {writeValues}), insertNullEvery(5, new Iterable<?>[] {readValues}), TEST_COLUMN, singletonList(type), parquetSchema);
+
+        // reverse order with nulls
+        assertNonHiveWriterRoundTrip(singletonList(objectInspector), insertNullEvery(5, reverse(new Iterable<?>[] {writeValues})), insertNullEvery(5, reverse(new Iterable<?>[] {readValues})), TEST_COLUMN, singletonList(type), parquetSchema);
+    }
+
     public void testSingleLevelArrayRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
             throws Exception
     {
@@ -356,6 +376,43 @@ public class ParquetTester
                             getIterators(readValues),
                             columnNames,
                             columnTypes);
+                }
+            }
+        }
+    }
+
+    void assertNonHiveWriterRoundTrip(
+            List<ObjectInspector> objectInspectors,
+            Iterable<?>[] writeValues,
+            Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            org.apache.parquet.schema.MessageType parquetSchema)
+            throws Exception
+    {
+        for (WriterVersion version : versions) {
+            for (CompressionCodecName compression : compressions) {
+                org.apache.parquet.hadoop.metadata.CompressionCodecName compressionCodecName = org.apache.parquet.hadoop.metadata.CompressionCodecName.valueOf(compression.name());
+                for (ConnectorSession session : sessions) {
+                    try (TempFile tempFile = new TempFile("test", "parquet")) {
+                        JobConf jobConf = new JobConf();
+                        jobConf.setEnum(COMPRESSION, compressionCodecName);
+                        jobConf.setBoolean(ENABLE_DICTIONARY, true);
+                        jobConf.setEnum(WRITER_VERSION, version);
+                        nonHiveParquetWriter(
+                                jobConf,
+                                tempFile.getFile(),
+                                compressionCodecName,
+                                getStandardStructObjectInspector(columnNames, objectInspectors),
+                                getIterators(writeValues),
+                                parquetSchema);
+                        assertFileContents(
+                                session,
+                                tempFile.getFile(),
+                                getIterators(readValues),
+                                columnNames,
+                                columnTypes);
+                    }
                 }
             }
         }
@@ -563,6 +620,48 @@ public class ParquetTester
     private static FileFormat getFileFormat()
     {
         return OPTIMIZED ? FileFormat.PRESTO_PARQUET : FileFormat.HIVE_PARQUET;
+    }
+
+    private static void nonHiveParquetWriter(
+            JobConf jobConf,
+            File outputFile,
+            org.apache.parquet.hadoop.metadata.CompressionCodecName compressionCodecName,
+            SettableStructObjectInspector objectInspector,
+            Iterator<?>[] valuesByField,
+            org.apache.parquet.schema.MessageType parquetSchema)
+            throws Exception
+    {
+        GroupWriteSupport.setSchema(parquetSchema, jobConf);
+        org.apache.parquet.hadoop.ParquetWriter writer = ExampleParquetWriter
+                .builder(new Path(outputFile.toURI()))
+                .withType(parquetSchema)
+                .withCompressionCodec(compressionCodecName)
+                .withConf(jobConf)
+                .withDictionaryEncoding(true)
+                .build();
+        List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
+        SimpleGroupFactory groupFactory = new SimpleGroupFactory(parquetSchema);
+        while (stream(valuesByField).allMatch(Iterator::hasNext)) {
+            Group group = groupFactory.newGroup();
+            for (int field = 0; field < fields.size(); field++) {
+                Object value = valuesByField[field].next();
+                if (value == null) {
+                    continue;
+                }
+                String fieldName = fields.get(field).getFieldName();
+                String typeName = fields.get(field).getFieldObjectInspector().getTypeName();
+                switch (typeName) {
+                    case "timestamp":
+                    case "bigint":
+                        group.add(fieldName, (long) value);
+                        break;
+                    default:
+                        throw new RuntimeException(String.format("unhandled type for column %s type %s", fieldName, typeName));
+                }
+            }
+            writer.write(group);
+        }
+        writer.close();
     }
 
     private static DataSize writeParquetColumn(

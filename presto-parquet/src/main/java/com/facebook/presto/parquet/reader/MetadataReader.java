@@ -266,6 +266,8 @@ public final class MetadataReader
                 return OriginalType.DATE;
             case TIME_MILLIS:
                 return OriginalType.TIME_MILLIS;
+            case TIMESTAMP_MICROS:
+                return OriginalType.TIMESTAMP_MICROS;
             case TIMESTAMP_MILLIS:
                 return OriginalType.TIMESTAMP_MILLIS;
             case INTERVAL:
