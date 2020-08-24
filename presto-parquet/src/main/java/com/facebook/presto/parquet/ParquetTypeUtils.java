@@ -17,6 +17,7 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
+import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
@@ -28,6 +29,7 @@ import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.DecimalMetadata;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.OriginalType;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -326,5 +328,10 @@ public final class ParquetTypeUtils
         columnPath.add(subfield.getRootName());
         columnPath.addAll(nestedColumnPath(subfield));
         return columnPath.build();
+    }
+
+    public static boolean isTimeStampMicrosType(ColumnDescriptor descriptor)
+    {
+        return OriginalType.TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
     }
 }

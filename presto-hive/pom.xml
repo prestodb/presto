@@ -271,6 +271,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- used only by tests but also needed transitively -->
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-common</artifactId>
+            <version>${dep.parquet.version}</version>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
