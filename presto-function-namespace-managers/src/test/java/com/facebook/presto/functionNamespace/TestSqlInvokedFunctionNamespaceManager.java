@@ -13,12 +13,16 @@
  */
 package com.facebook.presto.functionNamespace;
 
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
+import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -32,6 +36,7 @@ import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTe
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.POWER_TOWER;
 import static com.facebook.presto.functionNamespace.testing.SqlInvokedFunctionTestUtils.TEST_CATALOG;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -77,6 +82,9 @@ public class TestSqlInvokedFunctionNamespaceManager
     {
         InMemoryFunctionNamespaceManager functionNamespaceManager = new InMemoryFunctionNamespaceManager(
                 TEST_CATALOG,
+                new SqlFunctionExecutors(
+                        ImmutableMap.of(SQL, FunctionImplementationType.SQL),
+                        new ThriftSqlFunctionExecutor(null)),
                 new SqlInvokedFunctionNamespaceManagerConfig()
                         .setFunctionCacheExpiration(new Duration(0, MILLISECONDS))
                         .setFunctionInstanceCacheExpiration(new Duration(0, MILLISECONDS)));
@@ -147,7 +155,12 @@ public class TestSqlInvokedFunctionNamespaceManager
 
     private static InMemoryFunctionNamespaceManager createFunctionNamespaceManager()
     {
-        return new InMemoryFunctionNamespaceManager(TEST_CATALOG, new SqlInvokedFunctionNamespaceManagerConfig());
+        return new InMemoryFunctionNamespaceManager(
+                TEST_CATALOG,
+                new SqlFunctionExecutors(
+                        ImmutableMap.of(SQL, FunctionImplementationType.SQL),
+                        new ThriftSqlFunctionExecutor(null)),
+                new SqlInvokedFunctionNamespaceManagerConfig());
     }
 
     private static void assertPrestoException(Runnable runnable, ErrorCodeSupplier expectedErrorCode, String expectedMessageRegex)

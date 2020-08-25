@@ -209,6 +209,11 @@
             <artifactId>javax.ws.rs-api</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-transport-netty</artifactId>
+        </dependency>
+
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>com.facebook.airlift</groupId>

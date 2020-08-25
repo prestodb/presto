@@ -15,9 +15,11 @@ package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.functionNamespace.execution.SimpleAddressSqlFunctionExecutorsModule;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
@@ -96,6 +98,8 @@ public class TestMySqlFunctionNamespaceManager
         this.mySqlServer = new TestingMySqlServer("testuser", "testpass", DB);
         Bootstrap app = new Bootstrap(
                 new MySqlFunctionNamespaceManagerModule(TEST_CATALOG),
+                new SimpleAddressSqlFunctionExecutorsModule(),
+                new DriftNettyClientModule(),
                 new MySqlConnectionModule());
 
         Map<String, String> config = ImmutableMap.<String, String>builder()

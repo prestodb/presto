@@ -15,6 +15,7 @@ package com.facebook.presto.functionNamespace;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -45,7 +46,6 @@ import java.util.concurrent.ConcurrentMap;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -59,15 +59,16 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     private final ConcurrentMap<FunctionNamespaceTransactionHandle, FunctionCollection> transactions = new ConcurrentHashMap<>();
 
     private final String catalogName;
-    private final Map<Language, FunctionImplementationType> supportedFunctionLanguages;
+    private final SqlFunctionExecutors sqlFunctionExecutors;
     private final LoadingCache<QualifiedFunctionName, Collection<SqlInvokedFunction>> functions;
     private final LoadingCache<SqlFunctionHandle, FunctionMetadata> metadataByHandle;
     private final LoadingCache<SqlFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
 
-    public AbstractSqlInvokedFunctionNamespaceManager(String catalogName, SqlInvokedFunctionNamespaceManagerConfig config)
+    public AbstractSqlInvokedFunctionNamespaceManager(String catalogName, SqlFunctionExecutors sqlFunctionExecutors, SqlInvokedFunctionNamespaceManagerConfig config)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
-        this.supportedFunctionLanguages = config.getSupportedFunctionLanguages();
+        this.sqlFunctionExecutors = requireNonNull(sqlFunctionExecutors, "sqlFunctionExecutors is null");
+        requireNonNull(config, "config is null");
         this.functions = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getFunctionCacheExpiration().toMillis(), MILLISECONDS)
                 .build(new CacheLoader<QualifiedFunctionName, Collection<SqlInvokedFunction>>()
@@ -210,7 +211,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
 
     protected void checkFunctionLanguageSupported(SqlInvokedFunction function)
     {
-        if (!supportedFunctionLanguages.containsKey(function.getRoutineCharacteristics().getLanguage())) {
+        if (!sqlFunctionExecutors.getSupportedLanguages().contains(function.getRoutineCharacteristics().getLanguage())) {
             throw new PrestoException(GENERIC_USER_ERROR, format("Catalog %s does not support functions implemented in language %s", catalogName, function.getRoutineCharacteristics().getLanguage()));
         }
     }
@@ -233,7 +234,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
 
     protected FunctionImplementationType getFunctionImplementationType(SqlInvokedFunction function)
     {
-        return supportedFunctionLanguages.get(function.getRoutineCharacteristics().getLanguage());
+        return sqlFunctionExecutors.getFunctionImplementationType(function.getRoutineCharacteristics().getLanguage());
     }
 
     protected ScalarFunctionImplementation sqlInvokedFunctionToImplementation(SqlInvokedFunction function)
