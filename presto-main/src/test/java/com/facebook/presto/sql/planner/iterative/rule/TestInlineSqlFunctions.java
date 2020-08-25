@@ -21,10 +21,13 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
+import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -47,7 +50,9 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.TypeProvider.viewOf;
@@ -59,6 +64,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestInlineSqlFunctions
 {
+    private static final RoutineCharacteristics.Language JAVA = new RoutineCharacteristics.Language("java");
     private static final SqlInvokedFunction SQL_FUNCTION_SQUARE = new SqlInvokedFunction(
             QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "square"),
             ImmutableList.of(new Parameter("x", parseTypeSignature(INTEGER))),
@@ -77,7 +83,7 @@ public class TestInlineSqlFunctions
             parseTypeSignature(INTEGER),
             "thrift function foo",
             RoutineCharacteristics.builder()
-                    .setLanguage(new RoutineCharacteristics.Language("java"))
+                    .setLanguage(JAVA)
                     .setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
                     .build(),
             "",
@@ -114,10 +120,16 @@ public class TestInlineSqlFunctions
     {
         RuleTester tester = new RuleTester();
         FunctionManager functionManager = tester.getMetadata().getFunctionManager();
-        InMemoryFunctionNamespaceManager namespaceManager = new InMemoryFunctionNamespaceManager(
+        functionManager.addFunctionNamespace(
                 "unittest",
-                new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("{\"sql\": \"SQL\",\"java\": \"THRIFT\"}"));
-        functionManager.addFunctionNamespace("unittest", namespaceManager);
+                new InMemoryFunctionNamespaceManager(
+                        "unittest",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(
+                                        SQL, FunctionImplementationType.SQL,
+                                        JAVA, THRIFT),
+                                new ThriftSqlFunctionExecutor(null)),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionManager.createFunction(SQL_FUNCTION_SQUARE, true);
         functionManager.createFunction(THRIFT_FUNCTION_FOO, true);
         functionManager.createFunction(SQL_FUNCTION_ADD_1_TO_INT_ARRAY, true);
