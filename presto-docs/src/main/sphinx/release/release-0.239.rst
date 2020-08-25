@@ -5,6 +5,7 @@ Release 0.239
 .. warning::
 
    There is a reliability issue in ZSTD compression that causes frequent excessive GC events in this release.
+   classification_precision function returns wrong results, fixed in 0.239.2 release.
 
 **Highlights**
 ==============
@@ -17,8 +18,7 @@ Release 0.239
 
 General Changes
 _______________
-* Fix incorrect results from :func:`classification_miss_rate`, :func:`classification_fall_out`
-  and :func:`classification_precision` (:pr:`14740`).
+* Fix incorrect results from :func:`classification_miss_rate`, :func:`classification_fall_out` (:pr:`14740`).
 * Fix error in ``/v1/thread`` end point.
 * Fix an issue where the property ``ignore_stats_calculator_failures`` would not be honored
   for certain queries.
