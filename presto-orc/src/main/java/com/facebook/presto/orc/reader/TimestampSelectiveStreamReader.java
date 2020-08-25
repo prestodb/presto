@@ -18,7 +18,9 @@ import com.facebook.presto.common.block.BlockLease;
 import com.facebook.presto.common.block.ClosingBlockLease;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.orc.DecodeTimestampOptions;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
@@ -63,6 +65,7 @@ public class TimestampSelectiveStreamReader
     private final OrcLocalMemoryContext systemMemoryContext;
     private final long baseTimestampInSeconds;
     private final boolean nonDeterministicFilter;
+    private final DecodeTimestampOptions decodeTimestampOptions;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
     private InputStreamSource<LongInputStream> secondsStreamSource = missingStreamSource(LongInputStream.class);
@@ -90,8 +93,10 @@ public class TimestampSelectiveStreamReader
             Optional<TupleDomainFilter> filter,
             DateTimeZone hiveStorageTimeZone,
             boolean outputRequired,
-            OrcLocalMemoryContext systemMemoryContext)
+            OrcLocalMemoryContext systemMemoryContext,
+            OrcRecordReaderOptions options)
     {
+        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, options.enableTimestampMicroPrecision());
         requireNonNull(filter, "filter is null");
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if outputRequired is false");
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
@@ -207,7 +212,7 @@ public class TimestampSelectiveStreamReader
                 }
             }
             else {
-                long value = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
+                long value = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
                 if (filter.testLong(value)) {
                     if (outputRequired) {
                         values[outputPositionCount] = value;
@@ -284,7 +289,7 @@ public class TimestampSelectiveStreamReader
                 nulls[i] = true;
             }
             else {
-                values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
+                values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
                 if (presentStream != null) {
                     nulls[i] = false;
                 }
