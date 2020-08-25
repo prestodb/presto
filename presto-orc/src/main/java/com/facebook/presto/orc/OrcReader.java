@@ -111,7 +111,7 @@ public class OrcReader
             throws IOException
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
-        orcDataSource = wrapWithCacheIfTiny(orcDataSource, orcReaderOptions.getTinyStripeThreshold());
+        orcDataSource = wrapWithCacheIfTiny(orcDataSource, orcReaderOptions.getTinyStripeThreshold(), aggregatedMemoryContext);
         this.orcDataSource = orcDataSource;
         requireNonNull(orcEncoding, "orcEncoding is null");
         this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), orcEncoding.createMetadataReader());
@@ -322,7 +322,7 @@ public class OrcReader
                 cacheable);
     }
 
-    private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
+    private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize, OrcAggregatedMemoryContext systemMemoryContext)
     {
         if (dataSource instanceof CachingOrcDataSource) {
             return dataSource;
@@ -331,7 +331,7 @@ public class OrcReader
             return dataSource;
         }
         DiskRange diskRange = new DiskRange(0, toIntExact(dataSource.getSize()));
-        return new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
+        return new CachingOrcDataSource(dataSource, desiredOffset -> diskRange, systemMemoryContext.newOrcLocalMemoryContext(CachingOrcDataSource.class.getSimpleName()));
     }
 
     static void validateFile(

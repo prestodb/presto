@@ -221,7 +221,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
 
-        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, tinyStripeThreshold);
+        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, tinyStripeThreshold, systemMemoryUsage);
         this.orcDataSource = orcDataSource;
         this.splitLength = splitLength;
 
@@ -427,7 +427,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     }
 
     @VisibleForTesting
-    static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
+    static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold, OrcAggregatedMemoryContext systemMemoryContext)
     {
         if (dataSource instanceof CachingOrcDataSource) {
             return dataSource;
@@ -437,7 +437,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 return dataSource;
             }
         }
-        return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, tinyStripeThreshold));
+        return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, tinyStripeThreshold), systemMemoryContext.newOrcLocalMemoryContext(CachingOrcDataSource.class.getSimpleName()));
     }
 
     /**
