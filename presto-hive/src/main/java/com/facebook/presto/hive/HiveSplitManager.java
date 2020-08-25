@@ -385,9 +385,9 @@ public class HiveSplitManager
                         if (!shouldIgnoreUnreadablePartition(session)) {
                             throw new HiveNotReadableException(tableName, Optional.of(partName), partitionNotReadable);
                         }
-                        warningCollector.add(
-                                new PrestoWarning(PARTITION_NOT_READABLE,
-                                        format("Table '%s' partition '%s' is not readable: %s", tableName, partName, partitionNotReadable)));
+                        warningCollector.add(new PrestoWarning(
+                                PARTITION_NOT_READABLE,
+                                format("Table '%s' partition '%s' is not readable: %s", tableName, partName, partitionNotReadable)));
                         continue;
                     }
                 }

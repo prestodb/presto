@@ -106,7 +106,7 @@ public final class HiveSessionProperties
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     private static final String BUCKET_FUNCTION_TYPE_FOR_EXCHANGE = "bucket_function_type_for_exchange";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
-    private static final String IGNORE_UNREADABLE_PARTITION = "ignore_unreadable_partition";
+    public static final String IGNORE_UNREADABLE_PARTITION = "ignore_unreadable_partition";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
