@@ -1458,7 +1458,8 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
                         false,
-                        mapNullKeysEnabled),
+                        mapNullKeysEnabled,
+                        false),
                 cacheable,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()));
 
@@ -1584,7 +1585,8 @@ public class OrcTester
                         new DataSize(1, MEGABYTE),
                         MAX_BLOCK_SIZE,
                         false,
-                        mapNullKeysEnabled),
+                        mapNullKeysEnabled,
+                        false),
                 false,
                 new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()));
 

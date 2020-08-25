@@ -103,7 +103,13 @@ public final class SelectiveStreamReaders
             case TIMESTAMP: {
                 checkArgument(requiredSubfields.isEmpty(), "Timestamp stream reader doesn't support subfields");
                 verifyStreamType(streamDescriptor, outputType, TimestampType.class::isInstance);
-                return new TimestampSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), hiveStorageTimeZone, outputType.isPresent(), systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()));
+                return new TimestampSelectiveStreamReader(
+                        streamDescriptor,
+                        getOptionalOnlyFilter(type, filters),
+                        hiveStorageTimeZone,
+                        outputType.isPresent(),
+                        systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()),
+                        options);
             }
             case LIST:
                 verifyStreamType(streamDescriptor, outputType, ArrayType.class::isInstance);

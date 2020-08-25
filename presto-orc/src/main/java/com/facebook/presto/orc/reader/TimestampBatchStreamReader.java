@@ -18,14 +18,15 @@ import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.DecodeTimestampOptions;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
-import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -50,10 +51,7 @@ public class TimestampBatchStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampBatchStreamReader.class).instanceSize();
 
-    private static final int MILLIS_PER_SECOND = 1000;
-
     private final StreamDescriptor streamDescriptor;
-    private final long baseTimestampInSeconds;
 
     private int readOffset;
     private int nextBatchSize;
@@ -71,14 +69,15 @@ public class TimestampBatchStreamReader
     private LongInputStream nanosStream;
 
     private boolean rowGroupOpen;
+    private final DecodeTimestampOptions decodeTimestampOptions;
 
-    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone)
+    public TimestampBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcRecordReaderOptions decodeTimestampOptions)
             throws OrcCorruptionException
     {
+        this.decodeTimestampOptions = new DecodeTimestampOptions(hiveStorageTimeZone, decodeTimestampOptions.enableTimestampMicroPrecision());
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, TimestampType.class::isInstance);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
     }
 
     @Override
@@ -157,7 +156,7 @@ public class TimestampBatchStreamReader
 
         long[] values = new long[nextBatchSize];
         for (int i = 0; i < nextBatchSize; i++) {
-            values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
+            values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
         }
         return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
     }
@@ -173,9 +172,10 @@ public class TimestampBatchStreamReader
         }
 
         long[] values = new long[isNull.length];
+
         for (int i = 0; i < isNull.length; i++) {
             if (!isNull[i]) {
-                values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
+                values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
             }
         }
         return new LongArrayBlock(isNull.length, Optional.of(isNull), values);
