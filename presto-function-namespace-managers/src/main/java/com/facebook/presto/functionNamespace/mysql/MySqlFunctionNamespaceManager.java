@@ -20,6 +20,7 @@ import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespace
 import com.facebook.presto.functionNamespace.InvalidFunctionHandleException;
 import com.facebook.presto.functionNamespace.ServingCatalog;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -76,9 +77,10 @@ public class MySqlFunctionNamespaceManager
             FunctionNamespaceDao functionNamespaceDao,
             Class<? extends FunctionNamespaceDao> functionNamespaceDaoClass,
             SqlInvokedFunctionNamespaceManagerConfig managerConfig,
+            SqlFunctionExecutors sqlFunctionExecutors,
             @ServingCatalog String catalogName)
     {
-        super(catalogName, managerConfig);
+        super(catalogName, sqlFunctionExecutors, managerConfig);
         this.jdbi = requireNonNull(jdbi, "jdbi is null");
         this.functionNamespaceDao = requireNonNull(functionNamespaceDao, "functionNamespaceDao is null");
         this.functionNamespaceDaoClass = requireNonNull(functionNamespaceDaoClass, "functionNamespaceDaoClass is null");

@@ -17,6 +17,7 @@ import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -46,9 +47,9 @@ public class InMemoryFunctionNamespaceManager
 {
     private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
 
-    public InMemoryFunctionNamespaceManager(String catalogName, SqlInvokedFunctionNamespaceManagerConfig config)
+    public InMemoryFunctionNamespaceManager(String catalogName, SqlFunctionExecutors sqlFunctionExecutors, SqlInvokedFunctionNamespaceManagerConfig config)
     {
-        super(catalogName, config);
+        super(catalogName, sqlFunctionExecutors, config);
     }
 
     @Override

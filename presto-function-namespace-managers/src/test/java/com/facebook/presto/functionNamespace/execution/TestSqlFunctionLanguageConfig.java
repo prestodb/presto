@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace;
+package com.facebook.presto.functionNamespace.execution;
 
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -22,32 +21,24 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class TestSqlInvokedFunctionNamespaceManagerConfig
+public class TestSqlFunctionLanguageConfig
 {
     @Test
     public void testDefault()
     {
-        assertRecordedDefaults(recordDefaults(SqlInvokedFunctionNamespaceManagerConfig.class)
-                .setFunctionCacheExpiration(new Duration(5, MINUTES))
-                .setFunctionInstanceCacheExpiration(new Duration(8, HOURS))
-                .setSupportedFunctionLanguages("sql"));
+        assertRecordedDefaults(recordDefaults(SqlFunctionLanguageConfig.class)
+                .setFunctionImplementationType("SQL"));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("function-cache-expiration", "10m")
-                .put("function-instance-cache-expiration", "4h")
-                .put("supported-function-languages", "sql,hive")
+                .put("function-implementation-type", "THRIFT")
                 .build();
-        SqlInvokedFunctionNamespaceManagerConfig expected = new SqlInvokedFunctionNamespaceManagerConfig()
-                .setFunctionCacheExpiration(new Duration(10, MINUTES))
-                .setFunctionInstanceCacheExpiration(new Duration(4, HOURS))
-                .setSupportedFunctionLanguages("sql,hive");
+        SqlFunctionLanguageConfig expected = new SqlFunctionLanguageConfig()
+                .setFunctionImplementationType("THRIFT");
 
         assertFullMapping(properties, expected);
     }
