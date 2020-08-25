@@ -17,27 +17,30 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.log.Logger;
 import com.facebook.drift.transport.netty.server.DriftNettyServerModule;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
+
+import java.util.Map;
 
 public class TestingThriftUdfServer
 {
     private TestingThriftUdfServer() {}
 
-    public static void start()
+    public static void start(Map<String, String> properties)
     {
         Bootstrap app = new Bootstrap(
                 ImmutableList.<Module>builder()
                         .add(new DriftNettyServerModule())
                         .add(new TestingThriftUdfServerModule())
                         .build());
-        app.strictConfig().initialize();
+        app.strictConfig().setRequiredConfigurationProperties(properties).initialize();
     }
 
     public static void main(String[] args)
     {
         Logger log = Logger.get(EchoFirstInputThriftUdfService.class);
         try {
-            start();
+            start(ImmutableMap.of());
             log.info("======== SERVER STARTED ========");
         }
         catch (Throwable t) {

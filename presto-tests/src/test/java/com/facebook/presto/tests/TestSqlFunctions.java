@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.udf.thrift.TestingThriftUdfServer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.intellij.lang.annotations.Language;
@@ -38,6 +39,7 @@ public class TestSqlFunctions
     protected TestSqlFunctions()
     {
         super(TestSqlFunctions::createQueryRunner);
+        TestingThriftUdfServer.start(ImmutableMap.of("thrift.server.port", "7779"));
     }
 
     private static QueryRunner createQueryRunner()
@@ -384,6 +386,17 @@ public class TestSqlFunctions
         assertQuerySucceeds(createFunction);
 
         assertQuery("SELECT testing.test.array_sum(array[1, 2, 3])", "VALUES 6L");
+    }
+
+    @Test
+    void testThriftRemoteFunction()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL");
+        assertQuery("SELECT testing.test.foo(a) FROM (VALUES 'abc', 'def') t(a)", "VALUES 'abc', 'def'");
+        assertQueryFails("SELECT testing.test.foo(a) FROM (VALUES 1, 2, 3, 4) t(a)", ".*Unexpected parameters \\(integer\\) for function testing\\.test\\.foo\\..*");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x integer) RETURNS integer LANGUAGE JAVA EXTERNAL");
+        assertQuery("SELECT testing.test.foo(cast(testing.test.foo(a) as varchar)) FROM (VALUES 1, 2, 3, 4) t(a)", "VALUES '1', '2', '3', '4'");
+        assertQuery("SELECT testing.test.foo(cast(testing.test.foo(a) as varchar)) FROM (VALUES 1, 2, 3, 4) t(a) WHERE testing.test.foo(a) > 2", "VALUES '3', '4'");
     }
 
     @Test

@@ -235,6 +235,12 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-thrift-testing-udf-server</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- for benchmarks -->
         <dependency>
             <groupId>org.openjdk.jmh</groupId>

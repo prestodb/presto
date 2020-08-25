@@ -283,6 +283,9 @@ public class RowExpressionInterpreter
                         value = rowExpressionInterpreter.optimize();
                     }
                     break;
+                case THRIFT:
+                    // do not interpret remote functions on coordinator
+                    return call(node.getDisplayName(), functionHandle, node.getType(), toRowExpressions(argumentValues, node.getArguments()));
                 default:
                     throw new IllegalArgumentException(format("Unsupported function implementation type: %s", functionMetadata.getImplementationType()));
             }
