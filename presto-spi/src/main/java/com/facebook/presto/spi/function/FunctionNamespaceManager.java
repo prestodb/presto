@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @Experimental
 public interface FunctionNamespaceManager<F extends SqlFunction>
@@ -72,4 +76,6 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
     FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
 
     ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle);
+
+    CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager);
 }

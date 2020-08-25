@@ -13,14 +13,23 @@
  */
 package com.facebook.presto.functionNamespace.execution;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
+import com.facebook.presto.spi.function.ScalarFunctionImplementation;
+import com.facebook.presto.spi.function.ThriftScalarFunctionImplementation;
 import com.google.inject.Inject;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SqlFunctionExecutors
@@ -43,5 +52,11 @@ public class SqlFunctionExecutors
     public FunctionImplementationType getFunctionImplementationType(Language language)
     {
         return supportedLanguages.get(language);
+    }
+
+    public CompletableFuture<Block> executeFunction(ScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes, Type returnType)
+    {
+        checkArgument(functionImplementation instanceof ThriftScalarFunctionImplementation, format("Only support ThriftScalarFunctionImplementation, got %s", functionImplementation.getClass()));
+        return thriftSqlFunctionExecutor.executeFunction((ThriftScalarFunctionImplementation) functionImplementation, input, channels, argumentTypes, returnType);
     }
 }
