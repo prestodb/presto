@@ -2,28 +2,17 @@
 Release 0.240
 =============
 
-**Highlights**
-==============
-* Add ability to spill window functions to local disk when a worker is out of memory.
-* Add support for inlining SQL functions at query planning time.
-* Add support for limit pushdown through union.
-* Add :func:`geometry_from_geojson` and :func:`geometry_as_geojson` to convert geometries from and to GeoJSON format.
-
-**Details**
-==============
-
 General Changes
 _______________
-* Fix compiler error due to incorrect LambdaDefinitionExpression canonicalization.
+* Fix LambdaDefinitionExpression canonicalization did not handle CAST.
 * Fix compiler error in certain situations where sql functions with same lambda are used multiple times.
-* Add ``IF EXISTS`` and ``IF NOT EXISTS`` syntax to ``ALTER TABLE``.
-* Add ``query.max-scan-physical-bytes`` configuration and ``query_max_scan_physical_bytes`` session properties to limit total number of bytes read from storage during table scan. The default limit is 1PB.
+* Add `IF EXISTS `and `IF NOT EXISTS` syntax to `ALTER TABLE`.
+* Add `query.max-scan-physical-bytes` configuration and `query_max_scan_physical_bytes` session properties to limit total number of bytes read from storage during table scan. The default limit is 1PB.
 * Add support for inlining SQL functions at query planning time. This feature is enabled by default, and can be disabled with the ``inline_sql_functions`` session property.
-* Add :func:`geometry_from_geojson` and :func:`geometry_as_geojson` to convert geometries from and to GeoJSON format.
-* Add support for pushdown of dereference expressions for querying nested data. This can be enabled with the ``pushdown_dereference_enabled`` session property or the ``experimental.pushdown-dereference-enabled`` configuration property.
-* Use local private credentials (json key file) to refresh GCS access token. Usage : presto-cli --extra-credential hive.gcs.credentials.path="${PRIVATE_KEY_JSON_PATH}".
-* Add ability to spill window functions to local disk when a worker is out of memory.
-* Add support for limit pushdown through union.
+* Added :func:`geometry_from_geojson` and :func:`geometry_as_geojson` to convert geometries from and to GeoJSON format.
+* Allow procedures to have optional arguments with default values.
+* Push down dereference expression.
+* Use local private credentials (json key file) to refresh GCS access token presto-cli --extra-credential hive.gcs.credentials.path="${PRIVATE_KEY_JSON_PATH}".
 
 Thrift Connector Changes
 ________________________
@@ -43,34 +32,20 @@ Cassandra Changes
 _________________
 * Add TLS security support.
 
-Druid Changes
-_____________
-* Add support for union all operation with more than 1 druid source.
-* Add support for filter on top of Aggregation.
-* Fix unhandled HTTP response error for druid client.
-
-Elasticserarch Changes
-______________________
-* Add support for IP data type.
-
 Geospatial Changes
 __________________
-* Improve :func:`geometry_to_bing_tiles` performance.  It is 50x faster on complex polygons, the limit on polygon complexity is removed, and some correctness bugs have been fixed.
+* Improve geometry_to_bing_tiles.  It is 50x faster on complex polygons, the limit on polygon complexity is removed, and some correctness bugs have been fixed.
 * Add geometry_to_dissolved_bing_tiles function, which dissolves complete sets of child tiles to their parent.
-* Introduce :func:`bing_tile_children` and :func:`bing_tile_parent` functions to get parents and children of a Bing tile.
+* Introduce ``bing_tile_children`` and ``bing_tile_parent`` functions to get parents and children of a Bing tile.
 
 Hive Changes
 ____________
 * Fix parquet statistics when min/max is not set.
-* Improve split generation performance.
+* Improves split generation by avoiding an unncessary splittable check when files are smaller than the initial split max size, regardless of their input format.
 * Add support for Hudi realtime input format for hudi realtime queries.
-* Add support for splitting hive files when skip.header.line.count=1.
-* Allow presto-hive to use custom parquet input formats.
+* Adds support for splitting hive files when skip.header.line.count=1.
+* Allows presto-hive to use custom parquet input formats.
 
 Kafka Changes
 _____________
-* Support ``INSERT`` in Kafka connector.
-
-SPI Changes
-___________
-* Allow procedures to accept optional parameters.
+* Support insert in Kafka connector.
