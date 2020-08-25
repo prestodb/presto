@@ -28,15 +28,17 @@ public class CachingOrcDataSource
 {
     private final OrcDataSource dataSource;
     private final RegionFinder regionFinder;
+    private final OrcLocalMemoryContext systemMemoryContext;
 
     private long cachePosition;
     private int cacheLength;
     private byte[] cache;
 
-    public CachingOrcDataSource(OrcDataSource dataSource, RegionFinder regionFinder)
+    public CachingOrcDataSource(OrcDataSource dataSource, RegionFinder regionFinder, OrcLocalMemoryContext systemMemoryContext)
     {
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.regionFinder = requireNonNull(regionFinder, "regionFinder is null");
+        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.cache = new byte[0];
     }
 
@@ -73,6 +75,7 @@ public class CachingOrcDataSource
         cacheLength = newCacheRange.getLength();
         if (cache.length < cacheLength) {
             cache = new byte[cacheLength];
+            systemMemoryContext.setBytes(cacheLength);
         }
         dataSource.readFully(newCacheRange.getOffset(), cache, 0, cacheLength);
     }
