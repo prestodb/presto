@@ -40,7 +40,7 @@ public final class ClassificationPrecisionAggregation
             BucketResult result = resultsIterator.next();
             DoubleType.DOUBLE.writeDouble(
                     entryBuilder,
-                    result.getTruePositive() / (result.getTruePositive() + result.getFalseNegative()));
+                    result.getTruePositive() / (result.getTruePositive() + result.getFalsePositive()));
         }
         out.closeEntry();
     }
