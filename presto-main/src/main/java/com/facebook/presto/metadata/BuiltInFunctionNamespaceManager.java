@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
@@ -239,6 +240,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.common.function.OperatorType.tryGetOperatorType;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -847,6 +849,12 @@ public class BuiltInFunctionNamespaceManager
                     function.isDeterministic(),
                     function.isCalledOnNullInput());
         }
+    }
+
+    @Override
+    public final CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager)
+    {
+        throw new IllegalStateException("Builtin function execution should be handled by the engine.");
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
