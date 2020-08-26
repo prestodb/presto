@@ -173,13 +173,7 @@ public class SqlQueryExecution
                     preparedQuery.getParameters(),
                     warningCollector);
 
-            try {
-                this.analysis = analyzer.analyze(preparedQuery.getStatement());
-            }
-            catch (RuntimeException e) {
-                stateMachine.transitionToFailed(e);
-                throw e;
-            }
+            this.analysis = analyzer.analyze(preparedQuery.getStatement());
 
             stateMachine.setUpdateType(analysis.getUpdateType());
 
