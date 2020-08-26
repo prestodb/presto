@@ -622,7 +622,17 @@ public class SliceDictionarySelectiveReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(currentDictionaryData) + sizeOf(values) + sizeOf(outputPositions);
+        return INSTANCE_SIZE +
+                sizeOf(values) +
+                sizeOf(outputPositions) +
+                // dictionary could be built on stripeDictionaryData or the rowGroupDictionaryData created locally in openRowGroup(). For the first case, currentDictionaryData
+                // points to stripeDictionaryData and we just need to count the dictionary's retained size. For the second case, we need to count both stripeDictionaryData and dictionary.
+                dictionary.getRetainedSizeInBytes() +
+                (stripeDictionaryData == currentDictionaryData ? 0 : sizeOf(stripeDictionaryData)) +
+                sizeOf(stripeDictionaryOffsetVector) +
+                sizeOf(stripeDictionaryLength) +
+                sizeOf(rowGroupDictionaryLength) +
+                sizeOf(evaluationStatus);
     }
 
     private void setDictionaryBlockData(byte[] dictionaryData, int[] dictionaryOffsets, int positionCount)
