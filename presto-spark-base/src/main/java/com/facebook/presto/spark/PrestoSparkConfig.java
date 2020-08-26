@@ -25,6 +25,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 public class PrestoSparkConfig
 {
     private boolean sparkPartitionCountAutoTuneEnabled = true;
+    private int minSparkInputPartitionCountForAutoTune = 100;
     private int maxSparkInputPartitionCountForAutoTune = 1000;
     private int initialSparkPartitionCount = 16;
     private DataSize maxSplitsDataSizePerSparkPartition = new DataSize(2, GIGABYTE);
@@ -41,6 +42,19 @@ public class PrestoSparkConfig
     {
         this.sparkPartitionCountAutoTuneEnabled = sparkPartitionCountAutoTuneEnabled;
         return this;
+    }
+
+    @Config("spark.min-spark-input-partition-count-for-auto-tune")
+    @ConfigDescription("Minimal Spark input partition count when Spark partition auto tune is enabled")
+    public PrestoSparkConfig setMinSparkInputPartitionCountForAutoTune(int minSparkInputPartitionCountForAutoTune)
+    {
+        this.minSparkInputPartitionCountForAutoTune = minSparkInputPartitionCountForAutoTune;
+        return this;
+    }
+
+    public int getMinSparkInputPartitionCountForAutoTune()
+    {
+        return minSparkInputPartitionCountForAutoTune;
     }
 
     @Config("spark.max-spark-input-partition-count-for-auto-tune")
