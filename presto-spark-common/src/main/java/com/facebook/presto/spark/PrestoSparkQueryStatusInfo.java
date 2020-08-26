@@ -17,6 +17,7 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.spi.PrestoWarning;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
@@ -45,6 +46,7 @@ public class PrestoSparkQueryStatusInfo
     private final Optional<String> updateType;
     private final OptionalLong updateCount;
 
+    @JsonCreator
     public PrestoSparkQueryStatusInfo(
             @JsonProperty("id") String id,
             @JsonProperty("columns") Optional<List<Column>> columns,
