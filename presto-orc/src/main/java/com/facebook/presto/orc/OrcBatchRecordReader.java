@@ -24,7 +24,6 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.reader.BatchStreamReader;
 import com.facebook.presto.orc.reader.BatchStreamReaders;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.joda.time.DateTimeZone;
@@ -130,16 +129,6 @@ public class OrcBatchRecordReader
         Block block = getStreamReaders()[columnIndex].readBlock();
         updateMaxCombinedBytesPerRow(columnIndex, block);
         return block;
-    }
-
-    /**
-     * @return The total size of memory retained by this OrcRecordReader
-     */
-    @VisibleForTesting
-    @Override
-    protected long getRetainedSizeInBytes()
-    {
-        return INSTANCE_SIZE + super.getRetainedSizeInBytes();
     }
 
     private void validateWritePageChecksum(int batchSize)
