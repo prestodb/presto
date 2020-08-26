@@ -70,7 +70,7 @@ public class ScanFilterAndProjectOperator
     private final LocalMemoryContext pageProcessorMemoryContext;
     private final LocalMemoryContext outputMemoryContext;
     private final SettableFuture<?> blocked = SettableFuture.create();
-    private final Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter;
+    private final Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier;
     private final MergingPageOutput mergingOutput;
 
     private RecordCursor cursor;
@@ -93,7 +93,7 @@ public class ScanFilterAndProjectOperator
             TableHandle table,
             Iterable<ColumnHandle> columns,
             Iterable<Type> types,
-            Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter,
+            Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier,
             MergingPageOutput mergingOutput)
     {
         this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
@@ -106,7 +106,7 @@ public class ScanFilterAndProjectOperator
         this.pageSourceMemoryContext = operatorContext.newLocalSystemMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
         this.pageProcessorMemoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
         this.outputMemoryContext = operatorContext.newLocalSystemMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
-        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+        this.dynamicFilterSupplier = requireNonNull(dynamicFilterSupplier, "dynamicFilterSupplier is null");
         this.mergingOutput = requireNonNull(mergingOutput, "mergingOutput is null");
 
         this.pageBuilder = new PageBuilder(ImmutableList.copyOf(requireNonNull(types, "types is null")));
@@ -228,7 +228,7 @@ public class ScanFilterAndProjectOperator
         }
 
         if (!finishing && pageSource == null && cursor == null) {
-            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, dynamicFilter.map(table::withDynamicFilter).orElse(table), columns);
+            ConnectorPageSource source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, dynamicFilterSupplier.map(table::withDynamicFilter).orElse(table), columns);
             if (source instanceof RecordPageSource) {
                 cursor = ((RecordPageSource) source).getCursor();
             }
@@ -388,7 +388,7 @@ public class ScanFilterAndProjectOperator
         private final TableHandle table;
         private final List<ColumnHandle> columns;
         private final List<Type> types;
-        private final Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter;
+        private final Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier;
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
         private boolean closed;
@@ -403,7 +403,7 @@ public class ScanFilterAndProjectOperator
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
                 List<Type> types,
-                Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilter,
+                Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier,
                 DataSize minOutputPageSize,
                 int minOutputPageRowCount)
         {
@@ -416,7 +416,7 @@ public class ScanFilterAndProjectOperator
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.types = requireNonNull(types, "types is null");
-            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+            this.dynamicFilterSupplier = requireNonNull(dynamicFilterSupplier, "dynamicFilterSupplier is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
         }
@@ -441,7 +441,7 @@ public class ScanFilterAndProjectOperator
                     table,
                     columns,
                     types,
-                    dynamicFilter,
+                    dynamicFilterSupplier,
                     new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
         }
 
