@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.ShortArrayBlock;
 import com.facebook.presto.common.type.Type;
+import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -31,12 +32,15 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 abstract class AbstractLongSelectiveStreamReader
         implements SelectiveStreamReader
 {
+    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractLongSelectiveStreamReader.class).instanceSize();
+
     protected final boolean outputRequired;
     @Nullable
     protected final Type outputType;
@@ -83,6 +87,17 @@ abstract class AbstractLongSelectiveStreamReader
     @Override
     public void throwAnyError(int[] positions, int positionCount)
     {
+    }
+
+    @Override
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE +
+                sizeOf(values) +
+                sizeOf(nulls) +
+                sizeOf(outputPositions) +
+                sizeOf(intValues) +
+                sizeOf(shortValues);
     }
 
     protected BlockLease buildOutputBlockView(int[] positions, int positionCount, boolean includeNulls)
