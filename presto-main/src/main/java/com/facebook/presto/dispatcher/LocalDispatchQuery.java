@@ -42,6 +42,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -53,6 +54,7 @@ public class LocalDispatchQuery
 {
     private static final Logger log = Logger.get(LocalDispatchQuery.class);
     private final QueryStateMachine stateMachine;
+    private final QueryMonitor queryMonitor;
     private final ListenableFuture<QueryExecution> queryExecutionFuture;
 
     private final ClusterSizeMonitor clusterSizeMonitor;
@@ -71,14 +73,16 @@ public class LocalDispatchQuery
             Consumer<QueryExecution> querySubmitter)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
+        this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.queryExecutionFuture = requireNonNull(queryExecutionFuture, "queryExecutionFuture is null");
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
 
         addExceptionCallback(queryExecutionFuture, throwable -> {
-            stateMachine.transitionToFailed(throwable);
-            queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
+            if (stateMachine.transitionToFailed(throwable)) {
+                queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
+            }
         });
         stateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
@@ -100,7 +104,7 @@ public class LocalDispatchQuery
         ListenableFuture<?> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers();
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
         addSuccessCallback(minimumWorkerFuture, () -> addSuccessCallback(queryExecutionFuture, this::startExecution));
-        addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> stateMachine.transitionToFailed(throwable)));
+        addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
     }
 
     private void startExecution(QueryExecution queryExecution)
@@ -112,7 +116,7 @@ public class LocalDispatchQuery
                 }
                 catch (Throwable t) {
                     // this should never happen but be safe
-                    stateMachine.transitionToFailed(t);
+                    fail(t);
                     log.error(t, "query submitter threw exception");
                     throw t;
                 }
@@ -244,13 +248,20 @@ public class LocalDispatchQuery
     @Override
     public void fail(Throwable throwable)
     {
-        stateMachine.transitionToFailed(throwable);
+        if (stateMachine.transitionToFailed(throwable)) {
+            queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
+        }
     }
 
     @Override
     public void cancel()
     {
-        stateMachine.transitionToCanceled();
+        if (stateMachine.transitionToCanceled()) {
+            QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
+            ExecutionFailureInfo failureInfo = queryInfo.getFailureInfo();
+            failureInfo = failureInfo != null ? failureInfo : toFailure(new PrestoException(USER_CANCELED, "Query was canceled"));
+            queryMonitor.queryImmediateFailureEvent(new BasicQueryInfo(queryInfo), failureInfo);
+        }
     }
 
     @Override
