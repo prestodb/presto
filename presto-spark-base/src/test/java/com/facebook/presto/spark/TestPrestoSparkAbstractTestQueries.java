@@ -36,6 +36,7 @@ import java.util.OptionalLong;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.MIN_SPARK_INPUT_PARTITION_COUNT_FOR_AUTO_TUNE;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_INITIAL_PARTITION_COUNT;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED;
 import static com.facebook.presto.spark.planner.PrestoSparkRddFactory.assignSourceDistributionSplits;
@@ -253,6 +254,7 @@ public class TestPrestoSparkAbstractTestQueries
                 .setSystemProperty(SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED, Boolean.toString(autoTunePartitionCount))
                 .setSystemProperty(SPARK_INITIAL_PARTITION_COUNT, "3")
                 .setSystemProperty(MAX_SPLITS_DATA_SIZE_PER_SPARK_PARTITION, maxPartitionSize + "B")
+                .setSystemProperty(MIN_SPARK_INPUT_PARTITION_COUNT_FOR_AUTO_TUNE, "1")
                 .build();
 
         List<ScheduledSplit> splits = new ArrayList<>();
