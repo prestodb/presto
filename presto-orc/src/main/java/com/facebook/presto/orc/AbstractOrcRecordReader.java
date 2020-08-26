@@ -73,6 +73,8 @@ import static java.util.Objects.requireNonNull;
 abstract class AbstractOrcRecordReader<T extends StreamReader>
         implements Closeable
 {
+    protected final OrcAggregatedMemoryContext systemMemoryUsage;
+
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractOrcRecordReader.class).instanceSize();
 
     private final OrcDataSource orcDataSource;
@@ -111,8 +113,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private long maxCombinedBytesPerRow;
 
     private final Map<String, Slice> userMetadata;
-
-    private final OrcAggregatedMemoryContext systemMemoryUsage;
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<OrcWriteValidation.WriteChecksumBuilder> writeChecksumBuilder;
