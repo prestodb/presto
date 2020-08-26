@@ -87,6 +87,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSparkInputPartitionCountForAutoTune;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSplitsDataSizePerSparkPartition;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMinSparkInputPartitionCountForAutoTune;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkInitialPartitionCount;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isSparkPartitionCountAutoTuneEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -437,13 +438,18 @@ public class PrestoSparkRddFactory
         int partitionCount = 0;
         boolean autoTunePartitionCount = isSparkPartitionCountAutoTuneEnabled(session);
         if (autoTunePartitionCount) {
+            int minPartitionCount = getMinSparkInputPartitionCountForAutoTune(session);
             int maxPartitionCount = getMaxSparkInputPartitionCountForAutoTune(session);
+            checkArgument(minPartitionCount >= 1 && minPartitionCount <= maxPartitionCount,
+                    "Min partition count for auto tune (%s) should be a positive integer and not larger than max partition count (%s)",
+                    minPartitionCount,
+                    maxPartitionCount);
 
             for (int splitIndex = 0; splitIndex < splits.size(); splitIndex++) {
                 int partitionId;
                 long splitSizeInBytes = splits.get(splitIndex).getSplit().getConnectorSplit().getSplitSizeInBytes().getAsLong();
 
-                if ((!queue.isEmpty() && queue.peek().getSplitsInBytes() + splitSizeInBytes <= maxSplitsSizeInBytesPerPartition)
+                if ((partitionCount >= minPartitionCount && queue.peek().getSplitsInBytes() + splitSizeInBytes <= maxSplitsSizeInBytesPerPartition)
                         || partitionCount == maxPartitionCount) {
                     SparkPartition partition = queue.poll();
                     partitionId = partition.getPartitionId();
