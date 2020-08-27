@@ -36,9 +36,11 @@ import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
+import java.net.URI;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.WARN;
@@ -91,13 +93,13 @@ public final class HiveQueryRunner
             Optional<Path> baseDataDir)
             throws Exception
     {
-        return createQueryRunner(tables, extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), baseDataDir);
+        return createQueryRunner(tables, extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), Optional.empty(), baseDataDir, Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> extraProperties, Optional<Path> baseDataDir)
             throws Exception
     {
-        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), baseDataDir);
+        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), baseDataDir, Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -108,7 +110,7 @@ public final class HiveQueryRunner
             Optional<Path> baseDataDir)
             throws Exception
     {
-        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), security, extraHiveProperties, baseDataDir);
+        return createQueryRunner(tables, extraProperties, ImmutableMap.of(), security, extraHiveProperties, Optional.empty(), baseDataDir, Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -117,7 +119,9 @@ public final class HiveQueryRunner
             Map<String, String> extraCoordinatorProperties,
             String security,
             Map<String, String> extraHiveProperties,
-            Optional<Path> baseDataDir)
+            Optional<Integer> workerCount,
+            Optional<Path> baseDataDir,
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
             throws Exception
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
@@ -131,10 +135,11 @@ public final class HiveQueryRunner
 
         DistributedQueryRunner queryRunner =
                 DistributedQueryRunner.builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
-                        .setNodeCount(4)
+                        .setNodeCount(workerCount.orElse(4))
                         .setExtraProperties(systemProperties)
                         .setCoordinatorProperties(extraCoordinatorProperties)
                         .setBaseDataDir(baseDataDir)
+                        .setExternalWorkerLauncher(externalWorkerLauncher)
                         .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
