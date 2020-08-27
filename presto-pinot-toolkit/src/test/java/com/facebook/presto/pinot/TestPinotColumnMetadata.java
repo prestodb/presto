@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DateType;
-import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableMap;
@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -72,22 +73,22 @@ public class TestPinotColumnMetadata
         Map<String, Type> expectedTypeMap = new ImmutableMap.Builder<String, Type>()
                 .put("singleValueIntDimension", INTEGER)
                 .put("singleValueLongDimension", BIGINT)
-                .put("singleValueFloatDimension", DoubleType.DOUBLE)
-                .put("singleValueDoubleDimension", DoubleType.DOUBLE)
+                .put("singleValueFloatDimension", DOUBLE)
+                .put("singleValueDoubleDimension", DOUBLE)
                 .put("singleValueBytesDimension", VARBINARY)
                 .put("singleValueBooleanDimension", VARCHAR)
                 .put("singleValueStringDimension", VARCHAR)
-                .put("multiValueIntDimension", VARCHAR)
-                .put("multiValueLongDimension", VARCHAR)
-                .put("multiValueFloatDimension", VARCHAR)
-                .put("multiValueDoubleDimension", VARCHAR)
-                .put("multiValueBytesDimension", VARCHAR)
-                .put("multiValueBooleanDimension", VARCHAR)
-                .put("multiValueStringDimension", VARCHAR)
+                .put("multiValueIntDimension", new ArrayType(INTEGER))
+                .put("multiValueLongDimension", new ArrayType(BIGINT))
+                .put("multiValueFloatDimension", new ArrayType(DOUBLE))
+                .put("multiValueDoubleDimension", new ArrayType(DOUBLE))
+                .put("multiValueBytesDimension", new ArrayType(VARBINARY))
+                .put("multiValueBooleanDimension", new ArrayType(VARCHAR))
+                .put("multiValueStringDimension", new ArrayType(VARCHAR))
                 .put("intMetric", INTEGER)
                 .put("longMetric", BIGINT)
-                .put("floatMetric", DoubleType.DOUBLE)
-                .put("doubleMetric", DoubleType.DOUBLE)
+                .put("floatMetric", DOUBLE)
+                .put("doubleMetric", DOUBLE)
                 .put("bytesMetric", VARBINARY)
                 .put("daysSinceEpoch", DateType.DATE)
                 .put("epochDayDateTime", DateType.DATE)

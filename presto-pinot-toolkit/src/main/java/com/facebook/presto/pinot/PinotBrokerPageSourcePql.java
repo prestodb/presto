@@ -76,7 +76,7 @@ public class PinotBrokerPageSourcePql
                         group.size(),
                         values.length));
         for (int i = 0; i < group.size(); i++) {
-            setValue(types.get(i), blockBuilders.get(i), asText(group.get(i)));
+            setValue(types.get(i), blockBuilders.get(i), group.get(i));
         }
         for (int i = 0; i < values.length; i++) {
             int metricColumnIndex = i + numGroupByClause;
@@ -164,7 +164,7 @@ public class PinotBrokerPageSourcePql
                     // simple aggregation
                     // TODO: Validate that this is expected semantically
                     checkState(numGroupByClause == 0, "Expected no group by columns in pinot");
-                    setValue(types.get(aggregationIndex), blockBuilders.get(aggregationIndex), asText(result.get("value")));
+                    setValue(types.get(aggregationIndex), blockBuilders.get(aggregationIndex), result.get("value"));
                     rowCount = 1;
                 }
             }
