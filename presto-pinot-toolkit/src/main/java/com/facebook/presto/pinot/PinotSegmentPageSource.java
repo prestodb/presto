@@ -16,6 +16,7 @@ package com.facebook.presto.pinot;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.pinot.PinotScatterGatherQueryClient.ErrorCode;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -49,6 +50,7 @@ import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
+import static org.apache.pinot.common.utils.DataSchema.ColumnDataType.LONG_ARRAY;
 
 /**
  * This class retrieves Pinot data from a Pinot client, and re-constructs the data into Presto Pages.
@@ -272,7 +274,10 @@ public class PinotSegmentPageSource
     {
         Class<?> javaType = columnType.getJavaType();
         ColumnDataType pinotColumnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
-        if (javaType.equals(boolean.class)) {
+        if (columnType instanceof ArrayType) {
+            writeArrayBlock(blockBuilder, columnType, columnIndex);
+        }
+        else if (javaType.equals(boolean.class)) {
             writeBooleanBlock(blockBuilder, columnType, columnIndex);
         }
         else if (javaType.equals(long.class)) {
@@ -292,6 +297,80 @@ public class PinotSegmentPageSource
                             split.getExpectedColumnHandles().get(columnIndex).getColumnName(),
                             pinotColumnType,
                             javaType));
+        }
+    }
+
+    private void writeArrayBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
+    {
+        for (int rowIndex = 0; rowIndex < currentDataTable.getDataTable().getNumberOfRows(); rowIndex++) {
+            ColumnDataType columnPinotType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
+            Type columnPrestoType = ((ArrayType) columnType).getElementType();
+            BlockBuilder childBuilder = blockBuilder.beginBlockEntry();
+            switch (columnPinotType) {
+                case INT_ARRAY:
+                    int[] intArray = currentDataTable.getDataTable().getIntArray(rowIndex, columnIndex);
+                    for (int i = 0; i < intArray.length; i++) {
+                        // Both the numeric types implement a writeLong method which write if the bounds for
+                        // the type allows else throw exception.
+                        columnPrestoType.writeLong(childBuilder, intArray[i]);
+                        completedBytes += Long.BYTES;
+                    }
+                    break;
+                case LONG_ARRAY:
+                    long[] longArray = currentDataTable.getDataTable().getLongArray(rowIndex, columnIndex);
+                    for (int i = 0; i < longArray.length; i++) {
+                        columnPrestoType.writeLong(childBuilder, longArray[i]);
+                        completedBytes += Long.BYTES;
+                    }
+                    break;
+                case FLOAT_ARRAY:
+                    float[] floatArray = currentDataTable.getDataTable().getFloatArray(rowIndex, columnIndex);
+                    if (columnPrestoType.getJavaType().equals(long.class)) {
+                        for (int i = 0; i < floatArray.length; i++) {
+                            columnPrestoType.writeLong(childBuilder, (long) floatArray[i]);
+                            completedBytes += Long.BYTES;
+                        }
+                    }
+                    else {
+                        for (int i = 0; i < floatArray.length; i++) {
+                            columnPrestoType.writeDouble(childBuilder, floatArray[i]);
+                            completedBytes += Double.BYTES;
+                        }
+                    }
+                    break;
+                case DOUBLE_ARRAY:
+                    double[] doubleArray = currentDataTable.getDataTable().getDoubleArray(rowIndex, columnIndex);
+                    if (columnPrestoType.getJavaType().equals(long.class)) {
+                        for (int i = 0; i < doubleArray.length; i++) {
+                            columnPrestoType.writeLong(childBuilder, (long) doubleArray[i]);
+                            completedBytes += Long.BYTES;
+                        }
+                    }
+                    else {
+                        for (int i = 0; i < doubleArray.length; i++) {
+                            columnPrestoType.writeDouble(childBuilder, doubleArray[i]);
+                            completedBytes += Double.BYTES;
+                        }
+                    }
+                    break;
+                case STRING_ARRAY:
+                    String[] stringArray = currentDataTable.getDataTable().getStringArray(rowIndex, columnIndex);
+                    for (int i = 0; i < stringArray.length; i++) {
+                        Slice slice = Slices.utf8Slice(stringArray[i]);
+                        childBuilder.writeBytes(slice, 0, slice.length()).closeEntry();
+                        completedBytes += slice.getBytes().length;
+                    }
+                    break;
+                default:
+                    throw new PrestoException(
+                            PINOT_UNSUPPORTED_COLUMN_TYPE,
+                            String.format(
+                                    "Failed to write column %s. pinotColumnType %s, prestoType %s",
+                                    split.getExpectedColumnHandles().get(columnIndex).getColumnName(),
+                                    columnPinotType,
+                                    columnPrestoType));
+            }
+            blockBuilder.closeEntry();
         }
     }
 

@@ -16,8 +16,9 @@ package com.facebook.presto.pinot;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
@@ -27,12 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
-import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.common.type.DoubleType.DOUBLE;
-import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static java.util.Locale.ENGLISH;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.util.Objects.requireNonNull;
 
 public final class MetadataUtil
@@ -53,29 +49,25 @@ public final class MetadataUtil
     public static final class TestingTypeDeserializer
             extends FromStringDeserializer<Type>
     {
-        private final Map<String, Type> types = ImmutableMap.of(
-                StandardTypes.BOOLEAN, BOOLEAN,
-                StandardTypes.BIGINT, BIGINT,
-                StandardTypes.INTEGER, INTEGER,
-                StandardTypes.DOUBLE, DOUBLE,
-                StandardTypes.VARCHAR, VARCHAR);
+        private final TypeManager typeManager;
 
-        public TestingTypeDeserializer()
+        public TestingTypeDeserializer(TypeManager typeManager)
         {
             super(Type.class);
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override
         protected Type _deserialize(String value, DeserializationContext context)
         {
-            Type type = types.get(value.toLowerCase(ENGLISH));
+            Type type = typeManager.getType(parseTypeSignature(value));
             return requireNonNull(type, "Unknown type " + value);
         }
     }
 
     static {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TestingTypeDeserializer()));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.<Class<?>, JsonDeserializer<?>>of(Type.class, new TestingTypeDeserializer(new TypeRegistry())));
         JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
         CATALOG_CODEC = codecFactory.mapJsonCodec(String.class, listJsonCodec(PinotTable.class));
         TABLE_CODEC = codecFactory.jsonCodec(PinotTable.class);

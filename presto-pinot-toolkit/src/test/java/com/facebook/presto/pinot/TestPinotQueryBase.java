@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
@@ -270,5 +271,10 @@ public class TestPinotQueryBase
     protected static PinotColumnHandle varchar(String name)
     {
         return new PinotColumnHandle(name, VARCHAR, PinotColumnHandle.PinotColumnType.REGULAR);
+    }
+
+    protected static PinotColumnHandle array(Type type, String name)
+    {
+        return new PinotColumnHandle(name, new ArrayType(type), PinotColumnHandle.PinotColumnType.REGULAR);
     }
 }

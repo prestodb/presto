@@ -17,6 +17,7 @@ import com.facebook.airlift.http.client.Request;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DateType;
@@ -35,6 +36,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -110,9 +112,33 @@ public abstract class PinotBrokerPageSourceBase
         }
     }
 
+    protected void setValue(Type type, BlockBuilder blockBuilder, JsonNode value)
+    {
+        if (blockBuilder == null) {
+            return;
+        }
+        if (value == null) {
+            blockBuilder.appendNull();
+            return;
+        }
+        if (type instanceof ArrayType) {
+            checkState(value.isArray());
+
+            BlockBuilder childBuilder = blockBuilder.beginBlockEntry();
+            ArrayNode arrayNode = (ArrayNode) value;
+            for (int i = 0; i < arrayNode.size(); i++) {
+                setValue(((ArrayType) type).getElementType(), childBuilder, asText(arrayNode.get(i)));
+            }
+            blockBuilder.closeEntry();
+        }
+        else {
+            setValue(type, blockBuilder, asText(value));
+        }
+    }
+
     protected void setValue(Type type, BlockBuilder blockBuilder, String value)
     {
-        if (type == null || blockBuilder == null) {
+        if (blockBuilder == null) {
             return;
         }
         if (value == null) {
@@ -226,7 +252,7 @@ public abstract class PinotBrokerPageSourceBase
                     String.format("Expected row of %d columns", blockBuilders.size()));
             }
             for (int columnNumber = 0; columnNumber < blockBuilders.size(); columnNumber++) {
-                setValue(types.get(columnNumber), blockBuilders.get(columnNumber), asText(result.get(columnNumber)));
+                setValue(types.get(columnNumber), blockBuilders.get(columnNumber), result.get(columnNumber));
             }
         }
     }

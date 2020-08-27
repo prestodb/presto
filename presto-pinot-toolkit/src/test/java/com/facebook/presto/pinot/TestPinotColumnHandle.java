@@ -14,6 +14,7 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.airlift.testing.EquivalenceTester;
+import com.facebook.presto.common.type.ArrayType;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -26,6 +27,7 @@ import static org.testng.Assert.assertEquals;
 public class TestPinotColumnHandle
 {
     private final PinotColumnHandle columnHandle = new PinotColumnHandle("columnName", VARCHAR, REGULAR);
+    private final PinotColumnHandle arrayColumnHandle = new PinotColumnHandle("arrayColumn", new ArrayType(VARCHAR), REGULAR);
 
     @Test
     public void testJsonRoundTrip()
@@ -33,6 +35,14 @@ public class TestPinotColumnHandle
         String json = COLUMN_CODEC.toJson(columnHandle);
         PinotColumnHandle copy = COLUMN_CODEC.fromJson(json);
         assertEquals(copy, columnHandle);
+    }
+
+    @Test
+    public void testJsonRoundTripWithArrays()
+    {
+        String json = COLUMN_CODEC.toJson(arrayColumnHandle);
+        PinotColumnHandle copy = COLUMN_CODEC.fromJson(json);
+        assertEquals(copy, arrayColumnHandle);
     }
 
     @Test
