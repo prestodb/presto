@@ -63,12 +63,12 @@ public class TestOrcMapNullKey
     }
 
     @DataProvider(name = "mapNullKeysEnabled")
-    public static Object[][] mapNullKeysEnabledValues()
+    public static Object[][] mapNullKeysEnabled()
     {
         return new Object[][] {{true}, {false}};
     }
 
-    @Test(dataProvider = "mapNullKeysEnabledValues")
+    @Test(dataProvider = "mapNullKeysEnabled")
     public void testMapTypeWithNullsWithBatchReader(boolean mapNullKeysEnabled)
             throws Exception
     {
@@ -93,7 +93,7 @@ public class TestOrcMapNullKey
         }
     }
 
-    @Test(dataProvider = "mapNullKeysEnabledValues")
+    @Test(dataProvider = "mapNullKeysEnabled")
     public void testMapTypeWithNullsWithSelectiveReader(boolean mapNullKeysEnabled)
             throws Exception
     {
