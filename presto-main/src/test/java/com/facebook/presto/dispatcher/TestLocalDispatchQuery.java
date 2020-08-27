@@ -23,12 +23,12 @@ import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
+import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.operator.OperatorInfo;
+import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
@@ -231,8 +231,8 @@ public class TestLocalDispatchQuery
         EventListenerManager eventListenerManager = createEventListenerManager(eventListener);
         return new QueryMonitor(
                 jsonCodec(StageInfo.class),
+                jsonCodec(OperatorStats.class),
                 jsonCodec(ExecutionFailureInfo.class),
-                jsonCodec(OperatorInfo.class),
                 eventListenerManager,
                 new NodeInfo("test"),
                 UNKNOWN,
