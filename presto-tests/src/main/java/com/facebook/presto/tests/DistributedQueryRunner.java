@@ -66,6 +66,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
@@ -91,6 +92,7 @@ public class DistributedQueryRunner
     private final TestingDiscoveryServer discoveryServer;
     private final TestingPrestoServer coordinator;
     private final List<TestingPrestoServer> servers;
+    private final List<Process> externalWorkers;
 
     private final Closer closer = Closer.create();
 
@@ -111,7 +113,7 @@ public class DistributedQueryRunner
     public DistributedQueryRunner(Session defaultSession, int nodeCount, Map<String, String> extraProperties)
             throws Exception
     {
-        this(defaultSession, nodeCount, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT, Optional.empty());
+        this(defaultSession, nodeCount, extraProperties, ImmutableMap.of(), DEFAULT_SQL_PARSER_OPTIONS, ENVIRONMENT, Optional.empty(), Optional.empty());
     }
 
     public static Builder builder(Session defaultSession)
@@ -126,7 +128,8 @@ public class DistributedQueryRunner
             Map<String, String> coordinatorProperties,
             SqlParserOptions parserOptions,
             String environment,
-            Optional<Path> baseDataDir)
+            Optional<Path> baseDataDir,
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -136,19 +139,40 @@ public class DistributedQueryRunner
             discoveryServer = new TestingDiscoveryServer(environment);
             closer.register(() -> closeUnchecked(discoveryServer));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
+            URI discoveryUrl = discoveryServer.getBaseUrl();
+            log.info("Discovery URL %s", discoveryUrl);
 
             ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
+            Map<String, String> extraCoordinatorProperties = new HashMap<>();
 
-            for (int i = 1; i < nodeCount; i++) {
-                TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), false, extraProperties, parserOptions, environment, baseDataDir));
-                servers.add(worker);
+            if (externalWorkerLauncher.isPresent()) {
+                ImmutableList.Builder<Process> externalWorkersBuilder = ImmutableList.builder();
+                for (int i = 0; i < nodeCount; i++) {
+                    externalWorkersBuilder.add(externalWorkerLauncher.get().apply(i, discoveryUrl));
+                }
+                externalWorkers = externalWorkersBuilder.build();
+                closer.register(() -> {
+                    for (Process worker : externalWorkers) {
+                        worker.destroyForcibly();
+                    }
+                });
+
+                // Don't use coordinator as worker
+                extraCoordinatorProperties.put("node-scheduler.include-coordinator", "false");
+            }
+            else {
+                externalWorkers = ImmutableList.of();
+
+                for (int i = 1; i < nodeCount; i++) {
+                    TestingPrestoServer worker = closer.register(createTestingPrestoServer(discoveryUrl, false, extraProperties, parserOptions, environment, baseDataDir));
+                    servers.add(worker);
+                }
             }
 
-            Map<String, String> extraCoordinatorProperties = new HashMap<>();
             extraCoordinatorProperties.put("experimental.iterative-optimizer-enabled", "true");
             extraCoordinatorProperties.putAll(extraProperties);
             extraCoordinatorProperties.putAll(coordinatorProperties);
-            coordinator = closer.register(createTestingPrestoServer(discoveryServer.getBaseUrl(), true, extraCoordinatorProperties, parserOptions, environment, baseDataDir));
+            coordinator = closer.register(createTestingPrestoServer(discoveryUrl, true, extraCoordinatorProperties, parserOptions, environment, baseDataDir));
             servers.add(coordinator);
 
             this.servers = servers.build();
@@ -217,10 +241,11 @@ public class DistributedQueryRunner
 
     private boolean allNodesGloballyVisible()
     {
+        int expectedActiveNodes = externalWorkers.size() + servers.size();
         for (TestingPrestoServer server : servers) {
             AllNodes allNodes = server.refreshNodes();
             if (!allNodes.getInactiveNodes().isEmpty() ||
-                    (allNodes.getActiveNodes().size() != servers.size())) {
+                    (allNodes.getActiveNodes().size() != expectedActiveNodes)) {
                 return false;
             }
         }
@@ -336,7 +361,7 @@ public class DistributedQueryRunner
 
         // wait for all nodes to announce the new catalog
         start = nanoTime();
-        while (!isConnectionVisibleToAllNodes(connectorId)) {
+        while (!isConnectorVisibleToAllNodes(connectorId)) {
             Assertions.assertLessThan(nanosSince(start), new Duration(100, SECONDS), "waiting for connector " + connectorId + " to be initialized in every node");
             try {
                 MILLISECONDS.sleep(10);
@@ -390,8 +415,12 @@ public class DistributedQueryRunner
         testFunctionNamespacesHandle.get().execute("INSERT INTO function_namespaces SELECT ?, ?", catalogName, schemaName);
     }
 
-    private boolean isConnectionVisibleToAllNodes(ConnectorId connectorId)
+    private boolean isConnectorVisibleToAllNodes(ConnectorId connectorId)
     {
+        if (!externalWorkers.isEmpty()) {
+            return true;
+        }
+
         for (TestingPrestoServer server : servers) {
             server.refreshNodes();
             Set<InternalNode> activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
@@ -540,6 +569,7 @@ public class DistributedQueryRunner
         private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;
         private String environment = ENVIRONMENT;
         private Optional<Path> baseDataDir = Optional.empty();
+        private Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
 
         protected Builder(Session defaultSession)
         {
@@ -609,10 +639,16 @@ public class DistributedQueryRunner
             return this;
         }
 
+        public Builder setExternalWorkerLauncher(Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
+        {
+            this.externalWorkerLauncher = requireNonNull(externalWorkerLauncher, "externalWorkerLauncher is null");
+            return this;
+        }
+
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return new DistributedQueryRunner(defaultSession, nodeCount, extraProperties, coordinatorProperties, parserOptions, environment, baseDataDir);
+            return new DistributedQueryRunner(defaultSession, nodeCount, extraProperties, coordinatorProperties, parserOptions, environment, baseDataDir, externalWorkerLauncher);
         }
     }
 }
