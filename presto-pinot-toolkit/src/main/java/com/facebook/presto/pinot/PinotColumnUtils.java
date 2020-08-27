@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DateType;
@@ -107,7 +108,8 @@ public class PinotColumnUtils
             }
             return getPrestoTypeFromPinotType(field.getDataType());
         }
-        return VarcharType.VARCHAR;
+
+        return new ArrayType(getPrestoTypeFromPinotType(field.getDataType()));
     }
 
     public static Type getPrestoTypeFromPinotType(DataType dataType)

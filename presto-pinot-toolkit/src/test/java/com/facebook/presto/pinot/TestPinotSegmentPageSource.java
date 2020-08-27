@@ -15,7 +15,11 @@ package com.facebook.presto.pinot;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.VariableWidthBlock;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VariableWidthType;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.assertions.Assert;
@@ -394,6 +398,56 @@ public class TestPinotSegmentPageSource
                     maxHashCode = Math.max(type.hash(block, k), maxHashCode);
                 }
                 Assert.assertTrue(maxHashCode != 0, "Not all column values can have hash code 0");
+            }
+        }
+    }
+
+    @Test
+    public void testMultivaluedType()
+    {
+        String[] columnNames = {"col1", "col2"};
+        DataSchema.ColumnDataType[] columnDataTypes = {DataSchema.ColumnDataType.INT_ARRAY, DataSchema.ColumnDataType.STRING_ARRAY};
+        DataSchema dataSchema = new DataSchema(columnNames, columnDataTypes);
+        SimpleDataTable dataTable = new SimpleDataTable(1, dataSchema);
+
+        int numRows = 1;
+        String[] stringArray = {"stringVal1", "stringVal2"};
+        int[] intArray = {10, 34, 67};
+        dataTable.set(0, 0, intArray);
+        dataTable.set(0, 1, stringArray);
+
+        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
+        ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
+        PinotScatterGatherQueryClient mockPinotQueryClient = new MockPinotScatterGatherQueryClient(new PinotScatterGatherQueryClient.Config(
+                pinotConfig.getIdleTimeout().toMillis(),
+                pinotConfig.getThreadPoolSize(),
+                pinotConfig.getMinConnectionsPerServer(),
+                pinotConfig.getMaxBacklogPerServer(),
+                pinotConfig.getMaxConnectionsPerServer()), ImmutableList.of(dataTable));
+
+        List<PinotColumnHandle> pinotColumnHandles = ImmutableList.of(
+                new PinotColumnHandle(columnNames[0], PinotColumnUtils.getPrestoTypeFromPinotType(getFieldSpec(columnNames[0], columnDataTypes[0]), false, false), PinotColumnHandle.PinotColumnType.REGULAR),
+                new PinotColumnHandle(columnNames[1], PinotColumnUtils.getPrestoTypeFromPinotType(getFieldSpec(columnNames[1], columnDataTypes[1]), false, false), PinotColumnHandle.PinotColumnType.REGULAR));
+        PinotSplit mockPinotSplit = new PinotSplit(pinotConnectorId.toString(), PinotSplit.SplitType.SEGMENT, pinotColumnHandles, Optional.empty(), Optional.of("blah"), ImmutableList.of("seg"), Optional.of("host"));
+        PinotSegmentPageSource pinotSegmentPageSource = new PinotSegmentPageSource(session, pinotConfig, mockPinotQueryClient, mockPinotSplit, pinotColumnHandles);
+
+        Page page = requireNonNull(pinotSegmentPageSource.getNextPage(), "Expected a valid page");
+
+        for (int i = 0; i < columnDataTypes.length; i++) {
+            Block block = page.getBlock(i);
+            Type type = PinotColumnUtils.getPrestoTypeFromPinotType(getFieldSpec(columnNames[i], columnDataTypes[i]), false, false);
+            Assert.assertTrue(type instanceof ArrayType, "presto type should be array");
+            if (((ArrayType) type).getElementType() instanceof IntegerType) {
+                Assert.assertTrue(block.getBlock(0).getInt(0) == 10, "Array element not matching");
+                Assert.assertTrue(block.getBlock(0).getInt(1) == 34, "Array element not matching");
+                Assert.assertTrue(block.getBlock(0).getInt(2) == 67, "Array element not matching");
+            }
+            else if (((ArrayType) type).getElementType() instanceof VariableWidthType) {
+                Type type1 = ((ArrayType) type).getElementType();
+                Assert.assertTrue(block.getBlock(0) instanceof VariableWidthBlock);
+                VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getBlock(0);
+                Assert.assertTrue("stringVal1".equals(new String(variableWidthBlock.getSlice(0, 0, variableWidthBlock.getSliceLength(0)).getBytes())), "Array element not matching");
+                Assert.assertTrue("stringVal2".equals(new String(variableWidthBlock.getSlice(1, 0, variableWidthBlock.getSliceLength(1)).getBytes())), "Array element not matching");
             }
         }
     }
