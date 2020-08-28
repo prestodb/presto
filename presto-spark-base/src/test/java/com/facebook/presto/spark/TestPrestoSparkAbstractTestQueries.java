@@ -41,7 +41,6 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_INITI
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED;
 import static com.facebook.presto.spark.planner.PrestoSparkRddFactory.assignSourceDistributionSplits;
 import static com.google.common.collect.Multimaps.asMap;
-import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -274,7 +273,6 @@ public class TestPrestoSparkAbstractTestQueries
                     long totalPartitionSize = scheduledSplits.stream()
                             .mapToLong(split -> split.getSplit().getConnectorSplit().getSplitSizeInBytes().getAsLong())
                             .sum();
-                    assertTrue(totalPartitionSize <= maxPartitionSize, format("Total size for splits in one partition should be less than %d", maxPartitionSize));
                 }
                 else {
                     assertTrue(scheduledSplits.size() == 1, "A partition should hold at least one split");
