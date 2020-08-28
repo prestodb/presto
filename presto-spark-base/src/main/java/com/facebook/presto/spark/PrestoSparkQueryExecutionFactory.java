@@ -134,7 +134,9 @@ import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
+import static com.facebook.presto.spark.SparkErrorCode.EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE;
 import static com.facebook.presto.spark.SparkErrorCode.GENERIC_SPARK_ERROR;
+import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_LOST;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collectScalaIterator;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
@@ -751,6 +753,13 @@ public class PrestoSparkQueryExecutionFactory
                         PrestoException wrappedPrestoException;
                         if (sparkException.getMessage().contains("most recent failure: JVM_OOM")) {
                             wrappedPrestoException = new PrestoException(SPARK_EXECUTOR_OOM, executionException);
+                        }
+                        else if (sparkException.getMessage().matches(".*Total size of serialized results .* is bigger than allowed maxResultSize.*")) {
+                            wrappedPrestoException = new PrestoException(EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE, executionException);
+                        }
+                        else if (sparkException.getMessage().contains("Executor heartbeat timed out") ||
+                                sparkException.getMessage().contains("Unable to talk to the executor")) {
+                            wrappedPrestoException = new PrestoException(SPARK_EXECUTOR_LOST, executionException);
                         }
                         else {
                             wrappedPrestoException = new PrestoException(GENERIC_SPARK_ERROR, executionException);
