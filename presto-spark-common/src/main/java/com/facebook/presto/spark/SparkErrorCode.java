@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.ErrorType;
 
+import static com.facebook.presto.spi.ErrorType.INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
 
 public enum SparkErrorCode
@@ -24,6 +25,8 @@ public enum SparkErrorCode
 {
     GENERIC_SPARK_ERROR(0, INTERNAL_ERROR),
     SPARK_EXECUTOR_OOM(1, INTERNAL_ERROR),
+    SPARK_EXECUTOR_LOST(2, INTERNAL_ERROR),
+    EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE(3, INSUFFICIENT_RESOURCES)
     /**/;
 
     private final ErrorCode errorCode;
