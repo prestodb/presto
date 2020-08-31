@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -119,11 +121,11 @@ public class VerifierQueryEvent
                         Optional.of(new QueryInfo(
                                 sourceQuery.getControlConfiguration().getCatalog(),
                                 sourceQuery.getControlConfiguration().getSchema(),
-                                sourceQuery.getControlQuery())),
+                                sourceQuery.getQuery(CONTROL))),
                 new QueryInfo(
                         sourceQuery.getTestConfiguration().getCatalog(),
                         sourceQuery.getTestConfiguration().getSchema(),
-                        sourceQuery.getTestQuery()),
+                        sourceQuery.getQuery(TEST)),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
