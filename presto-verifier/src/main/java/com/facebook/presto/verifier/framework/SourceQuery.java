@@ -19,7 +19,10 @@ import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 
 import java.util.Objects;
 
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class SourceQuery
@@ -58,14 +61,10 @@ public class SourceQuery
         return name;
     }
 
-    public String getControlQuery()
+    public String getQuery(ClusterType clusterType)
     {
-        return controlQuery;
-    }
-
-    public String getTestQuery()
-    {
-        return testQuery;
+        checkArgument(clusterType == CONTROL || clusterType == TEST, "Invalid ClusterType: %s", clusterType);
+        return clusterType == CONTROL ? controlQuery : testQuery;
     }
 
     public QueryConfiguration getControlConfiguration()

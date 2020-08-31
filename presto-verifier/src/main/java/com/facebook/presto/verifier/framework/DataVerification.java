@@ -36,6 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class DataVerification
         extends AbstractVerification
 {
+    private final QueryRewriter queryRewriter;
     private final TypeManager typeManager;
     private final ChecksumValidator checksumValidator;
 
@@ -51,9 +52,16 @@ public class DataVerification
             TypeManager typeManager,
             ChecksumValidator checksumValidator)
     {
-        super(queryActions, sourceQuery, queryRewriter, determinismAnalyzer, failureResolverManager, exceptionClassifier, verificationContext, verifierConfig);
+        super(queryActions, sourceQuery, determinismAnalyzer, failureResolverManager, exceptionClassifier, verificationContext, verifierConfig);
+        this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
+    }
+
+    @Override
+    protected QueryBundle getQueryRewrite(ClusterType clusterType)
+    {
+        return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), clusterType);
     }
 
     @Override

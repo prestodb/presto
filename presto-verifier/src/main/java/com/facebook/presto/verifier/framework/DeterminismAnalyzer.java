@@ -125,7 +125,7 @@ public class DeterminismAnalyzer
         Map<QueryBundle, DeterminismAnalysisRun.Builder> queryRuns = new HashMap<>();
         try {
             for (int i = 0; i < maxAnalysisRuns; i++) {
-                QueryBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL);
+                QueryBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(CONTROL), CONTROL);
                 DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getTableName().toString());
                 queryRuns.put(queryBundle, run);
 

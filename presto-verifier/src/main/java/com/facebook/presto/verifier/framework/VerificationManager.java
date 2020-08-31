@@ -50,6 +50,8 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.SkippedReason.CUSTOM_FILTER;
 import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QUERY_TYPE;
@@ -175,8 +177,8 @@ public class VerificationManager
                 .map(sourceQuery -> new SourceQuery(
                         sourceQuery.getSuite(),
                         sourceQuery.getName(),
-                        sourceQuery.getControlQuery(),
-                        sourceQuery.getTestQuery(),
+                        sourceQuery.getQuery(CONTROL),
+                        sourceQuery.getQuery(TEST),
                         sourceQuery.getControlConfiguration().applyOverrides(controlOverrides),
                         sourceQuery.getTestConfiguration().applyOverrides(testOverrides)))
                 .collect(toImmutableList());
@@ -211,8 +213,8 @@ public class VerificationManager
         ImmutableList.Builder<SourceQuery> selected = ImmutableList.builder();
         for (SourceQuery sourceQuery : sourceQueries) {
             try {
-                QueryType controlQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
-                QueryType testQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getTestQuery(), PARSING_OPTIONS));
+                QueryType controlQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(CONTROL), PARSING_OPTIONS));
+                QueryType testQueryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(TEST), PARSING_OPTIONS));
 
                 if (controlQueryType != testQueryType) {
                     postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, MISMATCHED_QUERY_TYPE, skipControl));
