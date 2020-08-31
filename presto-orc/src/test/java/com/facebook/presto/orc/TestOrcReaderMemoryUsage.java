@@ -95,7 +95,7 @@ public class TestOrcReaderMemoryUsage
                 // StripeReader memory should increase after reading a block.
                 assertGreaterThan(reader.getCurrentStripeRetainedSizeInBytes(), stripeReaderRetainedSize);
                 // SliceDictionaryBatchStreamReader uses stripeDictionaryLength local buffer.
-                assertEquals(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 4L);
+                assertEquals(reader.getStreamReaderRetainedSizeInBytes() - streamReaderRetainedSize, 49L);
                 // The total retained size and system memory usage should be greater than 0 byte because of the instance sizes.
                 assertGreaterThan(reader.getRetainedSizeInBytes() - readerRetainedSize, 0L);
                 assertGreaterThan(reader.getSystemMemoryUsage() - readerSystemMemoryUsage, 0L);
