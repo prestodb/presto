@@ -29,6 +29,7 @@ import javax.inject.Inject;
 
 import java.util.Optional;
 
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -70,7 +71,7 @@ public class VerificationFactory
 
     public Verification get(SourceQuery sourceQuery, Optional<VerificationContext> existingContext)
     {
-        QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getControlQuery(), PARSING_OPTIONS));
+        QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(CONTROL), PARSING_OPTIONS));
         switch (queryType.getCategory()) {
             case DATA_PRODUCING:
                 VerificationContext verificationContext = existingContext.map(VerificationContext::createForResubmission)

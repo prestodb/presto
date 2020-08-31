@@ -70,7 +70,6 @@ public abstract class AbstractVerification
 
     private final QueryActions queryActions;
     private final SourceQuery sourceQuery;
-    private final QueryRewriter queryRewriter;
     private final DeterminismAnalyzer determinismAnalyzer;
     private final FailureResolverManager failureResolverManager;
     private final SqlExceptionClassifier exceptionClassifier;
@@ -87,7 +86,6 @@ public abstract class AbstractVerification
     public AbstractVerification(
             QueryActions queryActions,
             SourceQuery sourceQuery,
-            QueryRewriter queryRewriter,
             DeterminismAnalyzer determinismAnalyzer,
             FailureResolverManager failureResolverManager,
             SqlExceptionClassifier exceptionClassifier,
@@ -96,7 +94,6 @@ public abstract class AbstractVerification
     {
         this.queryActions = requireNonNull(queryActions, "queryActions is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
-        this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
         this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
@@ -109,6 +106,8 @@ public abstract class AbstractVerification
         this.teardownOnMainClusters = verifierConfig.isTeardownOnMainClusters();
         this.skipControl = verifierConfig.isSkipControl();
     }
+
+    protected abstract QueryBundle getQueryRewrite(ClusterType clusterType);
 
     protected abstract MatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext);
 
@@ -148,9 +147,9 @@ public abstract class AbstractVerification
         try {
             // Rewrite queries
             if (!skipControl) {
-                control = Optional.of(queryRewriter.rewriteQuery(sourceQuery.getControlQuery(), CONTROL));
+                control = Optional.of(getQueryRewrite(CONTROL));
             }
-            test = Optional.of(queryRewriter.rewriteQuery(sourceQuery.getTestQuery(), TEST));
+            test = Optional.of(getQueryRewrite(TEST));
 
             // Run control queries
             if (skipControl) {
@@ -318,13 +317,13 @@ public abstract class AbstractVerification
                         Optional.empty() :
                         Optional.of(buildQueryInfo(
                                 sourceQuery.getControlConfiguration(),
-                                sourceQuery.getControlQuery(),
+                                sourceQuery.getQuery(CONTROL),
                                 controlChecksumQueryContext,
                                 control,
                                 controlQueryContext)),
                 buildQueryInfo(
                         sourceQuery.getTestConfiguration(),
-                        sourceQuery.getTestQuery(),
+                        sourceQuery.getQuery(TEST),
                         testChecksumQueryContext,
                         test,
                         testQueryContext),
