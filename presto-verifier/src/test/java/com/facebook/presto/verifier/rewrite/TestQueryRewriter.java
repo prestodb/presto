@@ -21,6 +21,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.framework.ClusterType;
+import com.facebook.presto.verifier.framework.DataQueryBundle;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.VerificationContext;
@@ -299,7 +300,7 @@ public class TestQueryRewriter
             List<String> expectedTeardownTemplates)
     {
         for (ClusterType cluster : ClusterType.values()) {
-            QueryBundle bundle = queryRewriter.rewriteQuery(query, cluster);
+            DataQueryBundle bundle = queryRewriter.rewriteQuery(query, cluster);
 
             String tableName = bundle.getTableName().toString();
             assertTrue(tableName.startsWith(prefix + "_"));
@@ -312,7 +313,7 @@ public class TestQueryRewriter
 
     private static void assertTableName(QueryRewriter queryRewriter, @Language("SQL") String query, String expectedPrefix)
     {
-        QueryBundle bundle = queryRewriter.rewriteQuery(query, CONTROL);
+        DataQueryBundle bundle = queryRewriter.rewriteQuery(query, CONTROL);
         assertTrue(bundle.getTableName().toString().startsWith(expectedPrefix));
     }
 

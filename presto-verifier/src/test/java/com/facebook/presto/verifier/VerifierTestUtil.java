@@ -35,7 +35,7 @@ import com.facebook.presto.verifier.checksum.MapColumnValidator;
 import com.facebook.presto.verifier.checksum.RowColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.framework.Column;
-import com.facebook.presto.verifier.framework.QueryBundle;
+import com.facebook.presto.verifier.framework.DataQueryBundle;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.source.MySqlSourceQueryConfig;
 import com.facebook.presto.verifier.source.VerifierDao;
@@ -65,7 +65,7 @@ public class VerifierTestUtil
     public static final String XDB = "presto";
     public static final String VERIFIER_QUERIES_TABLE = "verifier_queries";
 
-    public static final QueryBundle TEST_BUNDLE = new QueryBundle(
+    public static final DataQueryBundle TEST_BUNDLE = new DataQueryBundle(
             QualifiedName.of("test"),
             ImmutableList.of(),
             new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON)).createStatement(

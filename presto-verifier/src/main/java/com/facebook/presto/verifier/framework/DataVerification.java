@@ -37,7 +37,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class DataVerification
-        extends AbstractVerification<DataMatchResult>
+        extends AbstractVerification<DataQueryBundle, DataMatchResult>
 {
     private final QueryRewriter queryRewriter;
     private final DeterminismAnalyzer determinismAnalyzer;
@@ -66,13 +66,13 @@ public class DataVerification
     }
 
     @Override
-    protected QueryBundle getQueryRewrite(ClusterType clusterType)
+    protected DataQueryBundle getQueryRewrite(ClusterType clusterType)
     {
         return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), clusterType);
     }
 
     @Override
-    public DataMatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext)
+    public DataMatchResult verify(DataQueryBundle control, DataQueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext)
     {
         List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getTableName());
         List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getTableName());
@@ -94,15 +94,15 @@ public class DataVerification
     }
 
     @Override
-    protected DeterminismAnalysisDetails analyzeDeterminism(QueryBundle control, DataMatchResult matchResult)
+    protected DeterminismAnalysisDetails analyzeDeterminism(DataQueryBundle control, DataMatchResult matchResult)
     {
         return determinismAnalyzer.analyze(control, matchResult.getControlChecksum());
     }
 
     @Override
     protected Optional<String> resolveFailure(
-            Optional<QueryBundle> control,
-            Optional<QueryBundle> test,
+            Optional<DataQueryBundle> control,
+            Optional<DataQueryBundle> test,
             QueryContext controlQueryContext,
             Optional<DataMatchResult> matchResult,
             Optional<Throwable> throwable)
