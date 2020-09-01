@@ -857,6 +857,7 @@ public class TestGeoFunctions
         assertEnvelopeIntersection("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))", "POLYGON ((-1 -1, 0 -1, 0 1, -1 1, -1 -1))", "LINESTRING (0 0, 0 1)");
         assertEnvelopeIntersection("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))", "POLYGON ((1 -1, 2 -1, 2 0, 1 0, 1 -1))", "LINESTRING (1 0, 2 0)");
         assertEnvelopeIntersection("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))", "POLYGON ((-1 -1, 0 -1, 0 0, -1 0, -1 -1))", "POINT (0 0)");
+        assertEnvelopeIntersection("POLYGON ((0 0, 0 5, 5 5, 5 0, 0 0))", "POLYGON ((5 -1, 5 0, 6 0, 6 -1, 5 -1))", "POINT (5 0)");
     }
 
     private void assertEnvelopeIntersection(String envelope, String otherEnvelope, String intersection)

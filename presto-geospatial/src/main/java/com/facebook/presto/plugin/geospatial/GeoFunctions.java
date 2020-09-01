@@ -1001,15 +1001,11 @@ public final class GeoFunctions
             }
 
             Envelope intersection = leftEnvelope;
-            if (intersection.getXMin() == intersection.getXMax()) {
-                if (intersection.getYMin() == intersection.getYMax()) {
-                    return EsriGeometrySerde.serialize(createFromEsriGeometry(new Point(intersection.getXMin(), intersection.getXMax()), null));
+            if (intersection.getXMin() == intersection.getXMax() || intersection.getYMin() == intersection.getYMax()) {
+                if (intersection.getXMin() == intersection.getXMax() && intersection.getYMin() == intersection.getYMax()) {
+                    return EsriGeometrySerde.serialize(createFromEsriGeometry(new Point(intersection.getXMin(), intersection.getYMin()), null));
                 }
-                return EsriGeometrySerde.serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMin(), intersection.getYMax())), null));
-            }
-
-            if (intersection.getYMin() == intersection.getYMax()) {
-                return EsriGeometrySerde.serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMax(), intersection.getYMin())), null));
+                return EsriGeometrySerde.serialize(createFromEsriGeometry(new Polyline(new Point(intersection.getXMin(), intersection.getYMin()), new Point(intersection.getXMax(), intersection.getYMax())), null));
             }
 
             return EsriGeometrySerde.serialize(intersection);
