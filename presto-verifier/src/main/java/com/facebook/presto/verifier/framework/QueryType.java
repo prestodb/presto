@@ -24,6 +24,8 @@ import com.facebook.presto.sql.tree.ShowSession;
 import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 
+import java.util.Optional;
+
 import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.QueryType.Category.METADATA_READ;
 import static java.util.Objects.requireNonNull;
@@ -38,18 +40,25 @@ public enum QueryType
     SHOW_FUNCTIONS(METADATA_READ, ShowFunctions.class),
     SHOW_SCHEMAS(METADATA_READ, ShowSchemas.class),
     SHOW_SESSION(METADATA_READ, ShowSession.class),
-    SHOW_TABLES(METADATA_READ, ShowTables.class);
+    SHOW_TABLES(METADATA_READ, ShowTables.class),
+    UNSUPPORTED(Category.UNSUPPORTED, Optional.empty());
 
     public enum Category
     {
         DATA_PRODUCING,
-        METADATA_READ
+        METADATA_READ,
+        UNSUPPORTED,
     }
 
     private final Category category;
-    private final Class<? extends Statement> statementClass;
+    private final Optional<Class<? extends Statement>> statementClass;
 
     QueryType(Category category, Class<? extends Statement> statementClass)
+    {
+        this(category, Optional.of(statementClass));
+    }
+
+    QueryType(Category category, Optional<Class<? extends Statement>> statementClass)
     {
         this.category = requireNonNull(category, "category is null");
         this.statementClass = requireNonNull(statementClass, "statementClass is null");
@@ -58,11 +67,11 @@ public enum QueryType
     public static QueryType of(Statement statement)
     {
         for (QueryType queryType : values()) {
-            if (queryType.statementClass.isAssignableFrom(statement.getClass())) {
+            if (queryType.statementClass.isPresent() && queryType.statementClass.get().isAssignableFrom(statement.getClass())) {
                 return queryType;
             }
         }
-        throw new UnsupportedQueryTypeException(statement.getClass().getSimpleName());
+        return UNSUPPORTED;
     }
 
     public Category getCategory()

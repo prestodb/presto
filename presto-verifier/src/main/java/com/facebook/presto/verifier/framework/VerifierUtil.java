@@ -56,7 +56,12 @@ public class VerifierUtil
 
     public static <V> QueryResult<V> callAndConsume(Callable<QueryResult<V>> callable, Consumer<QueryActionStats> queryStatsConsumer)
     {
-        return callAndConsume(callable, QueryResult::getQueryActionStats, queryStatsConsumer, e -> {});
+        return callAndConsume(callable, queryStatsConsumer, e -> {});
+    }
+
+    public static <V> QueryResult<V> callAndConsume(Callable<QueryResult<V>> callable, Consumer<QueryActionStats> queryStatsConsumer, Consumer<QueryException> queryExceptionConsumer)
+    {
+        return callAndConsume(callable, QueryResult::getQueryActionStats, queryStatsConsumer, queryExceptionConsumer);
     }
 
     private static <V> V callAndConsume(

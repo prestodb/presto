@@ -72,11 +72,22 @@ public class VerificationFactory
     public Verification get(SourceQuery sourceQuery, Optional<VerificationContext> existingContext)
     {
         QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(CONTROL), PARSING_OPTIONS));
+        VerificationContext verificationContext = existingContext.map(VerificationContext::createForResubmission)
+                .orElseGet(() -> VerificationContext.create(sourceQuery.getName(), sourceQuery.getSuite()));
+        QueryActions queryActions = queryActionsFactory.create(sourceQuery, verificationContext);
+
+        if (verifierConfig.isExplain()) {
+            return new ExplainVerification(
+                    queryActions,
+                    sourceQuery,
+                    exceptionClassifier,
+                    verificationContext,
+                    verifierConfig,
+                    sqlParser);
+        }
+
         switch (queryType.getCategory()) {
             case DATA_PRODUCING:
-                VerificationContext verificationContext = existingContext.map(VerificationContext::createForResubmission)
-                        .orElseGet(() -> VerificationContext.create(sourceQuery.getName(), sourceQuery.getSuite()));
-                QueryActions queryActions = queryActionsFactory.create(sourceQuery, verificationContext);
                 QueryRewriter queryRewriter = queryRewriterFactory.create(queryActions.getHelperAction());
                 DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
                         sourceQuery,

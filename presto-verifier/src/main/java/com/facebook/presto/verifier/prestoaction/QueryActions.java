@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.presto.verifier.framework.ClusterType;
+
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class QueryActions
@@ -41,5 +46,11 @@ public class QueryActions
     public QueryAction getTestAction()
     {
         return testAction;
+    }
+
+    public QueryAction getQueryAction(ClusterType clusterType)
+    {
+        checkArgument(clusterType == CONTROL || clusterType == TEST, "Invalid ClusterType: %s", clusterType);
+        return clusterType == CONTROL ? getControlAction() : getTestAction();
     }
 }
