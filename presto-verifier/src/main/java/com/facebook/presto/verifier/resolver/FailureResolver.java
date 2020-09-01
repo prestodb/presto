@@ -14,7 +14,7 @@
 package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
-import com.facebook.presto.verifier.framework.MatchResult;
+import com.facebook.presto.verifier.framework.DataMatchResult;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 
@@ -27,7 +27,7 @@ public interface FailureResolver
         return Optional.empty();
     }
 
-    default Optional<String> resolveResultMismatch(MatchResult matchResult, QueryBundle control)
+    default Optional<String> resolveResultMismatch(DataMatchResult matchResult, QueryBundle control)
     {
         return Optional.empty();
     }

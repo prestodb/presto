@@ -36,6 +36,7 @@ import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static com.facebook.presto.verifier.framework.DeterminismAnalysis.NON_DETERMINISTIC_LIMIT_CLAUSE;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
@@ -149,7 +150,7 @@ public class TestLimitQueryDeterminismAnalyzer
     @Test
     public void testDeterministicLimitNoOrderBy()
     {
-        assertAnalysis(createPrestoAction(1000), "INSERT INTO test SELECT * FROM source LIMIT 1000", LimitQueryDeterminismAnalysis.DETERMINISTIC);
+        assertAnalysis(createPrestoAction(1000), "INSERT INTO test SELECT * FROM source LIMIT 1000", DETERMINISTIC);
     }
 
     @Test
@@ -187,14 +188,14 @@ public class TestLimitQueryDeterminismAnalyzer
     public void testLimitOrderByDeterministic()
     {
         MockPrestoAction prestoAction = createPrestoAction(ImmutableList.of(ImmutableList.of(1, 2, 3, 4, 5, 1, 6)), TIE_INSPECTOR_COLUMNS);
-        assertAnalysis(prestoAction, ORDER_BY_LIMIT_QUERY, LimitQueryDeterminismAnalysis.DETERMINISTIC);
+        assertAnalysis(prestoAction, ORDER_BY_LIMIT_QUERY, DETERMINISTIC);
 
         prestoAction = createPrestoAction(
                 ImmutableList.of(
                         ImmutableList.of(1, 2, 3, 4, 5, 1, 6),
                         ImmutableList.of(1, 2, 0, 0, 0, 1, 5)),
                 TIE_INSPECTOR_COLUMNS);
-        assertAnalysis(prestoAction, ORDER_BY_LIMIT_QUERY, LimitQueryDeterminismAnalysis.DETERMINISTIC);
+        assertAnalysis(prestoAction, ORDER_BY_LIMIT_QUERY, DETERMINISTIC);
     }
 
     @Test

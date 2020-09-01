@@ -171,7 +171,7 @@ public class DeterminismAnalyzer
         }
     }
 
-    private DeterminismAnalysis matchResultToDeterminism(MatchResult matchResult)
+    private DeterminismAnalysis matchResultToDeterminism(DataMatchResult matchResult)
     {
         switch (matchResult.getMatchType()) {
             case MATCH:

@@ -25,20 +25,23 @@ import com.facebook.presto.verifier.resolver.FailureResolverManager;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.getColumns;
 import static com.facebook.presto.verifier.framework.DataVerificationUtil.match;
 import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_CHECKSUM;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_CHECKSUM;
 import static com.facebook.presto.verifier.framework.VerifierUtil.callAndConsume;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class DataVerification
-        extends AbstractVerification
+        extends AbstractVerification<DataMatchResult>
 {
     private final QueryRewriter queryRewriter;
     private final DeterminismAnalyzer determinismAnalyzer;
+    private final FailureResolverManager failureResolverManager;
     private final TypeManager typeManager;
     private final ChecksumValidator checksumValidator;
 
@@ -54,9 +57,10 @@ public class DataVerification
             TypeManager typeManager,
             ChecksumValidator checksumValidator)
     {
-        super(queryActions, sourceQuery, failureResolverManager, exceptionClassifier, verificationContext, verifierConfig);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, verifierConfig);
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
+        this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
     }
@@ -68,7 +72,7 @@ public class DataVerification
     }
 
     @Override
-    public MatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext)
+    public DataMatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext)
     {
         List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getTableName());
         List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getTableName());
@@ -90,8 +94,27 @@ public class DataVerification
     }
 
     @Override
-    protected DeterminismAnalysisDetails analyzeDeterminism(QueryBundle control, MatchResult matchResult)
+    protected DeterminismAnalysisDetails analyzeDeterminism(QueryBundle control, DataMatchResult matchResult)
     {
         return determinismAnalyzer.analyze(control, matchResult.getControlChecksum());
+    }
+
+    @Override
+    protected Optional<String> resolveFailure(
+            Optional<QueryBundle> control,
+            Optional<QueryBundle> test,
+            QueryContext controlQueryContext,
+            Optional<DataMatchResult> matchResult,
+            Optional<Throwable> throwable)
+    {
+        if (matchResult.isPresent() && !matchResult.get().isMatched()) {
+            checkState(control.isPresent(), "control is missing");
+            return failureResolverManager.resolveResultMismatch((DataMatchResult) matchResult.get(), control.get());
+        }
+        if (throwable.isPresent() && controlQueryContext.getState() == QueryState.SUCCEEDED) {
+            checkState(controlQueryContext.getMainQueryStats().isPresent(), "controlQueryStats is missing");
+            return failureResolverManager.resolveException(controlQueryContext.getMainQueryStats().get(), throwable.get(), test);
+        }
+        return Optional.empty();
     }
 }
