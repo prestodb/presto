@@ -47,7 +47,7 @@ public class DataVerificationUtil
 
     private DataVerificationUtil() {}
 
-    public static void teardownSafely(QueryAction queryAction, Optional<QueryBundle> bundle, Consumer<QueryActionStats> queryStatsConsumer)
+    public static void teardownSafely(QueryAction queryAction, Optional<? extends QueryBundle> bundle, Consumer<QueryActionStats> queryStatsConsumer)
     {
         if (!bundle.isPresent()) {
             return;

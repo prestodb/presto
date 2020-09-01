@@ -40,7 +40,7 @@ import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.framework.ClusterType;
-import com.facebook.presto.verifier.framework.QueryBundle;
+import com.facebook.presto.verifier.framework.DataQueryBundle;
 import com.facebook.presto.verifier.framework.QueryType;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
@@ -106,7 +106,7 @@ public class QueryRewriter
         this.tableProperties = ImmutableMap.copyOf(tableProperties);
     }
 
-    public QueryBundle rewriteQuery(@Language("SQL") String query, ClusterType clusterType)
+    public DataQueryBundle rewriteQuery(@Language("SQL") String query, ClusterType clusterType)
     {
         checkState(prefixes.containsKey(clusterType), "Unsupported cluster type: %s", clusterType);
         Statement statement = sqlParser.createStatement(query, PARSING_OPTIONS);
@@ -118,7 +118,7 @@ public class QueryRewriter
         if (statement instanceof CreateTableAsSelect) {
             CreateTableAsSelect createTableAsSelect = (CreateTableAsSelect) statement;
             QualifiedName temporaryTableName = generateTemporaryTableName(Optional.of(createTableAsSelect.getName()), prefix);
-            return new QueryBundle(
+            return new DataQueryBundle(
                     temporaryTableName,
                     ImmutableList.of(),
                     new CreateTableAsSelect(
@@ -136,7 +136,7 @@ public class QueryRewriter
             Insert insert = (Insert) statement;
             QualifiedName originalTableName = insert.getTarget();
             QualifiedName temporaryTableName = generateTemporaryTableName(Optional.of(originalTableName), prefix);
-            return new QueryBundle(
+            return new DataQueryBundle(
                     temporaryTableName,
                     ImmutableList.of(
                             new CreateTable(
@@ -157,7 +157,7 @@ public class QueryRewriter
             ResultSetMetaData metadata = getResultMetadata((Query) statement);
             List<Identifier> columnAliases = generateStorageColumnAliases(metadata);
             Query rewrite = rewriteNonStorableColumns((Query) statement, metadata);
-            return new QueryBundle(
+            return new DataQueryBundle(
                     temporaryTableName,
                     ImmutableList.of(),
                     new CreateTableAsSelect(

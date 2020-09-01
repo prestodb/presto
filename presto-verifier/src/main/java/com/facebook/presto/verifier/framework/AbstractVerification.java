@@ -60,7 +60,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public abstract class AbstractVerification<R extends MatchResult>
+public abstract class AbstractVerification<B extends QueryBundle, R extends MatchResult>
         implements Verification
 {
     private static final String INTERNAL_ERROR = "VERIFIER_INTERNAL_ERROR";
@@ -98,15 +98,15 @@ public abstract class AbstractVerification<R extends MatchResult>
         this.skipControl = verifierConfig.isSkipControl();
     }
 
-    protected abstract QueryBundle getQueryRewrite(ClusterType clusterType);
+    protected abstract B getQueryRewrite(ClusterType clusterType);
 
-    protected abstract R verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext);
+    protected abstract R verify(B control, B test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext);
 
-    protected abstract DeterminismAnalysisDetails analyzeDeterminism(QueryBundle control, R matchResult);
+    protected abstract DeterminismAnalysisDetails analyzeDeterminism(B control, R matchResult);
 
     protected abstract Optional<String> resolveFailure(
-            Optional<QueryBundle> control,
-            Optional<QueryBundle> test,
+            Optional<B> control,
+            Optional<B> test,
             QueryContext controlQueryContext,
             Optional<R> matchResult,
             Optional<Throwable> throwable);
@@ -131,8 +131,8 @@ public abstract class AbstractVerification<R extends MatchResult>
     @Override
     public VerificationResult run()
     {
-        Optional<QueryBundle> control = Optional.empty();
-        Optional<QueryBundle> test = Optional.empty();
+        Optional<B> control = Optional.empty();
+        Optional<B> test = Optional.empty();
         QueryContext controlQueryContext = new QueryContext();
         QueryContext testQueryContext = new QueryContext();
         ChecksumQueryContext controlChecksumQueryContext = new ChecksumQueryContext();
@@ -245,8 +245,8 @@ public abstract class AbstractVerification<R extends MatchResult>
     }
 
     private PartialVerificationResult concludeVerificationPartial(
-            Optional<QueryBundle> control,
-            Optional<QueryBundle> test,
+            Optional<B> control,
+            Optional<B> test,
             QueryContext controlQueryContext,
             QueryContext testQueryContext,
             Optional<R> matchResult,
@@ -261,8 +261,8 @@ public abstract class AbstractVerification<R extends MatchResult>
 
     private VerificationResult concludeVerification(
             PartialVerificationResult partialResult,
-            Optional<QueryBundle> control,
-            Optional<QueryBundle> test,
+            Optional<B> control,
+            Optional<B> test,
             QueryContext controlQueryContext,
             QueryContext testQueryContext,
             Optional<R> matchResult,
@@ -311,11 +311,11 @@ public abstract class AbstractVerification<R extends MatchResult>
         return new VerificationResult(this, false, Optional.of(event));
     }
 
-    private static QueryInfo buildQueryInfo(
+    private QueryInfo buildQueryInfo(
             QueryConfiguration configuration,
             String originalQuery,
             ChecksumQueryContext checksumQueryContext,
-            Optional<QueryBundle> queryBundle,
+            Optional<B> queryBundle,
             QueryContext queryContext)
     {
         return new QueryInfo(
@@ -325,9 +325,9 @@ public abstract class AbstractVerification<R extends MatchResult>
                 queryContext.getSetupQueryIds(),
                 queryContext.getTeardownQueryIds(),
                 checksumQueryContext.getChecksumQueryId(),
-                queryBundle.map(QueryBundle::getQuery).map(AbstractVerification::formatSql),
-                queryBundle.map(QueryBundle::getSetupQueries).map(AbstractVerification::formatSqls),
-                queryBundle.map(QueryBundle::getTeardownQueries).map(AbstractVerification::formatSqls),
+                queryBundle.map(B::getQuery).map(AbstractVerification::formatSql),
+                queryBundle.map(B::getSetupQueries).map(AbstractVerification::formatSqls),
+                queryBundle.map(B::getTeardownQueries).map(AbstractVerification::formatSqls),
                 checksumQueryContext.getChecksumQuery(),
                 queryContext.getMainQueryStats());
     }
