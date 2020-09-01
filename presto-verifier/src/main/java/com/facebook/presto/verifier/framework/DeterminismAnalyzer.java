@@ -90,7 +90,14 @@ public class DeterminismAnalyzer
         this.handleLimitQuery = config.isHandleLimitQuery();
     }
 
-    protected DeterminismAnalysis analyze(QueryBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
+    protected DeterminismAnalysisDetails analyze(QueryBundle control, ChecksumResult controlChecksum)
+    {
+        DeterminismAnalysisDetails.Builder determinismAnalysisDetails = DeterminismAnalysisDetails.builder();
+        DeterminismAnalysis analysis = analyze(control, controlChecksum, determinismAnalysisDetails);
+        return determinismAnalysisDetails.build(analysis);
+    }
+
+    private DeterminismAnalysis analyze(QueryBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
     {
         // Handle mutable catalogs
         if (isNonDeterministicCatalogReferenced(control.getQuery())) {

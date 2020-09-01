@@ -15,7 +15,6 @@ package com.facebook.presto.verifier.event;
 
 import com.facebook.airlift.event.client.EventField;
 import com.facebook.airlift.event.client.EventType;
-import com.facebook.presto.verifier.framework.DeterminismAnalysis;
 import com.facebook.presto.verifier.framework.SkippedReason;
 import com.facebook.presto.verifier.framework.SourceQuery;
 import com.google.common.collect.ImmutableList;
@@ -49,7 +48,6 @@ public class VerifierQueryEvent
     private final String status;
     private final String skippedReason;
 
-    private final Boolean deterministic;
     private final String determinismAnalysis;
     private final DeterminismAnalysisDetails determinismAnalysisDetails;
     private final String resolveMessage;
@@ -71,7 +69,6 @@ public class VerifierQueryEvent
             String name,
             EventStatus status,
             Optional<SkippedReason> skippedReason,
-            Optional<DeterminismAnalysis> determinismAnalysis,
             Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<String> resolveMessage,
             Optional<QueryInfo> controlQueryInfo,
@@ -87,8 +84,7 @@ public class VerifierQueryEvent
         this.name = requireNonNull(name, "name is null");
         this.status = status.name();
         this.skippedReason = skippedReason.map(SkippedReason::name).orElse(null);
-        this.deterministic = determinismAnalysis.filter(d -> !d.isUnknown()).map(DeterminismAnalysis::isDeterministic).orElse(null);
-        this.determinismAnalysis = determinismAnalysis.map(DeterminismAnalysis::name).orElse(null);
+        this.determinismAnalysis = determinismAnalysisDetails.map(DeterminismAnalysisDetails::getResult).orElse(null);
         this.determinismAnalysisDetails = determinismAnalysisDetails.orElse(null);
         this.resolveMessage = resolveMessage.orElse(null);
         this.controlQueryInfo = controlQueryInfo.orElse(null);
@@ -113,7 +109,6 @@ public class VerifierQueryEvent
                 sourceQuery.getName(),
                 SKIPPED,
                 Optional.of(skippedReason),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 skipControl ?
@@ -161,13 +156,6 @@ public class VerifierQueryEvent
     public String getSkippedReason()
     {
         return skippedReason;
-    }
-
-    @EventField
-    @Deprecated
-    public Boolean getDeterministic()
-    {
-        return deterministic;
     }
 
     @EventField

@@ -18,6 +18,7 @@ import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
+import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
@@ -37,6 +38,7 @@ public class DataVerification
         extends AbstractVerification
 {
     private final QueryRewriter queryRewriter;
+    private final DeterminismAnalyzer determinismAnalyzer;
     private final TypeManager typeManager;
     private final ChecksumValidator checksumValidator;
 
@@ -52,8 +54,9 @@ public class DataVerification
             TypeManager typeManager,
             ChecksumValidator checksumValidator)
     {
-        super(queryActions, sourceQuery, determinismAnalyzer, failureResolverManager, exceptionClassifier, verificationContext, verifierConfig);
+        super(queryActions, sourceQuery, failureResolverManager, exceptionClassifier, verificationContext, verifierConfig);
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
+        this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checksumValidator = requireNonNull(checksumValidator, "checksumValidator is null");
     }
@@ -84,5 +87,11 @@ public class DataVerification
                 stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testContext::setChecksumQueryId));
 
         return match(checksumValidator, controlColumns, testColumns, getOnlyElement(controlChecksum.getResults()), getOnlyElement(testChecksum.getResults()));
+    }
+
+    @Override
+    protected DeterminismAnalysisDetails analyzeDeterminism(QueryBundle control, MatchResult matchResult)
+    {
+        return determinismAnalyzer.analyze(control, matchResult.getControlChecksum());
     }
 }
