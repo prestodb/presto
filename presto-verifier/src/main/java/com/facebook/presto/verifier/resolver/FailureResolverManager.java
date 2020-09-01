@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.resolver;
 
-import com.facebook.presto.verifier.framework.MatchResult;
+import com.facebook.presto.verifier.framework.DataMatchResult;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.prestoaction.QueryActionStats;
@@ -50,7 +50,7 @@ public class FailureResolverManager
         return Optional.empty();
     }
 
-    public Optional<String> resolveResultMismatch(MatchResult matchResult, QueryBundle control)
+    public Optional<String> resolveResultMismatch(DataMatchResult matchResult, QueryBundle control)
     {
         for (FailureResolver failureResolver : failureResolvers) {
             Optional<String> resolveMessage = failureResolver.resolveResultMismatch(matchResult, control);
