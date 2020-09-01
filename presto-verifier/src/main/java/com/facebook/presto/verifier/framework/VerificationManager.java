@@ -81,12 +81,12 @@ public class VerificationManager
     private final int maxConcurrency;
     private final int suiteRepetitions;
     private final int queryRepetitions;
-    private int verificationResubmissionLimit;
-    private boolean skipControl;
+    private final int verificationResubmissionLimit;
+    private final boolean skipControl;
 
-    private ExecutorService executor;
-    private CompletionService<VerificationResult> completionService;
-    private AtomicInteger queriesSubmitted = new AtomicInteger();
+    private final ExecutorService executor;
+    private final CompletionService<VerificationResult> completionService;
+    private final AtomicInteger queriesSubmitted = new AtomicInteger();
 
     @Inject
     public VerificationManager(
@@ -117,14 +117,14 @@ public class VerificationManager
         this.queryRepetitions = config.getQueryRepetitions();
         this.verificationResubmissionLimit = config.getVerificationResubmissionLimit();
         this.skipControl = config.isSkipControl();
+
+        this.executor = newFixedThreadPool(maxConcurrency);
+        this.completionService = new ExecutorCompletionService<>(executor);
     }
 
     @PostConstruct
     public void start()
     {
-        this.executor = newFixedThreadPool(maxConcurrency);
-        this.completionService = new ExecutorCompletionService<>(executor);
-
         List<SourceQuery> sourceQueries = sourceQuerySupplier.get();
         log.info("Total Queries: %s", sourceQueries.size());
         sourceQueries = applyOverrides(sourceQueries);
