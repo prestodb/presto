@@ -214,20 +214,18 @@ public abstract class AbstractVerification
             }
         }
 
-        return
-
-                concludeVerification(
-                        partialResult.get(),
-                        control,
-                        test,
-                        controlQueryContext,
-                        testQueryContext,
-                        matchResult,
-                        determinismAnalysis,
-                        controlChecksumQueryContext,
-                        testChecksumQueryContext,
-                        determinismAnalysisDetails.build(),
-                        throwable);
+        return concludeVerification(
+                partialResult.get(),
+                control,
+                test,
+                controlQueryContext,
+                testQueryContext,
+                matchResult,
+                determinismAnalysis,
+                controlChecksumQueryContext,
+                testChecksumQueryContext,
+                determinismAnalysisDetails.build(),
+                throwable);
     }
 
     private Optional<String> resolveFailure(
