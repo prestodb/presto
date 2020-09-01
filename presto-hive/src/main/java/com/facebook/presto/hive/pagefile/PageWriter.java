@@ -25,6 +25,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,12 +36,12 @@ public class PageWriter
 
     private final DataSink dataSink;
     private final HiveCompressionCodec compressionCodec;
+    private final AtomicBoolean closed = new AtomicBoolean();
     private long bufferedBytes;
     private long retainedBytes;
     private long maxBufferedBytes;
-    private boolean closed;
-    private List<DataOutput> bufferedPages;
-    private List<Long> stripeOffsets;
+    private List<DataOutput> bufferedPages = new ArrayList<>();
+    private List<Long> stripeOffsets = new ArrayList<>();
     private long stripeOffset;
 
     public PageWriter(
@@ -51,8 +52,6 @@ public class PageWriter
         this.dataSink = requireNonNull(dataSink, "pageDataSink is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.maxBufferedBytes = requireNonNull(pageFileStripeMaxSize, "pageFileStripeMaxSize is null").toBytes();
-        bufferedPages = new ArrayList<>();
-        stripeOffsets = new ArrayList<>();
     }
 
     /**
@@ -80,15 +79,22 @@ public class PageWriter
     public void close()
             throws IOException
     {
-        if (closed) {
+        if (!closed.compareAndSet(false, true)) {
             return;
         }
-        closed = true;
         if (!bufferedPages.isEmpty()) {
             flushStripe();
         }
         dataSink.write(ImmutableList.of(new PageFileFooterOutput(stripeOffsets, compressionCodec)));
         dataSink.close();
+    }
+
+    public void closeWithoutWrite()
+            throws IOException
+    {
+        if (closed.compareAndSet(false, true)) {
+            dataSink.close();
+        }
     }
 
     public long getRetainedBytes()

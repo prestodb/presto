@@ -98,7 +98,7 @@ public class PageFileWriter
     {
         try {
             try {
-                pageWriter.close();
+                pageWriter.closeWithoutWrite();
             }
             finally {
                 rollbackAction.call();
