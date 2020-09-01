@@ -59,6 +59,8 @@ public interface QueryExecution
 
     DataSize getRawInputDataSize();
 
+    DataSize getOutputDataSize();
+
     int getRunningTaskCount();
 
     DataSize getUserMemoryReservation();

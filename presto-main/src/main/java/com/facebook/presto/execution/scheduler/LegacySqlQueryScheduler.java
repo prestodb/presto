@@ -802,6 +802,12 @@ public class LegacySqlQueryScheduler
         return DataSize.succinctBytes(datasize);
     }
 
+    @Override
+    public DataSize getOutputDataSize()
+    {
+        return stageExecutions.get(rootStageId).getStageExecution().getStageExecutionInfo().getStats().getOutputDataSize();
+    }
+
     public BasicStageExecutionStats getBasicStageStats()
     {
         List<BasicStageExecutionStats> stageStats = stageExecutions.values().stream()
