@@ -46,6 +46,7 @@ public class VerifierQueryEvent
     private final String name;
 
     private final String status;
+    private final String matchType;
     private final String skippedReason;
 
     private final String determinismAnalysis;
@@ -68,6 +69,7 @@ public class VerifierQueryEvent
             String testId,
             String name,
             EventStatus status,
+            Optional<String> matchType,
             Optional<SkippedReason> skippedReason,
             Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<String> resolveMessage,
@@ -83,6 +85,7 @@ public class VerifierQueryEvent
         this.testId = requireNonNull(testId, "testId is null");
         this.name = requireNonNull(name, "name is null");
         this.status = status.name();
+        this.matchType = matchType.orElse(null);
         this.skippedReason = skippedReason.map(SkippedReason::name).orElse(null);
         this.determinismAnalysis = determinismAnalysisDetails.map(DeterminismAnalysisDetails::getResult).orElse(null);
         this.determinismAnalysisDetails = determinismAnalysisDetails.orElse(null);
@@ -108,19 +111,20 @@ public class VerifierQueryEvent
                 testId,
                 sourceQuery.getName(),
                 SKIPPED,
+                Optional.empty(),
                 Optional.of(skippedReason),
                 Optional.empty(),
                 Optional.empty(),
                 skipControl ?
                         Optional.empty() :
-                        Optional.of(new QueryInfo(
+                        Optional.of(QueryInfo.builder(
                                 sourceQuery.getControlConfiguration().getCatalog(),
                                 sourceQuery.getControlConfiguration().getSchema(),
-                                sourceQuery.getQuery(CONTROL))),
-                new QueryInfo(
+                                sourceQuery.getQuery(CONTROL)).build()),
+                QueryInfo.builder(
                         sourceQuery.getTestConfiguration().getCatalog(),
                         sourceQuery.getTestConfiguration().getSchema(),
-                        sourceQuery.getQuery(TEST)),
+                        sourceQuery.getQuery(TEST)).build(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -150,6 +154,12 @@ public class VerifierQueryEvent
     public String getStatus()
     {
         return status;
+    }
+
+    @EventField
+    public String getMatchType()
+    {
+        return matchType;
     }
 
     @EventField

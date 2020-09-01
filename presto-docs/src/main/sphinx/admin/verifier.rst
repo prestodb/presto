@@ -182,6 +182,17 @@ automatically resolve certain mismatches.
 * **Resolved Functions**: In the case of a results mismatch, if the query uses a function in a
     specified list, the test case is marked as resolved.
 
+Explain Mode
+------------
+In explain mode, Verifier checks whether source queries can be explained instead of whether
+they produces the same results. Verification is marked as succeeded when both control query
+and test query can be explained.
+
+The field ``matchType`` in the output event can be used as an indicator whether there are
+plan differences between the control run and the test run.
+
+For non-DML queries, the control query and the plan comparison are skipped.
+
 Extending Verifier
 ------------------
 
