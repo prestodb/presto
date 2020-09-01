@@ -90,14 +90,14 @@ public class DeterminismAnalyzer
         this.handleLimitQuery = config.isHandleLimitQuery();
     }
 
-    protected DeterminismAnalysisDetails analyze(QueryBundle control, ChecksumResult controlChecksum)
+    protected DeterminismAnalysisDetails analyze(DataQueryBundle control, ChecksumResult controlChecksum)
     {
         DeterminismAnalysisDetails.Builder determinismAnalysisDetails = DeterminismAnalysisDetails.builder();
         DeterminismAnalysis analysis = analyze(control, controlChecksum, determinismAnalysisDetails);
         return determinismAnalysisDetails.build(analysis);
     }
 
-    private DeterminismAnalysis analyze(QueryBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
+    private DeterminismAnalysis analyze(DataQueryBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
     {
         // Handle mutable catalogs
         if (isNonDeterministicCatalogReferenced(control.getQuery())) {
@@ -132,7 +132,7 @@ public class DeterminismAnalyzer
         Map<QueryBundle, DeterminismAnalysisRun.Builder> queryRuns = new HashMap<>();
         try {
             for (int i = 0; i < maxAnalysisRuns; i++) {
-                QueryBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(CONTROL), CONTROL);
+                DataQueryBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(CONTROL), CONTROL);
                 DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getTableName().toString());
                 queryRuns.put(queryBundle, run);
 
