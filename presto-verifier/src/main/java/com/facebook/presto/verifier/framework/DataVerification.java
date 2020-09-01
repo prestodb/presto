@@ -19,6 +19,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
+import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
@@ -37,7 +38,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class DataVerification
-        extends AbstractVerification<DataQueryBundle, DataMatchResult>
+        extends AbstractVerification<DataQueryBundle, DataMatchResult, Void>
 {
     private final QueryRewriter queryRewriter;
     private final DeterminismAnalyzer determinismAnalyzer;
@@ -57,7 +58,7 @@ public class DataVerification
             TypeManager typeManager,
             ChecksumValidator checksumValidator)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, verifierConfig);
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig, verifierConfig.isSkipControl());
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
         this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
@@ -72,7 +73,13 @@ public class DataVerification
     }
 
     @Override
-    public DataMatchResult verify(DataQueryBundle control, DataQueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext)
+    public DataMatchResult verify(
+            DataQueryBundle control,
+            DataQueryBundle test,
+            Optional<QueryResult<Void>> controlQueryResult,
+            Optional<QueryResult<Void>> testQueryResult,
+            ChecksumQueryContext controlContext,
+            ChecksumQueryContext testContext)
     {
         List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getTableName());
         List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getTableName());
@@ -116,5 +123,10 @@ public class DataVerification
             return failureResolverManager.resolveException(controlQueryContext.getMainQueryStats().get(), throwable.get(), test);
         }
         return Optional.empty();
+    }
+
+    @Override
+    protected void updateQueryInfo(QueryInfo.Builder queryInfo, Optional<QueryResult<Void>> voidQueryResult)
+    {
     }
 }
