@@ -20,6 +20,7 @@ import com.facebook.airlift.configuration.LegacyConfig;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Max;
@@ -70,6 +71,7 @@ public class QueryManagerConfig
     private Duration queryMaxCpuTime = new Duration(1_000_000_000, TimeUnit.DAYS);
 
     private DataSize queryMaxScanRawInputBytes = DataSize.succinctDataSize(1000, PETABYTE);
+    private DataSize queryMaxOutputSize = DataSize.succinctDataSize(1000, PETABYTE);
 
     private int requiredWorkers = 1;
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
@@ -400,6 +402,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setQueryMaxScanRawInputBytes(DataSize queryMaxRawInputBytes)
     {
         this.queryMaxScanRawInputBytes = queryMaxRawInputBytes;
+        return this;
+    }
+
+    public DataSize getQueryMaxOutputSize()
+    {
+        return queryMaxOutputSize;
+    }
+
+    @Config("query.max-output-size")
+    @MinDataSize("1B")
+    public QueryManagerConfig setQueryMaxOutputSize(DataSize queryMaxOutputSize)
+    {
+        this.queryMaxOutputSize = queryMaxOutputSize;
         return this;
     }
 

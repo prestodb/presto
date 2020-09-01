@@ -747,6 +747,12 @@ public class SqlQueryScheduler
     }
 
     @Override
+    public DataSize getOutputDataSize()
+    {
+        return getStageInfo().getLatestAttemptExecutionInfo().getStats().getOutputDataSize();
+    }
+
+    @Override
     public BasicStageExecutionStats getBasicStageStats()
     {
         List<BasicStageExecutionStats> stageStats = getAllStagesExecutions()
