@@ -27,7 +27,6 @@ import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
-import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -70,7 +69,6 @@ public abstract class AbstractVerification
 
     private final QueryActions queryActions;
     private final SourceQuery sourceQuery;
-    private final DeterminismAnalyzer determinismAnalyzer;
     private final FailureResolverManager failureResolverManager;
     private final SqlExceptionClassifier exceptionClassifier;
     private final VerificationContext verificationContext;
@@ -86,7 +84,6 @@ public abstract class AbstractVerification
     public AbstractVerification(
             QueryActions queryActions,
             SourceQuery sourceQuery,
-            DeterminismAnalyzer determinismAnalyzer,
             FailureResolverManager failureResolverManager,
             SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
@@ -94,7 +91,6 @@ public abstract class AbstractVerification
     {
         this.queryActions = requireNonNull(queryActions, "queryActions is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
-        this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
         this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
@@ -110,6 +106,8 @@ public abstract class AbstractVerification
     protected abstract QueryBundle getQueryRewrite(ClusterType clusterType);
 
     protected abstract MatchResult verify(QueryBundle control, QueryBundle test, ChecksumQueryContext controlContext, ChecksumQueryContext testContext);
+
+    protected abstract DeterminismAnalysisDetails analyzeDeterminism(QueryBundle control, MatchResult matchResult);
 
     protected PrestoAction getHelperAction()
     {
@@ -138,8 +136,7 @@ public abstract class AbstractVerification
         ChecksumQueryContext controlChecksumQueryContext = new ChecksumQueryContext();
         ChecksumQueryContext testChecksumQueryContext = new ChecksumQueryContext();
         Optional<MatchResult> matchResult = Optional.empty();
-        Optional<DeterminismAnalysis> determinismAnalysis = Optional.empty();
-        DeterminismAnalysisDetails.Builder determinismAnalysisDetails = DeterminismAnalysisDetails.builder();
+        Optional<DeterminismAnalysisDetails> determinismAnalysisDetails = Optional.empty();
 
         Optional<PartialVerificationResult> partialResult = Optional.empty();
         Optional<Throwable> throwable = Optional.empty();
@@ -188,11 +185,11 @@ public abstract class AbstractVerification
 
                 // Determinism analysis
                 if (matchResult.get().isMismatchPossiblyCausedByNonDeterminism()) {
-                    determinismAnalysis = Optional.of(determinismAnalyzer.analyze(control.get(), matchResult.get().getControlChecksum(), determinismAnalysisDetails));
+                    determinismAnalysisDetails = Optional.of(analyzeDeterminism(control.get(), matchResult.get()));
                 }
             }
 
-            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, testQueryContext, matchResult, determinismAnalysis, Optional.empty()));
+            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, testQueryContext, matchResult, determinismAnalysisDetails, Optional.empty()));
         }
         catch (Throwable t) {
             if (exceptionClassifier.shouldResubmit(t)
@@ -200,7 +197,7 @@ public abstract class AbstractVerification
                 return new VerificationResult(this, true, Optional.empty());
             }
             throwable = Optional.of(t);
-            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, testQueryContext, matchResult, determinismAnalysis, Optional.of(t)));
+            partialResult = Optional.of(concludeVerificationPartial(control, test, controlQueryContext, testQueryContext, matchResult, determinismAnalysisDetails, Optional.of(t)));
         }
         finally {
             if (!smartTeardown
@@ -220,10 +217,9 @@ public abstract class AbstractVerification
                 controlQueryContext,
                 testQueryContext,
                 matchResult,
-                determinismAnalysis,
                 controlChecksumQueryContext,
                 testChecksumQueryContext,
-                determinismAnalysisDetails.build(),
+                determinismAnalysisDetails,
                 throwable);
     }
 
@@ -270,10 +266,10 @@ public abstract class AbstractVerification
             QueryContext controlQueryContext,
             QueryContext testQueryContext,
             Optional<MatchResult> matchResult,
-            Optional<DeterminismAnalysis> determinismAnalysis,
+            Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<Throwable> throwable)
     {
-        Optional<SkippedReason> skippedReason = getSkippedReason(throwable, controlQueryContext.getState(), determinismAnalysis);
+        Optional<SkippedReason> skippedReason = getSkippedReason(throwable, controlQueryContext.getState(), determinismAnalysisDetails.map(DeterminismAnalysisDetails::getDeterminismAnalysis));
         Optional<String> resolveMessage = resolveFailure(control, test, controlQueryContext, matchResult, throwable);
         EventStatus status = getEventStatus(skippedReason, resolveMessage, matchResult, testQueryContext);
         return new PartialVerificationResult(skippedReason, resolveMessage, status);
@@ -286,10 +282,9 @@ public abstract class AbstractVerification
             QueryContext controlQueryContext,
             QueryContext testQueryContext,
             Optional<MatchResult> matchResult,
-            Optional<DeterminismAnalysis> determinismAnalysis,
             ChecksumQueryContext controlChecksumQueryContext,
             ChecksumQueryContext testChecksumQueryContext,
-            DeterminismAnalysisDetails determinismAnalysisDetails,
+            Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<Throwable> throwable)
     {
         Optional<String> errorCode = Optional.empty();
@@ -308,10 +303,7 @@ public abstract class AbstractVerification
                 sourceQuery.getName(),
                 partialResult.getStatus(),
                 partialResult.getSkippedReason(),
-                determinismAnalysis,
-                determinismAnalysis.isPresent() ?
-                        Optional.of(determinismAnalysisDetails) :
-                        Optional.empty(),
+                determinismAnalysisDetails,
                 partialResult.getResolveMessage(),
                 skipControl ?
                         Optional.empty() :
