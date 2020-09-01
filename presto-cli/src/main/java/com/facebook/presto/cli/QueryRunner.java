@@ -33,6 +33,7 @@ import static com.facebook.presto.client.OkHttpUtil.setupCookieJar;
 import static com.facebook.presto.client.OkHttpUtil.setupGCSOauth;
 import static com.facebook.presto.client.OkHttpUtil.setupHttpProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupKerberos;
+import static com.facebook.presto.client.OkHttpUtil.setupProxyAuthenticator;
 import static com.facebook.presto.client.OkHttpUtil.setupSocksProxy;
 import static com.facebook.presto.client.OkHttpUtil.setupSsl;
 import static com.facebook.presto.client.OkHttpUtil.setupTimeouts;
@@ -82,6 +83,9 @@ public class QueryRunner
         setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         setupHttpProxy(builder, httpProxy);
+        setupProxyAuthenticator(builder,
+                Optional.ofNullable(System.getProperty("http.proxyUser")),
+                Optional.ofNullable(System.getProperty("http.proxyPassword")));
         setupBasicAuth(builder, session, user, password);
         setupTokenAuth(builder, session, accessToken);
 
