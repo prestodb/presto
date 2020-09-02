@@ -14,6 +14,7 @@
 package com.facebook.presto.orc;
 
 import com.facebook.presto.common.InvalidFunctionArgumentException;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
@@ -30,6 +31,7 @@ import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.BytesValues;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.google.common.base.Strings;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
@@ -51,10 +53,12 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.CharType.createCharType;
@@ -67,11 +71,16 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
+import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcTester.arrayType;
+import static com.facebook.presto.orc.OrcTester.createCustomOrcSelectiveRecordReader;
 import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.OrcTester.quickSelectiveOrcTester;
 import static com.facebook.presto.orc.OrcTester.rowType;
+import static com.facebook.presto.orc.OrcTester.writeOrcColumnsPresto;
+import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.TupleDomainFilterUtils.toBigintValues;
@@ -892,6 +901,71 @@ public class TestSelectiveOrcReader
                         .map(SqlVarbinary::new)
                         .collect(toImmutableList()),
                 bytesBetween(false, new byte[] {1}, new byte[] {12}));
+    }
+
+    @Test
+    public void testMemoryTracking()
+            throws Exception
+    {
+        List<Type> types = ImmutableList.of(INTEGER, VARCHAR);
+        TempFile tempFile = new TempFile();
+        List<Integer> intValues = newArrayList(limit(
+                cycle(concat(
+                        ImmutableList.of(1), nCopies(9999, 123),
+                        ImmutableList.of(2), nCopies(9999, 123),
+                        ImmutableList.of(3), nCopies(9999, 123),
+                        nCopies(1_000_000, null))),
+                NUM_ROWS));
+        List<String> varcharValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
+
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, CompressionKind.NONE, Optional.empty(), types, ImmutableList.of(intValues, varcharValues), new OrcWriterStats());
+
+        OrcPredicate orcPredicate = createOrcPredicate(types, ImmutableList.of(intValues, varcharValues), DWRF, false);
+        Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableMap(Function.identity(), types::get));
+        List<Integer> outputColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableList());
+        OrcAggregatedMemoryContext systemMemoryUsage = new TestingHiveOrcAggregatedMemoryContext();
+        try (OrcSelectiveRecordReader recordReader = createCustomOrcSelectiveRecordReader(
+                tempFile.getFile(),
+                DWRF.getOrcEncoding(),
+                orcPredicate,
+                types,
+                MAX_BATCH_SIZE,
+                ImmutableMap.of(),
+                OrcReaderSettings.builder().build().getFilterFunctions(),
+                OrcReaderSettings.builder().build().getFilterFunctionInputMapping(),
+                OrcReaderSettings.builder().build().getRequiredSubfields(),
+                ImmutableMap.of(),
+                includedColumns,
+                outputColumns,
+                false,
+                systemMemoryUsage)) {
+            assertEquals(recordReader.getReaderPosition(), 0);
+            assertEquals(recordReader.getFilePosition(), 0);
+
+            int rowsProcessed = 0;
+            while (true) {
+                Page page = recordReader.getNextPage();
+                if (page == null) {
+                    break;
+                }
+
+                int positionCount = page.getPositionCount();
+                if (positionCount == 0) {
+                    continue;
+                }
+
+                page.getLoadedPage();
+
+                assertBetweenInclusive(systemMemoryUsage.getBytes(), 110000L, 130000L);
+
+                rowsProcessed += positionCount;
+            }
+            assertEquals(rowsProcessed, NUM_ROWS);
+        }
     }
 
     private void testRoundTripNumeric(Iterable<? extends Number> values, TupleDomainFilter filter)
