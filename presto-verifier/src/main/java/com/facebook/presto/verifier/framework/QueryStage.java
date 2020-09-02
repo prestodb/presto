@@ -34,7 +34,10 @@ public enum QueryStage
     DESCRIBE(CONTROL),
     DETERMINISM_ANALYSIS_SETUP(CONTROL),
     DETERMINISM_ANALYSIS_MAIN(CONTROL),
-    DETERMINISM_ANALYSIS_CHECKSUM(CONTROL);
+    DETERMINISM_ANALYSIS_CHECKSUM(CONTROL),
+
+    // Running Presto query to fetch the source queries to be verified
+    SOURCE(CONTROL);
 
     private final ClusterType targetCluster;
 
