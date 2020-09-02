@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.jdbc.PrestoConnection;
 import com.facebook.presto.jdbc.PrestoStatement;
 import com.facebook.presto.jdbc.QueryStats;
@@ -49,6 +50,7 @@ public class JdbcPrestoAction
         implements PrestoAction
 {
     public static final String QUERY_ACTION_TYPE = "presto-jdbc";
+    private static final Logger log = Logger.get(JdbcPrestoAction.class);
 
     private final SqlExceptionClassifier exceptionClassifier;
     private final QueryConfiguration queryConfiguration;
@@ -194,6 +196,9 @@ public class JdbcPrestoAction
         @Override
         public synchronized void accept(QueryStats queryStats)
         {
+            if (!this.queryStats.isPresent()) {
+                log.debug("Running Presto Query: %s", queryStats.getQueryId());
+            }
             this.queryStats = Optional.of(requireNonNull(queryStats, "queryStats is null"));
         }
 
