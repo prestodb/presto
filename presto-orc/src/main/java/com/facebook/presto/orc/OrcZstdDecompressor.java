@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.orc;
 
-import com.github.luben.zstd.Zstd;
+import com.facebook.presto.orc.zstd.ZstdJniDecompressor;
+import io.airlift.compress.Decompressor;
 import io.airlift.compress.MalformedInputException;
 import io.airlift.compress.zstd.ZstdDecompressor;
 
@@ -32,18 +33,10 @@ class OrcZstdDecompressor
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSourceId is null");
         this.maxBufferSize = maxBufferSize;
         if (zstdJniDecompressionEnabled) {
-            this.decompressor = (input, inputOffset, inputLength, output, outputOffset, maxOutputLength) -> {
-                long size = Zstd.decompressByteArray(output, 0, maxOutputLength, input, inputOffset, inputLength);
-                if (Zstd.isError(size)) {
-                    String errorName = Zstd.getErrorName(size);
-                    throw new MalformedInputException(inputOffset, "Zstd JNI decompressor failed with " + errorName);
-                }
-                return toIntExact(size);
-            };
+            this.decompressor = new ZstdJniDecompressor();
         }
         else {
-            ZstdDecompressor zstdDecompressor = new ZstdDecompressor();
-            this.decompressor = zstdDecompressor::decompress;
+            this.decompressor = new ZstdDecompressor();
         }
     }
 
@@ -69,11 +62,5 @@ class OrcZstdDecompressor
     public String toString()
     {
         return "zstd";
-    }
-
-    interface Decompressor
-    {
-        int decompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength)
-                throws MalformedInputException;
     }
 }
