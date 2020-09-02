@@ -108,9 +108,9 @@ public abstract class AbstractTestVerifierIntegrationSmokeTest
         humanReadableLogFile = Paths.get(configDirectory.getAbsolutePath(), "human-readable.log").toFile();
         Map<String, String> configurationProperties = ImmutableMap.<String, String>builder()
                 .put("test-id", TEST_ID)
-                .put("control.host", host)
+                .put("control.hosts", format("%s,%s", host, host))
                 .put("control.jdbc-port", String.valueOf(port))
-                .put("test.host", host)
+                .put("test.hosts", host)
                 .put("test.jdbc-port", String.valueOf(port))
                 .put("test.http-port", String.valueOf(port))
                 .put("control.table-prefix", "local.tmp_verifier_c")

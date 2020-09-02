@@ -256,7 +256,7 @@ Counterparts are also available for test clusters with prefix ``control`` being 
 =========================================== ===============================================================================
 Name                                        Description
 =========================================== ===============================================================================
-``control.host``                            Host of the control cluster.
+``control.hosts``                           Comma-separated list of the control cluster hostnames or IP addresses.
 ``control.jdbc-port``                       JDBC port of the control cluster.
 ``control.http-host``                       HTTP port of the control cluster.
 ``control.jdbc-url-parameters``             A ``JSON`` map representing the additional URL parameters for control JDBC.
