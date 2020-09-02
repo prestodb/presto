@@ -891,7 +891,8 @@ public class OrcTester
                 intermediateEncryptionKeys,
                 includedColumns,
                 outputColumns,
-                false)) {
+                false,
+                new TestingHiveOrcAggregatedMemoryContext())) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
 
@@ -1554,7 +1555,8 @@ public class OrcTester
                 ImmutableMap.of(),
                 ImmutableMap.of(0, type),
                 ImmutableList.of(0),
-                mapNullKeysEnabled);
+                mapNullKeysEnabled,
+                new TestingHiveOrcAggregatedMemoryContext());
     }
 
     public static OrcSelectiveRecordReader createCustomOrcSelectiveRecordReader(
@@ -1570,7 +1572,8 @@ public class OrcTester
             Map<Integer, Slice> intermediateEncryptionKeys,
             Map<Integer, Type> includedColumns,
             List<Integer> outputColumns,
-            boolean mapNullKeysEnabled)
+            boolean mapNullKeysEnabled,
+            OrcAggregatedMemoryContext systemMemoryUsage)
             throws IOException
     {
         OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
@@ -1607,7 +1610,7 @@ public class OrcTester
                 orcDataSource.getSize(),
                 HIVE_STORAGE_TIME_ZONE,
                 LEGACY_MAP_SUBSCRIPT,
-                new TestingHiveOrcAggregatedMemoryContext(),
+                systemMemoryUsage,
                 Optional.empty(),
                 initialBatchSize,
                 intermediateEncryptionKeys);
