@@ -82,7 +82,7 @@ public class TestJdbcPrestoAction
                 CONFIGURATION,
                 verificationContext,
                 new PrestoActionConfig()
-                        .setHost(queryRunner.getServer().getAddress().getHost())
+                        .setHosts(queryRunner.getServer().getAddress().getHost())
                         .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
                 queryActionsConfig.getMetadataTimeout(),
                 queryActionsConfig.getChecksumTimeout(),

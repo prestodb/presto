@@ -14,16 +14,18 @@
 package com.facebook.presto.verifier.prestoaction;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
 public interface PrestoAddress
 {
-    String getHost();
+    List<String> getHosts();
 
     int getJdbcPort();
 
@@ -31,17 +33,21 @@ public interface PrestoAddress
 
     Map<String, String> getJdbcUrlParameters();
 
-    default String getJdbcUrl()
+    default List<String> getJdbcUrls()
     {
         String query = getJdbcUrlParameters().entrySet().stream()
                 .map(entry -> format("%s=%s", entry.getKey(), entry.getValue()))
                 .collect(joining("&"));
-        return format("jdbc:presto://%s:%s?%s", getHost(), getJdbcPort(), query);
+        return getHosts().stream()
+                .map(host -> format("jdbc:presto://%s:%s?%s", host, getJdbcPort(), query))
+                .collect(toImmutableList());
     }
 
-    default URI getHttpUri(String path)
+    default List<URI> getHttpUris(String path)
     {
         checkState(getHttpPort().isPresent(), "httpPort is not present");
-        return URI.create(format("http://%s:%s", getHost(), getHttpPort().get())).resolve(path);
+        return getHosts().stream()
+                .map(host -> URI.create(format("http://%s:%s", host, getHttpPort().get())).resolve(path))
+                .collect(toImmutableList());
     }
 }

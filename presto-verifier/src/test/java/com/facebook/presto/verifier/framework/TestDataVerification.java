@@ -120,7 +120,7 @@ public class TestDataVerification
                     sourceQuery.getControlConfiguration(),
                     verificationContext,
                     new PrestoActionConfig()
-                            .setHost(queryRunner.getServer().getAddress().getHost())
+                            .setHosts(queryRunner.getServer().getAddress().getHost())
                             .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
                     queryActionsConfig.getMetadataTimeout(),
                     queryActionsConfig.getChecksumTimeout(),

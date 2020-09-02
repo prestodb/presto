@@ -80,7 +80,7 @@ public class TestQueryRewriter
                 CONFIGURATION,
                 VerificationContext.create(SUITE, NAME),
                 new PrestoActionConfig()
-                        .setHost(queryRunner.getServer().getAddress().getHost())
+                        .setHosts(queryRunner.getServer().getAddress().getHost())
                         .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
                 new QueryActionsConfig().getMetadataTimeout(),
                 new QueryActionsConfig().getChecksumTimeout(),
