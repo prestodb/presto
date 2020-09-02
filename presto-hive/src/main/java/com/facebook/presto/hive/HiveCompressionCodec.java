@@ -33,7 +33,7 @@ public enum HiveCompressionCodec
     SNAPPY(SnappyCodec.class, CompressionKind.SNAPPY, CompressionCodecName.SNAPPY, f -> true),
     GZIP(GzipCodec.class, CompressionKind.ZLIB, CompressionCodecName.GZIP, f -> true),
     LZ4(null, CompressionKind.NONE, null, f -> f == PAGEFILE),
-    ZSTD(null, CompressionKind.ZSTD, null, f -> f == ORC || f == DWRF);
+    ZSTD(null, CompressionKind.ZSTD, null, f -> f == ORC || f == DWRF || f == PAGEFILE);
 
     private final Optional<Class<? extends CompressionCodec>> codec;
     private final CompressionKind orcCompressionKind;
