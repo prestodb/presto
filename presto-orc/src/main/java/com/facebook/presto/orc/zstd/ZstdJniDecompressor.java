@@ -14,35 +14,31 @@
 package com.facebook.presto.orc.zstd;
 
 import com.github.luben.zstd.Zstd;
-import io.airlift.compress.Compressor;
+import io.airlift.compress.Decompressor;
+import io.airlift.compress.MalformedInputException;
 
 import java.nio.ByteBuffer;
 
-import static java.lang.Math.toIntExact;
+import static java.lang.StrictMath.toIntExact;
 
-public class ZstdJniCompressor
-        implements Compressor
+public class ZstdJniDecompressor
+        implements Decompressor
 {
-    private static final int COMPRESSION_LEVEL = 3; // default level
-
     @Override
-    public int maxCompressedLength(int uncompressedSize)
+    public int decompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength)
+            throws MalformedInputException
     {
-        return toIntExact(Zstd.compressBound(uncompressedSize));
-    }
-
-    @Override
-    public int compress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength)
-    {
-        long size = Zstd.compressByteArray(output, outputOffset, maxOutputLength, input, inputOffset, inputLength, COMPRESSION_LEVEL);
+        long size = Zstd.decompressByteArray(output, 0, maxOutputLength, input, inputOffset, inputLength);
         if (Zstd.isError(size)) {
-            throw new RuntimeException(Zstd.getErrorName(size));
+            String errorName = Zstd.getErrorName(size);
+            throw new MalformedInputException(inputOffset, "Zstd JNI decompressor failed with " + errorName);
         }
         return toIntExact(size);
     }
 
     @Override
-    public void compress(ByteBuffer input, ByteBuffer output)
+    public void decompress(ByteBuffer input, ByteBuffer output)
+            throws MalformedInputException
     {
         if (input.isDirect() || output.isDirect() || !input.hasArray() || !output.hasArray()) {
             throw new IllegalArgumentException("Non-direct byte buffer backed by byte array required");
@@ -50,7 +46,7 @@ public class ZstdJniCompressor
         int inputOffset = input.arrayOffset() + input.position();
         int outputOffset = output.arrayOffset() + output.position();
 
-        int written = compress(input.array(), inputOffset, input.remaining(), output.array(), outputOffset, output.remaining());
+        int written = decompress(input.array(), inputOffset, input.remaining(), output.array(), outputOffset, output.remaining());
         output.position(output.position() + written);
     }
 }
