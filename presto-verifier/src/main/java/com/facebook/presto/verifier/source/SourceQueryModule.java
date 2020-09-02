@@ -22,18 +22,21 @@ import java.util.Set;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.verifier.source.MySqlSourceQuerySupplier.MYSQL_SOURCE_QUERY_SUPPLIER;
+import static com.facebook.presto.verifier.source.PrestoQuerySourceQuerySupplier.PRESTO_QUERY_SOURCE_QUERY_SUPPLIER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.Scopes.SINGLETON;
 
 public class SourceQueryModule
         extends AbstractConfigurationAwareModule
 {
+    private static final String SOURCE_QUERY_CONFIG_PREFIX = "source-query";
     private final Set<String> supportedSourceQuerySupplierTypes;
 
     public SourceQueryModule(Set<String> customSourceQuerySupplierTypes)
     {
         this.supportedSourceQuerySupplierTypes = ImmutableSet.<String>builder()
                 .add(MYSQL_SOURCE_QUERY_SUPPLIER)
+                .add(PRESTO_QUERY_SOURCE_QUERY_SUPPLIER)
                 .addAll(customSourceQuerySupplierTypes)
                 .build();
     }
@@ -45,8 +48,13 @@ public class SourceQueryModule
         checkArgument(supportedSourceQuerySupplierTypes.contains(sourceQuerySupplierType), "Unsupported SourceQuerySupplier: %s", sourceQuerySupplierType);
 
         if (MYSQL_SOURCE_QUERY_SUPPLIER.equals(sourceQuerySupplierType)) {
-            configBinder(binder).bindConfig(MySqlSourceQueryConfig.class, "source-query");
+            configBinder(binder).bindConfig(MySqlSourceQueryConfig.class, SOURCE_QUERY_CONFIG_PREFIX);
             binder.bind(SourceQuerySupplier.class).to(MySqlSourceQuerySupplier.class).in(SINGLETON);
+        }
+
+        if (PRESTO_QUERY_SOURCE_QUERY_SUPPLIER.equals(sourceQuerySupplierType)) {
+            configBinder(binder).bindConfig(PrestoQuerySourceQueryConfig.class, SOURCE_QUERY_CONFIG_PREFIX);
+            binder.bind(SourceQuerySupplier.class).to(PrestoQuerySourceQuerySupplier.class).in(SINGLETON);
         }
     }
 }
