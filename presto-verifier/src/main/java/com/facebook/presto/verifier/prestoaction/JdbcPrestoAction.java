@@ -36,6 +36,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLClientInfoException;
 import java.sql.SQLException;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -43,6 +44,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.verifier.prestoaction.QueryActionUtil.mangleSessionProperties;
+import static com.google.common.collect.Iterators.cycle;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcPrestoAction
@@ -54,7 +56,7 @@ public class JdbcPrestoAction
     private final QueryConfiguration queryConfiguration;
     private final VerificationContext verificationContext;
 
-    private final String jdbcUrl;
+    private final Iterator<String> jdbcUrls;
     private final Duration queryTimeout;
     private final Duration metadataTimeout;
     private final Duration checksumTimeout;
@@ -79,7 +81,7 @@ public class JdbcPrestoAction
         this.queryConfiguration = requireNonNull(queryConfiguration, "queryConfiguration is null");
         this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
 
-        this.jdbcUrl = requireNonNull(prestoActionConfig.getJdbcUrl(), "jdbcUrl is null");
+        this.jdbcUrls = requireNonNull(cycle(prestoActionConfig.getJdbcUrls()), "jdbcUrls is null");
         this.queryTimeout = requireNonNull(prestoActionConfig.getQueryTimeout(), "queryTimeout is null");
         this.metadataTimeout = requireNonNull(metadataTimeout, "metadataTimeout is null");
         this.checksumTimeout = requireNonNull(checksumTimeout, "checksumTimeout is null");
@@ -144,7 +146,7 @@ public class JdbcPrestoAction
             throws SQLException
     {
         PrestoConnection connection = DriverManager.getConnection(
-                jdbcUrl,
+                jdbcUrls.next(),
                 queryConfiguration.getUsername().orElse(null),
                 queryConfiguration.getPassword().orElse(null))
                 .unwrap(PrestoConnection.class);

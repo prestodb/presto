@@ -14,8 +14,11 @@
 package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -25,6 +28,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -33,7 +37,9 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class PrestoActionConfig
         implements PrestoAddress
 {
-    private String host;
+    private static final Splitter HOST_SPLITTER = Splitter.on(",");
+
+    private List<String> hosts = ImmutableList.of();
     private int jdbcPort;
     private Optional<Integer> httpPort = Optional.empty();
     private Map<String, String> jdbcUrlParameters = ImmutableMap.of();
@@ -41,15 +47,18 @@ public class PrestoActionConfig
 
     @Override
     @NotNull
-    public String getHost()
+    public List<String> getHosts()
     {
-        return host;
+        return hosts;
     }
 
-    @Config("host")
-    public PrestoActionConfig setHost(String host)
+    @Config("hosts")
+    @ConfigDescription("Comma-separated list of the cluster hostnames or IP addresses.")
+    public PrestoActionConfig setHosts(String hosts)
     {
-        this.host = host;
+        if (hosts != null) {
+            this.hosts = ImmutableList.copyOf(HOST_SPLITTER.splitToList(hosts));
+        }
         return this;
     }
 

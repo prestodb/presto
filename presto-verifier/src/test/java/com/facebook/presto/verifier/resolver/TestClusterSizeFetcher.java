@@ -33,7 +33,7 @@ public class TestClusterSizeFetcher
         client = new ClusterSizeFetcher(
                 new JettyHttpClient(),
                 new PrestoActionConfig()
-                        .setHost(server.getAddress().getHost())
+                        .setHosts(server.getAddress().getHost())
                         .setHttpPort(server.getAddress().getPort()),
                 new RetryConfig());
     }
