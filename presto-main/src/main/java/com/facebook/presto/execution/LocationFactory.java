@@ -24,6 +24,8 @@ public interface LocationFactory
 
     URI createQueryLocation(InternalNode node, QueryId queryId);
 
+    URI createRemoteExecutingStatementLocation(InternalNode node, QueryId queryId, String slug);
+
     URI createStageLocation(StageId stageId);
 
     URI createLocalTaskLocation(TaskId taskId);

@@ -78,6 +78,7 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.UseTask;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
+import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.AllAtOnceExecutionPolicy;
 import com.facebook.presto.execution.scheduler.ExecutionPolicy;
@@ -184,11 +185,23 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class CoordinatorModule
         extends AbstractConfigurationAwareModule
 {
+    private final boolean resourceManagerEnabled;
+
+    public CoordinatorModule(boolean resourceManagerEnabled)
+    {
+        this.resourceManagerEnabled = resourceManagerEnabled;
+    }
+
     @Override
     protected void setup(Binder binder)
     {
-        httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html");
-        httpServerBinder(binder).bindResource("/tableau", "webapp/tableau");
+        if (!resourceManagerEnabled) {
+            httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html");
+            httpServerBinder(binder).bindResource("/tableau", "webapp/tableau");
+
+            // resource for serving static content
+            jaxrsBinder(binder).bind(WebUiResource.class);
+        }
 
         // discovery server
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
@@ -205,9 +218,6 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(ExecutingStatementResource.class);
         binder.bind(StatementHttpExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(StatementHttpExecutionMBean.class).withGeneratedName();
-
-        // resource for serving static content
-        jaxrsBinder(binder).bind(WebUiResource.class);
 
         // failure detector
         binder.install(new FailureDetectorModule());
@@ -230,9 +240,14 @@ public class CoordinatorModule
         newExporter(binder).export(QueryManager.class).withGeneratedName();
         binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
         binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
-        binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
-        binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
+        if (resourceManagerEnabled) {
+            binder.bind(ResourceGroupManager.class).to(NoOpResourceGroupManager.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);
+            newExporter(binder).export(InternalResourceGroupManager.class).withGeneratedName();
+            binder.bind(ResourceGroupManager.class).to(InternalResourceGroupManager.class);
+        }
         binder.bind(LegacyResourceGroupConfigurationManager.class).in(Scopes.SINGLETON);
 
         binder.bind(QueryProvider.class).to(LocalQueryProvider.class).in(Scopes.SINGLETON);
@@ -246,6 +261,7 @@ public class CoordinatorModule
         binder.bind(DispatchQueryFactory.class).to(LocalDispatchQueryFactory.class);
 
         // cluster memory manager
+        // TIM: TODO: this needs to be distributed
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(ClusterMemoryPoolManager.class).to(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("memoryManager", ForMemoryManager.class)

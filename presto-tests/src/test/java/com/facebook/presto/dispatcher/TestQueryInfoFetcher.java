@@ -313,6 +313,12 @@ public class TestQueryInfoFetcher
         }
 
         @Override
+        public URI createRemoteExecutingStatementLocation(InternalNode node, QueryId queryId, String slug)
+        {
+            return null;
+        }
+
+        @Override
         public URI createStageLocation(StageId stageId)
         {
             return null;

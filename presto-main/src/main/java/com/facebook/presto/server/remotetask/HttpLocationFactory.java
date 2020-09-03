@@ -73,6 +73,17 @@ public class HttpLocationFactory
     }
 
     @Override
+    public URI createRemoteExecutingStatementLocation(InternalNode node, QueryId queryId, String slug)
+    {
+        requireNonNull(queryId, "queryId is null");
+        return uriBuilderFrom(node.getInternalUri())
+                .appendPath("/v1/statement/executing")
+                .appendPath(queryId.toString())
+                .addParameter("slug", slug)
+                .build();
+    }
+
+    @Override
     public URI createStageLocation(StageId stageId)
     {
         requireNonNull(stageId, "stageId is null");

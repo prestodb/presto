@@ -34,6 +34,7 @@ import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
+import com.facebook.presto.dispatcher.NoopQueryManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -41,6 +42,7 @@ import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -60,6 +62,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.eventlistener.EventListener;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -116,7 +119,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
 import static java.util.Objects.requireNonNull;
@@ -145,17 +147,18 @@ public class TestingPrestoServer
     private final PageSourceManager pageSourceManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final ConnectorPlanOptimizerManager planOptimizerManager;
-    private final ClusterMemoryManager clusterMemoryManager;
+    private final ClusterMemoryPoolManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
     private final InternalNodeManager nodeManager;
     private final ServiceSelectorManager serviceSelectorManager;
     private final Announcer announcer;
     private final DispatchManager dispatchManager;
-    private final SqlQueryManager queryManager;
+    private final QueryManager queryManager;
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final RequestBlocker requestBlocker;
+    private final boolean resourceManager;
     private final boolean coordinator;
 
     public static class TestShutdownAction
@@ -219,22 +222,46 @@ public class TestingPrestoServer
             Optional<Path> baseDataDir)
             throws Exception
     {
+        this(false, false, coordinator, properties, environment, discoveryUri, parserOptions, additionalModules, baseDataDir);
+    }
+
+    public TestingPrestoServer(
+            boolean resourceManager,
+            boolean resourceManagerEnabled,
+            boolean coordinator,
+            Map<String, String> properties,
+            String environment,
+            URI discoveryUri,
+            SqlParserOptions parserOptions,
+            List<Module> additionalModules,
+            Optional<Path> baseDataDir)
+            throws Exception
+    {
+        this.resourceManager = resourceManager;
         this.coordinator = coordinator;
 
         this.baseDataDir = baseDataDir.orElseGet(TestingPrestoServer::tempDirectory);
         this.preserveData = baseDataDir.isPresent();
 
         properties = new HashMap<>(properties);
-        String coordinatorPort = properties.remove("http-server.http.port");
-        if (coordinatorPort == null) {
-            coordinatorPort = "0";
+        int coordinatorPort = 0;
+        String coordinatorPortString = properties.remove("http-server.http.port");
+        if (coordinatorPortString != null) {
+            coordinatorPort = Integer.parseInt(coordinatorPortString);
         }
 
-        Map<String, String> serverProperties = getServerProperties(coordinator, properties, environment, discoveryUri);
+        Map<String, String> serverProperties = getServerProperties(coordinator, resourceManagerEnabled, properties, environment, discoveryUri);
 
+        int port = 0;
+        if (resourceManager) {
+            port = coordinatorPort;
+        }
+        else if (coordinator && !resourceManagerEnabled) {
+            port = coordinatorPort;
+        }
         ImmutableList.Builder<Module> modules = ImmutableList.<Module>builder()
                 .add(new TestingNodeModule(Optional.ofNullable(environment)))
-                .add(new TestingHttpServerModule(parseInt(coordinator ? coordinatorPort : "0")))
+                .add(new TestingHttpServerModule(port))
                 .add(new JsonModule())
                 .add(installModuleIf(
                         FeaturesConfig.class,
@@ -308,11 +335,22 @@ public class TestingPrestoServer
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = (SqlQueryManager) injector.getInstance(QueryManager.class);
-            resourceGroupManager = Optional.of(injector.getInstance(InternalResourceGroupManager.class));
+            ResourceGroupManager<?> rm = injector.getInstance(ResourceGroupManager.class);
+            resourceGroupManager = rm instanceof InternalResourceGroupManager ? Optional.of((InternalResourceGroupManager<?>) rm) : Optional.empty();
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             planOptimizerManager = injector.getInstance(ConnectorPlanOptimizerManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
+            eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
+        }
+        else if (resourceManager) {
+            dispatchManager = injector.getInstance(DispatchManager.class);
+            queryManager = (NoopQueryManager) injector.getInstance(QueryManager.class);
+            resourceGroupManager = Optional.of(injector.getInstance(InternalResourceGroupManager.class));
+            nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
+            planOptimizerManager = injector.getInstance(ConnectorPlanOptimizerManager.class);
+            clusterMemoryManager = injector.getInstance(ClusterMemoryPoolManager.class);
+            statsCalculator = null;
             eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
         }
         else {
@@ -344,10 +382,12 @@ public class TestingPrestoServer
         refreshNodes();
     }
 
-    private Map<String, String> getServerProperties(boolean coordinator, Map<String, String> properties, String environment, URI discoveryUri)
+    private Map<String, String> getServerProperties(boolean coordinator, boolean resourceManagerEnabled, Map<String, String> properties, String environment, URI discoveryUri)
     {
         Map<String, String> serverProperties = new HashMap<>();
         serverProperties.put("coordinator", String.valueOf(coordinator));
+        serverProperties.put("resource-manager", String.valueOf(resourceManager));
+        serverProperties.put("resource-manager-enabled", String.valueOf(resourceManagerEnabled));
         serverProperties.put("presto.version", "testversion");
         serverProperties.put("task.concurrency", "4");
         serverProperties.put("task.max-worker-threads", "4");
@@ -404,12 +444,18 @@ public class TestingPrestoServer
 
     public Plan getQueryPlan(QueryId queryId)
     {
-        return queryManager.getQueryPlan(queryId);
+        // TODO: get this to work without type cast
+        checkState(coordinator, "not a coordinator");
+        checkState(queryManager instanceof SqlQueryManager);
+        return ((SqlQueryManager) queryManager).getQueryPlan(queryId);
     }
 
     public void addFinalQueryInfoListener(QueryId queryId, StateChangeListener<QueryInfo> stateChangeListener)
     {
-        queryManager.addFinalQueryInfoListener(queryId, stateChangeListener);
+        // TODO: get this to work without type cast
+        checkState(coordinator, "not a coordinator");
+        checkState(queryManager instanceof SqlQueryManager);
+        ((SqlQueryManager) queryManager).addFinalQueryInfoListener(queryId, stateChangeListener);
     }
 
     public ConnectorId createCatalog(String catalogName, String connectorName)
@@ -525,7 +571,8 @@ public class TestingPrestoServer
     public ClusterMemoryManager getClusterMemoryManager()
     {
         checkState(coordinator, "not a coordinator");
-        return clusterMemoryManager;
+        checkState(clusterMemoryManager instanceof ClusterMemoryManager);
+        return (ClusterMemoryManager) clusterMemoryManager;
     }
 
     public GracefulShutdownHandler getGracefulShutdownHandler()
