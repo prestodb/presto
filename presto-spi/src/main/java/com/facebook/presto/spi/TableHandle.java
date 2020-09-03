@@ -122,7 +122,7 @@ public final class TableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, connectorHandle, transaction, layout);
+        return Objects.hash(connectorId, connectorHandle, transaction, layout.isPresent());
     }
 
     @Override
