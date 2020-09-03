@@ -29,6 +29,7 @@ public final class TpchQueryRunner
     {
         return TpchQueryRunnerBuilder.builder()
                 .setExtraProperties(extraProperties)
+                .setResourceManagerEnabled(true)
                 .build();
     }
 
