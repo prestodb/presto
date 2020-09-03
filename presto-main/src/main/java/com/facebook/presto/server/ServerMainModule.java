@@ -233,7 +233,7 @@ public class ServerMainModule
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
         if (serverConfig.isResourceManager()) {
-            // No op
+            install(new ResourceManagerModule());
         }
         else if (serverConfig.isCoordinator()) {
             install(new CoordinatorModule());
