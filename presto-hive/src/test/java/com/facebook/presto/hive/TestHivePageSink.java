@@ -30,7 +30,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -65,6 +64,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.hive.AbstractTestHiveClient.TEST_HIVE_PAGE_SINK_CONTEXT;
 import static com.facebook.presto.hive.CacheQuotaRequirement.NO_CACHE_REQUIREMENT;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
@@ -311,7 +311,7 @@ public class TestHivePageSink
                 new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()),
                 stats,
                 getDefaultOrcFileWriterFactory(config, metastoreClientConfig));
-        return provider.createPageSink(transaction, getSession(config), handle, PageSinkContext.defaultContext());
+        return provider.createPageSink(transaction, getSession(config), handle, TEST_HIVE_PAGE_SINK_CONTEXT);
     }
 
     private static TestingConnectorSession getSession(HiveClientConfig config)

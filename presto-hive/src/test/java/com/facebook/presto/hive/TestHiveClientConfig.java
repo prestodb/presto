@@ -140,7 +140,8 @@ public class TestHiveClientConfig
                 .setParquetBatchReadOptimizationEnabled(false)
                 .setBucketFunctionTypeForExchange(HIVE_COMPATIBLE)
                 .setParquetDereferencePushdownEnabled(false)
-                .setIgnoreUnreadablePartition(false));
+                .setIgnoreUnreadablePartition(false)
+                .setMaxMetadataUpdaterThreads(100));
     }
 
     @Test
@@ -242,6 +243,7 @@ public class TestHiveClientConfig
                 .put("hive.bucket-function-type-for-exchange", "PRESTO_NATIVE")
                 .put("hive.enable-parquet-dereference-pushdown", "true")
                 .put("hive.ignore-unreadable-partition", "true")
+                .put("hive.max-metadata-updater-threads", "1000")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -340,7 +342,8 @@ public class TestHiveClientConfig
                 .setParquetBatchReadOptimizationEnabled(true)
                 .setBucketFunctionTypeForExchange(PRESTO_NATIVE)
                 .setParquetDereferencePushdownEnabled(true)
-                .setIgnoreUnreadablePartition(true);
+                .setIgnoreUnreadablePartition(true)
+                .setMaxMetadataUpdaterThreads(1000);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

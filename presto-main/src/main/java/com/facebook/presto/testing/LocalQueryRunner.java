@@ -81,6 +81,7 @@ import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
+import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -262,6 +263,7 @@ public class LocalQueryRunner
     private final PartitioningProviderManager partitioningProviderManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final ConnectorPlanOptimizerManager planOptimizerManager;
+    private final ConnectorMetadataUpdaterManager distributedMetadataManager;
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
     private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -335,6 +337,7 @@ public class LocalQueryRunner
         this.partitioningProviderManager = new PartitioningProviderManager();
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
+        this.distributedMetadataManager = new ConnectorMetadataUpdaterManager();
 
         this.blockEncodingManager = new BlockEncodingManager(typeRegistry);
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
@@ -386,6 +389,7 @@ public class LocalQueryRunner
                 indexManager,
                 partitioningProviderManager,
                 planOptimizerManager,
+                distributedMetadataManager,
                 pageSinkManager,
                 new HandleResolver(),
                 nodeManager,
@@ -777,6 +781,7 @@ public class LocalQueryRunner
                 partitioningProviderManager,
                 nodePartitioningManager,
                 pageSinkManager,
+                distributedMetadataManager,
                 expressionCompiler,
                 pageFunctionCompiler,
                 joinFilterFunctionCompiler,

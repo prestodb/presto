@@ -85,6 +85,7 @@ public class HivePageSink
     private final List<HiveWriter> writers = new ArrayList<>();
 
     private final ConnectorSession session;
+    private final HiveMetadataUpdater hiveMetadataUpdater;
 
     private long writtenBytes;
     private long systemMemoryUsage;
@@ -100,7 +101,8 @@ public class HivePageSink
             int maxOpenWriters,
             ListeningExecutorService writeVerificationExecutor,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            ConnectorSession session)
+            ConnectorSession session,
+            HiveMetadataUpdater hiveMetadataUpdater)
     {
         this.writerFactory = requireNonNull(writerFactory, "writerFactory is null");
 
@@ -167,6 +169,7 @@ public class HivePageSink
         }
 
         this.session = requireNonNull(session, "session is null");
+        this.hiveMetadataUpdater = requireNonNull(hiveMetadataUpdater, "hiveMetadataUpdater is null");
     }
 
     @Override

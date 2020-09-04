@@ -48,6 +48,7 @@ import com.facebook.presto.orc.cache.OrcCacheConfig;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.OrcFileTail;
+import com.facebook.presto.spi.connector.ConnectorMetadataUpdaterProvider;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
@@ -143,6 +144,7 @@ public class HiveClientModule
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerProvider.class).to(HivePlanOptimizerProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorMetadataUpdaterProvider.class).to(HiveMetadataUpdaterProvider.class).in(Scopes.SINGLETON);
 
         jsonCodecBinder(binder).bindJsonCodec(PartitionUpdate.class);
 
@@ -206,6 +208,14 @@ public class HiveClientModule
         return newFixedThreadPool(
                 metastoreClientConfig.getMaxMetastoreRefreshThreads(),
                 daemonThreadsNamed("hive-metastore-" + hiveClientId + "-%s"));
+    }
+
+    @ForUpdatingHiveMetadata
+    @Singleton
+    @Provides
+    public ExecutorService createUpdatingHiveMetadataExecutor(HiveConnectorId hiveClientId)
+    {
+        return newCachedThreadPool(daemonThreadsNamed("hive-metadata-updater-" + hiveClientId + "-%s"));
     }
 
     @ForFileRename

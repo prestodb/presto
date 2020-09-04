@@ -45,7 +45,6 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -88,6 +87,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.hive.AbstractTestHiveClient.TEST_HIVE_PAGE_SINK_CONTEXT;
 import static com.facebook.presto.hive.AbstractTestHiveClient.createTableProperties;
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnHandles;
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnMetadata;
@@ -404,7 +404,7 @@ public abstract class AbstractTestHiveFileSystem
             ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
 
             // write the records
-            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, PageSinkContext.defaultContext());
+            ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle, TEST_HIVE_PAGE_SINK_CONTEXT);
             sink.appendPage(data.toPage());
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
