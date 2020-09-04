@@ -272,6 +272,13 @@ public class TestPinotQueryGenerator
     }
 
     @Test
+    public void testDistinctCountUDFs()
+    {
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("segmentPartitionedDistinctCount"), getRowExpression("segmentPartitionedDistinctCount(fare)", defaultSessionHolder)), "SEGMENTPARTITIONEDDISTINCTCOUNT(fare)");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("distinctCount"), getRowExpression("distinctCount(fare)", defaultSessionHolder)), "DISTINCTCOUNT(fare)");
+    }
+
+    @Test
     public void testAggWithUDFInGroupBy()
     {
         LinkedHashMap<String, String> aggProjection = new LinkedHashMap<>();

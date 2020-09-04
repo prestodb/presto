@@ -23,6 +23,8 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.pinot.functions.PinotDistinctCountAggregationFunction;
+import com.facebook.presto.pinot.functions.PinotSegmentPartitionedDistinctCountAggregationFunction;
 import com.facebook.presto.pinot.query.PinotQueryGeneratorContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
@@ -74,6 +76,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.pinot.PinotColumnHandle.PinotColumnType.REGULAR;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.DERIVED;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.Origin.TABLE_COLUMN;
@@ -104,6 +107,13 @@ public class TestPinotQueryBase
     protected static final Metadata metadata = MetadataManager.createTestMetadataManager();
 
     protected final PinotConfig pinotConfig = new PinotConfig();
+
+    static {
+        metadata.registerBuiltInFunctions(extractFunctions(PinotDistinctCountAggregationFunction.class));
+        metadata.registerBuiltInFunctions(extractFunctions(PinotSegmentPartitionedDistinctCountAggregationFunction.class));
+        functionMetadataManager.registerBuiltInFunctions(extractFunctions(PinotDistinctCountAggregationFunction.class));
+        functionMetadataManager.registerBuiltInFunctions(extractFunctions(PinotSegmentPartitionedDistinctCountAggregationFunction.class));
+    }
 
     protected static final Map<VariableReferenceExpression, PinotQueryGeneratorContext.Selection> testInput =
             ImmutableMap.<VariableReferenceExpression, PinotQueryGeneratorContext.Selection>builder()
