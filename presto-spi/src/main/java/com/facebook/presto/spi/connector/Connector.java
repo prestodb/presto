@@ -85,6 +85,14 @@ public interface Connector
     }
 
     /**
+     * @throws UnsupportedOperationException if this connector does not support metadata updates
+     */
+    default ConnectorMetadataUpdaterProvider getConnectorMetadataUpdaterProvider()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    /**
      * @return the set of system tables provided by this connector
      */
     default Set<SystemTable> getSystemTables()

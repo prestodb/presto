@@ -27,6 +27,7 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableSet;
@@ -36,11 +37,13 @@ import io.airlift.units.DataSize;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.hive.metastore.CachingHiveMetastore.memoizeMetastore;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -113,17 +116,21 @@ public class HivePageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         HiveWritableTableHandle handle = (HiveOutputTableHandle) tableHandle;
-        return createPageSink(handle, true, session, pageSinkContext.isCommitRequired());
+        Optional<ConnectorMetadataUpdater> hiveMetadataUpdater = pageSinkContext.getMetadataUpdater();
+        checkArgument(hiveMetadataUpdater.isPresent(), "Metadata Updater for HivePageSink is null");
+        return createPageSink(handle, true, session, (HiveMetadataUpdater) hiveMetadataUpdater.get(), pageSinkContext.isCommitRequired());
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
-        return createPageSink(handle, false, session, pageSinkContext.isCommitRequired());
+        Optional<ConnectorMetadataUpdater> hiveMetadataUpdater = pageSinkContext.getMetadataUpdater();
+        checkArgument(hiveMetadataUpdater.isPresent(), "Metadata Updater for HivePageSink is null");
+        return createPageSink(handle, false, session, (HiveMetadataUpdater) hiveMetadataUpdater.get(), pageSinkContext.isCommitRequired());
     }
 
-    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, boolean commitRequired)
+    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, HiveMetadataUpdater hiveMetadataUpdater, boolean commitRequired)
     {
         OptionalInt bucketCount = OptionalInt.empty();
         List<SortingColumn> sortedBy;
@@ -178,6 +185,7 @@ public class HivePageSinkProvider
                 maxOpenPartitions,
                 writeVerificationExecutor,
                 partitionUpdateCodec,
-                session);
+                session,
+                hiveMetadataUpdater);
     }
 }
