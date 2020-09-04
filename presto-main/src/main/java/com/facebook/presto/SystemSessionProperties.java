@@ -49,6 +49,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.ApproxResultsOption;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
@@ -168,6 +169,7 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
+    public static final String APPROX_RESULTS_OPTION = "approx_results_option";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -875,7 +877,19 @@ public final class SystemSessionProperties
                         INLINE_SQL_FUNCTIONS,
                         "Inline SQL function definition at plan time",
                         featuresConfig.isInlineSqlFunctions(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        APPROX_RESULTS_OPTION,
+                        format("Experimental: Approx Results. Options are %s",
+                                Stream.of(ApproxResultsOption.values())
+                                        .map(ApproxResultsOption::name)
+                                        .collect(joining(","))),
+                        VARCHAR,
+                        ApproxResultsOption.class,
+                        featuresConfig.getApproxResultsOption(),
+                        false,
+                        value -> ApproxResultsOption.valueOf(((String) value).toUpperCase()),
+                        ApproxResultsOption::name));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1480,5 +1494,10 @@ public final class SystemSessionProperties
     public static boolean isInlineSqlFunctions(Session session)
     {
         return session.getSystemProperty(INLINE_SQL_FUNCTIONS, Boolean.class);
+    }
+
+    public static ApproxResultsOption getApproxResultsOption(Session session)
+    {
+        return session.getSystemProperty(APPROX_RESULTS_OPTION, ApproxResultsOption.class);
     }
 }
