@@ -13,15 +13,21 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
+
+import java.util.Optional;
+
 public class PageSinkContext
 {
     private static final PageSinkContext DEFAULT_PAGE_SINK_CONTEXT = PageSinkContext.builder().build();
 
     private final boolean commitRequired;
+    private final Optional<ConnectorMetadataUpdater> metadataUpdater;
 
-    private PageSinkContext(boolean commitRequired)
+    private PageSinkContext(boolean commitRequired, Optional<ConnectorMetadataUpdater> metadataUpdater)
     {
         this.commitRequired = commitRequired;
+        this.metadataUpdater = metadataUpdater;
     }
 
     public static PageSinkContext defaultContext()
@@ -34,6 +40,11 @@ public class PageSinkContext
         return commitRequired;
     }
 
+    public Optional<ConnectorMetadataUpdater> getMetadataUpdater()
+    {
+        return metadataUpdater;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -42,6 +53,7 @@ public class PageSinkContext
     public static final class Builder
     {
         private boolean commitRequired;
+        private Optional<ConnectorMetadataUpdater> metadataUpdater = Optional.empty();
 
         public Builder setCommitRequired(boolean commitRequired)
         {
@@ -49,9 +61,15 @@ public class PageSinkContext
             return this;
         }
 
+        public Builder setConnectorMetadataUpdater(ConnectorMetadataUpdater metadataUpdater)
+        {
+            this.metadataUpdater = Optional.of(metadataUpdater);
+            return this;
+        }
+
         public PageSinkContext build()
         {
-            return new PageSinkContext(commitRequired);
+            return new PageSinkContext(commitRequired, metadataUpdater);
         }
     }
 }

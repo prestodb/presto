@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.TaskManagerConfig;
+import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
@@ -43,6 +44,7 @@ import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholder;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
+import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
@@ -321,6 +323,7 @@ public class LocalExecutionPlanner
     private final PartitioningProviderManager partitioningProviderManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
+    private final ConnectorMetadataUpdaterManager metadataUpdaterManager;
     private final ExpressionCompiler expressionCompiler;
     private final PageFunctionCompiler pageFunctionCompiler;
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
@@ -351,6 +354,7 @@ public class LocalExecutionPlanner
             PartitioningProviderManager partitioningProviderManager,
             NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
+            ConnectorMetadataUpdaterManager metadataUpdaterManager,
             ExpressionCompiler expressionCompiler,
             PageFunctionCompiler pageFunctionCompiler,
             JoinFilterFunctionCompiler joinFilterFunctionCompiler,
@@ -374,6 +378,7 @@ public class LocalExecutionPlanner
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
+        this.metadataUpdaterManager = requireNonNull(metadataUpdaterManager, "metadataUpdaterManager is null");
         this.expressionCompiler = requireNonNull(expressionCompiler, "compiler is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
         this.joinFilterFunctionCompiler = requireNonNull(joinFilterFunctionCompiler, "compiler is null");
@@ -698,6 +703,11 @@ public class LocalExecutionPlanner
         private void setInputDriver(boolean inputDriver)
         {
             this.inputDriver = inputDriver;
+        }
+
+        public TaskMetadataContext getTaskMetadataContext()
+        {
+            return taskContext.getTaskMetadataContext();
         }
 
         public TableWriteInfo getTableWriteInfo()
@@ -2447,6 +2457,8 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     pageSinkManager,
+                    metadataUpdaterManager,
+                    context.getTaskMetadataContext(),
                     context.getTableWriteInfo().getWriterTarget().orElseThrow(() -> new VerifyException("writerTarget is absent")),
                     inputChannels,
                     session,

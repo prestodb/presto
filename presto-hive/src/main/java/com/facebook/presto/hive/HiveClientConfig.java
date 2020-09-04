@@ -175,6 +175,8 @@ public class HiveClientConfig
     private boolean parquetEnableBatchReaderVerification;
     private boolean parquetDereferencePushdownEnabled;
 
+    private int maxMetadataUpdaterThreads = 100;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1451,5 +1453,18 @@ public class HiveClientConfig
     public boolean isParquetDereferencePushdownEnabled()
     {
         return this.parquetDereferencePushdownEnabled;
+    }
+
+    @Min(1)
+    public int getMaxMetadataUpdaterThreads()
+    {
+        return maxMetadataUpdaterThreads;
+    }
+
+    @Config("hive.max-metadata-updater-threads")
+    public HiveClientConfig setMaxMetadataUpdaterThreads(int maxMetadataUpdaterThreads)
+    {
+        this.maxMetadataUpdaterThreads = maxMetadataUpdaterThreads;
+        return this;
     }
 }

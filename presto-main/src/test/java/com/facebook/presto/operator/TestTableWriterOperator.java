@@ -21,8 +21,10 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
@@ -203,9 +205,9 @@ public class TestTableWriterOperator
         Session session = testSessionBuilder()
                 .setSystemProperty("statistics_cpu_timer_enabled", "true")
                 .build();
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, session)
-                .addPipelineContext(0, true, true, false)
-                .addDriverContext();
+        TaskContext taskContext = createTaskContext(executor, scheduledExecutor, session);
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        TaskMetadataContext taskMetadataContext = taskContext.getTaskMetadataContext();
         FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
         InternalAggregationFunction longMaxFunction = functionManager.getAggregateFunctionImplementation(
                 functionManager.lookupFunction("max", fromTypes(BIGINT)));
@@ -219,6 +221,7 @@ public class TestTableWriterOperator
                         true),
                 outputTypes,
                 session,
+                taskMetadataContext,
                 driverContext);
 
         operator.addInput(rowPagesBuilder(BIGINT).row(42).build().get(0));
@@ -297,10 +300,10 @@ public class TestTableWriterOperator
 
     private Operator createTableWriterOperator(PageSinkManager pageSinkManager, OperatorFactory statisticsAggregation, List<Type> outputTypes, Session session)
     {
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, session)
-                .addPipelineContext(0, true, true, false)
-                .addDriverContext();
-        return createTableWriterOperator(pageSinkManager, statisticsAggregation, outputTypes, session, driverContext);
+        TaskContext taskContext = createTaskContext(executor, scheduledExecutor, session);
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        TaskMetadataContext taskMetadataContext = taskContext.getTaskMetadataContext();
+        return createTableWriterOperator(pageSinkManager, statisticsAggregation, outputTypes, session, taskMetadataContext, driverContext);
     }
 
     private Operator createTableWriterOperator(
@@ -308,12 +311,15 @@ public class TestTableWriterOperator
             OperatorFactory statisticsAggregation,
             List<Type> outputTypes,
             Session session,
+            TaskMetadataContext taskMetadataContext,
             DriverContext driverContext)
     {
         TableWriterOperatorFactory factory = new TableWriterOperatorFactory(
                 0,
                 new PlanNodeId("test"),
                 pageSinkManager,
+                new ConnectorMetadataUpdaterManager(),
+                taskMetadataContext,
                 new CreateHandle(new OutputTableHandle(
                         CONNECTOR_ID,
                         new ConnectorTransactionHandle() {},
