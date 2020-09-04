@@ -16,10 +16,7 @@ package com.facebook.presto.cache.alluxio;
 import alluxio.client.file.URIStatus;
 import alluxio.wire.FileInfo;
 import com.facebook.presto.hive.HiveFileContext;
-import org.apache.hadoop.fs.FileStatus;
 
-import static com.google.common.hash.Hashing.md5;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public class AlluxioURIStatus
@@ -27,27 +24,9 @@ public class AlluxioURIStatus
 {
     private final HiveFileContext hiveFileContext;
 
-    private static FileInfo toAlluxioFileInfo(FileStatus status)
+    public AlluxioURIStatus(FileInfo info, HiveFileContext hiveFileContext)
     {
-        // FilePath is a unique identifier for a file, however it can be a long string
-        // hence using md5 hash of the file path as the identifier in the cache.
-        // We don't set fileId because fileId is Alluxio specific
-        FileInfo info = new FileInfo();
-        info.setFileIdentifier(md5().hashString(status.getPath().toString(), UTF_8).toString())
-                .setLength(status.getLen())
-                .setPath(status.getPath().toString())
-                .setFolder(status.isDirectory())
-                .setBlockSizeBytes(status.getBlockSize())
-                .setLastModificationTimeMs(status.getModificationTime())
-                .setLastAccessTimeMs(status.getAccessTime())
-                .setOwner(status.getOwner())
-                .setGroup(status.getGroup());
-        return info;
-    }
-
-    public AlluxioURIStatus(FileStatus fileStatus, HiveFileContext hiveFileContext)
-    {
-        super(toAlluxioFileInfo(fileStatus));
+        super(info);
         this.hiveFileContext = requireNonNull(hiveFileContext, "hiveFileContext is null");
     }
 

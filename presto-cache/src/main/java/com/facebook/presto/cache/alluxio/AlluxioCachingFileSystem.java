@@ -14,16 +14,19 @@
 package com.facebook.presto.cache.alluxio;
 
 import alluxio.hadoop.LocalCacheFileSystem;
+import alluxio.wire.FileInfo;
 import com.facebook.presto.cache.CachingFileSystem;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.net.URI;
+
+import static com.google.common.hash.Hashing.md5;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class AlluxioCachingFileSystem
         extends CachingFileSystem
@@ -55,10 +58,17 @@ public class AlluxioCachingFileSystem
     public FSDataInputStream openFile(Path path, HiveFileContext hiveFileContext)
             throws Exception
     {
-        if (hiveFileContext.isCacheable()) {
-            FileStatus fileStatus = dataTier.getFileStatus(path);
+        // Using Alluxio caching requires knowing file size for now
+        if (hiveFileContext.isCacheable() && hiveFileContext.getFileSize().isPresent()) {
+            // FilePath is a unique identifier for a file, however it can be a long string
+            // hence using md5 hash of the file path as the identifier in the cache.
+            // We don't set fileId because fileId is Alluxio specific
+            FileInfo info = new FileInfo().setFileIdentifier(md5().hashString(path.toString(), UTF_8).toString())
+                    .setPath(path.toString())
+                    .setFolder(false)
+                    .setLength(hiveFileContext.getFileSize().get());
             // URIStatus is the mechanism to pass the hiveFileContext to the source filesystem
-            AlluxioURIStatus alluxioURIStatus = new AlluxioURIStatus(fileStatus, hiveFileContext);
+            AlluxioURIStatus alluxioURIStatus = new AlluxioURIStatus(info, hiveFileContext);
             FSDataInputStream cachingInputStream = localCacheFileSystem.open(alluxioURIStatus, BUFFER_SIZE);
             if (cacheValidationEnabled) {
                 return new CacheValidatingInputStream(
