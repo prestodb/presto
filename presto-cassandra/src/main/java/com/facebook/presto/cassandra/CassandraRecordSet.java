@@ -29,7 +29,7 @@ public class CassandraRecordSet
 {
     private final CassandraSession cassandraSession;
     private final String cql;
-    private final List<FullCassandraType> cassandraTypes;
+    private final List<CassandraType> cassandraTypes;
     private final List<Type> columnTypes;
 
     public CassandraRecordSet(CassandraSession cassandraSession, String cql, List<CassandraColumnHandle> cassandraColumns)
@@ -38,7 +38,7 @@ public class CassandraRecordSet
         this.cql = requireNonNull(cql, "cql is null");
 
         requireNonNull(cassandraColumns, "cassandraColumns is null");
-        this.cassandraTypes = transformList(cassandraColumns, CassandraColumnHandle::getFullType);
+        this.cassandraTypes = transformList(cassandraColumns, CassandraColumnHandle::getCassandraType);
         this.columnTypes = transformList(cassandraColumns, CassandraColumnHandle::getType);
     }
 

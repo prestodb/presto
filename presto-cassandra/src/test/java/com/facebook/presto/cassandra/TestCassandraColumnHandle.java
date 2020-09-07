@@ -27,7 +27,7 @@ public class TestCassandraColumnHandle
     @Test
     public void testRoundTrip()
     {
-        CassandraColumnHandle expected = new CassandraColumnHandle("connector", "name", 42, CassandraType.FLOAT, null, true, false, false, false);
+        CassandraColumnHandle expected = new CassandraColumnHandle("connector", "name", 42, CassandraType.FLOAT, true, false, false, false);
 
         String json = codec.toJson(expected);
         CassandraColumnHandle actual = codec.fromJson(json);
@@ -48,7 +48,6 @@ public class TestCassandraColumnHandle
                 "name2",
                 1,
                 CassandraType.MAP,
-                ImmutableList.of(CassandraType.VARCHAR, CassandraType.UUID),
                 false,
                 true,
                 false,

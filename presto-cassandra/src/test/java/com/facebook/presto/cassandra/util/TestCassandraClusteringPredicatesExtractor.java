@@ -42,10 +42,10 @@ public class TestCassandraClusteringPredicatesExtractor
     @BeforeTest
     void setUp()
     {
-        col1 = new CassandraColumnHandle("cassandra", "partitionKey1", 1, CassandraType.BIGINT, null, true, false, false, false);
-        col2 = new CassandraColumnHandle("cassandra", "clusteringKey1", 2, CassandraType.BIGINT, null, false, true, false, false);
-        col3 = new CassandraColumnHandle("cassandra", "clusteringKey2", 3, CassandraType.BIGINT, null, false, true, false, false);
-        col4 = new CassandraColumnHandle("cassandra", "clusteringKe3", 4, CassandraType.BIGINT, null, false, true, false, false);
+        col1 = new CassandraColumnHandle("cassandra", "partitionKey1", 1, CassandraType.BIGINT,  true, false, false, false);
+        col2 = new CassandraColumnHandle("cassandra", "clusteringKey1", 2, CassandraType.BIGINT,  false, true, false, false);
+        col3 = new CassandraColumnHandle("cassandra", "clusteringKey2", 3, CassandraType.BIGINT,  false, true, false, false);
+        col4 = new CassandraColumnHandle("cassandra", "clusteringKe3", 4, CassandraType.BIGINT,  false, true, false, false);
 
         cassandraTable = new CassandraTable(
                 new CassandraTableHandle("cassandra", "test", "records"), ImmutableList.of(col1, col2, col3, col4));

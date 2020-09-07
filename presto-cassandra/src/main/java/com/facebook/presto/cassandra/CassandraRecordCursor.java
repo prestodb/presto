@@ -28,14 +28,14 @@ import static java.lang.Float.floatToRawIntBits;
 public class CassandraRecordCursor
         implements RecordCursor
 {
-    private final List<FullCassandraType> fullCassandraTypes;
+    private final List<CassandraType> cassandraTypes;
     private final ResultSet rs;
     private Row currentRow;
     private long count;
 
-    public CassandraRecordCursor(CassandraSession cassandraSession, List<FullCassandraType> fullCassandraTypes, String cql)
+    public CassandraRecordCursor(CassandraSession cassandraSession, List<CassandraType> cassandraTypes, String cql)
     {
-        this.fullCassandraTypes = fullCassandraTypes;
+        this.cassandraTypes = cassandraTypes;
         rs = cassandraSession.execute(cql);
         currentRow = null;
     }
@@ -109,13 +109,13 @@ public class CassandraRecordCursor
 
     private CassandraType getCassandraType(int i)
     {
-        return fullCassandraTypes.get(i).getCassandraType();
+        return cassandraTypes.get(i);
     }
 
     @Override
     public Slice getSlice(int i)
     {
-        NullableValue value = CassandraType.getColumnValue(currentRow, i, fullCassandraTypes.get(i));
+        NullableValue value = CassandraType.getColumnValue(currentRow, i, cassandraTypes.get(i));
         if (value.getValue() instanceof Slice) {
             return (Slice) value.getValue();
         }

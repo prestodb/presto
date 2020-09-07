@@ -17,7 +17,6 @@ import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -51,7 +50,6 @@ public class TestJsonCassandraHandles
             .put("name", "column2")
             .put("ordinalPosition", 0)
             .put("cassandraType", "SET")
-            .put("typeArguments", ImmutableList.of("INT"))
             .put("partitionKey", false)
             .put("clusteringKey", false)
             .put("indexed", false)
@@ -89,7 +87,7 @@ public class TestJsonCassandraHandles
     public void testColumnHandleSerialize()
             throws Exception
     {
-        CassandraColumnHandle columnHandle = new CassandraColumnHandle("cassandra", "column", 42, CassandraType.BIGINT, null, false, true, false, false);
+        CassandraColumnHandle columnHandle = new CassandraColumnHandle("cassandra", "column", 42, CassandraType.BIGINT, false, true, false, false);
 
         assertTrue(objectMapper.canSerialize(CassandraColumnHandle.class));
         String json = objectMapper.writeValueAsString(columnHandle);
@@ -105,7 +103,6 @@ public class TestJsonCassandraHandles
                 "column2",
                 0,
                 CassandraType.SET,
-                ImmutableList.of(CassandraType.INT),
                 false,
                 false,
                 false,
@@ -127,7 +124,6 @@ public class TestJsonCassandraHandles
         assertEquals(columnHandle.getName(), "column");
         assertEquals(columnHandle.getOrdinalPosition(), 42);
         assertEquals(columnHandle.getCassandraType(), CassandraType.BIGINT);
-        assertEquals(columnHandle.getTypeArguments(), null);
         assertEquals(columnHandle.isPartitionKey(), false);
         assertEquals(columnHandle.isClusteringKey(), true);
     }
@@ -143,7 +139,6 @@ public class TestJsonCassandraHandles
         assertEquals(columnHandle.getName(), "column2");
         assertEquals(columnHandle.getOrdinalPosition(), 0);
         assertEquals(columnHandle.getCassandraType(), CassandraType.SET);
-        assertEquals(columnHandle.getTypeArguments(), ImmutableList.of(CassandraType.INT));
         assertEquals(columnHandle.isPartitionKey(), false);
         assertEquals(columnHandle.isClusteringKey(), false);
     }

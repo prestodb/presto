@@ -21,9 +21,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
 
-import javax.annotation.Nullable;
-
-import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -37,7 +34,6 @@ public class CassandraColumnHandle
     private final String name;
     private final int ordinalPosition;
     private final CassandraType cassandraType;
-    private final List<CassandraType> typeArguments;
     private final boolean partitionKey;
     private final boolean clusteringKey;
     private final boolean indexed;
@@ -49,7 +45,6 @@ public class CassandraColumnHandle
             @JsonProperty("name") String name,
             @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("cassandraType") CassandraType cassandraType,
-            @Nullable @JsonProperty("typeArguments") List<CassandraType> typeArguments,
             @JsonProperty("partitionKey") boolean partitionKey,
             @JsonProperty("clusteringKey") boolean clusteringKey,
             @JsonProperty("indexed") boolean indexed,
@@ -60,15 +55,6 @@ public class CassandraColumnHandle
         checkArgument(ordinalPosition >= 0, "ordinalPosition is negative");
         this.ordinalPosition = ordinalPosition;
         this.cassandraType = requireNonNull(cassandraType, "cassandraType is null");
-        int typeArgsSize = cassandraType.getTypeArgumentSize();
-        if (typeArgsSize > 0) {
-            this.typeArguments = requireNonNull(typeArguments, "typeArguments is null");
-            checkArgument(typeArguments.size() == typeArgsSize, cassandraType
-                    + " must provide " + typeArgsSize + " type arguments");
-        }
-        else {
-            this.typeArguments = null;
-        }
         this.partitionKey = partitionKey;
         this.clusteringKey = clusteringKey;
         this.indexed = indexed;
@@ -97,12 +83,6 @@ public class CassandraColumnHandle
     public CassandraType getCassandraType()
     {
         return cassandraType;
-    }
-
-    @JsonProperty
-    public List<CassandraType> getTypeArguments()
-    {
-        return typeArguments;
     }
 
     @JsonProperty
@@ -139,14 +119,6 @@ public class CassandraColumnHandle
         return cassandraType.getNativeType();
     }
 
-    public FullCassandraType getFullType()
-    {
-        if (cassandraType.getTypeArgumentSize() == 0) {
-            return cassandraType;
-        }
-        return new CassandraTypeWithTypeArguments(cassandraType, typeArguments);
-    }
-
     @Override
     public int hashCode()
     {
@@ -155,7 +127,6 @@ public class CassandraColumnHandle
                 name,
                 ordinalPosition,
                 cassandraType,
-                typeArguments,
                 partitionKey,
                 clusteringKey,
                 indexed,
@@ -176,7 +147,6 @@ public class CassandraColumnHandle
                 Objects.equals(this.name, other.name) &&
                 Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
                 Objects.equals(this.cassandraType, other.cassandraType) &&
-                Objects.equals(this.typeArguments, other.typeArguments) &&
                 Objects.equals(this.partitionKey, other.partitionKey) &&
                 Objects.equals(this.clusteringKey, other.clusteringKey) &&
                 Objects.equals(this.indexed, other.indexed) &&
@@ -191,10 +161,6 @@ public class CassandraColumnHandle
                 .add("name", name)
                 .add("ordinalPosition", ordinalPosition)
                 .add("cassandraType", cassandraType);
-
-        if (typeArguments != null && !typeArguments.isEmpty()) {
-            helper.add("typeArguments", typeArguments);
-        }
 
         helper.add("partitionKey", partitionKey)
                 .add("clusteringKey", clusteringKey)
