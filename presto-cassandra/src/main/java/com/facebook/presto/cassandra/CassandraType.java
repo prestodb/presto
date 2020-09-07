@@ -445,7 +445,7 @@ public enum CassandraType
         }
     }
 
-    public Object validatePartitionKey(Object value)
+    public boolean isSupportedPartitionKey()
     {
         switch (this) {
             case ASCII:
@@ -461,7 +461,7 @@ public enum CassandraType
             case TIMESTAMP:
             case UUID:
             case TIMEUUID:
-                return value;
+                return true;
             case COUNTER:
             case BLOB:
             case CUSTOM:
@@ -470,8 +470,7 @@ public enum CassandraType
             case LIST:
             case MAP:
             default:
-                // todo should we just skip partition pruning instead of throwing an exception?
-                throw new PrestoException(NOT_SUPPORTED, "Unsupport partition key type: " + this);
+                return false;
         }
     }
 

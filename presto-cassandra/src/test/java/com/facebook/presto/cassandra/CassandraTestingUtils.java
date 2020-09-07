@@ -197,23 +197,23 @@ public class CassandraTestingUtils
                 "   typeinteger, " +
                 "   typelong, " +
                 // TODO: NOT YET SUPPORTED AS A PARTITION KEY
-                // "   typebytes, " +
+                "   typebytes, " +
                 "   typetimestamp, " +
                 "   typeansi, " +
                 "   typeboolean, " +
                 // TODO: PRECISION LOST. IMPLEMENT IT AS STRING
-                //  "   typedecimal, " +
+                "   typedecimal, " +
                 "   typedouble, " +
                 "   typefloat, " +
                 "   typeinet, " +
                 "   typevarchar, " +
                 // TODO: NOT YET SUPPORTED AS A PARTITION KEY
-                // "   typevarint, " +
-                "   typetimeuuid " +
+                "   typevarint, " +
+                "   typetimeuuid, " +
                 // TODO: NOT YET SUPPORTED AS A PARTITION KEY
-                // "   typelist, " +
-                // "   typemap, " +
-                // "   typeset" +
+                "   typelist, " +
+                "   typemap, " +
+                "   typeset" +
                 " ))" +
                 ")");
 
