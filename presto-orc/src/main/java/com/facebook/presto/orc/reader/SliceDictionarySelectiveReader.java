@@ -36,7 +36,6 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -79,6 +78,11 @@ public class SliceDictionarySelectiveReader
     private static final byte[] EMPTY_DICTIONARY_DATA = new byte[0];
     // add one extra entry for null after stripe/rowGroup dictionary
     private static final int[] EMPTY_DICTIONARY_OFFSETS = new int[2];
+
+    // Each rowgroup has roughly 10K rows, and each batch reads 1K rows. So there're about 10 batches in a rowgroup.
+    private static final int BATCHES_PER_ROWGROUP = 10;
+    // MATERIALIZATION_RATIO should be greater than or equal to 1.0f to compensate the extra CPU to materialize blocks.
+    private static final float MATERIALIZATION_RATIO = 2.0f;
 
     private final TupleDomainFilter filter;
     private final boolean nonDeterministicFilter;
@@ -127,6 +131,7 @@ public class SliceDictionarySelectiveReader
     private OrcLocalMemoryContext systemMemoryContext;
 
     private int[] values;
+    private int nullsCount;
     private boolean allNulls;
     private int[] outputPositions;
     private int outputPositionCount;
@@ -158,6 +163,7 @@ public class SliceDictionarySelectiveReader
             openRowGroup();
         }
 
+        nullsCount = 0;
         allNulls = false;
 
         if (outputRequired) {
@@ -203,6 +209,7 @@ public class SliceDictionarySelectiveReader
 
             if (presentStream != null && !presentStream.nextBit()) {
                 values[i] = currentDictionarySize - 1;
+                nullsCount++;
             }
             else {
                 boolean isInRowDictionary = inDictionaryStream != null && !inDictionaryStream.nextBit();
@@ -230,6 +237,7 @@ public class SliceDictionarySelectiveReader
                 if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                     if (outputRequired) {
                         values[outputPositionCount] = currentDictionarySize - 1;
+                        nullsCount++;
                     }
                     outputPositions[outputPositionCount] = position;
                     outputPositionCount++;
@@ -380,36 +388,45 @@ public class SliceDictionarySelectiveReader
         checkState(positionCount <= outputPositionCount, "Not enough values");
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
-        if (allNulls) {
+        if (allNulls || nullsCount == outputPositionCount) {
             return new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount);
+        }
+
+        // compact values(ids) array, and calculate 1) the slice sizeInBytes if materialized, and 2) number of nulls
+        long blockSizeInBytes = 0;
+        int nullsCount = 0;  // the nulls count for selected positions
+        int i = 0;
+        int j = 0;
+        while (i < positionCount && j < outputPositionCount) {
+            if (positions[i] != outputPositions[j]) {
+                j++;
+                continue;
+            }
+
+            int id = this.values[j];
+            values[i] = id;
+
+            blockSizeInBytes += dictionaryOffsetVector[id + 1] - dictionaryOffsetVector[id];
+            nullsCount += (id == currentDictionarySize - 1 ? 1 : 0);
+
+            i++;
+            j++;
+        }
+
+        // If all selected positions are null, just return RLE block.
+        if (nullsCount == outputPositionCount) {
+            return new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount);
+        }
+
+        // If the expected materialized size of the output block is smaller than a certain ratio of the dictionary size, we will materialize the values
+        int dictionarySizeInBytes = dictionaryOffsetVector[currentDictionarySize - 1];
+        if (blockSizeInBytes * BATCHES_PER_ROWGROUP < dictionarySizeInBytes / MATERIALIZATION_RATIO) {
+            return getMaterializedBlock(positionCount, blockSizeInBytes, nullsCount);
         }
 
         wrapDictionaryIfNecessary();
 
-        if (positionCount == outputPositionCount) {
-            DictionaryBlock block = new DictionaryBlock(positionCount, dictionary, values);
-
-            values = null;
-            return block;
-        }
-
-        int[] valuesCopy = new int[positionCount];
-
-        int positionIndex = 0;
-        int nextPosition = positions[positionIndex];
-        for (int i = 0; i < outputPositionCount; i++) {
-            if (outputPositions[i] < nextPosition) {
-                continue;
-            }
-            assert outputPositions[i] == nextPosition;
-            valuesCopy[positionIndex] = this.values[i];
-            positionIndex++;
-            if (positionIndex >= positionCount) {
-                break;
-            }
-            nextPosition = positions[positionIndex];
-        }
-
+        int[] valuesCopy = Arrays.copyOf(values, positionCount);
         return new DictionaryBlock(positionCount, dictionary, valuesCopy);
     }
 
@@ -690,5 +707,34 @@ public class SliceDictionarySelectiveReader
     {
         valuesInUse = true;
         return ClosingBlockLease.newLease(block, () -> valuesInUse = false);
+    }
+
+    private Block getMaterializedBlock(int positionCount, long blockSizeInBytes, int nullsCount)
+    {
+        byte[] sliceData = new byte[toIntExact(blockSizeInBytes)];
+        int[] offsetVector = new int[positionCount + 1];
+        int currentOffset = 0;
+        for (int k = 0; k < positionCount; k++) {
+            int id = values[k];
+            int offset = dictionaryOffsetVector[id];
+            int length = dictionaryOffsetVector[id + 1] - offset;
+            System.arraycopy(dictionaryData, offset, sliceData, currentOffset, length);
+
+            currentOffset += length;
+            offsetVector[k + 1] = currentOffset;
+        }
+
+        if (nullsCount > 0) {
+            boolean[] isNullVector = new boolean[positionCount];
+            for (int k = 0; k < positionCount; k++) {
+                if (values[k] == currentDictionarySize - 1) {
+                    isNullVector[k] = true;
+                }
+            }
+            return new VariableWidthBlock(positionCount, wrappedBuffer(sliceData), offsetVector, Optional.of(isNullVector));
+        }
+        else {
+            return new VariableWidthBlock(positionCount, wrappedBuffer(sliceData), offsetVector, Optional.empty());
+        }
     }
 }
