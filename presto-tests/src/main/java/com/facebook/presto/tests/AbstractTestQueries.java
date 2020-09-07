@@ -5344,4 +5344,39 @@ public abstract class AbstractTestQueries
                 "SELECT array_sum(zip_with(a, b, (x, y) -> x * y)), array_sum(zip_with(a, b, (x, y) -> x * y)) + array_sum(zip_with(a, a, (x, y) -> x * y)) FROM (VALUES (ARRAY[1, 2, 3], ARRAY[1, 0, 0])) t(a, b)",
                 "SELECT 1, 15");
     }
+
+    @Test
+    public void testDistinctFrom()
+    {
+        assertQuery(
+                "SELECT x IS DISTINCT FROM NULL FROM (SELECT CAST(NULL AS VARCHAR)) T(x)",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM x FROM (SELECT CAST(NULL AS VARCHAR)) T(x)",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT x IS DISTINCT FROM NULL FROM (SELECT CAST('something' AS VARCHAR)) T(x)",
+                "SELECT TRUE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM x FROM (SELECT CAST('something' AS VARCHAR)) T(x)",
+                "SELECT TRUE");
+        assertQuery(
+                "SELECT R.name IS DISTINCT FROM NULL FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='GERMANY'",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='KENYA'",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='KENYA'",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='KENYA'",
+                "SELECT FALSE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='INDIA'",
+                "SELECT TRUE");
+        assertQuery(
+                "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='JAPAN'",
+                "SELECT TRUE");
+    }
 }

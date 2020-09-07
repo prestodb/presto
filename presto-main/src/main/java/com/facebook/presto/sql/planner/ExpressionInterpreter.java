@@ -743,7 +743,10 @@ public class ExpressionInterpreter
                 if (left == null && right == null) {
                     return false;
                 }
-                else if (left == null || right == null) {
+                else if (left == null && !hasUnresolvedValue(right)) {
+                    return true;
+                }
+                else if (right == null && !hasUnresolvedValue(left)) {
                     return true;
                 }
             }
@@ -1272,7 +1275,13 @@ public class ExpressionInterpreter
 
         private boolean hasUnresolvedValue(Object... values)
         {
-            return hasUnresolvedValue(ImmutableList.copyOf(values));
+            ArrayList<Object> valuesList = new ArrayList<>(values.length);
+            for (Object value : values) {
+                if (value != null) {
+                    valuesList.add(value);
+                }
+            }
+            return !valuesList.isEmpty() && hasUnresolvedValue(valuesList);
         }
 
         private boolean hasUnresolvedValue(List<Object> values)
