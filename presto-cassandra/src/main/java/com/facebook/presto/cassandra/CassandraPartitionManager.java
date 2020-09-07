@@ -152,7 +152,9 @@ public class CassandraPartitionManager
                             Object value = range.getSingleValue();
 
                             CassandraType valueType = columnHandle.getCassandraType();
-                            columnValues.add(valueType.validatePartitionKey(value));
+                            if (valueType.isSupportedPartitionKey()) {
+                                columnValues.add(value);
+                            }
                         }
                         return columnValues.build();
                     },
