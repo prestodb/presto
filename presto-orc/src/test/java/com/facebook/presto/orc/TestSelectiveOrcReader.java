@@ -755,13 +755,13 @@ public class TestSelectiveOrcReader
             throws Exception
     {
         Random random = new Random(0);
-//        tester.testRoundTripTypes(
-//                ImmutableList.of(VARCHAR, VARCHAR, VARCHAR),
-//                ImmutableList.of(newArrayList("abc", "def", null, "hij", "klm"), newArrayList(null, null, null, null, null), newArrayList("abc", "def", null, null, null)),
-//                toSubfieldFilters(ImmutableMap.of(
-//                        0, stringIn(true, "abc", "def"),
-//                        1, stringIn(true, "10", "11"),
-//                        2, stringIn(true, "def", "abc"))));
+        tester.testRoundTripTypes(
+                ImmutableList.of(VARCHAR, VARCHAR, VARCHAR),
+                ImmutableList.of(newArrayList("abc", "def", null, "hij", "klm"), newArrayList(null, null, null, null, null), newArrayList("abc", "def", null, null, null)),
+                toSubfieldFilters(ImmutableMap.of(
+                        0, stringIn(true, "abc", "def"),
+                        1, stringIn(true, "10", "11"),
+                        2, stringIn(true, "def", "abc"))));
 
         // dictionary
         tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), NUM_ROWS)),
