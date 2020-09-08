@@ -30,6 +30,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.TOP_DOWN;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.ApproxResultsOption;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
@@ -144,7 +145,8 @@ public class TestFeaturesConfig
                 .setPreferDistributedUnion(true)
                 .setOptimizeNullsInJoin(false)
                 .setWarnOnNoTableLayoutFilter("")
-                .setInlineSqlFunctions(true));
+                .setInlineSqlFunctions(true)
+                .setApproxResultsOption(ApproxResultsOption.NONE));
     }
 
     @Test
@@ -245,6 +247,7 @@ public class TestFeaturesConfig
                 .put("optimize-nulls-in-join", "true")
                 .put("warn-on-no-table-layout-filter", "ry@nlikestheyankees,ds")
                 .put("inline-sql-functions", "false")
+                .put("approx-results-option", ApproxResultsOption.APPROX_DISTINCT.name())
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -341,7 +344,8 @@ public class TestFeaturesConfig
                 .setPreferDistributedUnion(false)
                 .setOptimizeNullsInJoin(true)
                 .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds")
-                .setInlineSqlFunctions(false);
+                .setInlineSqlFunctions(false)
+                .setApproxResultsOption(ApproxResultsOption.APPROX_DISTINCT);
         assertFullMapping(properties, expected);
     }
 
