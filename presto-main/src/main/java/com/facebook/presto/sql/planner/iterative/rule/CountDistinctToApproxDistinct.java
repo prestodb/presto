@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.metadata.BuiltInFunctionHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -25,7 +26,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.ApproxResultsOption;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.collect.ImmutableMap;
 
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
 
@@ -73,7 +74,9 @@ public class CountDistinctToApproxDistinct
                 AggregationNode.Aggregation aggregation1 = new AggregationNode.Aggregation(
                         new CallExpression(
                                 "approx_distinct",
-                                metadata.getFunctionManager().lookupFunction("approx_distinct", fromTypes(call.getType())),
+                                metadata.getFunctionManager().lookupFunction(
+                                        "approx_distinct",
+                                        fromTypeSignatures(((BuiltInFunctionHandle) call.getFunctionHandle()).getSignature().getArgumentTypes())),
                                 call.getType(),
                                 call.getArguments()),
                         aggregation.getFilter(),
