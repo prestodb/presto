@@ -101,6 +101,46 @@ public class TestWarnings
         assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
     }
 
+    @Test
+    public void testMixAndOrWarnings()
+    {
+        String query = "select true or false";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select true or false and false";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        query = "select true or (false and false)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select true or false or false";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select true and false and false";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select (true or false) and false";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select true and false or false and true";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        query = "select true or false and false or true";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        query = "select (true or false) and false or true";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        query = "select true or false and (false or true)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        query = "select (true or false) and (false or true)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select (true and true) or (true and false or false and true)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+    }
+
     private static void assertWarnings(QueryRunner queryRunner, Session session, @Language("SQL") String sql, Set<WarningCode> expectedWarnings)
     {
         Set<WarningCode> warnings = queryRunner.execute(session, sql).getWarnings().stream()
