@@ -171,6 +171,15 @@ class UnimplementedHiveMetastore
     }
 
     @Override
+    public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(
+            String databaseName,
+            String tableName,
+            Map<Column, Domain> partitionPredicates)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
         throw new UnsupportedOperationException();
