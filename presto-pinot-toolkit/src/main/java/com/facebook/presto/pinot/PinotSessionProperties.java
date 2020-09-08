@@ -40,6 +40,7 @@ public class PinotSessionProperties
     private static final String USE_DATE_TRUNC = "use_date_trunc";
     private static final String USE_PINOT_SQL_FOR_BROKER_QUERIES = "use_pinot_sql_for_broker_queries";
     private static final String NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = "non_aggregate_limit_for_broker_queries";
+    private static final String PUSHDOWN_TOPN_BROKER_QUERIES = "pushdown_topn_broker_queries";
 
     @VisibleForTesting
     public static final String FORBID_SEGMENT_QUERIES = "forbid_segment_queries";
@@ -100,6 +101,11 @@ public class PinotSessionProperties
         return session.getProperty(NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES, Integer.class);
     }
 
+    public static boolean getPushdownTopnBrokerQueries(ConnectorSession session)
+    {
+        return session.getProperty(PUSHDOWN_TOPN_BROKER_QUERIES, Boolean.class);
+    }
+
     @Inject
     public PinotSessionProperties(PinotConfig pinotConfig)
     {
@@ -143,6 +149,11 @@ public class PinotSessionProperties
                         USE_PINOT_SQL_FOR_BROKER_QUERIES,
                         "Use Pinot SQL syntax and endpoint for broker query",
                         pinotConfig.isUsePinotSqlForBrokerQueries(),
+                        false),
+                booleanProperty(
+                        PUSHDOWN_TOPN_BROKER_QUERIES,
+                        "Push down order by to pinot broker for top queries",
+                        pinotConfig.isPushdownTopNBrokerQueries(),
                         false),
                 new PropertyMetadata<>(
                         CONNECTION_TIMEOUT,

@@ -92,6 +92,7 @@ public class PinotConfig
     private int fetchRetryCount = 2;
     private boolean useDateTrunc;
     private int nonAggregateLimitForBrokerQueries = DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES;
+    private boolean pushdownTopNBrokerQueries;
 
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
@@ -473,6 +474,20 @@ public class PinotConfig
     public PinotConfig setUsePinotSqlForBrokerQueries(boolean usePinotSqlForBrokerQueries)
     {
         this.usePinotSqlForBrokerQueries = usePinotSqlForBrokerQueries;
+        return this;
+    }
+
+    public boolean isPushdownTopNBrokerQueries()
+    {
+        return pushdownTopNBrokerQueries;
+    }
+
+    // This is used to switch on/off push down Pinot broker queries with ORDER BY clause and LIMIT.
+    // The reason is that presto doesn't retain the order of query response from Pinot for large number of records returned.
+    @Config("pinot.pushdown-topn-broker-queries")
+    public PinotConfig setPushdownTopNBrokerQueries(boolean pushdownTopNBrokerQueries)
+    {
+        this.pushdownTopNBrokerQueries = pushdownTopNBrokerQueries;
         return this;
     }
 }

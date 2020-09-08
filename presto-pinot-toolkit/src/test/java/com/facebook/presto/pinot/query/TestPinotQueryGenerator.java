@@ -351,24 +351,30 @@ public class TestPinotQueryGenerator
     @Test
     public void testSimpleSelectWithTopN()
     {
-        PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
+        pinotConfig.setPushdownTopNBrokerQueries(true);
+        SessionHolder sessionHolder = new SessionHolder(pinotConfig);
+        PlanBuilder planBuilder = createPlanBuilder(new SessionHolder(pinotConfig));
         TableScanNode tableScanNode = tableScan(planBuilder, pinotTable, regionId, city, fare);
         TopNNode topNFare = topN(planBuilder, 50L, ImmutableList.of("fare"), ImmutableList.of(false), tableScanNode);
         testPinotQuery(
                 pinotConfig,
                 topNFare,
                 "SELECT regionId, city, fare FROM realtimeOnly ORDER BY fare DESC LIMIT 50",
-                defaultSessionHolder,
+                sessionHolder,
                 ImmutableMap.of());
         TopNNode topnFareAndCity = topN(planBuilder, 50L, ImmutableList.of("fare", "city"), ImmutableList.of(true, false), tableScanNode);
         testPinotQuery(
                 pinotConfig,
                 topnFareAndCity,
                 "SELECT regionId, city, fare FROM realtimeOnly ORDER BY fare, city DESC LIMIT 50",
-                defaultSessionHolder,
+                sessionHolder,
                 ImmutableMap.of());
         ProjectNode projectNode = project(planBuilder, topnFareAndCity, ImmutableList.of("regionid", "city"));
-        testPinotQuery(pinotConfig, projectNode, "SELECT regionId, city FROM realtimeOnly ORDER BY fare, city DESC LIMIT 50", defaultSessionHolder, ImmutableMap.of());
+        testPinotQuery(pinotConfig,
+                projectNode,
+                "SELECT regionId, city FROM realtimeOnly ORDER BY fare, city DESC LIMIT 50",
+                sessionHolder,
+                ImmutableMap.of());
     }
 
     @Test(expectedExceptions = NoSuchElementException.class)
