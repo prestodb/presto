@@ -184,6 +184,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
@@ -203,10 +204,12 @@ class AstBuilder
 {
     private int parameterPosition;
     private final ParsingOptions parsingOptions;
+    private final Consumer<ParsingWarning> warningConsumer;
 
     AstBuilder(ParsingOptions parsingOptions)
     {
         this.parsingOptions = requireNonNull(parsingOptions, "parsingOptions is null");
+        this.warningConsumer = requireNonNull(parsingOptions.getWarningConsumer(), "warningConsumer is null");
     }
 
     @Override
@@ -1071,11 +1074,36 @@ class AstBuilder
     @Override
     public Node visitLogicalBinary(SqlBaseParser.LogicalBinaryContext context)
     {
+        LogicalBinaryExpression.Operator operator = getLogicalBinaryOperator(context.operator);
+        boolean warningForMixedAndOr = false;
+        Expression left = (Expression) visit(context.left);
+        Expression right = (Expression) visit(context.right);
+
+        if (operator.equals(LogicalBinaryExpression.Operator.OR) &&
+                (mixedAndOrOperatorParenthesisCheck(right, context.right, LogicalBinaryExpression.Operator.AND) ||
+                 mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.AND))) {
+            warningForMixedAndOr = true;
+        }
+
+        if (operator.equals(LogicalBinaryExpression.Operator.AND) &&
+                (mixedAndOrOperatorParenthesisCheck(right, context.right, LogicalBinaryExpression.Operator.OR) ||
+                 mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.OR))) {
+            warningForMixedAndOr = true;
+        }
+
+        if (warningForMixedAndOr) {
+            warningConsumer.accept(new ParsingWarning(
+                    "The Query contains OR and AND operator without proper parenthesis. "
+                    + "Make sure the operators are guarded by parenthesis in order "
+                    + "to fetch logically correct results",
+                    context.getStart().getLine(), context.getStart().getCharPositionInLine()));
+        }
+
         return new LogicalBinaryExpression(
                 getLocation(context.operator),
-                getLogicalBinaryOperator(context.operator),
-                (Expression) visit(context.left),
-                (Expression) visit(context.right));
+                operator,
+                left,
+                right);
     }
 
     // *************** from clause *****************
@@ -2408,6 +2436,22 @@ class AstBuilder
         else {
             throw new IllegalArgumentException("Unsupported principal: " + context);
         }
+    }
+
+    private boolean mixedAndOrOperatorParenthesisCheck(Expression expression, SqlBaseParser.BooleanExpressionContext node, LogicalBinaryExpression.Operator operator)
+    {
+        if (expression instanceof LogicalBinaryExpression) {
+            if (((LogicalBinaryExpression) expression).getOperator().equals(operator)) {
+                if (node.children.get(0) instanceof SqlBaseParser.ValueExpressionDefaultContext) {
+                    return !(((SqlBaseParser.PredicatedContext) node).valueExpression().getChild(0) instanceof
+                        SqlBaseParser.ParenthesizedExpressionContext);
+                }
+                else {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static void check(boolean condition, String message, ParserRuleContext context)
