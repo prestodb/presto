@@ -54,6 +54,7 @@ public class TestPinotConfig
                         .setNumSegmentsPerSplit(1)
                         .setFetchRetryCount(2)
                         .setMarkDataFetchExceptionsAsRetriable(true)
+                        .setPushdownTopNBrokerQueries(false)
                         .setIgnoreEmptyResponses(false)
                         .setUseDateTrunc(false)
                         .setForbidSegmentQueries(false)
@@ -94,6 +95,7 @@ public class TestPinotConfig
                 .put("pinot.non-aggregate-limit-for-broker-queries", "10")
                 .put("pinot.use-date-trunc", "true")
                 .put("pinot.limit-large-for-segment", "100")
+                .put("pinot.pushdown-topn-broker-queries", "true")
                 .put("pinot.forbid-segment-queries", "true")
                 .build();
 
@@ -127,6 +129,7 @@ public class TestPinotConfig
                 .setMarkDataFetchExceptionsAsRetriable(false)
                 .setNonAggregateLimitForBrokerQueries(10)
                 .setLimitLargeForSegment(100)
+                .setPushdownTopNBrokerQueries(true)
                 .setForbidSegmentQueries(true)
                 .setUseDateTrunc(true);
 

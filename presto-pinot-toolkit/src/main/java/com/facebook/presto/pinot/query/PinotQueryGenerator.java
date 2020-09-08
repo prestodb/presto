@@ -247,12 +247,14 @@ public class PinotQueryGenerator
         private final ConnectorSession session;
         private final boolean forbidBrokerQueries;
         private final boolean useSqlSyntax;
+        private final boolean pushdownTopnBrokerQueries;
 
         protected PinotQueryPlanVisitor(ConnectorSession session)
         {
             this.session = session;
             this.forbidBrokerQueries = PinotSessionProperties.isForbidBrokerQueries(session);
             this.useSqlSyntax = PinotSessionProperties.isUsePinotSqlForBrokerQueries(session);
+            this.pushdownTopnBrokerQueries = PinotSessionProperties.getPushdownTopnBrokerQueries(session);
         }
 
         @Override
@@ -515,6 +517,10 @@ public class PinotQueryGenerator
             requireNonNull(context, "context is null");
             checkSupported(!forbidBrokerQueries, "Cannot push topn in segment mode");
             checkSupported(node.getStep().equals(TopNNode.Step.SINGLE), "Can only push single logical topn in");
+
+            if (!pushdownTopnBrokerQueries) {
+                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "TopN query is not allowed to push down. Please refer to config: 'pinot.pushdown-topn-broker-queries'");
+            }
             return context.withTopN(getOrderingScheme(node), node.getCount()).withOutputColumns(node.getOutputVariables());
         }
 
