@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -203,10 +204,12 @@ class AstBuilder
 {
     private int parameterPosition;
     private final ParsingOptions parsingOptions;
+    private final WarningCollector warningCollector;
 
-    AstBuilder(ParsingOptions parsingOptions)
+    AstBuilder(ParsingOptions parsingOptions, WarningCollector warningCollector)
     {
         this.parsingOptions = requireNonNull(parsingOptions, "parsingOptions is null");
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
     @Override

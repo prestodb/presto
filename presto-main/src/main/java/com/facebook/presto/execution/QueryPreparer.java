@@ -59,7 +59,7 @@ public class QueryPreparer
     public PreparedQuery prepareQuery(Session session, String query, WarningCollector warningCollector)
             throws ParsingException, PrestoException, SemanticException
     {
-        Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session, warningCollector));
+        Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session, warningCollector), warningCollector);
         if (warningCollector.hasWarnings() && getWarningHandlingLevel(session) == AS_ERROR) {
             throw new PrestoException(WARNING_AS_ERROR, format("Warning handling level set to AS_ERROR. Warnings: %n %s",
                     warningCollector.getWarnings().stream()

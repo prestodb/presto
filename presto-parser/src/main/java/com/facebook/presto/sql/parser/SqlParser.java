@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Return;
@@ -105,7 +106,12 @@ public class SqlParser
 
     public Statement createStatement(String sql, ParsingOptions parsingOptions)
     {
-        return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions);
+        return createStatement(sql, parsingOptions, WarningCollector.NOOP);
+    }
+
+    public Statement createStatement(String sql, ParsingOptions parsingOptions, WarningCollector warningCollector)
+    {
+        return (Statement) invokeParser("statement", sql, SqlBaseParser::singleStatement, parsingOptions, warningCollector);
     }
 
     /**
@@ -119,15 +125,25 @@ public class SqlParser
 
     public Expression createExpression(String expression, ParsingOptions parsingOptions)
     {
-        return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions);
+        return createExpression(expression, parsingOptions, WarningCollector.NOOP);
+    }
+
+    public Expression createExpression(String expression, ParsingOptions parsingOptions, WarningCollector warningCollector)
+    {
+        return (Expression) invokeParser("expression", expression, SqlBaseParser::standaloneExpression, parsingOptions, warningCollector);
     }
 
     public Return createReturn(String routineBody, ParsingOptions parsingOptions)
     {
-        return (Return) invokeParser("return", routineBody, SqlBaseParser::standaloneRoutineBody, parsingOptions);
+        return createReturn(routineBody, parsingOptions, WarningCollector.NOOP);
     }
 
-    private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions)
+    public Return createReturn(String routineBody, ParsingOptions parsingOptions, WarningCollector warningCollector)
+    {
+        return (Return) invokeParser("return", routineBody, SqlBaseParser::standaloneRoutineBody, parsingOptions, warningCollector);
+    }
+
+    private Node invokeParser(String name, String sql, Function<SqlBaseParser, ParserRuleContext> parseFunction, ParsingOptions parsingOptions, WarningCollector warningCollector)
     {
         try {
             SqlBaseLexer lexer = new SqlBaseLexer(new CaseInsensitiveStream(CharStreams.fromString(sql)));
@@ -181,7 +197,7 @@ public class SqlParser
                 tree = parseFunction.apply(parser);
             }
 
-            return new AstBuilder(parsingOptions).visit(tree);
+            return new AstBuilder(parsingOptions, warningCollector).visit(tree);
         }
         catch (StackOverflowError e) {
             throw new ParsingException(name + " is too large (stack overflow while parsing)");
