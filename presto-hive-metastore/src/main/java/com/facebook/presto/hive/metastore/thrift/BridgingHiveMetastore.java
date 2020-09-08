@@ -23,6 +23,7 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Partition;
+import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -264,6 +265,15 @@ public class BridgingHiveMetastore
             Map<Column, Domain> partitionPredicates)
     {
         return delegate.getPartitionNamesByFilter(databaseName, tableName, partitionPredicates);
+    }
+
+    @Override
+    public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(
+            String databaseName,
+            String tableName,
+            Map<Column, Domain> partitionPredicates)
+    {
+        return delegate.getPartitionNamesWithVersionByFilter(databaseName, tableName, partitionPredicates);
     }
 
     @Override
