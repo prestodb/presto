@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.PartitionVersionFetcher;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
@@ -436,7 +437,7 @@ public final class ThriftMetastoreUtil
                 serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
     }
 
-    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition)
+    public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, PartitionVersionFetcher partitionVersionFetcher)
     {
         StorageDescriptor storageDescriptor = partition.getSd();
         if (storageDescriptor == null) {
@@ -451,6 +452,9 @@ public final class ThriftMetastoreUtil
                         .map(ThriftMetastoreUtil::fromMetastoreApiFieldSchema)
                         .collect(toList()))
                 .setParameters(partition.getParameters());
+
+        // set the partition version if available
+        partitionVersionFetcher.getPartitionVersion(partition).ifPresent(partitionBuilder::setPartitionVersion);
 
         fromMetastoreApiStorageDescriptor(storageDescriptor, partitionBuilder.getStorageBuilder(), format("%s.%s", partition.getTableName(), partition.getValues()));
 

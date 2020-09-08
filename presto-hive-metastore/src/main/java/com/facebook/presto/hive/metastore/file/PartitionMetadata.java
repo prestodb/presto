@@ -174,6 +174,7 @@ public class PartitionMetadata
                         .setParameters(parameters)
                         .build(),
                 columns,
-                parameters);
+                parameters,
+                Optional.empty());
     }
 }
