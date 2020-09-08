@@ -72,6 +72,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class CachingHiveMetastore
         implements ExtendedHiveMetastore
 {
+    public enum MetastoreCacheScope
+    {
+        ALL, PARTITION
+    }
+
     protected final ExtendedHiveMetastore delegate;
     private final LoadingCache<String, Optional<Database>> databaseCache;
     private final LoadingCache<String, List<String>> databaseNamesCache;
