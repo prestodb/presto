@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePartitionVersionFetcher;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.InMemoryHiveMetastore;
@@ -97,7 +98,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
     public void setup()
     {
         baseDirectory = new File(Files.createTempDir(), "metastore");
-        metastore = new BridgingHiveMetastore(new InMemoryHiveMetastore(baseDirectory));
+        metastore = new BridgingHiveMetastore(new InMemoryHiveMetastore(baseDirectory), new HivePartitionVersionFetcher());
         executor = newCachedThreadPool(daemonThreadsNamed("hive-encryption-test-%s"));
         transactionManager = new HiveTransactionManager();
         metadataFactory = new HiveMetadataFactory(
