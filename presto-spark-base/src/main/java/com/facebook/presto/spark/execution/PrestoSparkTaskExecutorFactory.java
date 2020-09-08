@@ -36,8 +36,8 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
@@ -118,7 +118,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final SessionPropertyManager sessionPropertyManager;
     private final BlockEncodingManager blockEncodingManager;
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
 
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final JsonCodec<TaskSource> taskSourceJsonCodec;
@@ -149,7 +149,7 @@ public class PrestoSparkTaskExecutorFactory
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
             BlockEncodingManager blockEncodingManager,
-            FunctionManager functionManager,
+            TypeAndFunctionManager typeAndFunctionManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskSource> taskSourceJsonCodec,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
@@ -167,7 +167,7 @@ public class PrestoSparkTaskExecutorFactory
         this(
                 sessionPropertyManager,
                 blockEncodingManager,
-                functionManager,
+                typeAndFunctionManager,
                 taskDescriptorJsonCodec,
                 taskSourceJsonCodec,
                 taskInfoJsonCodec,
@@ -191,7 +191,7 @@ public class PrestoSparkTaskExecutorFactory
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
             BlockEncodingManager blockEncodingManager,
-            FunctionManager functionManager,
+            TypeAndFunctionManager typeAndFunctionManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
             JsonCodec<TaskSource> taskSourceJsonCodec,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
@@ -213,7 +213,7 @@ public class PrestoSparkTaskExecutorFactory
     {
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
         this.taskSourceJsonCodec = requireNonNull(taskSourceJsonCodec, "taskSourceJsonCodec is null");
         this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
@@ -299,7 +299,7 @@ public class PrestoSparkTaskExecutorFactory
 
         // TODO: Remove this once we can display the plan on Spark UI.
 
-        log.info(PlanPrinter.textPlanFragment(fragment, functionManager, session, true));
+        log.info(PlanPrinter.textPlanFragment(fragment, typeAndFunctionManager, session, true));
 
         MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("spark-executor-memory-pool"), maxTotalMemory);
         SpillSpaceTracker spillSpaceTracker = new SpillSpaceTracker(maxSpillMemory);

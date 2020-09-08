@@ -19,10 +19,9 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.SingleMapBlock;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
@@ -68,7 +67,7 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeAndFunctionManager typeAndFunctionManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
@@ -90,7 +89,7 @@ public class MapSubscriptOperator
             methodHandle = METHOD_HANDLE_OBJECT;
         }
         methodHandle = MethodHandles.insertArguments(methodHandle, 0, legacyMissingKey);
-        MissingKeyExceptionFactory missingKeyExceptionFactory = new MissingKeyExceptionFactory(functionManager, keyType);
+        MissingKeyExceptionFactory missingKeyExceptionFactory = new MissingKeyExceptionFactory(typeAndFunctionManager, keyType);
         methodHandle = methodHandle.bindTo(missingKeyExceptionFactory).bindTo(valueType);
         methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 
@@ -212,13 +211,13 @@ public class MapSubscriptOperator
         private final InterpretedFunctionInvoker functionInvoker;
         private final FunctionHandle castFunction;
 
-        public MissingKeyExceptionFactory(FunctionManager functionManager, Type keyType)
+        public MissingKeyExceptionFactory(TypeAndFunctionManager typeAndFunctionManager, Type keyType)
         {
-            functionInvoker = new InterpretedFunctionInvoker(functionManager);
+            functionInvoker = new InterpretedFunctionInvoker(typeAndFunctionManager);
 
             FunctionHandle castFunction = null;
             try {
-                castFunction = functionManager.lookupCast(CAST, keyType.getTypeSignature(), VARCHAR.getTypeSignature());
+                castFunction = typeAndFunctionManager.lookupCast(CAST, keyType.getTypeSignature(), VARCHAR.getTypeSignature());
             }
             catch (PrestoException ignored) {
             }

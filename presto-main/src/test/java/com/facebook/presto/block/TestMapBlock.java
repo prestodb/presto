@@ -22,9 +22,7 @@ import com.facebook.presto.common.block.MapBlockBuilder;
 import com.facebook.presto.common.block.SingleMapBlock;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -56,12 +54,7 @@ import static org.testng.Assert.assertTrue;
 public class TestMapBlock
         extends AbstractTestBlock
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    private static final TypeManager TYPE_MANAGER = new TypeAndFunctionManager();
 
     @Test
     public void test()

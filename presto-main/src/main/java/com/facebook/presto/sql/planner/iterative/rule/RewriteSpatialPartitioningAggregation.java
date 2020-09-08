@@ -81,7 +81,7 @@ public class RewriteSpatialPartitioningAggregation
     private boolean hasSpatialPartitioningAggregation(AggregationNode aggregationNode)
     {
         return aggregationNode.getAggregations().values().stream().anyMatch(
-                aggregation -> metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName().equals(NAME)
+                aggregation -> metadata.getTypeAndFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName().equals(NAME)
                         && aggregation.getArguments().size() == 1);
     }
 
@@ -99,7 +99,7 @@ public class RewriteSpatialPartitioningAggregation
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> envelopeAssignments = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : node.getAggregations().entrySet()) {
             Aggregation aggregation = entry.getValue();
-            QualifiedFunctionName name = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
+            QualifiedFunctionName name = metadata.getTypeAndFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
             Type geometryType = metadata.getType(GEOMETRY_TYPE_SIGNATURE);
             if (name.equals(NAME) && aggregation.getArguments().size() == 1) {
                 RowExpression geometry = getOnlyElement(aggregation.getArguments());
@@ -114,7 +114,7 @@ public class RewriteSpatialPartitioningAggregation
                         new Aggregation(
                                 new CallExpression(
                                         name.getFunctionName(),
-                                        metadata.getFunctionManager().lookupFunction(NAME.getFunctionName(), fromTypes(geometryType, INTEGER)),
+                                        metadata.getTypeAndFunctionManager().lookupFunction(NAME.getFunctionName(), fromTypes(geometryType, INTEGER)),
                                         entry.getKey().getType(),
                                         ImmutableList.of(
                                                 castToRowExpression(asSymbolReference(envelopeVariable)),

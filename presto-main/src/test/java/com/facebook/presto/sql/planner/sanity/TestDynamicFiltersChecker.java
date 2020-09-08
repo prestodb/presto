@@ -60,9 +60,9 @@ public class TestDynamicFiltersChecker
     {
         metadata = getQueryRunner().getMetadata();
         logicalRowExpressions = new LogicalRowExpressions(
-                new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
-                new FunctionResolution(metadata.getFunctionManager()),
-                metadata.getFunctionManager());
+                new RowExpressionDeterminismEvaluator(metadata.getTypeAndFunctionManager()),
+                new FunctionResolution(metadata.getTypeAndFunctionManager()),
+                metadata.getTypeAndFunctionManager());
         builder = new PlanBuilder(getQueryRunner().getDefaultSession(), new PlanNodeIdAllocator(), metadata);
         ConnectorId connectorId = getCurrentConnectorId();
         TableHandle lineitemTableHandle = new TableHandle(
@@ -105,10 +105,10 @@ public class TestDynamicFiltersChecker
         PlanNode root = builder.join(
                 INNER,
                 builder.filter(
-                        createDynamicFilterExpression("DF", ordersOrderKeyVariable, metadata.getFunctionManager()),
+                        createDynamicFilterExpression("DF", ordersOrderKeyVariable, metadata.getTypeAndFunctionManager()),
                         ordersTableScanNode),
                 builder.filter(
-                        createDynamicFilterExpression("DF", ordersOrderKeyVariable, metadata.getFunctionManager()),
+                        createDynamicFilterExpression("DF", ordersOrderKeyVariable, metadata.getTypeAndFunctionManager()),
                         lineitemTableScanNode),
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
                 ImmutableList.of(ordersOrderKeyVariable),
@@ -131,7 +131,7 @@ public class TestDynamicFiltersChecker
                         builder.filter(
                                 logicalRowExpressions.combineConjuncts(
                                         builder.rowExpression("LINEITEM_OK > 0"),
-                                        createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager())),
+                                        createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getTypeAndFunctionManager())),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
                         ImmutableList.of(ordersOrderKeyVariable),
@@ -155,10 +155,10 @@ public class TestDynamicFiltersChecker
                                 logicalRowExpressions.combineConjuncts(
                                         logicalRowExpressions.combineDisjuncts(
                                                 builder.rowExpression("LINEITEM_OK IS NULL"),
-                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager())),
+                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getTypeAndFunctionManager())),
                                         logicalRowExpressions.combineDisjuncts(
                                                 builder.rowExpression("LINEITEM_OK IS NOT NULL"),
-                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager()))),
+                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getTypeAndFunctionManager()))),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
                         ImmutableList.of(ordersOrderKeyVariable),

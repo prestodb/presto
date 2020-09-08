@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -76,7 +76,7 @@ public class ExpressionEquivalence
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.canonicalizationVisitor = new CanonicalizationVisitor(metadata.getFunctionManager());
+        this.canonicalizationVisitor = new CanonicalizationVisitor(metadata.getTypeAndFunctionManager());
     }
 
     public boolean areExpressionsEquivalent(Session session, Expression leftExpression, Expression rightExpression, TypeProvider types)
@@ -119,17 +119,17 @@ public class ExpressionEquivalence
                 WarningCollector.NOOP);
 
         // convert to row expression
-        return translate(expression, expressionTypes, variableInput, metadata.getFunctionManager(), metadata.getTypeManager(), session);
+        return translate(expression, expressionTypes, variableInput, metadata.getTypeAndFunctionManager(), session);
     }
 
     private static class CanonicalizationVisitor
             implements RowExpressionVisitor<RowExpression, Void>
     {
-        private final FunctionManager functionManager;
+        private final TypeAndFunctionManager typeAndFunctionManager;
 
-        public CanonicalizationVisitor(FunctionManager functionManager)
+        public CanonicalizationVisitor(TypeAndFunctionManager typeAndFunctionManager)
         {
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
         }
 
         @Override
@@ -143,7 +143,7 @@ public class ExpressionEquivalence
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
 
-            QualifiedFunctionName callName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
+            QualifiedFunctionName callName = typeAndFunctionManager.getFunctionMetadata(call.getFunctionHandle()).getName();
 
             if (callName.equals(EQUAL.getFunctionName()) || callName.equals(NOT_EQUAL.getFunctionName()) || callName.equals(IS_DISTINCT_FROM.getFunctionName())) {
                 // sort arguments
@@ -157,7 +157,7 @@ public class ExpressionEquivalence
             if (callName.equals(GREATER_THAN.getFunctionName()) || callName.equals(GREATER_THAN_OR_EQUAL.getFunctionName())) {
                 // convert greater than to less than
 
-                FunctionHandle functionHandle = functionManager.resolveOperator(
+                FunctionHandle functionHandle = typeAndFunctionManager.resolveOperatorHandle(
                         callName.equals(GREATER_THAN.getFunctionName()) ? LESS_THAN : LESS_THAN_OR_EQUAL,
                         swapPair(fromTypes(call.getArguments().stream().map(RowExpression::getType).collect(toImmutableList()))));
                 return new CallExpression(

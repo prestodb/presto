@@ -16,11 +16,10 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionInvoker;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -61,13 +60,13 @@ public class RowDistinctFromOperator
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeAndFunctionManager typeAndFunctionManager)
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         Type type = boundVariables.getTypeVariable("T");
         for (Type parameterType : type.getTypeParameters()) {
-            FunctionHandle operatorHandle = functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(parameterType, parameterType));
-            FunctionInvoker functionInvoker = functionManager.getFunctionInvokerProvider().createFunctionInvoker(
+            FunctionHandle operatorHandle = typeAndFunctionManager.resolveOperatorHandle(IS_DISTINCT_FROM, fromTypes(parameterType, parameterType));
+            FunctionInvoker functionInvoker = typeAndFunctionManager.getFunctionInvokerProvider().createFunctionInvoker(
                     operatorHandle,
                     Optional.of(new InvocationConvention(
                             ImmutableList.of(NULL_FLAG, NULL_FLAG),

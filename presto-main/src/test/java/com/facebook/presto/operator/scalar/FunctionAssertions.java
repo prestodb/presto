@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
@@ -78,7 +79,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -223,7 +223,7 @@ public final class FunctionAssertions
         compiler = runner.getExpressionCompiler();
     }
 
-    public TypeRegistry getTypeRegistry()
+    public TypeAndFunctionManager getTypeRegistry()
     {
         return runner.getTypeManager();
     }
@@ -988,7 +988,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<VariableReferenceExpression, Integer> layout)
     {
-        return translate(projection, expressionTypes, layout, metadata.getFunctionManager(), metadata.getTypeManager(), session);
+        return translate(projection, expressionTypes, layout, metadata.getTypeAndFunctionManager(), session);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)

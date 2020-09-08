@@ -434,7 +434,7 @@ public interface Metadata
     @Experimental
     ListenableFuture<Void> commitPageSinkAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
-    FunctionManager getFunctionManager();
+    TypeAndFunctionManager getTypeAndFunctionManager();
 
     ProcedureRegistry getProcedureRegistry();
 

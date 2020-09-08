@@ -31,9 +31,9 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableFinishInfo;
@@ -91,7 +91,7 @@ public class QueryMonitor
     private final String serverAddress;
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
     private final int maxJsonLimit;
 
     @Inject
@@ -114,7 +114,7 @@ public class QueryMonitor
         this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.functionManager = requireNonNull(metadata, "metadata is null").getFunctionManager();
+        this.typeAndFunctionManager = requireNonNull(metadata, "metadata is null").getTypeAndFunctionManager();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
@@ -328,7 +328,7 @@ public class QueryMonitor
             if (queryInfo.getOutputStage().isPresent()) {
                 return Optional.of(textDistributedPlan(
                         queryInfo.getOutputStage().get(),
-                        functionManager,
+                        typeAndFunctionManager,
                         queryInfo.getSession().toSession(sessionPropertyManager),
                         false));
             }

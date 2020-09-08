@@ -15,8 +15,8 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.GroupByIdBlock;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
@@ -154,10 +154,10 @@ public class BenchmarkGroupedTypedHistogram
 
     private static InternalAggregationFunction getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
     {
-        FunctionManager functionManager = getMetadata(groupMode).getFunctionManager();
+        TypeAndFunctionManager typeAndFunctionManager = getMetadata(groupMode).getTypeAndFunctionManager();
 
-        return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(NAME, fromTypes(VARCHAR)));
+        return typeAndFunctionManager.getAggregateFunctionImplementation(
+                typeAndFunctionManager.lookupFunction(NAME, fromTypes(VARCHAR)));
     }
 
     private static MetadataManager getMetadata(HistogramGroupImplementation groupMode)

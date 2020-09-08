@@ -21,11 +21,10 @@ import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ScalarImplementationChoice;
@@ -149,11 +148,11 @@ public final class ArrayJoin
         }
 
         @Override
-        public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+        public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeAndFunctionManager typeAndFunctionManager)
         {
             return specializeArrayJoin(
                     boundVariables.getTypeVariables(),
-                    functionManager,
+                    typeAndFunctionManager,
                     ImmutableList.of(false, false, false),
                     METHOD_HANDLE_STACK,
                     METHOD_HANDLE_PROVIDED_BLOCK);
@@ -197,11 +196,11 @@ public final class ArrayJoin
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeAndFunctionManager typeAndFunctionManager)
     {
         return specializeArrayJoin(
                 boundVariables.getTypeVariables(),
-                functionManager,
+                typeAndFunctionManager,
                 ImmutableList.of(false, false),
                 METHOD_HANDLE_STACK,
                 METHOD_HANDLE_PROVIDED_BLOCK);
@@ -209,7 +208,7 @@ public final class ArrayJoin
 
     private static BuiltInScalarFunctionImplementation specializeArrayJoin(
             Map<String, Type> types,
-            FunctionManager functionManager,
+            TypeAndFunctionManager typeAndFunctionManager,
             List<Boolean> nullableArguments,
             MethodHandle methodHandleStack,
             MethodHandle methodHandleProvidedBlock)
@@ -230,7 +229,7 @@ public final class ArrayJoin
         }
         else {
             try {
-                BuiltInScalarFunctionImplementation castFunction = functionManager.getBuiltInScalarFunctionImplementation(functionManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR_TYPE_SIGNATURE));
+                BuiltInScalarFunctionImplementation castFunction = typeAndFunctionManager.getBuiltInScalarFunctionImplementation(typeAndFunctionManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR_TYPE_SIGNATURE));
 
                 MethodHandle getter;
                 Class<?> elementType = type.getJavaType();

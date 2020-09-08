@@ -145,7 +145,7 @@ public class TestExpressionInterpreter
     @BeforeClass
     public void setup()
     {
-        METADATA.getFunctionManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
+        METADATA.getTypeAndFunctionManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
     }
 
     @Test
@@ -1719,7 +1719,7 @@ public class TestExpressionInterpreter
     private static boolean isRemovableCast(Object value)
     {
         if (value instanceof CallExpression &&
-                new FunctionResolution(METADATA.getFunctionManager()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
+                new FunctionResolution(METADATA.getTypeAndFunctionManager()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
             Type targetType = ((CallExpression) value).getType();
             Type sourceType = ((CallExpression) value).getArguments().get(0).getType();
             return METADATA.getTypeManager().canCoerce(sourceType, targetType);

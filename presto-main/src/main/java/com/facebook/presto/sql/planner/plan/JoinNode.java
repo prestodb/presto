@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -266,10 +266,10 @@ public class JoinNode
         return filter;
     }
 
-    public Optional<SortExpressionContext> getSortExpressionContext(FunctionManager functionManager)
+    public Optional<SortExpressionContext> getSortExpressionContext(TypeAndFunctionManager typeAndFunctionManager)
     {
         return filter
-                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputVariables()), filter, functionManager));
+                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputVariables()), filter, typeAndFunctionManager));
     }
 
     @JsonProperty

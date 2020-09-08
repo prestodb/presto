@@ -147,7 +147,7 @@ public class BenchmarkMapSubscript
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            FunctionHandle functionHandle = metadata.getFunctionManager().resolveOperator(SUBSCRIPT, fromTypes(mapType, mapType.getKeyType()));
+            FunctionHandle functionHandle = metadata.getTypeAndFunctionManager().resolveOperatorHandle(SUBSCRIPT, fromTypes(mapType, mapType.getKeyType()));
             for (int i = 0; i < mapSize; i++) {
                 projectionsBuilder.add(new CallExpression(
                         SUBSCRIPT.name(),

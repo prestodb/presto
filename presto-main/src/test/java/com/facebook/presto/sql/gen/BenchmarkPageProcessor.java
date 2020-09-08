@@ -16,8 +16,8 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -88,9 +88,9 @@ public class BenchmarkPageProcessor
         inputPage = createInputPage();
 
         MetadataManager metadata = createTestMetadataManager();
-        FunctionManager functionManager = metadata.getFunctionManager();
+        TypeAndFunctionManager typeAndFunctionManager = metadata.getTypeAndFunctionManager();
         compiledProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
-                .compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(createFilterExpression(functionManager)), ImmutableList.of(createProjectExpression(functionManager)))
+                .compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(createFilterExpression(typeAndFunctionManager)), ImmutableList.of(createProjectExpression(typeAndFunctionManager)))
                 .get();
     }
 
@@ -190,13 +190,13 @@ public class BenchmarkPageProcessor
     //    and discount >= 0.05
     //    and discount <= 0.07
     //    and quantity < 24;
-    private static final RowExpression createFilterExpression(FunctionManager functionManager)
+    private static final RowExpression createFilterExpression(TypeAndFunctionManager typeAndFunctionManager)
     {
         return specialForm(
                 AND,
                 BOOLEAN,
                 call(GREATER_THAN_OR_EQUAL.name(),
-                        functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(VARCHAR, VARCHAR)),
+                        typeAndFunctionManager.resolveOperatorHandle(GREATER_THAN_OR_EQUAL, fromTypes(VARCHAR, VARCHAR)),
                         BOOLEAN,
                         field(SHIP_DATE, VARCHAR),
                         constant(MIN_SHIP_DATE, VARCHAR)),
@@ -204,7 +204,7 @@ public class BenchmarkPageProcessor
                         AND,
                         BOOLEAN,
                         call(LESS_THAN.name(),
-                                functionManager.resolveOperator(LESS_THAN, fromTypes(VARCHAR, VARCHAR)),
+                                typeAndFunctionManager.resolveOperatorHandle(LESS_THAN, fromTypes(VARCHAR, VARCHAR)),
                                 BOOLEAN,
                                 field(SHIP_DATE, VARCHAR),
                                 constant(MAX_SHIP_DATE, VARCHAR)),
@@ -212,7 +212,7 @@ public class BenchmarkPageProcessor
                                 AND,
                                 BOOLEAN,
                                 call(GREATER_THAN_OR_EQUAL.name(),
-                                        functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                                        typeAndFunctionManager.resolveOperatorHandle(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
                                         BOOLEAN,
                                         field(DISCOUNT, DOUBLE),
                                         constant(0.05, DOUBLE)),
@@ -220,22 +220,22 @@ public class BenchmarkPageProcessor
                                         AND,
                                         BOOLEAN,
                                         call(LESS_THAN_OR_EQUAL.name(),
-                                                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                                                typeAndFunctionManager.resolveOperatorHandle(LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
                                                 BOOLEAN,
                                                 field(DISCOUNT, DOUBLE),
                                                 constant(0.07, DOUBLE)),
                                         call(LESS_THAN.name(),
-                                                functionManager.resolveOperator(LESS_THAN, fromTypes(DOUBLE, DOUBLE)),
+                                                typeAndFunctionManager.resolveOperatorHandle(LESS_THAN, fromTypes(DOUBLE, DOUBLE)),
                                                 BOOLEAN,
                                                 field(QUANTITY, DOUBLE),
                                                 constant(24.0, DOUBLE))))));
     }
 
-    private static final RowExpression createProjectExpression(FunctionManager functionManager)
+    private static final RowExpression createProjectExpression(TypeAndFunctionManager typeAndFunctionManager)
     {
         return call(
                 MULTIPLY.name(),
-                functionManager.resolveOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
+                typeAndFunctionManager.resolveOperatorHandle(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
                 DOUBLE,
                 field(EXTENDED_PRICE, DOUBLE),
                 field(DISCOUNT, DOUBLE));

@@ -19,8 +19,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -110,7 +110,7 @@ public class BenchmarkTransformValue
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            FunctionManager functionManager = metadata.getFunctionManager();
+            TypeAndFunctionManager typeAndFunctionManager = metadata.getTypeAndFunctionManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Type elementType;
@@ -133,12 +133,12 @@ public class BenchmarkTransformValue
             }
             MapType mapType = mapType(elementType, elementType);
             MapType returnType = mapType(elementType, BOOLEAN);
-            FunctionHandle functionHandle = functionManager.lookupFunction(
+            FunctionHandle functionHandle = typeAndFunctionManager.lookupFunction(
                     name,
                     fromTypeSignatures(
                             mapType.getTypeSignature(),
                             parseTypeSignature(format("function(%s, %s, boolean)", type, type))));
-            FunctionHandle greaterThan = metadata.getFunctionManager().resolveOperator(
+            FunctionHandle greaterThan = metadata.getTypeAndFunctionManager().resolveOperatorHandle(
                     GREATER_THAN,
                     fromTypes(elementType, elementType));
             projectionsBuilder.add(call(name, functionHandle, returnType, ImmutableList.of(

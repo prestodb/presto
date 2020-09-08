@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -25,7 +26,7 @@ public class TestFunctionType
     @Test
     public void testDisplayName()
     {
-        TypeManager typeManager = new TypeRegistry();
+        TypeManager typeManager = new TypeAndFunctionManager();
 
         Type function = typeManager.getType(TypeSignature.parseTypeSignature("function<row(field double),bigint>"));
         assertEquals(function.getDisplayName(), "function<row(field double),bigint>");

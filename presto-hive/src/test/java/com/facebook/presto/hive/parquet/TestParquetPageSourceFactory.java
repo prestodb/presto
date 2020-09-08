@@ -44,7 +44,7 @@ public class TestParquetPageSourceFactory
     private static final String PARQUET_HIVE_SERDE = "parquet.hive.serde.ParquetHiveSerDe";
 
     private ParquetPageSourceFactory parquetPageSourceFactory;
-    private final StandardFunctionResolution functionResolution = new FunctionResolution(METADATA.getFunctionManager());
+    private final StandardFunctionResolution functionResolution = new FunctionResolution(METADATA.getTypeAndFunctionManager());
 
     @BeforeClass
     public void setUp()

@@ -126,10 +126,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), plan.getStatsAndCosts(), session, 0, verbose);
+                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getTypeAndFunctionManager(), plan.getStatsAndCosts(), session, 0, verbose);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionManager(), session, verbose);
+                return PlanPrinter.textDistributedPlan(subPlan, metadata.getTypeAndFunctionManager(), session, verbose);
             case IO:
                 return IOPlanPrinter.textIOPlan(getLogicalPlan(session, statement, parameters, warningCollector).getRoot(), metadata, session);
         }
@@ -152,10 +152,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), session, metadata.getFunctionManager());
+                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), session, metadata.getTypeAndFunctionManager());
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return graphvizDistributedPlan(subPlan, session, metadata.getFunctionManager());
+                return graphvizDistributedPlan(subPlan, session, metadata.getTypeAndFunctionManager());
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -175,7 +175,7 @@ public class QueryExplainer
                 return textIOPlan(plan.getRoot(), metadata, session);
             case LOGICAL:
                 plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return jsonLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), plan.getStatsAndCosts(), session);
+                return jsonLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getTypeAndFunctionManager(), plan.getStatsAndCosts(), session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return jsonDistributedPlan(subPlan);

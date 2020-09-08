@@ -18,11 +18,11 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Files;
@@ -101,7 +101,7 @@ public class TestFileSingleStreamSpiller
         File spillPath = new File(tempDirectory, UUID.randomUUID().toString());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                new BlockEncodingManager(new TypeRegistry()),
+                new BlockEncodingManager(new TypeAndFunctionManager()),
                 new SpillerStats(),
                 ImmutableList.of(spillPath.toPath()),
                 1.0,

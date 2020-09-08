@@ -429,7 +429,7 @@ public class PlanFragmenter
                     StageExecutionDescriptor.ungroupedExecution(),
                     outputTableWriterFragment,
                     statsAndCosts.getForSubplan(root),
-                    Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, metadata.getFunctionManager(), session)));
+                    Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, metadata.getTypeAndFunctionManager(), session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -781,14 +781,14 @@ public class PlanFragmenter
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
             TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
             TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable, false);
-            StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionManager());
+            StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getTypeAndFunctionManager());
             PlanNode tableWriterMerge;
 
             // Disabled by default. Enable when the column statistics are essential for future runtime adaptive plan optimizations
             boolean enableStatsCollectionForTemporaryTable = SystemSessionProperties.isEnableStatsCollectionForTemporaryTable(session);
 
             if (isTableWriterMergeOperatorEnabled(session)) {
-                StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(variableAllocator, metadata.getFunctionManager());
+                StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(variableAllocator, metadata.getTypeAndFunctionManager());
                 tableWriterMerge = new TableWriterMergeNode(
                         idAllocator.getNextId(),
                         gatheringExchange(

@@ -13,13 +13,11 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -68,14 +66,13 @@ import static org.testng.Assert.fail;
 
 public class TestTypeRegistry
 {
-    private final TypeManager typeRegistry = new TypeRegistry();
-    private final FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+    private final TypeAndFunctionManager typeRegistry = new TypeAndFunctionManager();
 
     @Test
     public void testNonexistentType()
     {
         try {
-            TypeManager typeManager = new TypeRegistry();
+            TypeManager typeManager = new TypeAndFunctionManager();
             typeManager.getType(parseTypeSignature("not a real type"));
             fail("Expect to throw IllegalArgumentException");
         }
@@ -253,7 +250,7 @@ public class TestTypeRegistry
             for (Type resultType : types) {
                 if (typeRegistry.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
                     try {
-                        functionManager.lookupCast(CAST, sourceType.getTypeSignature(), resultType.getTypeSignature());
+                        typeRegistry.lookupCast(CAST, sourceType.getTypeSignature(), resultType.getTypeSignature());
                     }
                     catch (OperatorNotFoundException e) {
                         fail(format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));
@@ -268,16 +265,16 @@ public class TestTypeRegistry
     {
         for (Type type : typeRegistry.getTypes()) {
             if (type.isComparable()) {
-                functionManager.resolveOperator(EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(NOT_EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type));
-                functionManager.resolveOperator(HASH_CODE, fromTypes(type));
+                typeRegistry.resolveOperatorHandle(EQUAL, fromTypes(type, type));
+                typeRegistry.resolveOperatorHandle(NOT_EQUAL, fromTypes(type, type));
+                typeRegistry.resolveOperatorHandle(IS_DISTINCT_FROM, fromTypes(type, type));
+                typeRegistry.resolveOperatorHandle(HASH_CODE, fromTypes(type));
             }
             if (type.isOrderable()) {
-                functionManager.resolveOperator(LESS_THAN, fromTypes(type, type));
-                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(GREATER_THAN, fromTypes(type, type));
+                typeRegistry.resolveOperatorHandle(LESS_THAN, fromTypes(type, type));
+                typeRegistry.resolveOperatorHandle(LESS_THAN_OR_EQUAL, fromTypes(type, type));
+                typeRegistry.resolveOperatorHandle(GREATER_THAN_OR_EQUAL, fromTypes(type, type));
+                typeRegistry.resolveOperatorHandle(GREATER_THAN, fromTypes(type, type));
             }
         }
     }

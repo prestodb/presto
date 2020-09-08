@@ -17,8 +17,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -37,7 +37,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestApproximatePercentileAggregation
 {
-    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final TypeAndFunctionManager TYPE_AND_FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getTypeAndFunctionManager();
 
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION = getAggregation(DOUBLE, DOUBLE);
     private static final InternalAggregationFunction DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION_WITH_ACCURACY = getAggregation(DOUBLE, DOUBLE, DOUBLE);
@@ -496,7 +496,7 @@ public class TestApproximatePercentileAggregation
 
     private static InternalAggregationFunction getAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction("approx_percentile", fromTypes(arguments)));
+        return TYPE_AND_FUNCTION_MANAGER.getAggregateFunctionImplementation(TYPE_AND_FUNCTION_MANAGER.lookupFunction("approx_percentile", fromTypes(arguments)));
     }
 
     private static RunLengthEncodedBlock createRLEBlock(double percentile, int positionCount)

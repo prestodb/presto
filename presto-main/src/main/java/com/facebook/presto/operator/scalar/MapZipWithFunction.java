@@ -22,11 +22,10 @@ import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
@@ -89,13 +88,13 @@ public final class MapZipWithFunction
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeAndFunctionManager typeAndFunctionManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type inputValueType1 = boundVariables.getTypeVariable("V1");
         Type inputValueType2 = boundVariables.getTypeVariable("V2");
         Type outputValueType = boundVariables.getTypeVariable("V3");
-        Type outputMapType = typeManager.getParameterizedType(
+        Type outputMapType = typeAndFunctionManager.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(
                         TypeSignatureParameter.of(keyType.getTypeSignature()),

@@ -24,8 +24,8 @@ import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerC
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
@@ -119,7 +119,7 @@ public class TestInlineSqlFunctions
     public void setup()
     {
         RuleTester tester = new RuleTester();
-        FunctionManager functionManager = tester.getMetadata().getFunctionManager();
+        TypeAndFunctionManager functionManager = tester.getMetadata().getTypeAndFunctionManager();
         functionManager.addFunctionNamespace(
                 "unittest",
                 new InMemoryFunctionNamespaceManager(

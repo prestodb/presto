@@ -18,8 +18,8 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.google.common.collect.ImmutableList;
 
@@ -45,12 +45,12 @@ public abstract class RowComparisonOperator
                 ImmutableList.of(parseTypeSignature("T"), parseTypeSignature("T")));
     }
 
-    protected List<MethodHandle> getMethodHandles(RowType type, FunctionManager functionManager, OperatorType operatorType)
+    protected List<MethodHandle> getMethodHandles(RowType type, TypeAndFunctionManager typeAndFunctionManager, OperatorType operatorType)
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
-            FunctionHandle operatorHandle = functionManager.resolveOperator(operatorType, fromTypes(parameterType, parameterType));
-            argumentMethods.add(functionManager.getBuiltInScalarFunctionImplementation(operatorHandle).getMethodHandle());
+            FunctionHandle operatorHandle = typeAndFunctionManager.resolveOperatorHandle(operatorType, fromTypes(parameterType, parameterType));
+            argumentMethods.add(typeAndFunctionManager.getBuiltInScalarFunctionImplementation(operatorHandle).getMethodHandle());
         }
         return argumentMethods.build();
     }

@@ -433,7 +433,7 @@ public class LogicalPlanner
 
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToVariableMap, true);
 
-            StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionManager());
+            StatisticAggregations.Parts aggregations = result.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getTypeAndFunctionManager());
 
             TableFinishNode commitNode = new TableFinishNode(
                     idAllocator.getNextId(),

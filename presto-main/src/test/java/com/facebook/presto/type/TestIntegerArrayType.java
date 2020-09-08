@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 
 import java.util.List;
 
@@ -28,7 +29,7 @@ public class TestIntegerArrayType
 {
     public TestIntegerArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(integer)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(integer)"))));
+        super(new TypeAndFunctionManager().getType(parseTypeSignature("array(integer)")), List.class, createTestBlock(new TypeAndFunctionManager().getType(parseTypeSignature("array(integer)"))));
     }
 
     public static Block createTestBlock(Type arrayType)

@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -58,11 +58,11 @@ public class PlanRemotePojections
 {
     private static final Pattern<ProjectNode> PATTERN = project();
 
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
 
-    public PlanRemotePojections(FunctionManager functionManager)
+    public PlanRemotePojections(TypeAndFunctionManager typeAndFunctionManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
     }
 
     @Override
@@ -79,7 +79,7 @@ public class PlanRemotePojections
             return Result.empty();
         }
         // Fast check for remote functions
-        if (node.getAssignments().getExpressions().stream().noneMatch(expression -> expression.accept(new ExternalCallExpressionChecker(functionManager), null))) {
+        if (node.getAssignments().getExpressions().stream().noneMatch(expression -> expression.accept(new ExternalCallExpressionChecker(typeAndFunctionManager), null))) {
             // No remote function
             return Result.ofPlanNode(new ProjectNode(node.getId(), node.getSource(), node.getAssignments(), LOCAL));
         }
@@ -97,7 +97,7 @@ public class PlanRemotePojections
     {
         ImmutableList.Builder<List<ProjectionContext>> assignmentProjections = ImmutableList.builder();
         for (Map.Entry<VariableReferenceExpression, RowExpression> entry : assignments.getMap().entrySet()) {
-            List<ProjectionContext> rewritten = entry.getValue().accept(new Visitor(functionManager, variableAllocator), null);
+            List<ProjectionContext> rewritten = entry.getValue().accept(new Visitor(typeAndFunctionManager, variableAllocator), null);
             if (rewritten.isEmpty()) {
                 assignmentProjections.add(ImmutableList.of(new ProjectionContext(ImmutableMap.of(entry.getKey(), entry.getValue()), false)));
             }
@@ -229,19 +229,19 @@ public class PlanRemotePojections
     private static class Visitor
             implements RowExpressionVisitor<List<ProjectionContext>, Void>
     {
-        private final FunctionManager functionManager;
+        private final TypeAndFunctionManager typeAndFunctionManager;
         private final PlanVariableAllocator variableAllocator;
 
-        public Visitor(FunctionManager functionManager, PlanVariableAllocator variableAllocator)
+        public Visitor(TypeAndFunctionManager typeAndFunctionManager, PlanVariableAllocator variableAllocator)
         {
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         }
 
         @Override
         public List<ProjectionContext> visitCall(CallExpression call, Void context)
         {
-            FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(call.getFunctionHandle());
+            FunctionMetadata functionMetadata = typeAndFunctionManager.getFunctionMetadata(call.getFunctionHandle());
             boolean local = !functionMetadata.getImplementationType().equals(THRIFT);
 
             // Break function arguments into local and remote projections first

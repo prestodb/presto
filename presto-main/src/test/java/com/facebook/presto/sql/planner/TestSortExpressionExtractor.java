@@ -96,7 +96,7 @@ public class TestSortExpressionExtractor
         Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(
                 BUILD_VARIABLES,
                 TRANSLATOR.translate(expression, TYPES),
-                METADATA.getFunctionManager());
+                METADATA.getTypeAndFunctionManager());
         assertEquals(actual, Optional.empty());
     }
 
@@ -132,7 +132,7 @@ public class TestSortExpressionExtractor
         Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(
                 BUILD_VARIABLES,
                 TRANSLATOR.translate(expression, TYPES),
-                METADATA.getFunctionManager());
+                METADATA.getTypeAndFunctionManager());
         assertEquals(actual, expected);
     }
 }

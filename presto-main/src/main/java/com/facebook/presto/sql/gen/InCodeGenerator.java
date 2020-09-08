@@ -24,7 +24,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -63,11 +63,11 @@ import static java.util.Objects.requireNonNull;
 public class InCodeGenerator
         implements SpecialFormBytecodeGenerator
 {
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
 
-    public InCodeGenerator(FunctionManager functionManager)
+    public InCodeGenerator(TypeAndFunctionManager typeAndFunctionManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
     }
 
     enum SwitchGenerationCase
@@ -122,9 +122,9 @@ public class InCodeGenerator
 
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, values);
 
-        FunctionHandle hashCodeHandle = generatorContext.getFunctionManager().resolveOperator(HASH_CODE, fromTypes(type));
+        FunctionHandle hashCodeHandle = generatorContext.getFunctionManager().resolveOperatorHandle(HASH_CODE, fromTypes(type));
         MethodHandle hashCodeFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(hashCodeHandle).getMethodHandle();
-        FunctionHandle isIndeterminateHandle = generatorContext.getFunctionManager().resolveOperator(INDETERMINATE, fromTypes(type));
+        FunctionHandle isIndeterminateHandle = generatorContext.getFunctionManager().resolveOperatorHandle(INDETERMINATE, fromTypes(type));
         BuiltInScalarFunctionImplementation isIndeterminateFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(isIndeterminateHandle);
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
@@ -220,7 +220,7 @@ public class InCodeGenerator
                         .append(switchBuilder.build());
                 break;
             case SET_CONTAINS:
-                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, functionManager);
+                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, typeAndFunctionManager);
                 Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
                 switchBlock = new BytecodeBlock()
@@ -331,7 +331,7 @@ public class InCodeGenerator
 
         elseBlock.gotoLabel(noMatchLabel);
 
-        FunctionHandle equalsHandle = generatorContext.getFunctionManager().resolveOperator(EQUAL, fromTypes(type, type));
+        FunctionHandle equalsHandle = generatorContext.getFunctionManager().resolveOperatorHandle(EQUAL, fromTypes(type, type));
         BuiltInScalarFunctionImplementation equalsFunction = generatorContext.getFunctionManager().getBuiltInScalarFunctionImplementation(equalsHandle);
 
         BytecodeNode elseNode = elseBlock;

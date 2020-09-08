@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 
 import java.util.List;
 
@@ -28,7 +29,7 @@ public class TestBigintArrayType
 {
     public TestBigintArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(bigint)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(bigint)"))));
+        super(new TypeAndFunctionManager().getType(parseTypeSignature("array(bigint)")), List.class, createTestBlock(new TypeAndFunctionManager().getType(parseTypeSignature("array(bigint)"))));
     }
 
     public static Block createTestBlock(Type arrayType)

@@ -36,8 +36,8 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.JoinHash;
 import com.facebook.presto.operator.JoinHashSupplier;
 import com.facebook.presto.operator.LookupSourceSupplier;
@@ -91,7 +91,7 @@ import static java.util.Objects.requireNonNull;
 
 public class JoinCompiler
 {
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
     private final boolean groupByUsesEqualTo;
 
     private final LoadingCache<CacheKey, LookupSourceSupplierFactory> lookupSourceFactories = CacheBuilder.newBuilder()
@@ -114,7 +114,7 @@ public class JoinCompiler
     @Inject
     public JoinCompiler(Metadata metadata, FeaturesConfig config)
     {
-        this.functionManager = requireNonNull(metadata, "metadata is null").getFunctionManager();
+        this.typeAndFunctionManager = requireNonNull(metadata, "metadata is null").getTypeAndFunctionManager();
         this.groupByUsesEqualTo = requireNonNull(config, "config is null").isGroupByUsesEqualTo();
     }
 
@@ -707,7 +707,7 @@ public class JoinCompiler
                         continue;
                 }
             }
-            BuiltInScalarFunctionImplementation operator = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));
+            BuiltInScalarFunctionImplementation operator = typeAndFunctionManager.getBuiltInScalarFunctionImplementation(typeAndFunctionManager.resolveOperatorHandle(OperatorType.IS_DISTINCT_FROM, fromTypes(type, type)));
             callSiteBinder.bind(operator.getMethodHandle());
             List<BytecodeNode> argumentsBytecode = new ArrayList<>();
             argumentsBytecode.add(generateInputReference(callSiteBinder, scope, type, leftBlock, leftBlockPosition));

@@ -18,7 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.io.Files;
@@ -76,7 +76,7 @@ public class TestFileSingleStreamSpillerFactory
             throws Exception
     {
         List<Type> types = ImmutableList.of(BIGINT);
-        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeAndFunctionManager());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
@@ -116,7 +116,7 @@ public class TestFileSingleStreamSpillerFactory
     public void throwsIfNoDiskSpace()
     {
         List<Type> types = ImmutableList.of(BIGINT);
-        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeAndFunctionManager());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
@@ -137,7 +137,7 @@ public class TestFileSingleStreamSpillerFactory
         List<Type> types = ImmutableList.of(BIGINT);
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                new BlockEncodingManager(new TypeRegistry()),
+                new BlockEncodingManager(new TypeAndFunctionManager()),
                 new SpillerStats(),
                 spillPaths,
                 1.0,
@@ -150,7 +150,7 @@ public class TestFileSingleStreamSpillerFactory
     public void testCleanupOldSpillFiles()
             throws Exception
     {
-        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+        BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeAndFunctionManager());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         spillPath1.mkdirs();
         spillPath2.mkdirs();

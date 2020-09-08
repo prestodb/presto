@@ -33,8 +33,8 @@ public class TestApproximateCountDistinctBoolean
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {
-        return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("approx_distinct", fromTypes(BOOLEAN, DOUBLE)));
+        return TYPE_AND_FUNCTION_MANAGER.getAggregateFunctionImplementation(
+                TYPE_AND_FUNCTION_MANAGER.lookupFunction("approx_distinct", fromTypes(BOOLEAN, DOUBLE)));
     }
 
     @Override

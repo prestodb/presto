@@ -264,9 +264,9 @@ public class PickTableLayout
     {
         // don't include non-deterministic predicates
         LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
-                new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
-                new FunctionResolution(metadata.getFunctionManager()),
-                metadata.getFunctionManager());
+                new RowExpressionDeterminismEvaluator(metadata.getTypeAndFunctionManager()),
+                new FunctionResolution(metadata.getTypeAndFunctionManager()),
+                metadata.getTypeAndFunctionManager());
         RowExpression deterministicPredicate = logicalRowExpressions.filterDeterministicConjuncts(predicate);
         DomainTranslator.ExtractionResult<VariableReferenceExpression> decomposedPredicate = domainTranslator.fromPredicate(
                 session.toConnectorSession(),

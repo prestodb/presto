@@ -14,7 +14,7 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -141,7 +141,7 @@ public final class GraphvizPrinter
 
     private GraphvizPrinter() {}
 
-    public static String printLogical(List<PlanFragment> fragments, Session session, FunctionManager functionManager)
+    public static String printLogical(List<PlanFragment> fragments, Session session, TypeAndFunctionManager typeAndFunctionManager)
     {
         Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
         PlanNodeIdGenerator idGenerator = new PlanNodeIdGenerator();
@@ -150,7 +150,7 @@ public final class GraphvizPrinter
         output.append("digraph logical_plan {\n");
 
         for (PlanFragment fragment : fragments) {
-            printFragmentNodes(output, fragment, idGenerator, session, functionManager);
+            printFragmentNodes(output, fragment, idGenerator, session, typeAndFunctionManager);
         }
 
         for (PlanFragment fragment : fragments) {
@@ -162,7 +162,7 @@ public final class GraphvizPrinter
         return output.toString();
     }
 
-    public static String printDistributed(SubPlan plan, Session session, FunctionManager functionManager)
+    public static String printDistributed(SubPlan plan, Session session, TypeAndFunctionManager typeAndFunctionManager)
     {
         List<PlanFragment> fragments = plan.getAllFragments();
         Map<PlanFragmentId, PlanFragment> fragmentsById = Maps.uniqueIndex(fragments, PlanFragment::getId);
@@ -171,7 +171,7 @@ public final class GraphvizPrinter
         StringBuilder output = new StringBuilder();
         output.append("digraph distributed_plan {\n");
 
-        printSubPlan(plan, fragmentsById, idGenerator, output, session, functionManager);
+        printSubPlan(plan, fragmentsById, idGenerator, output, session, typeAndFunctionManager);
 
         output.append("}\n");
 
@@ -184,18 +184,18 @@ public final class GraphvizPrinter
             PlanNodeIdGenerator idGenerator,
             StringBuilder output,
             Session session,
-            FunctionManager functionManager)
+            TypeAndFunctionManager typeAndFunctionManager)
     {
         PlanFragment fragment = plan.getFragment();
-        printFragmentNodes(output, fragment, idGenerator, session, functionManager);
+        printFragmentNodes(output, fragment, idGenerator, session, typeAndFunctionManager);
         fragment.getRoot().accept(new EdgePrinter(output, fragmentsById, idGenerator), null);
 
         for (SubPlan child : plan.getChildren()) {
-            printSubPlan(child, fragmentsById, idGenerator, output, session, functionManager);
+            printSubPlan(child, fragmentsById, idGenerator, output, session, typeAndFunctionManager);
         }
     }
 
-    private static void printFragmentNodes(StringBuilder output, PlanFragment fragment, PlanNodeIdGenerator idGenerator, Session session, FunctionManager functionManager)
+    private static void printFragmentNodes(StringBuilder output, PlanFragment fragment, PlanNodeIdGenerator idGenerator, Session session, TypeAndFunctionManager typeAndFunctionManager)
     {
         String clusterId = "cluster_" + fragment.getId();
         output.append("subgraph ")
@@ -207,7 +207,7 @@ public final class GraphvizPrinter
                 .append('\n');
 
         PlanNode plan = fragment.getRoot();
-        plan.accept(new NodePrinter(output, idGenerator, session, functionManager), null);
+        plan.accept(new NodePrinter(output, idGenerator, session, typeAndFunctionManager), null);
 
         output.append("}")
                 .append('\n');
@@ -221,11 +221,11 @@ public final class GraphvizPrinter
         private final PlanNodeIdGenerator idGenerator;
         private final Function<RowExpression, String> formatter;
 
-        public NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator, Session session, FunctionManager functionManager)
+        public NodePrinter(StringBuilder output, PlanNodeIdGenerator idGenerator, Session session, TypeAndFunctionManager typeAndFunctionManager)
         {
             this.output = output;
             this.idGenerator = idGenerator;
-            RowExpressionFormatter rowExpressionFormatter = new RowExpressionFormatter(functionManager);
+            RowExpressionFormatter rowExpressionFormatter = new RowExpressionFormatter(typeAndFunctionManager);
             ConnectorSession connectorSession = requireNonNull(session, "session is null").toConnectorSession();
             this.formatter = rowExpression -> rowExpressionFormatter.formatRowExpression(connectorSession, rowExpression);
         }

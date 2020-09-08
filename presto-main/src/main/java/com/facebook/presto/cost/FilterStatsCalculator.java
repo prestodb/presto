@@ -16,8 +16,8 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -115,7 +115,7 @@ public class FilterStatsCalculator
         this.scalarStatsCalculator = requireNonNull(scalarStatsCalculator, "scalarStatsCalculator is null");
         this.normalizer = requireNonNull(normalizer, "normalizer is null");
         this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
-        this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
+        this.functionResolution = new FunctionResolution(metadata.getTypeAndFunctionManager());
     }
 
     @Deprecated
@@ -136,7 +136,7 @@ public class FilterStatsCalculator
             ConnectorSession session)
     {
         RowExpression simplifiedExpression = simplifyExpression(session, predicate);
-        return new FilterRowExpressionStatsCalculatingVisitor(statsEstimate, session, metadata.getFunctionManager()).process(simplifiedExpression);
+        return new FilterRowExpressionStatsCalculatingVisitor(statsEstimate, session, metadata.getTypeAndFunctionManager()).process(simplifiedExpression);
     }
 
     public PlanNodeStatsEstimate filterStats(
@@ -177,7 +177,7 @@ public class FilterStatsCalculator
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionManager(),
+                metadata.getTypeAndFunctionManager(),
                 metadata.getTypeManager(),
                 session,
                 types,
@@ -460,7 +460,7 @@ public class FilterStatsCalculator
             }
 
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata.getFunctionManager(),
+                    metadata.getTypeAndFunctionManager(),
                     metadata.getTypeManager(),
                     session,
                     types,
@@ -493,13 +493,13 @@ public class FilterStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final ConnectorSession session;
-        private final FunctionManager functionManager;
+        private final TypeAndFunctionManager typeAndFunctionManager;
 
-        FilterRowExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, ConnectorSession session, FunctionManager functionManager)
+        FilterRowExpressionStatsCalculatingVisitor(PlanNodeStatsEstimate input, ConnectorSession session, TypeAndFunctionManager typeAndFunctionManager)
         {
             this.input = requireNonNull(input, "input is null");
             this.session = requireNonNull(session, "session is null");
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
         }
 
         @Override
@@ -554,7 +554,7 @@ public class FilterStatsCalculator
         public PlanNodeStatsEstimate visitCall(CallExpression node, Void context)
         {
             // comparison case
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(node.getFunctionHandle());
+            FunctionMetadata functionMetadata = metadata.getTypeAndFunctionManager().getFunctionMetadata(node.getFunctionHandle());
             if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
                 OperatorType operatorType = functionMetadata.getOperatorType().get();
                 RowExpression left = node.getArguments().get(0);
@@ -565,13 +565,13 @@ public class FilterStatsCalculator
                 if (!(left instanceof VariableReferenceExpression) && right instanceof VariableReferenceExpression) {
                     // normalize so that variable is on the left
                     OperatorType flippedOperator = flip(operatorType);
-                    return process(call(flippedOperator.name(), metadata.getFunctionManager().resolveOperator(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
+                    return process(call(flippedOperator.name(), metadata.getTypeAndFunctionManager().resolveOperatorHandle(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
                 }
 
                 if (left instanceof ConstantExpression) {
                     // normalize so that literal is on the right
                     OperatorType flippedOperator = flip(operatorType);
-                    return process(call(flippedOperator.name(), metadata.getFunctionManager().resolveOperator(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
+                    return process(call(flippedOperator.name(), metadata.getTypeAndFunctionManager().resolveOperatorHandle(flippedOperator, fromTypes(right.getType(), left.getType())), BOOLEAN, right, left));
                 }
 
                 if (left instanceof VariableReferenceExpression && left.equals(right)) {
@@ -585,7 +585,7 @@ public class FilterStatsCalculator
                     if (rightValue == null) {
                         return visitConstant(constantNull(BOOLEAN), null);
                     }
-                    OptionalDouble literal = toStatsRepresentation(metadata.getFunctionManager(), session, right.getType(), rightValue);
+                    OptionalDouble literal = toStatsRepresentation(metadata.getTypeAndFunctionManager(), session, right.getType(), rightValue);
                     return estimateExpressionToLiteralComparison(input, leftStats, leftVariable, literal, getComparisonOperator(operatorType));
                 }
 
@@ -636,13 +636,13 @@ public class FilterStatsCalculator
                 VariableStatsEstimate valueStats = input.getVariableStatistics((VariableReferenceExpression) value);
                 RowExpression lowerBound = call(
                         OperatorType.GREATER_THAN_OR_EQUAL.name(),
-                        metadata.getFunctionManager().resolveOperator(OperatorType.GREATER_THAN_OR_EQUAL, fromTypes(value.getType(), min.getType())),
+                        metadata.getTypeAndFunctionManager().resolveOperatorHandle(OperatorType.GREATER_THAN_OR_EQUAL, fromTypes(value.getType(), min.getType())),
                         BOOLEAN,
                         value,
                         min);
                 RowExpression upperBound = call(
                         OperatorType.LESS_THAN_OR_EQUAL.name(),
-                        metadata.getFunctionManager().resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, fromTypes(value.getType(), max.getType())),
+                        metadata.getTypeAndFunctionManager().resolveOperatorHandle(OperatorType.LESS_THAN_OR_EQUAL, fromTypes(value.getType(), max.getType())),
                         BOOLEAN,
                         value,
                         max);
@@ -674,7 +674,7 @@ public class FilterStatsCalculator
 
         private FilterRowExpressionStatsCalculatingVisitor newEstimate(PlanNodeStatsEstimate input)
         {
-            return new FilterRowExpressionStatsCalculatingVisitor(input, session, functionManager);
+            return new FilterRowExpressionStatsCalculatingVisitor(input, session, typeAndFunctionManager);
         }
 
         private PlanNodeStatsEstimate process(RowExpression rowExpression)
@@ -739,7 +739,7 @@ public class FilterStatsCalculator
         private PlanNodeStatsEstimate estimateIn(RowExpression value, List<RowExpression> candidates)
         {
             ImmutableList<PlanNodeStatsEstimate> equalityEstimates = candidates.stream()
-                    .map(inValue -> process(call(OperatorType.EQUAL.name(), metadata.getFunctionManager().resolveOperator(OperatorType.EQUAL, fromTypes(value.getType(), inValue.getType())), BOOLEAN, value, inValue)))
+                    .map(inValue -> process(call(OperatorType.EQUAL.name(), metadata.getTypeAndFunctionManager().resolveOperatorHandle(OperatorType.EQUAL, fromTypes(value.getType(), inValue.getType())), BOOLEAN, value, inValue)))
                     .collect(toImmutableList());
 
             if (equalityEstimates.stream().anyMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown)) {

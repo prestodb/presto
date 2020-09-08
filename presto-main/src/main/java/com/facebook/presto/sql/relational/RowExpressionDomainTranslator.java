@@ -27,9 +27,9 @@ import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -94,7 +94,7 @@ import static java.util.stream.Collectors.toList;
 public final class RowExpressionDomainTranslator
         implements DomainTranslator
 {
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
     private final LogicalRowExpressions logicalRowExpressions;
     private final StandardFunctionResolution functionResolution;
     private final Metadata metadata;
@@ -103,9 +103,25 @@ public final class RowExpressionDomainTranslator
     public RowExpressionDomainTranslator(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionManager = metadata.getFunctionManager();
-        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager), functionManager);
-        this.functionResolution = new FunctionResolution(functionManager);
+        this.typeAndFunctionManager = metadata.getTypeAndFunctionManager();
+        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(typeAndFunctionManager), new FunctionResolution(typeAndFunctionManager), typeAndFunctionManager);
+        this.functionResolution = new FunctionResolution(typeAndFunctionManager);
+    }
+
+    private static boolean isBetween(Range range)
+    {
+        return !range.getLow().isLowerUnbounded() && range.getLow().getBound() == Marker.Bound.EXACTLY
+                && !range.getHigh().isUpperUnbounded() && range.getHigh().getBound() == Marker.Bound.EXACTLY;
+    }
+
+    private static RowExpression isNull(RowExpression expression)
+    {
+        return new SpecialFormExpression(IS_NULL, BOOLEAN, expression);
+    }
+
+    private static RowExpression not(StandardFunctionResolution resolution, RowExpression expression)
+    {
+        return call("not", resolution.notFunction(), expression.getType(), expression);
     }
 
     @Override
@@ -169,7 +185,7 @@ public final class RowExpressionDomainTranslator
             // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
             return call(
                     BETWEEN.name(),
-                    functionManager.resolveOperator(BETWEEN, fromTypes(reference.getType(), type, type)),
+                    typeAndFunctionManager.resolveOperatorHandle(BETWEEN, fromTypes(reference.getType(), type, type)),
                     BOOLEAN,
                     reference,
                     toRowExpression(range.getLow().getValue(), type),
@@ -290,10 +306,44 @@ public final class RowExpressionDomainTranslator
         return ImmutableList.of(predicate);
     }
 
-    private static boolean isBetween(Range range)
+    private RowExpression in(RowExpression value, List<RowExpression> inList)
     {
-        return !range.getLow().isLowerUnbounded() && range.getLow().getBound() == Marker.Bound.EXACTLY
-                && !range.getHigh().isUpperUnbounded() && range.getHigh().getBound() == Marker.Bound.EXACTLY;
+        return new SpecialFormExpression(IN, BOOLEAN, ImmutableList.<RowExpression>builder().add(value).addAll(inList).build());
+    }
+
+    private RowExpression binaryOperator(OperatorType operatorType, RowExpression left, RowExpression right)
+    {
+        return call(operatorType.name(), typeAndFunctionManager.resolveOperatorHandle(operatorType, fromTypes(left.getType(), right.getType())), BOOLEAN, left, right);
+    }
+
+    private RowExpression greaterThan(RowExpression left, RowExpression right)
+    {
+        return binaryOperator(OperatorType.GREATER_THAN, left, right);
+    }
+
+    private RowExpression lessThan(RowExpression left, RowExpression right)
+    {
+        return binaryOperator(OperatorType.LESS_THAN, left, right);
+    }
+
+    private RowExpression greaterThanOrEqual(RowExpression left, RowExpression right)
+    {
+        return binaryOperator(GREATER_THAN_OR_EQUAL, left, right);
+    }
+
+    private RowExpression lessThanOrEqual(RowExpression left, RowExpression right)
+    {
+        return binaryOperator(LESS_THAN_OR_EQUAL, left, right);
+    }
+
+    private RowExpression equal(RowExpression left, RowExpression right)
+    {
+        return binaryOperator(EQUAL, left, right);
+    }
+
+    private RowExpression notEqual(RowExpression left, RowExpression right)
+    {
+        return binaryOperator(NOT_EQUAL, left, right);
     }
 
     private static class Visitor<T>
@@ -302,7 +352,7 @@ public final class RowExpressionDomainTranslator
         private final InterpretedFunctionInvoker functionInvoker;
         private final Metadata metadata;
         private final ConnectorSession session;
-        private final FunctionManager functionManager;
+        private final TypeAndFunctionManager typeAndFunctionManager;
         private final LogicalRowExpressions logicalRowExpressions;
         private final DeterminismEvaluator determinismEvaluator;
         private final StandardFunctionResolution resolution;
@@ -310,14 +360,120 @@ public final class RowExpressionDomainTranslator
 
         private Visitor(Metadata metadata, ConnectorSession session, ColumnExtractor<T> columnExtractor)
         {
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getTypeAndFunctionManager());
             this.metadata = metadata;
             this.session = session;
-            this.functionManager = metadata.getFunctionManager();
-            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager), functionManager);
-            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
-            this.resolution = new FunctionResolution(functionManager);
+            this.typeAndFunctionManager = metadata.getTypeAndFunctionManager();
+            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(typeAndFunctionManager), new FunctionResolution(typeAndFunctionManager), typeAndFunctionManager);
+            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(typeAndFunctionManager);
+            this.resolution = new FunctionResolution(typeAndFunctionManager);
             this.columnExtractor = requireNonNull(columnExtractor, "columnExtractor is null");
+        }
+
+        private static Domain extractOrderableDomain(OperatorType comparisonOperator, Type type, Object value, boolean complement)
+        {
+            checkArgument(value != null);
+            switch (comparisonOperator) {
+                case EQUAL:
+                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false);
+                case GREATER_THAN:
+                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThan(type, value)), complement), false);
+                case GREATER_THAN_OR_EQUAL:
+                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), complement), false);
+                case LESS_THAN:
+                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value)), complement), false);
+                case LESS_THAN_OR_EQUAL:
+                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), complement), false);
+                case NOT_EQUAL:
+                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), complement), false);
+                case IS_DISTINCT_FROM:
+                    // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
+                    return complementIfNecessary(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), true), complement);
+                default:
+                    throw new AssertionError("Unhandled operator: " + comparisonOperator);
+            }
+        }
+
+        private static Domain extractEquatableDomain(OperatorType comparisonOperator, Type type, Object value, boolean complement)
+        {
+            checkArgument(value != null);
+            switch (comparisonOperator) {
+                case EQUAL:
+                    return Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), false);
+                case NOT_EQUAL:
+                    return Domain.create(complementIfNecessary(ValueSet.of(type, value).complement(), complement), false);
+                case IS_DISTINCT_FROM:
+                    // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
+                    return complementIfNecessary(Domain.create(ValueSet.of(type, value).complement(), true), complement);
+                default:
+                    throw new AssertionError("Unhandled operator: " + comparisonOperator);
+            }
+        }
+
+        private static Domain createComparisonDomain(OperatorType comparisonOperator, Type type, @Nullable Object value, boolean complement)
+        {
+            if (value == null) {
+                switch (comparisonOperator) {
+                    case EQUAL:
+                    case GREATER_THAN:
+                    case GREATER_THAN_OR_EQUAL:
+                    case LESS_THAN:
+                    case LESS_THAN_OR_EQUAL:
+                    case NOT_EQUAL:
+                        return Domain.none(type);
+
+                    case IS_DISTINCT_FROM:
+                        return complementIfNecessary(Domain.notNull(type), complement);
+
+                    default:
+                        throw new AssertionError("Unhandled operator: " + comparisonOperator);
+                }
+            }
+
+            Domain domain;
+            if (type.isOrderable()) {
+                domain = extractOrderableDomain(comparisonOperator, type, value, complement);
+            }
+            else if (type.isComparable()) {
+                domain = extractEquatableDomain(comparisonOperator, type, value, complement);
+            }
+            else {
+                throw new AssertionError("Type cannot be used in a comparison expression (should have been caught in analysis): " + type);
+            }
+
+            return domain;
+        }
+
+        private static OperatorType flip(OperatorType operatorType)
+        {
+            switch (operatorType) {
+                case EQUAL:
+                    return EQUAL;
+                case NOT_EQUAL:
+                    return NOT_EQUAL;
+                case LESS_THAN:
+                    return GREATER_THAN;
+                case LESS_THAN_OR_EQUAL:
+                    return GREATER_THAN_OR_EQUAL;
+                case GREATER_THAN:
+                    return LESS_THAN;
+                case GREATER_THAN_OR_EQUAL:
+                    return LESS_THAN_OR_EQUAL;
+                case IS_DISTINCT_FROM:
+                    return IS_DISTINCT_FROM;
+                default:
+                    throw new IllegalArgumentException("Unsupported comparison: " + operatorType);
+            }
+        }
+
+        private static ValueSet complementIfNecessary(ValueSet valueSet, boolean complement)
+        {
+            return complement ? valueSet.complement() : valueSet;
+        }
+
+        private static Domain complementIfNecessary(Domain domain, boolean complement)
+        {
+            return complement ? domain.complement() : domain;
         }
 
         @Override
@@ -335,7 +491,7 @@ public final class RowExpressionDomainTranslator
 
                     ImmutableList.Builder<RowExpression> disjuncts = ImmutableList.builder();
                     for (RowExpression expression : values) {
-                        disjuncts.add(call(EQUAL.name(), functionManager.resolveOperator(EQUAL, fromTypes(target.getType(), expression.getType())), BOOLEAN, target, expression));
+                        disjuncts.add(call(EQUAL.name(), typeAndFunctionManager.resolveOperatorHandle(EQUAL, fromTypes(target.getType(), expression.getType())), BOOLEAN, target, expression));
                     }
                     ExtractionResult extractionResult = or(disjuncts.build()).accept(this, complement);
 
@@ -403,7 +559,7 @@ public final class RowExpressionDomainTranslator
                         binaryOperator(LESS_THAN_OR_EQUAL, node.getArguments().get(0), node.getArguments().get(2))).accept(this, complement);
             }
 
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(node.getFunctionHandle());
+            FunctionMetadata functionMetadata = metadata.getTypeAndFunctionManager().getFunctionMetadata(node.getFunctionHandle());
             if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
                 Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(functionMetadata.getOperatorType().get(), node.getArguments().get(0), node.getArguments().get(1));
                 if (!optionalNormalized.isPresent()) {
@@ -555,7 +711,7 @@ public final class RowExpressionDomainTranslator
         {
             return call(
                     operatorType.name(),
-                    metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(left.getType(), right.getType())),
+                    metadata.getTypeAndFunctionManager().resolveOperatorHandle(operatorType, fromTypes(left.getType(), right.getType())),
                     BOOLEAN,
                     left,
                     right);
@@ -570,7 +726,7 @@ public final class RowExpressionDomainTranslator
         private Optional<FunctionHandle> getSaturatedFloorCastOperator(Type fromType, Type toType)
         {
             try {
-                return Optional.of(metadata.getFunctionManager().lookupCast(SATURATED_FLOOR_CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
+                return Optional.of(metadata.getTypeAndFunctionManager().lookupCast(SATURATED_FLOOR_CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
             }
             catch (OperatorNotFoundException e) {
                 return Optional.empty();
@@ -579,7 +735,7 @@ public final class RowExpressionDomainTranslator
 
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
-            FunctionHandle castToOriginalTypeOperator = metadata.getFunctionManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
+            FunctionHandle castToOriginalTypeOperator = metadata.getTypeAndFunctionManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
             Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.getSqlFunctionProperties(), coercedValue);
             Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
             Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);
@@ -591,46 +747,6 @@ public final class RowExpressionDomainTranslator
             Type sourceType = cast.getArguments().get(0).getType();
             Type targetType = cast.getType();
             return metadata.getTypeManager().canCoerce(sourceType, targetType);
-        }
-
-        private static Domain extractOrderableDomain(OperatorType comparisonOperator, Type type, Object value, boolean complement)
-        {
-            checkArgument(value != null);
-            switch (comparisonOperator) {
-                case EQUAL:
-                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false);
-                case GREATER_THAN:
-                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThan(type, value)), complement), false);
-                case GREATER_THAN_OR_EQUAL:
-                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.greaterThanOrEqual(type, value)), complement), false);
-                case LESS_THAN:
-                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value)), complement), false);
-                case LESS_THAN_OR_EQUAL:
-                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThanOrEqual(type, value)), complement), false);
-                case NOT_EQUAL:
-                    return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), complement), false);
-                case IS_DISTINCT_FROM:
-                    // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
-                    return complementIfNecessary(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), true), complement);
-                default:
-                    throw new AssertionError("Unhandled operator: " + comparisonOperator);
-            }
-        }
-
-        private static Domain extractEquatableDomain(OperatorType comparisonOperator, Type type, Object value, boolean complement)
-        {
-            checkArgument(value != null);
-            switch (comparisonOperator) {
-                case EQUAL:
-                    return Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), false);
-                case NOT_EQUAL:
-                    return Domain.create(complementIfNecessary(ValueSet.of(type, value).complement(), complement), false);
-                case IS_DISTINCT_FROM:
-                    // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
-                    return complementIfNecessary(Domain.create(ValueSet.of(type, value).complement(), true), complement);
-                default:
-                    throw new AssertionError("Unhandled operator: " + comparisonOperator);
-            }
         }
 
         /**
@@ -674,72 +790,6 @@ public final class RowExpressionDomainTranslator
             }
 
             return Optional.of(new NormalizedSimpleComparison(expression, comparisonOperator, value));
-        }
-
-        private static Domain createComparisonDomain(OperatorType comparisonOperator, Type type, @Nullable Object value, boolean complement)
-        {
-            if (value == null) {
-                switch (comparisonOperator) {
-                    case EQUAL:
-                    case GREATER_THAN:
-                    case GREATER_THAN_OR_EQUAL:
-                    case LESS_THAN:
-                    case LESS_THAN_OR_EQUAL:
-                    case NOT_EQUAL:
-                        return Domain.none(type);
-
-                    case IS_DISTINCT_FROM:
-                        return complementIfNecessary(Domain.notNull(type), complement);
-
-                    default:
-                        throw new AssertionError("Unhandled operator: " + comparisonOperator);
-                }
-            }
-
-            Domain domain;
-            if (type.isOrderable()) {
-                domain = extractOrderableDomain(comparisonOperator, type, value, complement);
-            }
-            else if (type.isComparable()) {
-                domain = extractEquatableDomain(comparisonOperator, type, value, complement);
-            }
-            else {
-                throw new AssertionError("Type cannot be used in a comparison expression (should have been caught in analysis): " + type);
-            }
-
-            return domain;
-        }
-
-        private static OperatorType flip(OperatorType operatorType)
-        {
-            switch (operatorType) {
-                case EQUAL:
-                    return EQUAL;
-                case NOT_EQUAL:
-                    return NOT_EQUAL;
-                case LESS_THAN:
-                    return GREATER_THAN;
-                case LESS_THAN_OR_EQUAL:
-                    return GREATER_THAN_OR_EQUAL;
-                case GREATER_THAN:
-                    return LESS_THAN;
-                case GREATER_THAN_OR_EQUAL:
-                    return LESS_THAN_OR_EQUAL;
-                case IS_DISTINCT_FROM:
-                    return IS_DISTINCT_FROM;
-                default:
-                    throw new IllegalArgumentException("Unsupported comparison: " + operatorType);
-            }
-        }
-
-        private static ValueSet complementIfNecessary(ValueSet valueSet, boolean complement)
-        {
-            return complement ? valueSet.complement() : valueSet;
-        }
-
-        private static Domain complementIfNecessary(Domain domain, boolean complement)
-        {
-            return complement ? domain.complement() : domain;
         }
 
         private RowExpression complementIfNecessary(RowExpression expression, boolean complement)
@@ -814,56 +864,6 @@ public final class RowExpressionDomainTranslator
                     throw new IllegalStateException("Can not extract predicate from special form: " + node.getForm());
             }
         }
-    }
-
-    private static RowExpression isNull(RowExpression expression)
-    {
-        return new SpecialFormExpression(IS_NULL, BOOLEAN, expression);
-    }
-
-    private static RowExpression not(StandardFunctionResolution resolution, RowExpression expression)
-    {
-        return call("not", resolution.notFunction(), expression.getType(), expression);
-    }
-
-    private RowExpression in(RowExpression value, List<RowExpression> inList)
-    {
-        return new SpecialFormExpression(IN, BOOLEAN, ImmutableList.<RowExpression>builder().add(value).addAll(inList).build());
-    }
-
-    private RowExpression binaryOperator(OperatorType operatorType, RowExpression left, RowExpression right)
-    {
-        return call(operatorType.name(), functionManager.resolveOperator(operatorType, fromTypes(left.getType(), right.getType())), BOOLEAN, left, right);
-    }
-
-    private RowExpression greaterThan(RowExpression left, RowExpression right)
-    {
-        return binaryOperator(OperatorType.GREATER_THAN, left, right);
-    }
-
-    private RowExpression lessThan(RowExpression left, RowExpression right)
-    {
-        return binaryOperator(OperatorType.LESS_THAN, left, right);
-    }
-
-    private RowExpression greaterThanOrEqual(RowExpression left, RowExpression right)
-    {
-        return binaryOperator(GREATER_THAN_OR_EQUAL, left, right);
-    }
-
-    private RowExpression lessThanOrEqual(RowExpression left, RowExpression right)
-    {
-        return binaryOperator(LESS_THAN_OR_EQUAL, left, right);
-    }
-
-    private RowExpression equal(RowExpression left, RowExpression right)
-    {
-        return binaryOperator(EQUAL, left, right);
-    }
-
-    private RowExpression notEqual(RowExpression left, RowExpression right)
-    {
-        return binaryOperator(NOT_EQUAL, left, right);
     }
 
     private static class NormalizedSimpleComparison

@@ -162,7 +162,7 @@ public class BasePlanTest
     protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionManager()),
+                new UnaliasSymbolReferences(queryRunner.getMetadata().getTypeAndFunctionManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),

@@ -78,9 +78,9 @@ public class DynamicFilterMatcher
         this.symbolAliases = symbolAliases;
 
         LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
-                new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
-                new FunctionResolution(metadata.getFunctionManager()),
-                metadata.getFunctionManager());
+                new RowExpressionDeterminismEvaluator(metadata.getTypeAndFunctionManager()),
+                new FunctionResolution(metadata.getTypeAndFunctionManager()),
+                metadata.getTypeAndFunctionManager());
         boolean staticFilterMatches = expectedStaticFilter.map(filter -> {
             RowExpressionVerifier verifier = new RowExpressionVerifier(symbolAliases, metadata, session);
             RowExpression staticFilter = logicalRowExpressions.combineConjuncts(extractDynamicFilters(filterNode.getPredicate()).getStaticConjuncts());

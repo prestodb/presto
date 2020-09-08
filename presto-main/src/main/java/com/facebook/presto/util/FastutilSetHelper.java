@@ -14,7 +14,7 @@
 package com.facebook.presto.util;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.PrestoException;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
@@ -43,23 +43,23 @@ public final class FastutilSetHelper
     private FastutilSetHelper() {}
 
     @SuppressWarnings("unchecked")
-    public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionManager functionManager)
+    public static Set<?> toFastutilHashSet(Set<?> set, Type type, TypeAndFunctionManager typeAndFunctionManager)
     {
         // 0.25 as the load factor is chosen because the argument set is assumed to be small (<10000),
         // and the return set is assumed to be read-heavy.
         // The performance of InCodeGenerator heavily depends on the load factor being small.
         Class<?> javaElementType = type.getJavaType();
         if (javaElementType == long.class) {
-            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(functionManager, type));
+            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(typeAndFunctionManager, type));
         }
         if (javaElementType == double.class) {
-            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(functionManager, type));
+            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(typeAndFunctionManager, type));
         }
         if (javaElementType == boolean.class) {
             return new BooleanOpenHashSet((Collection<Boolean>) set, 0.25f);
         }
         else if (!type.getJavaType().isPrimitive()) {
-            return new ObjectOpenCustomHashSet(set, 0.25f, new ObjectStrategy(functionManager, type));
+            return new ObjectOpenCustomHashSet(set, 0.25f, new ObjectStrategy(typeAndFunctionManager, type));
         }
         else {
             throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
@@ -92,10 +92,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private LongStrategy(FunctionManager functionManager, Type type)
+        private LongStrategy(TypeAndFunctionManager typeAndFunctionManager, Type type)
         {
-            hashCodeHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
-            equalsHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
+            hashCodeHandle = typeAndFunctionManager.getBuiltInScalarFunctionImplementation(typeAndFunctionManager.resolveOperatorHandle(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = typeAndFunctionManager.getBuiltInScalarFunctionImplementation(typeAndFunctionManager.resolveOperatorHandle(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -134,10 +134,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private DoubleStrategy(FunctionManager functionManager, Type type)
+        private DoubleStrategy(TypeAndFunctionManager typeAndFunctionManager, Type type)
         {
-            hashCodeHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type))).getMethodHandle();
-            equalsHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type))).getMethodHandle();
+            hashCodeHandle = typeAndFunctionManager.getBuiltInScalarFunctionImplementation(typeAndFunctionManager.resolveOperatorHandle(HASH_CODE, fromTypes(type))).getMethodHandle();
+            equalsHandle = typeAndFunctionManager.getBuiltInScalarFunctionImplementation(typeAndFunctionManager.resolveOperatorHandle(EQUAL, fromTypes(type, type))).getMethodHandle();
         }
 
         @Override
@@ -176,12 +176,12 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private ObjectStrategy(FunctionManager functionManager, Type type)
+        private ObjectStrategy(TypeAndFunctionManager typeAndFunctionManager, Type type)
         {
-            hashCodeHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(HASH_CODE, fromTypes(type)))
+            hashCodeHandle = typeAndFunctionManager.getBuiltInScalarFunctionImplementation(typeAndFunctionManager.resolveOperatorHandle(HASH_CODE, fromTypes(type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(long.class, Object.class));
-            equalsHandle = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(EQUAL, fromTypes(type, type)))
+            equalsHandle = typeAndFunctionManager.getBuiltInScalarFunctionImplementation(typeAndFunctionManager.resolveOperatorHandle(EQUAL, fromTypes(type, type)))
                     .getMethodHandle()
                     .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
         }

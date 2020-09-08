@@ -243,7 +243,7 @@ public class AddExchanges
         {
             Set<VariableReferenceExpression> partitioningRequirement = ImmutableSet.copyOf(node.getGroupingKeys());
 
-            boolean preferSingleNode = hasSingleNodeExecutionPreference(node, metadata.getFunctionManager());
+            boolean preferSingleNode = hasSingleNodeExecutionPreference(node, metadata.getTypeAndFunctionManager());
             boolean hasMixedGroupingSets = node.hasEmptyGroupingSet() && node.hasNonEmptyGroupingSet();
             PreferredProperties preferredProperties = preferSingleNode ? PreferredProperties.undistributed() : PreferredProperties.any();
 

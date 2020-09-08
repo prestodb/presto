@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.SqlTime;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
@@ -45,7 +46,6 @@ import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingNodeManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -836,7 +836,7 @@ public class TestOrcStorageManager
                 new BackupManager(backupStore, storageService, new LocalOrcDataEnvironment(), 1),
                 recoveryManager,
                 shardRecorder,
-                new TypeRegistry(),
+                new TypeAndFunctionManager(),
                 new LocalOrcDataEnvironment(),
                 CONNECTOR_ID,
                 DELETION_THREADS,

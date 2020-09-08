@@ -20,6 +20,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.server.SliceDeserializer;
 import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -36,7 +37,6 @@ import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -99,7 +99,7 @@ public class TestWindowNode
     public void testSerializationRoundtrip()
     {
         VariableReferenceExpression windowVariable = variableAllocator.newVariable("sum", BIGINT);
-        FunctionHandle functionHandle = createTestMetadataManager().getFunctionManager().lookupFunction("sum", fromTypes(BIGINT));
+        FunctionHandle functionHandle = createTestMetadataManager().getTypeAndFunctionManager().lookupFunction("sum", fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
                 RANGE,
                 UNBOUNDED_PRECEDING,
@@ -149,7 +149,7 @@ public class TestWindowNode
     {
         Module module = binder -> {
             SqlParser sqlParser = new SqlParser();
-            TypeManager typeManager = new TypeRegistry();
+            TypeManager typeManager = new TypeAndFunctionManager();
             binder.install(new JsonModule());
             binder.install(new HandleJsonModule());
             binder.bind(SqlParser.class).toInstance(sqlParser);

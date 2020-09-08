@@ -23,7 +23,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
@@ -120,9 +120,9 @@ public class TestSpatialPartitioningInternalAggregation
 
     private InternalAggregationFunction getFunction()
     {
-        FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
-        return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER)));
+        TypeAndFunctionManager typeAndFunctionManager = functionAssertions.getMetadata().getTypeAndFunctionManager();
+        return typeAndFunctionManager.getAggregateFunctionImplementation(
+                typeAndFunctionManager.lookupFunction("spatial_partitioning", fromTypes(GEOMETRY, INTEGER)));
     }
 
     private List<OGCGeometry> makeGeometries()

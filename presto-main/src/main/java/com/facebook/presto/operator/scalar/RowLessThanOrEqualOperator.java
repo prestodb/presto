@@ -16,9 +16,8 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
@@ -42,7 +41,7 @@ public final class RowLessThanOrEqualOperator
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeAndFunctionManager typeAndFunctionManager)
     {
         Type type = boundVariables.getTypeVariable("T");
         return new BuiltInScalarFunctionImplementation(
@@ -50,7 +49,7 @@ public final class RowLessThanOrEqualOperator
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionManager, LESS_THAN)));
+                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, typeAndFunctionManager, LESS_THAN)));
     }
 
     public static boolean lessOrEqual(

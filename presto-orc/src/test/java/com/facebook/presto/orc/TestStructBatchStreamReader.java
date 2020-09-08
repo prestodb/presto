@@ -24,10 +24,10 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -62,7 +62,7 @@ import static org.testng.Assert.assertNull;
 @Test(singleThreaded = true)
 public class TestStructBatchStreamReader
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    private static final TypeManager TYPE_MANAGER = new TypeAndFunctionManager();
 
     private static final Type TEST_DATA_TYPE = VARCHAR;
 

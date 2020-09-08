@@ -14,12 +14,12 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.event.client.AbstractEventClient;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
@@ -214,7 +214,7 @@ public class TestVerificationManager
                         createChecksumValidator(verifierConfig),
                         PrestoExceptionClassifier.defaultBuilder().build(),
                         verifierConfig,
-                        new TypeRegistry(),
+                        new TypeAndFunctionManager(),
                         new DeterminismAnalyzerConfig()),
                 SQL_PARSER,
                 ImmutableSet.of(eventClient),

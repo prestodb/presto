@@ -63,7 +63,7 @@ public class TestJoinNodeFlattener
     {
         queryRunner = new LocalQueryRunner(testSessionBuilder().build());
         determinismEvaluator = new RowExpressionDeterminismEvaluator(queryRunner.getMetadata());
-        functionResolution = new FunctionResolution(queryRunner.getMetadata().getFunctionManager());
+        functionResolution = new FunctionResolution(queryRunner.getMetadata().getTypeAndFunctionManager());
     }
 
     @AfterClass(alwaysRun = true)

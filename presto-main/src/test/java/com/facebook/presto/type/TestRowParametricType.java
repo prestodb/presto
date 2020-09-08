@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -36,7 +37,7 @@ public class TestRowParametricType
     @Test
     public void testTypeSignatureRoundTrip()
     {
-        TypeManager typeManager = new TypeRegistry();
+        TypeManager typeManager = new TypeAndFunctionManager();
         TypeSignature typeSignature = new TypeSignature(
                 ROW,
                 TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("col1", false)), new TypeSignature(BIGINT))),

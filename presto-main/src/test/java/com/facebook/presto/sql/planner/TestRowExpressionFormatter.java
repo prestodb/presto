@@ -13,23 +13,19 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.CastType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
@@ -82,9 +78,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestRowExpressionFormatter
 {
-    private static final TypeManager typeManager = new TypeRegistry();
-    private static final FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-    private static final RowExpressionFormatter FORMATTER = new RowExpressionFormatter(functionManager);
+    private static final TypeAndFunctionManager TYPE_AND_FUNCTION_MANAGER = new TypeAndFunctionManager();
+    private static final RowExpressionFormatter FORMATTER = new RowExpressionFormatter(TYPE_AND_FUNCTION_MANAGER);
     private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression("c_bigint", BIGINT);
     private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression("c_bigint_array", new ArrayType(BIGINT));
 
@@ -200,7 +195,7 @@ public class TestRowExpressionFormatter
         RowExpression expression = createCallExpression(ADD);
         callExpression = call(
                 NEGATION.name(),
-                functionManager.resolveOperator(NEGATION, fromTypes(expression.getType())),
+                TYPE_AND_FUNCTION_MANAGER.resolveOperatorHandle(NEGATION, fromTypes(expression.getType())),
                 expression.getType(),
                 expression);
         assertEquals(format(callExpression), "-((c_bigint) + (BIGINT 5))");
@@ -209,7 +204,7 @@ public class TestRowExpressionFormatter
         ArrayType arrayType = (ArrayType) C_BIGINT_ARRAY.getType();
         Type elementType = arrayType.getElementType();
         RowExpression subscriptExpression = call(SUBSCRIPT.name(),
-                functionManager.resolveOperator(SUBSCRIPT, fromTypes(arrayType, elementType)),
+                TYPE_AND_FUNCTION_MANAGER.resolveOperatorHandle(SUBSCRIPT, fromTypes(arrayType, elementType)),
                 elementType,
                 ImmutableList.of(C_BIGINT_ARRAY, constant(0L, INTEGER)));
         callExpression = subscriptExpression;
@@ -218,7 +213,7 @@ public class TestRowExpressionFormatter
         // cast
         callExpression = call(
             CAST.name(),
-            functionManager.lookupCast(CastType.CAST, TINYINT.getTypeSignature(), BIGINT.getTypeSignature()),
+            TYPE_AND_FUNCTION_MANAGER.lookupCast(CastType.CAST, TINYINT.getTypeSignature(), BIGINT.getTypeSignature()),
             BIGINT,
             constant(1L, TINYINT));
         assertEquals(format(callExpression), "CAST(TINYINT 1 AS bigint)");
@@ -226,7 +221,7 @@ public class TestRowExpressionFormatter
         // between
         callExpression = call(
                 BETWEEN.name(),
-                functionManager.resolveOperator(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
+                TYPE_AND_FUNCTION_MANAGER.resolveOperatorHandle(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
                 BOOLEAN,
                 subscriptExpression,
                 constant(1L, BIGINT),
@@ -236,7 +231,7 @@ public class TestRowExpressionFormatter
         // other
         callExpression = call(
                 HASH_CODE.name(),
-                functionManager.resolveOperator(HASH_CODE, fromTypes(BIGINT)),
+                TYPE_AND_FUNCTION_MANAGER.resolveOperatorHandle(HASH_CODE, fromTypes(BIGINT)),
                 BIGINT,
                 constant(1L, BIGINT));
         assertEquals(format(callExpression), "HASH_CODE(BIGINT 1)");
@@ -266,7 +261,7 @@ public class TestRowExpressionFormatter
         RowExpression expression = createCallExpression(ADD);
         complexExpression = call(
                 SUBTRACT.name(),
-                functionManager.resolveOperator(SUBTRACT, fromTypes(BIGINT, BIGINT)),
+                TYPE_AND_FUNCTION_MANAGER.resolveOperatorHandle(SUBTRACT, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 C_BIGINT,
                 expression);
@@ -275,7 +270,7 @@ public class TestRowExpressionFormatter
         RowExpression expression1 = createCallExpression(ADD);
         RowExpression expression2 = call(
                 MULTIPLY.name(),
-                functionManager.resolveOperator(MULTIPLY, fromTypes(BIGINT, BIGINT)),
+                TYPE_AND_FUNCTION_MANAGER.resolveOperatorHandle(MULTIPLY, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 expression1,
                 C_BIGINT);
@@ -286,17 +281,17 @@ public class TestRowExpressionFormatter
         ArrayType arrayType = (ArrayType) C_BIGINT_ARRAY.getType();
         Type elementType = arrayType.getElementType();
         expression1 = call(SUBSCRIPT.name(),
-                functionManager.resolveOperator(SUBSCRIPT, fromTypes(arrayType, elementType)),
+                TYPE_AND_FUNCTION_MANAGER.resolveOperatorHandle(SUBSCRIPT, fromTypes(arrayType, elementType)),
                 elementType,
                 ImmutableList.of(C_BIGINT_ARRAY, constant(5L, INTEGER)));
         expression2 = call(
                 NEGATION.name(),
-                functionManager.resolveOperator(NEGATION, fromTypes(expression1.getType())),
+                TYPE_AND_FUNCTION_MANAGER.resolveOperatorHandle(NEGATION, fromTypes(expression1.getType())),
                 expression1.getType(),
                 expression1);
         expression3 = call(
                 ADD.name(),
-                functionManager.resolveOperator(ADD, fromTypes(expression2.getType(), BIGINT)),
+                TYPE_AND_FUNCTION_MANAGER.resolveOperatorHandle(ADD, fromTypes(expression2.getType(), BIGINT)),
                 BIGINT,
                 expression2,
                 constant(5L, BIGINT));
@@ -312,7 +307,7 @@ public class TestRowExpressionFormatter
     {
         return call(
                 type.name(),
-                functionManager.resolveOperator(type, fromTypes(BIGINT, BIGINT)),
+                TYPE_AND_FUNCTION_MANAGER.resolveOperatorHandle(type, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 C_BIGINT,
                 constant(5L, BIGINT));

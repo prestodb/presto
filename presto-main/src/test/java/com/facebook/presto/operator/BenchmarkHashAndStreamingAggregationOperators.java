@@ -16,8 +16,8 @@ package com.facebook.presto.operator;
 import com.facebook.presto.RowPagesBuilder;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.StreamingAggregationOperator.StreamingAggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -80,12 +80,12 @@ import static org.testng.Assert.assertEquals;
 public class BenchmarkHashAndStreamingAggregationOperators
 {
     private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
-    private static final FunctionManager functionManager = metadata.getFunctionManager();
+    private static final TypeAndFunctionManager TYPE_AND_FUNCTION_MANAGER = metadata.getTypeAndFunctionManager();
 
-    private static final InternalAggregationFunction LONG_SUM = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction("sum", fromTypes(BIGINT)));
-    private static final InternalAggregationFunction COUNT = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction("count", ImmutableList.of()));
+    private static final InternalAggregationFunction LONG_SUM = TYPE_AND_FUNCTION_MANAGER.getAggregateFunctionImplementation(
+            TYPE_AND_FUNCTION_MANAGER.lookupFunction("sum", fromTypes(BIGINT)));
+    private static final InternalAggregationFunction COUNT = TYPE_AND_FUNCTION_MANAGER.getAggregateFunctionImplementation(
+            TYPE_AND_FUNCTION_MANAGER.lookupFunction("count", ImmutableList.of()));
 
     @State(Thread)
     public static class Context

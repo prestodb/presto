@@ -15,7 +15,7 @@ package com.facebook.presto.operator.index;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
@@ -42,9 +42,9 @@ public class FieldSetFilteringRecordSet
     private final RecordSet delegate;
     private final List<Set<Field>> fieldSets;
 
-    public FieldSetFilteringRecordSet(FunctionManager functionManager, RecordSet delegate, List<Set<Integer>> fieldSets)
+    public FieldSetFilteringRecordSet(TypeAndFunctionManager typeAndFunctionManager, RecordSet delegate, List<Set<Integer>> fieldSets)
     {
-        requireNonNull(functionManager, "functionManager is null");
+        requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
 
         ImmutableList.Builder<Set<Field>> fieldSetsBuilder = ImmutableList.builder();
@@ -54,8 +54,8 @@ public class FieldSetFilteringRecordSet
             for (int field : fieldSet) {
                 fieldSetBuilder.add(new Field(
                         field,
-                        functionManager.getBuiltInScalarFunctionImplementation(
-                                functionManager.resolveOperator(OperatorType.EQUAL, fromTypes(columnTypes.get(field), columnTypes.get(field)))).getMethodHandle()));
+                        typeAndFunctionManager.getBuiltInScalarFunctionImplementation(
+                                typeAndFunctionManager.resolveOperatorHandle(OperatorType.EQUAL, fromTypes(columnTypes.get(field), columnTypes.get(field)))).getMethodHandle()));
             }
             fieldSetsBuilder.add(fieldSetBuilder.build());
         }

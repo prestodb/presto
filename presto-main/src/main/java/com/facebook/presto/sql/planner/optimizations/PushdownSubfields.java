@@ -123,7 +123,7 @@ public class PushdownSubfields
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
+            this.functionResolution = new FunctionResolution(metadata.getTypeAndFunctionManager());
             this.expressionOptimizer = new RowExpressionOptimizer(metadata);
             this.subfieldExtractor = new SubfieldExtractor(functionResolution, expressionOptimizer, session.toConnectorSession());
         }
@@ -138,7 +138,7 @@ public class PushdownSubfields
                 AggregationNode.Aggregation aggregation = entry.getValue();
 
                 // Allow sub-field pruning to pass through the arbitrary() aggregation
-                QualifiedFunctionName aggregateName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getCall().getFunctionHandle()).getName();
+                QualifiedFunctionName aggregateName = metadata.getTypeAndFunctionManager().getFunctionMetadata(aggregation.getCall().getFunctionHandle()).getName();
                 if (ARBITRARY_AGGREGATE_FUNCTION.equals(aggregateName)) {
                     checkState(aggregation.getArguments().get(0) instanceof VariableReferenceExpression);
                     context.get().addAssignment(variable, (VariableReferenceExpression) aggregation.getArguments().get(0));

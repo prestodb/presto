@@ -19,9 +19,9 @@ import com.facebook.presto.expressions.translator.FunctionTranslator;
 import com.facebook.presto.expressions.translator.RowExpressionTranslator;
 import com.facebook.presto.expressions.translator.RowExpressionTreeTranslator;
 import com.facebook.presto.expressions.translator.TranslatedExpression;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -61,12 +61,12 @@ public class TestRowExpressionTranslator
 {
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
 
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
     private final TestingRowExpressionTranslator sqlToRowExpressionTranslator;
 
     public TestRowExpressionTranslator()
     {
-        this.functionManager = METADATA.getFunctionManager();
+        this.typeAndFunctionManager = METADATA.getTypeAndFunctionManager();
         this.sqlToRowExpressionTranslator = new TestingRowExpressionTranslator(METADATA);
     }
 
@@ -79,7 +79,7 @@ public class TestRowExpressionTranslator
 
         TranslatedExpression translatedExpression = translateWith(
                 callExpression,
-                new TestFunctionTranslator(functionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
+                new TestFunctionTranslator(typeAndFunctionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertTrue(translatedExpression.getTranslated().isPresent());
         assertEquals(translatedExpression.getTranslated().get(), "LNof(1 BITWISE_AND col1)");
@@ -95,7 +95,7 @@ public class TestRowExpressionTranslator
 
         TranslatedExpression translatedExpression = translateWith(
                 specialForm,
-                new TestFunctionTranslator(functionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
+                new TestFunctionTranslator(typeAndFunctionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertTrue(translatedExpression.getTranslated().isPresent());
         assertEquals(translatedExpression.getTranslated().get(), "col1 TEST_AND col2");
@@ -111,7 +111,7 @@ public class TestRowExpressionTranslator
 
         TranslatedExpression translatedExpression = translateWith(
                 specialForm,
-                new TestFunctionTranslator(functionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
+                new TestFunctionTranslator(typeAndFunctionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertFalse(translatedExpression.getTranslated().isPresent());
     }
@@ -126,7 +126,7 @@ public class TestRowExpressionTranslator
 
         TranslatedExpression translatedExpression = translateWith(
                 specialForm,
-                new TestFunctionTranslator(functionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
+                new TestFunctionTranslator(typeAndFunctionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertFalse(translatedExpression.getTranslated().isPresent());
     }
@@ -139,7 +139,7 @@ public class TestRowExpressionTranslator
 
         TranslatedExpression translatedExpression = translateWith(
                 specialForm,
-                new TestFunctionTranslator(functionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
+                new TestFunctionTranslator(typeAndFunctionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertTrue(translatedExpression.getTranslated().isPresent());
         assertEquals(translatedExpression.getTranslated().get(), "NOT_2 true");
@@ -154,7 +154,7 @@ public class TestRowExpressionTranslator
 
         TranslatedExpression translatedExpression = translateWith(
                 specialForm,
-                new TestFunctionTranslator(functionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
+                new TestFunctionTranslator(typeAndFunctionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertTrue(translatedExpression.getTranslated().isPresent());
         assertEquals(translatedExpression.getTranslated().get(), "col1 -|- col2");
@@ -169,7 +169,7 @@ public class TestRowExpressionTranslator
 
         TranslatedExpression translatedExpression = translateWith(
                 specialForm,
-                new TestFunctionTranslator(functionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
+                new TestFunctionTranslator(typeAndFunctionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertTrue(translatedExpression.getTranslated().isPresent());
         assertEquals(translatedExpression.getTranslated().get(), "col1 LT col2");
@@ -184,7 +184,7 @@ public class TestRowExpressionTranslator
 
         TranslatedExpression translatedExpression = translateWith(
                 specialForm,
-                new TestFunctionTranslator(functionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
+                new TestFunctionTranslator(typeAndFunctionManager, buildFunctionTranslator(ImmutableSet.of(TestFunctions.class))),
                 emptyMap());
         assertFalse(translatedExpression.getTranslated().isPresent());
     }
@@ -192,13 +192,13 @@ public class TestRowExpressionTranslator
     private class TestFunctionTranslator
             extends RowExpressionTranslator<String, Map<VariableReferenceExpression, ColumnHandle>>
     {
-        private final FunctionManager functionManager;
+        private final TypeAndFunctionManager typeAndFunctionManager;
         private final FunctionTranslator<String> functionTranslator;
 
-        TestFunctionTranslator(FunctionManager functionManager, FunctionTranslator<String> functionTranslator)
+        TestFunctionTranslator(TypeAndFunctionManager typeAndFunctionManager, FunctionTranslator<String> functionTranslator)
         {
             this.functionTranslator = requireNonNull(functionTranslator);
-            this.functionManager = requireNonNull(functionManager);
+            this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager);
         }
 
         @Override
@@ -213,7 +213,7 @@ public class TestRowExpressionTranslator
             List<TranslatedExpression<String>> translatedExpressions = callExpression.getArguments().stream()
                     .map(expression -> rowExpressionTreeTranslator.rewrite(expression, context))
                     .collect(Collectors.toList());
-            FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(callExpression.getFunctionHandle());
+            FunctionMetadata functionMetadata = typeAndFunctionManager.getFunctionMetadata(callExpression.getFunctionHandle());
             try {
                 return functionTranslator.translate(functionMetadata, callExpression, translatedExpressions);
             }

@@ -18,8 +18,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
@@ -49,7 +49,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestArrayAggregation
 {
-    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final TypeAndFunctionManager TYPE_AND_FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getTypeAndFunctionManager();
 
     @Test
     public void testEmpty()
@@ -223,6 +223,6 @@ public class TestArrayAggregation
 
     private InternalAggregationFunction getAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction("array_agg", fromTypes(arguments)));
+        return TYPE_AND_FUNCTION_MANAGER.getAggregateFunctionImplementation(TYPE_AND_FUNCTION_MANAGER.lookupFunction("array_agg", fromTypes(arguments)));
     }
 }

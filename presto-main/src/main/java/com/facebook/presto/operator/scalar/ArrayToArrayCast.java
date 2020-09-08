@@ -25,8 +25,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.CastType;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlOperator;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.sql.gen.ArrayGeneratorUtils;
@@ -70,15 +70,15 @@ public class ArrayToArrayCast
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeAndFunctionManager typeAndFunctionManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type fromType = boundVariables.getTypeVariable("F");
         Type toType = boundVariables.getTypeVariable("T");
 
-        FunctionHandle functionHandle = functionManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature());
-        BuiltInScalarFunctionImplementation function = functionManager.getBuiltInScalarFunctionImplementation(functionHandle);
-        Class<?> castOperatorClass = generateArrayCast(typeManager, functionManager.getFunctionMetadata(functionHandle), function);
+        FunctionHandle functionHandle = typeAndFunctionManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature());
+        BuiltInScalarFunctionImplementation function = typeAndFunctionManager.getBuiltInScalarFunctionImplementation(functionHandle);
+        Class<?> castOperatorClass = generateArrayCast(typeAndFunctionManager, typeAndFunctionManager.getFunctionMetadata(functionHandle), function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", SqlFunctionProperties.class, Block.class);
         return new BuiltInScalarFunctionImplementation(
                 false,

@@ -14,7 +14,6 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -22,10 +21,9 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
@@ -37,8 +35,6 @@ import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
@@ -123,9 +119,7 @@ public class TestOrcFileRewriter
     public void testRewrite()
             throws Exception
     {
-        TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        TypeAndFunctionManager typeManager = new TypeAndFunctionManager();
 
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
@@ -454,7 +448,7 @@ public class TestOrcFileRewriter
     public void testRewriterDropThenAddDifferentColumns()
             throws Exception
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
+        TypeAndFunctionManager typeRegistry = new TypeAndFunctionManager();
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         Handle dummyHandle = dbi.open();
@@ -597,7 +591,7 @@ public class TestOrcFileRewriter
     public void testRewriterDropThenAddSameColumns()
             throws Exception
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
+        TypeAndFunctionManager typeRegistry = new TypeAndFunctionManager();
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
         Handle dummyHandle = dbi.open();
@@ -714,14 +708,13 @@ public class TestOrcFileRewriter
                 writeMetadata,
                 true,
                 new OrcWriterStats(),
-                new TypeRegistry(),
+                new TypeAndFunctionManager(),
                 ZSTD);
     }
 
     private static OrcFileRewriter createFileRewriter()
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        TypeAndFunctionManager typeManager = new TypeAndFunctionManager();
         return new OrcFileRewriter(
                 READER_ATTRIBUTES,
                 true,

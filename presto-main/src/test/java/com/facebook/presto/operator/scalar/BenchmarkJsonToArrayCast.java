@@ -18,8 +18,8 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -113,8 +113,8 @@ public class BenchmarkJsonToArrayCast
             }
 
             MetadataManager metadata = createTestMetadataManager();
-            FunctionManager functionManager = metadata.getFunctionManager();
-            FunctionHandle functionHandle = functionManager.lookupCast(CAST, JSON.getTypeSignature(), (new ArrayType(elementType)).getTypeSignature());
+            TypeAndFunctionManager typeAndFunctionManager = metadata.getTypeAndFunctionManager();
+            FunctionHandle functionHandle = typeAndFunctionManager.lookupCast(CAST, JSON.getTypeSignature(), (new ArrayType(elementType)).getTypeSignature());
 
             List<RowExpression> projections = ImmutableList.of(
                     new CallExpression(CAST.name(), functionHandle, new ArrayType(elementType), ImmutableList.of(field(0, JSON))));

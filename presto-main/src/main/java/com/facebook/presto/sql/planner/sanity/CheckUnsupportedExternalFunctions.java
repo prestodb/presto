@@ -14,8 +14,8 @@
 package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -40,7 +40,7 @@ public class CheckUnsupportedExternalFunctions
     @Override
     public void validate(PlanNode planNode, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        planNode.accept(new Visitor(metadata.getFunctionManager()), null);
+        planNode.accept(new Visitor(metadata.getTypeAndFunctionManager()), null);
     }
 
     private static class Visitor
@@ -48,9 +48,9 @@ public class CheckUnsupportedExternalFunctions
     {
         private final ExternalCallExpressionChecker externalCallExpressionChecker;
 
-        Visitor(FunctionManager functionManager)
+        Visitor(TypeAndFunctionManager typeAndFunctionManager)
         {
-            this.externalCallExpressionChecker = new ExternalCallExpressionChecker(requireNonNull(functionManager, "functionManager is null"));
+            this.externalCallExpressionChecker = new ExternalCallExpressionChecker(requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null"));
         }
 
         @Override

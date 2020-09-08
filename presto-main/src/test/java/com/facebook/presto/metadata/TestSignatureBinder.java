@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -22,9 +21,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -59,12 +56,10 @@ import static org.testng.Assert.fail;
 
 public class TestSignatureBinder
 {
-    private final TypeManager typeRegistry = new TypeRegistry();
+    private final TypeManager typeRegistry = new TypeAndFunctionManager();
 
     TestSignatureBinder()
     {
-        // associate typeRegistry with a function manager
-        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
     }
 
     @Test

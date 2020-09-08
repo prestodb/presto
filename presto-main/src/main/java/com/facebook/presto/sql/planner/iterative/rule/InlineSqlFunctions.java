@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isInlineSqlFunctions;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.TypeAndFunctionManager.qualifyFunctionName;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionExpression;
@@ -115,18 +115,18 @@ public class InlineSqlFunctions
                     rewrittenArguments.add(treeRewriter.rewrite(argument, context));
                 }
 
-                FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(
+                FunctionHandle functionHandle = metadata.getTypeAndFunctionManager().resolveFunction(
                         session.getTransactionId(),
                         qualifyFunctionName(node.getName()),
                         fromTypes(argumentTypes));
-                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(functionHandle);
+                FunctionMetadata functionMetadata = metadata.getTypeAndFunctionManager().getFunctionMetadata(functionHandle);
 
                 if (functionMetadata.getImplementationType() != FunctionImplementationType.SQL) {
                     return new FunctionCall(node.getName(), rewrittenArguments);
                 }
                 return getSqlFunctionExpression(
                         functionMetadata,
-                        (SqlInvokedScalarFunctionImplementation) metadata.getFunctionManager().getScalarFunctionImplementation(functionHandle),
+                        (SqlInvokedScalarFunctionImplementation) metadata.getTypeAndFunctionManager().getScalarFunctionImplementation(functionHandle),
                         metadata,
                         session.getSqlFunctionProperties(),
                         rewrittenArguments);

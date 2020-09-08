@@ -121,7 +121,7 @@ public class MetadataQueryOptimizer
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
-                QualifiedFunctionName functionName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
+                QualifiedFunctionName functionName = metadata.getTypeAndFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
                 if (!ALLOWED_FUNCTIONS.contains(functionName) && !aggregation.isDistinct()) {
                     return context.defaultRewrite(node);
                 }
@@ -203,7 +203,7 @@ public class MetadataQueryOptimizer
                 return false;
             }
             for (Aggregation aggregation : node.getAggregations().values()) {
-                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle());
+                FunctionMetadata functionMetadata = metadata.getTypeAndFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle());
                 if (!AGGREGATION_SCALAR_MAPPING.containsKey(functionMetadata.getName()) || functionMetadata.getArgumentTypes().size() > 1) {
                     return false;
                 }
@@ -241,7 +241,7 @@ public class MetadataQueryOptimizer
                     }
                 }
                 scalarsBuilder.add(evaluateMinMax(
-                        metadata.getFunctionManager().getFunctionMetadata(node.getAggregations().get(node.getOutputVariables().get(i)).getFunctionHandle()),
+                        metadata.getTypeAndFunctionManager().getFunctionMetadata(node.getAggregations().get(node.getOutputVariables().get(i)).getFunctionHandle()),
                         arguments.build()));
             }
             List<RowExpression> scalars = scalarsBuilder.build();
@@ -269,7 +269,7 @@ public class MetadataQueryOptimizer
                 for (List<RowExpression> partitionedArguments : Lists.partition(arguments, 100)) {
                     Object reducedValue = evaluateConstantRowExpression(
                             call(
-                                    metadata.getFunctionManager(),
+                                    metadata.getTypeAndFunctionManager(),
                                     scalarFunctionName,
                                     returnType,
                                     partitionedArguments),

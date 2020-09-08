@@ -17,8 +17,8 @@ import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -55,7 +55,7 @@ public class SimplifyRowExpressions
         {
             requireNonNull(metadata, "metadata is null");
             this.optimizer = new RowExpressionOptimizer(metadata);
-            this.logicalExpressionRewriter = new LogicalExpressionRewriter(metadata.getFunctionManager());
+            this.logicalExpressionRewriter = new LogicalExpressionRewriter(metadata.getTypeAndFunctionManager());
         }
 
         @Override
@@ -86,11 +86,11 @@ public class SimplifyRowExpressions
         private final FunctionResolution functionResolution;
         private final LogicalRowExpressions logicalRowExpressions;
 
-        public LogicalExpressionRewriter(FunctionManager functionManager)
+        public LogicalExpressionRewriter(TypeAndFunctionManager typeAndFunctionManager)
         {
-            requireNonNull(functionManager, "functionManager is null");
-            this.functionResolution = new FunctionResolution(functionManager);
-            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager), functionManager);
+            requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
+            this.functionResolution = new FunctionResolution(typeAndFunctionManager);
+            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(typeAndFunctionManager), new FunctionResolution(typeAndFunctionManager), typeAndFunctionManager);
         }
 
         @Override

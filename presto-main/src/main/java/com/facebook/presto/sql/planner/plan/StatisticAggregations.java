@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -58,27 +58,27 @@ public class StatisticAggregations
         return groupingVariables;
     }
 
-    public Parts splitIntoPartialAndFinal(PlanVariableAllocator variableAllocator, FunctionManager functionManager)
+    public Parts splitIntoPartialAndFinal(PlanVariableAllocator variableAllocator, TypeAndFunctionManager typeAndFunctionManager)
     {
-        return split(variableAllocator, functionManager, false);
+        return split(variableAllocator, typeAndFunctionManager, false);
     }
 
-    public Parts splitIntoPartialAndIntermediate(PlanVariableAllocator variableAllocator, FunctionManager functionManager)
+    public Parts splitIntoPartialAndIntermediate(PlanVariableAllocator variableAllocator, TypeAndFunctionManager typeAndFunctionManager)
     {
-        return split(variableAllocator, functionManager, true);
+        return split(variableAllocator, typeAndFunctionManager, true);
     }
 
-    private Parts split(PlanVariableAllocator variableAllocator, FunctionManager functionManager, boolean intermediate)
+    private Parts split(PlanVariableAllocator variableAllocator, TypeAndFunctionManager typeAndFunctionManager, boolean intermediate)
     {
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> finalOrIntermediateAggregations = ImmutableMap.builder();
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> partialAggregations = ImmutableMap.builder();
         for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
             Aggregation originalAggregation = entry.getValue();
             FunctionHandle functionHandle = originalAggregation.getFunctionHandle();
-            InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(functionHandle);
+            InternalAggregationFunction function = typeAndFunctionManager.getAggregateFunctionImplementation(functionHandle);
 
             // create partial aggregation
-            VariableReferenceExpression partialVariable = variableAllocator.newVariable(functionManager.getFunctionMetadata(functionHandle).getName().getFunctionName(), function.getIntermediateType());
+            VariableReferenceExpression partialVariable = variableAllocator.newVariable(typeAndFunctionManager.getFunctionMetadata(functionHandle).getName().getFunctionName(), function.getIntermediateType());
             partialAggregations.put(partialVariable, new Aggregation(
                     new CallExpression(
                             originalAggregation.getCall().getDisplayName(),

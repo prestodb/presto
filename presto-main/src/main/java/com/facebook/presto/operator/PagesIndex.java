@@ -23,9 +23,9 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
@@ -80,7 +80,7 @@ public class PagesIndex
 
     private final OrderingCompiler orderingCompiler;
     private final JoinCompiler joinCompiler;
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
     private final boolean groupByUsesEqualTo;
 
     private final List<Type> types;
@@ -96,7 +96,7 @@ public class PagesIndex
     private PagesIndex(
             OrderingCompiler orderingCompiler,
             JoinCompiler joinCompiler,
-            FunctionManager functionManager,
+            TypeAndFunctionManager typeAndFunctionManager,
             boolean groupByUsesEqualTo,
             List<Type> types,
             int expectedPositions,
@@ -104,7 +104,7 @@ public class PagesIndex
     {
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
         this.groupByUsesEqualTo = groupByUsesEqualTo;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
@@ -140,7 +140,7 @@ public class PagesIndex
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, MetadataManager.createTestMetadataManager().getFunctionManager(), groupByUsesEqualTo, types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, MetadataManager.createTestMetadataManager().getTypeAndFunctionManager(), groupByUsesEqualTo, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -150,7 +150,7 @@ public class PagesIndex
         private final OrderingCompiler orderingCompiler;
         private final JoinCompiler joinCompiler;
         private final boolean eagerCompact;
-        private final FunctionManager functionManager;
+        private final TypeAndFunctionManager typeAndFunctionManager;
         private final boolean groupByUsesEqualTo;
 
         @Inject
@@ -159,14 +159,14 @@ public class PagesIndex
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
-            this.functionManager = requireNonNull(metadata, "metadata is null").getFunctionManager();
+            this.typeAndFunctionManager = requireNonNull(metadata, "metadata is null").getTypeAndFunctionManager();
             this.groupByUsesEqualTo = featuresConfig.isGroupByUsesEqualTo();
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(orderingCompiler, joinCompiler, functionManager, groupByUsesEqualTo, types, expectedPositions, eagerCompact);
+            return new PagesIndex(orderingCompiler, joinCompiler, typeAndFunctionManager, groupByUsesEqualTo, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -442,7 +442,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel,
                 Optional.empty(),
-                functionManager,
+                typeAndFunctionManager,
                 groupByUsesEqualTo);
     }
 
@@ -512,7 +512,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel,
                 sortChannel,
-                functionManager,
+                typeAndFunctionManager,
                 groupByUsesEqualTo);
 
         return new JoinHashSupplier(

@@ -16,7 +16,7 @@ package com.facebook.presto.util;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.expressions.LogicalRowExpressions;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -70,18 +70,18 @@ public class SpatialJoinUtils
      * <p>
      * Doesn't check or guarantee anything about function arguments.
      */
-    public static List<CallExpression> extractSupportedSpatialFunctions(RowExpression filterExpression, FunctionManager functionManager)
+    public static List<CallExpression> extractSupportedSpatialFunctions(RowExpression filterExpression, TypeAndFunctionManager typeAndFunctionManager)
     {
         return LogicalRowExpressions.extractConjuncts(filterExpression).stream()
                 .filter(CallExpression.class::isInstance)
                 .map(CallExpression.class::cast)
-                .filter(call -> isSupportedSpatialFunction(call, functionManager))
+                .filter(call -> isSupportedSpatialFunction(call, typeAndFunctionManager))
                 .collect(toImmutableList());
     }
 
-    private static boolean isSupportedSpatialFunction(CallExpression call, FunctionManager functionManager)
+    private static boolean isSupportedSpatialFunction(CallExpression call, TypeAndFunctionManager typeAndFunctionManager)
     {
-        String functionName = functionManager.getFunctionMetadata(call.getFunctionHandle()).getName().getFunctionName().toLowerCase(ENGLISH);
+        String functionName = typeAndFunctionManager.getFunctionMetadata(call.getFunctionHandle()).getName().getFunctionName().toLowerCase(ENGLISH);
         return ALLOWED_SPATIAL_JOIN_FUNCTIONS.contains(functionName);
     }
 
@@ -95,45 +95,45 @@ public class SpatialJoinUtils
      * Doesn't check or guarantee anything about ST_Distance functions arguments
      * or the other side of the comparison.
      */
-    public static List<CallExpression> extractSupportedSpatialComparisons(RowExpression filterExpression, FunctionManager functionManager)
+    public static List<CallExpression> extractSupportedSpatialComparisons(RowExpression filterExpression, TypeAndFunctionManager typeAndFunctionManager)
     {
         return LogicalRowExpressions.extractConjuncts(filterExpression).stream()
                 .filter(CallExpression.class::isInstance)
                 .map(CallExpression.class::cast)
-                .filter(call -> new FunctionResolution(functionManager).isComparisonFunction(call.getFunctionHandle()))
-                .filter(call -> isSupportedSpatialComparison(call, functionManager))
+                .filter(call -> new FunctionResolution(typeAndFunctionManager).isComparisonFunction(call.getFunctionHandle()))
+                .filter(call -> isSupportedSpatialComparison(call, typeAndFunctionManager))
                 .collect(toImmutableList());
     }
 
-    private static boolean isSupportedSpatialComparison(CallExpression expression, FunctionManager functionManager)
+    private static boolean isSupportedSpatialComparison(CallExpression expression, TypeAndFunctionManager typeAndFunctionManager)
     {
-        FunctionMetadata metadata = functionManager.getFunctionMetadata(expression.getFunctionHandle());
+        FunctionMetadata metadata = typeAndFunctionManager.getFunctionMetadata(expression.getFunctionHandle());
         checkArgument(metadata.getOperatorType().isPresent() && metadata.getOperatorType().get().isComparisonOperator());
         switch (metadata.getOperatorType().get()) {
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
-                return isSTDistance(expression.getArguments().get(0), functionManager);
+                return isSTDistance(expression.getArguments().get(0), typeAndFunctionManager);
             case GREATER_THAN:
             case GREATER_THAN_OR_EQUAL:
-                return isSTDistance(expression.getArguments().get(1), functionManager);
+                return isSTDistance(expression.getArguments().get(1), typeAndFunctionManager);
             default:
                 return false;
         }
     }
 
-    private static boolean isSTDistance(RowExpression expression, FunctionManager functionManager)
+    private static boolean isSTDistance(RowExpression expression, TypeAndFunctionManager typeAndFunctionManager)
     {
-        return expression instanceof CallExpression && functionManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getName().equals(ST_DISTANCE);
+        return expression instanceof CallExpression && typeAndFunctionManager.getFunctionMetadata(((CallExpression) expression).getFunctionHandle()).getName().equals(ST_DISTANCE);
     }
 
-    public static FunctionHandle getFlippedFunctionHandle(CallExpression callExpression, FunctionManager functionManager)
+    public static FunctionHandle getFlippedFunctionHandle(CallExpression callExpression, TypeAndFunctionManager typeAndFunctionManager)
     {
-        FunctionMetadata callExpressionMetadata = functionManager.getFunctionMetadata(callExpression.getFunctionHandle());
+        FunctionMetadata callExpressionMetadata = typeAndFunctionManager.getFunctionMetadata(callExpression.getFunctionHandle());
         checkArgument(callExpressionMetadata.getOperatorType().isPresent());
         OperatorType operatorType = flip(callExpressionMetadata.getOperatorType().get());
         List<TypeSignatureProvider> typeProviderList = fromTypes(callExpression.getArguments().stream().map(RowExpression::getType).collect(toImmutableList()));
         checkArgument(typeProviderList.size() == 2, "Expected there to be only two arguments in type provider");
-        return functionManager.resolveOperator(
+        return typeAndFunctionManager.resolveOperatorHandle(
                 operatorType,
                 ImmutableList.of(typeProviderList.get(1), typeProviderList.get(0)));
     }

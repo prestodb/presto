@@ -21,9 +21,8 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -108,7 +107,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.TypeAndFunctionManager.qualifyFunctionName;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
@@ -151,19 +150,17 @@ public final class SqlToRowExpressionTranslator
             Expression expression,
             Map<NodeRef<Expression>, Type> types,
             Map<VariableReferenceExpression, Integer> layout,
-            FunctionManager functionManager,
-            TypeManager typeManager,
+            TypeAndFunctionManager typeAndFunctionManager,
             Session session)
     {
-        return translate(expression, types, layout, functionManager, typeManager, Optional.of(session.getUser()), session.getTransactionId(), session.getSqlFunctionProperties());
+        return translate(expression, types, layout, typeAndFunctionManager, Optional.of(session.getUser()), session.getTransactionId(), session.getSqlFunctionProperties());
     }
 
     public static RowExpression translate(
             Expression expression,
             Map<NodeRef<Expression>, Type> types,
             Map<VariableReferenceExpression, Integer> layout,
-            FunctionManager functionManager,
-            TypeManager typeManager,
+            TypeAndFunctionManager typeAndFunctionManager,
             Optional<String> user,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties)
@@ -171,8 +168,7 @@ public final class SqlToRowExpressionTranslator
         Visitor visitor = new Visitor(
                 types,
                 layout,
-                typeManager,
-                functionManager,
+                typeAndFunctionManager,
                 user,
                 transactionId,
                 sqlFunctionProperties);
@@ -186,8 +182,7 @@ public final class SqlToRowExpressionTranslator
     {
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<VariableReferenceExpression, Integer> layout;
-        private final TypeManager typeManager;
-        private final FunctionManager functionManager;
+        private final TypeAndFunctionManager typeAndFunctionManager;
         private final Optional<String> user;
         private final Optional<TransactionId> transactionId;
         private final SqlFunctionProperties sqlFunctionProperties;
@@ -196,20 +191,18 @@ public final class SqlToRowExpressionTranslator
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
                 Map<VariableReferenceExpression, Integer> layout,
-                TypeManager typeManager,
-                FunctionManager functionManager,
+                TypeAndFunctionManager typeAndFunctionManager,
                 Optional<String> user,
                 Optional<TransactionId> transactionId,
                 SqlFunctionProperties sqlFunctionProperties)
         {
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
-            this.typeManager = typeManager;
-            this.functionManager = functionManager;
+            this.typeAndFunctionManager = typeAndFunctionManager;
             this.user = user;
             this.transactionId = transactionId;
             this.sqlFunctionProperties = sqlFunctionProperties;
-            this.functionResolution = new FunctionResolution(functionManager);
+            this.functionResolution = new FunctionResolution(typeAndFunctionManager);
         }
 
         private Type getType(Expression node)
@@ -299,7 +292,7 @@ public final class SqlToRowExpressionTranslator
         {
             Type type;
             try {
-                type = typeManager.getType(parseTypeSignature(node.getType()));
+                type = typeAndFunctionManager.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());
@@ -323,14 +316,14 @@ public final class SqlToRowExpressionTranslator
             if (JSON.equals(type)) {
                 return call(
                         "json_parse",
-                        functionManager.lookupFunction("json_parse", fromTypes(VARCHAR)),
+                        typeAndFunctionManager.lookupFunction("json_parse", fromTypes(VARCHAR)),
                         getType(node),
                         constant(utf8Slice(node.getValue()), VARCHAR));
             }
 
             return call(
                     CAST.name(),
-                    functionManager.lookupCast(CAST, VARCHAR.getTypeSignature(), getType(node).getTypeSignature()),
+                    typeAndFunctionManager.lookupCast(CAST, VARCHAR.getTypeSignature(), getType(node).getTypeSignature()),
                     getType(node),
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }
@@ -407,7 +400,7 @@ public final class SqlToRowExpressionTranslator
                     .map(TypeSignatureProvider::new)
                     .collect(toImmutableList());
 
-            return call(node.getName().toString(), functionManager.resolveFunction(transactionId, qualifyFunctionName(node.getName()), argumentTypes), getType(node), arguments);
+            return call(node.getName().toString(), typeAndFunctionManager.resolveFunction(transactionId, qualifyFunctionName(node.getName()), argumentTypes), getType(node), arguments);
         }
 
         @Override
@@ -479,7 +472,7 @@ public final class SqlToRowExpressionTranslator
                 case MINUS:
                     return call(
                             NEGATION.name(),
-                            functionManager.resolveOperator(NEGATION, fromTypes(expression.getType())),
+                            typeAndFunctionManager.resolveOperatorHandle(NEGATION, fromTypes(expression.getType())),
                             getType(node),
                             expression);
             }
@@ -510,10 +503,10 @@ public final class SqlToRowExpressionTranslator
             RowExpression value = process(node.getExpression(), context);
 
             if (node.isSafe()) {
-                return call(TRY_CAST.name(), functionManager.lookupCast(TRY_CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
+                return call(TRY_CAST.name(), typeAndFunctionManager.lookupCast(TRY_CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
             }
 
-            return call(CAST.name(), functionManager.lookupCast(CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
+            return call(CAST.name(), typeAndFunctionManager.lookupCast(CAST, value.getType().getTypeSignature(), getType(node).getTypeSignature()), getType(node), value);
         }
 
         @Override
@@ -689,7 +682,7 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     BETWEEN.name(),
-                    functionManager.resolveOperator(BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
+                    typeAndFunctionManager.resolveOperatorHandle(BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
                     BOOLEAN,
                     value,
                     min,
@@ -707,7 +700,7 @@ public final class SqlToRowExpressionTranslator
                 return likeFunctionCall(value, call("LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
-            return likeFunctionCall(value, call(CAST.name(), functionManager.lookupCast(CAST, VARCHAR.getTypeSignature(), LIKE_PATTERN.getTypeSignature()), LIKE_PATTERN, pattern));
+            return likeFunctionCall(value, call(CAST.name(), typeAndFunctionManager.lookupCast(CAST, VARCHAR.getTypeSignature(), LIKE_PATTERN.getTypeSignature()), LIKE_PATTERN, pattern));
         }
 
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
@@ -741,7 +734,7 @@ public final class SqlToRowExpressionTranslator
             }
             return call(
                     SUBSCRIPT.name(),
-                    functionManager.resolveOperator(SUBSCRIPT, fromTypes(base.getType(), index.getType())),
+                    typeAndFunctionManager.resolveOperatorHandle(SUBSCRIPT, fromTypes(base.getType(), index.getType())),
                     getType(node),
                     base,
                     index);

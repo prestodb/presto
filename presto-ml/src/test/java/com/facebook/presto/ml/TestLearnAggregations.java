@@ -14,17 +14,15 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.RowPageBuilder;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
@@ -32,8 +30,6 @@ import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -51,18 +47,15 @@ import static org.testng.Assert.assertTrue;
 
 public class TestLearnAggregations
 {
-    private static final TypeManager typeManager;
+    private static final TypeAndFunctionManager typeManager;
 
     static {
-        TypeRegistry typeRegistry = new TypeRegistry();
-        typeRegistry.addParametricType(new ClassifierParametricType());
-        typeRegistry.addType(ModelType.MODEL);
-        typeRegistry.addType(RegressorType.REGRESSOR);
+        TypeAndFunctionManager typeAndFunctionManager = new TypeAndFunctionManager();
+        typeAndFunctionManager.addParametricType(new ClassifierParametricType());
+        typeAndFunctionManager.addType(ModelType.MODEL);
+        typeAndFunctionManager.addType(RegressorType.REGRESSOR);
 
-        // associate typeRegistry with a function manager
-        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-
-        typeManager = typeRegistry;
+        typeManager = typeAndFunctionManager;
     }
 
     @Test

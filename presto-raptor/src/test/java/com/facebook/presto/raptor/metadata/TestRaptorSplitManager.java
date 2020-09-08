@@ -17,6 +17,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.RaptorColumnHandle;
 import com.facebook.presto.raptor.RaptorConnectorId;
@@ -38,7 +39,6 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.testing.TestingNodeManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -99,9 +99,8 @@ public class TestRaptorSplitManager
     public void setup()
             throws Exception
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
-        dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
+        dbi.registerMapper(new TableColumn.Mapper(new TypeAndFunctionManager()));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         temporary = createTempDir();
@@ -114,7 +113,7 @@ public class TestRaptorSplitManager
         nodeManager.addNode(new InternalNode(nodeName, new URI("http://127.0.0.1/"), NodeVersion.UNKNOWN, false));
 
         RaptorConnectorId connectorId = new RaptorConnectorId("raptor");
-        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, new TypeRegistry());
+        metadata = new RaptorMetadata(connectorId.toString(), dbi, shardManager, new TypeAndFunctionManager());
 
         metadata.createTable(SESSION, TEST_TABLE, false);
         tableHandle = metadata.getTableHandle(SESSION, TEST_TABLE.getTable());

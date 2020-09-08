@@ -291,7 +291,7 @@ public class PrestoSparkQueryExecutionFactory
             PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, sql, warningCollector);
             planAndMore = queryPlanner.createQueryPlan(session, preparedQuery, warningCollector);
             SubPlan fragmentedPlan = planFragmenter.fragmentQueryPlan(session, planAndMore.getPlan(), warningCollector);
-            log.info(textDistributedPlan(fragmentedPlan, metadata.getFunctionManager(), session, true));
+            log.info(textDistributedPlan(fragmentedPlan, metadata.getTypeAndFunctionManager(), session, true));
             TableWriteInfo tableWriteInfo = getTableWriteInfo(session, fragmentedPlan);
 
             JavaSparkContext javaSparkContext = new JavaSparkContext(sparkContext);

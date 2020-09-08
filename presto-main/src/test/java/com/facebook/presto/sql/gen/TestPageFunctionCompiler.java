@@ -16,7 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.operator.project.PageFilter;
@@ -58,43 +58,43 @@ import static org.testng.Assert.fail;
 
 public class TestPageFunctionCompiler
 {
-    private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
+    private static final TypeAndFunctionManager FUNCTION_MANAGER = createTestMetadataManager().getTypeAndFunctionManager();
 
     private static final CallExpression ADD_10_EXPRESSION = call(
             ADD.name(),
-            FUNCTION_MANAGER.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+            FUNCTION_MANAGER.resolveOperatorHandle(ADD, fromTypes(BIGINT, BIGINT)),
             BIGINT,
             field(0, BIGINT),
             constant(10L, BIGINT));
 
     private static final CallExpression ADD_X_Y = call(
             ADD.name(),
-            FUNCTION_MANAGER.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+            FUNCTION_MANAGER.resolveOperatorHandle(ADD, fromTypes(BIGINT, BIGINT)),
             BIGINT,
             field(0, BIGINT),
             field(1, BIGINT));
 
     private static final CallExpression ADD_X_Y_GREATER_THAN_2 = call(
             GREATER_THAN.name(),
-            FUNCTION_MANAGER.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
+            FUNCTION_MANAGER.resolveOperatorHandle(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
             BOOLEAN,
             ADD_X_Y,
             constant(2L, BIGINT));
 
     private static final CallExpression ADD_X_Y_LESS_THAN_10 = call(
             LESS_THAN.name(),
-            FUNCTION_MANAGER.resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT)),
+            FUNCTION_MANAGER.resolveOperatorHandle(LESS_THAN, fromTypes(BIGINT, BIGINT)),
             BOOLEAN,
             ADD_X_Y,
             constant(10L, BIGINT));
 
     private static final CallExpression ADD_X_Y_Z = call(
             ADD.name(),
-            FUNCTION_MANAGER.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+            FUNCTION_MANAGER.resolveOperatorHandle(ADD, fromTypes(BIGINT, BIGINT)),
             BIGINT,
             call(
                     ADD.name(),
-                    FUNCTION_MANAGER.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                    FUNCTION_MANAGER.resolveOperatorHandle(ADD, fromTypes(BIGINT, BIGINT)),
                     BIGINT,
                     field(0, BIGINT),
                     field(1, BIGINT)),
@@ -272,7 +272,7 @@ public class TestPageFunctionCompiler
                         BIGINT,
                         call(
                                 GREATER_THAN.name(),
-                                FUNCTION_MANAGER.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
+                                FUNCTION_MANAGER.resolveOperatorHandle(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
                                 BOOLEAN,
                                 field(0, BIGINT),
                                 constant(10L, BIGINT)),

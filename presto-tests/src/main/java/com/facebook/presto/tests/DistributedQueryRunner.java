@@ -378,7 +378,7 @@ public class DistributedQueryRunner
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
         for (TestingPrestoServer server : servers) {
-            server.getMetadata().getFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+            server.getMetadata().getTypeAndFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
         }
     }
 

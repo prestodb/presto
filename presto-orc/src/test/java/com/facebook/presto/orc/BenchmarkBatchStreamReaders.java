@@ -19,8 +19,8 @@ import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -137,10 +137,10 @@ public class BenchmarkBatchStreamReaders
                 throws Exception
         {
             if (typeSignature.startsWith("varchar")) {
-                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature("varchar"));
+                type = new TypeAndFunctionManager().getType(TypeSignature.parseTypeSignature("varchar"));
             }
             else {
-                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
+                type = new TypeAndFunctionManager().getType(TypeSignature.parseTypeSignature(typeSignature));
             }
 
             temporaryDirectory = createTempDir();

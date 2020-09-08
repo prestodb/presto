@@ -46,7 +46,7 @@ public class TestNullabilityAnalyzer
             .put("c", RowType.from(ImmutableList.of(field("field_1", BIGINT))))
             .build());
 
-    private static final NullabilityAnalyzer analyzer = new NullabilityAnalyzer(METADATA.getFunctionManager(), METADATA.getTypeManager());
+    private static final NullabilityAnalyzer analyzer = new NullabilityAnalyzer(METADATA.getTypeAndFunctionManager(), METADATA.getTypeManager());
 
     @Test
     void test()

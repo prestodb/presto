@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
@@ -52,10 +52,10 @@ public class SimplifyCountOverConstant
 
     private final StandardFunctionResolution functionResolution;
 
-    public SimplifyCountOverConstant(FunctionManager functionManager)
+    public SimplifyCountOverConstant(TypeAndFunctionManager typeAndFunctionManager)
     {
-        requireNonNull(functionManager, "functionManager is null");
-        this.functionResolution = new FunctionResolution(functionManager);
+        requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
+        this.functionResolution = new FunctionResolution(typeAndFunctionManager);
     }
 
     @Override

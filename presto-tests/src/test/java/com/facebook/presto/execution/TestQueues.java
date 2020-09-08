@@ -19,6 +19,7 @@ import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.dispatcher.DispatchManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
-import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
@@ -90,7 +90,7 @@ public class TestQueues
         objectMapper = new ObjectMapperProvider().get();
         objectMapper.registerModule(new SimpleModule() {
             {
-                addKeyDeserializer(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(new TypeRegistry()));
+                addKeyDeserializer(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(new TypeAndFunctionManager()));
             }
         });
     }

@@ -24,8 +24,8 @@ import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
@@ -44,16 +44,16 @@ final class StatsUtil
 
     static OptionalDouble toStatsRepresentation(Metadata metadata, Session session, Type type, Object value)
     {
-        return toStatsRepresentation(metadata.getFunctionManager(), session.toConnectorSession(), type, value);
+        return toStatsRepresentation(metadata.getTypeAndFunctionManager(), session.toConnectorSession(), type, value);
     }
 
-    static OptionalDouble toStatsRepresentation(FunctionManager functionManager, ConnectorSession session, Type type, Object value)
+    static OptionalDouble toStatsRepresentation(TypeAndFunctionManager typeAndFunctionManager, ConnectorSession session, Type type, Object value)
     {
         requireNonNull(value, "value is null");
 
         if (convertibleToDoubleWithCast(type)) {
-            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(functionManager);
-            FunctionHandle cast = functionManager.lookupCast(CAST, type.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature());
+            InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(typeAndFunctionManager);
+            FunctionHandle cast = typeAndFunctionManager.lookupCast(CAST, type.getTypeSignature(), DoubleType.DOUBLE.getTypeSignature());
 
             return OptionalDouble.of((double) functionInvoker.invoke(cast, session.getSqlFunctionProperties(), singletonList(value)));
         }

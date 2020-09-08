@@ -16,7 +16,7 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.aggregation.state.CentralMomentsState;
 import com.facebook.presto.operator.aggregation.state.CorrelationState;
 import com.facebook.presto.operator.aggregation.state.CovarianceState;
@@ -38,7 +38,7 @@ public final class AggregationUtils
     {
     }
 
-    public static boolean isDecomposable(AggregationNode aggregationNode, FunctionManager functionManager)
+    public static boolean isDecomposable(AggregationNode aggregationNode, TypeAndFunctionManager typeAndFunctionManager)
     {
         boolean hasOrderBy = aggregationNode.getAggregations().values().stream()
                 .map(AggregationNode.Aggregation::getOrderBy)
@@ -49,13 +49,13 @@ public final class AggregationUtils
 
         boolean decomposableFunctions = aggregationNode.getAggregations().values().stream()
                 .map(AggregationNode.Aggregation::getFunctionHandle)
-                .map(functionManager::getAggregateFunctionImplementation)
+                .map(typeAndFunctionManager::getAggregateFunctionImplementation)
                 .allMatch(InternalAggregationFunction::isDecomposable);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }
 
-    public static boolean hasSingleNodeExecutionPreference(AggregationNode aggregationNode, FunctionManager functionManager)
+    public static boolean hasSingleNodeExecutionPreference(AggregationNode aggregationNode, TypeAndFunctionManager typeAndFunctionManager)
     {
         // There are two kinds of aggregations the have single node execution preference:
         //
@@ -67,7 +67,7 @@ public final class AggregationUtils
         // since all input have to be aggregated into one line output.
         //
         // 2. aggregations that must produce default output and are not decomposable, we can not distribute them.
-        return (aggregationNode.hasEmptyGroupingSet() && !aggregationNode.hasNonEmptyGroupingSet()) || (aggregationNode.hasDefaultOutput() && !isDecomposable(aggregationNode, functionManager));
+        return (aggregationNode.hasEmptyGroupingSet() && !aggregationNode.hasNonEmptyGroupingSet()) || (aggregationNode.hasDefaultOutput() && !isDecomposable(aggregationNode, typeAndFunctionManager));
     }
 
     public static void updateVarianceState(VarianceState state, double value)

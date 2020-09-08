@@ -13,16 +13,13 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
@@ -54,12 +51,10 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOrcReaderMemoryUsage
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    private static final TypeManager TYPE_MANAGER = new TypeAndFunctionManager();
 
     public TestOrcReaderMemoryUsage()
     {
-        // Associate TYPE_MANAGER with a function manager.
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
     }
 
     @Test

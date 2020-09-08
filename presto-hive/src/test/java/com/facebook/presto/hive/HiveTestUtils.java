@@ -42,8 +42,8 @@ import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
@@ -58,7 +58,6 @@ import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -66,7 +65,6 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -91,11 +89,11 @@ public final class HiveTestUtils
     public static final ConnectorSession SESSION = new TestingConnectorSession(
             new HiveSessionProperties(new HiveClientConfig(), new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
 
-    public static final TypeRegistry TYPE_MANAGER = new TypeRegistry();
+    public static final TypeAndFunctionManager TYPE_MANAGER = new TypeAndFunctionManager();
 
     public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
 
-    public static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionManager());
+    public static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getTypeAndFunctionManager());
 
     public static final RowExpressionService ROW_EXPRESSION_SERVICE = new RowExpressionService()
     {
@@ -126,17 +124,12 @@ public final class HiveTestUtils
         @Override
         public String formatRowExpression(ConnectorSession session, RowExpression expression)
         {
-            return new RowExpressionFormatter(METADATA.getFunctionManager()).formatRowExpression(session, expression);
+            return new RowExpressionFormatter(METADATA.getTypeAndFunctionManager()).formatRowExpression(session, expression);
         }
     };
 
     public static final FilterStatsCalculatorService FILTER_STATS_CALCULATOR_SERVICE = new ConnectorFilterStatsCalculatorService(
             new FilterStatsCalculator(METADATA, new ScalarStatsCalculator(METADATA), new StatsNormalizer()));
-
-    static {
-        // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
 
     public static final HiveClientConfig HIVE_CLIENT_CONFIG = new HiveClientConfig();
     public static final MetastoreClientConfig METASTORE_CLIENT_CONFIG = new MetastoreClientConfig();

@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.operator.annotations;
 
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.InvocationConvention;
 
@@ -32,16 +31,16 @@ public abstract class ScalarImplementationDependency
         this.invocationConvention = invocationConvention;
     }
 
-    protected abstract FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionManager functionManager);
+    protected abstract FunctionHandle getFunctionHandle(BoundVariables boundVariables, TypeAndFunctionManager typeAndFunctionManager);
     @Override
-    public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager)
+    public MethodHandle resolve(BoundVariables boundVariables, TypeAndFunctionManager typeAndFunctionManager)
     {
-        FunctionHandle functionHandle = getFunctionHandle(boundVariables, functionManager);
+        FunctionHandle functionHandle = getFunctionHandle(boundVariables, typeAndFunctionManager);
         if (invocationConvention.isPresent()) {
-            return functionManager.getFunctionInvokerProvider().createFunctionInvoker(functionHandle, invocationConvention).methodHandle();
+            return typeAndFunctionManager.getFunctionInvokerProvider().createFunctionInvoker(functionHandle, invocationConvention).methodHandle();
         }
         else {
-            return functionManager.getBuiltInScalarFunctionImplementation(functionHandle).getMethodHandle();
+            return typeAndFunctionManager.getBuiltInScalarFunctionImplementation(functionHandle).getMethodHandle();
         }
     }
 

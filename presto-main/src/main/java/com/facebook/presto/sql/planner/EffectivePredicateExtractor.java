@@ -15,8 +15,8 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.LogicalRowExpressions;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
@@ -74,19 +74,19 @@ import static java.util.Objects.requireNonNull;
 public class EffectivePredicateExtractor
 {
     private final RowExpressionDomainTranslator domainTranslator;
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
     private final TypeManager typeManager;
 
-    public EffectivePredicateExtractor(RowExpressionDomainTranslator domainTranslator, FunctionManager functionManager, TypeManager typeManager)
+    public EffectivePredicateExtractor(RowExpressionDomainTranslator domainTranslator, TypeAndFunctionManager typeAndFunctionManager, TypeManager typeManager)
     {
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
-        this.functionManager = functionManager;
+        this.typeAndFunctionManager = typeAndFunctionManager;
         this.typeManager = typeManager;
     }
 
     public RowExpression extract(PlanNode node)
     {
-        return node.accept(new Visitor(domainTranslator, functionManager, typeManager), null);
+        return node.accept(new Visitor(domainTranslator, typeAndFunctionManager, typeManager), null);
     }
 
     private static class Visitor
@@ -96,15 +96,15 @@ public class EffectivePredicateExtractor
         private final LogicalRowExpressions logicalRowExpressions;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
         private final TypeManager typeManager;
-        private final FunctionManager functionManger;
+        private final TypeAndFunctionManager functionManger;
 
-        public Visitor(RowExpressionDomainTranslator domainTranslator, FunctionManager functionManager, TypeManager typeManager)
+        public Visitor(RowExpressionDomainTranslator domainTranslator, TypeAndFunctionManager typeAndFunctionManager, TypeManager typeManager)
         {
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
             this.typeManager = requireNonNull(typeManager);
-            this.functionManger = requireNonNull(functionManager);
-            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
-            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(functionManager), functionManager);
+            this.functionManger = requireNonNull(typeAndFunctionManager);
+            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(typeAndFunctionManager);
+            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(typeAndFunctionManager), typeAndFunctionManager);
         }
 
         @Override
@@ -388,7 +388,7 @@ public class EffectivePredicateExtractor
         private boolean canCompareEquity(Map.Entry<VariableReferenceExpression, ? extends RowExpression> entry)
         {
             try {
-                functionManger.resolveOperator(EQUAL, fromTypes(entry.getKey().getType(), entry.getValue().getType()));
+                functionManger.resolveOperatorHandle(EQUAL, fromTypes(entry.getKey().getType(), entry.getValue().getType()));
                 return true;
             }
             catch (OperatorNotFoundException e) {
@@ -401,11 +401,11 @@ public class EffectivePredicateExtractor
             return buildEqualsExpression(functionManger, entry.getKey(), entry.getValue());
         }
 
-        private static CallExpression buildEqualsExpression(FunctionManager functionManager, RowExpression left, RowExpression right)
+        private static CallExpression buildEqualsExpression(TypeAndFunctionManager typeAndFunctionManager, RowExpression left, RowExpression right)
         {
             return call(
                     EQUAL.getFunctionName().getFunctionName(),
-                    functionManager.resolveOperator(EQUAL, fromTypes(left.getType(), right.getType())),
+                    typeAndFunctionManager.resolveOperatorHandle(EQUAL, fromTypes(left.getType(), right.getType())),
                     BOOLEAN,
                     left,
                     right);

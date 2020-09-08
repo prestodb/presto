@@ -798,7 +798,7 @@ public class TestCostCalculator
 
     private AggregationNode aggregation(String id, PlanNode source)
     {
-        AggregationNode.Aggregation aggregation = count(metadata.getFunctionManager());
+        AggregationNode.Aggregation aggregation = count(metadata.getTypeAndFunctionManager());
 
         return new AggregationNode(
                 new PlanNodeId(id),

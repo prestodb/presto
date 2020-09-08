@@ -25,8 +25,8 @@ import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.scheduler.ExecutionWriterTarget.CreateHandle;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.OutputTableHandle;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.DevNullOperator.DevNullOperatorFactory;
 import com.facebook.presto.operator.TableWriterOperator.TableWriterInfo;
@@ -208,9 +208,9 @@ public class TestTableWriterOperator
         TaskContext taskContext = createTaskContext(executor, scheduledExecutor, session);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         TaskMetadataContext taskMetadataContext = taskContext.getTaskMetadataContext();
-        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-        InternalAggregationFunction longMaxFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("max", fromTypes(BIGINT)));
+        TypeAndFunctionManager typeAndFunctionManager = createTestMetadataManager().getTypeAndFunctionManager();
+        InternalAggregationFunction longMaxFunction = typeAndFunctionManager.getAggregateFunctionImplementation(
+                typeAndFunctionManager.lookupFunction("max", fromTypes(BIGINT)));
         TableWriterOperator operator = (TableWriterOperator) createTableWriterOperator(
                 pageSinkManager,
                 new AggregationOperatorFactory(

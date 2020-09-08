@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -38,7 +39,6 @@ import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -83,7 +83,7 @@ public class TestCreateTableTask
     public void setUp()
     {
         catalogManager = new CatalogManager();
-        typeManager = new TypeRegistry();
+        typeManager = new TypeAndFunctionManager();
         transactionManager = createTestTransactionManager(catalogManager);
         tablePropertyManager = new TablePropertyManager();
         columnPropertyManager = new ColumnPropertyManager();

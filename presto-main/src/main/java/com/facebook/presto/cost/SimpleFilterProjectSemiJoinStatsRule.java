@@ -16,7 +16,7 @@ package com.facebook.presto.cost;
 import com.facebook.presto.Session;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -63,13 +63,13 @@ public class SimpleFilterProjectSemiJoinStatsRule
     private final LogicalRowExpressions logicalRowExpressions;
     private final FunctionResolution functionResolution;
 
-    public SimpleFilterProjectSemiJoinStatsRule(StatsNormalizer normalizer, FilterStatsCalculator filterStatsCalculator, FunctionManager functionManager)
+    public SimpleFilterProjectSemiJoinStatsRule(StatsNormalizer normalizer, FilterStatsCalculator filterStatsCalculator, TypeAndFunctionManager typeAndFunctionManager)
     {
         super(normalizer);
         this.filterStatsCalculator = requireNonNull(filterStatsCalculator, "filterStatsCalculator can not be null");
-        requireNonNull(functionManager, "functionManager can not be null");
-        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager), functionManager);
-        this.functionResolution = new FunctionResolution(functionManager);
+        requireNonNull(typeAndFunctionManager, "typeAndFunctionManager can not be null");
+        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(typeAndFunctionManager), new FunctionResolution(typeAndFunctionManager), typeAndFunctionManager);
+        this.functionResolution = new FunctionResolution(typeAndFunctionManager);
     }
 
     @Override

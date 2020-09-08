@@ -19,12 +19,11 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionListBuilder;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -127,7 +126,7 @@ public class BenchmarkArrayFilter
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            FunctionManager functionManager = metadata.getFunctionManager();
+            TypeAndFunctionManager typeAndFunctionManager = metadata.getTypeAndFunctionManager();
             metadata.registerBuiltInFunctions(new FunctionListBuilder().function(EXACT_ARRAY_FILTER_FUNCTION).getFunctions());
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
@@ -135,8 +134,8 @@ public class BenchmarkArrayFilter
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
-                FunctionHandle functionHandle = functionManager.lookupFunction(name, fromTypeSignatures(arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)")));
-                FunctionHandle greaterThan = functionManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT));
+                FunctionHandle functionHandle = typeAndFunctionManager.lookupFunction(name, fromTypeSignatures(arrayType.getTypeSignature(), parseTypeSignature("function(bigint,boolean)")));
+                FunctionHandle greaterThan = typeAndFunctionManager.resolveOperatorHandle(GREATER_THAN, fromTypes(BIGINT, BIGINT));
                 projectionsBuilder.add(new CallExpression(name, functionHandle, arrayType, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(
@@ -233,7 +232,7 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+        public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeAndFunctionManager typeAndFunctionManager)
         {
             Type type = boundVariables.getTypeVariable("T");
             return new BuiltInScalarFunctionImplementation(

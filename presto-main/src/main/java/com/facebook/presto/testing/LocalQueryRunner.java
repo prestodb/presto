@@ -93,6 +93,7 @@ import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
@@ -182,7 +183,6 @@ import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactor
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -244,7 +244,7 @@ public class LocalQueryRunner
     private final SqlParser sqlParser;
     private final PlanFragmenter planFragmenter;
     private final InMemoryNodeManager nodeManager;
-    private final TypeRegistry typeRegistry;
+    private final TypeAndFunctionManager typeRegistry;
     private final PageSorter pageSorter;
     private final PageIndexerFactory pageIndexerFactory;
     private final MetadataManager metadata;
@@ -317,7 +317,6 @@ public class LocalQueryRunner
 
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
-        this.typeRegistry = new TypeRegistry();
         this.pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         this.indexManager = new IndexManager();
         this.nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
@@ -334,6 +333,7 @@ public class LocalQueryRunner
                 yieldExecutor,
                 catalogManager,
                 notificationExecutor);
+        this.typeRegistry = new TypeAndFunctionManager(featuresConfig, this.transactionManager);
         this.partitioningProviderManager = new PartitioningProviderManager();
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
@@ -343,8 +343,6 @@ public class LocalQueryRunner
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
 
         this.metadata = new MetadataManager(
-                featuresConfig,
-                typeRegistry,
                 blockEncodingManager,
                 new SessionPropertyManager(
                         new SystemSessionProperties(
@@ -358,7 +356,8 @@ public class LocalQueryRunner
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,
+                typeRegistry);
         this.splitManager = new SplitManager(metadata, new QueryManagerConfig(), nodeSchedulerConfig);
         this.distributedPlanChecker = new PlanChecker(featuresConfig, false);
         this.singleNodePlanChecker = new PlanChecker(featuresConfig, true);
@@ -400,7 +399,7 @@ public class LocalQueryRunner
                 transactionManager,
                 new RowExpressionDomainTranslator(metadata),
                 new RowExpressionPredicateCompiler(metadata),
-                new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
+                new RowExpressionDeterminismEvaluator(metadata.getTypeAndFunctionManager()),
                 new FilterStatsCalculator(metadata, scalarStatsCalculator, statsNormalizer),
                 blockEncodingManager);
 
@@ -424,8 +423,7 @@ public class LocalQueryRunner
                 new PasswordAuthenticatorManager(),
                 new EventListenerManager(),
                 blockEncodingManager,
-                new SessionPropertyDefaults(nodeInfo),
-                typeRegistry);
+                new SessionPropertyDefaults(nodeInfo));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
@@ -509,7 +507,7 @@ public class LocalQueryRunner
         return 1;
     }
 
-    public TypeRegistry getTypeManager()
+    public TypeAndFunctionManager getTypeManager()
     {
         return typeRegistry;
     }
@@ -624,7 +622,7 @@ public class LocalQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        metadata.getFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        metadata.getTypeAndFunctionManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
     }
 
     public LocalQueryRunner printPlan()
@@ -765,7 +763,7 @@ public class LocalQueryRunner
     private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory, TaskContext taskContext)
     {
         if (printPlan) {
-            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), plan.getStatsAndCosts(), session, 0, false));
+            System.out.println(PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getTypeAndFunctionManager(), plan.getStatsAndCosts(), session, 0, false));
         }
 
         SubPlan subplan = createSubPlans(session, plan, true);

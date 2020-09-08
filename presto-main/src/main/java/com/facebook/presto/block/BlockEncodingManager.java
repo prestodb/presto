@@ -50,14 +50,21 @@ public final class BlockEncodingManager
         implements BlockEncodingSerde
 {
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
+    private boolean initialized;
 
     public BlockEncodingManager(TypeManager typeManager, BlockEncoding... blockEncodings)
     {
-        this(typeManager, ImmutableSet.copyOf(blockEncodings));
+        this(ImmutableSet.copyOf(blockEncodings));
+        this.addBuiltinBlockEncodings(typeManager);
+    }
+
+    public BlockEncodingManager(BlockEncoding... blockEncodings)
+    {
+        this(ImmutableSet.copyOf(blockEncodings));
     }
 
     @Inject
-    public BlockEncodingManager(TypeManager typeManager, Set<BlockEncoding> blockEncodings)
+    public BlockEncodingManager(Set<BlockEncoding> blockEncodings)
     {
         // This function should be called from Guice and tests only
 
@@ -70,8 +77,6 @@ public final class BlockEncodingManager
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding(typeManager));
-        addBlockEncoding(new SingleMapBlockEncoding(typeManager));
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
@@ -80,6 +85,17 @@ public final class BlockEncodingManager
         for (BlockEncoding blockEncoding : requireNonNull(blockEncodings, "blockEncodings is null")) {
             addBlockEncoding(blockEncoding);
         }
+    }
+
+    // This method is outside the constructor to avoid a circular Guice dependency on TypeManager
+    public void addBuiltinBlockEncodings(TypeManager typeManager)
+    {
+        if (initialized) {
+            return;
+        }
+        addBlockEncoding(new MapBlockEncoding(typeManager));
+        addBlockEncoding(new SingleMapBlockEncoding(typeManager));
+        initialized = true;
     }
 
     public void addBlockEncoding(BlockEncoding blockEncoding)

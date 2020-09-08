@@ -13,20 +13,12 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 
 public class TestingEnvironment
 {
     private TestingEnvironment() {}
 
-    public static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // wire TYPE_MANAGER with function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
+    public static final TypeManager TYPE_MANAGER = new TypeAndFunctionManager();
 }

@@ -19,7 +19,6 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RealType;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -38,6 +37,7 @@ import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
@@ -61,7 +61,6 @@ import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.testing.TestingWarningCollector;
 import com.facebook.presto.testing.TestingWarningCollectorConfig;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
@@ -1596,23 +1595,22 @@ public class TestAnalyzer
     @BeforeClass
     public void setup()
     {
-        TypeManager typeManager = new TypeRegistry();
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
         accessControl = new AccessControlManager(transactionManager);
 
+        TypeAndFunctionManager typeAndFunctionManager = new TypeAndFunctionManager();
         metadata = new MetadataManager(
-                new FeaturesConfig(),
-                typeManager,
-                new BlockEncodingManager(typeManager),
+                new BlockEncodingManager(typeAndFunctionManager),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,
+                typeAndFunctionManager);
 
-        metadata.getFunctionManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
+        metadata.getTypeAndFunctionManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CONNECTOR_ID);
         catalogManager.registerCatalog(tpchTestCatalog);

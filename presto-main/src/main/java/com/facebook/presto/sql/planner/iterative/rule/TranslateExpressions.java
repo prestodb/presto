@@ -88,11 +88,11 @@ public class TranslateExpressions
                         .collect(toImmutableList());
                 ImmutableMap.Builder<NodeRef<Expression>, Type> builder = ImmutableMap.<NodeRef<Expression>, Type>builder();
                 if (!lambdaExpressions.isEmpty()) {
-                    List<FunctionType> functionTypes = metadata.getFunctionManager().getFunctionMetadata(callExpression.getFunctionHandle()).getArgumentTypes().stream()
+                    List<FunctionType> functionTypes = metadata.getTypeAndFunctionManager().getFunctionMetadata(callExpression.getFunctionHandle()).getArgumentTypes().stream()
                             .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
                             .map(typeSignature -> (FunctionType) (metadata.getTypeManager().getType(typeSignature)))
                             .collect(toImmutableList());
-                    InternalAggregationFunction internalAggregationFunction = metadata.getFunctionManager().getAggregateFunctionImplementation(callExpression.getFunctionHandle());
+                    InternalAggregationFunction internalAggregationFunction = metadata.getTypeAndFunctionManager().getAggregateFunctionImplementation(callExpression.getFunctionHandle());
                     List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
                     verify(lambdaExpressions.size() == functionTypes.size());
                     verify(lambdaExpressions.size() == lambdaInterfaces.size());
@@ -160,7 +160,7 @@ public class TranslateExpressions
 
             private RowExpression toRowExpression(Expression expression, Session session, Map<NodeRef<Expression>, Type> types)
             {
-                return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), session);
+                return SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getTypeAndFunctionManager(), session);
             }
 
             private RowExpression removeOriginalExpression(RowExpression expression, Rule.Context context)

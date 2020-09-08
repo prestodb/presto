@@ -22,8 +22,8 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
@@ -388,18 +388,18 @@ public class TestHistogram
 
     private InternalAggregationFunction getAggregation(Type... arguments)
     {
-        FunctionManager functionManager = getFunctionManager(NEW);
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(NAME, fromTypes(arguments)));
+        TypeAndFunctionManager typeAndFunctionManager = getFunctionManager(NEW);
+        return typeAndFunctionManager.getAggregateFunctionImplementation(typeAndFunctionManager.lookupFunction(NAME, fromTypes(arguments)));
     }
 
-    public FunctionManager getFunctionManager()
+    public TypeAndFunctionManager getFunctionManager()
     {
         return getFunctionManager(NEW);
     }
 
-    public FunctionManager getFunctionManager(HistogramGroupImplementation groupMode)
+    public TypeAndFunctionManager getFunctionManager(HistogramGroupImplementation groupMode)
     {
         return MetadataManager.createTestMetadataManager(new FeaturesConfig()
-                .setHistogramGroupImplementation(groupMode)).getFunctionManager();
+                .setHistogramGroupImplementation(groupMode)).getTypeAndFunctionManager();
     }
 }

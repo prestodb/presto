@@ -14,8 +14,8 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -88,10 +88,10 @@ public class TestFilterAndProjectOperator
                 .build();
 
         MetadataManager metadata = createTestMetadataManager();
-        FunctionManager functionManager = metadata.getFunctionManager();
+        TypeAndFunctionManager typeAndFunctionManager = metadata.getTypeAndFunctionManager();
         RowExpression filter = call(
                 BETWEEN.name(),
-                functionManager.resolveOperator(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
+                typeAndFunctionManager.resolveOperatorHandle(BETWEEN, fromTypes(BIGINT, BIGINT, BIGINT)),
                 BOOLEAN,
                 field(1, BIGINT),
                 constant(10L, BIGINT),
@@ -100,7 +100,7 @@ public class TestFilterAndProjectOperator
         RowExpression field0 = field(0, VARCHAR);
         RowExpression add5 = call(
                 ADD.name(),
-                functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                typeAndFunctionManager.resolveOperatorHandle(ADD, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 field(1, BIGINT),
                 constant(5L, BIGINT));
@@ -145,7 +145,7 @@ public class TestFilterAndProjectOperator
 
         RowExpression filter = call(
                 EQUAL.name(),
-                metadata.getFunctionManager().resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
+                metadata.getTypeAndFunctionManager().resolveOperatorHandle(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 field(1, BIGINT),
                 constant(10L, BIGINT));

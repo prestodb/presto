@@ -16,8 +16,8 @@ package com.facebook.presto.operator.aggregation;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
@@ -51,9 +51,9 @@ public abstract class TestPrecisionRecallAggregation
     @BeforeClass
     public void setUp()
     {
-        FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
-        precisionRecallFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction(
+        TypeAndFunctionManager typeAndFunctionManager = MetadataManager.createTestMetadataManager().getTypeAndFunctionManager();
+        precisionRecallFunction = typeAndFunctionManager.getAggregateFunctionImplementation(
+                typeAndFunctionManager.lookupFunction(
                         this.functionName,
                         fromTypes(BIGINT, BOOLEAN, DOUBLE, DOUBLE)));
     }

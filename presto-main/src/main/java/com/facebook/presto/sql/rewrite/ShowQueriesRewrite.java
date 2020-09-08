@@ -99,12 +99,12 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
+import static com.facebook.presto.metadata.TypeAndFunctionManager.qualifyFunctionName;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
@@ -497,7 +497,7 @@ final class ShowQueriesRewrite
         protected Node visitShowCreateFunction(ShowCreateFunction node, Void context)
         {
             QualifiedFunctionName functionName = qualifyFunctionName(node.getName());
-            Collection<? extends SqlFunction> functions = metadata.getFunctionManager().getFunctions(session.getTransactionId(), functionName);
+            Collection<? extends SqlFunction> functions = metadata.getTypeAndFunctionManager().getFunctions(session.getTransactionId(), functionName);
             if (node.getParameterTypes().isPresent()) {
                 List<TypeSignature> parameterTypes = node.getParameterTypes().get().stream()
                         .map(TypeSignature::parseTypeSignature)

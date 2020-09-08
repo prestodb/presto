@@ -20,7 +20,7 @@ import com.facebook.presto.common.block.LongArrayBlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.TableFinishOperator.PageSinkCommitter;
 import com.facebook.presto.operator.TableFinishOperator.TableFinishOperatorFactory;
 import com.facebook.presto.operator.TableFinishOperator.TableFinisher;
@@ -74,9 +74,9 @@ import static org.testng.Assert.assertTrue;
 
 public class TestTableFinishOperator
 {
-    private static final FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
-    private static final InternalAggregationFunction LONG_MAX = functionManager.getAggregateFunctionImplementation(
-            functionManager.lookupFunction("max", fromTypes(BIGINT)));
+    private static final TypeAndFunctionManager TYPE_AND_FUNCTION_MANAGER = createTestMetadataManager().getTypeAndFunctionManager();
+    private static final InternalAggregationFunction LONG_MAX = TYPE_AND_FUNCTION_MANAGER.getAggregateFunctionImplementation(
+            TYPE_AND_FUNCTION_MANAGER.lookupFunction("max", fromTypes(BIGINT)));
     private static final JsonCodec<TableCommitContext> TABLE_COMMIT_CONTEXT_CODEC = jsonCodec(TableCommitContext.class);
 
     private ScheduledExecutorService scheduledExecutor;

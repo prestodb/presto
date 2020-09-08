@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.verifier.checksum;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -26,7 +24,6 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.framework.Column;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.google.common.collect.ImmutableList;
@@ -57,11 +54,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestChecksumValidator
 {
-    private static final TypeRegistry typeRegistry = new TypeRegistry();
-
-    static {
-        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-    }
+    private static final TypeAndFunctionManager typeRegistry = new TypeAndFunctionManager();
 
     private static final Column BIGINT_COLUMN = createColumn("bigint", BIGINT);
     private static final Column VARCHAR_COLUMN = createColumn("varchar", VARCHAR);

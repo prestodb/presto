@@ -14,11 +14,9 @@
 package com.facebook.presto.verifier;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.plugin.memory.MemoryPlugin;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -26,7 +24,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.mysql.MySqlOptions;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.StandaloneQueryRunner;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.checksum.ArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnValidator;
@@ -148,8 +145,6 @@ public class VerifierTestUtil
 
     public static TypeManager createTypeManager()
     {
-        TypeManager typeManager = new TypeRegistry();
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        return typeManager;
+        return new TypeAndFunctionManager();
     }
 }

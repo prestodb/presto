@@ -19,7 +19,7 @@ import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.Ordering;
@@ -104,11 +104,11 @@ public class PushAggregationThroughOuterJoin
 
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .with(source().matching(join().capturedAs(JOIN)));
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
 
-    public PushAggregationThroughOuterJoin(FunctionManager functionManager)
+    public PushAggregationThroughOuterJoin(TypeAndFunctionManager typeAndFunctionManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
     }
 
     @Override
@@ -329,7 +329,7 @@ public class PushAggregationThroughOuterJoin
                     aggregation.getOrderBy().map(orderBy -> inlineOrderByVariables(sourcesVariableMapping, orderBy)),
                     aggregation.isDistinct(),
                     aggregation.getMask().map(x -> new VariableReferenceExpression(sourcesVariableMapping.get(x).getName(), x.getType())));
-            QualifiedFunctionName functionName = functionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
+            QualifiedFunctionName functionName = typeAndFunctionManager.getFunctionMetadata(overNullAggregation.getFunctionHandle()).getName();
             VariableReferenceExpression overNull = variableAllocator.newVariable(functionName.getFunctionName(), aggregationVariable.getType());
             aggregationsOverNullBuilder.put(overNull, overNullAggregation);
             aggregationsVariableMappingBuilder.put(aggregationVariable, overNull);

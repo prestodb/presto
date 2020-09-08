@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
@@ -117,11 +117,11 @@ import static java.util.Objects.requireNonNull;
 public class UnaliasSymbolReferences
         implements PlanOptimizer
 {
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
 
-    public UnaliasSymbolReferences(FunctionManager functionManager)
+    public UnaliasSymbolReferences(TypeAndFunctionManager typeAndFunctionManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
     }
 
     @Override
@@ -133,7 +133,7 @@ public class UnaliasSymbolReferences
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(types, functionManager), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(types, typeAndFunctionManager), plan);
     }
 
     private static class Rewriter
@@ -143,10 +143,10 @@ public class UnaliasSymbolReferences
         private final TypeProvider types;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
 
-        private Rewriter(TypeProvider types, FunctionManager functionManager)
+        private Rewriter(TypeProvider types, TypeAndFunctionManager typeAndFunctionManager)
         {
             this.types = types;
-            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
+            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(typeAndFunctionManager);
         }
 
         @Override

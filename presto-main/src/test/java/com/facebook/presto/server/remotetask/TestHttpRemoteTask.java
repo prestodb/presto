@@ -39,6 +39,7 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.SmileCodec;
@@ -54,7 +55,6 @@ import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
@@ -240,8 +240,8 @@ public class TestHttpRemoteTask
                     {
                         binder.bind(JsonMapper.class);
                         configBinder(binder).bindConfig(FeaturesConfig.class);
-                        binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
-                        binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+                        binder.bind(TypeAndFunctionManager.class).in(Scopes.SINGLETON);
+                        binder.bind(TypeManager.class).to(TypeAndFunctionManager.class).in(Scopes.SINGLETON);
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         newSetBinder(binder, Type.class);
                         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);

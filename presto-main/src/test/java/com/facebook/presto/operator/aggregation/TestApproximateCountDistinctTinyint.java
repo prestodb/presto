@@ -27,8 +27,8 @@ public class TestApproximateCountDistinctTinyint
     @Override
     public InternalAggregationFunction getAggregationFunction()
     {
-        return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("approx_distinct", fromTypes(TINYINT, DOUBLE)));
+        return TYPE_AND_FUNCTION_MANAGER.getAggregateFunctionImplementation(
+                TYPE_AND_FUNCTION_MANAGER.lookupFunction("approx_distinct", fromTypes(TINYINT, DOUBLE)));
     }
 
     @Override

@@ -17,8 +17,8 @@ import com.facebook.presto.RowPageBuilder;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.google.common.base.Splitter;
@@ -37,14 +37,14 @@ import static org.testng.Assert.assertEquals;
 public class TestEvaluateClassifierPredictions
 {
     private final MetadataManager metadata = MetadataManager.createTestMetadataManager();
-    private final FunctionManager functionManager = metadata.getFunctionManager();
+    private final TypeAndFunctionManager typeAndFunctionManager = metadata.getTypeAndFunctionManager();
 
     @Test
     public void testEvaluateClassifierPredictions()
     {
         metadata.registerBuiltInFunctions(extractFunctions(new MLPlugin().getFunctions()));
-        InternalAggregationFunction aggregation = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("evaluate_classifier_predictions", fromTypes(BIGINT, BIGINT)));
+        InternalAggregationFunction aggregation = typeAndFunctionManager.getAggregateFunctionImplementation(
+                typeAndFunctionManager.lookupFunction("evaluate_classifier_predictions", fromTypes(BIGINT, BIGINT)));
         Accumulator accumulator = aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator();
         accumulator.addInput(getPage());
         BlockBuilder finalOut = accumulator.getFinalType().createBlockBuilder(null, 1);

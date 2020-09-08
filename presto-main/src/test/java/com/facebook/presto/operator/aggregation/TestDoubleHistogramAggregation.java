@@ -17,8 +17,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.MapType;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -43,9 +43,9 @@ public class TestDoubleHistogramAggregation
 
     public TestDoubleHistogramAggregation()
     {
-        FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
-        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("numeric_histogram", fromTypes(BIGINT, DOUBLE, DOUBLE)));
+        TypeAndFunctionManager typeAndFunctionManager = MetadataManager.createTestMetadataManager().getTypeAndFunctionManager();
+        InternalAggregationFunction function = typeAndFunctionManager.getAggregateFunctionImplementation(
+                typeAndFunctionManager.lookupFunction("numeric_histogram", fromTypes(BIGINT, DOUBLE, DOUBLE)));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
         input = makeInput(10);
     }

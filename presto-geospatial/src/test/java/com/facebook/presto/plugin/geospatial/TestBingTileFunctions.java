@@ -16,7 +16,7 @@ package com.facebook.presto.plugin.geospatial;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.google.common.collect.ImmutableList;
@@ -66,9 +66,9 @@ public class TestBingTileFunctions
         }
         functionAssertions.getMetadata().registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
         functionAssertions.getMetadata().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
-        FunctionManager functionManager = functionAssertions.getMetadata().getFunctionManager();
-        approxDistinct = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("approx_distinct", fromTypes(BING_TILE)));
+        TypeAndFunctionManager typeAndFunctionManager = functionAssertions.getMetadata().getTypeAndFunctionManager();
+        approxDistinct = typeAndFunctionManager.getAggregateFunctionImplementation(
+                typeAndFunctionManager.lookupFunction("approx_distinct", fromTypes(BING_TILE)));
     }
 
     @Test

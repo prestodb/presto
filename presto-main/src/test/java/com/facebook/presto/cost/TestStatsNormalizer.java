@@ -13,15 +13,11 @@
  */
 package com.facebook.presto.cost;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -41,8 +37,7 @@ import static java.util.Collections.emptyList;
 
 public class TestStatsNormalizer
 {
-    private final TypeManager typeManager = new TypeRegistry();
-    private final FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+    private final TypeAndFunctionManager typeAndFunctionManager = new TypeAndFunctionManager();
     private final ConnectorSession session = new TestingConnectorSession(emptyList());
 
     private final StatsNormalizer normalizer = new StatsNormalizer();
@@ -160,6 +155,6 @@ public class TestStatsNormalizer
 
     private double asStatsValue(Object value, Type type)
     {
-        return toStatsRepresentation(functionManager, session, type, value).orElse(NaN);
+        return toStatsRepresentation(typeAndFunctionManager, session, type, value).orElse(NaN);
     }
 }

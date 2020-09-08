@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
@@ -32,17 +31,17 @@ public class AggregationTestUtils
     @VisibleForTesting
     public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes)
     {
-        return generateInternalAggregationFunction(clazz, outputType, inputTypes, new TypeRegistry());
+        return generateInternalAggregationFunction(clazz, outputType, inputTypes, new TypeAndFunctionManager());
     }
 
     @VisibleForTesting
-    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, TypeManager typeManager)
+    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, TypeAndFunctionManager typeManager)
     {
         return generateInternalAggregationFunction(clazz, outputType, inputTypes, typeManager, BoundVariables.builder().build(), inputTypes.size());
     }
 
     @VisibleForTesting
-    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, TypeManager typeManager, BoundVariables boundVariables, int arity)
+    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, TypeAndFunctionManager typeManager, BoundVariables boundVariables, int arity)
     {
         return AggregationFromAnnotationsParser.parseFunctionDefinitionWithTypesConstraint(clazz, outputType, inputTypes).specialize(boundVariables, arity, typeManager);
     }

@@ -32,9 +32,9 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -130,7 +130,7 @@ public class SqlQueryScheduler
     private final AtomicReference<SubPlan> plan = new AtomicReference<>();
 
     // The following fields are required for adaptive optimization in runtime.
-    private final FunctionManager functionManager;
+    private final TypeAndFunctionManager typeAndFunctionManager;
     private final List<PlanOptimizer> runtimePlanOptimizers;
     private final WarningCollector warningCollector;
     private final PlanNodeIdAllocator idAllocator;
@@ -163,7 +163,7 @@ public class SqlQueryScheduler
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             boolean summarizeTaskInfo,
-            FunctionManager functionManager,
+            TypeAndFunctionManager typeAndFunctionManager,
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
@@ -185,7 +185,7 @@ public class SqlQueryScheduler
                 queryStateMachine,
                 plan,
                 summarizeTaskInfo,
-                functionManager,
+                typeAndFunctionManager,
                 runtimePlanOptimizers,
                 warningCollector,
                 idAllocator,
@@ -210,7 +210,7 @@ public class SqlQueryScheduler
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             boolean summarizeTaskInfo,
-            FunctionManager functionManager,
+            TypeAndFunctionManager typeAndFunctionManager,
             List<PlanOptimizer> runtimePlanOptimizers,
             WarningCollector warningCollector,
             PlanNodeIdAllocator idAllocator,
@@ -229,7 +229,7 @@ public class SqlQueryScheduler
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.session = requireNonNull(session, "session is null");
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.typeAndFunctionManager = requireNonNull(typeAndFunctionManager, "typeAndFunctionManager is null");
         this.runtimePlanOptimizers = requireNonNull(runtimePlanOptimizers, "runtimePlanOptimizers is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -489,7 +489,7 @@ public class SqlQueryScheduler
                             fragment.getStageExecutionDescriptor(),
                             fragment.isOutputTableWriterFragment(),
                             fragment.getStatsAndCosts(),
-                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionManager, session))));
+                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), typeAndFunctionManager, session))));
         }
         return Optional.empty();
     }

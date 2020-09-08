@@ -105,7 +105,7 @@ public class ScalarStatsCalculator
     {
         private final PlanNodeStatsEstimate input;
         private final ConnectorSession session;
-        private final FunctionResolution resolution = new FunctionResolution(metadata.getFunctionManager());
+        private final FunctionResolution resolution = new FunctionResolution(metadata.getTypeAndFunctionManager());
 
         public RowExpressionStatsVisitor(PlanNodeStatsEstimate input, ConnectorSession session)
         {
@@ -120,7 +120,7 @@ public class ScalarStatsCalculator
                 return computeNegationStatistics(call, context);
             }
 
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(call.getFunctionHandle());
+            FunctionMetadata functionMetadata = metadata.getTypeAndFunctionManager().getFunctionMetadata(call.getFunctionHandle());
             if (functionMetadata.getOperatorType().map(OperatorType::isArithmeticOperator).orElse(false)) {
                 return computeArithmeticBinaryStatistics(call, context);
             }
@@ -155,7 +155,7 @@ public class ScalarStatsCalculator
                 return nullStatsEstimate();
             }
 
-            OptionalDouble doubleValue = toStatsRepresentation(metadata.getFunctionManager(), session, literal.getType(), literal.getValue());
+            OptionalDouble doubleValue = toStatsRepresentation(metadata.getTypeAndFunctionManager(), session, literal.getType(), literal.getValue());
             VariableStatsEstimate.Builder estimate = VariableStatsEstimate.builder()
                     .setNullsFraction(0)
                     .setDistinctValuesCount(1);
@@ -256,7 +256,7 @@ public class ScalarStatsCalculator
                     .setNullsFraction(left.getNullsFraction() + right.getNullsFraction() - left.getNullsFraction() * right.getNullsFraction())
                     .setDistinctValuesCount(min(left.getDistinctValuesCount() * right.getDistinctValuesCount(), input.getOutputRowCount()));
 
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(call.getFunctionHandle());
+            FunctionMetadata functionMetadata = metadata.getTypeAndFunctionManager().getFunctionMetadata(call.getFunctionHandle());
             checkState(functionMetadata.getOperatorType().isPresent());
             OperatorType operatorType = functionMetadata.getOperatorType().get();
             double leftLow = left.getLowValue();
@@ -394,7 +394,7 @@ public class ScalarStatsCalculator
         private Map<NodeRef<Expression>, Type> getExpressionTypes(Session session, Expression expression, TypeProvider types)
         {
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                    metadata.getFunctionManager(),
+                    metadata.getTypeAndFunctionManager(),
                     metadata.getTypeManager(),
                     session,
                     types,

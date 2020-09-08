@@ -13,11 +13,10 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcCorruptionException;
@@ -30,8 +29,6 @@ import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
@@ -93,10 +90,8 @@ final class OrcTestingUtil
             throws OrcCorruptionException
     {
         Metadata metadata = MetadataManager.createTestMetadataManager();
-        FunctionManager functionManager = metadata.getFunctionManager();
-        TypeRegistry typeRegistry = new TypeRegistry();
-        typeRegistry.setFunctionManager(functionManager);
-        StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeRegistry);
+        TypeAndFunctionManager typeAndFunctionManager = metadata.getTypeAndFunctionManager();
+        StorageTypeConverter storageTypeConverter = new StorageTypeConverter(typeAndFunctionManager);
         return orcReader.createBatchRecordReader(
                 storageTypeConverter.toStorageTypes(includedColumns),
                 OrcPredicate.TRUE,
@@ -125,9 +120,8 @@ final class OrcTestingUtil
     public static FileWriter createFileWriter(List<Long> columnIds, List<Type> columnTypes, File file)
             throws IOException
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        return new OrcFileWriter(columnIds, columnTypes, new OutputStreamDataSink(new FileOutputStream(file)), true, true, new OrcWriterStats(), typeManager, ZSTD);
+        TypeAndFunctionManager typeAndFunctionManager = new TypeAndFunctionManager();
+        return new OrcFileWriter(columnIds, columnTypes, new OutputStreamDataSink(new FileOutputStream(file)), true, true, new OrcWriterStats(), typeAndFunctionManager, ZSTD);
     }
 
     public static OrcReaderOptions createDefaultTestConfig()

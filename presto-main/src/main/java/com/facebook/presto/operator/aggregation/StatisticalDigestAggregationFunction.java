@@ -18,12 +18,11 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestState;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestStateFactory;
 import com.facebook.presto.operator.aggregation.state.StatisticalDigestStateSerializer;
@@ -122,10 +121,10 @@ public abstract class StatisticalDigestAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeAndFunctionManager typeAndFunctionManager)
     {
         Type valueType = boundVariables.getTypeVariable("V");
-        Type outputType = typeManager.getParameterizedType(
+        Type outputType = typeAndFunctionManager.getParameterizedType(
                 type,
                 ImmutableList.of(TypeSignatureParameter.of(valueType.getTypeSignature())));
         return generateAggregation(name, valueType, outputType, arity);

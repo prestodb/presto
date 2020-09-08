@@ -185,7 +185,7 @@ public final class LiteralInterpreter
         private LiteralVisitor(Metadata metadata)
         {
             this.metadata = metadata;
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getTypeAndFunctionManager());
         }
 
         @Override
@@ -251,12 +251,12 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
+                FunctionHandle functionHandle = metadata.getTypeAndFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
                 return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
 
             try {
-                FunctionHandle functionHandle = metadata.getFunctionManager().lookupCast(CAST, VARCHAR.getTypeSignature(), type.getTypeSignature());
+                FunctionHandle functionHandle = metadata.getTypeAndFunctionManager().lookupCast(CAST, VARCHAR.getTypeSignature(), type.getTypeSignature());
                 return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {

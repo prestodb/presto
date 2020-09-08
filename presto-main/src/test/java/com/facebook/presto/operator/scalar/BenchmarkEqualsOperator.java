@@ -17,8 +17,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.ConnectorSession;
@@ -84,26 +84,26 @@ public class BenchmarkEqualsOperator
     public void setup()
     {
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        FunctionManager functionManager = metadata.getFunctionManager();
+        TypeAndFunctionManager typeAndFunctionManager = metadata.getTypeAndFunctionManager();
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
                 metadata,
                 new PageFunctionCompiler(metadata, 0));
-        RowExpression projection = generateComplexComparisonProjection(functionManager, FIELDS_COUNT, COMPARISONS_COUNT);
+        RowExpression projection = generateComplexComparisonProjection(typeAndFunctionManager, FIELDS_COUNT, COMPARISONS_COUNT);
         compiledProcessor = expressionCompiler.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), ImmutableList.of(projection)).get();
     }
 
-    private static RowExpression generateComplexComparisonProjection(FunctionManager functionManager, int fieldsCount, int comparisonsCount)
+    private static RowExpression generateComplexComparisonProjection(TypeAndFunctionManager typeAndFunctionManager, int fieldsCount, int comparisonsCount)
     {
         checkArgument(fieldsCount > 0, "fieldsCount must be greater than zero");
         checkArgument(comparisonsCount > 0, "comparisonsCount must be greater than zero");
 
         if (comparisonsCount == 1) {
-            return createComparison(functionManager, 0, 0);
+            return createComparison(typeAndFunctionManager, 0, 0);
         }
 
         return createConjunction(
-                createComparison(functionManager, 0, comparisonsCount % fieldsCount),
-                generateComplexComparisonProjection(functionManager, fieldsCount, comparisonsCount - 1));
+                createComparison(typeAndFunctionManager, 0, comparisonsCount % fieldsCount),
+                generateComplexComparisonProjection(typeAndFunctionManager, fieldsCount, comparisonsCount - 1));
     }
 
     private static RowExpression createConjunction(RowExpression left, RowExpression right)
@@ -111,11 +111,11 @@ public class BenchmarkEqualsOperator
         return specialForm(OR, BOOLEAN, left, right);
     }
 
-    private static RowExpression createComparison(FunctionManager functionManager, int leftField, int rightField)
+    private static RowExpression createComparison(TypeAndFunctionManager typeAndFunctionManager, int leftField, int rightField)
     {
         return call(
                 EQUAL.name(),
-                functionManager.resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
+                typeAndFunctionManager.resolveOperatorHandle(EQUAL, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 field(leftField, BIGINT),
                 field(rightField, BIGINT));

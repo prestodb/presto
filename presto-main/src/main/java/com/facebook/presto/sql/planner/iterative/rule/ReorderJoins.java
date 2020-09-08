@@ -108,8 +108,8 @@ public class ReorderJoins
     {
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
-        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionManager());
+        this.functionResolution = new FunctionResolution(metadata.getTypeAndFunctionManager());
+        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getTypeAndFunctionManager());
 
         this.joinNodePattern = join().matching(
                 joinNode -> !joinNode.getDistributionType().isPresent()
@@ -177,7 +177,7 @@ public class ReorderJoins
 
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.allFilterInference = createEqualityInference(metadata, filter);
-            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, functionResolution, metadata.getFunctionManager());
+            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, functionResolution, metadata.getTypeAndFunctionManager());
         }
 
         private JoinEnumerationResult chooseJoinOrder(LinkedHashSet<PlanNode> sources, List<VariableReferenceExpression> outputVariables)

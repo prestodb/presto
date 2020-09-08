@@ -34,7 +34,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.resolver.ArtifactResolver;
@@ -93,7 +92,6 @@ public class PluginManager
     private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
-    private final TypeRegistry typeRegistry;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -111,8 +109,7 @@ public class PluginManager
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
-            SessionPropertyDefaults sessionPropertyDefaults,
-            TypeRegistry typeRegistry)
+            SessionPropertyDefaults sessionPropertyDefaults)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -134,7 +131,6 @@ public class PluginManager
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
-        this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
     }
 
     public void loadPlugins()
@@ -194,12 +190,12 @@ public class PluginManager
 
         for (Type type : plugin.getTypes()) {
             log.info("Registering type %s", type.getTypeSignature());
-            typeRegistry.addType(type);
+            metadata.getTypeAndFunctionManager().addType(type);
         }
 
         for (ParametricType parametricType : plugin.getParametricTypes()) {
             log.info("Registering parametric type %s", parametricType.getName());
-            typeRegistry.addParametricType(parametricType);
+            metadata.getTypeAndFunctionManager().addParametricType(parametricType);
         }
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
@@ -214,7 +210,7 @@ public class PluginManager
 
         for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
             log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
-            metadata.getFunctionManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
+            metadata.getTypeAndFunctionManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {

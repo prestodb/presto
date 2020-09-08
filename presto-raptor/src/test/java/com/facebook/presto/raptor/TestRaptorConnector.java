@@ -19,6 +19,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
 import com.facebook.presto.raptor.metadata.MetadataDao;
@@ -41,7 +42,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -90,9 +90,9 @@ public class TestRaptorConnector
     public void setup()
             throws Exception
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
-        dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
+        TypeAndFunctionManager typeAndFunctionManager = new TypeAndFunctionManager();
+        dbi.registerMapper(new TableColumn.Mapper(typeAndFunctionManager));
         dummyHandle = dbi.open();
         metadataDao = dbi.onDemand(MetadataDao.class);
         createTablesWithRetry(dbi);
@@ -107,7 +107,7 @@ public class TestRaptorConnector
         connector = new RaptorConnector(
                 new LifeCycleManager(ImmutableList.of(), null),
                 new TestingNodeManager(),
-                new RaptorMetadataFactory(connectorId, dbi, shardManager, new TypeRegistry()),
+                new RaptorMetadataFactory(connectorId, dbi, shardManager, new TypeAndFunctionManager()),
                 new RaptorSplitManager(connectorId, nodeSupplier, shardManager, false),
                 new RaptorPageSourceProvider(storageManager),
                 new RaptorPageSinkProvider(storageManager,
@@ -116,7 +116,7 @@ public class TestRaptorConnector
                         config),
                 new RaptorNodePartitioningProvider(nodeSupplier),
                 new RaptorSessionProperties(config),
-                new RaptorTableProperties(typeRegistry),
+                new RaptorTableProperties(typeAndFunctionManager),
                 ImmutableSet.of(),
                 new AllowAllAccessControl(),
                 dbi,

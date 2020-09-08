@@ -14,7 +14,9 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.metadata.BucketNode;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
@@ -25,7 +27,6 @@ import com.facebook.presto.raptor.storage.BucketBalancer.BucketAssignment;
 import com.facebook.presto.raptor.storage.BucketBalancer.ClusterState;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.testing.TestingNodeManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
@@ -67,7 +68,7 @@ public class TestBucketBalancer
     @BeforeMethod
     public void setup()
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
+        TypeManager typeRegistry = new TypeAndFunctionManager();
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
         dbi.registerMapper(new Distribution.Mapper(typeRegistry));
         dummyHandle = dbi.open();

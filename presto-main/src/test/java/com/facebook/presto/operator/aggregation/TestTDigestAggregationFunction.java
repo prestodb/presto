@@ -17,7 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.tdigest.TDigest;
 
 import java.util.ArrayList;
@@ -51,9 +51,9 @@ public class TestTDigestAggregationFunction
     @Override
     protected InternalAggregationFunction getAggregationFunction(Type... type)
     {
-        FunctionManager functionManager = METADATA.getFunctionManager();
-        return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("tdigest_agg", fromTypes(type)));
+        TypeAndFunctionManager typeAndFunctionManager = METADATA.getTypeAndFunctionManager();
+        return typeAndFunctionManager.getAggregateFunctionImplementation(
+                typeAndFunctionManager.lookupFunction("tdigest_agg", fromTypes(type)));
     }
 
     @Override

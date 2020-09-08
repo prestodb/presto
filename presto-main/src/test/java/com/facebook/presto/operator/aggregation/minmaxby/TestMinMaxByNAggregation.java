@@ -16,8 +16,8 @@ package com.facebook.presto.operator.aggregation.minmaxby;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
@@ -40,7 +40,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestMinMaxByNAggregation
 {
-    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final TypeAndFunctionManager TYPE_AND_FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getTypeAndFunctionManager();
 
     @Test
     public void testMaxDoubleDouble()
@@ -295,13 +295,13 @@ public class TestMinMaxByNAggregation
 
     private InternalAggregationFunction getMaxByAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("max_by", fromTypes(arguments)));
+        return TYPE_AND_FUNCTION_MANAGER.getAggregateFunctionImplementation(
+                TYPE_AND_FUNCTION_MANAGER.lookupFunction("max_by", fromTypes(arguments)));
     }
 
     private InternalAggregationFunction getMinByAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("min_by", fromTypes(arguments)));
+        return TYPE_AND_FUNCTION_MANAGER.getAggregateFunctionImplementation(
+                TYPE_AND_FUNCTION_MANAGER.lookupFunction("min_by", fromTypes(arguments)));
     }
 }

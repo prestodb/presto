@@ -336,7 +336,7 @@ public class LambdaBytecodeGenerator
                 scope,
                 callSiteBinder,
                 cachedInstanceBinder,
-                metadata.getFunctionManager());
+                metadata.getTypeAndFunctionManager());
 
         body.append(
                 generateLambda(

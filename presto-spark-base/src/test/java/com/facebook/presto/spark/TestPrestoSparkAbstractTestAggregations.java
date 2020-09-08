@@ -15,8 +15,6 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.tests.AbstractTestAggregations;
 
-import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
-
 public class TestPrestoSparkAbstractTestAggregations
         extends AbstractTestAggregations
 {

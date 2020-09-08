@@ -247,9 +247,9 @@ public class IndexJoinOptimizer
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.domainTranslator = new RowExpressionDomainTranslator(metadata);
             this.logicalRowExpressions = new LogicalRowExpressions(
-                    new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
-                    new FunctionResolution(metadata.getFunctionManager()),
-                    metadata.getFunctionManager());
+                    new RowExpressionDeterminismEvaluator(metadata.getTypeAndFunctionManager()),
+                    new FunctionResolution(metadata.getTypeAndFunctionManager()),
+                    metadata.getTypeAndFunctionManager());
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.session = requireNonNull(session, "session is null");
         }
@@ -364,7 +364,7 @@ public class IndexJoinOptimizer
         public PlanNode visitWindow(WindowNode node, RewriteContext<Context> context)
         {
             if (!node.getWindowFunctions().values().stream()
-                    .allMatch(function -> metadata.getFunctionManager().getFunctionMetadata(function.getFunctionHandle()).getFunctionKind() == AGGREGATE)) {
+                    .allMatch(function -> metadata.getTypeAndFunctionManager().getFunctionMetadata(function.getFunctionHandle()).getFunctionKind() == AGGREGATE)) {
                 return node;
             }
 

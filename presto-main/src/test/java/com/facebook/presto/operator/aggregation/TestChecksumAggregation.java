@@ -18,8 +18,8 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
@@ -42,7 +42,7 @@ import static java.util.Arrays.asList;
 
 public class TestChecksumAggregation
 {
-    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final TypeAndFunctionManager TYPE_AND_FUNCTION_MANAGER = MetadataManager.createTestMetadataManager().getTypeAndFunctionManager();
 
     @Test
     public void testEmpty()
@@ -126,6 +126,6 @@ public class TestChecksumAggregation
 
     private InternalAggregationFunction getAggregation(Type argument)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction("checksum", fromTypes(argument)));
+        return TYPE_AND_FUNCTION_MANAGER.getAggregateFunctionImplementation(TYPE_AND_FUNCTION_MANAGER.lookupFunction("checksum", fromTypes(argument)));
     }
 }

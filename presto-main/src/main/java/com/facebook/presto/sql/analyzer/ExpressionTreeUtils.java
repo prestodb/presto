@@ -16,7 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.TypeAndFunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
@@ -47,9 +47,9 @@ public final class ExpressionTreeUtils
 {
     private ExpressionTreeUtils() {}
 
-    static List<FunctionCall> extractAggregateFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionManager functionManager)
+    static List<FunctionCall> extractAggregateFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, TypeAndFunctionManager typeAndFunctionManager)
     {
-        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionHandles, functionManager));
+        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionHandles, typeAndFunctionManager));
     }
 
     static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes)
@@ -57,9 +57,9 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, FunctionCall.class, ExpressionTreeUtils::isWindowFunction);
     }
 
-    static List<FunctionCall> extractExternalFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionManager functionManager)
+    static List<FunctionCall> extractExternalFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, TypeAndFunctionManager typeAndFunctionManager)
     {
-        return extractExpressions(nodes, FunctionCall.class, isExternalFunctionPredicate(functionHandles, functionManager));
+        return extractExpressions(nodes, FunctionCall.class, isExternalFunctionPredicate(functionHandles, typeAndFunctionManager));
     }
 
     public static <T extends Expression> List<T> extractExpressions(
@@ -69,9 +69,9 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, clazz, alwaysTrue());
     }
 
-    private static Predicate<FunctionCall> isAggregationPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionManager functionManager)
+    private static Predicate<FunctionCall> isAggregationPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, TypeAndFunctionManager typeAndFunctionManager)
     {
-        return functionCall -> (functionManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getFunctionKind() == AGGREGATE || functionCall.getFilter().isPresent())
+        return functionCall -> (typeAndFunctionManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getFunctionKind() == AGGREGATE || functionCall.getFilter().isPresent())
                 && !functionCall.getWindow().isPresent()
                 || functionCall.getOrderBy().isPresent();
     }
@@ -81,9 +81,9 @@ public final class ExpressionTreeUtils
         return functionCall.getWindow().isPresent();
     }
 
-    private static Predicate<FunctionCall> isExternalFunctionPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionManager functionManager)
+    private static Predicate<FunctionCall> isExternalFunctionPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, TypeAndFunctionManager typeAndFunctionManager)
     {
-        return functionCall -> functionManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getImplementationType().isExternal();
+        return functionCall -> typeAndFunctionManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getImplementationType().isExternal();
     }
 
     private static <T extends Expression> List<T> extractExpressions(
