@@ -85,7 +85,12 @@ public class PageSourceManager
                     columns,
                     split.getSplitContext());
         }
-        return getPageSourceProvider(split).createPageSource(split.getTransactionHandle(), connectorSession, split.getConnectorSplit(), columns, split.getSplitContext());
+        return getPageSourceProvider(split).createPageSource(
+                split.getTransactionHandle(),
+                connectorSession,
+                split.getConnectorSplit(),
+                columns,
+                split.getSplitContext());
     }
 
     private ConnectorPageSourceProvider getPageSourceProvider(Split split)

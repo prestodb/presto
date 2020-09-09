@@ -166,6 +166,7 @@ public class FeaturesConfig
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
+    private boolean mvOptimizationEnabled;
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -1407,6 +1408,18 @@ public class FeaturesConfig
     public boolean isInlineSqlFunctions()
     {
         return inlineSqlFunctions;
+    }
+
+    public boolean isMVOptimizationEnabled()
+    {
+        return mvOptimizationEnabled;
+    }
+
+    @Config("mv-optimization-enabled")
+    public FeaturesConfig setMVOptimizationEnabled(boolean mvOptimizationEnabled)
+    {
+        this.mvOptimizationEnabled = mvOptimizationEnabled;
+        return this;
     }
 
     @Config("inline-sql-functions")

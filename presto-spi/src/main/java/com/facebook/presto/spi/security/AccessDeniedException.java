@@ -113,7 +113,7 @@ public class AccessDeniedException
 
     public static void denyDropTable(String tableName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot drop table %s%s", tableName, formatExtraInfo(extraInfo)));
+//        throw new AccessDeniedException(format("Cannot drop table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyRenameTable(String tableName, String newTableName)

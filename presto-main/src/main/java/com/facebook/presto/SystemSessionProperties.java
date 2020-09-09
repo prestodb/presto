@@ -169,6 +169,7 @@ public final class SystemSessionProperties
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
+    public static final String MV_OPTIMIZATION_ENABLED = "mv_optimization_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -893,6 +894,11 @@ public final class SystemSessionProperties
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
                         "Apply access control rules on only those columns that are required to produce the query output",
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
+                        false),
+                booleanProperty(
+                        MV_OPTIMIZATION_ENABLED,
+                        "enable materialized view optimization",
+                        featuresConfig.isMVOptimizationEnabled(),
                         false));
     }
 
@@ -1503,5 +1509,10 @@ public final class SystemSessionProperties
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)
     {
         return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
+    }
+
+    public static boolean isMVOptimizationEnable(Session session)
+    {
+        return session.getSystemProperty(MV_OPTIMIZATION_ENABLED, Boolean.class);
     }
 }
