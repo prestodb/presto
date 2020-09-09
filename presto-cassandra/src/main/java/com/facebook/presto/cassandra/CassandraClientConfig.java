@@ -402,6 +402,7 @@ public class CassandraClientConfig
         return this;
     }
 
+    @NotNull
     public ProtocolVersion getProtocolVersion()
     {
         return protocolVersion;
