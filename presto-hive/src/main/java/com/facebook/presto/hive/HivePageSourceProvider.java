@@ -16,6 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Subfield.NestedField;
 import com.facebook.presto.common.Subfield.PathElement;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -68,6 +70,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
+import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.reconstructPartitionSchema;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
@@ -163,6 +166,10 @@ public class HivePageSourceProvider
                 .transform(hiveLayout.getPredicateColumns()::get);
 
         if (shouldSkipBucket(hiveLayout, hiveSplit, splitContext)) {
+            return new HiveEmptySplitPageSource();
+        }
+
+        if (shouldSkipPartition(typeManager, hiveLayout, hiveStorageTimeZone, hiveSplit, splitContext)) {
             return new HiveEmptySplitPageSource();
         }
 
@@ -275,6 +282,10 @@ public class HivePageSourceProvider
         RowExpression optimizedRemainingPredicate = rowExpressionCache.getUnchecked(new RowExpressionCacheKey(layout.getRemainingPredicate(), session));
 
         if (shouldSkipBucket(layout, split, splitContext)) {
+            return Optional.of(new HiveEmptySplitPageSource());
+        }
+
+        if (shouldSkipPartition(typeManager, layout, hiveStorageTimeZone, split, splitContext)) {
             return Optional.of(new HiveEmptySplitPageSource());
         }
 
@@ -503,6 +514,36 @@ public class HivePageSourceProvider
         Optional<HiveBucketing.HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveSplit.getStorage().getBucketProperty(), hiveLayout.getDataColumns(), dynamicFilter);
 
         return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getReadBucketNumber().getAsInt())).orElse(false);
+    }
+
+    private static boolean shouldSkipPartition(TypeManager typeManager, HiveTableLayoutHandle hiveLayout, DateTimeZone hiveStorageTimeZone, HiveSplit hiveSplit, SplitContext splitContext)
+    {
+        List<HiveColumnHandle> partitionColumns = hiveLayout.getPartitionColumns();
+        List<Type> partitionTypes = partitionColumns.stream()
+                .map(column -> typeManager.getType(column.getTypeSignature()))
+                .collect(toList());
+        List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
+
+        if (!splitContext.getDynamicFilterPredicate().isPresent()
+                || hiveSplit.getPartitionKeys().isEmpty()
+                || partitionColumns.isEmpty()
+                || partitionColumns.size() != partitionKeys.size()) {
+            return false;
+        }
+
+        TupleDomain<ColumnHandle> dynamicFilter = splitContext.getDynamicFilterPredicate().get();
+        Map<ColumnHandle, Domain> domains = dynamicFilter.getDomains().get();
+        for (int i = 0; i < partitionKeys.size(); i++) {
+            Type type = partitionTypes.get(i);
+            HivePartitionKey hivePartitionKey = partitionKeys.get(i);
+            HiveColumnHandle hiveColumnHandle = partitionColumns.get(i);
+            Domain allowedDomain = domains.get(hiveColumnHandle);
+            NullableValue value = parsePartitionValue(hivePartitionKey.getName(), hivePartitionKey.getValue(), type, hiveStorageTimeZone);
+            if (allowedDomain != null && !allowedDomain.includesNullableValue(value.getValue())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static BucketAdaptation toBucketAdaptation(BucketConversion conversion, List<ColumnMapping> columnMappings, OptionalInt tableBucketNumber, Function<ColumnMapping, Integer> bucketColumnIndexProducer)
