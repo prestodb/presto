@@ -36,7 +36,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import javafx.util.Pair;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -54,6 +53,8 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.testng.annotations.Test;
+
+import javax.annotation.concurrent.Immutable;
 
 import java.io.File;
 import java.io.IOException;
@@ -91,6 +92,7 @@ import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
@@ -472,5 +474,28 @@ public class BenchmarkSelectiveStreamReaders
                 .build();
 
         new Runner(options).run();
+    }
+
+    @Immutable
+    private static class Pair<K, V>
+    {
+        private final K key;
+        private final V value;
+
+        public Pair(K key, V value)
+        {
+            this.key = requireNonNull(key, "key is null");
+            this.value = requireNonNull(value, "value is null");
+        }
+
+        public K getKey()
+        {
+            return key;
+        }
+
+        public V getValue()
+        {
+            return value;
+        }
     }
 }
