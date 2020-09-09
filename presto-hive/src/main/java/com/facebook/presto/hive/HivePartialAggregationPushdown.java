@@ -51,6 +51,9 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartialAggregationPushdownEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
+import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
@@ -190,12 +193,12 @@ public class HivePartialAggregationPushdown
             HiveTableHandle hiveTableHandle = getHiveTableHandle(oldTableScanNode).orElseThrow(() -> new PrestoException(NOT_FOUND, "Hive table handle not found"));
 
             ConnectorTableMetadata connectorTableMetadata = metadataFactory.get().getTableMetadata(session, oldTableHandle.getConnectorHandle());
-            Optional<Object> rawFormat = Optional.ofNullable(connectorTableMetadata.getProperties().get(HiveTableProperties.STORAGE_FORMAT_PROPERTY));
+            Optional<Object> rawFormat = Optional.ofNullable(connectorTableMetadata.getProperties().get(STORAGE_FORMAT_PROPERTY));
             if (!rawFormat.isPresent()) {
                 return Optional.empty();
             }
             final HiveStorageFormat hiveStorageFormat = HiveStorageFormat.valueOf(rawFormat.get().toString());
-            if (hiveStorageFormat != HiveStorageFormat.ORC && hiveStorageFormat != HiveStorageFormat.PARQUET) {
+            if (hiveStorageFormat != ORC && hiveStorageFormat != PARQUET) {
                 return Optional.empty();
             }
 
@@ -207,23 +210,23 @@ public class HivePartialAggregationPushdown
             Map<VariableReferenceExpression, ColumnHandle> assignments = new HashMap<>();
             for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> aggregationEntry : partialAggregationNode.getAggregations().entrySet()) {
                 CallExpression callExpression = aggregationEntry.getValue().getCall();
-                String colName;
+                String columnName;
                 int columnIndex;
                 HiveType hiveType = HiveType.toHiveType(hiveTypeTranslator, callExpression.getType());
                 if (callExpression.getArguments().isEmpty()) {
-                    colName = "count_star";
+                    columnName = "count_star";
                     columnIndex = DUMMY_AGGREGATED_COLUMN_INDEX;
                 }
                 else {
                     RowExpression column = callExpression.getArguments().get(0);
-                    colName = column.toString();
+                    columnName = column.toString();
                     HiveColumnHandle oldColumnHandle = (HiveColumnHandle) oldTableScanNode.getAssignments().get(column);
                     columnIndex = oldColumnHandle.getHiveColumnIndex();
                     hiveType = oldColumnHandle.getHiveType();
                 }
 
                 ColumnHandle newColumnHandle = new HiveColumnHandle(
-                        colName,
+                        columnName,
                         hiveType,
                         callExpression.getType().getTypeSignature(),
                         columnIndex,

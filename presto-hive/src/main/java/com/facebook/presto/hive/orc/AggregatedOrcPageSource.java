@@ -28,7 +28,6 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.plan.AggregationNode;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
@@ -36,6 +35,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
@@ -94,16 +94,13 @@ public class AggregatedOrcPageSource
         }
 
         long start = System.nanoTime();
-
         Block[] blocks = new Block[columnHandles.size()];
         for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
             HiveColumnHandle columnHandle = columnHandles.get(fieldId);
-            AggregationNode.Aggregation aggregation = columnHandle.getPartialAggregation().get();
+            Aggregation aggregation = columnHandle.getPartialAggregation().get();
             int columnIndex = columnHandle.getHiveColumnIndex();
             Type type = typeManager.getType(columnHandle.getTypeSignature());
-
             BlockBuilder blockBuilder = type.createBlockBuilder(null, batchSize, 0);
-
             FunctionHandle functionHandle = aggregation.getFunctionHandle();
 
             if (functionResolution.isCountFunction(functionHandle)) {
@@ -124,7 +121,6 @@ public class AggregatedOrcPageSource
             else {
                 throw new UnsupportedOperationException(aggregation.getFunctionHandle().toString() + " is not supported");
             }
-
             blocks[fieldId] = blockBuilder.build();
         }
 
@@ -146,24 +142,24 @@ public class AggregatedOrcPageSource
             case SHORT:
             case INT:
             case LONG: {
-                Long val = isMin ? columnStatistics.getIntegerStatistics().getMin() : columnStatistics.getIntegerStatistics().getMax();
-                if (val == null) {
+                Long value = isMin ? columnStatistics.getIntegerStatistics().getMin() : columnStatistics.getIntegerStatistics().getMax();
+                if (value == null) {
                     throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
                 }
                 else {
-                    blockBuilder.writeLong(val);
+                    blockBuilder.writeLong(value);
                 }
                 break;
             }
 
             case TIMESTAMP:
             case DATE: {
-                Integer val = isMin ? columnStatistics.getDateStatistics().getMin() : columnStatistics.getDateStatistics().getMax();
-                if (val == null) {
+                Integer value = isMin ? columnStatistics.getDateStatistics().getMin() : columnStatistics.getDateStatistics().getMax();
+                if (value == null) {
                     throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
                 }
                 else {
-                    blockBuilder.writeLong(Long.valueOf(val));
+                    blockBuilder.writeLong(Long.valueOf(value));
                 }
                 break;
             }
@@ -171,51 +167,51 @@ public class AggregatedOrcPageSource
             case VARCHAR:
             case CHAR:
             case STRING: {
-                Slice val = isMin ? columnStatistics.getStringStatistics().getMin() : columnStatistics.getStringStatistics().getMax();
-                if (val == null) {
+                Slice value = isMin ? columnStatistics.getStringStatistics().getMin() : columnStatistics.getStringStatistics().getMax();
+                if (value == null) {
                     throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
                 }
                 else {
-                    blockBuilder.writeBytes(val, 0, val.length()).closeEntry();
-                    completedBytes += val.length();
+                    blockBuilder.writeBytes(value, 0, value.length()).closeEntry();
+                    completedBytes += value.length();
                 }
                 break;
             }
 
             case FLOAT: {
-                Double val = isMin ? columnStatistics.getDoubleStatistics().getMin() : columnStatistics.getDoubleStatistics().getMax();
-                if (val == null) {
+                Double value = isMin ? columnStatistics.getDoubleStatistics().getMin() : columnStatistics.getDoubleStatistics().getMax();
+                if (value == null) {
                     throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
                 }
                 else {
-                    blockBuilder.writeLong(floatToRawIntBits(val.floatValue()));
+                    blockBuilder.writeLong(floatToRawIntBits(value.floatValue()));
                 }
                 break;
             }
 
             case DOUBLE: {
-                Double val = isMin ? columnStatistics.getDoubleStatistics().getMin() : columnStatistics.getDoubleStatistics().getMax();
-                if (val == null) {
+                Double value = isMin ? columnStatistics.getDoubleStatistics().getMin() : columnStatistics.getDoubleStatistics().getMax();
+                if (value == null) {
                     throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
                 }
                 else {
-                    type.writeDouble(blockBuilder, val);
+                    type.writeDouble(blockBuilder, value);
                 }
                 break;
             }
 
             case DECIMAL:
-                BigDecimal val = isMin ? columnStatistics.getDecimalStatistics().getMin() : columnStatistics.getDecimalStatistics().getMax();
-                if (val == null) {
+                BigDecimal value = isMin ? columnStatistics.getDecimalStatistics().getMin() : columnStatistics.getDecimalStatistics().getMax();
+                if (value == null) {
                     throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
                 }
                 else {
                     Type definedType = hiveType.getType(typeManager);
                     if (Decimals.isShortDecimal(definedType)) {
-                        blockBuilder.writeLong(val.unscaledValue().longValue());
+                        blockBuilder.writeLong(value.unscaledValue().longValue());
                     }
                     else {
-                        type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(val.unscaledValue()));
+                        type.writeSlice(blockBuilder, Decimals.encodeUnscaledValue(value.unscaledValue()));
                     }
                 }
                 break;

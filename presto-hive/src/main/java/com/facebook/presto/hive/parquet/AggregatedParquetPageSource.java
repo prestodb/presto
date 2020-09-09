@@ -25,7 +25,6 @@ import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
-import com.facebook.presto.spi.plan.AggregationNode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.parquet.column.statistics.Statistics;
@@ -43,6 +42,7 @@ import static com.facebook.presto.common.type.Decimals.encodeUnscaledValue;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getShortDecimalValue;
+import static com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
@@ -101,34 +101,31 @@ public class AggregatedParquetPageSource
         }
 
         long start = System.nanoTime();
-
         Block[] blocks = new Block[columnHandles.size()];
         for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
             HiveColumnHandle columnHandle = columnHandles.get(fieldId);
-            AggregationNode.Aggregation aggregation = columnHandle.getPartialAggregation().get();
+            Aggregation aggregation = columnHandle.getPartialAggregation().get();
             Type type = typeManager.getType(columnHandle.getTypeSignature());
-
             BlockBuilder blockBuilder = type.createBlockBuilder(null, batchSize, 0);
-            String inputCol = aggregation.getArguments().isEmpty() ? null : aggregation.getArguments().get(0).toString();
+            String inputColumn = aggregation.getArguments().isEmpty() ? null : aggregation.getArguments().get(0).toString();
             FunctionHandle functionHandle = aggregation.getFunctionHandle();
 
             if (functionResolution.isCountFunction(functionHandle)) {
                 long rowCount = getRowCountFromParquetMetadata(parquetMetadata);
-                if (inputCol != null) {
-                    rowCount -= getNumNulls(parquetMetadata, inputCol);
+                if (inputColumn != null) {
+                    rowCount -= getNumNulls(parquetMetadata, inputColumn);
                 }
                 blockBuilder = blockBuilder.writeLong(rowCount);
             }
             else if (functionResolution.isMaxFunction(functionHandle)) {
-                writeMinMax(parquetMetadata, inputCol, blockBuilder, type, columnHandle.getHiveType(), false);
+                writeMinMax(parquetMetadata, inputColumn, blockBuilder, type, columnHandle.getHiveType(), false);
             }
             else if (functionResolution.isMinFunction(functionHandle)) {
-                writeMinMax(parquetMetadata, inputCol, blockBuilder, type, columnHandle.getHiveType(), true);
+                writeMinMax(parquetMetadata, inputColumn, blockBuilder, type, columnHandle.getHiveType(), true);
             }
             else {
                 throw new UnsupportedOperationException(aggregation.getFunctionHandle().toString() + " is not supported");
             }
-
             blocks[fieldId] = blockBuilder.build();
         }
 
@@ -170,22 +167,22 @@ public class AggregatedParquetPageSource
             throw new IllegalArgumentException("Unsupported type : " + parquetType.toString());
         }
 
-        Object val = null;
+        Object value = null;
         for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
             Statistics statistics = blockMetaData.getColumns().get(columnIndex).getStatistics();
             if (!statistics.hasNonNullValue()) {
                 throw new UnsupportedOperationException("No min/max found for parquet file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
             }
             if (isMin) {
-                Object currentVal = statistics.genericGetMin();
-                if (currentVal != null && (val == null || ((Comparable) currentVal).compareTo(val) < 0)) {
-                    val = currentVal;
+                Object currentValue = statistics.genericGetMin();
+                if (currentValue != null && (value == null || ((Comparable) currentValue).compareTo(value) < 0)) {
+                    value = currentValue;
                 }
             }
             else {
-                Object currentVal = statistics.genericGetMax();
-                if (currentVal != null && (val == null || ((Comparable) currentVal).compareTo(val) > 0)) {
-                    val = currentVal;
+                Object currentValue = statistics.genericGetMax();
+                if (currentValue != null && (value == null || ((Comparable) currentValue).compareTo(value) > 0)) {
+                    value = currentValue;
                 }
             }
         }
@@ -194,46 +191,46 @@ public class AggregatedParquetPageSource
             completedBytes += ((FixedWidthType) type).getFixedSize();
         }
 
-        if (val == null) {
+        if (value == null) {
             blockBuilder.appendNull();
             return;
         }
         PrimitiveType.PrimitiveTypeName parquetTypeName = parquetType.asPrimitiveType().getPrimitiveTypeName();
         switch (parquetTypeName) {
             case INT32: {
-                blockBuilder.writeLong(Long.valueOf((Integer) val));
+                blockBuilder.writeLong(Long.valueOf((Integer) value));
                 break;
             }
             case INT64: {
-                blockBuilder.writeLong((Long) val);
+                blockBuilder.writeLong((Long) value);
                 break;
             }
             case INT96: {
-                blockBuilder.writeLong(getTimestampMillis(((Binary) val).getBytes(), 0));
+                blockBuilder.writeLong(getTimestampMillis(((Binary) value).getBytes(), 0));
                 break;
             }
             case FLOAT: {
-                blockBuilder.writeLong(floatToRawIntBits((Float) val));
+                blockBuilder.writeLong(floatToRawIntBits((Float) value));
                 break;
             }
             case DOUBLE: {
-                type.writeDouble(blockBuilder, (Double) val);
+                type.writeDouble(blockBuilder, (Double) value);
                 break;
             }
             case FIXED_LEN_BYTE_ARRAY: {
-                byte[] valBytes = ((Binary) val).getBytes();
+                byte[] valBytes = ((Binary) value).getBytes();
                 DecimalType decimalType = (DecimalType) hiveType.getType(typeManager);
                 if (decimalType.isShort()) {
                     blockBuilder.writeLong(getShortDecimalValue(valBytes));
                 }
                 else {
-                    BigInteger bigIntVal = new BigInteger(valBytes);
-                    type.writeSlice(blockBuilder, encodeUnscaledValue(bigIntVal));
+                    BigInteger bigIntValue = new BigInteger(valBytes);
+                    type.writeSlice(blockBuilder, encodeUnscaledValue(bigIntValue));
                 }
                 break;
             }
             case BINARY: {
-                Slice slice = Slices.wrappedBuffer(((Binary) val).getBytes());
+                Slice slice = Slices.wrappedBuffer(((Binary) value).getBytes());
                 blockBuilder.writeBytes(slice, 0, slice.length()).closeEntry();
                 completedBytes += slice.length();
                 break;
