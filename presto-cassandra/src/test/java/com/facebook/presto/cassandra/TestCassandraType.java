@@ -32,6 +32,9 @@ public class TestCassandraType
         assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList(1, 2, 3), CassandraType.INT)));
         assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList(100000L, 200000000L, 3000000000L), CassandraType.BIGINT)));
         assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList(1.0, 2.0, 3.0), CassandraType.DOUBLE)));
+        assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList((short) -32768, (short) 0, (short) 32767), CassandraType.SMALLINT)));
+        assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList((byte) -128, (byte) 0, (byte) 127), CassandraType.TINYINT)));
+        assertTrue(isValidJson(CassandraType.buildArrayValue(Lists.newArrayList("1970-01-01", "5555-06-15", "9999-12-31"), CassandraType.DATE)));
     }
 
     private static void continueWhileNotNull(JsonParser parser, JsonToken token)

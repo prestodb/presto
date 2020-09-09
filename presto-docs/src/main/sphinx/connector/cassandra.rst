@@ -218,6 +218,9 @@ TIMESTAMP         TIMESTAMP
 TIMEUUID          VARCHAR
 VARCHAR           VARCHAR
 VARIANT           VARCHAR
+SMALLINT          INTEGER
+TINYINT           INTEGER
+DATE              DATE
 ================  ======
 
 Any collection (LIST/MAP/SET) can be designated as FROZEN, and the value is
@@ -239,6 +242,9 @@ Partition keys can only be of the following types:
 | TIMESTAMP
 | UUID
 | TIMEUUID
+| SMALLINT
+| TINYINT
+| DATE
 
 Limitations
 -----------
