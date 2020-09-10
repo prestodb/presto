@@ -71,58 +71,60 @@ public class RemoteProjectOperator
     @Override
     public void addInput(Page page)
     {
-        checkState(!finishing, "Operator is already finishing");
-        checkState(!processingPage(), "Still processing previous input");
-        requireNonNull(page, "page is null");
-        for (int channel = 0; channel < projections.size(); channel++) {
-            RowExpression projection = projections.get(channel);
-            Type type = projection.getType();
-            if (projection instanceof InputReferenceExpression) {
-                result[channel] = completedFuture(page.getBlock(((InputReferenceExpression) projection).getField()));
-            }
-            else if (projection instanceof CallExpression) {
-                CallExpression remoteCall = (CallExpression) projection;
-                result[channel] = functionManager.executeFunction(
-                        remoteCall.getFunctionHandle(),
-                        page,
-                        remoteCall.getArguments().stream()
-                                .map(InputReferenceExpression.class::cast)
-                                .map(InputReferenceExpression::getField)
-                                .collect(toImmutableList()));
-            }
-            else {
-                checkState(projection instanceof ConstantExpression, format("Does not expect expression type %s", projection.getClass()));
-            }
-        }
+        throw new UnsupportedOperationException();
+//        checkState(!finishing, "Operator is already finishing");
+//        checkState(!processingPage(), "Still processing previous input");
+//        requireNonNull(page, "page is null");
+//        for (int channel = 0; channel < projections.size(); channel++) {
+//            RowExpression projection = projections.get(channel);
+//            Type type = projection.getType();
+//            if (projection instanceof InputReferenceExpression) {
+//                result[channel] = completedFuture(page.getBlock(((InputReferenceExpression) projection).getField()));
+//            }
+//            else if (projection instanceof CallExpression) {
+//                CallExpression remoteCall = (CallExpression) projection;
+//                result[channel] = functionManager.executeFunction(
+//                        remoteCall.getFunctionHandle(),
+//                        page,
+//                        remoteCall.getArguments().stream()
+//                                .map(InputReferenceExpression.class::cast)
+//                                .map(InputReferenceExpression::getField)
+//                                .collect(toImmutableList()));
+//            }
+//            else {
+//                checkState(projection instanceof ConstantExpression, format("Does not expect expression type %s", projection.getClass()));
+//            }
+//        }
     }
 
     @Override
     public Page getOutput()
     {
-        if (resultReady()) {
-            Block[] blocks = new Block[result.length];
-            Page output;
-            try {
-                for (int i = 0; i < blocks.length; i++) {
-                    blocks[i] = result[i].get();
-                }
-                output = new Page(blocks);
-                Arrays.fill(result, null);
-                return output;
-            }
-            catch (InterruptedException ie) {
-                currentThread().interrupt();
-            }
-            catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause != null) {
-                    throwIfUnchecked(cause);
-                    throw new RuntimeException(cause);
-                }
-                throw new RuntimeException(e);
-            }
-        }
-        return null;
+        throw new UnsupportedOperationException();
+//        if (resultReady()) {
+//            Block[] blocks = new Block[result.length];
+//            Page output;
+//            try {
+//                for (int i = 0; i < blocks.length; i++) {
+//                    blocks[i] = result[i].get();
+//                }
+//                output = new Page(blocks);
+//                Arrays.fill(result, null);
+//                return output;
+//            }
+//            catch (InterruptedException ie) {
+//                currentThread().interrupt();
+//            }
+//            catch (ExecutionException e) {
+//                Throwable cause = e.getCause();
+//                if (cause != null) {
+//                    throwIfUnchecked(cause);
+//                    throw new RuntimeException(cause);
+//                }
+//                throw new RuntimeException(e);
+//            }
+//        }
+//        return null;
     }
 
     @Override
