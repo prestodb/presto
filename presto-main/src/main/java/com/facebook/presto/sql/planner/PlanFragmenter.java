@@ -45,6 +45,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ProjectNode.Locality;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -716,7 +717,7 @@ public class PlanFragmenter
                             Assignments.Builder assignments = Assignments.builder();
                             source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getName(), variable.getType())));
                             constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
-                            return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
+                            return new ProjectNode(idAllocator.getNextId(), source, assignments.build(), Locality.LOCAL);
                         })
                         .collect(toImmutableList());
             }
