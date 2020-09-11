@@ -53,29 +53,31 @@ public class TestHiveExternalWorkersQueries
     private static QueryRunner createQueryRunner(Optional<String> prestoServerPath, Optional<Path> baseDataDir)
             throws Exception
     {
-        if (!prestoServerPath.isPresent()) {
-            return HiveQueryRunner.createQueryRunner(
-                    ImmutableList.of(NATION),
-                    ImmutableMap.of(),
-                    "sql-standard",
-                    ImmutableMap.of("hive.storage-format", "DWRF"),
-                    baseDataDir);
+        if (prestoServerPath.isPresent()) {
+            checkArgument(baseDataDir.isPresent(), "Path to data files must be specified when testing external workers");
         }
 
-        checkArgument(baseDataDir.isPresent(), "Path to data files must be specified when testing external workers");
-
-        // Make TPC-H tables in DWRF format using Java-based workers
-        HiveQueryRunner.createQueryRunner(
+        DistributedQueryRunner defaultQueryRunner = HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(NATION),
                 ImmutableMap.of(),
                 "sql-standard",
                 ImmutableMap.of("hive.storage-format", "DWRF"),
-                baseDataDir).close();
+                baseDataDir);
+
+        // DWRF doesn't support date type. Convert date columns to varchar for lineitem and orders.
+        createLineitem(defaultQueryRunner);
+        createOrders(defaultQueryRunner);
+
+        if (!prestoServerPath.isPresent()) {
+            return defaultQueryRunner;
+        }
+
+        defaultQueryRunner.close();
 
         Path tempDirectoryPath = Files.createTempDirectory(TestHiveExternalWorkersQueries.class.getSimpleName());
 
         // Make query runner with external workers for tests
-        DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(ImmutableList.of(NATION),
+        DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(ImmutableList.of(),
                 ImmutableMap.of("optimizer.optimize-hash-generation", "false"),
                 ImmutableMap.of(),
                 "sql-standard",
@@ -104,6 +106,27 @@ public class TestHiveExternalWorkersQueries
         return queryRunner;
     }
 
+    private static void createLineitem(QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "lineitem")) {
+            queryRunner.execute("CREATE TABLE lineitem AS " +
+                    "SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, " +
+                    "   returnflag, linestatus, cast(shipdate as varchar) as shipdate, cast(commitdate as varchar) as commitdate, " +
+                    "   cast(receiptdate as varchar) as receiptdate, shipinstruct, shipmode, comment " +
+                    "FROM tpch.tiny.lineitem");
+        }
+    }
+
+    private static void createOrders(QueryRunner queryRunner)
+    {
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "orders")) {
+            queryRunner.execute("CREATE TABLE orders AS " +
+                    "SELECT orderkey, custkey, orderstatus, totalprice, cast(orderdate as varchar) as orderdate, " +
+                    "   orderpriority, clerk, shippriority, comment " +
+                    "FROM tpch.tiny.orders");
+        }
+    }
+
     @Test
     public void testFiltersAndProjections()
     {
@@ -123,5 +146,13 @@ public class TestHiveExternalWorkersQueries
     {
         assertQuery("SELECT count(*) FROM nation");
         assertQuery("SELECT regionkey, count(*) FROM nation GROUP BY regionkey");
+
+        assertQuery("SELECT avg(discount), avg(quantity) FROM lineitem");
+        assertQuery("SELECT linenumber, avg(discount), avg(quantity) FROM lineitem GROUP BY linenumber");
+
+        assertQuery("SELECT sum(totalprice) FROM orders");
+        assertQuery("SELECT orderpriority, sum(totalprice) FROM orders GROUP BY orderpriority");
+
+        assertQuery("SELECT custkey, min(totalprice), max(orderkey) FROM orders GROUP BY custkey");
     }
 }
