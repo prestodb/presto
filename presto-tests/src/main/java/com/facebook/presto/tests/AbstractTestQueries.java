@@ -5888,4 +5888,15 @@ public abstract class AbstractTestQueries
         assertQuery(query, "select 60175");
         assertQuery(sessionWithKeyBasedSampling, query, "select 16185");
     }
+
+    @Test
+    public void testGroupByWithLambdaExpression()
+    {
+        assertQueryFails(
+                "SELECT reduce(a, 0, (s, x) -> x, s->s), count(*) FROM (VALUES (array[1]), (array[1, 2, 3]), (array[3])) t(a) GROUP BY reduce(a, 0, (s, x) -> x, s->s)",
+                "GROUP BY does not support lambda expressions, please use GROUP BY # instead");
+        assertQuery(
+                "SELECT reduce(a, 0, (s, x) -> x, s->s), count(*) FROM (VALUES (array[1]), (array[1, 2, 3]), (array[3])) t(a) GROUP BY 1",
+                "VALUES (3, 2), (1, 1)");
+    }
 }
