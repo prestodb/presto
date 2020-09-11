@@ -86,6 +86,8 @@ import static java.util.Objects.requireNonNull;
 class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
 {
+    private static final DateTimeZone JVM_TIME_ZONE = DateTimeZone.getDefault();
+
     private final Path path;
     private final RecordReader<K, V> recordReader;
     private final K key;
@@ -293,7 +295,7 @@ class GenericHiveRecordCursor<K, V extends Writable>
         if (value instanceof Date) {
             long storageTime = ((Date) value).getTime();
             // convert date from VM current time zone to UTC
-            long utcMillis = storageTime + DateTimeZone.getDefault().getOffset(storageTime);
+            long utcMillis = storageTime + JVM_TIME_ZONE.getOffset(storageTime);
             return TimeUnit.MILLISECONDS.toDays(utcMillis);
         }
         if (value instanceof Timestamp) {
@@ -305,13 +307,10 @@ class GenericHiveRecordCursor<K, V extends Writable>
             long parsedJvmMillis = ((Timestamp) value).getTime();
 
             // remove the JVM time zone correction from the timestamp
-            DateTimeZone jvmTimeZone = DateTimeZone.getDefault();
-            long hiveMillis = jvmTimeZone.convertUTCToLocal(parsedJvmMillis);
+            long hiveMillis = JVM_TIME_ZONE.convertUTCToLocal(parsedJvmMillis);
 
             // convert to UTC using the real time zone for the underlying data
-            long utcMillis = hiveTimeZone.convertLocalToUTC(hiveMillis, false);
-
-            return utcMillis;
+            return hiveTimeZone.convertLocalToUTC(hiveMillis, false);
         }
         if (value instanceof Float) {
             return floatToRawIntBits(((Float) value));
