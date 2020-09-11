@@ -160,6 +160,7 @@ public class HiveClientConfig
     private String temporaryTableSchema = "default";
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
+    private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
     private boolean rangeFiltersOnSubscriptsEnabled;
@@ -1365,6 +1366,18 @@ public class HiveClientConfig
     public HiveClientConfig setTemporaryTableCompressionCodec(HiveCompressionCodec temporaryTableCompressionCodec)
     {
         this.temporaryTableCompressionCodec = temporaryTableCompressionCodec;
+        return this;
+    }
+
+    public boolean getUsePageFileForHiveUnsupportedType()
+    {
+        return usePageFileForHiveUnsupportedType;
+    }
+
+    @Config("hive.use-pagefile-for-hive-unsupported-type")
+    public HiveClientConfig setUsePageFileForHiveUnsupportedType(boolean usePageFileForHiveUnsupportedType)
+    {
+        this.usePageFileForHiveUnsupportedType = usePageFileForHiveUnsupportedType;
         return this;
     }
 
