@@ -25,7 +25,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.io.HiveCharWritable;
@@ -368,39 +370,80 @@ class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveWritableObject(fieldData);
-            checkState(fieldValue != null, "fieldValue should not be null");
-            BinaryComparable hiveValue;
-            if (fieldValue instanceof Text) {
-                hiveValue = (Text) fieldValue;
-            }
-            else if (fieldValue instanceof BytesWritable) {
-                hiveValue = (BytesWritable) fieldValue;
-            }
-            else if (fieldValue instanceof HiveVarcharWritable) {
-                hiveValue = ((HiveVarcharWritable) fieldValue).getTextValue();
-            }
-            else if (fieldValue instanceof HiveCharWritable) {
-                hiveValue = ((HiveCharWritable) fieldValue).getTextValue();
+            PrimitiveObjectInspector inspector = (PrimitiveObjectInspector) fieldInspectors[column];
+            Slice value;
+            if (inspector.preferWritable()) {
+                value = parseStringFromPrimitiveWritableObjectValue(types[column], inspector.getPrimitiveWritableObject(fieldData));
             }
             else {
-                throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());
+                value = parseStringFromPrimitiveJavaObjectValue(types[column], inspector.getPrimitiveJavaObject(fieldData));
             }
-
-            // create a slice view over the hive value and trim to character limits
-            Slice value = Slices.wrappedBuffer(hiveValue.getBytes(), 0, hiveValue.getLength());
-            Type type = types[column];
-            if (isVarcharType(type)) {
-                value = truncateToLength(value, type);
-            }
-            if (isCharType(type)) {
-                value = truncateToLengthAndTrimSpaces(value, type);
-            }
-
-            // store a copy of the bytes, since the hive reader can reuse the underlying buffer
-            slices[column] = Slices.copyOf(value);
+            slices[column] = value;
             nulls[column] = false;
         }
+    }
+
+    private static Slice parseStringFromPrimitiveWritableObjectValue(Type type, Object fieldValue)
+    {
+        checkState(fieldValue != null, "fieldValue should not be null");
+        BinaryComparable hiveValue;
+        if (fieldValue instanceof Text) {
+            hiveValue = (Text) fieldValue;
+        }
+        else if (fieldValue instanceof BytesWritable) {
+            hiveValue = (BytesWritable) fieldValue;
+        }
+        else if (fieldValue instanceof HiveVarcharWritable) {
+            hiveValue = ((HiveVarcharWritable) fieldValue).getTextValue();
+        }
+        else if (fieldValue instanceof HiveCharWritable) {
+            hiveValue = ((HiveCharWritable) fieldValue).getTextValue();
+        }
+        else {
+            throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());
+        }
+        // create a slice view over the hive value and trim to character limits
+        Slice value = trimStringToCharacterLimits(type, Slices.wrappedBuffer(hiveValue.getBytes(), 0, hiveValue.getLength()));
+        // store a copy of the bytes, since the hive reader can reuse the underlying buffer
+        return Slices.copyOf(value);
+    }
+
+    private static Slice parseStringFromPrimitiveJavaObjectValue(Type type, Object fieldValue)
+    {
+        checkState(fieldValue != null, "fieldValue should not be null");
+        Slice value;
+        if (fieldValue instanceof String) {
+            value = Slices.utf8Slice((String) fieldValue);
+        }
+        else if (fieldValue instanceof byte[]) {
+            value = Slices.wrappedBuffer((byte[]) fieldValue);
+        }
+        else if (fieldValue instanceof HiveVarchar) {
+            value = Slices.utf8Slice(((HiveVarchar) fieldValue).getValue());
+        }
+        else if (fieldValue instanceof HiveChar) {
+            value = Slices.utf8Slice(((HiveChar) fieldValue).getValue());
+        }
+        else {
+            throw new IllegalStateException("unsupported string field type: " + fieldValue.getClass().getName());
+        }
+        value = trimStringToCharacterLimits(type, value);
+        // Copy the slice if the value was trimmed and is now smaller than the backing buffer
+        if (!value.isCompact()) {
+            return Slices.copyOf(value);
+        }
+        return value;
+    }
+
+    private static Slice trimStringToCharacterLimits(Type type, Slice value)
+    {
+        if (isVarcharType(type)) {
+            return truncateToLength(value, type);
+        }
+        if (isCharType(type)) {
+            return truncateToLengthAndTrimSpaces(value, type);
+        }
+        return value;
     }
 
     private void parseDecimalColumn(int column)
