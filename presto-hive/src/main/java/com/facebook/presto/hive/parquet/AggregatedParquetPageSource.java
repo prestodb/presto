@@ -107,21 +107,21 @@ public class AggregatedParquetPageSource
             Aggregation aggregation = columnHandle.getPartialAggregation().get();
             Type type = typeManager.getType(columnHandle.getTypeSignature());
             BlockBuilder blockBuilder = type.createBlockBuilder(null, batchSize, 0);
-            String inputColumn = aggregation.getArguments().isEmpty() ? null : aggregation.getArguments().get(0).toString();
+            int columnIndex = columnHandle.getHiveColumnIndex();
             FunctionHandle functionHandle = aggregation.getFunctionHandle();
 
             if (functionResolution.isCountFunction(functionHandle)) {
                 long rowCount = getRowCountFromParquetMetadata(parquetMetadata);
-                if (inputColumn != null) {
-                    rowCount -= getNumNulls(parquetMetadata, inputColumn);
+                if (!aggregation.getArguments().isEmpty()) {
+                    rowCount -= getNumNulls(parquetMetadata, columnIndex);
                 }
                 blockBuilder = blockBuilder.writeLong(rowCount);
             }
             else if (functionResolution.isMaxFunction(functionHandle)) {
-                writeMinMax(parquetMetadata, inputColumn, blockBuilder, type, columnHandle.getHiveType(), false);
+                writeMinMax(parquetMetadata, columnIndex, blockBuilder, type, columnHandle.getHiveType(), false);
             }
             else if (functionResolution.isMinFunction(functionHandle)) {
-                writeMinMax(parquetMetadata, inputColumn, blockBuilder, type, columnHandle.getHiveType(), true);
+                writeMinMax(parquetMetadata, columnIndex, blockBuilder, type, columnHandle.getHiveType(), true);
             }
             else {
                 throw new UnsupportedOperationException(aggregation.getFunctionHandle().toString() + " is not supported");
@@ -144,14 +144,13 @@ public class AggregatedParquetPageSource
         return rowCount;
     }
 
-    private long getNumNulls(ParquetMetadata parquetMetadata, String columnName)
+    private long getNumNulls(ParquetMetadata parquetMetadata, int columnIndex)
     {
         long numNulls = 0;
-        int columnIndex = parquetMetadata.getFileMetaData().getSchema().getFieldIndex(columnName);
         for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
             Statistics statistics = blockMetaData.getColumns().get(columnIndex).getStatistics();
             if (!statistics.isNumNullsSet()) {
-                throw new UnsupportedOperationException("Number of nulls not set for parquet file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
+                throw new UnsupportedOperationException("Number of nulls not set for parquet file. Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
             }
             numNulls += statistics.getNumNulls();
         }
@@ -159,9 +158,8 @@ public class AggregatedParquetPageSource
         return numNulls;
     }
 
-    private void writeMinMax(ParquetMetadata parquetMetadata, String columnName, BlockBuilder blockBuilder, Type type, HiveType hiveType, boolean isMin)
+    private void writeMinMax(ParquetMetadata parquetMetadata, int columnIndex, BlockBuilder blockBuilder, Type type, HiveType hiveType, boolean isMin)
     {
-        int columnIndex = parquetMetadata.getFileMetaData().getSchema().getFieldIndex(columnName);
         org.apache.parquet.schema.Type parquetType = parquetMetadata.getFileMetaData().getSchema().getType(columnIndex);
         if (parquetType instanceof GroupType) {
             throw new IllegalArgumentException("Unsupported type : " + parquetType.toString());
@@ -171,7 +169,7 @@ public class AggregatedParquetPageSource
         for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
             Statistics statistics = blockMetaData.getColumns().get(columnIndex).getStatistics();
             if (!statistics.hasNonNullValue()) {
-                throw new UnsupportedOperationException("No min/max found for parquet file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
+                throw new UnsupportedOperationException("No min/max found for parquet file. Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
             }
             if (isMin) {
                 Object currentValue = statistics.genericGetMin();
