@@ -201,6 +201,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isShufflePartitione
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isUsePageFileForHiveUnsupportedType;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -958,6 +959,14 @@ public class HiveMetadata
             }
         });
 
+        if (isUsePageFileForHiveUnsupportedType(session)) {
+            if (!columns.stream()
+                    .map(ColumnMetadata::getType)
+                    .allMatch(HiveTypeTranslator::isSupportedHiveType)) {
+                storageFormat = PAGEFILE;
+            }
+        }
+
         // PAGEFILE format doesn't require translation to hive type,
         // choose HIVE_BINARY as a default hive type to make it compatible with Hive connector
         Optional<HiveType> defaultHiveType = storageFormat == PAGEFILE ? Optional.of(HIVE_BINARY) : Optional.empty();
@@ -971,8 +980,10 @@ public class HiveMetadata
                 ImmutableSet.of(),
                 typeTranslator,
                 defaultHiveType);
+
         validateColumns(storageFormat, columnHandles);
 
+        HiveStorageFormat finalStorageFormat = storageFormat;
         Table table = Table.builder()
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
@@ -982,7 +993,7 @@ public class HiveMetadata
                         .map(handle -> new Column(handle.getName(), handle.getHiveType(), handle.getComment()))
                         .collect(toImmutableList()))
                 .withStorage(storage -> storage
-                        .setStorageFormat(fromHiveStorageFormat(storageFormat))
+                        .setStorageFormat(fromHiveStorageFormat(finalStorageFormat))
                         .setBucketProperty(bucketProperty)
                         .setLocation(""))
                 .build();

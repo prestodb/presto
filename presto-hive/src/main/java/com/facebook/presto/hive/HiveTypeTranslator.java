@@ -152,7 +152,62 @@ public class HiveTypeTranslator
                             .collect(toList()));
         }
         return defaultHiveType
-                .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type)))
+                .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, format("No default Hive type provided for unsupported Hive type: %s", type)))
                 .getTypeInfo();
+    }
+
+    public static boolean isSupportedHiveType(Type type)
+    {
+        if (BOOLEAN.equals(type)) {
+            return true;
+        }
+        if (BIGINT.equals(type)) {
+            return true;
+        }
+        if (INTEGER.equals(type)) {
+            return true;
+        }
+        if (SMALLINT.equals(type)) {
+            return true;
+        }
+        if (TINYINT.equals(type)) {
+            return true;
+        }
+        if (REAL.equals(type)) {
+            return true;
+        }
+        if (DOUBLE.equals(type)) {
+            return true;
+        }
+        if (type instanceof VarcharType) {
+            return true;
+        }
+        if (type instanceof CharType) {
+            return true;
+        }
+        if (VARBINARY.equals(type)) {
+            return true;
+        }
+        if (DATE.equals(type)) {
+            return true;
+        }
+        if (TIMESTAMP.equals(type)) {
+            return true;
+        }
+        if (type instanceof DecimalType) {
+            return true;
+        }
+        if (isArrayType(type)) {
+            return isSupportedHiveType(type.getTypeParameters().get(0));
+        }
+        if (isMapType(type)) {
+            return isSupportedHiveType(type.getTypeParameters().get(0)) &&
+                    isSupportedHiveType(type.getTypeParameters().get(1));
+        }
+        if (isRowType(type)) {
+            return type.getTypeParameters().stream()
+                    .allMatch(HiveTypeTranslator::isSupportedHiveType);
+        }
+        return false;
     }
 }

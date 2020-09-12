@@ -20,11 +20,14 @@ import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializingQueryRunner;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteMaterializedExchangesCount;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 public class TestHiveDistributedQueriesWithExchangeMaterialization
         extends AbstractTestDistributedQueries
@@ -43,8 +46,18 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     @Test
     public void testMaterializeHiveUnsupportedTypeForTemporaryTable()
     {
+        testMaterializeHiveUnsupportedTypeForTemporaryTable(ORC, true);
+        testMaterializeHiveUnsupportedTypeForTemporaryTable(PAGEFILE, false);
+        assertThrows(RuntimeException.class, () -> testMaterializeHiveUnsupportedTypeForTemporaryTable(ORC, false));
+    }
+
+    private void testMaterializeHiveUnsupportedTypeForTemporaryTable(
+            HiveStorageFormat storageFormat,
+            boolean usePageFileForHiveUnsupportedType)
+    {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_table_storage_format", "PAGEFILE")
+                .setCatalogSessionProperty("hive", "temporary_table_storage_format", storageFormat.name())
+                .setCatalogSessionProperty("hive", "use_pagefile_for_hive_unsupported_type", String.valueOf(usePageFileForHiveUnsupportedType))
                 .setSystemProperty(ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE, "true")
                 .build();
 
@@ -101,8 +114,18 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     @Test
     public void testBucketedByHiveUnsupportedTypeForTemporaryTable()
     {
+        testBucketedByHiveUnsupportedTypeForTemporaryTable(ORC, true);
+        testBucketedByHiveUnsupportedTypeForTemporaryTable(PAGEFILE, false);
+        assertThrows(RuntimeException.class, () -> testBucketedByHiveUnsupportedTypeForTemporaryTable(ORC, false));
+    }
+
+    private void testBucketedByHiveUnsupportedTypeForTemporaryTable(
+            HiveStorageFormat storageFormat,
+            boolean usePageFileForHiveUnsupportedType)
+    {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_table_storage_format", "PAGEFILE")
+                .setCatalogSessionProperty("hive", "temporary_table_storage_format", storageFormat.name())
+                .setCatalogSessionProperty("hive", "use_pagefile_for_hive_unsupported_type", String.valueOf(usePageFileForHiveUnsupportedType))
                 .setCatalogSessionProperty("hive", "bucket_function_type_for_exchange", "PRESTO_NATIVE")
                 .build();
 
