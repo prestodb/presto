@@ -226,4 +226,19 @@ public final class HiveTableLayoutHandle
     {
         return partialAggregationsPushedDown;
     }
+
+    @Override
+    public Object getIdentifier()
+    {
+        // Identifier is used to identify if the table layout is providing the same set of data.
+        // To achieve this, we need table name, data column predicates and bucket filter.
+        // We did not include other fields because they are either table metadata or partition column predicate,
+        // which is unrelated to identifier purpose, or has already been applied as the boundary of split.
+        return ImmutableMap.builder()
+                .put("schemaTableName", schemaTableName)
+                .put("domainPredicate", domainPredicate)
+                .put("remainingPredicate", remainingPredicate)
+                .put("bucketFilter", bucketFilter)
+                .build();
+    }
 }
