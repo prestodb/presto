@@ -335,7 +335,7 @@ public class OrcSelectivePageSourceFactory
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
 
-            if (!physicalColumns.isEmpty() && physicalColumns.get(0).getColumnType() == AGGREGATED) {
+            if (!physicalColumns.isEmpty() && physicalColumns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
                 return new AggregatedOrcPageSource(physicalColumns, reader.getFooter(), typeManager, functionResolution);
             }
 

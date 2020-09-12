@@ -43,6 +43,8 @@ public class TestParquetDistributedQueries
                 .put("hive.parquet.use-column-names", "true")
                 .put("hive.compression-codec", "GZIP")
                 .put("hive.enable-parquet-dereference-pushdown", "true")
+                .put("hive.partial_aggregation_pushdown_enabled", "true")
+                .put("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
                 .build();
         return HiveQueryRunner.createQueryRunner(
                 getTables(),

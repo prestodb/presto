@@ -53,7 +53,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.isPartialAggregatio
 import static com.facebook.presto.hive.HiveSessionProperties.isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
-import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
@@ -125,8 +124,31 @@ public class HivePartialAggregationPushdown
             this.variableAllocator = variableAllocator;
         }
 
-        private boolean isAggregationPushdownSupported(AggregationNode partialAggregationNode, HiveStorageFormat hiveStorageFormat)
+        private boolean isAggregationPushdownSupported(AggregationNode partialAggregationNode)
         {
+            if (partialAggregationNode.hasNonEmptyGroupingSet()) {
+                return false;
+            }
+
+            TableScanNode tableScanNode = (TableScanNode) partialAggregationNode.getSource();
+            ConnectorTableMetadata connectorTableMetadata = metadataFactory.get().getTableMetadata(session, tableScanNode.getTable().getConnectorHandle());
+            Optional<Object> rawFormat = Optional.ofNullable(connectorTableMetadata.getProperties().get(HiveTableProperties.STORAGE_FORMAT_PROPERTY));
+            if (!rawFormat.isPresent()) {
+                return false;
+            }
+
+            final HiveStorageFormat hiveStorageFormat = HiveStorageFormat.valueOf(rawFormat.get().toString());
+            if (hiveStorageFormat != ORC && hiveStorageFormat != PARQUET) {
+                return false;
+            }
+
+            if (tableScanNode.getTable().getLayout().isPresent()) {
+                HiveTableLayoutHandle hiveTableLayoutHandle = (HiveTableLayoutHandle) tableScanNode.getTable().getLayout().get();
+                if (!hiveTableLayoutHandle.getPredicateColumns().isEmpty()) {
+                    return false;
+                }
+            }
+
             /**
              * Aggregation push downs are supported only on primitive types and supported aggregation functions are:
              * count(*), count(columnName), min(columnName), max(columnName)
@@ -159,7 +181,7 @@ public class HivePartialAggregationPushdown
                         return false;
                     }
 
-                    if (hiveStorageFormat == HiveStorageFormat.ORC) {
+                    if (hiveStorageFormat == ORC) {
                         if (TINYINT.equals(type) ||
                                 VARBINARY.equals(type) ||
                                 TIMESTAMP.equals(type)) {
@@ -185,24 +207,12 @@ public class HivePartialAggregationPushdown
             }
 
             AggregationNode partialAggregationNode = (AggregationNode) plan;
-            if (partialAggregationNode.hasNonEmptyGroupingSet()) {
-                return Optional.empty();
-            }
+
             TableScanNode oldTableScanNode = (TableScanNode) partialAggregationNode.getSource();
             TableHandle oldTableHandle = oldTableScanNode.getTable();
             HiveTableHandle hiveTableHandle = getHiveTableHandle(oldTableScanNode).orElseThrow(() -> new PrestoException(NOT_FOUND, "Hive table handle not found"));
 
-            ConnectorTableMetadata connectorTableMetadata = metadataFactory.get().getTableMetadata(session, oldTableHandle.getConnectorHandle());
-            Optional<Object> rawFormat = Optional.ofNullable(connectorTableMetadata.getProperties().get(STORAGE_FORMAT_PROPERTY));
-            if (!rawFormat.isPresent()) {
-                return Optional.empty();
-            }
-            final HiveStorageFormat hiveStorageFormat = HiveStorageFormat.valueOf(rawFormat.get().toString());
-            if (hiveStorageFormat != ORC && hiveStorageFormat != PARQUET) {
-                return Optional.empty();
-            }
-
-            if (!isAggregationPushdownSupported(partialAggregationNode, hiveStorageFormat)) {
+            if (!isAggregationPushdownSupported(partialAggregationNode)) {
                 return Optional.empty();
             }
 

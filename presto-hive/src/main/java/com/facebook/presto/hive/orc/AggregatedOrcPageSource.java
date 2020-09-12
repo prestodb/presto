@@ -138,13 +138,14 @@ public class AggregatedOrcPageSource
             completedBytes += ((FixedWidthType) type).getFixedSize();
         }
 
+        String orcNoMinMaxMessage = "No min/max found for orc file. Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again";
         switch (orcType.getOrcTypeKind()) {
             case SHORT:
             case INT:
             case LONG: {
                 Long value = isMin ? columnStatistics.getIntegerStatistics().getMin() : columnStatistics.getIntegerStatistics().getMax();
                 if (value == null) {
-                    throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
+                    throw new UnsupportedOperationException(orcNoMinMaxMessage);
                 }
                 else {
                     blockBuilder.writeLong(value);
@@ -156,7 +157,7 @@ public class AggregatedOrcPageSource
             case DATE: {
                 Integer value = isMin ? columnStatistics.getDateStatistics().getMin() : columnStatistics.getDateStatistics().getMax();
                 if (value == null) {
-                    throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
+                    throw new UnsupportedOperationException(orcNoMinMaxMessage);
                 }
                 else {
                     blockBuilder.writeLong(Long.valueOf(value));
@@ -169,7 +170,7 @@ public class AggregatedOrcPageSource
             case STRING: {
                 Slice value = isMin ? columnStatistics.getStringStatistics().getMin() : columnStatistics.getStringStatistics().getMax();
                 if (value == null) {
-                    throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
+                    throw new UnsupportedOperationException(orcNoMinMaxMessage);
                 }
                 else {
                     blockBuilder.writeBytes(value, 0, value.length()).closeEntry();
@@ -181,7 +182,7 @@ public class AggregatedOrcPageSource
             case FLOAT: {
                 Double value = isMin ? columnStatistics.getDoubleStatistics().getMin() : columnStatistics.getDoubleStatistics().getMax();
                 if (value == null) {
-                    throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
+                    throw new UnsupportedOperationException(orcNoMinMaxMessage);
                 }
                 else {
                     blockBuilder.writeLong(floatToRawIntBits(value.floatValue()));
@@ -192,7 +193,7 @@ public class AggregatedOrcPageSource
             case DOUBLE: {
                 Double value = isMin ? columnStatistics.getDoubleStatistics().getMin() : columnStatistics.getDoubleStatistics().getMax();
                 if (value == null) {
-                    throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
+                    throw new UnsupportedOperationException(orcNoMinMaxMessage);
                 }
                 else {
                     type.writeDouble(blockBuilder, value);
@@ -203,7 +204,7 @@ public class AggregatedOrcPageSource
             case DECIMAL:
                 BigDecimal value = isMin ? columnStatistics.getDecimalStatistics().getMin() : columnStatistics.getDecimalStatistics().getMax();
                 if (value == null) {
-                    throw new UnsupportedOperationException("No min/max found for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
+                    throw new UnsupportedOperationException(orcNoMinMaxMessage);
                 }
                 else {
                     Type definedType = hiveType.getType(typeManager);
@@ -232,7 +233,7 @@ public class AggregatedOrcPageSource
     {
         ColumnStatistics columnStatistics = footer.getFileStats().get(columnIndex + 1);
         if (!columnStatistics.hasNumberOfValues()) {
-            throw new UnsupportedOperationException("Number of values not set for orc file. Set session property pushdown_partial_aggregations_into_scan=false and execute query again");
+            throw new UnsupportedOperationException("Number of values not set for orc file. Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
         }
         blockBuilder.writeLong(columnStatistics.getNumberOfValues());
     }
