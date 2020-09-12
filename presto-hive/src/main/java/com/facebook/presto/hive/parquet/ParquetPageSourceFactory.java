@@ -206,7 +206,7 @@ public class ParquetPageSourceFactory
         try {
             FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(user, path, configuration).openFile(path, hiveFileContext);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize);
-            if (!columns.isEmpty() && columns.get(0).getColumnType() == AGGREGATED) {
+            if (!columns.isEmpty() && columns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
                 return new AggregatedParquetPageSource(columns, parquetMetadata, typeManager, functionResolution);
             }
 
