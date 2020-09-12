@@ -208,7 +208,7 @@ public class QueryExplainer
         return logicalPlanner.plan(analysis);
     }
 
-    private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+    public SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, idAllocator);

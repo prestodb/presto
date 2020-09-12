@@ -39,6 +39,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -430,6 +431,25 @@ public final class HiveBucketing
         public Set<Integer> getBucketsToKeep()
         {
             return bucketsToKeep;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            HiveBucketFilter that = (HiveBucketFilter) o;
+            return Objects.equals(bucketsToKeep, that.bucketsToKeep);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(bucketsToKeep);
         }
     }
 }
