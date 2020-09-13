@@ -69,6 +69,7 @@ import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExternalBodyReference;
 import com.facebook.presto.sql.tree.Extract;
+import com.facebook.presto.sql.tree.FetchFirst;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -98,6 +99,7 @@ import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.LikePredicate;
+import com.facebook.presto.sql.tree.Limit;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -705,10 +707,19 @@ class AstBuilder
             offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
         }
 
+        Optional<Node> limit = Optional.empty();
+        if (context.FETCH() != null) {
+            limit = Optional.of(new FetchFirst(getTextIfPresent(context.fetchFirst)));
+        }
+        else if (context.LIMIT() != null) {
+            limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));
+        }
+
         if (term instanceof QuerySpecification) {
             // When we have a simple query specification
-            // followed by order by, offset, limit, fold the order by and limit
-            // clauses into the query specification (analyzer/planner
+            // followed by order by, offset, limit or fetch,
+            // fold the order by, limit, offset or fetch clauses
+            // into the query specification (analyzer/planner
             // expects this structure to resolve references with respect
             // to columns defined in the query specification)
             QuerySpecification query = (QuerySpecification) term;
@@ -725,7 +736,7 @@ class AstBuilder
                             query.getHaving(),
                             orderBy,
                             offset,
-                            getTextIfPresent(context.limit)),
+                            limit),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
@@ -737,7 +748,7 @@ class AstBuilder
                 term,
                 orderBy,
                 offset,
-                getTextIfPresent(context.limit));
+                limit);
     }
 
     @Override

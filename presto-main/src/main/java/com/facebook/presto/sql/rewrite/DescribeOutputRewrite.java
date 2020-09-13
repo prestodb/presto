@@ -28,6 +28,7 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Limit;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -103,12 +104,12 @@ final class DescribeOutputRewrite
             Analyzer analyzer = new Analyzer(session, metadata, parser, accessControl, queryExplainer, parameters, warningCollector);
             Analysis analysis = analyzer.analyze(statement, true);
 
-            Optional<String> limit = Optional.empty();
+            Optional<Node> limit = Optional.empty();
             Row[] rows = analysis.getRootScope().getRelationType().getVisibleFields().stream().map(field -> createDescribeOutputRow(field, analysis)).toArray(Row[]::new);
             if (rows.length == 0) {
                 NullLiteral nullLiteral = new NullLiteral();
                 rows = new Row[] {row(nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral)};
-                limit = Optional.of("0");
+                limit = Optional.of(new Limit("0"));
             }
             return simpleQuery(
                     selectList(

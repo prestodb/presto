@@ -935,17 +935,16 @@ class QueryPlanner
         return limit(subPlan, node.getLimit());
     }
 
-    private PlanBuilder limit(PlanBuilder subPlan, Optional<String> limit)
+    private PlanBuilder limit(PlanBuilder subPlan, Optional<Node> limit)
     {
-        if (!limit.isPresent()) {
-            return subPlan;
+        if (limit.isPresent() && analysis.getLimit(limit.get()).isPresent()) {
+            return subPlan.withNewRoot(
+                    new LimitNode(
+                            idAllocator.getNextId(),
+                            subPlan.getRoot(),
+                            analysis.getLimit(limit.get()).getAsLong(),
+                            FINAL));
         }
-
-        if (!limit.get().equalsIgnoreCase("all")) {
-            long limitValue = Long.parseLong(limit.get());
-            subPlan = subPlan.withNewRoot(new LimitNode(idAllocator.getNextId(), subPlan.getRoot(), limitValue, FINAL));
-        }
-
         return subPlan;
     }
 

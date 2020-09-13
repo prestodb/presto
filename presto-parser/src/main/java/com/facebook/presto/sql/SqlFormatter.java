@@ -50,6 +50,7 @@ import com.facebook.presto.sql.tree.ExplainOption;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExternalBodyReference;
+import com.facebook.presto.sql.tree.FetchFirst;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GrantRoles;
 import com.facebook.presto.sql.tree.GrantorSpecification;
@@ -63,6 +64,7 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
+import com.facebook.presto.sql.tree.Limit;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Offset;
@@ -281,8 +283,7 @@ public final class SqlFormatter
             }
 
             if (node.getLimit().isPresent()) {
-                append(indent, "LIMIT " + node.getLimit().get())
-                        .append('\n');
+                process(node.getLimit().get(), indent);
             }
 
             return null;
@@ -325,8 +326,7 @@ public final class SqlFormatter
             }
 
             if (node.getLimit().isPresent()) {
-                append(indent, "LIMIT " + node.getLimit().get())
-                        .append('\n');
+                process(node.getLimit().get(), indent);
             }
             return null;
         }
@@ -343,6 +343,23 @@ public final class SqlFormatter
         protected Void visitOrderBy(OrderBy node, Integer indent)
         {
             append(indent, formatOrderBy(node, parameters))
+                    .append('\n');
+            return null;
+        }
+
+        @Override
+        protected Void visitFetchFirst(FetchFirst node, Integer indent)
+        {
+            append(indent, "FETCH FIRST " + node.getRowCount().map(c -> c + " ROWS ").orElse("ROW "))
+                    .append(node.isWithTies() ? "WITH TIES" : "ONLY")
+                    .append('\n');
+            return null;
+        }
+
+        @Override
+        protected Void visitLimit(Limit node, Integer indent)
+        {
+            append(indent, "LIMIT " + node.getLimit())
                     .append('\n');
             return null;
         }

@@ -62,6 +62,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FetchFirst;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
@@ -84,6 +85,7 @@ import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
+import com.facebook.presto.sql.tree.Limit;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
@@ -535,8 +537,40 @@ public class TestSqlParser
     }
 
     @Test
-    public void testLimitAll()
+    public void testSelectWithLimit()
     {
+        assertStatement("SELECT * FROM table1 LIMIT 2",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new Limit("2"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 LIMIT ALL",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new Limit("ALL"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
         Query valuesQuery = query(values(
                 row(new LongLiteral("1"), new StringLiteral("1")),
                 row(new LongLiteral("2"), new StringLiteral("2"))));
@@ -549,7 +583,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of("ALL")));
+                        Optional.of(new Limit("ALL"))));
     }
 
     @Test
@@ -952,7 +986,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x"), ASCENDING, UNDEFINED)))),
                                 Optional.of(new Offset("2")),
-                                Optional.of("10")),
+                                Optional.of(new Limit("10"))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
@@ -980,6 +1014,56 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.of(new Offset("2")),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testSelectWithFetch()
+    {
+        assertStatement("SELECT * FROM table1 FETCH FIRST 2 ROWS ONLY",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new FetchFirst("2"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 FETCH NEXT ROW ONLY",
+                new Query(
+                        Optional.empty(),
+                        new QuerySpecification(
+                                selectList(new AllColumns()),
+                                Optional.of(new Table(QualifiedName.of("table1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.of(new FetchFirst(Optional.empty()))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        Query valuesQuery = query(values(
+                row(new LongLiteral("1"), new StringLiteral("1")),
+                row(new LongLiteral("2"), new StringLiteral("2"))));
+
+        assertStatement("SELECT * FROM (VALUES (1, '1'), (2, '2')) FETCH FIRST ROW ONLY",
+                simpleQuery(selectList(new AllColumns()),
+                        subquery(valuesQuery),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new FetchFirst(Optional.empty()))));
     }
 
     @Test

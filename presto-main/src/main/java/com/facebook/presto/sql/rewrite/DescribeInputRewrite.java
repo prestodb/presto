@@ -26,6 +26,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Limit;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NullLiteral;
@@ -113,10 +114,10 @@ final class DescribeInputRewrite
 
             // return the positions and types of all parameters
             Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(parameter, analysis)).toArray(Row[]::new);
-            Optional<String> limit = Optional.empty();
+            Optional<Node> limit = Optional.empty();
             if (rows.length == 0) {
                 rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
-                limit = Optional.of("0");
+                limit = Optional.of(new Limit("0"));
             }
 
             return simpleQuery(

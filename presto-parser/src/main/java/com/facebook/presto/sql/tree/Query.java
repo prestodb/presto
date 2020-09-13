@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class Query
@@ -28,15 +29,15 @@ public class Query
     private final Optional<With> with;
     private final QueryBody queryBody;
     private final Optional<OrderBy> orderBy;
-    private final Optional<String> limit;
     private final Optional<Offset> offset;
+    private final Optional<Node> limit;
 
     public Query(
             Optional<With> with,
             QueryBody queryBody,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
-            Optional<String> limit)
+            Optional<Node> limit)
     {
         this(Optional.empty(), with, queryBody, orderBy, offset, limit);
     }
@@ -47,7 +48,7 @@ public class Query
             QueryBody queryBody,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
-            Optional<String> limit)
+            Optional<Node> limit)
     {
         this(Optional.of(location), with, queryBody, orderBy, offset, limit);
     }
@@ -58,7 +59,7 @@ public class Query
             QueryBody queryBody,
             Optional<OrderBy> orderBy,
             Optional<Offset> offset,
-            Optional<String> limit)
+            Optional<Node> limit)
     {
         super(location);
         requireNonNull(with, "with is null");
@@ -66,6 +67,11 @@ public class Query
         requireNonNull(orderBy, "orderBy is null");
         requireNonNull(offset, "offset is null");
         requireNonNull(limit, "limit is null");
+        checkArgument(
+                !limit.isPresent() ||
+                        limit.get() instanceof FetchFirst ||
+                        limit.get() instanceof Limit,
+                "limit must be optional of either FetchFirst or Limit type");
 
         this.with = with;
         this.queryBody = queryBody;
@@ -89,7 +95,7 @@ public class Query
         return orderBy;
     }
 
-    public Optional<String> getLimit()
+    public Optional<Node> getLimit()
     {
         return limit;
     }
@@ -113,6 +119,7 @@ public class Query
         nodes.add(queryBody);
         orderBy.ifPresent(nodes::add);
         offset.ifPresent(nodes::add);
+        limit.ifPresent(nodes::add);
         return nodes.build();
     }
 

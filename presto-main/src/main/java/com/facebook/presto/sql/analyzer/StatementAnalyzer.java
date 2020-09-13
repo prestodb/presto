@@ -87,6 +87,7 @@ import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.FetchFirst;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -104,6 +105,7 @@ import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.Lateral;
+import com.facebook.presto.sql.tree.Limit;
 import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
@@ -169,6 +171,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -216,7 +219,9 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PARAMETER_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FETCH_FIRST_ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LIMIT_ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
@@ -1086,6 +1091,10 @@ class StatementAnalyzer
             if (node.getOffset().isPresent()) {
                 analyzeOffset(node.getOffset().get());
             }
+
+            if (node.getLimit().isPresent()) {
+                analyzeLimit(node.getLimit().get());
+            }
             // Input fields == Output fields
             analysis.setOutputExpressions(node, descriptorToFields(queryBodyScope));
 
@@ -1362,6 +1371,7 @@ class StatementAnalyzer
             Map<SchemaTableName, Expression> partitionPredicates = generatePartitionPredicate(materializedViewStatus.getPartitionsFromBaseTables());
 
             Query predicateStitchedQuery = (Query) new PredicateStitcher(session, partitionPredicates).process(createSqlStatement, new PredicateStitcherContext());
+
             QuerySpecification materializedViewQuerySpecification = new QuerySpecification(
                     selectList(new AllColumns()),
                     ((QuerySpecification) statement.getQueryBody()).getFrom(),
@@ -1534,6 +1544,10 @@ class StatementAnalyzer
                 analyzeOffset(node.getOffset().get());
             }
             analysis.setOrderByExpressions(node, orderByExpressions);
+
+            if (node.getLimit().isPresent()) {
+                analyzeLimit(node.getLimit().get());
+            }
 
             List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
             node.getHaving().ifPresent(sourceExpressions::add);
@@ -2647,6 +2661,77 @@ class StatementAnalyzer
                 throw new SemanticException(INVALID_OFFSET_ROW_COUNT, node, "OFFSET row count must be greater or equal to 0 (actual value: %s)", rowCount);
             }
             analysis.setOffset(node, rowCount);
+        }
+
+        private List<Expression> analyzeOrderBy(QuerySpecification node, Scope orderByScope, List<Expression> outputExpressions)
+        {
+            checkState(node.getOrderBy().isPresent(), "orderBy is absent");
+
+            List<SortItem> sortItems = getSortItemsFromOrderBy(node.getOrderBy());
+
+            if (node.getSelect().isDistinct()) {
+                verifySelectDistinct(node, outputExpressions);
+            }
+
+            return analyzeOrderBy(node, sortItems, orderByScope);
+        }
+
+        /**
+         * @return true if the Query / QuerySpecification containing the analyzed
+         * Limit or FetchFirst, must contain orderBy (i.e., for FetchFirst with ties).
+         */
+        private boolean analyzeLimit(Node node)
+        {
+            checkState(
+                    node instanceof FetchFirst || node instanceof Limit,
+                    "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s", node.getClass().getName());
+            if (node instanceof FetchFirst) {
+                return analyzeLimit((FetchFirst) node);
+            }
+            else {
+                return analyzeLimit((Limit) node);
+            }
+        }
+
+        private boolean analyzeLimit(FetchFirst node)
+        {
+            if (!node.getRowCount().isPresent()) {
+                analysis.setLimit(node, 1);
+            }
+            else {
+                long rowCount;
+                try {
+                    rowCount = Long.parseLong(node.getRowCount().get());
+                }
+                catch (NumberFormatException e) {
+                    throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "Invalid FETCH FIRST row count: %s", node.getRowCount().get());
+                }
+                if (rowCount <= 0) {
+                    throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
+                }
+                analysis.setLimit(node, rowCount);
+            }
+
+            return node.isWithTies();
+        }
+
+        private boolean analyzeLimit(Limit node)
+        {
+            if (node.getLimit().equalsIgnoreCase("all")) {
+                analysis.setLimit(node, OptionalLong.empty());
+            }
+            else {
+                long rowCount;
+                try {
+                    rowCount = Long.parseLong(node.getLimit());
+                }
+                catch (NumberFormatException e) {
+                    throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "Invalid LIMIT row count: %s", node.getLimit());
+                }
+                analysis.setLimit(node, rowCount);
+            }
+
+            return false;
         }
 
         private void verifySelectDistinct(QuerySpecification node, List<Expression> outputExpressions)

@@ -1373,4 +1373,28 @@ public class TestLogicalPlanner
                                                                         tableScan("nation", ImmutableMap.of("name", "name", "regionkey", "regionkey"))))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
     }
+    @Test
+    public void testOrderByFetch()
+    {
+        assertPlan(
+                "SELECT * FROM nation ORDER BY name FETCH FIRST 2 ROWS ONLY",
+                anyTree(
+                        topN(
+                                2,
+                                ImmutableList.of(sort("NAME", ASCENDING, LAST)),
+                                tableScan("nation", ImmutableMap.of(
+                                        "NAME", "name")))));
+    }
+
+    @Test
+    public void testFetch()
+    {
+        assertPlan(
+                "SELECT * FROM nation FETCH FIRST 2 ROWS ONLY",
+                anyTree(
+                        limit(
+                                2,
+                                any(
+                                        tableScan("nation")))));
+    }
 }

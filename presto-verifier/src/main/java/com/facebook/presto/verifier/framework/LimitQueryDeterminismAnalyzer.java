@@ -14,12 +14,16 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FetchFirst;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.Limit;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -44,6 +48,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FETCH_FIRST_ROW_COUNT;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LIMIT_ROW_COUNT;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_QUERY_FAILURE;
@@ -149,16 +155,67 @@ class LimitQueryDeterminismAnalyzer
         if (query.getOrderBy().isPresent() || !query.getLimit().isPresent()) {
             return NOT_RUN;
         }
-        if (isLimitAll(query.getLimit().get())) {
+        String queryLimit = analyzeLimit(query.getLimit().get());
+        if (isLimitAll(queryLimit)) {
             return NOT_RUN;
         }
-        long limit = parseLong(query.getLimit().get());
+        long limit = parseLong(queryLimit);
         if (rowCount < limit) {
             return DETERMINISTIC;
         }
-        Optional<String> newLimit = Optional.of(Long.toString(limit + 1));
+        Optional<Node> newLimit = Optional.of(new Limit(Long.toString(limit + 1)));
         Query newLimitQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), query.getOffset(), newLimit);
         return analyzeLimitNoOrderBy(newLimitQuery, limit);
+    }
+
+    private String analyzeLimit(Node node)
+    {
+        checkState(
+                node instanceof FetchFirst || node instanceof Limit,
+                "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s", node.getClass().getName());
+        if (node instanceof FetchFirst) {
+            return analyzeLimit((FetchFirst) node);
+        }
+        else {
+            return analyzeLimit((Limit) node);
+        }
+    }
+
+    private String analyzeLimit(FetchFirst node)
+    {
+        if (!node.getRowCount().isPresent()) {
+            return Long.toString(1);
+        }
+        else {
+            long rowCount;
+            try {
+                rowCount = Long.parseLong(node.getRowCount().get());
+            }
+            catch (NumberFormatException e) {
+                throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "Invalid FETCH FIRST row count: %s", node.getRowCount().get());
+            }
+            if (rowCount <= 0) {
+                throw new SemanticException(INVALID_FETCH_FIRST_ROW_COUNT, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
+            }
+            return Long.toString(rowCount);
+        }
+    }
+
+    private String analyzeLimit(Limit node)
+    {
+        if (node.getLimit().equalsIgnoreCase("all")) {
+            return Long.toString(0);
+        }
+        else {
+            long rowCount;
+            try {
+                rowCount = Long.parseLong(node.getLimit());
+            }
+            catch (NumberFormatException e) {
+                throw new SemanticException(INVALID_LIMIT_ROW_COUNT, node, "Invalid LIMIT row count: %s", node.getLimit());
+            }
+            return Long.toString(rowCount);
+        }
     }
 
     /**
@@ -210,14 +267,16 @@ class LimitQueryDeterminismAnalyzer
         if (!querySpecification.getLimit().isPresent()) {
             return NOT_RUN;
         }
-        if (isLimitAll(querySpecification.getLimit().get())) {
+        String queryLimit = analyzeLimit(querySpecification.getLimit().get());
+        if (isLimitAll(queryLimit)) {
             return NOT_RUN;
         }
-        long limit = parseLong(querySpecification.getLimit().get());
+
+        long limit = parseLong(queryLimit);
         if (rowCount < limit) {
             return DETERMINISTIC;
         }
-        Optional<String> newLimit = Optional.of(Long.toString(limit + 1));
+        Optional<Node> newLimit = Optional.of(new Limit(Long.toString(limit + 1)));
         Optional<OrderBy> orderBy = querySpecification.getOrderBy();
 
         if (orderBy.isPresent()) {
