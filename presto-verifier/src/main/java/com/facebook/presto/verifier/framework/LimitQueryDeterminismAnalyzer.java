@@ -153,6 +153,9 @@ class LimitQueryDeterminismAnalyzer
             return NOT_RUN;
         }
         long limit = parseLong(query.getLimit().get());
+        if (rowCount < limit) {
+            return DETERMINISTIC;
+        }
         Optional<String> newLimit = Optional.of(Long.toString(limit + 1));
         Query newLimitQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), newLimit);
         return analyzeLimitNoOrderBy(newLimitQuery, limit);
@@ -211,6 +214,9 @@ class LimitQueryDeterminismAnalyzer
             return NOT_RUN;
         }
         long limit = parseLong(querySpecification.getLimit().get());
+        if (rowCount < limit) {
+            return DETERMINISTIC;
+        }
         Optional<String> newLimit = Optional.of(Long.toString(limit + 1));
         Optional<OrderBy> orderBy = querySpecification.getOrderBy();
 
@@ -262,7 +268,7 @@ class LimitQueryDeterminismAnalyzer
         if (rowCountHigherLimit == rowCount) {
             return DETERMINISTIC;
         }
-        if (rowCount >= limit && rowCountHigherLimit > rowCount) {
+        if (rowCountHigherLimit > rowCount) {
             return NON_DETERMINISTIC;
         }
         return FAILED_DATA_CHANGED;
