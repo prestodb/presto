@@ -115,12 +115,11 @@ public class DeterminismAnalyzer
         switch (limitQueryAnalysis) {
             case NOT_RUN:
             case FAILED_QUERY_FAILURE:
+            case DETERMINISTIC:
                 // try the next analysis
                 break;
             case NON_DETERMINISTIC:
                 return NON_DETERMINISTIC_LIMIT_CLAUSE;
-            case DETERMINISTIC:
-                return DETERMINISTIC;
             case FAILED_DATA_CHANGED:
                 return ANALYSIS_FAILED_DATA_CHANGED;
             default:
