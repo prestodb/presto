@@ -293,6 +293,16 @@ public class HiveSplit
     }
 
     @Override
+    public Object getSplitIdentifier()
+    {
+        return ImmutableMap.builder()
+                .put("path", path)
+                .put("start", start)
+                .put("length", length)
+                .build();
+    }
+
+    @Override
     public OptionalLong getSplitSizeInBytes()
     {
         return OptionalLong.of(getLength());

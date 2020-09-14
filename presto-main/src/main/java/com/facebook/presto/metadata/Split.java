@@ -104,6 +104,11 @@ public final class Split
         return connectorSplit.getNodeSelectionStrategy();
     }
 
+    public SplitIdentifier getSplitIdentifier()
+    {
+        return new SplitIdentifier(connectorId, connectorSplit.getSplitIdentifier());
+    }
+
     @Override
     public String toString()
     {
@@ -138,5 +143,47 @@ public final class Split
     {
         // Requires connectorSplit's hash function to be set up correctly
         return Objects.hash(connectorId, transactionHandle, connectorSplit, lifespan);
+    }
+
+    public static class SplitIdentifier
+    {
+        public final ConnectorId connectorId;
+        public final Object splitIdentifier;
+
+        public SplitIdentifier(ConnectorId connectorId, Object splitIdentifier)
+        {
+            this.connectorId = requireNonNull(connectorId, "connectorId is null");
+            this.splitIdentifier = requireNonNull(splitIdentifier, "splitIdentifier is null");
+        }
+
+        public ConnectorId getConnectorId()
+        {
+            return connectorId;
+        }
+
+        public Object getSplitIdentifier()
+        {
+            return splitIdentifier;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            SplitIdentifier that = (SplitIdentifier) o;
+            return Objects.equals(connectorId, that.connectorId) &&
+                    Objects.equals(splitIdentifier, that.splitIdentifier);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(connectorId, splitIdentifier);
+        }
     }
 }

@@ -39,6 +39,12 @@ public interface ConnectorSplit
 
     Object getInfo();
 
+    // TODO: Make similar changes like getInfo. Please comment if not addressed once PR is marked as ready for review
+    default Object getSplitIdentifier()
+    {
+        return this;
+    }
+
     default OptionalLong getSplitSizeInBytes()
     {
         return OptionalLong.empty();
