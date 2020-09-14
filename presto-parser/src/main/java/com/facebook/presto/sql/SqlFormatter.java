@@ -65,6 +65,7 @@ import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.PrincipalSpecification;
@@ -275,6 +276,10 @@ public final class SqlFormatter
                 process(node.getOrderBy().get(), indent);
             }
 
+            if (node.getOffset().isPresent()) {
+                process(node.getOffset().get(), indent);
+            }
+
             if (node.getLimit().isPresent()) {
                 append(indent, "LIMIT " + node.getLimit().get())
                         .append('\n');
@@ -315,10 +320,22 @@ public final class SqlFormatter
                 process(node.getOrderBy().get(), indent);
             }
 
+            if (node.getOffset().isPresent()) {
+                process(node.getOffset().get(), indent);
+            }
+
             if (node.getLimit().isPresent()) {
                 append(indent, "LIMIT " + node.getLimit().get())
                         .append('\n');
             }
+            return null;
+        }
+
+        @Override
+        protected Void visitOffset(Offset node, Integer indent)
+        {
+            append(indent, "OFFSET " + node.getRowCount() + " ROWS")
+                    .append('\n');
             return null;
         }
 

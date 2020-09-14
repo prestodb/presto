@@ -106,6 +106,7 @@ import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NotExpression;
 import com.facebook.presto.sql.tree.NullIfExpression;
 import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Prepare;
@@ -664,6 +665,7 @@ class AstBuilder
                 visitIfPresent(context.with(), With.class),
                 body.getQueryBody(),
                 body.getOrderBy(),
+                body.getOffset(),
                 body.getLimit());
     }
 
@@ -698,6 +700,11 @@ class AstBuilder
             orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
         }
 
+        Optional<Offset> offset = Optional.empty();
+        if (context.OFFSET() != null) {
+            offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
+        }
+
         if (term instanceof QuerySpecification) {
             // When we have a simple query specification
             // followed by order by limit, fold the order by and limit
@@ -717,7 +724,9 @@ class AstBuilder
                             query.getGroupBy(),
                             query.getHaving(),
                             orderBy,
+                            offset,
                             getTextIfPresent(context.limit)),
+                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
         }
@@ -727,6 +736,7 @@ class AstBuilder
                 Optional.empty(),
                 term,
                 orderBy,
+                offset,
                 getTextIfPresent(context.limit));
     }
 
@@ -756,6 +766,7 @@ class AstBuilder
                 visitIfPresent(context.where, Expression.class),
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }
@@ -944,7 +955,7 @@ class AstBuilder
     public Node visitShowStatsForQuery(SqlBaseParser.ShowStatsForQueryContext context)
     {
         QuerySpecification specification = (QuerySpecification) visitQuerySpecification(context.querySpecification());
-        Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty());
+        Query query = new Query(Optional.empty(), specification, Optional.empty(), Optional.empty(), Optional.empty());
         return new ShowStats(Optional.of(getLocation(context)), new TableSubquery(query));
     }
 
