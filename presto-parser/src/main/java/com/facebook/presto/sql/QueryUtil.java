@@ -22,6 +22,7 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
@@ -176,6 +177,7 @@ public final class QueryUtil
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty()));
     }
 
@@ -201,10 +203,10 @@ public final class QueryUtil
 
     public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<OrderBy> orderBy)
     {
-        return simpleQuery(select, from, where, Optional.empty(), Optional.empty(), orderBy, Optional.empty());
+        return simpleQuery(select, from, where, Optional.empty(), Optional.empty(), orderBy, Optional.empty(), Optional.empty());
     }
 
-    public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<GroupBy> groupBy, Optional<Expression> having, Optional<OrderBy> orderBy, Optional<String> limit)
+    public static Query simpleQuery(Select select, Relation from, Optional<Expression> where, Optional<GroupBy> groupBy, Optional<Expression> having, Optional<OrderBy> orderBy, Optional<Offset> offset, Optional<String> limit)
     {
         return query(new QuerySpecification(
                 select,
@@ -213,6 +215,7 @@ public final class QueryUtil
                 groupBy,
                 having,
                 orderBy,
+                offset,
                 limit));
     }
 
@@ -237,6 +240,7 @@ public final class QueryUtil
         return new Query(
                 Optional.empty(),
                 body,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }

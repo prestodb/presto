@@ -29,14 +29,16 @@ public class Query
     private final QueryBody queryBody;
     private final Optional<OrderBy> orderBy;
     private final Optional<String> limit;
+    private final Optional<Offset> offset;
 
     public Query(
             Optional<With> with,
             QueryBody queryBody,
             Optional<OrderBy> orderBy,
+            Optional<Offset> offset,
             Optional<String> limit)
     {
-        this(Optional.empty(), with, queryBody, orderBy, limit);
+        this(Optional.empty(), with, queryBody, orderBy, offset, limit);
     }
 
     public Query(
@@ -44,9 +46,10 @@ public class Query
             Optional<With> with,
             QueryBody queryBody,
             Optional<OrderBy> orderBy,
+            Optional<Offset> offset,
             Optional<String> limit)
     {
-        this(Optional.of(location), with, queryBody, orderBy, limit);
+        this(Optional.of(location), with, queryBody, orderBy, offset, limit);
     }
 
     private Query(
@@ -54,17 +57,20 @@ public class Query
             Optional<With> with,
             QueryBody queryBody,
             Optional<OrderBy> orderBy,
+            Optional<Offset> offset,
             Optional<String> limit)
     {
         super(location);
         requireNonNull(with, "with is null");
         requireNonNull(queryBody, "queryBody is null");
         requireNonNull(orderBy, "orderBy is null");
+        requireNonNull(offset, "offset is null");
         requireNonNull(limit, "limit is null");
 
         this.with = with;
         this.queryBody = queryBody;
         this.orderBy = orderBy;
+        this.offset = offset;
         this.limit = limit;
     }
 
@@ -88,6 +94,11 @@ public class Query
         return limit;
     }
 
+    public Optional<Offset> getOffset()
+    {
+        return offset;
+    }
+
     @Override
     public <R, C> R accept(AstVisitor<R, C> visitor, C context)
     {
@@ -101,6 +112,7 @@ public class Query
         with.ifPresent(nodes::add);
         nodes.add(queryBody);
         orderBy.ifPresent(nodes::add);
+        offset.ifPresent(nodes::add);
         return nodes.build();
     }
 
@@ -111,6 +123,7 @@ public class Query
                 .add("with", with.orElse(null))
                 .add("queryBody", queryBody)
                 .add("orderBy", orderBy)
+                .add("offset", offset.orElse(null))
                 .add("limit", limit.orElse(null))
                 .omitNullValues()
                 .toString();
@@ -129,12 +142,13 @@ public class Query
         return Objects.equals(with, o.with) &&
                 Objects.equals(queryBody, o.queryBody) &&
                 Objects.equals(orderBy, o.orderBy) &&
+                Objects.equals(offset, o.offset) &&
                 Objects.equals(limit, o.limit);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(with, queryBody, orderBy, limit);
+        return Objects.hash(with, queryBody, orderBy, offset, limit);
     }
 }
