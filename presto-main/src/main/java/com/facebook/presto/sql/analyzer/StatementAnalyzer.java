@@ -217,6 +217,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PARAM
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_OFFSET_ROW_COUNT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
@@ -2635,7 +2636,17 @@ class StatementAnalyzer
 
         private void analyzeOffset(Offset node)
         {
-            throw new SemanticException(NOT_SUPPORTED, node, "OFFSET not yet implemented");
+            long rowCount;
+            try {
+                rowCount = Long.parseLong(node.getRowCount());
+            }
+            catch (NumberFormatException e) {
+                throw new SemanticException(INVALID_OFFSET_ROW_COUNT, node, "Invalid OFFSET row count: %s", node.getRowCount());
+            }
+            if (rowCount < 0) {
+                throw new SemanticException(INVALID_OFFSET_ROW_COUNT, node, "OFFSET row count must be greater or equal to 0 (actual value: %s)", rowCount);
+            }
+            analysis.setOffset(node, rowCount);
         }
 
         private void verifySelectDistinct(QuerySpecification node, List<Expression> outputExpressions)
