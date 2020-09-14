@@ -55,6 +55,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -360,6 +361,12 @@ public class UnaliasSymbolReferences
                     node.isEnsureSourceOrdering(),
                     node.getOrderingScheme().map(this::canonicalizeAndDistinct),
                     node.getExchangeType());
+        }
+
+        @Override
+        public PlanNode visitOffset(OffsetNode node, RewriteContext<Void> context)
+        {
+            return context.defaultRewrite(node);
         }
 
         @Override
