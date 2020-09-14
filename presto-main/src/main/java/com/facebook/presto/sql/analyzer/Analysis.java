@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.Join;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Offset;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
@@ -110,6 +111,7 @@ public class Analysis
     private final Map<NodeRef<Node>, List<Expression>> outputExpressions = new LinkedHashMap<>();
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
+    private final Map<NodeRef<Offset>, Long> offset = new LinkedHashMap<>();
 
     private final Map<NodeRef<Join>, Expression> joins = new LinkedHashMap<>();
     private final Map<NodeRef<Join>, JoinUsingAnalysis> joinUsing = new LinkedHashMap<>();
@@ -334,6 +336,17 @@ public class Analysis
     public List<Expression> getOrderByExpressions(Node node)
     {
         return orderByExpressions.get(NodeRef.of(node));
+    }
+
+    public void setOffset(Offset node, long rowCount)
+    {
+        offset.put(NodeRef.of(node), rowCount);
+    }
+
+    public long getOffset(Offset node)
+    {
+        checkState(offset.containsKey(NodeRef.of(node)), "missing OFFSET value for node %s", node);
+        return offset.get(NodeRef.of(node));
     }
 
     public void setOutputExpressions(Node node, List<Expression> expressions)

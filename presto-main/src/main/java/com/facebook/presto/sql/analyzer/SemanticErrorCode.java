@@ -105,4 +105,6 @@ public enum SemanticErrorCode
     MISSING_ROLE,
 
     TOO_MANY_GROUPING_SETS,
+
+    INVALID_OFFSET_ROW_COUNT,
 }
