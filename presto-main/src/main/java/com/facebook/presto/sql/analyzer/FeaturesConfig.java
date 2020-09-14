@@ -141,6 +141,8 @@ public class FeaturesConfig
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
 
+    private boolean fragmentResultCachingEnabled;
+
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
@@ -1024,6 +1026,19 @@ public class FeaturesConfig
     public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
     {
         this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
+        return this;
+    }
+
+    public boolean isFragmentResultCachingEnabled()
+    {
+        return fragmentResultCachingEnabled;
+    }
+
+    @Config("experimental.fragment-result-caching-enabled")
+    @ConfigDescription("Enable fragment result caching and read/write leaf fragment result pages from/to cache when applicable")
+    public FeaturesConfig setFragmentResultCachingEnabled(boolean fragmentResultCachingEnabled)
+    {
+        this.fragmentResultCachingEnabled = fragmentResultCachingEnabled;
         return this;
     }
 

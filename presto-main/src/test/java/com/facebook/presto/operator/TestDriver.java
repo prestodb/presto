@@ -14,11 +14,14 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.operator.FileFragmentResultCacheManager.CacheKey;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -28,13 +31,19 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.split.PageSourceProvider;
+import com.facebook.presto.sql.planner.CanonicalPlanFragment;
+import com.facebook.presto.sql.planner.Partitioning;
+import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.PageConsumerOperator;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -44,7 +53,10 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.Closeable;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -58,12 +70,18 @@ import java.util.function.Function;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.FRAGMENT_RESULT_CACHING_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.execution.FragmentResultCacheContext.createFragmentResultCacheContext;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -82,9 +100,29 @@ public class TestDriver
             new ConnectorTransactionHandle() {},
             Optional.empty());
 
+    private static final FragmentResultCacheContext TESTING_FRAGMENT_RESULT_CACHE_CONTEXT = createFragmentResultCacheContext(
+            new TestingFragmentResultCacheManager(),
+            new AggregationNode(new PlanNodeId("test-agg"),
+                    new TableScanNode(
+                            new PlanNodeId("test-scan"),
+                            TESTING_TABLE_HANDLE,
+                            ImmutableList.of(),
+                            ImmutableMap.of(),
+                            TupleDomain.all(),
+                            TupleDomain.all()),
+                    ImmutableMap.of(),
+                    singleGroupingSet(ImmutableList.of()),
+                    ImmutableList.of(),
+                    AggregationNode.Step.PARTIAL,
+                    Optional.empty(),
+                    Optional.empty()),
+            new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
+            testSessionBuilder().setSystemProperty(FRAGMENT_RESULT_CACHING_ENABLED, "true").build()).get();
+
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
+    private DriverContext driverContextWithFragmentResultCacheContext;
 
     @BeforeMethod
     public void setUp()
@@ -93,6 +131,9 @@ public class TestDriver
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
 
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, TESTING_FRAGMENT_RESULT_CACHE_CONTEXT)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }
@@ -107,12 +148,18 @@ public class TestDriver
     @Test
     public void testNormalFinish()
     {
+        testNormalFinish(driverContext);
+        testNormalFinish(driverContextWithFragmentResultCacheContext);
+    }
+
+    private void testNormalFinish(DriverContext driverContext)
+    {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
-        Operator sink = createSinkOperator(types);
+        Operator sink = createSinkOperator(driverContext, types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
@@ -130,13 +177,19 @@ public class TestDriver
     @Test(invocationCount = 1_000, timeOut = 10_000)
     public void testConcurrentClose()
     {
+        testConcurrentClose(driverContext);
+        testConcurrentClose(driverContextWithFragmentResultCacheContext);
+    }
+
+    private void testConcurrentClose(DriverContext driverContext)
+    {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), "values");
         ValuesOperator source = new ValuesOperator(operatorContext, rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
-        Operator sink = createSinkOperator(types);
+        Operator sink = createSinkOperator(driverContext, types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
         // let these threads race
         scheduledExecutor.submit(() -> driver.processFor(new Duration(1, TimeUnit.NANOSECONDS))); // don't want to call isFinishedInternal in processFor
@@ -149,12 +202,18 @@ public class TestDriver
     @Test
     public void testAbruptFinish()
     {
+        testAbruptFinish(driverContext);
+        testAbruptFinish(driverContextWithFragmentResultCacheContext);
+    }
+
+    private void testAbruptFinish(DriverContext driverContext)
+    {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         ValuesOperator source = new ValuesOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "values"), rowPagesBuilder(types)
                 .addSequencePage(10, 20, 30, 40)
                 .build());
 
-        PageConsumerOperator sink = createSinkOperator(types);
+        PageConsumerOperator sink = createSinkOperator(driverContext, types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
@@ -174,6 +233,12 @@ public class TestDriver
     @Test
     public void testAddSourceFinish()
     {
+        testAddSourceFinish(driverContext);
+        testAddSourceFinish(driverContextWithFragmentResultCacheContext);
+    }
+
+    private void testAddSourceFinish(DriverContext driverContext)
+    {
         PlanNodeId sourceId = new PlanNodeId("source");
         final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
@@ -184,7 +249,7 @@ public class TestDriver
                 TESTING_TABLE_HANDLE,
                 ImmutableList.of());
 
-        PageConsumerOperator sink = createSinkOperator(types);
+        PageConsumerOperator sink = createSinkOperator(driverContext, types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
 
         assertSame(driver.getDriverContext(), driverContext);
@@ -207,8 +272,15 @@ public class TestDriver
     public void testBrokenOperatorCloseWhileProcessing()
             throws Exception
     {
+        testBrokenOperatorCloseWhileProcessing(driverContext);
+        testBrokenOperatorCloseWhileProcessing(driverContextWithFragmentResultCacheContext);
+    }
+
+    private void testBrokenOperatorCloseWhileProcessing(DriverContext driverContext)
+            throws Exception
+    {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
-        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
+        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(driverContext, ImmutableList.of()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -232,8 +304,15 @@ public class TestDriver
     public void testBrokenOperatorProcessWhileClosing()
             throws Exception
     {
+        testBrokenOperatorProcessWhileClosing(driverContext);
+        testBrokenOperatorProcessWhileClosing(driverContextWithFragmentResultCacheContext);
+    }
+
+    private void testBrokenOperatorProcessWhileClosing(DriverContext driverContext)
+            throws Exception
+    {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), true);
-        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
+        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(driverContext, ImmutableList.of()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
@@ -255,6 +334,12 @@ public class TestDriver
     @Test
     public void testMemoryRevocationRace()
     {
+        testMemoryRevocationRace(driverContext);
+        testMemoryRevocationRace(driverContextWithFragmentResultCacheContext);
+    }
+
+    private void testMemoryRevocationRace(DriverContext driverContext)
+    {
         List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new AlwaysBlockedMemoryRevokingTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "scan"),
                 new PlanNodeId("source"),
@@ -264,7 +349,7 @@ public class TestDriver
                 TESTING_TABLE_HANDLE,
                 ImmutableList.of());
 
-        Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(types));
+        Driver driver = Driver.createDriver(driverContext, source, createSinkOperator(driverContext, types));
         // the table scan operator will request memory revocation with requestMemoryRevoking()
         // while the driver is still not done with the processFor() method and before it moves to
         // updateDriverBlockedFuture() method.
@@ -273,6 +358,13 @@ public class TestDriver
 
     @Test
     public void testBrokenOperatorAddSource()
+            throws Exception
+    {
+        testBrokenOperatorAddSource(driverContext);
+        testBrokenOperatorAddSource(driverContextWithFragmentResultCacheContext);
+    }
+
+    private void testBrokenOperatorAddSource(DriverContext driverContext)
             throws Exception
     {
         PlanNodeId sourceId = new PlanNodeId("source");
@@ -319,6 +411,49 @@ public class TestDriver
         }
     }
 
+    @Test
+    public void testFragmentResultCache()
+    {
+        processSourceDriver(driverContextWithFragmentResultCacheContext);
+
+        // Create a new driver and test cache hit
+        driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, TESTING_FRAGMENT_RESULT_CACHE_CONTEXT)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        processSourceDriver(driverContextWithFragmentResultCacheContext);
+    }
+
+    private void processSourceDriver(DriverContext driverContext)
+    {
+        PlanNodeId sourceId = new PlanNodeId("source");
+        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
+                sourceId,
+                (session, split, table, columns) -> new FixedPageSource(rowPagesBuilder(types)
+                        .addSequencePage(10, 20, 30, 40)
+                        .build()),
+                TESTING_TABLE_HANDLE,
+                ImmutableList.of());
+
+        PageConsumerOperator sink = createSinkOperator(driverContext, types);
+        Driver driver = Driver.createDriver(driverContext, source, sink);
+
+        assertSame(driver.getDriverContext(), driverContext);
+
+        assertFalse(driver.isFinished());
+        assertFalse(driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
+        assertFalse(driver.isFinished());
+
+        driver.updateSource(new TaskSource(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, newMockSplit())), true));
+
+        assertFalse(driver.isFinished());
+        assertTrue(driver.processFor(new Duration(1, TimeUnit.SECONDS)).isDone());
+        assertTrue(driver.isFinished());
+
+        assertTrue(sink.isFinished());
+        assertTrue(source.isFinished());
+    }
+
     private void assertDriverInterrupted(Throwable cause)
     {
         checkArgument(cause instanceof PrestoException, "Expected root cause exception to be an instance of PrestoException");
@@ -328,10 +463,10 @@ public class TestDriver
 
     private static Split newMockSplit()
     {
-        return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new MockSplit());
+        return new Split(new ConnectorId("test"), TestingTransactionHandle.create(), new MockSplit(1));
     }
 
-    private PageConsumerOperator createSinkOperator(List<Type> types)
+    private PageConsumerOperator createSinkOperator(DriverContext driverContext, List<Type> types)
     {
         // materialize the output to catch some type errors
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
@@ -495,6 +630,13 @@ public class TestDriver
     private static class MockSplit
             implements ConnectorSplit
     {
+        private final int identifier;
+
+        public MockSplit(int identifier)
+        {
+            this.identifier = identifier;
+        }
+
         @Override
         public NodeSelectionStrategy getNodeSelectionStrategy()
         {
@@ -511,6 +653,35 @@ public class TestDriver
         public Object getInfo()
         {
             return null;
+        }
+
+        @Override
+        public Object getSplitIdentifier()
+        {
+            return identifier;
+        }
+    }
+
+    private static class TestingFragmentResultCacheManager
+            implements FragmentResultCacheManager
+    {
+        private final Map<CacheKey, List<Page>> cache = new HashMap<>();
+
+        @Override
+        public Future<?> put(CanonicalPlanFragment plan, Split split, List<Page> result)
+        {
+            cache.put(new CacheKey(plan, split.getSplitIdentifier()), result);
+            return immediateFuture(null);
+        }
+
+        @Override
+        public Optional<Iterator<Page>> get(CanonicalPlanFragment plan, Split split)
+        {
+            CacheKey key = new CacheKey(plan, split.getSplitIdentifier());
+            if (cache.containsKey(key)) {
+                return Optional.of(cache.get(key).iterator());
+            }
+            return Optional.empty();
         }
     }
 }
