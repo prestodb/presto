@@ -160,6 +160,17 @@ public class TestDruidQueryGenerator
     }
 
     @Test
+    public void testGroupByPushdown()
+    {
+        PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
+        testDQL(
+                planBuilder -> planBuilder.aggregation(
+                        aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city"), variable("region.id"), variable("secondssinceepoch"))
+                                .addAggregation(variable("totalfare"), getRowExpression("sum(\"fare\")", defaultSessionHolder))),
+                "SELECT \"city\", \"region.Id\", \"secondsSinceEpoch\", sum(fare) FROM \"realtimeOnly\" GROUP BY \"city\", \"region.Id\", \"secondsSinceEpoch\"");
+    }
+
+    @Test
     public void testDistinctCountGroupByPushdown()
     {
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
