@@ -73,6 +73,7 @@ public class PredicateStitcher
                 rewrittenWith,
                 (QueryBody) process(node.getQueryBody(), context),
                 node.getOrderBy(),
+                node.getOffset(),
                 node.getLimit());
     }
 
@@ -93,6 +94,7 @@ public class PredicateStitcher
                     node.getGroupBy(),
                     node.getHaving(),
                     node.getOrderBy(),
+                    node.getOffset(),
                     node.getLimit());
         }
         return node;
@@ -154,9 +156,10 @@ public class PredicateStitcher
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
-        Relation subquery = subquery(new Query(Optional.empty(), queryWithPredicateStitching, Optional.empty(), Optional.empty()));
+        Relation subquery = subquery(new Query(Optional.empty(), queryWithPredicateStitching, Optional.empty(), Optional.empty(), Optional.empty()));
         if (context.isCreateAlias()) {
             return new AliasedRelation(subquery, identifier(schemaTableName.getTableName()), null);
         }
