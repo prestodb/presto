@@ -272,12 +272,14 @@ public class QueryRewriter
                             querySpecification.getGroupBy(),
                             querySpecification.getHaving(),
                             querySpecification.getOrderBy(),
+                            querySpecification.getOffset(),
                             Optional.of("0")),
+                    Optional.empty(),
                     Optional.empty(),
                     Optional.empty());
         }
         else {
-            zeroRowQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), Optional.of("0"));
+            zeroRowQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), Optional.empty(), Optional.of("0"));
         }
         return prestoAction.execute(zeroRowQuery, REWRITE, ResultSetConverter.DEFAULT).getMetadata();
     }
@@ -324,8 +326,10 @@ public class QueryRewriter
                         querySpecification.getGroupBy(),
                         querySpecification.getHaving(),
                         querySpecification.getOrderBy(),
+                        Optional.empty(),
                         querySpecification.getLimit()),
                 query.getOrderBy(),
+                Optional.empty(),
                 query.getLimit());
     }
 
