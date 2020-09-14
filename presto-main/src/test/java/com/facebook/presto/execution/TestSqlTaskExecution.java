@@ -620,7 +620,7 @@ public class TestSqlTaskExecution
                 driverYieldExecutor,
                 new DataSize(1, MEGABYTE),
                 new SpillSpaceTracker(new DataSize(1, GIGABYTE)));
-        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false, false, false);
+        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false, false, false, Optional.empty());
     }
 
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)

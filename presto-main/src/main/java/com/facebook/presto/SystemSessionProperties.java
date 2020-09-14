@@ -168,6 +168,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
+    public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
 
@@ -891,6 +892,11 @@ public final class SystemSessionProperties
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
                 booleanProperty(
+                        FRAGMENT_RESULT_CACHING_ENABLED,
+                        "Enable fragment result caching and read/write leaf fragment result pages from/to cache when applicable",
+                        featuresConfig.isFragmentResultCachingEnabled(),
+                        false),
+                booleanProperty(
                         LEGACY_TYPE_COERCION_WARNING_ENABLED,
                         "Enable warning for query relying on legacy type coercion",
                         featuresConfig.isLegacyDateTimestampToVarcharCoercion(),
@@ -1504,6 +1510,11 @@ public final class SystemSessionProperties
     public static DataSize getDynamicFilteringMaxPerDriverSize(Session session)
     {
         return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE, DataSize.class);
+    }
+
+    public static boolean isFragmentResultCachingEnabled(Session session)
+    {
+        return session.getSystemProperty(FRAGMENT_RESULT_CACHING_ENABLED, Boolean.class);
     }
 
     public static boolean isLegacyTypeCoercionWarningEnabled(Session session)
