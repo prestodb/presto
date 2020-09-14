@@ -446,7 +446,8 @@ public class TestHashJoinOperator
             PageBuffer pageBuffer = new PageBuffer(10);
             PageBufferOperatorFactory pageBufferOperatorFactory = new PageBufferOperatorFactory(18, new PlanNodeId("pageBuffer"), pageBuffer);
 
-            Driver joinDriver = Driver.createDriver(joinDriverContext,
+            Driver joinDriver = Driver.createDriver(
+                    joinDriverContext,
                     valuesOperatorFactory.createOperator(joinDriverContext),
                     joinOperator,
                     pageBufferOperatorFactory.createOperator(joinDriverContext));
@@ -1347,7 +1348,8 @@ public class TestHashJoinOperator
         DriverContext collectDriverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         ValuesOperatorFactory valuesOperatorFactory = new ValuesOperatorFactory(0, new PlanNodeId("values"), buildPages.build());
         LocalExchangeSinkOperatorFactory sinkOperatorFactory = new LocalExchangeSinkOperatorFactory(localExchangeFactory, 1, new PlanNodeId("sink"), localExchangeSinkFactoryId, Function.identity());
-        Driver sourceDriver = Driver.createDriver(collectDriverContext,
+        Driver sourceDriver = Driver.createDriver(
+                collectDriverContext,
                 valuesOperatorFactory.createOperator(collectDriverContext),
                 sinkOperatorFactory.createOperator(collectDriverContext));
         valuesOperatorFactory.noMoreOperators();

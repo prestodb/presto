@@ -38,6 +38,7 @@ import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
@@ -100,6 +101,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.execution.FragmentResultCacheContext.createFragmentResultCacheContext;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
@@ -142,6 +144,8 @@ public class PrestoSparkTaskExecutorFactory
 
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
 
+    private final FragmentResultCacheManager fragmentResultCacheManager;
+
     private final DataSize maxUserMemory;
     private final DataSize maxTotalMemory;
     private final DataSize maxSpillMemory;
@@ -171,6 +175,7 @@ public class PrestoSparkTaskExecutorFactory
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
+            FragmentResultCacheManager fragmentResultCacheManager,
             TaskManagerConfig taskManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
             NodeSpillConfig nodeSpillConfig,
@@ -191,6 +196,7 @@ public class PrestoSparkTaskExecutorFactory
                 taskExecutor,
                 splitMonitor,
                 authenticatorProviders,
+                fragmentResultCacheManager,
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryMemoryPerNode(),
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryTotalMemoryPerNode(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
@@ -217,6 +223,7 @@ public class PrestoSparkTaskExecutorFactory
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
+            FragmentResultCacheManager fragmentResultCacheManager,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
             DataSize maxSpillMemory,
@@ -241,6 +248,7 @@ public class PrestoSparkTaskExecutorFactory
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
+        this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null");
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null");
         this.maxSpillMemory = requireNonNull(maxSpillMemory, "maxSpillMemory is null");
@@ -342,7 +350,8 @@ public class PrestoSparkTaskExecutorFactory
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
                 allocationTrackingEnabled,
-                false);
+                false,
+                createFragmentResultCacheContext(fragmentResultCacheManager, fragment.getRoot(), fragment.getPartitioningScheme(), session));
 
         ImmutableMap.Builder<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputs = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputs = ImmutableMap.builder();

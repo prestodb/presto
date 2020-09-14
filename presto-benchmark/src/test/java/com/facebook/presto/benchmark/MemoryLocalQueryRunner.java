@@ -94,7 +94,8 @@ public class MemoryLocalQueryRunner
                         false,
                         false,
                         false,
-                        false);
+                        false,
+                        Optional.empty());
 
         // Use NullOutputFactory to avoid coping out results to avoid affecting benchmark results
         ImmutableList.Builder<Page> output = ImmutableList.builder();
