@@ -95,6 +95,11 @@ public class Patterns
         return typeOf(LateralJoinNode.class);
     }
 
+    public static Pattern<OffsetNode> offset()
+    {
+        return typeOf(OffsetNode.class);
+    }
+
     public static Pattern<LimitNode> limit()
     {
         return typeOf(LimitNode.class);

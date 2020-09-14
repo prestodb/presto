@@ -66,6 +66,7 @@ import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
+import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -236,6 +237,11 @@ public class PlanBuilder
     public EnforceSingleRowNode enforceSingleRow(PlanNode source)
     {
         return new EnforceSingleRowNode(idAllocator.getNextId(), source);
+    }
+
+    public OffsetNode offset(long rowCount, PlanNode source)
+    {
+        return new OffsetNode(idAllocator.getNextId(), source, rowCount);
     }
 
     public LimitNode limit(long limit, PlanNode source)
