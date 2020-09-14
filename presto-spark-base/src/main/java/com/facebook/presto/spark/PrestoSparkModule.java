@@ -78,7 +78,12 @@ import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.ViewDefinition;
+import com.facebook.presto.operator.FileFragmentResultCacheConfig;
+import com.facebook.presto.operator.FileFragmentResultCacheManager;
+import com.facebook.presto.operator.FragmentCacheStats;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
@@ -175,6 +180,7 @@ import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -336,6 +342,8 @@ public class PrestoSparkModule
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(FileFragmentResultCacheConfig.class);
+        binder.bind(FragmentCacheStats.class).in(Scopes.SINGLETON);
         binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
@@ -432,5 +440,20 @@ public class PrestoSparkModule
             ExecutorService executor)
     {
         return InMemoryTransactionManager.create(config, scheduledExecutor, catalogManager, executor);
+    }
+
+    @Provides
+    @Singleton
+    public static FragmentResultCacheManager createFragmentResultCacheManager(FileFragmentResultCacheConfig config, BlockEncodingSerde blockEncodingSerde, FragmentCacheStats fragmentCacheStats)
+    {
+        if (config.isCachingEnabled()) {
+            return new FileFragmentResultCacheManager(
+                    config,
+                    blockEncodingSerde,
+                    fragmentCacheStats,
+                    newFixedThreadPool(5, daemonThreadsNamed("fragment-result-cache-writer-%s")),
+                    newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
+        }
+        return new NoOpFragmentResultCacheManager();
     }
 }
