@@ -37,6 +37,8 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStra
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILLER_SPILL_PATH;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.SPILL_ENABLED;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.RE2J;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
@@ -93,6 +95,8 @@ public class TestFeaturesConfig
                 .setSpillMaxUsedSpaceThreshold(0.9)
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
+                .setTaskSpillingStrategy(ORDER_BY_CREATE_TIME)
+                .setMaxRevocableMemoryPerTask(500000L)
                 .setOptimizeMixedDistinctAggregations(false)
                 .setLegacyLogFunction(false)
                 .setIterativeOptimizerEnabled(true)
@@ -210,6 +214,8 @@ public class TestFeaturesConfig
                 .put("experimental.spiller-max-used-space-threshold", "0.8")
                 .put("experimental.memory-revoking-threshold", "0.2")
                 .put("experimental.memory-revoking-target", "0.8")
+                .put("experimental.spiller.task-spilling-strategy", "PER_TASK_MEMORY_THRESHOLD")
+                .put("experimental.spiller.max-revocable-task-memory", "100000")
                 .put("exchange.compression-enabled", "true")
                 .put("deprecated.legacy-timestamp", "false")
                 .put("optimizer.enable-intermediate-aggregations", "true")
@@ -302,6 +308,8 @@ public class TestFeaturesConfig
                 .setSpillMaxUsedSpaceThreshold(0.8)
                 .setMemoryRevokingThreshold(0.2)
                 .setMemoryRevokingTarget(0.8)
+                .setTaskSpillingStrategy(PER_TASK_MEMORY_THRESHOLD)
+                .setMaxRevocableMemoryPerTask(100000L)
                 .setLegacyLogFunction(true)
                 .setExchangeCompressionEnabled(true)
                 .setLegacyTimestamp(false)

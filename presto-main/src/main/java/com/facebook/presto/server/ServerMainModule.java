@@ -53,6 +53,7 @@ import com.facebook.presto.execution.TaskManagementExecutor;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.TaskThresholdMemoryRevokingScheduler;
 import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
@@ -191,6 +192,7 @@ import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinde
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -310,7 +312,11 @@ public class ServerMainModule
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
 
         // memory revoking scheduler
-        binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);
+        installModuleIf(
+                FeaturesConfig.class,
+                config -> config.getTaskSpillingStrategy() == PER_TASK_MEMORY_THRESHOLD,
+                moduleBinder -> moduleBinder.bind(TaskThresholdMemoryRevokingScheduler.class).in(Scopes.SINGLETON),
+                moduleBinder -> moduleBinder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON));
 
         // Add monitoring for JVM pauses
         binder.bind(PauseMeter.class).in(Scopes.SINGLETON);
