@@ -39,6 +39,7 @@ import java.util.List;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -78,6 +79,8 @@ public class FeaturesConfig
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
+    private TaskSpillingStrategy taskSpillingStrategy = ORDER_BY_CREATE_TIME;
+    private long maxRevocableMemoryPerTask = 500000L;
     private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private int maxReorderedJoins = 9;
@@ -220,6 +223,13 @@ public class FeaturesConfig
         {
             return this == TOP_DOWN;
         }
+    }
+
+    public enum TaskSpillingStrategy
+    {
+        ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
+        ORDER_BY_REVOCABLE_BYTES, // When spilling is triggered, revoke tasks by most allocated revocable memory to least allocated revocable memory
+        PER_TASK_MEMORY_THRESHOLD // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
     }
 
     public double getCpuCostWeight()
@@ -545,6 +555,32 @@ public class FeaturesConfig
     public FeaturesConfig setJoinReorderingStrategy(JoinReorderingStrategy joinReorderingStrategy)
     {
         this.joinReorderingStrategy = joinReorderingStrategy;
+        return this;
+    }
+
+    public TaskSpillingStrategy getTaskSpillingStrategy()
+    {
+        return taskSpillingStrategy;
+    }
+
+    @Config("experimental.spiller.task-spilling-strategy")
+    @ConfigDescription("The strategy used to pick which task to spill when spilling is enabled. See TaskSpillingStrategy.")
+    public FeaturesConfig setTaskSpillingStrategy(TaskSpillingStrategy joinReorderingStrategy)
+    {
+        this.taskSpillingStrategy = joinReorderingStrategy;
+        return this;
+    }
+
+    public long getMaxRevocableMemoryPerTask()
+    {
+        return maxRevocableMemoryPerTask;
+    }
+
+    @Config("experimental.spiller.max-revocable-task-memory")
+    @ConfigDescription("Only used when task-spilling-strategy is PER_TASK_MEMORY_THRESHOLD")
+    public FeaturesConfig setMaxRevocableMemoryPerTask(long maxRevocableMemoryPerTask)
+    {
+        this.maxRevocableMemoryPerTask = maxRevocableMemoryPerTask;
         return this;
     }
 
