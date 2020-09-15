@@ -689,11 +689,8 @@ class RelationPlanner
 
     private RowExpression rewriteRow(Expression row)
     {
-        Expression expression = Coercer.addCoercions(row, analysis);
-        expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
-
         // resolve enum literals
-        expression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>() {
+        Expression expression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>() {
             @Override
             public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
             {
@@ -704,7 +701,9 @@ class RelationPlanner
                 }
                 return node;
             }
-        }, expression);
+        }, row);
+        expression = Coercer.addCoercions(expression, analysis);
+        expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
         return castToRowExpression(expression);
     }
 
