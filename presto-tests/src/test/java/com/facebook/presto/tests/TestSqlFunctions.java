@@ -50,6 +50,7 @@ public class TestSqlFunctions
                     .setSchema(TINY_SCHEMA_NAME)
                     .build();
             DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+                    .setExtraProperties(ImmutableMap.of("inline-sql-functions", "false"))
                     .setCoordinatorProperties(ImmutableMap.of("list-built-in-functions-only", "false"))
                     .build();
             queryRunner.enableTestFunctionNamespaces(
@@ -386,6 +387,15 @@ public class TestSqlFunctions
         assertQuerySucceeds(createFunction);
 
         assertQuery("SELECT testing.test.array_sum(array[1, 2, 3])", "VALUES 6L");
+    }
+
+    @Test
+    void testSqlFunctionsWithLambda()
+    {
+        assertQuerySucceeds("CREATE FUNCTION testing.test.lambda1(x array<int>) RETURNS int RETURN reduce(x, 0, (s, a) -> s + a, s -> s)");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.lambda2(x array<int>) RETURNS int RETURN reduce(x, 0, (s, a) -> if (a > 0, s + a, s), s -> s)");
+        assertQuerySucceeds("CREATE FUNCTION testing.test.lambda3(x array<int>) RETURNS int RETURN reduce(x, 0, (s, a) -> if (a < 0, s + a, s), s -> s)");
+        assertQuery("SELECT testing.test.lambda1(array_union(x, y)), testing.test.lambda2(array_union(x, y)), testing.test.lambda3(array_union(x, y)) FROM (VALUES (array[3, 5, 0, -4, -7], array[-1, 0, 1])) t(x, y)", "SELECT -3, 9, -12");
     }
 
     @Test
