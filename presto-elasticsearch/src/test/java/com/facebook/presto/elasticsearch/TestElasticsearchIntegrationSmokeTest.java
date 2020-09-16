@@ -803,7 +803,7 @@ public class TestElasticsearchIntegrationSmokeTest
                 "SELECT count(*) FROM orders");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testMultiIndexAlias()
     {
         embeddedElasticsearchNode.getClient()
