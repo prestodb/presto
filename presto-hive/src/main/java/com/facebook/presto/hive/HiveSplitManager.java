@@ -32,9 +32,11 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -52,8 +54,10 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -70,12 +74,15 @@ import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSched
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.reducing;
 
 public class HiveSplitManager
         implements ConnectorSplitManager
@@ -223,7 +230,15 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
 
-        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, bucketHandle, session, layout.getRequestedColumns());
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(
+                metastore,
+                table,
+                tableName,
+                partitions,
+                bucketHandle,
+                session,
+                layout.getRequestedColumns(),
+                ImmutableSet.copyOf(layout.getPredicateColumns().values()));
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
@@ -312,11 +327,14 @@ public class HiveSplitManager
             List<HivePartition> hivePartitions,
             Optional<HiveBucketHandle> hiveBucketHandle,
             ConnectorSession session,
-            Optional<Set<HiveColumnHandle>> requestedColumns)
+            Optional<Set<HiveColumnHandle>> requestedColumns,
+            Set<HiveColumnHandle> predicateColumns)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
         }
+
+        Optional<Set<HiveColumnHandle>> allRequestedColumns = mergeRequestedAndPredicateColumns(requestedColumns, predicateColumns);
 
         if (hivePartitions.size() == 1) {
             HivePartition firstPartition = getOnlyElement(hivePartitions);
@@ -325,7 +343,7 @@ public class HiveSplitManager
                         firstPartition,
                         Optional.empty(),
                         ImmutableMap.of(),
-                        encryptionInformationProvider.getReadEncryptionInformation(session, table, requestedColumns)));
+                        encryptionInformationProvider.getReadEncryptionInformation(session, table, allRequestedColumns)));
             }
         }
 
@@ -350,7 +368,7 @@ public class HiveSplitManager
             Optional<Map<String, EncryptionInformation>> encryptionInformationForPartitions = encryptionInformationProvider.getReadEncryptionInformation(
                     session,
                     table,
-                    requestedColumns,
+                    allRequestedColumns,
                     partitions);
 
             ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
@@ -448,6 +466,37 @@ public class HiveSplitManager
             return results.build();
         });
         return concat(partitionBatches);
+    }
+
+    @VisibleForTesting
+    static Optional<Set<HiveColumnHandle>> mergeRequestedAndPredicateColumns(Optional<Set<HiveColumnHandle>> requestedColumns, Set<HiveColumnHandle> predicateColumns)
+    {
+        if (!requestedColumns.isPresent() || predicateColumns.isEmpty()) {
+            return requestedColumns;
+        }
+
+        return Optional.of(
+                Stream.concat(requestedColumns.get().stream(), predicateColumns.stream())
+                        .filter(column -> column.getColumnType() == REGULAR)
+                        .collect(groupingBy(
+                                HiveColumnHandle::getName,
+                                reducing((handle1, handle2) -> {
+                                    if (handle1.getRequiredSubfields().isEmpty()) {
+                                        return handle1;
+                                    }
+
+                                    if (handle2.getRequiredSubfields().isEmpty()) {
+                                        return handle2;
+                                    }
+
+                                    return (HiveColumnHandle) handle1.withRequiredSubfields(ImmutableList.copyOf(ImmutableSet.copyOf(
+                                            ImmutableList.<Subfield>builder().addAll(handle1.getRequiredSubfields()).addAll(handle2.getRequiredSubfields()).build())));
+                                })))
+                        .values()
+                        .stream()
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .collect(toImmutableSet()));
     }
 
     static boolean isBucketCountCompatible(int tableBucketCount, int partitionBucketCount)
