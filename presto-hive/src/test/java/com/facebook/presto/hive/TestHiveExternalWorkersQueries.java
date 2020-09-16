@@ -139,6 +139,10 @@ public class TestHiveExternalWorkersQueries
         assertQuery("SELECT * FROM nation WHERE nationkey >= 4");
         assertQuery("SELECT nationkey * 10, nationkey % 5, -nationkey, nationkey / 3 FROM nation");
         assertQuery("SELECT *, nationkey / 3 FROM nation");
+
+        assertQuery("SELECT rand() < 1, random() < 1 FROM nation", "SELECT true, true FROM nation");
+        assertQuery("SELECT ceil(discount), ceiling(discount), floor(discount), abs(discount) FROM lineitem");
+        assertQuery("SELECT substr(comment, 1, 10), length(comment) FROM orders");
     }
 
     @Test
