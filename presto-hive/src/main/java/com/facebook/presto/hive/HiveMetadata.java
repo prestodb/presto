@@ -920,7 +920,6 @@ public class HiveMetadata
     public ConnectorTableHandle createTemporaryTable(ConnectorSession session, List<ColumnMetadata> columns, Optional<ConnectorPartitioningMetadata> partitioningMetadata)
     {
         String schemaName = getTemporaryTableSchema(session);
-        String tableName = PRESTO_TEMPORARY_TABLE_NAME_PREFIX + randomUUID().toString().replaceAll("-", "_");
         HiveStorageFormat storageFormat = getTemporaryTableStorageFormat(session);
 
         Optional<HiveBucketProperty> bucketProperty = partitioningMetadata.map(partitioning -> {
@@ -984,6 +983,7 @@ public class HiveMetadata
         validateColumns(storageFormat, columnHandles);
 
         HiveStorageFormat finalStorageFormat = storageFormat;
+        String tableName = PRESTO_TEMPORARY_TABLE_NAME_PREFIX + finalStorageFormat.name() + "_" + randomUUID().toString().replaceAll("-", "_");
         Table table = Table.builder()
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
