@@ -437,7 +437,7 @@ public class TestAnalyzer
         assertFails(MISSING_ATTRIBUTE, "SELECT * FROM t1 WHERE f > 1");
     }
 
-    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "line 1:8: 't.y' cannot be resolved")
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "line 1:8: Column 't.y' cannot be resolved")
     public void testInvalidAttributeCorrectErrorMessage()
     {
         analyze("SELECT t.y FROM (VALUES 1) t(x)");
@@ -1165,7 +1165,7 @@ public class TestAnalyzer
         assertFails(MISMATCHED_COLUMN_ALIASES, 1, 19, "CREATE TABLE test(x, y) AS (VALUES 1)");
         assertFails(DUPLICATE_COLUMN_NAME, 1, 24, "CREATE TABLE test(abc, AbC) AS SELECT 1, 2");
         assertFails(COLUMN_TYPE_UNKNOWN, 1, 1, "CREATE TABLE test(x) AS SELECT null");
-        assertFails(MISSING_ATTRIBUTE, ".*'y' cannot be resolved", "CREATE TABLE test(x) WITH (p1 = y) AS SELECT null");
+        assertFails(MISSING_ATTRIBUTE, ".*Column 'y' cannot be resolved", "CREATE TABLE test(x) WITH (p1 = y) AS SELECT null");
         assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1", "CREATE TABLE test(x) WITH (p1 = 'p1', p2 = 'p2', p1 = 'p3') AS SELECT null");
         assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1", "CREATE TABLE test(x) WITH (p1 = 'p1', \"p1\" = 'p2') AS SELECT null");
     }
@@ -1176,7 +1176,7 @@ public class TestAnalyzer
         analyze("CREATE TABLE test (id bigint)");
         analyze("CREATE TABLE test (id bigint) WITH (p1 = 'p1')");
 
-        assertFails(MISSING_ATTRIBUTE, ".*'y' cannot be resolved", "CREATE TABLE test (x bigint) WITH (p1 = y)");
+        assertFails(MISSING_ATTRIBUTE, ".*Column 'y' cannot be resolved", "CREATE TABLE test (x bigint) WITH (p1 = y)");
         assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1", "CREATE TABLE test (id bigint) WITH (p1 = 'p1', p2 = 'p2', p1 = 'p3')");
         assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1", "CREATE TABLE test (id bigint) WITH (p1 = 'p1', \"p1\" = 'p2')");
     }
@@ -1197,7 +1197,7 @@ public class TestAnalyzer
         analyze("CREATE SCHEMA test");
         analyze("CREATE SCHEMA test WITH (p1 = 'p1')");
 
-        assertFails(MISSING_ATTRIBUTE, ".*'y' cannot be resolved", "CREATE SCHEMA test WITH (p1 = y)");
+        assertFails(MISSING_ATTRIBUTE, ".*Column 'y' cannot be resolved", "CREATE SCHEMA test WITH (p1 = y)");
         assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1", "CREATE SCHEMA test WITH (p1 = 'p1', p2 = 'p2', p1 = 'p3')");
         assertFails(DUPLICATE_PROPERTY, ".* Duplicate property: p1", "CREATE SCHEMA test WITH (p1 = 'p1', \"p1\" = 'p2')");
     }
