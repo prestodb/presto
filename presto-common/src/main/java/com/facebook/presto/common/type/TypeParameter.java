@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
-import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
-
 import java.util.Objects;
 
 import static java.lang.String.format;
@@ -51,16 +48,6 @@ public class TypeParameter
         return new TypeParameter(ParameterKind.VARIABLE, variable);
     }
 
-    public static TypeParameter of(LongEnumMap enumMap)
-    {
-        return new TypeParameter(ParameterKind.LONG_ENUM, enumMap);
-    }
-
-    public static TypeParameter of(VarcharEnumMap enumMap)
-    {
-        return new TypeParameter(ParameterKind.VARCHAR_ENUM, enumMap);
-    }
-
     public static TypeParameter of(TypeSignatureParameter parameter, TypeManager typeManager)
     {
         switch (parameter.getKind()) {
@@ -78,10 +65,6 @@ public class TypeParameter
             }
             case VARIABLE:
                 return of(parameter.getVariable());
-            case LONG_ENUM:
-                return of(parameter.getLongEnumMap());
-            case VARCHAR_ENUM:
-                return of(parameter.getVarcharEnumMap());
             default:
                 throw new UnsupportedOperationException(format("Unsupported parameter [%s]", parameter));
         }
@@ -113,16 +96,6 @@ public class TypeParameter
     public Long getLongLiteral()
     {
         return getValue(ParameterKind.LONG, Long.class);
-    }
-
-    public LongEnumMap getLongEnumMap()
-    {
-        return getValue(ParameterKind.LONG_ENUM, LongEnumMap.class);
-    }
-
-    public VarcharEnumMap getVarcharEnumMap()
-    {
-        return getValue(ParameterKind.VARCHAR_ENUM, VarcharEnumMap.class);
     }
 
     public NamedType getNamedType()
