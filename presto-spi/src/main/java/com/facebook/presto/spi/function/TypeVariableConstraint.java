@@ -27,30 +27,18 @@ public class TypeVariableConstraint
     private final boolean comparableRequired;
     private final boolean orderableRequired;
     private final String variadicBound;
-    private final Class<? extends Type> typeBound;
 
     @JsonCreator
     public TypeVariableConstraint(
             @JsonProperty("name") String name,
             @JsonProperty("comparableRequired") boolean comparableRequired,
             @JsonProperty("orderableRequired") boolean orderableRequired,
-            @JsonProperty("variadicBound") @Nullable String variadicBound,
-            @JsonProperty("boundedBy") Class<? extends Type> typeBound)
+            @JsonProperty("variadicBound") @Nullable String variadicBound)
     {
         this.name = name;
         this.comparableRequired = comparableRequired;
         this.orderableRequired = orderableRequired;
         this.variadicBound = variadicBound;
-        this.typeBound = typeBound;
-    }
-
-    public TypeVariableConstraint(
-            @JsonProperty("name") String name,
-            @JsonProperty("comparableRequired") boolean comparableRequired,
-            @JsonProperty("orderableRequired") boolean orderableRequired,
-            @JsonProperty("variadicBound") @Nullable String variadicBound)
-    {
-        this(name, comparableRequired, orderableRequired, variadicBound, Type.class);
     }
 
     @JsonProperty
@@ -77,21 +65,12 @@ public class TypeVariableConstraint
         return variadicBound;
     }
 
-    @JsonProperty
-    public Class<? extends Type> getTypeBound()
-    {
-        return typeBound;
-    }
-
     public boolean canBind(Type type)
     {
         if (comparableRequired && !type.isComparable()) {
             return false;
         }
         if (orderableRequired && !type.isOrderable()) {
-            return false;
-        }
-        if (!typeBound.isInstance(type)) {
             return false;
         }
         if (variadicBound != null && !type.getTypeSignature().getBase().equals(variadicBound)) {
@@ -113,9 +92,6 @@ public class TypeVariableConstraint
         if (variadicBound != null) {
             value += ":" + variadicBound + "<*>";
         }
-        if (!typeBound.equals(Type.class)) {
-            value += " extends " + typeBound.getSimpleName();
-        }
         return value;
     }
 
@@ -132,13 +108,12 @@ public class TypeVariableConstraint
         return comparableRequired == that.comparableRequired &&
                 orderableRequired == that.orderableRequired &&
                 Objects.equals(name, that.name) &&
-                Objects.equals(variadicBound, that.variadicBound) &&
-                Objects.equals(typeBound, that.typeBound);
+                Objects.equals(variadicBound, that.variadicBound);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, comparableRequired, orderableRequired, variadicBound, typeBound);
+        return Objects.hash(name, comparableRequired, orderableRequired, variadicBound);
     }
 }

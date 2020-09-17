@@ -57,6 +57,9 @@ import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
+import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
+import static com.facebook.presto.spi.function.Signature.orderableTypeParameter;
+import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -109,13 +112,13 @@ public class FunctionsParserHelper
         for (TypeParameter typeParameter : typeParameters) {
             String name = typeParameter.value();
             if (orderableRequired.contains(name)) {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, false, true, null, typeParameter.boundedBy()));
+                typeVariableConstraints.add(orderableTypeParameter(name));
             }
             else if (comparableRequired.contains(name)) {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, true, false, null, typeParameter.boundedBy()));
+                typeVariableConstraints.add(comparableTypeParameter(name));
             }
             else {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, false, false, null, typeParameter.boundedBy()));
+                typeVariableConstraints.add(typeVariable(name));
             }
         }
         return typeVariableConstraints.build();
