@@ -13,34 +13,23 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.common.type.EnumType;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
-import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
-import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Predicate;
 
-import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ExpressionTreeUtils
@@ -122,51 +111,5 @@ public final class ExpressionTreeUtils
     public static boolean isEqualComparisonExpression(Expression expression)
     {
         return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == ComparisonExpression.Operator.EQUAL;
-    }
-
-    static Optional<EnumType> tryResolveEnumLiteralType(QualifiedName qualifiedName, TypeManager typeManager)
-    {
-        Optional<QualifiedName> prefix = qualifiedName.getPrefix();
-        if (!prefix.isPresent()) {
-            // an enum literal should be of the form `MyEnum.my_key`
-            return Optional.empty();
-        }
-        try {
-            Type baseType = typeManager.getType(parseTypeSignature(prefix.get().toString()));
-            if (baseType instanceof EnumType) {
-                return Optional.of((EnumType) baseType);
-            }
-        }
-        catch (IllegalArgumentException e) {
-            return Optional.empty();
-        }
-        return Optional.empty();
-    }
-
-    private static boolean isEnumLiteral(DereferenceExpression node, Type nodeType)
-    {
-        if (!(nodeType instanceof EnumType)) {
-            return false;
-        }
-        QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
-        if (qualifiedName == null) {
-            return false;
-        }
-        Optional<QualifiedName> prefix = qualifiedName.getPrefix();
-        return prefix.isPresent()
-                && prefix.get().toString().equalsIgnoreCase(nodeType.getTypeSignature().getBase());
-    }
-
-    public static Optional<Object> tryResolveEnumLiteral(DereferenceExpression node, Type nodeType)
-    {
-        QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
-        if (!isEnumLiteral(node, nodeType)) {
-            return Optional.empty();
-        }
-        EnumType enumType = (EnumType) nodeType;
-        String enumKey = qualifiedName.getSuffix().toUpperCase(ENGLISH);
-        checkArgument(enumType.getEnumMap().containsKey(enumKey), format("No key '%s' in enum '%s'", enumKey, nodeType.getDisplayName()));
-        Object enumValue = enumType.getEnumMap().get(enumKey);
-        return enumValue instanceof String ? Optional.of(utf8Slice((String) enumValue)) : Optional.of(enumValue);
     }
 }
