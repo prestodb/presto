@@ -19,7 +19,6 @@ import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.ResolvedField;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DereferenceExpression;
-import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -37,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteral;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -236,13 +234,6 @@ class TranslationMap
                     // do not rewrite outer references, it will be handled in outer scope planner
                     return node;
                 }
-
-                Type nodeType = analysis.getType(node);
-                Optional<Object> maybeEnumValue = tryResolveEnumLiteral(node, nodeType);
-                if (maybeEnumValue.isPresent()) {
-                    return new EnumLiteral(nodeType.getTypeSignature().toString(), maybeEnumValue.get());
-                }
-
                 return rewriteExpression(node, context, treeRewriter);
             }
 

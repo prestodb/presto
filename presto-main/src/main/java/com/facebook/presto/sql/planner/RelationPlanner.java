@@ -53,11 +53,8 @@ import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
-import com.facebook.presto.sql.tree.DereferenceExpression;
-import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.Except;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
@@ -100,7 +97,6 @@ import java.util.Set;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isEqualComparisonExpression;
-import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteral;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.notSupportedException;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identitiesAsSymbolReferences;
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.asSymbolReference;
@@ -674,38 +670,20 @@ class RelationPlanner
             ImmutableList.Builder<RowExpression> values = ImmutableList.builder();
             if (row instanceof Row) {
                 for (Expression item : ((Row) row).getItems()) {
-                    values.add(rewriteRow(item));
+                    Expression expression = Coercer.addCoercions(item, analysis);
+                    values.add(castToRowExpression(ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression)));
                 }
             }
             else {
-                values.add(rewriteRow(row));
+                Expression expression = Coercer.addCoercions(row, analysis);
+                values.add(castToRowExpression(ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression)));
             }
+
             rowsBuilder.add(values.build());
         }
 
         ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), outputVariablesBuilder.build(), rowsBuilder.build());
         return new RelationPlan(valuesNode, scope, outputVariablesBuilder.build());
-    }
-
-    private RowExpression rewriteRow(Expression row)
-    {
-        Expression expression = Coercer.addCoercions(row, analysis);
-        expression = ExpressionTreeRewriter.rewriteWith(new ParameterRewriter(analysis.getParameters(), analysis), expression);
-
-        // resolve enum literals
-        expression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>() {
-            @Override
-            public Expression rewriteDereferenceExpression(DereferenceExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                Type nodeType = analysis.getType(node);
-                Optional<Object> maybeEnumValue = tryResolveEnumLiteral(node, nodeType);
-                if (maybeEnumValue.isPresent()) {
-                    return new EnumLiteral(nodeType.getTypeSignature().toString(), maybeEnumValue.get());
-                }
-                return node;
-            }
-        }, expression);
-        return castToRowExpression(expression);
     }
 
     @Override
