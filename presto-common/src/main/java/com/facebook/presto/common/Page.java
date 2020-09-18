@@ -329,6 +329,11 @@ public final class Page
         return wrapBlocksWithoutCopy(length, blocks);
     }
 
+    public Page extractChannel(int channel)
+    {
+        return wrapBlocksWithoutCopy(positionCount, new Block[]{this.blocks[channel]});
+    }
+
     public Page extractChannels(int[] channels)
     {
         requireNonNull(channels, "channels is null");
