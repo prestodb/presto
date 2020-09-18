@@ -74,13 +74,8 @@ public class UnloadedIndexKeyRecordSet
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
 
-            Block[] distinctBlocks = new Block[distinctChannels.length];
-            for (int i = 0; i < distinctBlocks.length; i++) {
-                distinctBlocks[i] = page.getBlock(distinctChannels[i]);
-            }
-
             // Move through the positions while advancing the cursors in lockstep
-            Work<GroupByIdBlock> work = groupByHash.getGroupIds(new Page(distinctBlocks));
+            Work<GroupByIdBlock> work = groupByHash.getGroupIds(page.extractChannels(distinctChannels));
             boolean done = work.process();
             // TODO: this class does not yield wrt memory limit; enable it
             verify(done);

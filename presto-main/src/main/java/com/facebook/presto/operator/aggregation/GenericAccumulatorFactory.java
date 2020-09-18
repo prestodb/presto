@@ -550,14 +550,9 @@ public class GenericAccumulatorFactory
         @Override
         public void addInput(GroupByIdBlock groupIdsBlock, Page page)
         {
-            Block[] blocks = new Block[page.getChannelCount() + 1];
-            for (int i = 0; i < page.getChannelCount(); i++) {
-                blocks[i] = page.getBlock(i);
-            }
-            // Add group id block
-            blocks[page.getChannelCount()] = groupIdsBlock;
             groupCount = max(groupCount, groupIdsBlock.getGroupCount());
-            pagesIndex.addPage(new Page(blocks));
+            // Add group id block
+            pagesIndex.addPage(page.appendColumn(groupIdsBlock));
         }
 
         @Override

@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.OperatorFactory;
@@ -91,8 +90,7 @@ public class DynamicTupleFilterFactory
 
     public OperatorFactory filterWithTuple(Page tuplePage)
     {
-        Page filterTuple = getFilterTuple(tuplePage);
-        Supplier<PageProcessor> processor = createPageProcessor(filterTuple, OptionalInt.empty());
+        Supplier<PageProcessor> processor = createPageProcessor(tuplePage.extractChannels(tupleFilterChannels), OptionalInt.empty());
         return new FilterAndProjectOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, new DataSize(0, BYTE), 0);
     }
 
@@ -106,14 +104,5 @@ public class DynamicTupleFilterFactory
                         .map(Supplier::get)
                         .collect(toImmutableList()),
                 initialBatchSize);
-    }
-
-    private Page getFilterTuple(Page tuplePage)
-    {
-        Block[] normalizedBlocks = new Block[tupleFilterChannels.length];
-        for (int i = 0; i < tupleFilterChannels.length; i++) {
-            normalizedBlocks[i] = tuplePage.getBlock(tupleFilterChannels[i]);
-        }
-        return new Page(normalizedBlocks);
     }
 }
