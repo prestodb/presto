@@ -39,13 +39,14 @@ import com.facebook.presto.parquet.reader.LongTimestampMicrosColumnReader;
 import com.facebook.presto.parquet.reader.ShortDecimalColumnReader;
 import com.facebook.presto.parquet.reader.TimestampColumnReader;
 import com.facebook.presto.spi.PrestoException;
-import org.apache.parquet.schema.OriginalType;
 
 import java.util.Optional;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.createDecimalType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.isTimeStampMicrosType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static org.apache.parquet.schema.OriginalType.DECIMAL;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
 
 public class ColumnReaderFactory
 {
@@ -56,7 +57,7 @@ public class ColumnReaderFactory
     public static ColumnReader createReader(RichColumnDescriptor descriptor, boolean batchReadEnabled)
     {
         // decimal is not supported in batch readers
-        if (batchReadEnabled && descriptor.getPrimitiveType().getOriginalType() != OriginalType.DECIMAL) {
+        if (batchReadEnabled && descriptor.getPrimitiveType().getOriginalType() != DECIMAL) {
             final boolean isNested = descriptor.getPath().length > 1;
             switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
                 case BOOLEAN:
@@ -83,7 +84,7 @@ public class ColumnReaderFactory
             case INT32:
                 return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
             case INT64:
-                if (OriginalType.TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType())) {
+                if (TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType())) {
                     return new LongTimestampMicrosColumnReader(descriptor);
                 }
                 return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));

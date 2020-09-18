@@ -29,7 +29,6 @@ import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.DecimalMetadata;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.OriginalType;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -42,6 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.joining;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
 public final class ParquetTypeUtils
@@ -332,6 +332,6 @@ public final class ParquetTypeUtils
 
     public static boolean isTimeStampMicrosType(ColumnDescriptor descriptor)
     {
-        return OriginalType.TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
+        return TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
     }
 }
