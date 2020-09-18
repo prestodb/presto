@@ -38,6 +38,7 @@ public class TestPrestoActionConfig
                 .setJdbcPort(0)
                 .setHttpPort(null)
                 .setJdbcUrlParameters(null)
+                .setApplicationName("verifier-test")
                 .setQueryTimeout(new Duration(60, MINUTES)));
     }
 
@@ -50,13 +51,15 @@ public class TestPrestoActionConfig
                 .put("http-port", "7777")
                 .put("jdbc-url-parameters", "{\"SSL\": false}")
                 .put("query-timeout", "2h")
+                .put("application-name", "verifier")
                 .build();
         PrestoActionConfig expected = new PrestoActionConfig()
                 .setHosts("proxy.presto.fbinfra.net")
                 .setJdbcPort(7778)
                 .setHttpPort(7777)
                 .setJdbcUrlParameters("{\"SSL\": false}")
-                .setQueryTimeout(new Duration(2, HOURS));
+                .setQueryTimeout(new Duration(2, HOURS))
+                .setApplicationName("verifier");
 
         assertFullMapping(properties, expected);
     }

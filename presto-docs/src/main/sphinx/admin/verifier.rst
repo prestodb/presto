@@ -36,10 +36,16 @@ Next, create a ``config.properties`` file:
 
 .. code-block:: none
 
-    source-query.suite=my_suite
-    source-query.database=jdbc:mysql://localhost:3306/my_database?user=my_username&password=my_password
-    control.gateway=jdbc:presto://localhost:8080
-    test.gateway=jdbc:presto://localhost:8081
+    source-query.suites=suite
+    source-query.database=jdbc:mysql://localhost:3306/mydb?user=my_username&password=my_password
+    control.hosts=127.0.0.1
+    control.http-port=8080
+    control.jdbc-port=8080
+    control.application-name=verifier-test
+    test.hosts=127.0.0.1
+    test.http-port=8081
+    test.jdbc-port=8081
+    test.application-name=verifier-test
     test-id=1
 
 Download :maven_download:`verifier` and rename it to ``verifier``. To run the Verifier:
@@ -274,6 +280,7 @@ Name                                        Description
 ``control.query-timeout``                   The execution time limit of the control and the test queries.
 ``control.metadata-timeout``                The execution time limit of ``DESC`` queries and ``LIMIT 0`` queries.
 ``control.checksum-timeout``                The execution time limit of checksum queries.
+``control.application-name``                ApplicationName to be passed in ClientInfo. Can be used to set source.
 =========================================== ===============================================================================
 
 Determinism Analyzer Configuration
