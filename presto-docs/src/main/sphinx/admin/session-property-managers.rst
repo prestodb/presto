@@ -62,6 +62,9 @@ Consider the following set of requirements:
 * All ETL queries (tagged with 'etl') are routed to subgroups under the ``global.pipeline`` group, and must be
   configured with certain properties to control writer behavior.
 
+* All high memory ETL queries (tagged with 'high_mem_etl') are routed to subgroups under the ``global.pipeline`` group,
+  and must be configured to enable :doc:`/admin/exchange-materialization`.
+
 These requirements can be expressed with the following rules:
 
 .. code-block:: json
@@ -85,6 +88,15 @@ These requirements can be expressed with the following rules:
         "sessionProperties": {
           "scale_writers": "true",
           "writer_min_size": "1GB"
+        }
+      },
+      {
+        "group": "global.pipeline.*",
+        "clientTags": ["high_mem_etl"],
+        "sessionProperties": {
+          "exchange_materialization_strategy": "ALL",
+          "partitioning_provider_catalog": "hive",
+          "hash_partition_count": 4096
         }
       }
     ]
