@@ -52,7 +52,6 @@ import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
 import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
 import static com.facebook.presto.verifier.framework.ClusterType.TEST;
-import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.QueryType.UNSUPPORTED;
 import static com.facebook.presto.verifier.framework.SkippedReason.CUSTOM_FILTER;
 import static com.facebook.presto.verifier.framework.SkippedReason.MISMATCHED_QUERY_TYPE;
@@ -228,9 +227,6 @@ public class VerificationManager
                 }
                 else if (controlQueryType != testQueryType) {
                     postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, MISMATCHED_QUERY_TYPE, skipControl));
-                }
-                else if (controlQueryType.getCategory() != DATA_PRODUCING) {
-                    postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, UNSUPPORTED_QUERY_TYPE, skipControl));
                 }
                 else {
                     selected.add(sourceQuery);

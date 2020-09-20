@@ -70,11 +70,9 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.verifier.framework.QueryStage.REWRITE;
-import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnNames;
 import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnTypes;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -111,7 +109,6 @@ public class QueryRewriter
         checkState(prefixes.containsKey(clusterType), "Unsupported cluster type: %s", clusterType);
         Statement statement = sqlParser.createStatement(query, PARSING_OPTIONS);
         QueryType queryType = QueryType.of(statement);
-        checkArgument(queryType.getCategory() == DATA_PRODUCING, "Unsupported statement type: %s", queryType);
 
         QualifiedName prefix = prefixes.get(clusterType);
         List<Property> properties = tableProperties.get(clusterType);
