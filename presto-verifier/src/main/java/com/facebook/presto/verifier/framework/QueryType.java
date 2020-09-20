@@ -16,52 +16,27 @@ package com.facebook.presto.verifier.framework;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Insert;
 import com.facebook.presto.sql.tree.Query;
-import com.facebook.presto.sql.tree.ShowCatalogs;
-import com.facebook.presto.sql.tree.ShowColumns;
-import com.facebook.presto.sql.tree.ShowFunctions;
-import com.facebook.presto.sql.tree.ShowSchemas;
-import com.facebook.presto.sql.tree.ShowSession;
-import com.facebook.presto.sql.tree.ShowTables;
 import com.facebook.presto.sql.tree.Statement;
 
 import java.util.Optional;
 
-import static com.facebook.presto.verifier.framework.QueryType.Category.DATA_PRODUCING;
-import static com.facebook.presto.verifier.framework.QueryType.Category.METADATA_READ;
-import static java.util.Objects.requireNonNull;
-
 public enum QueryType
 {
-    CREATE_TABLE_AS_SELECT(DATA_PRODUCING, CreateTableAsSelect.class),
-    INSERT(DATA_PRODUCING, Insert.class),
-    QUERY(DATA_PRODUCING, Query.class),
-    SHOW_CATALOGS(METADATA_READ, ShowCatalogs.class),
-    SHOW_COLUMNS(METADATA_READ, ShowColumns.class),
-    SHOW_FUNCTIONS(METADATA_READ, ShowFunctions.class),
-    SHOW_SCHEMAS(METADATA_READ, ShowSchemas.class),
-    SHOW_SESSION(METADATA_READ, ShowSession.class),
-    SHOW_TABLES(METADATA_READ, ShowTables.class),
-    UNSUPPORTED(Category.UNSUPPORTED, Optional.empty());
+    CREATE_TABLE_AS_SELECT(CreateTableAsSelect.class),
+    INSERT(Insert.class),
+    QUERY(Query.class),
+    UNSUPPORTED();
 
-    public enum Category
-    {
-        DATA_PRODUCING,
-        METADATA_READ,
-        UNSUPPORTED,
-    }
-
-    private final Category category;
     private final Optional<Class<? extends Statement>> statementClass;
 
-    QueryType(Category category, Class<? extends Statement> statementClass)
+    QueryType(Class<? extends Statement> statementClass)
     {
-        this(category, Optional.of(statementClass));
+        this.statementClass = Optional.of(statementClass);
     }
 
-    QueryType(Category category, Optional<Class<? extends Statement>> statementClass)
+    QueryType()
     {
-        this.category = requireNonNull(category, "category is null");
-        this.statementClass = requireNonNull(statementClass, "statementClass is null");
+        this.statementClass = Optional.empty();
     }
 
     public static QueryType of(Statement statement)
@@ -72,10 +47,5 @@ public enum QueryType
             }
         }
         return UNSUPPORTED;
-    }
-
-    public Category getCategory()
-    {
-        return category;
     }
 }

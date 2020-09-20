@@ -86,8 +86,10 @@ public class VerificationFactory
                     sqlParser);
         }
 
-        switch (queryType.getCategory()) {
-            case DATA_PRODUCING:
+        switch (queryType) {
+            case CREATE_TABLE_AS_SELECT:
+            case INSERT:
+            case QUERY:
                 QueryRewriter queryRewriter = queryRewriterFactory.create(queryActions.getHelperAction());
                 DeterminismAnalyzer determinismAnalyzer = new DeterminismAnalyzer(
                         sourceQuery,
