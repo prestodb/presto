@@ -129,6 +129,10 @@
             <outputDirectory>plugin/postgresql</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-prometheus-${project.version}</directory>
+            <outputDirectory>plugin/prometheus</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-redshift-${project.version}</directory>
             <outputDirectory>plugin/redshift</outputDirectory>
         </fileSet>

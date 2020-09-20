@@ -28,6 +28,7 @@ from different data sources.
     connector/oracle
     connector/pinot
     connector/postgresql
+    connector/prometheus
     connector/redis
     connector/redshift
     connector/sqlserver

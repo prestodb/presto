@@ -119,6 +119,7 @@
         <module>presto-mysql</module>
         <module>presto-oracle</module>
         <module>presto-postgresql</module>
+        <module>presto-prometheus</module>
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
         <module>presto-mongodb</module>
@@ -380,6 +381,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-oracle</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-prometheus</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
