@@ -87,8 +87,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             SqlExceptionClassifier exceptionClassifier,
             VerificationContext verificationContext,
             Optional<ResultSetConverter<V>> mainQueryResultSetConverter,
-            VerifierConfig verifierConfig,
-            boolean skipControl)
+            VerifierConfig verifierConfig)
     {
         this.queryActions = requireNonNull(queryActions, "queryActions is null");
         this.sourceQuery = requireNonNull(sourceQuery, "sourceQuery is null");
@@ -101,7 +100,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         this.verificationResubmissionLimit = verifierConfig.getVerificationResubmissionLimit();
         this.setupOnMainClusters = verifierConfig.isSetupOnMainClusters();
         this.teardownOnMainClusters = verifierConfig.isTeardownOnMainClusters();
-        this.skipControl = skipControl;
+        this.skipControl = verifierConfig.isSkipControl();
     }
 
     protected abstract B getQueryRewrite(ClusterType clusterType);

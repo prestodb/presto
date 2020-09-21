@@ -52,18 +52,8 @@ public class ExplainVerification
             VerifierConfig verifierConfig,
             SqlParser sqlParser)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.of(QUERY_PLAN_RESULT_SET_CONVERTER), verifierConfig, shouldSkipControl(verifierConfig, sqlParser, sourceQuery));
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.of(QUERY_PLAN_RESULT_SET_CONVERTER), verifierConfig);
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-    }
-
-    private static boolean shouldSkipControl(VerifierConfig verifierConfig, SqlParser sqlParser, SourceQuery sourceQuery)
-    {
-        if (verifierConfig.isSkipControl()) {
-            return true;
-        }
-        // Skip control query and plan comparison for non-data-producing queries.
-        QueryType queryType = QueryType.of(sqlParser.createStatement(sourceQuery.getQuery(CONTROL), PARSING_OPTIONS));
-        return queryType != CREATE_TABLE_AS_SELECT && queryType != INSERT && queryType != QUERY;
     }
 
     @Override

@@ -60,13 +60,13 @@ public class TestExplainVerification
     @Test
     public void testSuccess()
     {
-        Optional<VerifierQueryEvent> event = runVerification("SELECT 1");
+        Optional<VerifierQueryEvent> event = runVerification("SHOW FUNCTIONS");
         assertTrue(event.isPresent());
 
         assertEvent(event.get(), SUCCEEDED);
         assertEquals(event.get().getMatchType(), "MATCH");
-        assertEquals(event.get().getControlQueryInfo().getQuery(), "EXPLAIN (FORMAT JSON)\nSELECT 1\n\n");
-        assertEquals(event.get().getTestQueryInfo().getQuery(), "EXPLAIN (FORMAT JSON)\nSELECT 1\n\n");
+        assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSHOW FUNCTIONS");
+        assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSHOW FUNCTIONS");
         assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
         assertNotNull(event.get().getTestQueryInfo().getJsonPlan());
     }
@@ -80,22 +80,9 @@ public class TestExplainVerification
         // Explain verification do not fail in case of plan changes.
         assertEvent(event.get(), SUCCEEDED);
         assertEquals(event.get().getMatchType(), "PLAN_CHANGED");
-        assertEquals(event.get().getControlQueryInfo().getQuery(), "EXPLAIN (FORMAT JSON)\nSELECT 1\n\n");
-        assertEquals(event.get().getTestQueryInfo().getQuery(), "EXPLAIN (FORMAT JSON)\nSELECT 2\n\n");
+        assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 1");
+        assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 2");
         assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
-        assertNotNull(event.get().getTestQueryInfo().getJsonPlan());
-    }
-
-    @Test
-    public void testSkipControl()
-    {
-        Optional<VerifierQueryEvent> event = runVerification("SHOW FUNCTIONS");
-        assertTrue(event.isPresent());
-
-        assertEvent(event.get(), SUCCEEDED);
-        assertNull(event.get().getMatchType());
-        assertNull(event.get().getControlQueryInfo());
-        assertEquals(event.get().getTestQueryInfo().getQuery(), "EXPLAIN (FORMAT JSON)\nSHOW FUNCTIONS");
         assertNotNull(event.get().getTestQueryInfo().getJsonPlan());
     }
 
@@ -107,8 +94,8 @@ public class TestExplainVerification
 
         assertEvent(event.get(), FAILED);
         assertNull(event.get().getMatchType());
-        assertEquals(event.get().getControlQueryInfo().getQuery(), "EXPLAIN (FORMAT JSON)\nSELECT 1\n\n");
-        assertEquals(event.get().getTestQueryInfo().getQuery(), "EXPLAIN (FORMAT JSON)\nSELECT x\n\n");
+        assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 1");
+        assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT x");
         assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
         assertNull(event.get().getTestQueryInfo().getJsonPlan());
     }
