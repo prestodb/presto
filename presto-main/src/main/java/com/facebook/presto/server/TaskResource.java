@@ -36,6 +36,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -61,6 +62,7 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -69,6 +71,7 @@ import static com.facebook.airlift.http.server.AsyncResponseHandler.bindAsyncRes
 import static com.facebook.presto.PrestoMediaTypes.APPLICATION_JACKSON_SMILE;
 import static com.facebook.presto.PrestoMediaTypes.PRESTO_PAGES;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CHECK_INTERVAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
@@ -102,6 +105,9 @@ public class TaskResource
     private final TimeStat readFromOutputBufferTime = new TimeStat();
     private final TimeStat resultsRequestTime = new TimeStat();
     private final Codec<PlanFragment> planFragmentCodec;
+    private final double taskStatusSignificanceFactor;
+
+    private final TaskStatusResponseStats taskStatusResponseStats = new TaskStatusResponseStats();
 
     @Inject
     public TaskResource(
@@ -118,6 +124,7 @@ public class TaskResource
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.planFragmentCodec = wrapJsonCodec(planFragmentJsonCodec);
+        this.taskStatusSignificanceFactor = communicationConfig.getSignificanceFactor();
     }
 
     @GET
@@ -202,6 +209,7 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
+            @HeaderParam(PRESTO_CHECK_INTERVAL) Duration checkInterval,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
@@ -217,11 +225,15 @@ public class TaskResource
         // TODO: With current implementation, a newly completed driver group won't trigger immediate HTTP response,
         // leading to a slight delay of approx 1 second, which is not a major issue for any query that are heavy weight enough
         // to justify group-by-group execution. In order to fix this, REST endpoint /v1/{task}/status will need change.
-        ListenableFuture<TaskStatus> futureTaskStatus = addTimeout(
-                taskManager.getTaskStatus(taskId, currentState),
-                () -> taskManager.getTaskStatus(taskId),
+        ListenableFuture<TaskStatus> futureTaskStatus = TaskStatusResponseFuture.create(
+                taskManager,
+                taskId,
+                currentState,
+                Optional.ofNullable(checkInterval),
                 waitTime,
-                timeoutExecutor);
+                timeoutExecutor,
+                taskStatusResponseStats,
+                taskStatusSignificanceFactor);
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
@@ -359,6 +371,13 @@ public class TaskResource
     public TimeStat getResultsRequestTime()
     {
         return resultsRequestTime;
+    }
+
+    @Managed
+    @Flatten
+    public TaskStatusResponseStats getTaskStatusResponseStats()
+    {
+        return taskStatusResponseStats;
     }
 
     private static boolean shouldSummarize(UriInfo uriInfo)

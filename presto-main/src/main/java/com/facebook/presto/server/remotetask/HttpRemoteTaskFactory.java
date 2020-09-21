@@ -71,6 +71,7 @@ public class HttpRemoteTaskFactory
     private final Codec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Codec<PlanFragment> planFragmentCodec;
     private final Duration maxErrorDuration;
+    private final Duration taskStatusRefreshMinWait;
     private final Duration taskStatusRefreshMaxWait;
     private final Duration taskInfoRefreshMaxWait;
     private final Duration taskInfoUpdateInterval;
@@ -103,6 +104,7 @@ public class HttpRemoteTaskFactory
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
         this.maxErrorDuration = config.getRemoteTaskMaxErrorDuration();
+        this.taskStatusRefreshMinWait = taskConfig.getStatusRefreshMinWait();
         this.taskStatusRefreshMaxWait = taskConfig.getStatusRefreshMaxWait();
         this.taskInfoUpdateInterval = taskConfig.getInfoUpdateInterval();
         this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
@@ -170,6 +172,7 @@ public class HttpRemoteTaskFactory
                 updateScheduledExecutor,
                 errorScheduledExecutor,
                 maxErrorDuration,
+                taskStatusRefreshMinWait,
                 taskStatusRefreshMaxWait,
                 taskInfoRefreshMaxWait,
                 taskInfoUpdateInterval,

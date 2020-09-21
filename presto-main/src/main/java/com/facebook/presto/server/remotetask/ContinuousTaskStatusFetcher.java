@@ -43,6 +43,7 @@ import java.util.function.Consumer;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_CHECK_INTERVAL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTracker;
@@ -56,17 +57,21 @@ import static com.facebook.presto.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class ContinuousTaskStatusFetcher
         implements SimpleHttpResponseCallback<TaskStatus>
 {
     private static final Logger log = Logger.get(ContinuousTaskStatusFetcher.class);
 
+    private static final double DEFAULT_SCALE_FACTOR = 1.5;
+
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
     private final StateMachine<TaskStatus> taskStatus;
     private final Codec<TaskStatus> taskStatusCodec;
 
+    private final Duration refreshMinWait;
     private final Duration refreshMaxWait;
     private final Executor executor;
     private final HttpClient httpClient;
@@ -75,6 +80,7 @@ class ContinuousTaskStatusFetcher
     private final boolean isBinaryTransportEnabled;
 
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
+    private final double scaleFactor;
 
     @GuardedBy("this")
     private boolean running;
@@ -82,10 +88,14 @@ class ContinuousTaskStatusFetcher
     @GuardedBy("this")
     private ListenableFuture<BaseResponse<TaskStatus>> future;
 
+    @GuardedBy("this")
+    private long numberOfRequests;
+
     public ContinuousTaskStatusFetcher(
             Consumer<Throwable> onFail,
             TaskId taskId,
             TaskStatus initialTaskStatus,
+            Duration refreshMinWait,
             Duration refreshMaxWait,
             Codec<TaskStatus> taskStatusCodec,
             Executor executor,
@@ -101,6 +111,7 @@ class ContinuousTaskStatusFetcher
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
 
+        this.refreshMinWait = requireNonNull(refreshMinWait, "refreshMinWait is null");
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
         this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
 
@@ -110,6 +121,8 @@ class ContinuousTaskStatusFetcher
         this.errorTracker = taskRequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;
+
+        this.scaleFactor = DEFAULT_SCALE_FACTOR;
     }
 
     public synchronized void start()
@@ -134,6 +147,7 @@ class ContinuousTaskStatusFetcher
 
     private synchronized void scheduleNextRequest()
     {
+        numberOfRequests += 1;
         // stopped or done?
         TaskStatus taskStatus = getTaskStatus();
         if (!running || taskStatus.getState().isDone()) {
@@ -154,10 +168,13 @@ class ContinuousTaskStatusFetcher
             return;
         }
 
+        double backoffInMillis = 2 * Math.pow(scaleFactor, numberOfRequests - 1);
+        int delayInMs = (int) Math.min(Math.max(backoffInMillis, refreshMinWait.toMillis()), refreshMaxWait.toMillis());
         Request request = setContentTypeHeaders(isBinaryTransportEnabled, prepareGet())
                 .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
                 .setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
-                .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
+                .setHeader(PRESTO_MAX_WAIT, new Duration(delayInMs, MILLISECONDS).toString())
+                .setHeader(PRESTO_CHECK_INTERVAL, new Duration(refreshMinWait.toMillis(), MILLISECONDS).toString())
                 .build();
 
         ResponseHandler responseHandler;

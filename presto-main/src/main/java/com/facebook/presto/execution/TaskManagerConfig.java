@@ -64,7 +64,8 @@ public class TaskManagerConfig
     private Duration clientTimeout = new Duration(2, TimeUnit.MINUTES);
     private Duration infoMaxAge = new Duration(15, TimeUnit.MINUTES);
 
-    private Duration statusRefreshMaxWait = new Duration(1, TimeUnit.SECONDS);
+    private Duration statusRefreshMinWait = new Duration(1, TimeUnit.SECONDS);
+    private Duration statusRefreshMaxWait = new Duration(10, TimeUnit.SECONDS);
     private Duration infoRefreshMaxWait = new Duration(0, TimeUnit.SECONDS);
 
     private Duration infoUpdateInterval = new Duration(3, TimeUnit.SECONDS);
@@ -83,6 +84,21 @@ public class TaskManagerConfig
 
     private boolean legacyLifespanCompletionCondition;
     private TaskPriorityTracking taskPriorityTracking = TaskPriorityTracking.TASK_FAIR;
+
+    @MinDuration("1ms")
+    @MaxDuration("10s")
+    @NotNull
+    public Duration getStatusRefreshMinWait()
+    {
+        return statusRefreshMinWait;
+    }
+
+    @Config("task.status-refresh-min-wait")
+    public TaskManagerConfig setStatusRefreshMinWait(Duration statusRefreshMinWait)
+    {
+        this.statusRefreshMinWait = statusRefreshMinWait;
+        return this;
+    }
 
     @MinDuration("1ms")
     @MaxDuration("10s")

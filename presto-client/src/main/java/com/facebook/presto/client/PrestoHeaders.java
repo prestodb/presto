@@ -42,6 +42,7 @@ public final class PrestoHeaders
 
     public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";
     public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";
+    public static final String PRESTO_CHECK_INTERVAL = "X-Presto-Check-Interval";
     public static final String PRESTO_MAX_SIZE = "X-Presto-Max-Size";
     public static final String PRESTO_TASK_INSTANCE_ID = "X-Presto-Task-Instance-Id";
     public static final String PRESTO_PAGE_TOKEN = "X-Presto-Page-Sequence-Id";

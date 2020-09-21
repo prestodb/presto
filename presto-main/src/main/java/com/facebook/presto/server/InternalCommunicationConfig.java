@@ -38,6 +38,7 @@ public class InternalCommunicationConfig
     private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
     private CommunicationProtocol taskCommunicationProtocol = CommunicationProtocol.HTTP;
     private CommunicationProtocol serverInfoCommunicationProtocol = CommunicationProtocol.HTTP;
+    private double significanceFactor = 1;
 
     public boolean isHttpsRequired()
     {
@@ -192,5 +193,16 @@ public class InternalCommunicationConfig
     {
         this.serverInfoCommunicationProtocol = serverInfoCommunicationProtocol;
         return this;
+    }
+
+    public double getSignificanceFactor()
+    {
+        return significanceFactor;
+    }
+
+    @Config("internal-communication.task-status.significance-factor")
+    public void setSignificanceFactor(double significanceFactor)
+    {
+        this.significanceFactor = significanceFactor;
     }
 }
