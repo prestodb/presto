@@ -26,7 +26,9 @@ import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
+import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Insert;
@@ -37,9 +39,11 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.ShowCreate;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.verifier.framework.ClusterType;
+import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoAction.ResultSetConverter;
@@ -67,7 +71,9 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.tree.LikeClause.PropertiesOption.INCLUDING;
+import static com.facebook.presto.sql.tree.ShowCreate.Type.VIEW;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.verifier.framework.CreateViewVerification.SHOW_CREATE_VIEW_CONVERTER;
 import static com.facebook.presto.verifier.framework.QueryStage.REWRITE;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnNames;
@@ -75,6 +81,7 @@ import static com.facebook.presto.verifier.framework.VerifierUtil.getColumnTypes
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.Entry;
@@ -112,7 +119,7 @@ public class QueryRewriter
         List<Property> properties = tableProperties.get(clusterType);
         if (statement instanceof CreateTableAsSelect) {
             CreateTableAsSelect createTableAsSelect = (CreateTableAsSelect) statement;
-            QualifiedName temporaryTableName = generateTemporaryTableName(Optional.of(createTableAsSelect.getName()), prefix);
+            QualifiedName temporaryTableName = generateTemporaryName(Optional.of(createTableAsSelect.getName()), prefix);
             return new QueryObjectBundle(
                     temporaryTableName,
                     ImmutableList.of(),
@@ -130,7 +137,7 @@ public class QueryRewriter
         if (statement instanceof Insert) {
             Insert insert = (Insert) statement;
             QualifiedName originalTableName = insert.getTarget();
-            QualifiedName temporaryTableName = generateTemporaryTableName(Optional.of(originalTableName), prefix);
+            QualifiedName temporaryTableName = generateTemporaryName(Optional.of(originalTableName), prefix);
             return new QueryObjectBundle(
                     temporaryTableName,
                     ImmutableList.of(
@@ -148,7 +155,7 @@ public class QueryRewriter
                     clusterType);
         }
         if (statement instanceof Query) {
-            QualifiedName temporaryTableName = generateTemporaryTableName(Optional.empty(), prefix);
+            QualifiedName temporaryTableName = generateTemporaryName(Optional.empty(), prefix);
             ResultSetMetaData metadata = getResultMetadata((Query) statement);
             List<Identifier> columnAliases = generateStorageColumnAliases(metadata);
             Query rewrite = rewriteNonStorableColumns((Query) statement, metadata);
@@ -166,11 +173,45 @@ public class QueryRewriter
                     ImmutableList.of(new DropTable(temporaryTableName, true)),
                     clusterType);
         }
+        if (statement instanceof CreateView) {
+            CreateView createView = (CreateView) statement;
+            QualifiedName temporaryViewName = generateTemporaryName(Optional.empty(), prefix);
+            ImmutableList.Builder<Statement> setupQueries = ImmutableList.builder();
+
+            // Check to see if there is an existing view with the specified view name.
+            // If view exists, create a temporary view that are has the same definition as the existing view.
+            // Otherwise, do not pre-create temporary view.
+            try {
+                String createExistingViewQuery = getOnlyElement(prestoAction.execute(
+                        new ShowCreate(VIEW, createView.getName()),
+                        REWRITE,
+                        SHOW_CREATE_VIEW_CONVERTER).getResults());
+                CreateView createExistingView = (CreateView) sqlParser.createStatement(createExistingViewQuery, PARSING_OPTIONS);
+                setupQueries.add(new CreateView(
+                        temporaryViewName,
+                        createExistingView.getQuery(),
+                        false,
+                        createExistingView.getSecurity()));
+            }
+            catch (QueryException e) {
+                // no-op
+            }
+            return new QueryObjectBundle(
+                    temporaryViewName,
+                    setupQueries.build(),
+                    new CreateView(
+                            temporaryViewName,
+                            createView.getQuery(),
+                            createView.isReplace(),
+                            createView.getSecurity()),
+                    ImmutableList.of(new DropView(temporaryViewName, true)),
+                    clusterType);
+        }
 
         throw new IllegalStateException(format("Unsupported query type: %s", statement.getClass()));
     }
 
-    private QualifiedName generateTemporaryTableName(Optional<QualifiedName> originalName, QualifiedName prefix)
+    private QualifiedName generateTemporaryName(Optional<QualifiedName> originalName, QualifiedName prefix)
     {
         List<String> parts = new ArrayList<>();
         int originalSize = originalName.map(QualifiedName::getOriginalParts).map(List::size).orElse(0);
