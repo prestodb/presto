@@ -446,6 +446,7 @@ public class OrcOutputBuffer
 
         checkArgument(length <= buffer.length, "Write chunk length must be less than compression buffer size");
 
+        boolean isCompressed = false;
         if (compressor != null) {
             int minCompressionBufferSize = compressor.maxCompressedLength(length);
             if (compressionBuffer.length < minCompressionBufferSize) {
@@ -453,28 +454,23 @@ public class OrcOutputBuffer
             }
             int compressedSize = compressor.compress(chunk, offset, length, compressionBuffer, 0, compressionBuffer.length);
             if (compressedSize < length) {
-                if (dwrfEncryptor.isPresent()) {
-                    compressionBuffer = dwrfEncryptor.get().encrypt(compressionBuffer, 0, compressedSize);
-                    compressedSize = compressionBuffer.length;
-                    // size after encryption should not exceed what the 3 byte header can hold (2^23)
-                    if (compressedSize > 8388608) {
-                        throw new OrcEncryptionException("Encrypted data size %s exceeds limit of 2^23 %s", compressedSize);
-                    }
-                }
-                int chunkHeader = (compressedSize << 1);
-                writeChunkedOutput(compressionBuffer, 0, compressedSize, chunkHeader);
-                return;
+                isCompressed = true;
+                chunk = compressionBuffer;
+                length = compressedSize;
+                offset = 0;
             }
         }
         if (dwrfEncryptor.isPresent()) {
-            chunk = dwrfEncryptor.get().encrypt(chunk, 0, length);
+            chunk = dwrfEncryptor.get().encrypt(chunk, offset, length);
             length = chunk.length;
+            offset = 0;
             // size after encryption should not exceed what the 3 byte header can hold (2^23)
             if (length > 8388608) {
                 throw new OrcEncryptionException("Encrypted data size %s exceeds limit of 2^23 %s", length);
             }
         }
-        int header = (length << 1) + 1;
+        int header = isCompressed ? length << 1 : (length << 1) + 1;
+
         writeChunkedOutput(chunk, offset, length, header);
     }
 
