@@ -155,7 +155,7 @@ public class TestVerificationManager
         List<SourceQuery> queries = ImmutableList.of(
                 createSourceQuery("q1", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
                 createSourceQuery("q2", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
-                createSourceQuery("q3", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
+                createSourceQuery("q3", "SHOW TABLES", "SHOW TABLES"),
                 createSourceQuery("q4", "SHOW FUNCTIONS", "SHOW FUNCTIONS"),
                 createSourceQuery("q5", "SELECT * FROM t1", "INSERT INTO t2 SELECT * FROM t1"),
                 createSourceQuery("q6", "SELECT * FROM t1", "SELECT FROM t1"));

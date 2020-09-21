@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Insert;
@@ -27,6 +28,7 @@ public enum QueryType
     INSERT(Insert.class),
     QUERY(Query.class),
     CREATE_VIEW(CreateView.class),
+    CREATE_TABLE(CreateTable.class),
     UNSUPPORTED();
 
     private final Optional<Class<? extends Statement>> statementClass;

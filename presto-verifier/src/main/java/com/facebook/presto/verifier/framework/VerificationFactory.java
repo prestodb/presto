@@ -119,6 +119,15 @@ public class VerificationFactory
                         exceptionClassifier,
                         verificationContext,
                         verifierConfig);
+            case CREATE_TABLE:
+                return new CreateTableVerification(
+                        sqlParser,
+                        queryActions,
+                        sourceQuery,
+                        queryRewriter,
+                        exceptionClassifier,
+                        verificationContext,
+                        verifierConfig);
             default:
                 throw new IllegalStateException(format("Unsupported query type: %s", queryType));
         }
