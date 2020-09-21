@@ -25,8 +25,11 @@ import com.facebook.presto.orc.OrcWriterOptions;
 import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.hive.shims.ShimLoader;
+import org.apache.hadoop.util.VersionInfo;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -50,6 +53,13 @@ import static java.util.Objects.requireNonNull;
 public class OrcFileWriter
         implements FileWriter
 {
+    static {
+        // make sure Hadoop version is loaded from correct class loader
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(VersionInfo.class.getClassLoader())) {
+            ShimLoader.getHadoopShims();
+        }
+    }
+
     public static final OrcWriterOptions DEFAULT_OPTION = new OrcWriterOptions();
     private static final JsonCodec<OrcFileMetadata> METADATA_CODEC = jsonCodec(OrcFileMetadata.class);
 

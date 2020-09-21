@@ -35,12 +35,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-parquet</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.parquet</groupId>
-                    <artifactId>parquet-encoding</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -51,38 +45,6 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-cache</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-column</artifactId>
-            <version>${dep.parquet.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-codec</groupId>
-                    <artifactId>commons-codec</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-hadoop</artifactId>
-            <version>${dep.parquet.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.xerial.snappy</groupId>
-                    <artifactId>snappy-java</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -276,13 +238,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- used only by tests but also needed transitively -->
-        <dependency>
-            <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-common</artifactId>
-            <version>${dep.parquet.version}</version>
-        </dependency>
-
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -440,6 +395,12 @@
                         <ignoredDependency>org.glassfish.jersey.core:jersey-common:jar</ignoredDependency>
                         <ignoredDependency>org.eclipse.jetty:jetty-server:jar</ignoredDependency>
                     </ignoredDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.amazonaws:aws-java-sdk-glue:jar</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>com.fasterxml.jackson.core:jackson-databind:jar</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>org.apache.parquet:parquet-common:jar</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>com.fasterxml.jackson.core:jackson-core:jar</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>

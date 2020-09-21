@@ -32,13 +32,11 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
+import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-import parquet.hadoop.ParquetOutputFormat;
-import parquet.hadoop.codec.CodecConfig;
-import parquet.schema.MessageType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -104,13 +102,15 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaShortObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
+import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
 import static org.testng.Assert.assertEquals;
-import static parquet.schema.MessageTypeParser.parseMessageType;
 
 public abstract class AbstractTestParquetReader
 {
     private static final int MAX_PRECISION_INT32 = (int) maxPrecision(4);
     private static final int MAX_PRECISION_INT64 = (int) maxPrecision(8);
+
+    private Logger parquetLogger;
 
     private final ParquetTester tester;
 
@@ -123,7 +123,10 @@ public abstract class AbstractTestParquetReader
     public void setUp()
     {
         assertEquals(DateTimeZone.getDefault(), HIVE_STORAGE_TIME_ZONE);
-        setParquetLogging();
+
+        // Parquet has excessive logging at INFO level
+        parquetLogger = Logger.getLogger("org.apache.parquet.hadoop");
+        parquetLogger.setLevel(Level.WARNING);
     }
 
     @Test
@@ -1510,16 +1513,6 @@ public abstract class AbstractTestParquetReader
                 }
             }
         };
-    }
-
-    // parquet has excessive logging at INFO level, set them to WARNING
-    private void setParquetLogging()
-    {
-        Logger.getLogger(ParquetOutputFormat.class.getName()).setLevel(Level.WARNING);
-        Logger.getLogger(CodecConfig.class.getName()).setLevel(Level.WARNING);
-        // these logging classes are not public, use class name directly
-        Logger.getLogger("parquet.hadoop.InternalParquetRecordWriter").setLevel(Level.WARNING);
-        Logger.getLogger("parquet.hadoop.ColumnChunkPageWriteStore").setLevel(Level.WARNING);
     }
 
     @Test

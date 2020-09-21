@@ -26,17 +26,16 @@ import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
-import org.apache.hadoop.hive.ql.io.orc.NullMemoryManager;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
-import org.apache.hadoop.hive.ql.io.orc.OrcWriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.Writable;
+import org.apache.orc.NullMemoryManager;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -422,7 +421,7 @@ public class TestOrcReaderPositions
     {
         FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, CompressionKind.NONE, ImmutableList.of(BIGINT, VARCHAR));
 
-        @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
+        Serializer serde = new OrcSerde();
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector(ImmutableList.of(BIGINT, VARCHAR));
         Object row = objectInspector.create();
         StructField bigintField = objectInspector.getAllStructFieldRefs().get(0);
@@ -446,8 +445,8 @@ public class TestOrcReaderPositions
             throws IOException
     {
         Configuration conf = new Configuration();
-        OrcFile.WriterOptions writerOptions = new OrcWriterOptions(conf)
-                .memory(new NullMemoryManager(conf))
+        OrcFile.WriterOptions writerOptions = OrcFile.writerOptions(conf)
+                .memory(new NullMemoryManager())
                 .inspector(createSettableStructObjectInspector("test", BIGINT))
                 .compress(SNAPPY);
         Writer writer = OrcFile.createWriter(new Path(file.toURI()), writerOptions);
@@ -472,7 +471,7 @@ public class TestOrcReaderPositions
     {
         FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, CompressionKind.NONE, BIGINT);
 
-        @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
+        Serializer serde = new OrcSerde();
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", BIGINT);
         Object row = objectInspector.create();
         StructField field = objectInspector.getAllStructFieldRefs().get(0);
@@ -491,7 +490,7 @@ public class TestOrcReaderPositions
     {
         FileSinkOperator.RecordWriter writer = createOrcRecordWriter(file, ORC_12, CompressionKind.NONE, VARCHAR);
 
-        @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
+        Serializer serde = new OrcSerde();
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", VARCHAR);
         Object row = objectInspector.create();
         StructField field = objectInspector.getAllStructFieldRefs().get(0);
