@@ -58,7 +58,7 @@ public class DataVerification
             TypeManager typeManager,
             ChecksumValidator checksumValidator)
     {
-        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig, verifierConfig.isSkipControl());
+        super(queryActions, sourceQuery, exceptionClassifier, verificationContext, Optional.empty(), verifierConfig);
         this.queryRewriter = requireNonNull(queryRewriter, "queryRewriter is null");
         this.determinismAnalyzer = requireNonNull(determinismAnalyzer, "determinismAnalyzer is null");
         this.failureResolverManager = requireNonNull(failureResolverManager, "failureResolverManager is null");
