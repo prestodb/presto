@@ -275,6 +275,7 @@ import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.operator.unnest.UnnestOperator.UnnestOperatorFactory;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
@@ -2267,9 +2268,9 @@ public class LocalExecutionPlanner
             if (node.getDynamicFilters().isEmpty()) {
                 return Optional.empty();
             }
-            checkState(
-                    buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION,
-                    "Dynamic filtering cannot be used with grouped execution");
+            if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
+                throw new PrestoException(NOT_SUPPORTED, "Dynamic filtering cannot be used with grouped execution");
+            }
             LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
             return LocalDynamicFilter
                     .create(node, partitionCount)
