@@ -21,9 +21,9 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.framework.ClusterType;
-import com.facebook.presto.verifier.framework.DataQueryBundle;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryConfiguration;
+import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
@@ -300,9 +300,9 @@ public class TestQueryRewriter
             List<String> expectedTeardownTemplates)
     {
         for (ClusterType cluster : ClusterType.values()) {
-            DataQueryBundle bundle = queryRewriter.rewriteQuery(query, cluster);
+            QueryObjectBundle bundle = queryRewriter.rewriteQuery(query, cluster);
 
-            String tableName = bundle.getTableName().toString();
+            String tableName = bundle.getObjectName().toString();
             assertTrue(tableName.startsWith(prefix + "_"));
 
             assertStatements(bundle.getSetupQueries(), templateToStatements(expectedSetupTemplates, tableName));
@@ -313,8 +313,8 @@ public class TestQueryRewriter
 
     private static void assertTableName(QueryRewriter queryRewriter, @Language("SQL") String query, String expectedPrefix)
     {
-        DataQueryBundle bundle = queryRewriter.rewriteQuery(query, CONTROL);
-        assertTrue(bundle.getTableName().toString().startsWith(expectedPrefix));
+        QueryObjectBundle bundle = queryRewriter.rewriteQuery(query, CONTROL);
+        assertTrue(bundle.getObjectName().toString().startsWith(expectedPrefix));
     }
 
     private static void assertCreateTableAs(Statement statement, String selectQuery)

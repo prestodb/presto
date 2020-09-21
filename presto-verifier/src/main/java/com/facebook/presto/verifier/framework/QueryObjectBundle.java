@@ -20,24 +20,24 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class DataQueryBundle
+public class QueryObjectBundle
         extends QueryBundle
 {
-    private final QualifiedName tableName;
+    private final QualifiedName objectName;
 
-    public DataQueryBundle(
-            QualifiedName tableName,
+    public QueryObjectBundle(
+            QualifiedName objectName,
             List<Statement> setupQueries,
             Statement query,
             List<Statement> teardownQueries,
             ClusterType cluster)
     {
         super(setupQueries, query, teardownQueries, cluster);
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.objectName = requireNonNull(objectName, "objectName is null");
     }
 
-    public QualifiedName getTableName()
+    public QualifiedName getObjectName()
     {
-        return tableName;
+        return objectName;
     }
 }

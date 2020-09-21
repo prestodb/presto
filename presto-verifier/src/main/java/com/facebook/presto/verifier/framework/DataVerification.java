@@ -38,7 +38,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class DataVerification
-        extends AbstractVerification<DataQueryBundle, DataMatchResult, Void>
+        extends AbstractVerification<QueryObjectBundle, DataMatchResult, Void>
 {
     private final QueryRewriter queryRewriter;
     private final DeterminismAnalyzer determinismAnalyzer;
@@ -67,25 +67,25 @@ public class DataVerification
     }
 
     @Override
-    protected DataQueryBundle getQueryRewrite(ClusterType clusterType)
+    protected QueryObjectBundle getQueryRewrite(ClusterType clusterType)
     {
         return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), clusterType);
     }
 
     @Override
     public DataMatchResult verify(
-            DataQueryBundle control,
-            DataQueryBundle test,
+            QueryObjectBundle control,
+            QueryObjectBundle test,
             Optional<QueryResult<Void>> controlQueryResult,
             Optional<QueryResult<Void>> testQueryResult,
             ChecksumQueryContext controlContext,
             ChecksumQueryContext testContext)
     {
-        List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getTableName());
-        List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getTableName());
+        List<Column> controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
+        List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getObjectName());
 
-        Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getTableName(), controlColumns);
-        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getTableName(), testColumns);
+        Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns);
+        Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns);
 
         controlContext.setChecksumQuery(formatSql(controlChecksumQuery));
         testContext.setChecksumQuery(formatSql(testChecksumQuery));
@@ -101,15 +101,15 @@ public class DataVerification
     }
 
     @Override
-    protected DeterminismAnalysisDetails analyzeDeterminism(DataQueryBundle control, DataMatchResult matchResult)
+    protected DeterminismAnalysisDetails analyzeDeterminism(QueryObjectBundle control, DataMatchResult matchResult)
     {
         return determinismAnalyzer.analyze(control, matchResult.getControlChecksum());
     }
 
     @Override
     protected Optional<String> resolveFailure(
-            Optional<DataQueryBundle> control,
-            Optional<DataQueryBundle> test,
+            Optional<QueryObjectBundle> control,
+            Optional<QueryObjectBundle> test,
             QueryContext controlQueryContext,
             Optional<DataMatchResult> matchResult,
             Optional<Throwable> throwable)
