@@ -122,7 +122,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             Optional<R> matchResult,
             Optional<Throwable> throwable);
 
-    protected abstract void updateQueryInfo(QueryInfo.Builder queryInfo, Optional<QueryResult<V>> queryResult);
+    protected void updateQueryInfo(QueryInfo.Builder queryInfo, Optional<QueryResult<V>> queryResult) {}
 
     protected PrestoAction getHelperAction()
     {

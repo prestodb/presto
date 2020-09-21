@@ -122,16 +122,15 @@ public abstract class AbstractVerificationTest
         return verify(sourceQuery, explain, Optional.of(mockPrestoAction));
     }
 
-    private Optional<VerifierQueryEvent> verify(SourceQuery sourceQuery, boolean explain, Optional<PrestoAction> mockPrestoAction)
+    protected PrestoAction getPrestoAction(Optional<QueryConfiguration> queryConfiguration)
     {
         VerificationContext verificationContext = VerificationContext.create(NAME, SUITE);
-        VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID).setExplain(explain);
+        VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         RetryConfig retryConfig = new RetryConfig();
         QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
-        TypeManager typeManager = createTypeManager();
-        PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> new JdbcPrestoAction(
+        return new JdbcPrestoAction(
                 exceptionClassifier,
-                sourceQuery.getControlConfiguration(),
+                queryConfiguration.orElse(QUERY_CONFIGURATION),
                 verificationContext,
                 new PrestoActionConfig()
                         .setHosts(queryRunner.getServer().getAddress().getHost())
@@ -140,7 +139,14 @@ public abstract class AbstractVerificationTest
                 queryActionsConfig.getChecksumTimeout(),
                 retryConfig,
                 retryConfig,
-                verifierConfig));
+                verifierConfig);
+    }
+
+    private Optional<VerifierQueryEvent> verify(SourceQuery sourceQuery, boolean explain, Optional<PrestoAction> mockPrestoAction)
+    {
+        VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID).setExplain(explain);
+        TypeManager typeManager = createTypeManager();
+        PrestoAction prestoAction = mockPrestoAction.orElseGet(() -> getPrestoAction(Optional.of(sourceQuery.getControlConfiguration())));
         QueryRewriterFactory queryRewriterFactory = new VerificationQueryRewriterFactory(
                 sqlParser,
                 typeManager,

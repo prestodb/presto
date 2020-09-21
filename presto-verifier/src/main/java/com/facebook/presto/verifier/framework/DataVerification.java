@@ -19,7 +19,6 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
-import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
@@ -123,10 +122,5 @@ public class DataVerification
             return failureResolverManager.resolveException(controlQueryContext.getMainQueryStats().get(), throwable.get(), test);
         }
         return Optional.empty();
-    }
-
-    @Override
-    protected void updateQueryInfo(QueryInfo.Builder queryInfo, Optional<QueryResult<Void>> voidQueryResult)
-    {
     }
 }
