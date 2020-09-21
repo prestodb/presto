@@ -71,173 +71,177 @@ import static io.airlift.slice.Slices.utf8Slice;
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 public class BenchmarkPageProcessor
 {
-    private static final int EXTENDED_PRICE = 0;
-    private static final int DISCOUNT = 1;
-    private static final int SHIP_DATE = 2;
-    private static final int QUANTITY = 3;
-
-    private static final Slice MIN_SHIP_DATE = utf8Slice("1994-01-01");
-    private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
-
-    private Page inputPage;
-    private PageProcessor compiledProcessor;
-
-    @Setup
-    public void setup()
-    {
-        inputPage = createInputPage();
-
-        MetadataManager metadata = createTestMetadataManager();
-        FunctionManager functionManager = metadata.getFunctionManager();
-        compiledProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
-                .compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(createFilterExpression(functionManager)), ImmutableList.of(createProjectExpression(functionManager)))
-                .get();
-    }
-
     @Benchmark
-    public Page handCoded()
+    public Page handCoded(BenchmarkData data)
     {
         PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE));
-        int count = Tpch1FilterAndProject.process(inputPage, 0, inputPage.getPositionCount(), pageBuilder);
-        checkState(count == inputPage.getPositionCount());
+        int count = data.handcodedProcessor.process(data.inputPage, 0, data.inputPage.getPositionCount(), pageBuilder);
+        checkState(count == data.inputPage.getPositionCount());
         return pageBuilder.build();
     }
 
     @Benchmark
-    public List<Optional<Page>> compiled()
+    public List<Optional<Page>> compiled(BenchmarkData data)
     {
         return ImmutableList.copyOf(
-                compiledProcessor.process(
+                data.compiledProcessor.process(
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        inputPage));
+                        data.inputPage));
+    }
+
+    @State(Scope.Thread)
+    public static class BenchmarkData
+    {
+        private static final int EXTENDED_PRICE = 0;
+        private static final int DISCOUNT = 1;
+        private static final int SHIP_DATE = 2;
+        private static final int QUANTITY = 3;
+
+        private static final Slice MIN_SHIP_DATE = utf8Slice("1994-01-01");
+        private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
+
+        private MetadataManager metadataManager = createTestMetadataManager();
+        private FunctionManager functionManager = metadataManager.getFunctionManager();
+        private PageProcessor compiledProcessor;
+        private Tpch1FilterAndProject handcodedProcessor;
+        private Page inputPage;
+
+        @Setup
+        public void setup()
+        {
+            inputPage = createInputPage();
+
+            compiledProcessor = new ExpressionCompiler(metadataManager, new PageFunctionCompiler(metadataManager, 0))
+                    .compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(createFilterExpression(functionManager)), ImmutableList.of(createProjectExpression(functionManager)))
+                    .get();
+            handcodedProcessor = new Tpch1FilterAndProject();
+        }
+
+        private static Page createInputPage()
+        {
+            PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE));
+            LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
+            Iterator<LineItem> iterator = lineItemGenerator.iterator();
+            for (int i = 0; i < 10_000; i++) {
+                pageBuilder.declarePosition();
+
+                LineItem lineItem = iterator.next();
+                DOUBLE.writeDouble(pageBuilder.getBlockBuilder(EXTENDED_PRICE), lineItem.getExtendedPrice());
+                DOUBLE.writeDouble(pageBuilder.getBlockBuilder(DISCOUNT), lineItem.getDiscount());
+                DATE.writeLong(pageBuilder.getBlockBuilder(SHIP_DATE), lineItem.getShipDate());
+                DOUBLE.writeDouble(pageBuilder.getBlockBuilder(QUANTITY), lineItem.getQuantity());
+            }
+            return pageBuilder.build();
+        }
+
+        // where shipdate >= '1994-01-01'
+        //    and shipdate < '1995-01-01'
+        //    and discount >= 0.05
+        //    and discount <= 0.07
+        //    and quantity < 24;
+        private static final RowExpression createFilterExpression(FunctionManager functionManager)
+        {
+            return specialForm(
+                    AND,
+                    BOOLEAN,
+                    call(GREATER_THAN_OR_EQUAL.name(),
+                            functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(VARCHAR, VARCHAR)),
+                            BOOLEAN,
+                            field(SHIP_DATE, VARCHAR),
+                            constant(MIN_SHIP_DATE, VARCHAR)),
+                    specialForm(
+                            AND,
+                            BOOLEAN,
+                            call(LESS_THAN.name(),
+                                    functionManager.resolveOperator(LESS_THAN, fromTypes(VARCHAR, VARCHAR)),
+                                    BOOLEAN,
+                                    field(SHIP_DATE, VARCHAR),
+                                    constant(MAX_SHIP_DATE, VARCHAR)),
+                            specialForm(
+                                    AND,
+                                    BOOLEAN,
+                                    call(GREATER_THAN_OR_EQUAL.name(),
+                                            functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                                            BOOLEAN,
+                                            field(DISCOUNT, DOUBLE),
+                                            constant(0.05, DOUBLE)),
+                                    specialForm(
+                                            AND,
+                                            BOOLEAN,
+                                            call(LESS_THAN_OR_EQUAL.name(),
+                                                    functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                                                    BOOLEAN,
+                                                    field(DISCOUNT, DOUBLE),
+                                                    constant(0.07, DOUBLE)),
+                                            call(LESS_THAN.name(),
+                                                    functionManager.resolveOperator(LESS_THAN, fromTypes(DOUBLE, DOUBLE)),
+                                                    BOOLEAN,
+                                                    field(QUANTITY, DOUBLE),
+                                                    constant(24.0, DOUBLE))))));
+        }
+
+        private static final RowExpression createProjectExpression(FunctionManager functionManager)
+        {
+            return call(
+                    MULTIPLY.name(),
+                    functionManager.resolveOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
+                    DOUBLE,
+                    field(EXTENDED_PRICE, DOUBLE),
+                    field(DISCOUNT, DOUBLE));
+        }
+
+        private static final class Tpch1FilterAndProject
+        {
+            public int process(Page page, int start, int end, PageBuilder pageBuilder)
+            {
+                Block discountBlock = page.getBlock(DISCOUNT);
+                int position = start;
+                for (; position < end; position++) {
+                    // where shipdate >= '1994-01-01'
+                    //    and shipdate < '1995-01-01'
+                    //    and discount >= 0.05
+                    //    and discount <= 0.07
+                    //    and quantity < 24;
+                    if (filter(position, discountBlock, page.getBlock(SHIP_DATE), page.getBlock(QUANTITY))) {
+                        project(position, pageBuilder, page.getBlock(EXTENDED_PRICE), discountBlock);
+                    }
+                }
+
+                return position;
+            }
+
+            private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
+            {
+                pageBuilder.declarePosition();
+                if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {
+                    pageBuilder.getBlockBuilder(0).appendNull();
+                }
+                else {
+                    DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), DOUBLE.getDouble(extendedPriceBlock, position) * DOUBLE.getDouble(discountBlock, position));
+                }
+            }
+
+            private static boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
+            {
+                return !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0 &&
+                        !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
+                        !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
+                        !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
+                        !quantityBlock.isNull(position) && DOUBLE.getDouble(quantityBlock, position) < 24;
+            }
+        }
     }
 
     public static void main(String[] args)
             throws RunnerException
     {
-        new BenchmarkPageProcessor().setup();
-
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
                 .include(".*" + BenchmarkPageProcessor.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();
-    }
-
-    private static Page createInputPage()
-    {
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE));
-        LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
-        Iterator<LineItem> iterator = lineItemGenerator.iterator();
-        for (int i = 0; i < 10_000; i++) {
-            pageBuilder.declarePosition();
-
-            LineItem lineItem = iterator.next();
-            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(EXTENDED_PRICE), lineItem.getExtendedPrice());
-            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(DISCOUNT), lineItem.getDiscount());
-            DATE.writeLong(pageBuilder.getBlockBuilder(SHIP_DATE), lineItem.getShipDate());
-            DOUBLE.writeDouble(pageBuilder.getBlockBuilder(QUANTITY), lineItem.getQuantity());
-        }
-        return pageBuilder.build();
-    }
-
-    private static final class Tpch1FilterAndProject
-    {
-        public static int process(Page page, int start, int end, PageBuilder pageBuilder)
-        {
-            Block discountBlock = page.getBlock(DISCOUNT);
-            int position = start;
-            for (; position < end; position++) {
-                // where shipdate >= '1994-01-01'
-                //    and shipdate < '1995-01-01'
-                //    and discount >= 0.05
-                //    and discount <= 0.07
-                //    and quantity < 24;
-                if (filter(position, discountBlock, page.getBlock(SHIP_DATE), page.getBlock(QUANTITY))) {
-                    project(position, pageBuilder, page.getBlock(EXTENDED_PRICE), discountBlock);
-                }
-            }
-
-            return position;
-        }
-
-        private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
-        {
-            pageBuilder.declarePosition();
-            if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {
-                pageBuilder.getBlockBuilder(0).appendNull();
-            }
-            else {
-                DOUBLE.writeDouble(pageBuilder.getBlockBuilder(0), DOUBLE.getDouble(extendedPriceBlock, position) * DOUBLE.getDouble(discountBlock, position));
-            }
-        }
-
-        private static boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
-        {
-            return !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0 &&
-                    !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
-                    !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
-                    !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
-                    !quantityBlock.isNull(position) && DOUBLE.getDouble(quantityBlock, position) < 24;
-        }
-    }
-
-    // where shipdate >= '1994-01-01'
-    //    and shipdate < '1995-01-01'
-    //    and discount >= 0.05
-    //    and discount <= 0.07
-    //    and quantity < 24;
-    private static final RowExpression createFilterExpression(FunctionManager functionManager)
-    {
-        return specialForm(
-                AND,
-                BOOLEAN,
-                call(GREATER_THAN_OR_EQUAL.name(),
-                        functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(VARCHAR, VARCHAR)),
-                        BOOLEAN,
-                        field(SHIP_DATE, VARCHAR),
-                        constant(MIN_SHIP_DATE, VARCHAR)),
-                specialForm(
-                        AND,
-                        BOOLEAN,
-                        call(LESS_THAN.name(),
-                                functionManager.resolveOperator(LESS_THAN, fromTypes(VARCHAR, VARCHAR)),
-                                BOOLEAN,
-                                field(SHIP_DATE, VARCHAR),
-                                constant(MAX_SHIP_DATE, VARCHAR)),
-                        specialForm(
-                                AND,
-                                BOOLEAN,
-                                call(GREATER_THAN_OR_EQUAL.name(),
-                                        functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
-                                        BOOLEAN,
-                                        field(DISCOUNT, DOUBLE),
-                                        constant(0.05, DOUBLE)),
-                                specialForm(
-                                        AND,
-                                        BOOLEAN,
-                                        call(LESS_THAN_OR_EQUAL.name(),
-                                                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
-                                                BOOLEAN,
-                                                field(DISCOUNT, DOUBLE),
-                                                constant(0.07, DOUBLE)),
-                                        call(LESS_THAN.name(),
-                                                functionManager.resolveOperator(LESS_THAN, fromTypes(DOUBLE, DOUBLE)),
-                                                BOOLEAN,
-                                                field(QUANTITY, DOUBLE),
-                                                constant(24.0, DOUBLE))))));
-    }
-
-    private static final RowExpression createProjectExpression(FunctionManager functionManager)
-    {
-        return call(
-                MULTIPLY.name(),
-                functionManager.resolveOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
-                DOUBLE,
-                field(EXTENDED_PRICE, DOUBLE),
-                field(DISCOUNT, DOUBLE));
     }
 }
