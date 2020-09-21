@@ -207,6 +207,21 @@ public class QueryRewriter
                     ImmutableList.of(new DropView(temporaryViewName, true)),
                     clusterType);
         }
+        if (statement instanceof CreateTable) {
+            CreateTable createTable = (CreateTable) statement;
+            QualifiedName temporaryTableName = generateTemporaryName(Optional.empty(), prefix);
+            return new QueryObjectBundle(
+                    temporaryTableName,
+                    ImmutableList.of(),
+                    new CreateTable(
+                            temporaryTableName,
+                            createTable.getElements(),
+                            createTable.isNotExists(),
+                            applyPropertyOverride(createTable.getProperties(), properties),
+                            createTable.getComment()),
+                    ImmutableList.of(new DropTable(temporaryTableName, true)),
+                    clusterType);
+        }
 
         throw new IllegalStateException(format("Unsupported query type: %s", statement.getClass()));
     }
