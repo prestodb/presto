@@ -466,7 +466,7 @@ public class OrcOutputBuffer
             offset = 0;
             // size after encryption should not exceed what the 3 byte header can hold (2^23)
             if (length > 8388608) {
-                throw new OrcEncryptionException("Encrypted data size %s exceeds limit of 2^23 %s", length);
+                throw new OrcEncryptionException("Encrypted data size %s exceeds limit of 2^23", length);
             }
         }
         int header = isCompressed ? length << 1 : (length << 1) + 1;
