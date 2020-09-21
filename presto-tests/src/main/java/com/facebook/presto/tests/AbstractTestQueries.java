@@ -5396,4 +5396,56 @@ public abstract class AbstractTestQueries
                 "select cast(row(row(null, if(random(100) >= 0, 4)), random(10)) AS row(x row(y row(a int, b int), c int), d int)).x.c",
                 "select 4");
     }
+
+    @Test
+    public void testApproxMostFrequentWithLong()
+    {
+        MaterializedResult actual1 = computeActual("SELECT approx_most_frequent(3, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 3, 4, 5) t(x)");
+        assertEquals(actual1.getRowCount(), 1);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L, 3L, 2L));
+
+        MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, cast(x as bigint), 15) FROM (values 1, 2, 1, 3, 1, 2, 3, 4, 5) t(x)");
+        assertEquals(actual2.getRowCount(), 1);
+        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of(1L, 3L, 2L, 2L));
+    }
+
+    @Test
+    public void testApproxMostFrequentWithVarchar()
+    {
+        MaterializedResult actual1 = computeActual("SELECT approx_most_frequent(3, x, 15) FROM (values 'A', 'B', 'A', 'C', 'A', 'B', 'C', 'D', 'E') t(x)");
+        assertEquals(actual1.getRowCount(), 1);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of("A", 3L, "B", 2L, "C", 2L));
+
+        MaterializedResult actual2 = computeActual("SELECT approx_most_frequent(2, x, 15) FROM (values 'A', 'B', 'A', 'C', 'A', 'B', 'C', 'D', 'E') t(x)");
+        assertEquals(actual2.getRowCount(), 1);
+        assertEquals(actual2.getMaterializedRows().get(0).getFields().get(0), ImmutableMap.of("A", 3L, "B", 2L));
+    }
+
+    @Test
+    public void testApproxMostFrequentWithLongGroupBy()
+    {
+        MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, cast(v as bigint), 15) FROM (values ('a', 1), ('b', 2), ('a', 1), ('c', 3), ('a', 1), ('b', 2), ('c', 3), ('a', 4), ('b', 5)) t(k, v) GROUP BY 1 ORDER BY 1");
+
+        assertEquals(actual1.getRowCount(), 3);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), "a");
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), ImmutableMap.of(1L, 3L, 4L, 1L));
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), "b");
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of(2L, 2L, 5L, 1L));
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(0), "c");
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(1), ImmutableMap.of(3L, 2L));
+    }
+
+    @Test
+    public void testApproxMostFrequentWithStringGroupBy()
+    {
+        MaterializedResult actual1 = computeActual("SELECT k, approx_most_frequent(3, v, 15) FROM (values ('a', 'A'), ('b', 'B'), ('a', 'A'), ('c', 'C'), ('a', 'A'), ('b', 'B'), ('c', 'C'), ('a', 'D'), ('b', 'E')) t(k, v) GROUP BY 1 ORDER BY 1");
+
+        assertEquals(actual1.getRowCount(), 3);
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(0), "a");
+        assertEquals(actual1.getMaterializedRows().get(0).getFields().get(1), ImmutableMap.of("A", 3L, "D", 1L));
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(0), "b");
+        assertEquals(actual1.getMaterializedRows().get(1).getFields().get(1), ImmutableMap.of("B", 2L, "E", 1L));
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(0), "c");
+        assertEquals(actual1.getMaterializedRows().get(2).getFields().get(1), ImmutableMap.of("C", 2L));
+    }
 }
