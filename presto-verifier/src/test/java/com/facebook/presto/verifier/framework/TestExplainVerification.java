@@ -72,14 +72,32 @@ public class TestExplainVerification
     }
 
     @Test
-    public void testPlanChanged()
+    public void testStructureMismatch()
+    {
+        queryRunner.execute("CREATE TABLE structure_mismatch (x int, ds varchar)");
+        Optional<VerifierQueryEvent> event = runVerification(
+                "SELECT count(*) FROM structure_mismatch",
+                "SELECT count(*) FROM structure_mismatch CROSS JOIN structure_mismatch");
+        assertTrue(event.isPresent());
+
+        // Explain verification do not fail in case of plan changes.
+        assertEvent(event.get(), SUCCEEDED);
+        assertEquals(event.get().getMatchType(), "STRUCTURE_MISMATCH");
+        assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT \"count\"(*)\nFROM\n  structure_mismatch");
+        assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT \"count\"(*)\nFROM\n  (structure_mismatch\nCROSS JOIN structure_mismatch)");
+        assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
+        assertNotNull(event.get().getTestQueryInfo().getJsonPlan());
+    }
+
+    @Test
+    public void testDetailsMismatch()
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT 1", "SELECT 2");
         assertTrue(event.isPresent());
 
         // Explain verification do not fail in case of plan changes.
         assertEvent(event.get(), SUCCEEDED);
-        assertEquals(event.get().getMatchType(), "PLAN_CHANGED");
+        assertEquals(event.get().getMatchType(), "DETAILS_MISMATCH");
         assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 1");
         assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 2");
         assertNotNull(event.get().getControlQueryInfo().getJsonPlan());

@@ -21,7 +21,8 @@ public class ExplainMatchResult
     public enum MatchType
     {
         MATCH,
-        PLAN_CHANGED,
+        STRUCTURE_MISMATCH,
+        DETAILS_MISMATCH,
     }
 
     private final MatchType matchType;
