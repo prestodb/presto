@@ -214,6 +214,8 @@ public class TestPinotColumnMetadata
     public void testConversionWithoutConfigSwitchOn()
     {
         PinotConfig pinotConfig = new PinotConfig();
+        pinotConfig.setInferDateTypeInSchema(false);
+        pinotConfig.setInferTimestampTypeInSchema(false);
 
         // Test Date
         Schema testSchema = new Schema.SchemaBuilder()

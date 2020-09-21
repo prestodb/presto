@@ -73,13 +73,20 @@ public class PinotConfig
     private Map<String, String> extraHttpHeaders = ImmutableMap.of();
     private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
 
-    private boolean allowMultipleAggregations;
+    private boolean allowMultipleAggregations = true;
     private boolean forbidBrokerQueries;
     private boolean forbidSegmentQueries;
-    private boolean inferDateTypeInSchema;
-    private boolean inferTimestampTypeInSchema;
-    private boolean markDataFetchExceptionsAsRetriable;
-    private boolean usePinotSqlForBrokerQueries;
+
+    // Infer Pinot time fields to Presto Date/Timestamp type
+    private boolean inferDateTypeInSchema = true;
+    private boolean inferTimestampTypeInSchema = true;
+
+    // Retry on data fetch exceptions, e.g. timeout from the server side.
+    private boolean markDataFetchExceptionsAsRetriable = true;
+
+    // Requires Pinot version >= 0.4.0.
+    private boolean usePinotSqlForBrokerQueries = true;
+
     private int numSegmentsPerSplit = 1;
     private boolean ignoreEmptyResponses;
     private int fetchRetryCount = 2;
