@@ -15,15 +15,15 @@ package com.facebook.presto.verifier.resolver;
 
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.framework.DataMatchResult;
-import com.facebook.presto.verifier.framework.DataQueryBundle;
 import com.facebook.presto.verifier.framework.QueryBundle;
 import com.facebook.presto.verifier.framework.QueryException;
+import com.facebook.presto.verifier.framework.QueryObjectBundle;
 
 import java.util.Optional;
 
 public interface FailureResolver
 {
-    default Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<DataQueryBundle> test)
+    default Optional<String> resolveQueryFailure(QueryStats controlQueryStats, QueryException queryException, Optional<QueryObjectBundle> test)
     {
         return Optional.empty();
     }

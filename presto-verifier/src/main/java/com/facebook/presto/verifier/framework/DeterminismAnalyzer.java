@@ -90,14 +90,14 @@ public class DeterminismAnalyzer
         this.handleLimitQuery = config.isHandleLimitQuery();
     }
 
-    protected DeterminismAnalysisDetails analyze(DataQueryBundle control, ChecksumResult controlChecksum)
+    protected DeterminismAnalysisDetails analyze(QueryObjectBundle control, ChecksumResult controlChecksum)
     {
         DeterminismAnalysisDetails.Builder determinismAnalysisDetails = DeterminismAnalysisDetails.builder();
         DeterminismAnalysis analysis = analyze(control, controlChecksum, determinismAnalysisDetails);
         return determinismAnalysisDetails.build(analysis);
     }
 
-    private DeterminismAnalysis analyze(DataQueryBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
+    private DeterminismAnalysis analyze(QueryObjectBundle control, ChecksumResult controlChecksum, DeterminismAnalysisDetails.Builder determinismAnalysisDetails)
     {
         // Handle mutable catalogs
         if (isNonDeterministicCatalogReferenced(control.getQuery())) {
@@ -127,12 +127,12 @@ public class DeterminismAnalyzer
         }
 
         // Rerun control query multiple times
-        List<Column> columns = getColumns(prestoAction, typeManager, control.getTableName());
+        List<Column> columns = getColumns(prestoAction, typeManager, control.getObjectName());
         Map<QueryBundle, DeterminismAnalysisRun.Builder> queryRuns = new HashMap<>();
         try {
             for (int i = 0; i < maxAnalysisRuns; i++) {
-                DataQueryBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(CONTROL), CONTROL);
-                DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getTableName().toString());
+                QueryObjectBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(CONTROL), CONTROL);
+                DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getObjectName().toString());
                 queryRuns.put(queryBundle, run);
 
                 // Rerun setup and main query
@@ -144,7 +144,7 @@ public class DeterminismAnalyzer
                         stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setQueryId));
 
                 // Run checksum query
-                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getTableName(), columns);
+                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getObjectName(), columns);
                 ChecksumResult testChecksum = getOnlyElement(callAndConsume(
                         () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
                         stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setChecksumQueryId)).getResults());
