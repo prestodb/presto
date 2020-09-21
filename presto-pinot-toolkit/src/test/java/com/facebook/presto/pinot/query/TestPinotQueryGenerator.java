@@ -313,7 +313,7 @@ public class TestPinotQueryGenerator
     @Test(expectedExceptions = NoSuchElementException.class)
     public void testMultipleAggregatesNotAllowed()
     {
-        helperTestMultipleAggregatesWithGroupBy(pinotConfig);
+        helperTestMultipleAggregatesWithGroupBy(new PinotConfig().setAllowMultipleAggregations(false));
     }
 
     protected void helperTestMultipleAggregatesWithGroupBy(PinotConfig givenPinotConfig)
