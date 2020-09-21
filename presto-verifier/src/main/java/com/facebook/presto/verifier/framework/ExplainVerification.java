@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.planner.planPrinter.JsonRenderer.JsonRenderedNode;
 import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.Statement;
@@ -24,15 +26,15 @@ import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.google.common.collect.ImmutableList;
 
+import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.JSON;
-import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType;
+import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.DETAILS_MISMATCH;
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.MATCH;
-import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.PLAN_CHANGED;
-import static com.facebook.presto.verifier.framework.QueryType.CREATE_TABLE_AS_SELECT;
-import static com.facebook.presto.verifier.framework.QueryType.INSERT;
-import static com.facebook.presto.verifier.framework.QueryType.QUERY;
+import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.STRUCTURE_MISMATCH;
 import static com.facebook.presto.verifier.framework.VerifierUtil.PARSING_OPTIONS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -42,6 +44,7 @@ public class ExplainVerification
         extends AbstractVerification<QueryBundle, ExplainMatchResult, String>
 {
     private static final ResultSetConverter<String> QUERY_PLAN_RESULT_SET_CONVERTER = resultSet -> Optional.of(resultSet.getString("Query Plan"));
+    private static final JsonCodec<JsonRenderedNode> PLAN_CODEC = jsonCodec(JsonRenderedNode.class);
     private final SqlParser sqlParser;
 
     public ExplainVerification(
@@ -75,9 +78,11 @@ public class ExplainVerification
     {
         checkArgument(controlQueryResult.isPresent(), "control query plan is missing");
         checkArgument(testQueryResult.isPresent(), "test query plan is missing");
-        String controlPlan = getOnlyElement(controlQueryResult.get().getResults());
-        String testPlan = getOnlyElement(testQueryResult.get().getResults());
-        return new ExplainMatchResult(testPlan.equals(controlPlan) ? MATCH : PLAN_CHANGED);
+
+        JsonRenderedNode controlPlan = PLAN_CODEC.fromJson(getOnlyElement(controlQueryResult.get().getResults()));
+        JsonRenderedNode testPlan = PLAN_CODEC.fromJson(getOnlyElement(testQueryResult.get().getResults()));
+
+        return new ExplainMatchResult(match(controlPlan, testPlan));
     }
 
     @Override
@@ -96,5 +101,27 @@ public class ExplainVerification
     protected void updateQueryInfo(QueryInfo.Builder queryInfo, Optional<QueryResult<String>> queryResult)
     {
         queryResult.ifPresent(result -> queryInfo.setJsonPlan(getOnlyElement(result.getResults())));
+    }
+
+    private MatchType match(JsonRenderedNode controlPlan, JsonRenderedNode testPlan)
+    {
+        if (!Objects.equals(controlPlan.getName(), testPlan.getName())
+                || !Objects.equals(controlPlan.getIdentifier(), testPlan.getIdentifier())
+                || !Objects.equals(controlPlan.getRemoteSources(), testPlan.getRemoteSources())
+                || controlPlan.getChildren().size() != testPlan.getChildren().size()) {
+            return STRUCTURE_MISMATCH;
+        }
+
+        boolean detailsMismatched = !Objects.equals(controlPlan.getDetails(), testPlan.getDetails());
+        for (int i = 0; i < controlPlan.getChildren().size(); i++) {
+            MatchType childMatchType = match(controlPlan.getChildren().get(i), testPlan.getChildren().get(i));
+            if (childMatchType == STRUCTURE_MISMATCH) {
+                return STRUCTURE_MISMATCH;
+            }
+            else if (childMatchType == DETAILS_MISMATCH) {
+                detailsMismatched = true;
+            }
+        }
+        return detailsMismatched ? DETAILS_MISMATCH : MATCH;
     }
 }
