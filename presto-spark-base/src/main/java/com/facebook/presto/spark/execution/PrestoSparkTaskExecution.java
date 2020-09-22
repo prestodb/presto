@@ -51,6 +51,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -63,6 +64,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * The PrestoSparkTaskExecution is a simplified version of SqlTaskExecution.
@@ -102,7 +104,8 @@ public class PrestoSparkTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
-            Executor notificationExecutor)
+            Executor notificationExecutor,
+            ScheduledExecutorService memoryUpdateExecutor)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.taskId = taskStateMachine.getTaskId();
@@ -139,7 +142,8 @@ public class PrestoSparkTaskExecution
 
         taskHandle = createTaskHandle(taskStateMachine, taskContext, localExecutionPlan, taskExecutor);
 
-        // TODO: periodically call taskContext::updatePeakMemory
+        requireNonNull(memoryUpdateExecutor, "memoryUpdateExecutor is null");
+        memoryUpdateExecutor.schedule(taskContext::updatePeakMemory, 1, SECONDS);
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction

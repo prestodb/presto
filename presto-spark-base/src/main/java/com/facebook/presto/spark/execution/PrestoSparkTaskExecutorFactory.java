@@ -133,6 +133,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
+    private final ScheduledExecutorService memoryUpdateExecutor;
 
     private final LocalExecutionPlanner localExecutionPlanner;
     private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
@@ -164,6 +165,7 @@ public class PrestoSparkTaskExecutorFactory
             JsonCodec<TaskInfo> taskInfoJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
+            ScheduledExecutorService memoryUpdateExecutor,
             LocalExecutionPlanner localExecutionPlanner,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             TaskExecutor taskExecutor,
@@ -183,6 +185,7 @@ public class PrestoSparkTaskExecutorFactory
                 taskInfoJsonCodec,
                 notificationExecutor,
                 yieldExecutor,
+                memoryUpdateExecutor,
                 localExecutionPlanner,
                 executionExceptionFactory,
                 taskExecutor,
@@ -208,6 +211,7 @@ public class PrestoSparkTaskExecutorFactory
             JsonCodec<TaskInfo> taskInfoJsonCodec,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
+            ScheduledExecutorService memoryUpdateExecutor,
             LocalExecutionPlanner localExecutionPlanner,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             TaskExecutor taskExecutor,
@@ -231,6 +235,7 @@ public class PrestoSparkTaskExecutorFactory
         this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
+        this.memoryUpdateExecutor = requireNonNull(memoryUpdateExecutor, "memoryUpdateExecutor is null");
         this.localExecutionPlanner = requireNonNull(localExecutionPlanner, "localExecutionPlanner is null");
         this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
@@ -436,7 +441,8 @@ public class PrestoSparkTaskExecutorFactory
                 localExecutionPlan,
                 taskExecutor,
                 splitMonitor,
-                notificationExecutor);
+                notificationExecutor,
+                memoryUpdateExecutor);
 
         taskExecution.start(taskSources);
 
