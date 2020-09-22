@@ -160,6 +160,7 @@ public class BackgroundHiveSplitLoader
         this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
         this.tableBucketInfo = requireNonNull(tableBucketInfo, "tableBucketInfo is null");
         this.loaderConcurrency = loaderConcurrency;
+        checkArgument(loaderConcurrency > 0, "loaderConcurrency must be > 0, found: %s", loaderConcurrency);
         this.session = requireNonNull(session, "session is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
