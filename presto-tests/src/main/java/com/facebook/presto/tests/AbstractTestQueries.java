@@ -5376,4 +5376,21 @@ public abstract class AbstractTestQueries
                 "SELECT NULL IS DISTINCT FROM R.name FROM nation N LEFT OUTER JOIN region R ON N.regionkey = R.regionkey AND R.regionkey = 2 WHERE N.name='JAPAN'",
                 "SELECT TRUE");
     }
+
+    @Test
+    public void testDereference()
+    {
+        assertQuery(
+                "select cast(row(row(row(random(10), if(random(10) >= 0, 2)), random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int)).x.y.b",
+                "select 2");
+        assertQuery(
+                "select cast(row(row(row(random(10), if(random(10) < 0, 2)), random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int)).x.y.b",
+                "select null");
+        assertQuery(
+                "select cast(row(row(null, random(10)), random(100)) AS row(x row(y row(a int, b int), c int), d int)).x.y.b",
+                "select null");
+        assertQuery(
+                "select cast(row(row(null, if(random(100) >= 0, 4)), random(10)) AS row(x row(y row(a int, b int), c int), d int)).x.c",
+                "select 4");
+    }
 }
