@@ -138,6 +138,8 @@ public class PrestoSparkTaskExecution
                 "Fragment is partitioned, but not all partitioned drivers were found");
 
         taskHandle = createTaskHandle(taskStateMachine, taskContext, localExecutionPlan, taskExecutor);
+
+        // TODO: periodically call taskContext::updatePeakMemory
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction

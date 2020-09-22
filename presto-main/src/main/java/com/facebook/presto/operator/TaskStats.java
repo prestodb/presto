@@ -51,6 +51,8 @@ public class TaskStats
     private final long userMemoryReservationInBytes;
     private final long revocableMemoryReservationInBytes;
     private final long systemMemoryReservationInBytes;
+
+    private final long peakUserMemoryInBytes;
     private final long peakTotalMemoryInBytes;
 
     private final long totalScheduledTimeInNanos;
@@ -79,7 +81,8 @@ public class TaskStats
 
     public TaskStats(DateTime createTime, DateTime endTime)
     {
-        this(createTime,
+        this(
+                createTime,
                 null,
                 null,
                 null,
@@ -97,7 +100,8 @@ public class TaskStats
                 0L,
                 0L,
                 0L,
-                0,
+                0L,
+                0L,
                 0L,
                 0L,
                 0L,
@@ -138,7 +142,9 @@ public class TaskStats
             @JsonProperty("userMemoryReservation") long userMemoryReservationInBytes,
             @JsonProperty("revocableMemoryReservationInBytes") long revocableMemoryReservationInBytes,
             @JsonProperty("systemMemoryReservationInBytes") long systemMemoryReservationInBytes,
+
             @JsonProperty("peakTotalMemoryInBytes") long peakTotalMemoryInBytes,
+            @JsonProperty("peakUserMemoryInBytes") long peakUserMemoryInBytes,
 
             @JsonProperty("totalScheduledTimeInNanos") long totalScheduledTimeInNanos,
             @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
@@ -194,7 +200,9 @@ public class TaskStats
         this.userMemoryReservationInBytes = userMemoryReservationInBytes;
         this.revocableMemoryReservationInBytes = revocableMemoryReservationInBytes;
         this.systemMemoryReservationInBytes = systemMemoryReservationInBytes;
+
         this.peakTotalMemoryInBytes = peakTotalMemoryInBytes;
+        this.peakUserMemoryInBytes = peakUserMemoryInBytes;
 
         this.totalScheduledTimeInNanos = totalScheduledTimeInNanos;
         this.totalCpuTimeInNanos = totalCpuTimeInNanos;
@@ -323,6 +331,12 @@ public class TaskStats
     public long getSystemMemoryReservationInBytes()
     {
         return systemMemoryReservationInBytes;
+    }
+
+    @JsonProperty
+    public long getPeakUserMemoryInBytes()
+    {
+        return peakUserMemoryInBytes;
     }
 
     @JsonProperty
@@ -461,6 +475,7 @@ public class TaskStats
                 revocableMemoryReservationInBytes,
                 systemMemoryReservationInBytes,
                 peakTotalMemoryInBytes,
+                peakUserMemoryInBytes,
                 totalScheduledTimeInNanos,
                 totalCpuTimeInNanos,
                 totalBlockedTimeInNanos,
@@ -501,6 +516,7 @@ public class TaskStats
                 revocableMemoryReservationInBytes,
                 systemMemoryReservationInBytes,
                 peakTotalMemoryInBytes,
+                peakUserMemoryInBytes,
                 totalScheduledTimeInNanos,
                 totalCpuTimeInNanos,
                 totalBlockedTimeInNanos,
