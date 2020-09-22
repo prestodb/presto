@@ -559,7 +559,7 @@ public class TaskContext
                 pipelineStats);
     }
 
-    private void updatePeakMemory()
+    public void updatePeakMemory()
     {
         long userMemory = taskMemoryContext.getUserMemory();
         long systemMemory = taskMemoryContext.getSystemMemory();
