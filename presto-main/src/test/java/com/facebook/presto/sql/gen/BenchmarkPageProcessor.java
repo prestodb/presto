@@ -20,6 +20,7 @@ import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -29,6 +30,7 @@ import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -108,6 +110,10 @@ public class BenchmarkPageProcessor
         private Tpch1FilterAndProject handcodedProcessor;
         private Page inputPage;
 
+        @SuppressWarnings("unused")
+        @Param({"true", "false"})
+        private boolean filterAlwaysFails;
+
         @Setup
         public void setup()
         {
@@ -136,13 +142,19 @@ public class BenchmarkPageProcessor
             return pageBuilder.build();
         }
 
-        // where shipdate >= '1994-01-01'
-        //    and shipdate < '1995-01-01'
-        //    and discount >= 0.05
-        //    and discount <= 0.07
-        //    and quantity < 24;
-        private static final RowExpression createFilterExpression(FunctionManager functionManager)
+
+        private final RowExpression createFilterExpression(FunctionManager functionManager)
         {
+            if (!filterAlwaysFails) {
+                return new ConstantExpression(true, BOOLEAN);
+            }
+
+            // where shipdate >= '1994-01-01'
+            //    and shipdate < '1995-01-01'
+            //    and discount >= 0.05
+            //    and discount <= 0.07
+            //    and quantity < 24;
+            // This filters out 100% of rows.
             return specialForm(
                     AND,
                     BOOLEAN,
@@ -192,7 +204,7 @@ public class BenchmarkPageProcessor
                     field(DISCOUNT, DOUBLE));
         }
 
-        private static final class Tpch1FilterAndProject
+        private final class Tpch1FilterAndProject
         {
             public int process(Page page, int start, int end, PageBuilder pageBuilder)
             {
@@ -212,7 +224,7 @@ public class BenchmarkPageProcessor
                 return position;
             }
 
-            private static void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
+            private void project(int position, PageBuilder pageBuilder, Block extendedPriceBlock, Block discountBlock)
             {
                 pageBuilder.declarePosition();
                 if (discountBlock.isNull(position) || extendedPriceBlock.isNull(position)) {
@@ -223,8 +235,12 @@ public class BenchmarkPageProcessor
                 }
             }
 
-            private static boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
+            private boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
             {
+                if (!filterAlwaysFails) {
+                    return true;
+                }
+
                 return !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0 &&
                         !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
                         !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
