@@ -95,7 +95,9 @@ public class TaskContext
 
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
+
     private final AtomicLong peakTotalMemoryInBytes = new AtomicLong(0);
+    private final AtomicLong peakUserMemoryInBytes = new AtomicLong(0);
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastUserMemoryReservation;
@@ -498,7 +500,7 @@ public class TaskContext
         long userMemory = taskMemoryContext.getUserMemory();
         long systemMemory = taskMemoryContext.getSystemMemory();
 
-        peakTotalMemoryInBytes.accumulateAndGet(userMemory + systemMemory, Math::max);
+        updatePeakMemory();
 
         synchronized (cumulativeMemoryLock) {
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
@@ -538,6 +540,7 @@ public class TaskContext
                 taskMemoryContext.getRevocableMemory(),
                 systemMemory,
                 peakTotalMemoryInBytes.get(),
+                peakUserMemoryInBytes.get(),
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,
@@ -554,6 +557,15 @@ public class TaskContext
                 fullGcCount,
                 fullGcTime.toMillis(),
                 pipelineStats);
+    }
+
+    private void updatePeakMemory()
+    {
+        long userMemory = taskMemoryContext.getUserMemory();
+        long systemMemory = taskMemoryContext.getSystemMemory();
+
+        peakTotalMemoryInBytes.accumulateAndGet(userMemory + systemMemory, Math::max);
+        peakUserMemoryInBytes.accumulateAndGet(userMemory, Math::max);
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
