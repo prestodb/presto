@@ -37,6 +37,7 @@ public class SerializedTaskInfo
     }
 
     @Override
+    // Displayed at the Spark web interface
     public String toString()
     {
         return fragmentId + "." + taskId;
