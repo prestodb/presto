@@ -638,7 +638,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     .getDeclaredField("writer");
             writerField.setAccessible(true);
             Writer writer = (Writer) writerField.get(recordWriter);
-            Method flushStripe = WriterImpl.class.getDeclaredMethod("flushStripe");
+            Method flushStripe = WriterImpl.class.getSuperclass().getDeclaredMethod("flushStripe");
             flushStripe.setAccessible(true);
             flushStripe.invoke(writer);
         }

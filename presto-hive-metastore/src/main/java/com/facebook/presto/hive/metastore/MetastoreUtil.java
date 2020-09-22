@@ -47,6 +47,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -220,10 +221,7 @@ public class MetastoreUtil
         schema.setProperty(META_TABLE_LOCATION, storage.getLocation());
 
         if (storage.getBucketProperty().isPresent()) {
-            List<String> bucketedBy = storage.getBucketProperty().get().getBucketedBy();
-            if (!bucketedBy.isEmpty()) {
-                schema.setProperty(BUCKET_FIELD_NAME, bucketedBy.get(0));
-            }
+            schema.setProperty(BUCKET_FIELD_NAME, Joiner.on(",").join(storage.getBucketProperty().get().getBucketedBy()));
             schema.setProperty(BUCKET_COUNT, Integer.toString(storage.getBucketProperty().get().getBucketCount()));
         }
         else {
