@@ -40,6 +40,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
 import java.util.Iterator;
 import java.util.List;
@@ -82,6 +83,15 @@ public class BenchmarkPageProcessor
         return pageBuilder.build();
     }
 
+    @Test
+    public void verifyHandCoded()
+    {
+        BenchmarkData benchmarkData = new BenchmarkData();
+        benchmarkData.setup();
+        BenchmarkPageProcessor benchmarkPageProcessor = new BenchmarkPageProcessor();
+        benchmarkPageProcessor.handCoded(benchmarkData);
+    }
+
     @Benchmark
     public List<Optional<Page>> compiled(BenchmarkData data)
     {
@@ -91,6 +101,15 @@ public class BenchmarkPageProcessor
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                         data.inputPage));
+    }
+
+    @Test
+    public void verifyCompiled()
+    {
+        BenchmarkData benchmarkData = new BenchmarkData();
+        benchmarkData.setup();
+        BenchmarkPageProcessor benchmarkPageProcessor = new BenchmarkPageProcessor();
+        benchmarkPageProcessor.compiled(benchmarkData);
     }
 
     @State(Scope.Thread)
@@ -141,7 +160,6 @@ public class BenchmarkPageProcessor
             }
             return pageBuilder.build();
         }
-
 
         private final RowExpression createFilterExpression(FunctionManager functionManager)
         {
