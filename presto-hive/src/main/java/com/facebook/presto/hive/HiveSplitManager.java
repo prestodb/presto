@@ -255,7 +255,7 @@ public class HiveSplitManager
                 namenodeStats,
                 directoryLister,
                 executor,
-                splitLoaderConcurrency,
+                min(splitLoaderConcurrency, partitions.size()), // Avoid over-committing split loader concurrency
                 recursiveDfsWalkerEnabled,
                 splitSchedulingContext.schedulerUsesHostAddresses(),
                 layout.isPartialAggregationsPushedDown());
