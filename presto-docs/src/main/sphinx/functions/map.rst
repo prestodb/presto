@@ -95,7 +95,7 @@ Map Functions
                             MAP(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]),
                             (k, v1, v2) -> k || CAST(v1/v2 AS VARCHAR));
 
-.. function:: transform_keys(map(K1,V), function(K1,V,K2)) -> map(K2,V)
+.. function:: transform_keys(map(K1,V), function(K1,V)) -> map(K2,V)
 
     Returns a map that applies ``function`` to each entry of ``map`` and transforms the keys::
 
@@ -106,7 +106,7 @@ Map Functions
         SELECT transform_keys(MAP(ARRAY [1, 2], ARRAY [1.0, 1.4]), -- {one -> 1.0, two -> 1.4}
                               (k, v) -> MAP(ARRAY[1, 2], ARRAY['one', 'two'])[k]);
 
-.. function:: transform_values(map(K,V1), function(K,V1,V2)) -> map(K,V2)
+.. function:: transform_values(map(K,V1), function(K,V1)) -> map(K,V2)
 
     Returns a map that applies ``function`` to each entry of ``map`` and transforms the values::
 
