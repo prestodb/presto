@@ -42,6 +42,7 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.PrestoSparkAuthenticatorProvider;
+import com.facebook.presto.spark.PrestoSparkConfig;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
@@ -106,6 +107,7 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.getShuffleO
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation.WRITE;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.getNullifyingIterator;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
@@ -150,6 +152,8 @@ public class PrestoSparkTaskExecutorFactory
     private final boolean perOperatorAllocationTrackingEnabled;
     private final boolean allocationTrackingEnabled;
 
+    private final boolean nullifyingIteratorForBroadcastJoinEnabled;
+
     @Inject
     public PrestoSparkTaskExecutorFactory(
             SessionPropertyManager sessionPropertyManager,
@@ -167,7 +171,8 @@ public class PrestoSparkTaskExecutorFactory
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             TaskManagerConfig taskManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
-            NodeSpillConfig nodeSpillConfig)
+            NodeSpillConfig nodeSpillConfig,
+            PrestoSparkConfig prestoSparkConfig)
     {
         this(
                 sessionPropertyManager,
@@ -190,7 +195,8 @@ public class PrestoSparkTaskExecutorFactory
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorCpuTimerEnabled(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskCpuTimerEnabled(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorAllocationTrackingEnabled(),
-                requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskAllocationTrackingEnabled());
+                requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskAllocationTrackingEnabled(),
+                requireNonNull(prestoSparkConfig, "prestoSparkConfig is null").isNullifyingIteratorForBroadcastJoinEnabled());
     }
 
     public PrestoSparkTaskExecutorFactory(
@@ -214,7 +220,8 @@ public class PrestoSparkTaskExecutorFactory
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
-            boolean allocationTrackingEnabled)
+            boolean allocationTrackingEnabled,
+            boolean nullifyingIteratorForBroadcastJoinEnabled)
     {
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
@@ -237,6 +244,7 @@ public class PrestoSparkTaskExecutorFactory
         this.cpuTimerEnabled = cpuTimerEnabled;
         this.perOperatorAllocationTrackingEnabled = perOperatorAllocationTrackingEnabled;
         this.allocationTrackingEnabled = allocationTrackingEnabled;
+        this.nullifyingIteratorForBroadcastJoinEnabled = nullifyingIteratorForBroadcastJoinEnabled;
     }
 
     @Override
@@ -350,11 +358,14 @@ public class PrestoSparkTaskExecutorFactory
 
                 if (broadcastInput != null) {
                     checkArgument(inMemoryInput == null, "single remote source is not expected to accept different kind of inputs");
-                    // TODO: Enable NullifyingIterator once migrated to one task per JVM model
-                    // NullifyingIterator removes element from the list upon return
-                    // This allows GC to gradually reclaim memory
-                    // remoteSourcePageInputs.add(getNullifyingIterator(broadcastInput.value()));
-                    remoteSourcePageInputs.add(broadcastInput.value().iterator());
+                    if (nullifyingIteratorForBroadcastJoinEnabled) {
+                        // NullifyingIterator removes element from the list upon return
+                        // This allows GC to gradually reclaim the memory as the broadcast source is read
+                        remoteSourcePageInputs.add(getNullifyingIterator(broadcastInput.value()));
+                    }
+                    else {
+                        remoteSourcePageInputs.add(broadcastInput.value().iterator());
+                    }
                     continue;
                 }
 
