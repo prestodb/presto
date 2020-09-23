@@ -203,7 +203,11 @@ public class PrestoSparkQueryRunner
                 DRIVER,
                 ImmutableMap.of(
                         "presto.version", "testversion",
-                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2)),
+                        "query.hash-partition-count", Integer.toString(NODE_COUNT * 2),
+                        // In the local query runner all pseudo distributed spark executors are
+                        // run in the same jvm and share the same broadcast variable, thus
+                        // gradually nullifying the broadcast variable elements is not possible
+                        "spark.nullifying-iterator-for-broadcast-join-enabled", "false"),
                 ImmutableMap.of(),
                 Optional.empty(),
                 new SqlParserOptions(),
