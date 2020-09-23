@@ -29,6 +29,7 @@ import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.facebook.presto.orc.stream.OrcInputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -312,6 +313,72 @@ public class TestDecryption
     }
 
     @Test
+    public void testEncryptionGroupWithMultipleTypes()
+            throws Exception
+    {
+        Slice iek1 = Slices.utf8Slice("iek1");
+        DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
+                UNKNOWN,
+                ImmutableList.of(
+                        new WriterEncryptionGroup(ImmutableList.of(1, 2), iek1)));
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
+        List<Long> intValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
+                .map(Number::longValue)
+                .collect(toImmutableList());
+        List<String> varcharValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
+                .map(String::valueOf)
+                .collect(toImmutableList());
+
+        List<List<?>> values = ImmutableList.of(intValues, varcharValues);
+        List<Integer> outputColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableList());
+
+        testDecryptionRoundTrip(
+                types,
+                values,
+                values,
+                Optional.of(dwrfWriterEncryption),
+                ImmutableMap.of(1, iek1, 2, iek1),
+                ImmutableMap.of(0, BIGINT, 1, VARCHAR),
+                ImmutableMap.of(),
+                outputColumns);
+    }
+
+    @Test
+    public void testEncryptionGroupWithReversedOrderNodes()
+            throws Exception
+    {
+        Slice iek1 = Slices.utf8Slice("iek1");
+        DwrfWriterEncryption dwrfWriterEncryption = new DwrfWriterEncryption(
+                UNKNOWN,
+                ImmutableList.of(
+                        new WriterEncryptionGroup(ImmutableList.of(2, 1), iek1)));
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
+        List<Long> intValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
+                .map(Number::longValue)
+                .collect(toImmutableList());
+        List<String> varcharValues = ImmutableList.copyOf(intsBetween(0, 31_234)).stream()
+                .map(String::valueOf)
+                .collect(toImmutableList());
+
+        List<List<?>> values = ImmutableList.of(intValues, varcharValues);
+        List<Integer> outputColumns = IntStream.range(0, types.size())
+                .boxed()
+                .collect(toImmutableList());
+
+        testDecryptionRoundTrip(
+                types,
+                values,
+                values,
+                Optional.of(dwrfWriterEncryption),
+                ImmutableMap.of(1, iek1, 2, iek1),
+                ImmutableMap.of(0, BIGINT, 1, VARCHAR),
+                ImmutableMap.of(),
+                outputColumns);
+    }
+
+    @Test
     public void testMultipleEncryptionGroupsMultipleColumns()
             throws Exception
     {
@@ -560,10 +627,76 @@ public class TestDecryption
                         .map(WriterEncryptionGroup::getNodes)
                         .flatMap(Collection::stream)
                         .forEach(node -> assertTrue(hasNoTypeStats(fileStats.get(node)), format("file stats for node %s had type stats %s", node, fileStats.get(node))));
-                footer.getEncryption().getEncryptionGroupsList()
-                        .forEach(group -> assertEquals(group.getNodesCount(), group.getStatisticsCount()));
+                DwrfProto.Encryption encryption = footer.getEncryption();
+                EncryptionLibrary encryptionLibrary = new TestingEncryptionLibrary();
+                List<byte[]> keys = IntStream.range(0, dwrfWriterEncryption.get().getWriterEncryptionGroups().size())
+                        .boxed()
+                        .map(i -> {
+                            byte[] encryptedKey = footer.getStripes(0).getKeyMetadata(i).toByteArray();
+                            byte[] intermediateKey = dwrfWriterEncryption.get().getWriterEncryptionGroups().get(i).getIntermediateKeyMetadata().getBytes();
+                            return encryptionLibrary.decryptData(intermediateKey, encryptedKey, 0, encryptedKey.length);
+                        })
+                        .collect(toImmutableList());
+                for (int i = 0; i < dwrfWriterEncryption.get().getWriterEncryptionGroups().size(); i++) {
+                    validateEncryptionGroupStats(encryption.getEncryptionGroups(i), footer.getTypesList(), keys.get(i), orcDataSource, orcFileTail);
+                }
             }
         }
+    }
+
+    /**
+     * For each encryption groups a list of encrypted FileStatistics corresponding to every node in the encryption group is stored.
+     * The FileStatistics contains the ColumnStatistics for that node, any child nodes.
+     * This method validates the we have the expected types of stats in the expected order for each encryption group
+     **/
+    private static void validateEncryptionGroupStats(DwrfProto.EncryptionGroup group, List<DwrfProto.Type> typesList, byte[] key, OrcDataSource orcDataSource, OrcFileTail orcFileTail)
+            throws IOException
+    {
+        assertEquals(group.getNodesCount(), group.getStatisticsCount());
+        Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), orcFileTail.getCompressionKind(), orcFileTail.getBufferSize(), false);
+        for (int i = 0; i < group.getNodesCount(); i++) {
+            DwrfDataEncryptor decryptor = new DwrfDataEncryptor(key, new TestingEncryptionLibrary());
+            try (InputStream inputStream = new OrcInputStream(
+                    orcDataSource.getId(),
+                    new BasicSliceInput(Slices.wrappedBuffer(group.getStatistics(i).toByteArray())),
+                    decompressor,
+                    Optional.of(decryptor),
+                    NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
+                    group.getStatistics(i).size())) {
+                CodedInputStream input = CodedInputStream.newInstance(inputStream);
+                DwrfProto.FileStatistics fileStatistics = DwrfProto.FileStatistics.parseFrom(input);
+                int finalStatsIndex = assertStatsTypesMatch(fileStatistics, typesList, typesList.get(group.getNodes(i)), 0);
+                assertEquals(finalStatsIndex, fileStatistics.getStatisticsCount() - 1);
+            }
+        }
+    }
+
+    private static int assertStatsTypesMatch(DwrfProto.FileStatistics fileStats, List<DwrfProto.Type> types, DwrfProto.Type type, int statsIndex)
+    {
+        DwrfProto.Type.Kind kind = type.getKind();
+        if (kind == DwrfProto.Type.Kind.BINARY) {
+            assertTrue(fileStats.getStatistics(statsIndex).hasBinaryStatistics());
+        }
+        else if (kind == DwrfProto.Type.Kind.BOOLEAN) {
+            assertTrue(fileStats.getStatistics(statsIndex).hasBucketStatistics());
+        }
+        else if (kind == DwrfProto.Type.Kind.BYTE || kind == DwrfProto.Type.Kind.SHORT || kind == DwrfProto.Type.Kind.INT || kind == DwrfProto.Type.Kind.LONG) {
+            assertTrue(fileStats.getStatistics(statsIndex).hasIntStatistics());
+        }
+        else if (kind == DwrfProto.Type.Kind.FLOAT || kind == DwrfProto.Type.Kind.DOUBLE) {
+            assertTrue(fileStats.getStatistics(statsIndex).hasDoubleStatistics());
+        }
+        else if (kind == DwrfProto.Type.Kind.STRING) {
+            assertTrue(fileStats.getStatistics(statsIndex).hasStringStatistics());
+        }
+        else {
+            assertTrue(hasNoTypeStats(fileStats.getStatistics(statsIndex)));
+        }
+
+        for (int i = 0; i < type.getSubtypesCount(); i++) {
+            statsIndex = assertStatsTypesMatch(fileStats, types, types.get(type.getSubtypes(i)), statsIndex + 1);
+        }
+        return statsIndex;
     }
 
     private static boolean hasNoTypeStats(DwrfProto.ColumnStatistics columnStatistics)
