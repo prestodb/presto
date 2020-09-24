@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -36,6 +37,7 @@ class PartitioningExchanger
     private final int[] partitioningChannels;
     private final Optional<Integer> hashChannel;
     private final IntArrayList[] partitionAssignments;
+    private final HashMap<Long, Integer> dupsAssignments;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
@@ -54,6 +56,8 @@ class PartitioningExchanger
         for (int i = 0; i < partitionAssignments.length; i++) {
             partitionAssignments[i] = new IntArrayList();
         }
+
+        dupsAssignments = new HashMap<>();
     }
 
     @Override
@@ -67,8 +71,12 @@ class PartitioningExchanger
         // assign each row to a partition
         Page partitioningChannelsPage = extractPartitioningChannels(page);
         for (int position = 0; position < partitioningChannelsPage.getPositionCount(); position++) {
-            int partition = partitionFunction.getPartition(partitioningChannelsPage, position);
-            partitionAssignments[partition].add(position);
+            Long hashValue = partitioningChannelsPage.getBlock(0).getLong(position);
+            if (!dupsAssignments.containsKey(hashValue)) {
+                int partition = partitionFunction.getPartition(partitioningChannelsPage, position);
+                partitionAssignments[partition].add(position);
+                dupsAssignments.put(hashValue, position);
+            }
         }
 
         // build a page for each partition

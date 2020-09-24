@@ -226,4 +226,29 @@ public abstract class AbstractTestIntegrationSmokeTest
                     .build();
         }
     }
+
+    @Test
+    public void testValuesRowNumPartition()
+    {
+        assertQuery("select * from (select *, row_number() over(partition by x) = 1 keep from (values 1, 2, 1, 3, 3) T(x)) where keep");
+    }
+
+    @Test
+    public void testValuesRowNumPartition2()
+    {
+        assertQuery("SELECT\n" +
+                "    orderdate\n" +
+                "FROM (\n" +
+                "    SELECT\n" +
+                "        *,\n" +
+                "        ROW_NUMBER() OVER(\n" +
+                "            PARTITION BY\n" +
+                "                orderkey,\n" +
+                "                custkey\n" +
+                "        ) = 1 as keep\n" +
+                "    FROM orders\n" +
+                ")\n" +
+                "WHERE\n" +
+                "    keep");
+    }
 }
