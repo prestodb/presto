@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -36,12 +37,15 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
@@ -63,6 +67,7 @@ import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
+import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.util.FinalizerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -70,8 +75,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -185,5 +192,27 @@ public final class TaskTestUtils
         return new SplitMonitor(
                 new EventListenerManager(),
                 new ObjectMapperProvider().get());
+    }
+
+    public static QueryStateMachine createQueryStateMachine(
+            String sqlString,
+            Session session,
+            boolean transactionControl,
+            TransactionManager tm,
+            Executor executor,
+            MetadataManager metadata)
+    {
+        return QueryStateMachine.begin(
+                sqlString,
+                session,
+                URI.create("fake://uri"),
+                new ResourceGroupId("test"),
+                Optional.empty(),
+                transactionControl,
+                tm,
+                new AllowAllAccessControl(),
+                executor,
+                metadata,
+                WarningCollector.NOOP);
     }
 }
