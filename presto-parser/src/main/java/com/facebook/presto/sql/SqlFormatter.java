@@ -584,7 +584,11 @@ public final class SqlFormatter
         @Override
         protected Void visitCreateFunction(CreateFunction node, Integer indent)
         {
-            builder.append("CREATE FUNCTION ")
+            builder.append("CREATE ");
+            if (node.isTemporary()) {
+                builder.append("TEMPORARY ");
+            }
+            builder.append("FUNCTION ")
                     .append(formatName(node.getFunctionName()))
                     .append(" ")
                     .append(formatSqlParameterDeclarations(node.getParameters()))
@@ -618,7 +622,11 @@ public final class SqlFormatter
         @Override
         protected Void visitDropFunction(DropFunction node, Integer indent)
         {
-            builder.append("DROP FUNCTION ");
+            builder.append("DROP ");
+            if (node.isTemporary()) {
+                builder.append("TEMPORARY ");
+            }
+            builder.append("FUNCTION ");
             if (node.isExists()) {
                 builder.append("IF EXISTS ");
             }

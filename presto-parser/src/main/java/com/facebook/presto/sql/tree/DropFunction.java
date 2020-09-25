@@ -27,23 +27,25 @@ public class DropFunction
 {
     private final QualifiedName functionName;
     private final Optional<List<String>> parameterTypes;
+    private final boolean temporary;
     private final boolean exists;
 
-    public DropFunction(QualifiedName functionName, Optional<List<String>> parameterTypes, boolean exists)
+    public DropFunction(QualifiedName functionName, Optional<List<String>> parameterTypes, boolean temporary, boolean exists)
     {
-        this(Optional.empty(), functionName, parameterTypes, exists);
+        this(Optional.empty(), functionName, parameterTypes, temporary, exists);
     }
 
-    public DropFunction(NodeLocation location, QualifiedName functionName, Optional<List<String>> parameterTypes, boolean exists)
+    public DropFunction(NodeLocation location, QualifiedName functionName, Optional<List<String>> parameterTypes, boolean temporary, boolean exists)
     {
-        this(Optional.of(location), functionName, parameterTypes, exists);
+        this(Optional.of(location), functionName, parameterTypes, temporary, exists);
     }
 
-    private DropFunction(Optional<NodeLocation> location, QualifiedName functionName, Optional<List<String>> parameterTypes, boolean exists)
+    private DropFunction(Optional<NodeLocation> location, QualifiedName functionName, Optional<List<String>> parameterTypes, boolean temporary, boolean exists)
     {
         super(location);
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null").map(ImmutableList::copyOf);
+        this.temporary = temporary;
         this.exists = exists;
     }
 
@@ -55,6 +57,11 @@ public class DropFunction
     public Optional<List<String>> getParameterTypes()
     {
         return parameterTypes;
+    }
+
+    public boolean isTemporary()
+    {
+        return temporary;
     }
 
     public boolean isExists()
@@ -77,7 +84,7 @@ public class DropFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(functionName, parameterTypes, exists);
+        return Objects.hash(functionName, parameterTypes, temporary, exists);
     }
 
     @Override
@@ -91,6 +98,7 @@ public class DropFunction
         }
         DropFunction o = (DropFunction) obj;
         return Objects.equals(functionName, o.functionName)
+                && Objects.equals(temporary, o.temporary)
                 && Objects.equals(parameterTypes, o.parameterTypes)
                 && (exists == o.exists);
     }
@@ -101,6 +109,7 @@ public class DropFunction
         return toStringHelper(this)
                 .add("functionName", functionName)
                 .add("parameterTypes", parameterTypes)
+                .add("temporary", temporary)
                 .add("exists", exists)
                 .toString();
     }

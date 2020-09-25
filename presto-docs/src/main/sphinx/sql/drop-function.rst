@@ -7,13 +7,15 @@ Synopsis
 
 .. code-block:: none
 
-    DROP FUNCTION [ IF EXISTS ] qualified_function_name [ ( parameter_type[, ...] ) ]
+    DROP [TEMPORARY] FUNCTION [ IF EXISTS ] qualified_function_name [ ( parameter_type[, ...] ) ]
 
 
 Description
 -----------
 
 Drop an existing function.
+
+When ``TEMPORARY`` is specified, a temporary function with the given signature is dropped.
 
 The optional ``IF EXISTS`` clause causes the ``NOT_FOUND`` error
 to be suppressed if the function does not exists.

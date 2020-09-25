@@ -39,6 +39,8 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.parser.ParsingException;
@@ -571,7 +573,12 @@ class StatementAnalyzer
             analysis.setUpdateType("CREATE FUNCTION");
 
             // Check function name
-            checkFunctionName(node, node.getFunctionName());
+            checkFunctionName(node, node.getFunctionName(), node.isTemporary());
+
+            // Check no replace with temporary functions
+            if (node.isTemporary() && node.isReplace()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "REPLACE is not supported for temporary functions");
+            }
 
             // Check parameter
             List<String> duplicateParameters = node.getParameters().stream()
@@ -614,14 +621,14 @@ class StatementAnalyzer
         @Override
         protected Scope visitAlterFunction(AlterFunction node, Optional<Scope> scope)
         {
-            checkFunctionName(node, node.getFunctionName());
+            checkFunctionName(node, node.getFunctionName(), false);
             return createAndAssignScope(node, scope);
         }
 
         @Override
         protected Scope visitDropFunction(DropFunction node, Optional<Scope> scope)
         {
-            checkFunctionName(node, node.getFunctionName());
+            checkFunctionName(node, node.getFunctionName(), node.isTemporary());
             return createAndAssignScope(node, scope);
         }
 
@@ -1662,10 +1669,26 @@ class StatementAnalyzer
             return assignments.build();
         }
 
-        private void checkFunctionName(Statement node, QualifiedName functionName)
+        private void checkFunctionName(Statement node, QualifiedName functionName, boolean isTemporary)
         {
-            if (functionName.getParts().size() != 3) {
-                throw new SemanticException(INVALID_FUNCTION_NAME, node, format("Function name should be in the form of catalog.schema.function_name, found: %s", functionName));
+            if (isTemporary) {
+                if (functionName.getParts().size() != 1) {
+                    throw new SemanticException(INVALID_FUNCTION_NAME, node, "Temporary functions cannot be qualified.");
+                }
+
+                List<String> builtInFunctionNames = metadata.getFunctionAndTypeManager().listBuiltInFunctions().stream()
+                        .map(SqlFunction::getSignature)
+                        .map(Signature::getName)
+                        .map(QualifiedObjectName::getObjectName)
+                        .collect(Collectors.toList());
+                if (builtInFunctionNames.contains(functionName.toString())) {
+                    throw new SemanticException(INVALID_FUNCTION_NAME, node, format("Function %s is already registered as a built-in function.", functionName));
+                }
+            }
+            else {
+                if (functionName.getParts().size() != 3) {
+                    throw new SemanticException(INVALID_FUNCTION_NAME, node, format("Function name should be in the form of catalog.schema.function_name, found: %s", functionName));
+                }
             }
         }
 

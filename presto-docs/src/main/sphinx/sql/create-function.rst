@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: none
 
-    CREATE [ OR REPLACE ] FUNCTION
+    CREATE [ OR REPLACE ] [TEMPORARY] FUNCTION
     qualified_function_name (
       parameter_name parameter_type
       [, ...]
@@ -25,11 +25,18 @@ Description
 
 Create a new function with the specified definition.
 
-Each function is uniquely identified by its qualified function name
+When ``TEMPORARY`` is specified, the created function is valid and visible
+within the current session, but no persistent entry is made.
+
+Each permanent function is uniquely identified by its qualified function name
 and its parameter type list. ``qualified_function_name`` needs to be in
 the format of ``catalog.schema.function_name``.
 
-In order to create a function, the corresponding function namespace
+Each temporary functions is uniquely identified by the function name.
+The name cannot be qualified, or collide with the name of an existing built-in
+function.
+
+In order to create a permanent function, the corresponding function namespace
 (in the format ``catalog.schema``) must first be managed by a function
 namespace manager (See :doc:`/admin/function-namespace-managers`).
 
@@ -77,6 +84,12 @@ routine characteristics::
     DETERMINISTIC
     RETURNS NULL ON NULL INPUT
     RETURN sin(x) / cos(x)
+
+Create a new temporary function ``square``::
+
+    CREATE TEMPORARY FUNCTION square(x int)
+    RETURNS int
+    RETURN x * x
 
 See Also
 --------

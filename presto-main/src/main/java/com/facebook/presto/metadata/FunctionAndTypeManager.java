@@ -246,6 +246,11 @@ public class FunctionAndTypeManager
                 .collect(toImmutableList());
     }
 
+    public Collection<SqlFunction> listBuiltInFunctions()
+    {
+        return builtInTypeAndFunctionNamespaceManager.listFunctions();
+    }
+
     public Collection<? extends SqlFunction> getFunctions(Optional<TransactionId> transactionId, QualifiedObjectName functionName)
     {
         Optional<FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName());
