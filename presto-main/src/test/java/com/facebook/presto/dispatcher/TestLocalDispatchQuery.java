@@ -27,8 +27,6 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OperatorInfo;
-import com.facebook.presto.security.AccessControlManager;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
@@ -41,7 +39,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -51,6 +48,7 @@ import static com.facebook.presto.client.NodeVersion.UNKNOWN;
 import static com.facebook.presto.execution.QueryState.DISPATCHING;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
+import static com.facebook.presto.execution.TaskTestUtils.createQueryStateMachine;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -258,18 +256,7 @@ public class TestLocalDispatchQuery
                 .setSchema(TINY_SCHEMA_NAME)
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        return QueryStateMachine.begin(
-                "COMMIT",
-                session,
-                URI.create("fake://uri"),
-                new ResourceGroupId("test"),
-                Optional.empty(),
-                true,
-                transactionManager,
-                new AccessControlManager(transactionManager),
-                directExecutor(),
-                metadata,
-                WarningCollector.NOOP);
+        return createQueryStateMachine("COMMIT", session, true, transactionManager, directExecutor(), metadata);
     }
 
     private static class TestEventListenerFactory

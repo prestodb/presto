@@ -19,20 +19,18 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.tree.Rollback;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.execution.TaskTestUtils.createQueryStateMachine;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -63,7 +61,7 @@ public class TestRollbackTask
         Session session = sessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, transactionManager);
+        QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
@@ -81,7 +79,7 @@ public class TestRollbackTask
 
         Session session = sessionBuilder()
                 .build();
-        QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, transactionManager);
+        QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
 
         try {
             getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
@@ -104,29 +102,13 @@ public class TestRollbackTask
         Session session = sessionBuilder()
                 .setTransactionId(TransactionId.create()) // Use a random transaction ID that is unknown to the system
                 .build();
-        QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, transactionManager);
+        QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, true, transactionManager, executor, metadata);
 
         getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()); // Still issue clear signal
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
-    }
-
-    private QueryStateMachine createQueryStateMachine(String query, Session session, TransactionManager transactionManager)
-    {
-        return QueryStateMachine.begin(
-                query,
-                session,
-                URI.create("fake://uri"),
-                new ResourceGroupId("test"),
-                Optional.empty(),
-                true,
-                transactionManager,
-                new AllowAllAccessControl(),
-                executor,
-                metadata,
-                WarningCollector.NOOP);
     }
 
     private static SessionBuilder sessionBuilder()
