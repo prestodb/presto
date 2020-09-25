@@ -741,7 +741,8 @@ public class PrestoConnection
                 extraCredentials,
                 transactionId.get(),
                 timeout,
-                compressionDisabled);
+                compressionDisabled,
+                ImmutableMap.of());
 
         return queryExecutor.startQuery(session, sql);
     }

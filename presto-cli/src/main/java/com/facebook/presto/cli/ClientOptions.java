@@ -174,7 +174,8 @@ public class ClientOptions
                 toExtraCredentials(extraCredentials),
                 null,
                 clientRequestTimeout,
-                disableCompression);
+                disableCompression,
+                emptyMap());
     }
 
     public static URI parseServer(String server)
