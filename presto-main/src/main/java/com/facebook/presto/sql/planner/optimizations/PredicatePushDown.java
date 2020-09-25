@@ -119,7 +119,7 @@ public class PredicatePushDown
     public PredicatePushDown(Metadata metadata, SqlParser sqlParser)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.effectivePredicateExtractor = new EffectivePredicateExtractor(new RowExpressionDomainTranslator(metadata), metadata.getFunctionAndTypeManager(), metadata.getTypeManager());
+        this.effectivePredicateExtractor = new EffectivePredicateExtractor(new RowExpressionDomainTranslator(metadata), metadata.getFunctionAndTypeManager());
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
@@ -930,18 +930,18 @@ public class PredicatePushDown
             rightEffectivePredicate = logicalRowExpressions.filterDeterministicConjuncts(rightEffectivePredicate);
 
             // Generate equality inferences
-            EqualityInference allInference = new EqualityInference.Builder(functionAndTypeManager, typeManager)
+            EqualityInference allInference = new EqualityInference.Builder(functionAndTypeManager)
                     .addEqualityInference(inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate)
                     .build();
-            EqualityInference allInferenceWithoutLeftInferred = new EqualityInference.Builder(functionAndTypeManager, typeManager)
+            EqualityInference allInferenceWithoutLeftInferred = new EqualityInference.Builder(functionAndTypeManager)
                     .addEqualityInference(inheritedPredicate, rightEffectivePredicate, joinPredicate)
                     .build();
-            EqualityInference allInferenceWithoutRightInferred = new EqualityInference.Builder(functionAndTypeManager, typeManager)
+            EqualityInference allInferenceWithoutRightInferred = new EqualityInference.Builder(functionAndTypeManager)
                     .addEqualityInference(inheritedPredicate, leftEffectivePredicate, joinPredicate)
                     .build();
 
             // Sort through conjuncts in inheritedPredicate that were not used for inference
-            for (RowExpression conjunct : new EqualityInference.Builder(functionAndTypeManager, typeManager).nonInferrableConjuncts(inheritedPredicate)) {
+            for (RowExpression conjunct : new EqualityInference.Builder(functionAndTypeManager).nonInferrableConjuncts(inheritedPredicate)) {
                 RowExpression leftRewrittenConjunct = allInference.rewriteExpression(conjunct, in(leftVariables));
                 if (leftRewrittenConjunct != null) {
                     leftPushDownConjuncts.add(leftRewrittenConjunct);
@@ -959,7 +959,7 @@ public class PredicatePushDown
             }
 
             // See if we can push the right effective predicate to the left side
-            for (RowExpression conjunct : new EqualityInference.Builder(functionAndTypeManager, typeManager).nonInferrableConjuncts(rightEffectivePredicate)) {
+            for (RowExpression conjunct : new EqualityInference.Builder(functionAndTypeManager).nonInferrableConjuncts(rightEffectivePredicate)) {
                 RowExpression rewritten = allInference.rewriteExpression(conjunct, in(leftVariables));
                 if (rewritten != null) {
                     leftPushDownConjuncts.add(rewritten);
@@ -967,7 +967,7 @@ public class PredicatePushDown
             }
 
             // See if we can push the left effective predicate to the right side
-            for (RowExpression conjunct : new EqualityInference.Builder(functionAndTypeManager, typeManager).nonInferrableConjuncts(leftEffectivePredicate)) {
+            for (RowExpression conjunct : new EqualityInference.Builder(functionAndTypeManager).nonInferrableConjuncts(leftEffectivePredicate)) {
                 RowExpression rewritten = allInference.rewriteExpression(conjunct, not(in(leftVariables)));
                 if (rewritten != null) {
                     rightPushDownConjuncts.add(rewritten);
@@ -975,7 +975,7 @@ public class PredicatePushDown
             }
 
             // See if we can push any parts of the join predicates to either side
-            for (RowExpression conjunct : new EqualityInference.Builder(functionAndTypeManager, typeManager).nonInferrableConjuncts(joinPredicate)) {
+            for (RowExpression conjunct : new EqualityInference.Builder(functionAndTypeManager).nonInferrableConjuncts(joinPredicate)) {
                 RowExpression leftRewritten = allInference.rewriteExpression(conjunct, in(leftVariables));
                 if (leftRewritten != null) {
                     leftPushDownConjuncts.add(leftRewritten);
@@ -1203,10 +1203,10 @@ public class PredicatePushDown
             PlanNode rewrittenFilteringSource = context.defaultRewrite(node.getFilteringSource(), TRUE_CONSTANT);
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
-            EqualityInference inheritedInference = new EqualityInference.Builder(functionAndTypeManager, typeManager)
+            EqualityInference inheritedInference = new EqualityInference.Builder(functionAndTypeManager)
                     .addEqualityInference(inheritedPredicate)
                     .build();
-            for (RowExpression conjunct : new EqualityInference.Builder(functionAndTypeManager, typeManager).nonInferrableConjuncts(inheritedPredicate)) {
+            for (RowExpression conjunct : new EqualityInference.Builder(functionAndTypeManager).nonInferrableConjuncts(inheritedPredicate)) {
                 RowExpression rewrittenConjunct = inheritedInference.rewriteExpressionAllowNonDeterministic(conjunct, in(node.getSource().getOutputVariables()));
                 // Since each source row is reflected exactly once in the output, ok to push non-deterministic predicates down
                 if (rewrittenConjunct != null) {
@@ -1332,13 +1332,13 @@ public class PredicatePushDown
 
         private Iterable<RowExpression> nonInferrableConjuncts(RowExpression inheritedPredicate)
         {
-            return new EqualityInference.Builder(functionAndTypeManager, typeManager)
+            return new EqualityInference.Builder(functionAndTypeManager)
                     .nonInferrableConjuncts(inheritedPredicate);
         }
 
         private EqualityInference createEqualityInference(RowExpression... expressions)
         {
-            return new EqualityInference.Builder(functionAndTypeManager, typeManager)
+            return new EqualityInference.Builder(functionAndTypeManager)
                     .addEqualityInference(expressions)
                     .build();
         }

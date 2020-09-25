@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.RowExpressionNodeInliner;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -311,16 +310,16 @@ public class EqualityInference
         private final NullabilityAnalyzer nullabilityAnalyzer;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
 
-        public Builder(FunctionAndTypeManager functionAndTypeManager, TypeManager typeManager)
+        public Builder(FunctionAndTypeManager functionAndTypeManager)
         {
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
             this.functionAndTypeManager = functionAndTypeManager;
-            this.nullabilityAnalyzer = new NullabilityAnalyzer(functionAndTypeManager, typeManager);
+            this.nullabilityAnalyzer = new NullabilityAnalyzer(functionAndTypeManager);
         }
 
         public Builder(Metadata metadata)
         {
-            this(metadata.getFunctionAndTypeManager(), metadata.getTypeManager());
+            this(metadata.getFunctionAndTypeManager());
         }
 
         /**

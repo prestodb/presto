@@ -28,7 +28,6 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -105,7 +104,7 @@ public final class ArrayTransformFunction
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type inputType = boundVariables.getTypeVariable("T");
         Type outputType = boundVariables.getTypeVariable("U");

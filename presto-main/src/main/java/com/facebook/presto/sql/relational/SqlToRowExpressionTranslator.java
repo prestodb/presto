@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -152,10 +151,9 @@ public final class SqlToRowExpressionTranslator
             Map<NodeRef<Expression>, Type> types,
             Map<VariableReferenceExpression, Integer> layout,
             FunctionAndTypeManager functionAndTypeManager,
-            TypeManager typeManager,
             Session session)
     {
-        return translate(expression, types, layout, functionAndTypeManager, typeManager, Optional.of(session.getUser()), session.getTransactionId(), session.getSqlFunctionProperties());
+        return translate(expression, types, layout, functionAndTypeManager, Optional.of(session.getUser()), session.getTransactionId(), session.getSqlFunctionProperties());
     }
 
     public static RowExpression translate(
@@ -163,7 +161,6 @@ public final class SqlToRowExpressionTranslator
             Map<NodeRef<Expression>, Type> types,
             Map<VariableReferenceExpression, Integer> layout,
             FunctionAndTypeManager functionAndTypeManager,
-            TypeManager typeManager,
             Optional<String> user,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties)
@@ -171,7 +168,6 @@ public final class SqlToRowExpressionTranslator
         Visitor visitor = new Visitor(
                 types,
                 layout,
-                typeManager,
                 functionAndTypeManager,
                 user,
                 transactionId,
@@ -186,7 +182,6 @@ public final class SqlToRowExpressionTranslator
     {
         private final Map<NodeRef<Expression>, Type> types;
         private final Map<VariableReferenceExpression, Integer> layout;
-        private final TypeManager typeManager;
         private final FunctionAndTypeManager functionAndTypeManager;
         private final Optional<String> user;
         private final Optional<TransactionId> transactionId;
@@ -196,7 +191,6 @@ public final class SqlToRowExpressionTranslator
         private Visitor(
                 Map<NodeRef<Expression>, Type> types,
                 Map<VariableReferenceExpression, Integer> layout,
-                TypeManager typeManager,
                 FunctionAndTypeManager functionAndTypeManager,
                 Optional<String> user,
                 Optional<TransactionId> transactionId,
@@ -204,7 +198,6 @@ public final class SqlToRowExpressionTranslator
         {
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
-            this.typeManager = typeManager;
             this.functionAndTypeManager = functionAndTypeManager;
             this.user = user;
             this.transactionId = transactionId;
@@ -299,7 +292,7 @@ public final class SqlToRowExpressionTranslator
         {
             Type type;
             try {
-                type = typeManager.getType(parseTypeSignature(node.getType()));
+                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
             }
             catch (IllegalArgumentException e) {
                 throw new IllegalArgumentException("Unsupported type: " + node.getType());

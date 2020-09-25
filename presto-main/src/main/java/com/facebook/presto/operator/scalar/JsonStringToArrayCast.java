@@ -15,7 +15,6 @@ package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -68,8 +67,8 @@ public final class JsonStringToArrayCast
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        return JSON_TO_ARRAY.specialize(boundVariables, arity, typeManager, functionAndTypeManager);
+        return JSON_TO_ARRAY.specialize(boundVariables, arity, functionAndTypeManager);
     }
 }

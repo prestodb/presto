@@ -18,7 +18,6 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -81,10 +80,10 @@ public class DecimalSumAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type inputType = getOnlyElement(applyBoundVariables(typeManager, getSignature().getArgumentTypes(), boundVariables));
-        Type outputType = applyBoundVariables(typeManager, getSignature().getReturnType(), boundVariables);
+        Type inputType = getOnlyElement(applyBoundVariables(functionAndTypeManager, getSignature().getArgumentTypes(), boundVariables));
+        Type outputType = applyBoundVariables(functionAndTypeManager, getSignature().getReturnType(), boundVariables);
         return generateAggregation(inputType, outputType);
     }
 

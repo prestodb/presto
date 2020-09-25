@@ -118,7 +118,7 @@ public class ParametricScalarImplementation
         }
     }
 
-    public Optional<BuiltInScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public Optional<BuiltInScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, FunctionAndTypeManager functionAndTypeManager)
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
@@ -127,7 +127,7 @@ public class ParametricScalarImplementation
             }
         }
 
-        if (returnNativeContainerType != Object.class && returnNativeContainerType != typeManager.getType(boundSignature.getReturnType()).getJavaType()) {
+        if (returnNativeContainerType != Object.class && returnNativeContainerType != functionAndTypeManager.getType(boundSignature.getReturnType()).getJavaType()) {
             return Optional.empty();
         }
 
@@ -142,7 +142,7 @@ public class ParametricScalarImplementation
                     return Optional.empty();
                 }
 
-                Class<?> argumentType = typeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
+                Class<?> argumentType = functionAndTypeManager.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
                 Class<?> argumentNativeContainerType = argumentNativeContainerTypes.get(i).get();
                 if (argumentNativeContainerType != Object.class && argumentNativeContainerType != argumentType) {
                     return Optional.empty();
@@ -151,9 +151,9 @@ public class ParametricScalarImplementation
         }
 
         for (ParametricScalarImplementationChoice choice : choices) {
-            MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), boundVariables, typeManager, functionAndTypeManager);
+            MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), boundVariables, functionAndTypeManager);
             Optional<MethodHandle> boundConstructor = choice.getConstructor().map(constructor -> {
-                MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), boundVariables, typeManager, functionAndTypeManager);
+                MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), boundVariables, functionAndTypeManager);
                 checkCondition(
                         result.type().parameterList().isEmpty(),
                         FUNCTION_IMPLEMENTATION_ERROR,
@@ -166,7 +166,7 @@ public class ParametricScalarImplementation
                     choice.nullable,
                     choice.argumentProperties,
                     choice.returnPlaceConvention,
-                    boundMethodHandle.asType(javaMethodType(choice, boundSignature, typeManager)),
+                    boundMethodHandle.asType(javaMethodType(choice, boundSignature, functionAndTypeManager)),
                     boundConstructor));
         }
         return Optional.of(new BuiltInScalarFunctionImplementation(implementationChoices));

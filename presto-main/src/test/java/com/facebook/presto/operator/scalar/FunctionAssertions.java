@@ -988,7 +988,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Expression projection, Map<NodeRef<Expression>, Type> expressionTypes, Map<VariableReferenceExpression, Integer> layout)
     {
-        return translate(projection, expressionTypes, layout, metadata.getFunctionAndTypeManager(), metadata.getTypeManager(), session);
+        return translate(projection, expressionTypes, layout, metadata.getFunctionAndTypeManager(), session);
     }
 
     private static Page getAtMostOnePage(Operator operator, Page sourcePage)

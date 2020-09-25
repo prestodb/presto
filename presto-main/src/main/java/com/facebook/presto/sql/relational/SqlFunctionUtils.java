@@ -94,7 +94,6 @@ public final class SqlFunctionUtils
                         analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, lambdaCaptureDesugaredExpression, variableAllocator.getTypes().allTypes()).getExpressionTypes(),
                         ImmutableMap.of(),
                         metadata.getFunctionAndTypeManager(),
-                        metadata.getTypeManager(),
                         Optional.empty(),
                         Optional.empty(),
                         sqlFunctionProperties),

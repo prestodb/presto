@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -75,18 +74,16 @@ public class EffectivePredicateExtractor
 {
     private final RowExpressionDomainTranslator domainTranslator;
     private final FunctionAndTypeManager functionAndTypeManager;
-    private final TypeManager typeManager;
 
-    public EffectivePredicateExtractor(RowExpressionDomainTranslator domainTranslator, FunctionAndTypeManager functionAndTypeManager, TypeManager typeManager)
+    public EffectivePredicateExtractor(RowExpressionDomainTranslator domainTranslator, FunctionAndTypeManager functionAndTypeManager)
     {
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         this.functionAndTypeManager = functionAndTypeManager;
-        this.typeManager = typeManager;
     }
 
     public RowExpression extract(PlanNode node)
     {
-        return node.accept(new Visitor(domainTranslator, functionAndTypeManager, typeManager), null);
+        return node.accept(new Visitor(domainTranslator, functionAndTypeManager), null);
     }
 
     private static class Visitor
@@ -95,13 +92,11 @@ public class EffectivePredicateExtractor
         private final RowExpressionDomainTranslator domainTranslator;
         private final LogicalRowExpressions logicalRowExpressions;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
-        private final TypeManager typeManager;
         private final FunctionAndTypeManager functionManger;
 
-        public Visitor(RowExpressionDomainTranslator domainTranslator, FunctionAndTypeManager functionAndTypeManager, TypeManager typeManager)
+        public Visitor(RowExpressionDomainTranslator domainTranslator, FunctionAndTypeManager functionAndTypeManager)
         {
             this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
-            this.typeManager = requireNonNull(typeManager);
             this.functionManger = requireNonNull(functionAndTypeManager);
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
             this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(functionAndTypeManager), functionAndTypeManager);
@@ -413,12 +408,12 @@ public class EffectivePredicateExtractor
 
         private RowExpression pullExpressionThroughVariables(RowExpression expression, Collection<VariableReferenceExpression> variables)
         {
-            EqualityInference equalityInference = new EqualityInference.Builder(functionManger, typeManager)
+            EqualityInference equalityInference = new EqualityInference.Builder(functionManger)
                     .addEqualityInference(expression)
                     .build();
 
             ImmutableList.Builder<RowExpression> effectiveConjuncts = ImmutableList.builder();
-            for (RowExpression conjunct : new EqualityInference.Builder(functionManger, typeManager).nonInferrableConjuncts(expression)) {
+            for (RowExpression conjunct : new EqualityInference.Builder(functionManger).nonInferrableConjuncts(expression)) {
                 if (determinismEvaluator.isDeterministic(conjunct)) {
                     RowExpression rewritten = equalityInference.rewriteExpression(conjunct, in(variables));
                     if (rewritten != null) {

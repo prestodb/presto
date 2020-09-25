@@ -17,7 +17,6 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
@@ -49,7 +48,7 @@ public class RowNotEqualOperator
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         RowType type = (RowType) boundVariables.getTypeVariable("T");
         return new BuiltInScalarFunctionImplementation(
