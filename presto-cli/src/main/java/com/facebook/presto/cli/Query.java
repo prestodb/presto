@@ -110,6 +110,16 @@ public class Query
         return client.isClearTransactionId();
     }
 
+    public Map<String, String> getAddedSessionFunctions()
+    {
+        return client.getAddedSessionFunctions();
+    }
+
+    public Set<String> getRemovedSessionFunctions()
+    {
+        return client.getRemovedSessionFunctions();
+    }
+
     public boolean renderOutput(PrintStream out, OutputFormat outputFormat, boolean interactive)
     {
         Thread clientThread = Thread.currentThread();

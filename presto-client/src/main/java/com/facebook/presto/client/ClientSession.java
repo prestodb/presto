@@ -52,6 +52,7 @@ public class ClientSession
     private final String transactionId;
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
+    private final Map<String, String> sessionFunctions;
 
     public static Builder builder(ClientSession clientSession)
     {
@@ -83,7 +84,8 @@ public class ClientSession
             Map<String, String> extraCredentials,
             String transactionId,
             Duration clientRequestTimeout,
-            boolean compressionDisabled)
+            boolean compressionDisabled,
+            Map<String, String> sessionFunctions)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = user;
@@ -103,6 +105,7 @@ public class ClientSession
         this.extraCredentials = ImmutableMap.copyOf(requireNonNull(extraCredentials, "extraCredentials is null"));
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
+        this.sessionFunctions = ImmutableMap.copyOf(requireNonNull(sessionFunctions, "sessionFunctions is null"));
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -231,6 +234,11 @@ public class ClientSession
         return compressionDisabled;
     }
 
+    public Map<String, String> getSessionFunctions()
+    {
+        return sessionFunctions;
+    }
+
     @Override
     public String toString()
     {
@@ -270,6 +278,7 @@ public class ClientSession
         private String transactionId;
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
+        private Map<String, String> sessionFunctions;
 
         private Builder(ClientSession clientSession)
         {
@@ -292,6 +301,7 @@ public class ClientSession
             transactionId = clientSession.getTransactionId();
             clientRequestTimeout = clientSession.getClientRequestTimeout();
             compressionDisabled = clientSession.isCompressionDisabled();
+            sessionFunctions = clientSession.getSessionFunctions();
         }
 
         public Builder withCatalog(String catalog)
@@ -348,6 +358,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder withSessionFunctions(Map<String, String> sessionFunctions)
+        {
+            this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
@@ -368,7 +384,8 @@ public class ClientSession
                     credentials,
                     transactionId,
                     clientRequestTimeout,
-                    compressionDisabled);
+                    compressionDisabled,
+                    sessionFunctions);
         }
     }
 }
