@@ -53,6 +53,7 @@ import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_E
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -120,6 +121,8 @@ public class BenchmarkPageProcessor
         private static final int DISCOUNT = 1;
         private static final int SHIP_DATE = 2;
         private static final int QUANTITY = 3;
+        private static final int EXTENDED_PRICE_IN_CENTS = 4;
+        private static final int DISCOUNT_PERCENT = 5;
 
         private static final Slice MIN_SHIP_DATE = utf8Slice("1994-01-01");
         private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
@@ -134,6 +137,10 @@ public class BenchmarkPageProcessor
         @Param({"true", "false"})
         private boolean filterAlwaysFails;
 
+        @SuppressWarnings("unused")
+        @Param({"BIGINT", "DOUBLE"})
+        private String projectionDataType = "DOUBLE";
+
         @Setup
         public void setup()
         {
@@ -147,7 +154,7 @@ public class BenchmarkPageProcessor
 
         private static Page createInputPage()
         {
-            PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE));
+            PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE, BIGINT, BIGINT));
             LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
             Iterator<LineItem> iterator = lineItemGenerator.iterator();
             for (int i = 0; i < 10_000; i++) {
@@ -158,6 +165,8 @@ public class BenchmarkPageProcessor
                 DOUBLE.writeDouble(pageBuilder.getBlockBuilder(DISCOUNT), lineItem.getDiscount());
                 DATE.writeLong(pageBuilder.getBlockBuilder(SHIP_DATE), lineItem.getShipDate());
                 DOUBLE.writeDouble(pageBuilder.getBlockBuilder(QUANTITY), lineItem.getQuantity());
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(EXTENDED_PRICE_IN_CENTS), lineItem.getExtendedPriceInCents());
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(DISCOUNT_PERCENT), lineItem.getDiscountPercent());
             }
             return pageBuilder.build();
         }
@@ -213,14 +222,28 @@ public class BenchmarkPageProcessor
                                                     constant(24.0, DOUBLE))))));
         }
 
-        private static final RowExpression createProjectExpression(FunctionManager functionManager)
+        private final RowExpression createProjectExpression(FunctionManager functionManager)
         {
-            return call(
-                    MULTIPLY.name(),
-                    functionManager.resolveOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
-                    DOUBLE,
-                    field(EXTENDED_PRICE, DOUBLE),
-                    field(DISCOUNT, DOUBLE));
+            switch (projectionDataType) {
+                case "BIGINT":
+                    return call(
+                            MULTIPLY.name(),
+                            functionManager.resolveOperator(MULTIPLY, fromTypes(BIGINT, BIGINT)),
+                            BIGINT,
+                            field(EXTENDED_PRICE_IN_CENTS, BIGINT),
+                            field(DISCOUNT_PERCENT, BIGINT));
+
+                case "DOUBLE":
+                    return call(
+                            MULTIPLY.name(),
+                            functionManager.resolveOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
+                            DOUBLE,
+                            field(EXTENDED_PRICE, DOUBLE),
+                            field(DISCOUNT, DOUBLE));
+
+                default:
+                    return null;
+            }
         }
 
         private final class Tpch1FilterAndProject
