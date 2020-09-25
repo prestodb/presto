@@ -64,14 +64,14 @@ statement
     | CREATE MATERIALIZED VIEW (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?
         (WITH properties)? AS (query | '('query')')                    #createMaterializedView
-    | CREATE (OR REPLACE)? FUNCTION functionName=qualifiedName
+    | CREATE (OR REPLACE)? TEMPORARY? FUNCTION functionName=qualifiedName
         '(' (sqlParameterDeclaration (',' sqlParameterDeclaration)*)? ')'
         RETURNS returnType=type
         (COMMENT string)?
         routineCharacteristics routineBody                             #createFunction
     | ALTER FUNCTION qualifiedName types?
       alterRoutineCharacteristics                                      #alterFunction
-    | DROP FUNCTION (IF EXISTS)? qualifiedName types?                  #dropFunction
+    | DROP TEMPORARY? FUNCTION (IF EXISTS)? qualifiedName types?       #dropFunction
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?                                          #createRole
@@ -569,7 +569,7 @@ nonReserved
     | RANGE | READ | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM
-    | TABLES | TABLESAMPLE | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
+    | TABLES | TABLESAMPLE | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | USE | USER
     | VALIDATE | VERBOSE | VIEW
     | WORK | WRITE
@@ -749,6 +749,7 @@ SYSTEM: 'SYSTEM';
 TABLE: 'TABLE';
 TABLES: 'TABLES';
 TABLESAMPLE: 'TABLESAMPLE';
+TEMPORARY: 'TEMPORARY';
 TEXT: 'TEXT';
 THEN: 'THEN';
 TIME: 'TIME';

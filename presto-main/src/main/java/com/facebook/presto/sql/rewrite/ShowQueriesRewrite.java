@@ -520,6 +520,7 @@ final class ShowQueriesRewrite
                 CreateFunction createFunction = new CreateFunction(
                         node.getName(),
                         false,
+                        false,
                         sqlFunction.getParameters().stream()
                                 .map(parameter -> new SqlParameterDeclaration(new Identifier(parameter.getName()), parameter.getType().toString()))
                                 .collect(toImmutableList()),
