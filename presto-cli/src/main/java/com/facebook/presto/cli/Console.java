@@ -357,6 +357,14 @@ public class Console
                 builder = builder.withPreparedStatements(preparedStatements);
             }
 
+            // update session functions if present
+            if (!query.getAddedSessionFunctions().isEmpty() || !query.getRemovedSessionFunctions().isEmpty()) {
+                Map<String, String> sessionFunctions = new HashMap<>(session.getSessionFunctions());
+                sessionFunctions.putAll(query.getAddedSessionFunctions());
+                sessionFunctions.keySet().removeAll(query.getRemovedSessionFunctions());
+                builder = builder.withSessionFunctions(sessionFunctions);
+            }
+
             session = builder.build();
             queryRunner.setSession(session);
 

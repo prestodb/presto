@@ -156,7 +156,8 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getIdentity().getExtraCredentials(),
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout,
-                true);
+                true,
+                ImmutableMap.of());
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
