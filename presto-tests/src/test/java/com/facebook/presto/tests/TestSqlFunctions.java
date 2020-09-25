@@ -252,6 +252,31 @@ public class TestSqlFunctions
     }
 
     @Test
+    public void testShowTemporaryFunctions()
+    {
+        MaterializedResult result = computeActual(createSessionWithTempFunctionFoo(), "SHOW FUNCTIONS");
+        MaterializedRow row = result.getMaterializedRows().get(result.getMaterializedRows().size() - 1);
+        assertEquals(row.getField(0), "foo");
+    }
+
+    @Test
+    public void testShowCreateTemporaryFunction()
+    {
+        MaterializedRow result = computeActual(createSessionWithTempFunctionFoo(), "SHOW CREATE FUNCTION foo(bigint)").getMaterializedRows().get(0);
+        String createFunctionFooFormatted = "CREATE TEMPORARY FUNCTION foo (\n" +
+                "   x bigint\n" +
+                ")\n" +
+                "RETURNS bigint\n" +
+                "COMMENT ''\n" +
+                "LANGUAGE SQL\n" +
+                "NOT DETERMINISTIC\n" +
+                "CALLED ON NULL INPUT\n" +
+                "RETURN (x * 2)";
+        assertEquals(result.getField(0), createFunctionFooFormatted);
+        assertEquals(result.getField(1), "bigint");
+    }
+
+    @Test
     public void testShowFunctions()
     {
         MaterializedResult initial = computeActual("SHOW FUNCTIONS");
