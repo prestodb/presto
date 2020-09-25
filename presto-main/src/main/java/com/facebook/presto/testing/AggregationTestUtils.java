@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -32,18 +35,19 @@ public class AggregationTestUtils
     @VisibleForTesting
     public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes)
     {
-        return generateInternalAggregationFunction(clazz, outputType, inputTypes, new TypeRegistry());
+        TypeManager typeRegistry = new TypeRegistry();
+        return generateInternalAggregationFunction(clazz, outputType, inputTypes, new FunctionAndTypeManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig()));
     }
 
     @VisibleForTesting
-    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, TypeManager typeManager)
+    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, FunctionAndTypeManager functionAndTypeManager)
     {
-        return generateInternalAggregationFunction(clazz, outputType, inputTypes, typeManager, BoundVariables.builder().build(), inputTypes.size());
+        return generateInternalAggregationFunction(clazz, outputType, inputTypes, functionAndTypeManager, BoundVariables.builder().build(), inputTypes.size());
     }
 
     @VisibleForTesting
-    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, TypeManager typeManager, BoundVariables boundVariables, int arity)
+    public static InternalAggregationFunction generateInternalAggregationFunction(Class<?> clazz, TypeSignature outputType, List<TypeSignature> inputTypes, FunctionAndTypeManager functionAndTypeManager, BoundVariables boundVariables, int arity)
     {
-        return AggregationFromAnnotationsParser.parseFunctionDefinitionWithTypesConstraint(clazz, outputType, inputTypes).specialize(boundVariables, arity, typeManager);
+        return AggregationFromAnnotationsParser.parseFunctionDefinitionWithTypesConstraint(clazz, outputType, inputTypes).specialize(boundVariables, arity, functionAndTypeManager);
     }
 }

@@ -891,7 +891,6 @@ public class PlanBuilder
                 expressionTypes,
                 ImmutableMap.of(),
                 metadata.getFunctionAndTypeManager(),
-                metadata.getTypeManager(),
                 session);
     }
 

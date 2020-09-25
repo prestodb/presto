@@ -15,7 +15,6 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ReturnPlaceConvention;
@@ -151,14 +150,12 @@ public final class PolymorphicScalarFunctionBuilder
         private final BoundVariables boundVariables;
         private final List<Type> parameterTypes;
         private final Type returnType;
-        private final TypeManager typeManager;
         private final FunctionAndTypeManager functionAndTypeManager;
 
-        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType, FunctionAndTypeManager functionAndTypeManager)
         {
             this.boundVariables = requireNonNull(boundVariables, "boundVariables is null");
             this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         }
@@ -181,11 +178,6 @@ public final class PolymorphicScalarFunctionBuilder
         public Type getReturnType()
         {
             return returnType;
-        }
-
-        public TypeManager getTypeManager()
-        {
-            return typeManager;
         }
 
         public FunctionAndTypeManager getFunctionManager()

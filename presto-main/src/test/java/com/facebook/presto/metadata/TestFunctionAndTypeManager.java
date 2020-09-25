@@ -18,7 +18,6 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CustomFunctions;
@@ -446,7 +445,6 @@ public class TestFunctionAndTypeManager
                     public BuiltInScalarFunctionImplementation specialize(
                             BoundVariables boundVariables,
                             int arity,
-                            TypeManager typeManager,
                             FunctionAndTypeManager functionAndTypeManager)
                     {
                         return new BuiltInScalarFunctionImplementation(
