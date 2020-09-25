@@ -270,7 +270,8 @@ public class Console
         }
     }
 
-    private static boolean executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean ignoreErrors)
+    @VisibleForTesting
+    static boolean executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean ignoreErrors)
     {
         boolean success = true;
         StatementSplitter splitter = new StatementSplitter(query);
