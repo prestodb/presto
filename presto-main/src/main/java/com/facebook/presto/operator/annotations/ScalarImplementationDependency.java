@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.operator.annotations;
 
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -34,7 +33,7 @@ public abstract class ScalarImplementationDependency
 
     protected abstract FunctionHandle getFunctionHandle(BoundVariables boundVariables, FunctionAndTypeManager functionAndTypeManager);
     @Override
-    public MethodHandle resolve(BoundVariables boundVariables, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public MethodHandle resolve(BoundVariables boundVariables, FunctionAndTypeManager functionAndTypeManager)
     {
         FunctionHandle functionHandle = getFunctionHandle(boundVariables, functionAndTypeManager);
         if (invocationConvention.isPresent()) {

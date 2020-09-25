@@ -21,7 +21,6 @@ import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -91,7 +90,7 @@ public final class MapConcatFunction
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         if (arity < 2) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments to " + FUNCTION_NAME);
@@ -99,7 +98,7 @@ public final class MapConcatFunction
 
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
-        MapType mapType = (MapType) typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        MapType mapType = (MapType) functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(keyType.getTypeSignature()),
                 TypeSignatureParameter.of(valueType.getTypeSignature())));
 

@@ -117,8 +117,7 @@ public class TestEffectivePredicateExtractor
             metadata.getFunctionAndTypeManager());
     private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(
             new RowExpressionDomainTranslator(metadata),
-            metadata.getFunctionAndTypeManager(),
-            metadata.getTypeManager());
+            metadata.getFunctionAndTypeManager());
 
     private Map<VariableReferenceExpression, ColumnHandle> scanAssignments;
     private TableScanNode baseTableScan;

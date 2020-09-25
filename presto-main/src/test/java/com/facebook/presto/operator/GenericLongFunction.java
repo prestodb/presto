@@ -14,7 +14,6 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.function.QualifiedFunctionName;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -71,7 +70,7 @@ public final class GenericLongFunction
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(longUnaryOperator);
         return new BuiltInScalarFunctionImplementation(false, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), methodHandle);

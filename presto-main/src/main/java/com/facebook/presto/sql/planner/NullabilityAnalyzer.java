@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -33,13 +32,11 @@ import static java.util.Objects.requireNonNull;
 public final class NullabilityAnalyzer
 {
     private final FunctionAndTypeManager functionAndTypeManager;
-    private final TypeManager typeManager;
     private final FunctionResolution functionResolution;
 
-    public NullabilityAnalyzer(FunctionAndTypeManager functionAndTypeManager, TypeManager typeManager)
+    public NullabilityAnalyzer(FunctionAndTypeManager functionAndTypeManager)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = new FunctionResolution(functionAndTypeManager);
     }
 
@@ -48,7 +45,7 @@ public final class NullabilityAnalyzer
         requireNonNull(expression, "expression is null");
 
         AtomicBoolean result = new AtomicBoolean(false);
-        expression.accept(new RowExpressionVisitor(functionAndTypeManager, typeManager, functionResolution), result);
+        expression.accept(new RowExpressionVisitor(functionAndTypeManager, functionResolution), result);
         return result.get();
     }
 
@@ -56,13 +53,11 @@ public final class NullabilityAnalyzer
             extends DefaultRowExpressionTraversalVisitor<AtomicBoolean>
     {
         private final FunctionAndTypeManager functionAndTypeManager;
-        private final TypeManager typeManager;
         private final FunctionResolution functionResolution;
 
-        public RowExpressionVisitor(FunctionAndTypeManager functionAndTypeManager, TypeManager typeManager, FunctionResolution functionResolution)
+        public RowExpressionVisitor(FunctionAndTypeManager functionAndTypeManager, FunctionResolution functionResolution)
         {
             this.functionAndTypeManager = functionAndTypeManager;
-            this.typeManager = typeManager;
             this.functionResolution = functionResolution;
         }
 
@@ -105,7 +100,7 @@ public final class NullabilityAnalyzer
             checkArgument(castCallExpression.getArguments().size() == 1);
             Type sourceType = castCallExpression.getArguments().get(0).getType();
             Type targetType = castCallExpression.getType();
-            return typeManager.isTypeOnlyCoercion(sourceType, targetType);
+            return functionAndTypeManager.isTypeOnlyCoercion(sourceType, targetType);
         }
 
         private boolean functionReturnsNullForNotNullInput(FunctionMetadata function)

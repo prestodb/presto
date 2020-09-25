@@ -19,7 +19,6 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -76,10 +75,10 @@ public class SetAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type type = boundVariables.getTypeVariable("T");
-        ArrayType outputType = (ArrayType) typeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(
+        ArrayType outputType = (ArrayType) functionAndTypeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(
                 TypeSignatureParameter.of(type.getTypeSignature())));
         return generateAggregation(type, outputType);
     }

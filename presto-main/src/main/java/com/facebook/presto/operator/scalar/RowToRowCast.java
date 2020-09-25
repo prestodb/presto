@@ -26,7 +26,6 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -77,7 +76,7 @@ public class RowToRowCast
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type fromType = boundVariables.getTypeVariable("F");

@@ -70,7 +70,7 @@ public class ArrayToArrayCast
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type fromType = boundVariables.getTypeVariable("F");
@@ -78,7 +78,7 @@ public class ArrayToArrayCast
 
         FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature());
         BuiltInScalarFunctionImplementation function = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle);
-        Class<?> castOperatorClass = generateArrayCast(typeManager, functionAndTypeManager.getFunctionMetadata(functionHandle), function);
+        Class<?> castOperatorClass = generateArrayCast(functionAndTypeManager, functionAndTypeManager.getFunctionMetadata(functionHandle), function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", SqlFunctionProperties.class, Block.class);
         return new BuiltInScalarFunctionImplementation(
                 false,
