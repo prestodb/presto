@@ -476,6 +476,7 @@ class AstBuilder
         return new CreateFunction(
                 getQualifiedName(context.functionName),
                 context.REPLACE() != null,
+                context.TEMPORARY() != null,
                 context.sqlParameterDeclaration().stream()
                         .map(this::getParameterDeclarations)
                         .collect(toImmutableList()),
@@ -500,7 +501,12 @@ class AstBuilder
     public Node visitDropFunction(SqlBaseParser.DropFunctionContext context)
     {
         Optional<List<String>> parameterTypes = context.types() == null ? Optional.empty() : Optional.of(getTypes(context.types()));
-        return new DropFunction(getLocation(context), getQualifiedName(context.qualifiedName()), parameterTypes, context.EXISTS() != null);
+        return new DropFunction(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                parameterTypes,
+                context.TEMPORARY() != null,
+                context.EXISTS() != null);
     }
 
     @Override

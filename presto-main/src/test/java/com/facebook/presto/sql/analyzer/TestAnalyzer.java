@@ -37,6 +37,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNK
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
@@ -1553,5 +1554,18 @@ public class TestAnalyzer
     public void testEmptySchemaName()
     {
         assertFails(MISSING_SCHEMA, "SELECT * FROM \"\".foo");
+    }
+
+    @Test
+    public void testReplaceTemporaryFunctionFails()
+    {
+        assertFails(NOT_SUPPORTED, "CREATE OR REPLACE TEMPORARY FUNCTION foo() RETURNS INT RETURN 1");
+    }
+
+    @Test
+    public void testInvalidTemporaryFunctionName()
+    {
+        assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION sum() RETURNS INT RETURN 1");
+        assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION dev.test.foo() RETURNS INT RETURN 1");
     }
 }

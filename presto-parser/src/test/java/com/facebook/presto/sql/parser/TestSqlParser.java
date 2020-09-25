@@ -1367,17 +1367,17 @@ public class TestSqlParser
     @Test
     public void testDropFunction()
     {
-        assertStatement("DROP FUNCTION a", new DropFunction(QualifiedName.of("a"), Optional.empty(), false));
-        assertStatement("DROP FUNCTION a.b", new DropFunction(QualifiedName.of("a", "b"), Optional.empty(), false));
-        assertStatement("DROP FUNCTION a.b.c", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.empty(), false));
+        assertStatement("DROP FUNCTION a", new DropFunction(QualifiedName.of("a"), Optional.empty(), false, false));
+        assertStatement("DROP FUNCTION a.b", new DropFunction(QualifiedName.of("a", "b"), Optional.empty(), false, false));
+        assertStatement("DROP FUNCTION a.b.c", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.empty(), false, false));
 
-        assertStatement("DROP FUNCTION a()", new DropFunction(QualifiedName.of("a"), Optional.of(ImmutableList.of()), false));
-        assertStatement("DROP FUNCTION a.b()", new DropFunction(QualifiedName.of("a", "b"), Optional.of(ImmutableList.of()), false));
-        assertStatement("DROP FUNCTION a.b.c()", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of()), false));
+        assertStatement("DROP FUNCTION a()", new DropFunction(QualifiedName.of("a"), Optional.of(ImmutableList.of()), false, false));
+        assertStatement("DROP FUNCTION a.b()", new DropFunction(QualifiedName.of("a", "b"), Optional.of(ImmutableList.of()), false, false));
+        assertStatement("DROP FUNCTION a.b.c()", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of()), false, false));
 
-        assertStatement("DROP FUNCTION IF EXISTS a.b.c(int)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("int")), true));
-        assertStatement("DROP FUNCTION IF EXISTS a.b.c(bigint, double)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("bigint", "double")), true));
-        assertStatement("DROP FUNCTION IF EXISTS a.b.c(ARRAY(string), MAP(int,double))", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("ARRAY(string)", "MAP(int,double)")), true));
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(int)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("int")), false, true));
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(bigint, double)", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("bigint", "double")), false, true));
+        assertStatement("DROP FUNCTION IF EXISTS a.b.c(ARRAY(string), MAP(int,double))", new DropFunction(QualifiedName.of("a", "b", "c"), Optional.of(ImmutableList.of("ARRAY(string)", "MAP(int,double)")), false, true));
     }
 
     @Test
@@ -1538,6 +1538,7 @@ public class TestSqlParser
                 new CreateFunction(
                         QualifiedName.of("tan"),
                         false,
+                        false,
                         ImmutableList.of(new SqlParameterDeclaration(identifier("x"), "double")),
                         "double",
                         Optional.of("tangent trigonometric function"),
@@ -1550,6 +1551,7 @@ public class TestSqlParser
         CreateFunction createFunctionRand = new CreateFunction(
                 QualifiedName.of("dev", "testing", "rand"),
                 true,
+                false,
                 ImmutableList.of(),
                 "double",
                 Optional.empty(),
@@ -1568,6 +1570,21 @@ public class TestSqlParser
                         "RETURNS double\n" +
                         "RETURN rand()",
                 createFunctionRand);
+
+        CreateFunction createTemporaryFunctionFoo = new CreateFunction(
+                QualifiedName.of("foo"),
+                false,
+                true,
+                ImmutableList.of(),
+                "boolean",
+                Optional.empty(),
+                new RoutineCharacteristics(SQL, NOT_DETERMINISTIC, CALLED_ON_NULL_INPUT),
+                new Return(new BooleanLiteral("true")));
+        assertStatement(
+                "CREATE TEMPORARY FUNCTION foo() \n" +
+                        "RETURNS boolean \n" +
+                        "RETURN true",
+                createTemporaryFunctionFoo);
 
         assertInvalidStatement(
                 "CREATE FUNCTION dev.testing.rand () RETURNS double LANGUAGE SQL LANGUAGE SQL RETURN rand()",
