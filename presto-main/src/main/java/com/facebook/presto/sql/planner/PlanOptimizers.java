@@ -431,9 +431,6 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
-        builder.add(new MetadataQueryOptimizer(metadata));
-
-        // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
         builder.add(
                 new IterativeOptimizer(
                         ruleStats,
@@ -483,6 +480,18 @@ public class PlanOptimizers
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
+
+        builder.add(new MetadataQueryOptimizer(metadata));
+
+        // This can pull up Filter and Project nodes from between Joins, so we need to push them down again
+        builder.add(
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new EliminateCrossJoins())),
+                predicatePushDown,
+                simplifyRowExpressionOptimizer); // Should always run simplifyOptimizer after predicatePushDown
 
         builder.add(new IterativeOptimizer(
                 // Because ReorderJoins runs only once,
