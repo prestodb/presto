@@ -857,9 +857,7 @@ public final class BlockAssertions
         return new MapType(
                 keyType,
                 valueType,
-                keyBlockNativeEquals,
                 keyBlockEquals,
-                keyNativeHashCode,
                 keyBlockHashCode);
     }
 

@@ -1604,7 +1604,7 @@ public class TestAnalyzer
         metadata = new MetadataManager(
                 new FeaturesConfig(),
                 typeManager,
-                new BlockEncodingManager(typeManager),
+                new BlockEncodingManager(),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),

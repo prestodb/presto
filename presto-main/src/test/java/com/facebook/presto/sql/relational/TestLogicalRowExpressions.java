@@ -68,7 +68,7 @@ public class TestLogicalRowExpressions
     public void setup()
     {
         TypeManager typeManager = new TypeRegistry();
-        functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
         logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager), functionManager);
     }
 

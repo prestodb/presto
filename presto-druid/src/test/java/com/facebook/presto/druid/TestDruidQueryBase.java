@@ -84,7 +84,7 @@ import static java.util.stream.Collectors.toMap;
 public class TestDruidQueryBase
 {
     protected static final TypeManager typeManager = new TypeRegistry();
-    protected static final FunctionManager functionMetadataManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+    protected static final FunctionManager functionMetadataManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
     protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionMetadataManager);
 
     protected static ConnectorId druidConnectorId = new ConnectorId("id");

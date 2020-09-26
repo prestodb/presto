@@ -39,7 +39,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.StructuralTestUtil;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -467,7 +466,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_array_string_all_nulls", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList(null, null, null), arrayBlockOf(createUnboundedVarcharType(), null, null, null)))
             .build();
 
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     private static <K, V> Map<K, V> asMap(K[] keys, V[] values)
     {

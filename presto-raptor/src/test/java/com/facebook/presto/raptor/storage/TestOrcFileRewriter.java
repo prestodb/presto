@@ -125,7 +125,7 @@ public class TestOrcFileRewriter
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
 
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
@@ -721,7 +721,7 @@ public class TestOrcFileRewriter
     private static OrcFileRewriter createFileRewriter()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
         return new OrcFileRewriter(
                 READER_ATTRIBUTES,
                 true,

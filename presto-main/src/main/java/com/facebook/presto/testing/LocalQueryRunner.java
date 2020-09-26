@@ -339,7 +339,7 @@ public class LocalQueryRunner
         this.planOptimizerManager = new ConnectorPlanOptimizerManager();
         this.distributedMetadataManager = new ConnectorMetadataUpdaterManager();
 
-        this.blockEncodingManager = new BlockEncodingManager(typeRegistry);
+        this.blockEncodingManager = new BlockEncodingManager();
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
 
         this.metadata = new MetadataManager(

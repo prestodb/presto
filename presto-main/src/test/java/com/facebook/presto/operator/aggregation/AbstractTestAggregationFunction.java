@@ -61,7 +61,7 @@ public abstract class AbstractTestAggregationFunction
     public final void initTestAggregationFunction()
     {
         typeRegistry = new TypeRegistry();
-        functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     @AfterClass(alwaysRun = true)

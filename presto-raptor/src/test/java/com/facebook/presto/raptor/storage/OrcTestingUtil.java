@@ -126,7 +126,7 @@ final class OrcTestingUtil
             throws IOException
     {
         TypeRegistry typeManager = new TypeRegistry();
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
         return new OrcFileWriter(columnIds, columnTypes, new OutputStreamDataSink(new FileOutputStream(file)), true, true, new OrcWriterStats(), typeManager, ZSTD);
     }
 

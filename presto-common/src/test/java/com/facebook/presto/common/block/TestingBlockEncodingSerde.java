@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -34,17 +33,13 @@ public final class TestingBlockEncodingSerde
 {
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
 
-    public TestingBlockEncodingSerde(TypeManager typeManager, BlockEncoding... blockEncodings)
+    public TestingBlockEncodingSerde(BlockEncoding... blockEncodings)
     {
-        this(typeManager, ImmutableSet.copyOf(blockEncodings));
+        this(ImmutableSet.copyOf(blockEncodings));
     }
 
-    public TestingBlockEncodingSerde(TypeManager typeManager, Set<BlockEncoding> blockEncodings)
+    public TestingBlockEncodingSerde(Set<BlockEncoding> blockEncodings)
     {
-        // This function should be called from Guice and tests only
-
-        requireNonNull(typeManager, "typeManager is null");
-
         // always add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
         addBlockEncoding(new ByteArrayBlockEncoding());
@@ -54,8 +49,8 @@ public final class TestingBlockEncodingSerde
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding(typeManager));
-        addBlockEncoding(new SingleMapBlockEncoding(typeManager));
+        addBlockEncoding(new MapBlockEncoding());
+        addBlockEncoding(new SingleMapBlockEncoding());
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());

@@ -32,7 +32,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -251,7 +250,7 @@ public class TestSqlTaskManager
                 new MockExchangeClientSupplier(),
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
-                new BlockEncodingManager(new TypeRegistry()),
+                new BlockEncodingManager(),
                 new OrderingCompiler());
     }
 

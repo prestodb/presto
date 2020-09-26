@@ -48,7 +48,7 @@ public class TestRowExpressionRewriter
     public void setup()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        this.functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        this.functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     @Test
@@ -121,7 +121,7 @@ public class TestRowExpressionRewriter
             Visitor()
             {
                 TypeRegistry typeManager = new TypeRegistry();
-                this.functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+                this.functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
                 this.functionResolution = new FunctionResolution(functionManager);
             }
 

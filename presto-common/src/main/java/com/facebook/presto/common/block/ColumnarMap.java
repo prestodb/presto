@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -30,7 +29,6 @@ public class ColumnarMap
     private final int[] offsets;
     private final Block keysBlock;
     private final Block valuesBlock;
-    private final Type keyType;
     private final int[] hashTables;
     private final long retainedSizeInBytes;
     private final long estimatedSerializedSizeInBytes;
@@ -68,7 +66,8 @@ public class ColumnarMap
                 offsets,
                 keysBlock,
                 valuesBlock,
-                mapBlock.keyType, hashTables, INSTANCE_SIZE + block.getRetainedSizeInBytes(),
+                hashTables,
+                INSTANCE_SIZE + block.getRetainedSizeInBytes(),
                 block.getSizeInBytes());
     }
 
@@ -106,7 +105,6 @@ public class ColumnarMap
                 offsets,
                 new DictionaryBlock(dictionaryIds.length, keysBlock, dictionaryIds),
                 new DictionaryBlock(dictionaryIds.length, valuesBlock, dictionaryIds),
-                columnarMap.keyType,
                 columnarMap.getHashTables(),
                 INSTANCE_SIZE + dictionaryBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds),
                 // The estimated serialized size is the sum of the following
@@ -148,7 +146,6 @@ public class ColumnarMap
                 offsets,
                 new DictionaryBlock(dictionaryIds.length, keysBlock, dictionaryIds),
                 new DictionaryBlock(dictionaryIds.length, valuesBlock, dictionaryIds),
-                columnarMap.keyType,
                 columnarMap.getHashTables(),
                 INSTANCE_SIZE + rleBlock.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(dictionaryIds),
                 // The estimated serialized size is the sum of the following
@@ -159,14 +156,13 @@ public class ColumnarMap
                 (Integer.BYTES + Byte.BYTES) * positionCount + (long) ((keysBlock.getSizeInBytes() / (double) keysBlock.getPositionCount() + valuesBlock.getSizeInBytes() / (double) valuesBlock.getPositionCount()) * offsets[positionCount]));
     }
 
-    private ColumnarMap(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block keysBlock, Block valuesBlock, Type keyType, @Nullable int[] hashTables, long retainedSizeInBytes, long estimatedSerializedSizeInBytes)
+    private ColumnarMap(Block nullCheckBlock, int offsetsOffset, int[] offsets, Block keysBlock, Block valuesBlock, @Nullable int[] hashTables, long retainedSizeInBytes, long estimatedSerializedSizeInBytes)
     {
         this.nullCheckBlock = nullCheckBlock;
         this.offsetsOffset = offsetsOffset;
         this.offsets = offsets;
         this.keysBlock = keysBlock;
         this.valuesBlock = valuesBlock;
-        this.keyType = keyType;
         this.hashTables = hashTables;
         this.retainedSizeInBytes = retainedSizeInBytes;
         this.estimatedSerializedSizeInBytes = estimatedSerializedSizeInBytes;
@@ -210,11 +206,6 @@ public class ColumnarMap
     public Block getNullCheckBlock()
     {
         return nullCheckBlock;
-    }
-
-    public Type getKeyType()
-    {
-        return keyType;
     }
 
     @Nullable

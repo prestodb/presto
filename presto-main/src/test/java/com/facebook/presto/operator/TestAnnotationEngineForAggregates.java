@@ -823,7 +823,7 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
         TypeManager typeRegistry = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
         InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, typeRegistry, functionManager);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
@@ -907,7 +907,7 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
         TypeManager typeRegistry = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
         InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, typeRegistry, functionManager);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.isDecomposable());
@@ -988,7 +988,7 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
         TypeManager typeRegistry = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
         InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setLongVariable("x", 17L).build(), 1, typeRegistry, functionManager);
         assertEquals(specialized.getFinalType(), VarcharType.createVarcharType(17));
         assertTrue(specialized.isDecomposable());
@@ -1060,7 +1060,7 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
         TypeManager typeRegistry = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
         InternalAggregationFunction specialized = aggregation.specialize(
                 BoundVariables.builder()
                         .setLongVariable("x", 17L)
