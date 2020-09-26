@@ -299,7 +299,12 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern topN(long count, List<Ordering> orderBy, PlanMatchPattern source)
     {
-        return node(TopNNode.class, source).with(new TopNMatcher(count, orderBy));
+        return node(TopNNode.class, source).with(new TopNMatcher(count, orderBy, TopNNode.Step.SINGLE));
+    }
+
+    public static PlanMatchPattern topN(long count, List<Ordering> orderBy, TopNNode.Step step, PlanMatchPattern source)
+    {
+        return node(TopNNode.class, source).with(new TopNMatcher(count, orderBy, step));
     }
 
     public static PlanMatchPattern output(PlanMatchPattern source)

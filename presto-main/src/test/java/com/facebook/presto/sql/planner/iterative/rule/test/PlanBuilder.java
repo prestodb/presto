@@ -245,12 +245,17 @@ public class PlanBuilder
 
     public TopNNode topN(long count, List<VariableReferenceExpression> orderBy, PlanNode source)
     {
+        return topN(count, orderBy, TopNNode.Step.SINGLE, source);
+    }
+
+    public TopNNode topN(long count, List<VariableReferenceExpression> orderBy, TopNNode.Step step, PlanNode source)
+    {
         return new TopNNode(
                 idAllocator.getNextId(),
                 source,
                 count,
                 new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, SortOrder.ASC_NULLS_FIRST)).collect(toImmutableList())),
-                TopNNode.Step.SINGLE);
+                step);
     }
 
     public SampleNode sample(double sampleRatio, SampleNode.Type type, PlanNode source)

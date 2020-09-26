@@ -18,6 +18,7 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.TopNNode.Step;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
 import com.google.common.collect.ImmutableList;
 
@@ -35,11 +36,13 @@ public class TopNMatcher
 {
     private final long count;
     private final List<Ordering> orderBy;
+    private final Step step;
 
-    public TopNMatcher(long count, List<Ordering> orderBy)
+    public TopNMatcher(long count, List<Ordering> orderBy, Step step)
     {
         this.count = count;
         this.orderBy = ImmutableList.copyOf(requireNonNull(orderBy, "orderBy is null"));
+        this.step = requireNonNull(step, "step is null");
     }
 
     @Override
