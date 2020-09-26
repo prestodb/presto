@@ -66,7 +66,7 @@ public class TestRowExpressionOptimizer
     public void setUp()
     {
         TypeManager typeManager = new TypeRegistry();
-        functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
         optimizer = new RowExpressionOptimizer(MetadataManager.createTestMetadataManager());
     }
 

@@ -20,14 +20,17 @@ import com.facebook.presto.common.block.ByteArrayBlock;
 import com.facebook.presto.common.block.MapBlock;
 import com.facebook.presto.common.block.MapBlockBuilder;
 import com.facebook.presto.common.block.SingleMapBlock;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -42,6 +45,8 @@ import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomLongsBlock;
 import static com.facebook.presto.block.BlockAssertions.createRleBlockWithRandomValue;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.common.block.MethodHandleUtil.compose;
+import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -60,7 +65,7 @@ public class TestMapBlock
 
     static {
         // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     @Test
@@ -103,12 +108,17 @@ public class TestMapBlock
         Block valueBlock = createStringsBlock("v");
         Block mapBlock = mapType(VARCHAR, VARCHAR).createBlockFromKeyValue(1, Optional.empty(), IntStream.range(0, 2).toArray(), keyBlock, valueBlock);
         SingleMapBlock singleMapBlock = (SingleMapBlock) mapBlock.getBlock(0);
+        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(VARCHAR));
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(VARCHAR));
+        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(VARCHAR, VARCHAR));
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(VARCHAR));
+
         // Testing not found case. The key to seek should be longer than AbstractVariableWidthType#EXPECTED_BYTES_PER_ENTRY(32) and has same hash code as the key in keyBlock.
         // This is because the default capacity of the slice of the keyBlock for 1 single character key is EXPECTED_BYTES_PER_ENTRY. We want to make the seeked key out of boundary
         // to make sure no exception is thrown.
-        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice(new String(new char[10]).replace("\0", "Doudou"))), -1);
+        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice(new String(new char[10]).replace("\0", "Doudou")), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode), -1);
         // Testing found case.
-        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice("k")), 1);
+        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice("k"), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode), 1);
     }
 
     @Test
@@ -355,6 +365,10 @@ public class TestMapBlock
     private void assertValue(Block mapBlock, int position, Map<String, Long> map)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
+        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(VARCHAR));
+        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(VARCHAR, VARCHAR));
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(VARCHAR));
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(VARCHAR));
 
         // null maps are handled by assertPositionValue
         requireNonNull(map, "map is null");
@@ -365,7 +379,7 @@ public class TestMapBlock
 
         // Test new/hash-index access: assert inserted keys
         for (Map.Entry<String, Long> entry : map.entrySet()) {
-            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()));
+            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
             assertNotEquals(pos, -1);
             if (entry.getValue() == null) {
                 assertTrue(elementBlock.isNull(pos));
@@ -377,7 +391,7 @@ public class TestMapBlock
         }
         // Test new/hash-index access: assert non-existent keys
         for (int i = 0; i < 10; i++) {
-            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i)), -1);
+            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode), -1);
         }
 
         // Test legacy/iterative access
@@ -398,6 +412,10 @@ public class TestMapBlock
     private void assertValueUnchecked(Block mapBlock, int internalPosition, Map<String, Long> map)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
+        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(VARCHAR));
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(VARCHAR));
+        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(VARCHAR, VARCHAR));
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(VARCHAR));
 
         // null maps are handled by assertPositionValue
         requireNonNull(map, "map is null");
@@ -408,7 +426,7 @@ public class TestMapBlock
 
         // Test new/hash-index access: assert inserted keys
         for (Map.Entry<String, Long> entry : map.entrySet()) {
-            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()));
+            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
             assertNotEquals(pos, -1);
             if (entry.getValue() == null) {
                 assertTrue(elementBlock.isNullUnchecked(pos + elementBlock.getOffsetBase()));
@@ -420,7 +438,7 @@ public class TestMapBlock
         }
         // Test new/hash-index access: assert non-existent keys
         for (int i = 0; i < 10; i++) {
-            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i)), -1);
+            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode), -1);
         }
 
         // Test legacy/iterative access
@@ -444,6 +462,10 @@ public class TestMapBlock
     {
         MapType mapType = mapType(BIGINT, BIGINT);
         MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
+        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(BIGINT, BIGINT));
+        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(BIGINT), nativeValueGetter(BIGINT));
+        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(BIGINT));
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(BIGINT));
 
         // Add 100 maps with only one entry but the same key
         for (int i = 0; i < 100; i++) {
@@ -460,7 +482,8 @@ public class TestMapBlock
             BIGINT.writeLong(entryBuilder, i);
             BIGINT.writeLong(entryBuilder, -1);
         }
-        mapBlockBuilder.closeEntryStrict();
+
+        mapBlockBuilder.closeEntryStrict(keyBlockEquals, keyBlockHashCode);
     }
 
     @Test

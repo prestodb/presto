@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
@@ -25,7 +24,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestDictionaryBlockEncoding
 {
-    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(new TestingTypeManager());
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
     @Test
     public void testRoundTrip()

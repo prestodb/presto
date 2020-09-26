@@ -83,7 +83,7 @@ import static org.testng.Assert.assertEquals;
 public class TestRowExpressionFormatter
 {
     private static final TypeManager typeManager = new TypeRegistry();
-    private static final FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+    private static final FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
     private static final RowExpressionFormatter FORMATTER = new RowExpressionFormatter(functionManager);
     private static final VariableReferenceExpression C_BIGINT = new VariableReferenceExpression("c_bigint", BIGINT);
     private static final VariableReferenceExpression C_BIGINT_ARRAY = new VariableReferenceExpression("c_bigint_array", new ArrayType(BIGINT));

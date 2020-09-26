@@ -140,7 +140,7 @@ public class TestExpressionInterpreter
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
     private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
-    private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(METADATA.getTypeManager());
+    private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     @BeforeClass
     public void setup()

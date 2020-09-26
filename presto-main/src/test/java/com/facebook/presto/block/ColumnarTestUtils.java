@@ -34,11 +34,11 @@ import static org.testng.Assert.assertTrue;
 public final class ColumnarTestUtils
 {
     private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager(TYPE_MANAGER);
+    private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new BlockEncodingManager();
 
     static {
         // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     private ColumnarTestUtils() {}

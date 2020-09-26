@@ -39,6 +39,7 @@ public class MapBlockBuilder
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockBuilder.class).instanceSize();
 
     private final MethodHandle keyBlockEquals;
+    private final MethodHandle keyBlockHashCode;
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
@@ -55,18 +56,13 @@ public class MapBlockBuilder
     public MapBlockBuilder(
             Type keyType,
             Type valueType,
-            MethodHandle keyBlockNativeEquals,
             MethodHandle keyBlockEquals,
-            MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode,
             BlockBuilderStatus blockBuilderStatus,
             int expectedEntries)
     {
         this(
-                keyType,
-                keyBlockNativeEquals,
                 keyBlockEquals,
-                keyNativeHashCode,
                 keyBlockHashCode,
                 blockBuilderStatus,
                 keyType.createBlockBuilder(blockBuilderStatus, expectedEntries),
@@ -77,10 +73,7 @@ public class MapBlockBuilder
     }
 
     private MapBlockBuilder(
-            Type keyType,
-            MethodHandle keyBlockNativeEquals,
             MethodHandle keyBlockEquals,
-            MethodHandle keyNativeHashCode,
             MethodHandle keyBlockHashCode,
             @Nullable BlockBuilderStatus blockBuilderStatus,
             BlockBuilder keyBlockBuilder,
@@ -89,9 +82,8 @@ public class MapBlockBuilder
             boolean[] mapIsNull,
             int[] rawHashTables)
     {
-        super(keyType, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
-
         this.keyBlockEquals = requireNonNull(keyBlockEquals, "keyBlockEquals is null");
+        this.keyBlockHashCode = requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
         this.blockBuilderStatus = blockBuilderStatus;
 
         this.positionCount = 0;
@@ -224,7 +216,7 @@ public class MapBlockBuilder
      * a consistent state before {@link DuplicateMapKeyException} is thrown.
      * In other words, one can continue to use this BlockBuilder.
      */
-    public BlockBuilder closeEntryStrict()
+    public BlockBuilder closeEntryStrict(MethodHandle keyBlockEquals, MethodHandle keyBlockHashCode)
             throws DuplicateMapKeyException, NotSupportedException
     {
         if (!currentEntryOpened) {
@@ -369,11 +361,7 @@ public class MapBlockBuilder
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
-                new HashTables(Optional.of(Arrays.copyOf(rawHashTables, hashTablesEntries)), positionCount, hashTablesEntries),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                new HashTables(Optional.of(Arrays.copyOf(rawHashTables, hashTablesEntries)), positionCount, hashTablesEntries));
     }
 
     @Override
@@ -457,10 +445,7 @@ public class MapBlockBuilder
     {
         int newSize = calculateBlockResetSize(getPositionCount());
         return new MapBlockBuilder(
-                keyType,
-                keyBlockNativeEquals,
                 keyBlockEquals,
-                keyNativeHashCode,
                 keyBlockHashCode,
                 blockBuilderStatus,
                 keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
@@ -471,7 +456,7 @@ public class MapBlockBuilder
     }
 
     @Override
-    protected void ensureHashTableLoaded() {}
+    protected void ensureHashTableLoaded(MethodHandle keyBlockHashCode) {}
 
     private static int[] newNegativeOneFilledArray(int size)
     {

@@ -59,7 +59,7 @@ public class TestOrcMapNullKey
     public TestOrcMapNullKey()
     {
         // Associate TYPE_MANAGER with a function manager.
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     @DataProvider(name = "mapNullKeysEnabled")
@@ -162,9 +162,7 @@ public class TestOrcMapNullKey
         return new MapType(
                 keyType,
                 valueType,
-                keyBlockNativeEquals,
                 keyBlockEquals,
-                keyNativeHashCode,
                 keyBlockHashCode);
     }
 

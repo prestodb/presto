@@ -119,7 +119,7 @@ public class TestTupleDomainFilterUtils
 
     static {
         // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     private static final Session TEST_SESSION = testSessionBuilder()

@@ -92,9 +92,7 @@ public class BenchmarkDictionaryBlockGetSizeInBytes
             MapType mapType = new MapType(
                     keyType,
                     valueType,
-                    keyBlockNativeEquals,
                     keyBlockEquals,
-                    keyNativeHashCode,
                     keyBlockHashCode);
             Block keyBlock = createDictionaryBlock(generateList("key", positionCount));
             Block valueBlock = createDictionaryBlock(generateList("value", positionCount));

@@ -38,7 +38,7 @@ public class TestFunctionResolution
     public void setup()
     {
         TypeManager typeManager = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
         functionResolution = new FunctionResolution(functionManager);
     }
 

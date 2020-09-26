@@ -149,7 +149,7 @@ public class VerifierTestUtil
     public static TypeManager createTypeManager()
     {
         TypeManager typeManager = new TypeRegistry();
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
         return typeManager;
     }
 }

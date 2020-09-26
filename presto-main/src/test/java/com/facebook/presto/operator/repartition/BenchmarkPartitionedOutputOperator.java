@@ -38,7 +38,6 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.facebook.presto.testing.TestingTaskContext;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -306,7 +305,7 @@ public class BenchmarkPartitionedOutputOperator
                     IntStream.range(0, PARTITION_COUNT).toArray());
             OutputPartitioning outputPartitioning = createOutputPartitioning(partitionFunction);
 
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), enableCompression);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), enableCompression);
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
             OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);
@@ -321,7 +320,7 @@ public class BenchmarkPartitionedOutputOperator
             PartitionFunction partitionFunction = new LocalPartitionGenerator(new PrecomputedHashGenerator(0), PARTITION_COUNT);
             OutputPartitioning outputPartitioning = createOutputPartitioning(partitionFunction);
 
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(new TypeRegistry()), enableCompression);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), enableCompression);
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
             PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);

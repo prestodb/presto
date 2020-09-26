@@ -16,9 +16,6 @@ package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.block.AbstractMapBlock.HashTables;
 import com.facebook.presto.common.type.MapType;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.TypeSerde;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
@@ -32,13 +29,6 @@ public class MapBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "MAP";
-
-    private final TypeManager typeManager;
-
-    public MapBlockEncoding(TypeManager typeManager)
-    {
-        this.typeManager = typeManager;
-    }
 
     @Override
     public String getName()
@@ -59,8 +49,6 @@ public class MapBlockEncoding
 
         int entriesStartOffset = offsets[offsetBase];
         int entriesEndOffset = offsets[offsetBase + positionCount];
-
-        TypeSerde.writeType(sliceOutput, mapBlock.keyType);
 
         blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawKeyBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
         blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawValueBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
@@ -85,8 +73,6 @@ public class MapBlockEncoding
     @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        Type keyType = TypeSerde.readType(typeManager, sliceInput);
-
         Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
 
@@ -111,6 +97,6 @@ public class MapBlockEncoding
         int[] offsets = new int[positionCount + 1];
         sliceInput.readBytes(wrappedIntArray(offsets));
         Optional<boolean[]> mapIsNull = EncoderUtil.decodeNullBits(sliceInput, positionCount);
-        return MapType.createMapBlockInternal(typeManager, keyType, 0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, new HashTables(Optional.ofNullable(hashTable), positionCount, hashTableLength));
+        return MapType.createMapBlockInternal(0, positionCount, mapIsNull, offsets, keyBlock, valueBlock, new HashTables(Optional.ofNullable(hashTable), positionCount, hashTableLength));
     }
 }

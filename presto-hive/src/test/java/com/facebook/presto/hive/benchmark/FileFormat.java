@@ -229,7 +229,7 @@ public enum FileFormat
         {
             HiveBatchPageSourceFactory pageSourceFactory = new PageFilePageSourceFactory(
                     hdfsEnvironment,
-                    new BlockEncodingManager(TYPE_MANAGER));
+                    new BlockEncodingManager());
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, PAGEFILE);
         }
 
@@ -699,7 +699,7 @@ public enum FileFormat
                     new OutputStreamDataSink(new FileOutputStream(targetFile)),
                     compressionCodec,
                     new DataSize(10, DataSize.Unit.MEGABYTE));
-            pagesSerde = createPagesSerdeForPageFile(new BlockEncodingManager(TYPE_MANAGER), Optional.of(compressionCodec));
+            pagesSerde = createPagesSerdeForPageFile(new BlockEncodingManager(), Optional.of(compressionCodec));
         }
 
         @Override

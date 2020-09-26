@@ -59,7 +59,7 @@ public class TestOrcReaderMemoryUsage
     public TestOrcReaderMemoryUsage()
     {
         // Associate TYPE_MANAGER with a function manager.
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     @Test
@@ -172,9 +172,7 @@ public class TestOrcReaderMemoryUsage
         MapType mapType = new MapType(
                 keyType,
                 valueType,
-                keyBlockNativeEquals,
                 keyBlockEquals,
-                keyNativeHashCode,
                 keyBlockHashCode);
 
         int rows = 10000;

@@ -34,7 +34,6 @@ import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.testing.TestingSession;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -101,7 +100,7 @@ public class TestMemoryRevokingScheduler
                 executor,
                 taskExecutor,
                 planner,
-                new BlockEncodingManager(new TypeRegistry()),
+                new BlockEncodingManager(),
                 new OrderingCompiler(),
                 createTestSplitMonitor(),
                 new TaskManagerConfig());

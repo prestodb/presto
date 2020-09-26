@@ -14,7 +14,6 @@
 
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.type.Type;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -42,22 +41,7 @@ public abstract class AbstractMapBlock
     // inverse of hash fill ratio, must be integer
     static final int HASH_MULTIPLIER = 2;
 
-    protected final Type keyType;
-    protected final MethodHandle keyNativeHashCode;
-    protected final MethodHandle keyBlockNativeEquals;
-    protected final MethodHandle keyBlockHashCode;
-
     protected volatile long logicalSizeInBytes;
-
-    public AbstractMapBlock(Type keyType, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
-    {
-        this.keyType = requireNonNull(keyType, "keyType is null");
-        // keyNativeHashCode can only be null due to map block kill switch. deprecated.new-map-block
-        this.keyNativeHashCode = keyNativeHashCode;
-        // keyBlockNativeEquals can only be null due to map block kill switch. deprecated.new-map-block
-        this.keyBlockNativeEquals = keyBlockNativeEquals;
-        this.keyBlockHashCode = requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
-    }
 
     protected abstract Block getRawKeyBlock();
 
@@ -80,7 +64,7 @@ public abstract class AbstractMapBlock
     @Nullable
     protected abstract boolean[] getMapIsNull();
 
-    protected abstract void ensureHashTableLoaded();
+    protected abstract void ensureHashTableLoaded(MethodHandle keyBlockHashCode);
 
     int getOffset(int position)
     {
@@ -149,11 +133,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), length, newHashTableEntries),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                new HashTables(Optional.ofNullable(newRawHashTables), length, newHashTableEntries));
     }
 
     @Override
@@ -169,11 +149,7 @@ public abstract class AbstractMapBlock
                 getOffsets(),
                 getRawKeyBlock(),
                 getRawValueBlock(),
-                getHashTables(),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                getHashTables());
     }
 
     @Override
@@ -281,11 +257,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), length, expectedNewHashTableEntries),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                new HashTables(Optional.ofNullable(newRawHashTables), length, expectedNewHashTableEntries));
     }
 
     @Override
@@ -355,11 +327,7 @@ public abstract class AbstractMapBlock
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), 1, expectedNewHashTableEntries),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                new HashTables(Optional.ofNullable(newRawHashTables), 1, expectedNewHashTableEntries));
     }
 
     @Override
@@ -499,11 +467,7 @@ public abstract class AbstractMapBlock
                 offsets,
                 getRawKeyBlock(),
                 getRawValueBlock(),
-                getHashTables(),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                getHashTables());
     }
 
     private void calculateLogicalSize()

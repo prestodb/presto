@@ -217,7 +217,7 @@ public class MetadataManager
         return new MetadataManager(
                 featuresConfig,
                 typeManager,
-                new BlockEncodingManager(typeManager),
+                new BlockEncodingManager(),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
