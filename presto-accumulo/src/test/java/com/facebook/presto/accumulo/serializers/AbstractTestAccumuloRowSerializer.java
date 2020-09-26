@@ -190,7 +190,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
 
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(

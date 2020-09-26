@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.type.TestingTypeManager;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -32,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class TestingBlockJsonSerde
 {
-    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(new TestingTypeManager());
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
     private TestingBlockJsonSerde() {}
 

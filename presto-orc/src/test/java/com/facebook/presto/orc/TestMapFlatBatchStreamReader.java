@@ -77,7 +77,7 @@ public class TestMapFlatBatchStreamReader
 
     static {
         // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     private static final Type LIST_TYPE = TYPE_MANAGER.getParameterizedType(

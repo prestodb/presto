@@ -69,7 +69,7 @@ public class TestResetSessionTask
         metadata = new MetadataManager(
                 new FeaturesConfig(),
                 new TypeRegistry(),
-                new BlockEncodingManager(new TypeRegistry()),
+                new BlockEncodingManager(),
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),

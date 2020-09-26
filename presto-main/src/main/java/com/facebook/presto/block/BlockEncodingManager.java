@@ -30,7 +30,6 @@ import com.facebook.presto.common.block.ShortArrayBlockEncoding;
 import com.facebook.presto.common.block.SingleMapBlockEncoding;
 import com.facebook.presto.common.block.SingleRowBlockEncoding;
 import com.facebook.presto.common.block.VariableWidthBlockEncoding;
-import com.facebook.presto.common.type.TypeManager;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -51,13 +50,13 @@ public final class BlockEncodingManager
 {
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
 
-    public BlockEncodingManager(TypeManager typeManager, BlockEncoding... blockEncodings)
+    public BlockEncodingManager(BlockEncoding... blockEncodings)
     {
-        this(typeManager, ImmutableSet.copyOf(blockEncodings));
+        this(ImmutableSet.copyOf(blockEncodings));
     }
 
     @Inject
-    public BlockEncodingManager(TypeManager typeManager, Set<BlockEncoding> blockEncodings)
+    public BlockEncodingManager(Set<BlockEncoding> blockEncodings)
     {
         // This function should be called from Guice and tests only
 
@@ -70,8 +69,8 @@ public final class BlockEncodingManager
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding(typeManager));
-        addBlockEncoding(new SingleMapBlockEncoding(typeManager));
+        addBlockEncoding(new MapBlockEncoding());
+        addBlockEncoding(new SingleMapBlockEncoding());
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());

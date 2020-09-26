@@ -47,7 +47,7 @@ public class TestRealHistogramAggregation
     public TestRealHistogramAggregation()
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
         InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
                 functionManager.lookupFunction("numeric_histogram", fromTypes(BIGINT, REAL, DOUBLE)));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());

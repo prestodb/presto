@@ -27,6 +27,6 @@ public class TestingEnvironment
 
     static {
         // wire TYPE_MANAGER with function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
+        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 }

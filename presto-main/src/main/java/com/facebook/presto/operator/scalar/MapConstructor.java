@@ -40,6 +40,8 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static com.facebook.presto.common.block.MethodHandleUtil.compose;
+import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
@@ -114,8 +116,10 @@ public final class MapConstructor
         Type valueType = boundVariables.getTypeVariable("V");
 
         Type mapType = typeManager.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
-        MethodHandle keyHashCode = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
-        MethodHandle keyEqual = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyNativeHashCode = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
+        MethodHandle keyNativeEquals = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
         MethodHandle keyIndeterminate = functionManager.getBuiltInScalarFunctionImplementation(
                 functionManager.resolveOperator(INDETERMINATE, fromTypeSignatures((keyType.getTypeSignature())))).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
@@ -125,15 +129,15 @@ public final class MapConstructor
                 ImmutableList.of(
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(mapType).bindTo(keyEqual).bindTo(keyHashCode).bindTo(keyIndeterminate),
+                METHOD_HANDLE.bindTo(mapType).bindTo(keyBlockEquals).bindTo(keyBlockHashCode).bindTo(keyIndeterminate),
                 Optional.of(instanceFactory));
     }
 
     @UsedByGeneratedCode
     public static Block createMap(
             MapType mapType,
-            MethodHandle keyEqual,
-            MethodHandle keyHashCode,
+            MethodHandle keyBlockEqual,
+            MethodHandle keyBlockHashCode,
             MethodHandle keyIndeterminate,
             State state,
             SqlFunctionProperties properties,
@@ -169,7 +173,7 @@ public final class MapConstructor
             mapType.getValueType().appendTo(valueBlock, i, blockBuilder);
         }
         try {
-            mapBlockBuilder.closeEntryStrict();
+            mapBlockBuilder.closeEntryStrict(keyBlockEqual, keyBlockHashCode);
         }
         catch (DuplicateMapKeyException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getDetailedMessage(mapType.getKeyType(), properties), e);

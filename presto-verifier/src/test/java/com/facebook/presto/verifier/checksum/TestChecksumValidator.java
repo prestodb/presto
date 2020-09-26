@@ -60,7 +60,7 @@ public class TestChecksumValidator
     private static final TypeRegistry typeRegistry = new TypeRegistry();
 
     static {
-        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     private static final Column BIGINT_COLUMN = createColumn("bigint", BIGINT);

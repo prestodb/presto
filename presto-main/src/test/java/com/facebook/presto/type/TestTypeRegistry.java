@@ -69,7 +69,7 @@ import static org.testng.Assert.fail;
 public class TestTypeRegistry
 {
     private final TypeManager typeRegistry = new TypeRegistry();
-    private final FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+    private final FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
 
     @Test
     public void testNonexistentType()

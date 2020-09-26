@@ -171,7 +171,7 @@ public class TestField
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
 
         Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(VARCHAR.getTypeSignature()),

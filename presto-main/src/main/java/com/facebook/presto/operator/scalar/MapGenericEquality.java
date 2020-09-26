@@ -19,6 +19,8 @@ import com.facebook.presto.common.block.SingleMapBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
 
+import java.lang.invoke.MethodHandle;
+
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.util.Failures.internalError;
@@ -35,6 +37,9 @@ public final class MapGenericEquality
 
     public static Boolean genericEqual(
             Type keyType,
+            MethodHandle keyNativeHashCode,
+            MethodHandle keyBlockNativeEquals,
+            MethodHandle keyBlockHashCode,
             Block leftBlock,
             Block rightBlock,
             EqualityPredicate predicate)
@@ -53,7 +58,7 @@ public final class MapGenericEquality
 
             int rightPosition;
             try {
-                rightPosition = rightSingleMapBlock.seekKey(key);
+                rightPosition = rightSingleMapBlock.seekKey(key, keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
             }
             catch (NotSupportedException e) {
                 throw new PrestoException(NOT_SUPPORTED, e.getMessage(), e);

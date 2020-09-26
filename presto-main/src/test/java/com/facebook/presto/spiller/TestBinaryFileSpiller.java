@@ -23,7 +23,6 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import org.testng.annotations.AfterMethod;
@@ -63,7 +62,7 @@ public class TestBinaryFileSpiller
     @BeforeMethod
     public void setUp()
     {
-        blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+        blockEncodingSerde = new BlockEncodingManager();
         spillerStats = new SpillerStats();
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpillerSpillPaths(spillPath.getAbsolutePath());

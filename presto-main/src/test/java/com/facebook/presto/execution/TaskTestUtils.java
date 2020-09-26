@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -162,7 +161,7 @@ public final class TaskTestUtils
                 (types, partitionFunction, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 },
-                new BlockEncodingManager(new TestingTypeManager()),
+                new BlockEncodingManager(),
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()),
                 new LookupJoinOperators(),

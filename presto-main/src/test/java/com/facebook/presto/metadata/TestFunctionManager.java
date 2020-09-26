@@ -194,7 +194,7 @@ public class TestFunctionManager
     public void testOperatorTypes()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
         FunctionResolution functionResolution = new FunctionResolution(functionManager);
 
         assertTrue(functionManager.getFunctionMetadata(functionResolution.arithmeticFunction(ADD, BIGINT, BIGINT)).getOperatorType().map(OperatorType::isArithmeticOperator).orElse(false));
@@ -347,7 +347,7 @@ public class TestFunctionManager
 
     private FunctionManager createFunctionManager(TypeRegistry typeManager)
     {
-        BlockEncodingManager blockEncodingManager = new BlockEncodingManager(typeManager);
+        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         FeaturesConfig featuresConfig = new FeaturesConfig();
         return new FunctionManager(typeManager, blockEncodingManager, featuresConfig);
     }
@@ -385,7 +385,7 @@ public class TestFunctionManager
         private static final String TEST_FUNCTION_NAME = "TEST_FUNCTION_NAME";
 
         private final TypeRegistry typeRegistry = new TypeRegistry();
-        private final BlockEncodingSerde blockEncoding = new BlockEncodingManager(typeRegistry);
+        private final BlockEncodingSerde blockEncoding = new BlockEncodingManager();
 
         private List<SignatureBuilder> functionSignatures = ImmutableList.of();
         private List<TypeSignature> parameterTypes = ImmutableList.of();

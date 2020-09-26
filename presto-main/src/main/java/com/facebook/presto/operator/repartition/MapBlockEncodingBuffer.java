@@ -29,7 +29,6 @@ package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.common.block.ArrayAllocator;
 import com.facebook.presto.common.block.ColumnarMap;
-import com.facebook.presto.common.type.TypeSerde;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
@@ -161,8 +160,6 @@ public class MapBlockEncodingBuffer
     {
         writeLengthPrefixedString(output, NAME);
 
-        TypeSerde.writeType(output, columnarMap.getKeyType());
-
         keyBuffers.serializeTo(output);
         valueBuffers.serializeTo(output);
 
@@ -241,7 +238,6 @@ public class MapBlockEncodingBuffer
     public long getSerializedSizeInBytes()
     {
         return NAME.length() + SIZE_OF_INT +            // length prefixed encoding name
-                columnarMap.getKeyType().getTypeSignature().toString().length() + SIZE_OF_INT + // length prefixed type string
                 keyBuffers.getSerializedSizeInBytes() +    // nested key block
                 valueBuffers.getSerializedSizeInBytes() +  // nested value block
                 SIZE_OF_INT +                           // hash tables size

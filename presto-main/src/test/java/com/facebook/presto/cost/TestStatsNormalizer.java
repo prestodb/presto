@@ -42,7 +42,7 @@ import static java.util.Collections.emptyList;
 public class TestStatsNormalizer
 {
     private final TypeManager typeManager = new TypeRegistry();
-    private final FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+    private final FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
     private final ConnectorSession session = new TestingConnectorSession(emptyList());
 
     private final StatsNormalizer normalizer = new StatsNormalizer();

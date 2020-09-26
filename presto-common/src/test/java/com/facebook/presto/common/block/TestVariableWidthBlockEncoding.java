@@ -14,7 +14,6 @@
 package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
 import io.airlift.slice.DynamicSliceOutput;
 import org.testng.annotations.Test;
@@ -27,7 +26,7 @@ import static org.testng.Assert.assertEquals;
 public class TestVariableWidthBlockEncoding
 {
     public static final SqlFunctionProperties PROPERTIES = SqlFunctionProperties.builder().setTimeZoneKey(UTC_KEY).setLegacyTimestamp(true).setSessionStartTime(0).setSessionLocale(ENGLISH).setSessionUser("user").build();
-    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde(new TestingTypeManager());
+    private final BlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
 
     @Test
     public void testRoundTrip()
