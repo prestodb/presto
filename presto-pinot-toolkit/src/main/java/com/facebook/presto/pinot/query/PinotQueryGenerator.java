@@ -518,10 +518,10 @@ public class PinotQueryGenerator
             checkSupported(!forbidBrokerQueries, "Cannot push topn in segment mode");
             checkSupported(node.getStep().equals(TopNNode.Step.SINGLE), "Can only push single logical topn in");
 
-            if (!pushdownTopnBrokerQueries) {
-                throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "TopN query is not allowed to push down. Please refer to config: 'pinot.pushdown-topn-broker-queries'");
+            if (pushdownTopnBrokerQueries) {
+                return context.withTopN(getOrderingScheme(node), node.getCount()).withOutputColumns(node.getOutputVariables());
             }
-            return context.withTopN(getOrderingScheme(node), node.getCount()).withOutputColumns(node.getOutputVariables());
+            throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "TopN query is not allowed to push down. Please refer to config: 'pinot.pushdown-topn-broker-queries'");
         }
 
         @Override
