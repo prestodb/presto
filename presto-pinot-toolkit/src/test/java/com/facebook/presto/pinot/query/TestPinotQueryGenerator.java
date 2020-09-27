@@ -49,6 +49,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPinotQueryGenerator
@@ -274,8 +275,32 @@ public class TestPinotQueryGenerator
     public void testApproxDistinct()
     {
         testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare)", defaultSessionHolder)), "DISTINCTCOUNTHLL(fare)");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.1)", defaultSessionHolder)), "DISTINCTCOUNTHLL(fare, 6)");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.02)", defaultSessionHolder)), "DISTINCTCOUNTHLL(fare, 11)");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.01)", defaultSessionHolder)), "DISTINCTCOUNTHLL(fare, 13)");
+        testUnaryAggregationHelper((planBuilder, aggregationBuilder) -> aggregationBuilder.addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.005)", defaultSessionHolder)), "DISTINCTCOUNTHLL(fare, 15)");
     }
 
+    @Test
+    public void testApproxDistinctWithInvalidParameters()
+    {
+        PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare));
+        PlanNode approxPlanNode = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0)", defaultSessionHolder))));
+        Optional<PinotQueryGenerator.PinotQueryGeneratorResult> generatedQuery =
+                new PinotQueryGenerator(pinotConfig, typeManager, functionMetadataManager, standardFunctionResolution)
+                        .generate(approxPlanNode, defaultSessionHolder.getConnectorSession());
+        assertFalse(generatedQuery.isPresent());
+        approxPlanNode = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 0.004)", defaultSessionHolder))));
+        generatedQuery =
+                new PinotQueryGenerator(pinotConfig, typeManager, functionMetadataManager, standardFunctionResolution)
+                        .generate(approxPlanNode, defaultSessionHolder.getConnectorSession());
+        assertFalse(generatedQuery.isPresent());
+        approxPlanNode = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("approx_distinct(fare, 1)", defaultSessionHolder))));
+        generatedQuery =
+                new PinotQueryGenerator(pinotConfig, typeManager, functionMetadataManager, standardFunctionResolution)
+                        .generate(approxPlanNode, defaultSessionHolder.getConnectorSession());
+        assertFalse(generatedQuery.isPresent());
+    }
     @Test
     public void testAggWithUDFInGroupBy()
     {
