@@ -665,6 +665,22 @@ public class TDigest
         return max;
     }
 
+    /**
+     * Scale all the counts by the given scale factor.
+     */
+    public void scale(double scaleFactor)
+    {
+        checkArgument(scaleFactor > 0, "scale factor must be > 0");
+        // Compress the scaled digest.
+        compress();
+
+        // Scale all the counts.
+        for (int i = 0; i < weight.length; i++) {
+            weight[i] *= scaleFactor;
+        }
+        totalWeight *= scaleFactor;
+    }
+
     public String toString()
     {
         return format("TDigest\nCompression:%s\nCentroid Count:%s\nSize:%s\nMin:%s Median:%s Max:%s",
