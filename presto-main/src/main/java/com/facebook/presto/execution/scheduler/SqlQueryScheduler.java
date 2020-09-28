@@ -81,6 +81,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
 import static com.facebook.presto.SystemSessionProperties.getMaxStageRetries;
+import static com.facebook.presto.SystemSessionProperties.isEmbeddedJsonPlanRepresentationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRuntimeOptimizerEnabled;
 import static com.facebook.presto.execution.BasicStageExecutionStats.aggregateBasicStageStats;
 import static com.facebook.presto.execution.SqlStageExecution.RECOVERABLE_ERROR_CODES;
@@ -476,6 +477,10 @@ public class SqlQueryScheduler
             newRoot = optimizer.optimize(newRoot, session, variableAllocator.getTypes(), variableAllocator, idAllocator, warningCollector);
         }
         if (newRoot != fragment.getRoot()) {
+            Optional<String> embeddedPlanJson = Optional.empty();
+            if (isEmbeddedJsonPlanRepresentationEnabled(session)) {
+                embeddedPlanJson = Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionManager, session));
+            }
             return Optional.of(
                     // The partitioningScheme should stay the same
                     // even if the root's outputVariable layout is changed.
@@ -489,7 +494,7 @@ public class SqlQueryScheduler
                             fragment.getStageExecutionDescriptor(),
                             fragment.isOutputTableWriterFragment(),
                             fragment.getStatsAndCosts(),
-                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionManager, session))));
+                            embeddedPlanJson));
         }
         return Optional.empty();
     }

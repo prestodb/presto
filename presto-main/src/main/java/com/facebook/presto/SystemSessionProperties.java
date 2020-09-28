@@ -169,6 +169,7 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
+    public static final String EMBEDDED_JSON_PLAN_REPRESENTATION_ENABLED = "embedded_json_plan_representation_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -881,6 +882,11 @@ public final class SystemSessionProperties
                         INLINE_SQL_FUNCTIONS,
                         "Inline SQL function definition at plan time",
                         featuresConfig.isInlineSqlFunctions(),
+                        false),
+                booleanProperty(
+                        EMBEDDED_JSON_PLAN_REPRESENTATION_ENABLED,
+                        "Enable creating embedded JSON plan representations for the consumption by the Web UI",
+                        featuresConfig.isEmbeddedJsonPlanRepresentationEnabled(),
                         false));
     }
 
@@ -1491,5 +1497,10 @@ public final class SystemSessionProperties
     public static boolean isInlineSqlFunctions(Session session)
     {
         return session.getSystemProperty(INLINE_SQL_FUNCTIONS, Boolean.class);
+    }
+
+    public static boolean isEmbeddedJsonPlanRepresentationEnabled(Session session)
+    {
+        return session.getSystemProperty(EMBEDDED_JSON_PLAN_REPRESENTATION_ENABLED, Boolean.class);
     }
 }

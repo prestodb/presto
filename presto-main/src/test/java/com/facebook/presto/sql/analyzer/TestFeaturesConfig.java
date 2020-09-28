@@ -144,7 +144,8 @@ public class TestFeaturesConfig
                 .setPreferDistributedUnion(true)
                 .setOptimizeNullsInJoin(false)
                 .setWarnOnNoTableLayoutFilter("")
-                .setInlineSqlFunctions(true));
+                .setInlineSqlFunctions(true)
+                .setEmbeddedJsonPlanRepresentationEnabled(true));
     }
 
     @Test
@@ -245,6 +246,7 @@ public class TestFeaturesConfig
                 .put("optimize-nulls-in-join", "true")
                 .put("warn-on-no-table-layout-filter", "ry@nlikestheyankees,ds")
                 .put("inline-sql-functions", "false")
+                .put("embedded-json-plan-representations-enabled", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -341,7 +343,8 @@ public class TestFeaturesConfig
                 .setPreferDistributedUnion(false)
                 .setOptimizeNullsInJoin(true)
                 .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds")
-                .setInlineSqlFunctions(false);
+                .setInlineSqlFunctions(false)
+                .setEmbeddedJsonPlanRepresentationEnabled(false);
         assertFullMapping(properties, expected);
     }
 

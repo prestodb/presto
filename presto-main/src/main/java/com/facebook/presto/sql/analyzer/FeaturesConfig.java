@@ -162,6 +162,7 @@ public class FeaturesConfig
     private boolean optimizeNullsInJoin;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
+    private boolean embeddedJsonPlanRepresentationEnabled = true;
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -1396,6 +1397,18 @@ public class FeaturesConfig
     public FeaturesConfig setInlineSqlFunctions(boolean inlineSqlFunctions)
     {
         this.inlineSqlFunctions = inlineSqlFunctions;
+        return this;
+    }
+
+    public boolean isEmbeddedJsonPlanRepresentationEnabled()
+    {
+        return embeddedJsonPlanRepresentationEnabled;
+    }
+
+    @Config("embedded-json-plan-representations-enabled")
+    public FeaturesConfig setEmbeddedJsonPlanRepresentationEnabled(boolean embeddedJsonPlanRepresentationEnabled)
+    {
+        this.embeddedJsonPlanRepresentationEnabled = embeddedJsonPlanRepresentationEnabled;
         return this;
     }
 }

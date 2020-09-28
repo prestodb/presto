@@ -95,6 +95,7 @@ import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializa
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
+import static com.facebook.presto.SystemSessionProperties.isEmbeddedJsonPlanRepresentationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForJoinEnabled;
@@ -363,6 +364,7 @@ public class PlanFragmenter
         private final Set<PlanNodeId> outputTableWriterNodeIds;
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
         private final StatisticsAggregationPlanner statisticsAggregationPlanner;
+        private final boolean isEmbeddedJsonPlanRepresentationEnabled;
 
         public Fragmenter(
                 Session session,
@@ -385,6 +387,7 @@ public class PlanFragmenter
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
             this.outputTableWriterNodeIds = ImmutableSet.copyOf(requireNonNull(outputTableWriterNodeIds, "outputTableWriterNodeIds is null"));
             this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(variableAllocator, metadata);
+            this.isEmbeddedJsonPlanRepresentationEnabled = isEmbeddedJsonPlanRepresentationEnabled(session);
         }
 
         public SubPlan buildRootFragment(PlanNode root, FragmentProperties properties)
@@ -419,6 +422,10 @@ public class PlanFragmenter
                         tableWriterNodeIds);
             }
 
+            Optional<String> embeddedPlanJson = Optional.empty();
+            if (isEmbeddedJsonPlanRepresentationEnabled) {
+                embeddedPlanJson = Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, metadata.getFunctionManager(), session));
+            }
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
@@ -429,7 +436,7 @@ public class PlanFragmenter
                     StageExecutionDescriptor.ungroupedExecution(),
                     outputTableWriterFragment,
                     statsAndCosts.getForSubplan(root),
-                    Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, metadata.getFunctionManager(), session)));
+                    embeddedPlanJson);
 
             return new SubPlan(fragment, properties.getChildren());
         }
