@@ -38,7 +38,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
-import static com.facebook.presto.server.BasicQueryStats.immediateFailureQueryStats;
+import static com.facebook.presto.server.BasicQueryStats.noExecutionQueryStats;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -156,7 +156,7 @@ public class BasicQueryInfo
                 false,
                 self,
                 query,
-                immediateFailureQueryStats(),
+                noExecutionQueryStats(),
                 failure,
                 Optional.empty(),
                 ImmutableList.of());

@@ -165,7 +165,8 @@ public class BasicQueryStats
                 queryStats.getProgressPercentage());
     }
 
-    public static BasicQueryStats immediateFailureQueryStats()
+    // Returns an "empty" query stats that's empty, which is the case if the query has not reached the execution state
+    public static BasicQueryStats noExecutionQueryStats()
     {
         DateTime now = DateTime.now();
         return new BasicQueryStats(
