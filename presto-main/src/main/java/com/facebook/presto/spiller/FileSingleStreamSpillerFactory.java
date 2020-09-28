@@ -69,7 +69,11 @@ public class FileSingleStreamSpillerFactory
     private int roundRobinIndex;
 
     @Inject
-    public FileSingleStreamSpillerFactory(BlockEncodingSerde blockEncodingSerde, SpillerStats spillerStats, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig)
+    public FileSingleStreamSpillerFactory(
+            BlockEncodingSerde blockEncodingSerde,
+            SpillerStats spillerStats,
+            FeaturesConfig featuresConfig,
+            NodeSpillConfig nodeSpillConfig)
     {
         this(
                 listeningDecorator(newFixedThreadPool(
@@ -154,7 +158,14 @@ public class FileSingleStreamSpillerFactory
             spillCipher = Optional.of(new AesSpillCipher());
         }
         PagesSerde serde = serdeFactory.createPagesSerdeForSpill(spillCipher);
-        return new FileSingleStreamSpiller(serde, executor, getNextSpillPath(), spillerStats, spillContext, memoryContext, spillCipher);
+        return new FileSingleStreamSpiller(
+                serde,
+                executor,
+                getNextSpillPath(),
+                spillerStats,
+                spillContext,
+                memoryContext,
+                spillCipher);
     }
 
     private synchronized Path getNextSpillPath()
