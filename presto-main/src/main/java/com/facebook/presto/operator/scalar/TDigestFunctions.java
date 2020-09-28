@@ -23,8 +23,10 @@ import com.facebook.presto.tdigest.TDigest;
 import io.airlift.slice.Slice;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
+import static com.facebook.presto.util.Failures.checkCondition;
 
 public final class TDigestFunctions
 {
@@ -72,5 +74,16 @@ public final class TDigestFunctions
             DOUBLE.writeDouble(output, tDigest.getCdf(DOUBLE.getDouble(valuesArrayBlock, i)));
         }
         return output.build();
+    }
+
+    @ScalarFunction(value = "scale_tdigest", visibility = EXPERIMENTAL)
+    @Description("Scale a t-digest according to a new weight")
+    @SqlType("tdigest(double)")
+    public static Slice scaleTDigestDouble(@SqlType("tdigest(double)") Slice input, @SqlType(StandardTypes.DOUBLE) double scale)
+    {
+        checkCondition(scale > 0, INVALID_FUNCTION_ARGUMENT, "Scale factor should be positive.");
+        TDigest digest = createTDigest(input);
+        digest.scale(scale);
+        return digest.serialize();
     }
 }
