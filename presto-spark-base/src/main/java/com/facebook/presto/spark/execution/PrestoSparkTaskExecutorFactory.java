@@ -647,6 +647,7 @@ public class PrestoSparkTaskExecutorFactory
                     STARTING_VERSION,
                     taskState,
                     URI.create("http://fake.invalid/task/" + taskId),
+                    "",
                     taskContext.getCompletedDriverGroups(),
                     failures,
                     taskStats.getQueuedPartitionedDrivers(),

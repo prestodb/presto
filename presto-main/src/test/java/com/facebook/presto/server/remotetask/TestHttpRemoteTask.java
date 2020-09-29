@@ -505,6 +505,7 @@ public class TestHttpRemoteTask
                     ++version,
                     taskState,
                     initialTaskStatus.getSelf(),
+                    initialTaskStatus.getNodeId(),
                     ImmutableSet.of(),
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),

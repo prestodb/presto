@@ -285,6 +285,7 @@ public class SqlTask
                 versionNumber,
                 state,
                 location,
+                nodeId,
                 completedDriverGroups,
                 failures,
                 queuedPartitionedDrivers,

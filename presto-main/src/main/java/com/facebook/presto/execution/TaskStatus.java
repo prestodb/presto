@@ -52,6 +52,7 @@ public class TaskStatus
     private final long version;
     private final TaskState state;
     private final URI self;
+    private final String nodeId;
     private final Set<Lifespan> completedDriverGroups;
 
     private final int queuedPartitionedDrivers;
@@ -76,6 +77,7 @@ public class TaskStatus
             @JsonProperty("version") long version,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
+            @JsonProperty("nodeId") String nodeId,
             @JsonProperty("completedDriverGroups") Set<Lifespan> completedDriverGroups,
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
@@ -94,6 +96,7 @@ public class TaskStatus
         this.version = version;
         this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.completedDriverGroups = requireNonNull(completedDriverGroups, "completedDriverGroups is null");
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
@@ -144,6 +147,12 @@ public class TaskStatus
     public URI getSelf()
     {
         return self;
+    }
+
+    @JsonProperty
+    public String getNodeId()
+    {
+        return nodeId;
     }
 
     @JsonProperty
@@ -220,7 +229,7 @@ public class TaskStatus
                 .toString();
     }
 
-    public static TaskStatus initialTaskStatus(URI location)
+    public static TaskStatus initialTaskStatus(URI location, String nodeId)
     {
         return new TaskStatus(
                 0L,
@@ -228,6 +237,7 @@ public class TaskStatus
                 MIN_VERSION,
                 PLANNED,
                 location,
+                nodeId,
                 ImmutableSet.of(),
                 ImmutableList.of(),
                 0,
@@ -249,6 +259,7 @@ public class TaskStatus
                 MAX_VERSION,
                 state,
                 taskStatus.getSelf(),
+                taskStatus.getNodeId(),
                 taskStatus.getCompletedDriverGroups(),
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
