@@ -16,7 +16,7 @@ package com.facebook.presto.sql.relational;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -38,8 +38,8 @@ public class TestFunctionResolution
     public void setup()
     {
         TypeManager typeManager = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
-        functionResolution = new FunctionResolution(functionManager);
+        FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        functionResolution = new FunctionResolution(functionAndTypeManager);
     }
 
     @Test

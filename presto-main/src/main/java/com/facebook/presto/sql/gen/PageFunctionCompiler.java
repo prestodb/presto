@@ -141,7 +141,7 @@ public class PageFunctionCompiler
     public PageFunctionCompiler(Metadata metadata, int expressionCacheSize)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionManager());
+        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager());
 
         if (expressionCacheSize > 0) {
             projectionCache = CacheBuilder.newBuilder()

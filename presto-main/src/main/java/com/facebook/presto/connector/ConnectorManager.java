@@ -362,8 +362,8 @@ public class ConnectorManager
         ConnectorContext context = new ConnectorContextInstance(
                 new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), connectorId),
                 typeManager,
-                metadataManager.getFunctionManager(),
-                new FunctionResolution(metadataManager.getFunctionManager()),
+                metadataManager.getFunctionAndTypeManager(),
+                new FunctionResolution(metadataManager.getFunctionAndTypeManager()),
                 pageSorter,
                 pageIndexerFactory,
                 new ConnectorRowExpressionService(
@@ -371,7 +371,7 @@ public class ConnectorManager
                         new RowExpressionOptimizer(metadataManager),
                         predicateCompiler,
                         determinismEvaluator,
-                        new RowExpressionFormatter(metadataManager.getFunctionManager())),
+                        new RowExpressionFormatter(metadataManager.getFunctionAndTypeManager())),
                 new ConnectorFilterStatsCalculatorService(filterStatsCalculator),
                 blockEncodingSerde);
 

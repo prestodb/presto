@@ -18,7 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.MapType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -47,9 +47,9 @@ public class TestRealHistogramAggregation
     public TestRealHistogramAggregation()
     {
         TypeRegistry typeRegistry = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
-        InternalAggregationFunction function = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("numeric_histogram", fromTypes(BIGINT, REAL, DOUBLE)));
+        FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
+        InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("numeric_histogram", fromTypes(BIGINT, REAL, DOUBLE)));
         factory = function.bind(ImmutableList.of(0, 1, 2), Optional.empty());
         input = makeInput(10);
     }

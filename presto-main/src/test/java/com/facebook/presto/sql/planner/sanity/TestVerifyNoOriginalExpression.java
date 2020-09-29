@@ -83,7 +83,7 @@ public class TestVerifyNoOriginalExpression
         valuesNode = builder.values();
         comparisonCallExpression = new CallExpression(
                 "LESS_THAN",
-                metadata.getFunctionManager().resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT)),
+                metadata.getFunctionAndTypeManager().resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT)),
                 BooleanType.BOOLEAN,
                 ImmutableList.of(VARIABLE_REFERENCE_EXPRESSION, VARIABLE_REFERENCE_EXPRESSION));
     }

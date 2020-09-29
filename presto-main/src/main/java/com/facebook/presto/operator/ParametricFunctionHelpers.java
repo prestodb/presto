@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
 
 import java.lang.invoke.MethodHandle;
@@ -26,10 +26,10 @@ public class ParametricFunctionHelpers
 {
     private ParametricFunctionHelpers() {}
 
-    public static MethodHandle bindDependencies(MethodHandle handle, List<ImplementationDependency> dependencies, BoundVariables variables, TypeManager typeManager, FunctionManager functionManager)
+    public static MethodHandle bindDependencies(MethodHandle handle, List<ImplementationDependency> dependencies, BoundVariables variables, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         for (ImplementationDependency dependency : dependencies) {
-            handle = MethodHandles.insertArguments(handle, 0, dependency.resolve(variables, typeManager, functionManager));
+            handle = MethodHandles.insertArguments(handle, 0, dependency.resolve(variables, typeManager, functionAndTypeManager));
         }
         return handle;
     }

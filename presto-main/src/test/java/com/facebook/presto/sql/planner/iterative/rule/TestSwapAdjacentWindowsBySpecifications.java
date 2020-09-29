@@ -59,7 +59,7 @@ public class TestSwapAdjacentWindowsBySpecifications
                 Optional.empty(),
                 Optional.empty());
 
-        functionHandle = createTestMetadataManager().getFunctionManager().lookupFunction("avg", fromTypes(BIGINT));
+        functionHandle = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("avg", fromTypes(BIGINT));
     }
 
     @Test

@@ -19,7 +19,7 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.index.PageRecordSet;
@@ -67,7 +67,7 @@ import static org.testng.Assert.assertTrue;
 public class TestCursorProcessorCompiler
 {
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final FunctionManager FUNCTION_MANAGER = METADATA.getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_MANAGER = METADATA.getFunctionAndTypeManager();
 
     private static final CallExpression ADD_X_Y = call(
             ADD.name(),

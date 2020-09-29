@@ -31,7 +31,7 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
@@ -121,7 +121,7 @@ public class LegacySqlQueryScheduler
 
     // The following fields are required by adaptive optimization in runtime.
     private final Session session;
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final List<PlanOptimizer> runtimePlanOptimizers;
     private final WarningCollector warningCollector;
     private final PlanNodeIdAllocator idAllocator;
@@ -148,7 +148,7 @@ public class LegacySqlQueryScheduler
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
-            FunctionManager functionManager,
+            FunctionAndTypeManager functionAndTypeManager,
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             OutputBuffers rootOutputBuffers,
@@ -170,7 +170,7 @@ public class LegacySqlQueryScheduler
                 remoteTaskFactory,
                 splitSourceFactory,
                 session,
-                functionManager,
+                functionAndTypeManager,
                 queryStateMachine,
                 plan,
                 summarizeTaskInfo,
@@ -195,7 +195,7 @@ public class LegacySqlQueryScheduler
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
-            FunctionManager functionManager,
+            FunctionAndTypeManager functionAndTypeManager,
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             boolean summarizeTaskInfo,
@@ -215,7 +215,7 @@ public class LegacySqlQueryScheduler
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
         this.plan.compareAndSet(null, requireNonNull(plan, "plan is null"));
         this.session = requireNonNull(session, "session is null");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.runtimePlanOptimizers = requireNonNull(runtimePlanOptimizers, "runtimePlanOptimizers is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -601,7 +601,7 @@ public class LegacySqlQueryScheduler
                             fragment.getStageExecutionDescriptor(),
                             fragment.isOutputTableWriterFragment(),
                             fragment.getStatsAndCosts(),
-                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionManager, session))));
+                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionAndTypeManager, session))));
         }
         return Optional.empty();
     }

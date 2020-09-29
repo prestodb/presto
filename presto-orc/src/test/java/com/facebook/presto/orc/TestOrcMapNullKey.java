@@ -20,7 +20,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
@@ -59,7 +59,7 @@ public class TestOrcMapNullKey
     public TestOrcMapNullKey()
     {
         // Associate TYPE_MANAGER with a function manager.
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     @DataProvider(name = "mapNullKeysEnabled")

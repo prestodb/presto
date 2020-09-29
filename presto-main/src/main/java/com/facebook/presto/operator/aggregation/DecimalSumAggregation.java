@@ -21,7 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.UnscaledDecimal128Arithmetic;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.state.LongDecimalWithOverflowState;
@@ -81,7 +81,7 @@ public class DecimalSumAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         Type inputType = getOnlyElement(applyBoundVariables(typeManager, getSignature().getArgumentTypes(), boundVariables));
         Type outputType = applyBoundVariables(typeManager, getSignature().getReturnType(), boundVariables);

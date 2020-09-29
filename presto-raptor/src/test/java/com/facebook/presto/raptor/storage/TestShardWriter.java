@@ -26,7 +26,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.spi.PrestoException;
@@ -111,7 +111,7 @@ public class TestShardWriter
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
 
         List<Long> columnIds = ImmutableList.of(1L, 2L, 4L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L);
         ArrayType arrayType = new ArrayType(BIGINT);

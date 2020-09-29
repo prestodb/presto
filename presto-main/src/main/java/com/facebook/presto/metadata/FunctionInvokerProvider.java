@@ -38,16 +38,16 @@ import static java.lang.String.format;
 
 public class FunctionInvokerProvider
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public FunctionInvokerProvider(FunctionManager functionManager)
+    public FunctionInvokerProvider(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = functionManager;
+        this.functionAndTypeManager = functionAndTypeManager;
     }
 
     public FunctionInvoker createFunctionInvoker(FunctionHandle functionHandle, Optional<InvocationConvention> invocationConvention)
     {
-        BuiltInScalarFunctionImplementation builtInScalarFunctionImplementation = functionManager.getBuiltInScalarFunctionImplementation(functionHandle);
+        BuiltInScalarFunctionImplementation builtInScalarFunctionImplementation = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle);
         for (ScalarImplementationChoice choice : builtInScalarFunctionImplementation.getAllChoices()) {
             if (checkChoice(choice.getArgumentProperties(), choice.isNullable(), choice.hasProperties(), invocationConvention)) {
                 return new FunctionInvoker(choice.getMethodHandle());

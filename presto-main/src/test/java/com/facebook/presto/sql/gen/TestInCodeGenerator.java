@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.gen;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import io.airlift.slice.Slices;
@@ -42,7 +42,7 @@ public class TestInCodeGenerator
     @Test
     public void testInteger()
     {
-        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
+        FunctionAndTypeManager functionAndTypeManager = createTestMetadataManager().getFunctionAndTypeManager();
         List<RowExpression> values = new ArrayList<>();
         values.add(constant((long) Integer.MIN_VALUE, INTEGER));
         values.add(constant((long) Integer.MAX_VALUE, INTEGER));
@@ -53,7 +53,7 @@ public class TestInCodeGenerator
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
         values.add(new CallExpression(
                 CAST.name(),
-                functionManager.lookupCast(CAST, DOUBLE.getTypeSignature(), INTEGER.getTypeSignature()),
+                functionAndTypeManager.lookupCast(CAST, DOUBLE.getTypeSignature(), INTEGER.getTypeSignature()),
                 INTEGER,
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
@@ -70,7 +70,7 @@ public class TestInCodeGenerator
     @Test
     public void testBigint()
     {
-        FunctionManager functionManager = createTestMetadataManager().getFunctionManager();
+        FunctionAndTypeManager functionAndTypeManager = createTestMetadataManager().getFunctionAndTypeManager();
         List<RowExpression> values = new ArrayList<>();
         values.add(constant(Integer.MAX_VALUE + 1L, BIGINT));
         values.add(constant(Integer.MIN_VALUE - 1L, BIGINT));
@@ -81,7 +81,7 @@ public class TestInCodeGenerator
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
         values.add(new CallExpression(
                 CAST.name(),
-                functionManager.lookupCast(CAST, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()),
+                functionAndTypeManager.lookupCast(CAST, DOUBLE.getTypeSignature(), BIGINT.getTypeSignature()),
                 BIGINT,
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);

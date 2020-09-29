@@ -298,7 +298,7 @@ public final class ExpressionDomainTranslator
             this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
         }
 
         private Type checkedTypeLookup(Expression expression)
@@ -661,7 +661,7 @@ public final class ExpressionDomainTranslator
         private Optional<FunctionHandle> getSaturatedFloorCastOperator(Type fromType, Type toType)
         {
             try {
-                return Optional.of(metadata.getFunctionManager().lookupCast(SATURATED_FLOOR_CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
+                return Optional.of(metadata.getFunctionAndTypeManager().lookupCast(SATURATED_FLOOR_CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
             }
             catch (OperatorNotFoundException e) {
                 return Optional.empty();
@@ -670,7 +670,7 @@ public final class ExpressionDomainTranslator
 
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
-            FunctionHandle castToOriginalTypeOperator = metadata.getFunctionManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
+            FunctionHandle castToOriginalTypeOperator = metadata.getFunctionAndTypeManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
             Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.getSqlFunctionProperties(), coercedValue);
             Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
             Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);

@@ -124,7 +124,7 @@ public class MetadataQueryOptimizer
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
-                QualifiedFunctionName functionName = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
+                QualifiedFunctionName functionName = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
                 if (!ALLOWED_FUNCTIONS.contains(functionName) && !aggregation.isDistinct()) {
                     return context.defaultRewrite(node);
                 }
@@ -218,7 +218,7 @@ public class MetadataQueryOptimizer
                 return false;
             }
             for (Aggregation aggregation : node.getAggregations().values()) {
-                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle());
+                FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getFunctionHandle());
                 if (!AGGREGATION_SCALAR_MAPPING.containsKey(functionMetadata.getName()) ||
                         functionMetadata.getArgumentTypes().size() > 1 ||
                         !inputs.containsAll(aggregation.getCall().getArguments())) {
@@ -267,7 +267,7 @@ public class MetadataQueryOptimizer
                 assignmentsBuilder.put(
                         outputVariable,
                         evaluateMinMax(
-                                metadata.getFunctionManager().getFunctionMetadata(node.getAggregations().get(outputVariable).getFunctionHandle()),
+                                metadata.getFunctionAndTypeManager().getFunctionMetadata(node.getAggregations().get(outputVariable).getFunctionHandle()),
                                 inputColumnValues.get(getOnlyElement(aggregation.getArguments()))));
             }
             Assignments assignments = assignmentsBuilder.build();
@@ -290,7 +290,7 @@ public class MetadataQueryOptimizer
                 for (List<RowExpression> partitionedArguments : Lists.partition(arguments, 100)) {
                     Object reducedValue = evaluateConstantRowExpression(
                             call(
-                                    metadata.getFunctionManager(),
+                                    metadata.getFunctionAndTypeManager(),
                                     scalarFunctionName,
                                     returnType,
                                     partitionedArguments),

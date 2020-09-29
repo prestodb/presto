@@ -146,7 +146,7 @@ public class TestCommonSubExpressionRewritter
                 expression,
                 expressionTypes,
                 ImmutableMap.of(),
-                METADATA.getFunctionManager(),
+                METADATA.getFunctionAndTypeManager(),
                 METADATA.getTypeManager(),
                 SESSION);
     }

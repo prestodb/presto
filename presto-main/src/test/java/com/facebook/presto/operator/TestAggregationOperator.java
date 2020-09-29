@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.AggregationOperator.AggregationOperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -55,7 +55,7 @@ import static org.testng.Assert.assertTrue;
 @Test(singleThreaded = true)
 public class TestAggregationOperator
 {
-    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
 
     private static final InternalAggregationFunction LONG_AVERAGE = getAggregation("avg", BIGINT);
     private static final InternalAggregationFunction DOUBLE_SUM = getAggregation("sum", DOUBLE);
@@ -163,6 +163,6 @@ public class TestAggregationOperator
 
     private static InternalAggregationFunction getAggregation(String name, Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(name, fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(name, fromTypes(arguments)));
     }
 }

@@ -99,7 +99,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
@@ -292,13 +292,13 @@ public class PlanBuilder
 
     public CallExpression binaryOperation(OperatorType operatorType, RowExpression left, RowExpression right)
     {
-        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionManager()).arithmeticFunction(operatorType, left.getType(), right.getType());
+        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager()).arithmeticFunction(operatorType, left.getType(), right.getType());
         return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
     }
 
     public CallExpression comparison(OperatorType operatorType, RowExpression left, RowExpression right)
     {
-        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionManager()).comparisonFunction(operatorType, left.getType(), right.getType());
+        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager()).comparisonFunction(operatorType, left.getType(), right.getType());
         return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
     }
 
@@ -339,7 +339,7 @@ public class PlanBuilder
         {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall call = (FunctionCall) expression;
-            FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(
+            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
                     session.getTransactionId(),
                     qualifyFunctionName(call.getName()),
                     TypeSignatureProvider.fromTypes(inputTypes));
@@ -347,7 +347,7 @@ public class PlanBuilder
                     new CallExpression(
                             call.getName().getSuffix(),
                             functionHandle,
-                            metadata.getType(metadata.getFunctionManager().getFunctionMetadata(functionHandle).getReturnType()),
+                            metadata.getType(metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle).getReturnType()),
                             call.getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
                     call.getFilter().map(OriginalExpressionUtils::castToRowExpression),
                     call.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, types)),
@@ -890,7 +890,7 @@ public class PlanBuilder
                 expression,
                 expressionTypes,
                 ImmutableMap.of(),
-                metadata.getFunctionManager(),
+                metadata.getFunctionAndTypeManager(),
                 metadata.getTypeManager(),
                 session);
     }

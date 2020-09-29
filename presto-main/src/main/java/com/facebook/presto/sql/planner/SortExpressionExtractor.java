@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -65,12 +65,12 @@ public final class SortExpressionExtractor
      */
     private SortExpressionExtractor() {}
 
-    public static Optional<SortExpressionContext> extractSortExpression(Set<VariableReferenceExpression> buildVariables, RowExpression filter, FunctionManager functionManager)
+    public static Optional<SortExpressionContext> extractSortExpression(Set<VariableReferenceExpression> buildVariables, RowExpression filter, FunctionAndTypeManager functionAndTypeManager)
     {
         List<RowExpression> filterConjuncts = LogicalRowExpressions.extractConjuncts(filter);
-        SortExpressionVisitor visitor = new SortExpressionVisitor(buildVariables, functionManager);
+        SortExpressionVisitor visitor = new SortExpressionVisitor(buildVariables, functionAndTypeManager);
 
-        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
+        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
         List<SortExpressionContext> sortExpressionCandidates = filterConjuncts.stream()
                 .filter(determinismEvaluator::isDeterministic)
                 .map(conjunct -> conjunct.accept(visitor, null))
@@ -101,18 +101,18 @@ public final class SortExpressionExtractor
             implements RowExpressionVisitor<Optional<SortExpressionContext>, Void>
     {
         private final Set<VariableReferenceExpression> buildVariables;
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
 
-        public SortExpressionVisitor(Set<VariableReferenceExpression> buildVariables, FunctionManager functionManager)
+        public SortExpressionVisitor(Set<VariableReferenceExpression> buildVariables, FunctionAndTypeManager functionAndTypeManager)
         {
             this.buildVariables = buildVariables;
-            this.functionManager = functionManager;
+            this.functionAndTypeManager = functionAndTypeManager;
         }
 
         @Override
         public Optional<SortExpressionContext> visitCall(CallExpression call, Void context)
         {
-            FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(call.getFunctionHandle());
+            FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
             if (!functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
                 return Optional.empty();
             }

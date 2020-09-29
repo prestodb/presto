@@ -290,13 +290,13 @@ public class AddLocalExchanges
         {
             checkState(node.getStep() == AggregationNode.Step.SINGLE, "step of aggregation is expected to be SINGLE, but it is %s", node.getStep());
 
-            if (hasSingleNodeExecutionPreference(node, metadata.getFunctionManager())) {
+            if (hasSingleNodeExecutionPreference(node, metadata.getFunctionAndTypeManager())) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
 
             List<VariableReferenceExpression> groupingKeys = node.getGroupingKeys();
             if (node.hasDefaultOutput()) {
-                checkState(isDecomposable(node, metadata.getFunctionManager()));
+                checkState(isDecomposable(node, metadata.getFunctionAndTypeManager()));
 
                 // Put fixed local exchange directly below final aggregation to ensure that final and partial aggregations are separated by exchange (in a local runner mode)
                 // This is required so that default outputs from multiple instances of partial aggregations are passed to a single final aggregation.
@@ -503,7 +503,7 @@ public class AddLocalExchanges
                     .getStatisticsAggregation()
                     .map(aggregations -> aggregations.splitIntoPartialAndIntermediate(
                             variableAllocator,
-                            metadata.getFunctionManager()));
+                            metadata.getFunctionAndTypeManager()));
 
             PlanWithProperties tableWriter;
 

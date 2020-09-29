@@ -16,7 +16,7 @@ package com.facebook.presto.verifier;
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.plugin.memory.MemoryPlugin;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
@@ -149,7 +149,7 @@ public class VerifierTestUtil
     public static TypeManager createTypeManager()
     {
         TypeManager typeManager = new TypeRegistry();
-        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
         return typeManager;
     }
 }

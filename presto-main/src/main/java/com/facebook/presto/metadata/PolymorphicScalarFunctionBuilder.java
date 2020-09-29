@@ -152,15 +152,15 @@ public final class PolymorphicScalarFunctionBuilder
         private final List<Type> parameterTypes;
         private final Type returnType;
         private final TypeManager typeManager;
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
 
-        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType, TypeManager typeManager, FunctionManager functionManager)
+        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
         {
             this.boundVariables = requireNonNull(boundVariables, "boundVariables is null");
             this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         }
 
         public Type getType(String name)
@@ -188,9 +188,9 @@ public final class PolymorphicScalarFunctionBuilder
             return typeManager;
         }
 
-        public FunctionManager getFunctionManager()
+        public FunctionAndTypeManager getFunctionManager()
         {
-            return functionManager;
+            return functionAndTypeManager;
         }
     }
 

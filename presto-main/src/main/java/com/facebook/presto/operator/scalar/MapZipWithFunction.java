@@ -26,7 +26,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -93,7 +93,7 @@ public final class MapZipWithFunction
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type inputValueType1 = boundVariables.getTypeVariable("V1");
@@ -104,9 +104,9 @@ public final class MapZipWithFunction
                 ImmutableList.of(
                         TypeSignatureParameter.of(keyType.getTypeSignature()),
                         TypeSignatureParameter.of(outputValueType.getTypeSignature())));
-        MethodHandle keyNativeHashCode = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle keyNativeHashCode = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
-        MethodHandle keyNativeEquals = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyNativeEquals = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
         MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
         MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(keyType), nativeValueGetter(keyType));
 

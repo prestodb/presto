@@ -99,7 +99,7 @@ public class TestWindowNode
     public void testSerializationRoundtrip()
     {
         VariableReferenceExpression windowVariable = variableAllocator.newVariable("sum", BIGINT);
-        FunctionHandle functionHandle = createTestMetadataManager().getFunctionManager().lookupFunction("sum", fromTypes(BIGINT));
+        FunctionHandle functionHandle = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("sum", fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
                 RANGE,
                 UNBOUNDED_PRECEDING,

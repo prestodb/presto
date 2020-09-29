@@ -58,9 +58,9 @@ public class TestMergeAdjacentWindows
             Optional.empty(),
             Optional.empty());
 
-    private static final FunctionHandle SUM_FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().lookupFunction("sum", fromTypes(DOUBLE));
-    private static final FunctionHandle AVG_FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().lookupFunction("avg", fromTypes(DOUBLE));
-    private static final FunctionHandle LAG_FUNCTION_HANDLE = createTestMetadataManager().getFunctionManager().lookupFunction("lag", fromTypes(DOUBLE));
+    private static final FunctionHandle SUM_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("sum", fromTypes(DOUBLE));
+    private static final FunctionHandle AVG_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("avg", fromTypes(DOUBLE));
+    private static final FunctionHandle LAG_FUNCTION_HANDLE = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("lag", fromTypes(DOUBLE));
     private static final String columnAAlias = "ALIAS_A";
     private static final ExpectedValueProvider<WindowNode.Specification> specificationA =
             specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());

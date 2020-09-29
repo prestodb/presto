@@ -93,7 +93,7 @@ public final class SqlFunctionUtils
                         lambdaCaptureDesugaredExpression,
                         analyzeSqlFunctionExpression(metadata, sqlFunctionProperties, lambdaCaptureDesugaredExpression, variableAllocator.getTypes().allTypes()).getExpressionTypes(),
                         ImmutableMap.of(),
-                        metadata.getFunctionManager(),
+                        metadata.getFunctionAndTypeManager(),
                         metadata.getTypeManager(),
                         Optional.empty(),
                         Optional.empty(),

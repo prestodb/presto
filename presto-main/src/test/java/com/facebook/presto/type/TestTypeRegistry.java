@@ -17,7 +17,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableSet;
@@ -69,7 +69,7 @@ import static org.testng.Assert.fail;
 public class TestTypeRegistry
 {
     private final TypeManager typeRegistry = new TypeRegistry();
-    private final FunctionManager functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
+    private final FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
 
     @Test
     public void testNonexistentType()
@@ -253,7 +253,7 @@ public class TestTypeRegistry
             for (Type resultType : types) {
                 if (typeRegistry.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
                     try {
-                        functionManager.lookupCast(CAST, sourceType.getTypeSignature(), resultType.getTypeSignature());
+                        functionAndTypeManager.lookupCast(CAST, sourceType.getTypeSignature(), resultType.getTypeSignature());
                     }
                     catch (OperatorNotFoundException e) {
                         fail(format("'%s' -> '%s' coercion exists but there is no cast operator", sourceType, resultType));
@@ -268,16 +268,16 @@ public class TestTypeRegistry
     {
         for (Type type : typeRegistry.getTypes()) {
             if (type.isComparable()) {
-                functionManager.resolveOperator(EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(NOT_EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type));
-                functionManager.resolveOperator(HASH_CODE, fromTypes(type));
+                functionAndTypeManager.resolveOperator(EQUAL, fromTypes(type, type));
+                functionAndTypeManager.resolveOperator(NOT_EQUAL, fromTypes(type, type));
+                functionAndTypeManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type));
+                functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(type));
             }
             if (type.isOrderable()) {
-                functionManager.resolveOperator(LESS_THAN, fromTypes(type, type));
-                functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(type, type));
-                functionManager.resolveOperator(GREATER_THAN, fromTypes(type, type));
+                functionAndTypeManager.resolveOperator(LESS_THAN, fromTypes(type, type));
+                functionAndTypeManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(type, type));
+                functionAndTypeManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(type, type));
+                functionAndTypeManager.resolveOperator(GREATER_THAN, fromTypes(type, type));
             }
         }
     }

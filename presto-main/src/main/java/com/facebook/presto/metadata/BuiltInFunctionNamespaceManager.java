@@ -403,7 +403,7 @@ public class BuiltInFunctionNamespaceManager
             TypeManager typeManager,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
-            FunctionManager functionManager)
+            FunctionAndTypeManager functionAndTypeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.magicLiteralFunction = new MagicLiteralFunction(blockEncodingSerde);
@@ -429,7 +429,7 @@ public class BuiltInFunctionNamespaceManager
                             "Unsupported scalar function class: %s",
                             key.getFunction().getClass());
                     return key.getFunction() instanceof SqlScalarFunction
-                            ? ((SqlScalarFunction) key.getFunction()).specialize(key.getBoundVariables(), key.getArity(), typeManager, functionManager)
+                            ? ((SqlScalarFunction) key.getFunction()).specialize(key.getBoundVariables(), key.getArity(), typeManager, functionAndTypeManager)
                             : new SqlInvokedScalarFunctionImplementation(((SqlInvokedFunction) key.getFunction()).getBody());
                 }));
 
@@ -437,7 +437,7 @@ public class BuiltInFunctionNamespaceManager
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
                 .build(CacheLoader.from(key -> ((SqlAggregationFunction) key.getFunction())
-                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, functionManager)));
+                        .specialize(key.getBoundVariables(), key.getArity(), typeManager, functionAndTypeManager)));
 
         specializedWindowCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -448,7 +448,7 @@ public class BuiltInFunctionNamespaceManager
                         return supplier(key.getFunction().getSignature(), specializedAggregationCache.getUnchecked(key));
                     }
                     return ((SqlWindowFunction) key.getFunction())
-                            .specialize(key.getBoundVariables(), key.getArity(), typeManager, functionManager);
+                            .specialize(key.getBoundVariables(), key.getArity(), typeManager, functionAndTypeManager);
                 }));
 
         FunctionListBuilder builder = new FunctionListBuilder()
@@ -1063,7 +1063,7 @@ public class BuiltInFunctionNamespaceManager
         }
 
         @Override
-        public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+        public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
         {
             Type parameterType = boundVariables.getTypeVariable("T");
             Type type = boundVariables.getTypeVariable("R");

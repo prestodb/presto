@@ -19,7 +19,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -190,7 +190,7 @@ public abstract class AbstractTestAccumuloRowSerializer
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
 
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
         Type type = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(

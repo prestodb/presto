@@ -93,12 +93,12 @@ class PolymorphicScalarFunction
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         ImmutableList.Builder<ScalarImplementationChoice> implementationChoices = ImmutableList.builder();
 
         for (PolymorphicScalarFunctionChoice choice : choices) {
-            implementationChoices.add(getScalarFunctionImplementationChoice(boundVariables, typeManager, functionManager, choice));
+            implementationChoices.add(getScalarFunctionImplementationChoice(boundVariables, typeManager, functionAndTypeManager, choice));
         }
 
         return new BuiltInScalarFunctionImplementation(implementationChoices.build());
@@ -107,12 +107,12 @@ class PolymorphicScalarFunction
     private ScalarImplementationChoice getScalarFunctionImplementationChoice(
             BoundVariables boundVariables,
             TypeManager typeManager,
-            FunctionManager functionManager,
+            FunctionAndTypeManager functionAndTypeManager,
             PolymorphicScalarFunctionChoice choice)
     {
         List<Type> resolvedParameterTypes = applyBoundVariables(typeManager, getSignature().getArgumentTypes(), boundVariables);
         Type resolvedReturnType = applyBoundVariables(typeManager, getSignature().getReturnType(), boundVariables);
-        SpecializeContext context = new SpecializeContext(boundVariables, resolvedParameterTypes, resolvedReturnType, typeManager, functionManager);
+        SpecializeContext context = new SpecializeContext(boundVariables, resolvedParameterTypes, resolvedReturnType, typeManager, functionAndTypeManager);
         Optional<MethodAndNativeContainerTypes> matchingMethod = Optional.empty();
 
         Optional<MethodsGroup> matchingMethodsGroup = Optional.empty();

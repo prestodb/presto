@@ -20,7 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.ParametricImplementation;
 import com.facebook.presto.operator.annotations.FunctionsParserHelper;
 import com.facebook.presto.operator.annotations.ImplementationDependency;
@@ -118,7 +118,7 @@ public class ParametricScalarImplementation
         }
     }
 
-    public Optional<BuiltInScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionManager functionManager)
+    public Optional<BuiltInScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
@@ -151,9 +151,9 @@ public class ParametricScalarImplementation
         }
 
         for (ParametricScalarImplementationChoice choice : choices) {
-            MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), boundVariables, typeManager, functionManager);
+            MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), boundVariables, typeManager, functionAndTypeManager);
             Optional<MethodHandle> boundConstructor = choice.getConstructor().map(constructor -> {
-                MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), boundVariables, typeManager, functionManager);
+                MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), boundVariables, typeManager, functionAndTypeManager);
                 checkCondition(
                         result.type().parameterList().isEmpty(),
                         FUNCTION_IMPLEMENTATION_ERROR,

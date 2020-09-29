@@ -38,7 +38,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.orc.TrackingTupleDomainFilter.TestBigintRange;
 import com.facebook.presto.orc.TrackingTupleDomainFilter.TestDoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
@@ -202,7 +202,7 @@ public class OrcTester
 
     static {
         // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     public enum Format

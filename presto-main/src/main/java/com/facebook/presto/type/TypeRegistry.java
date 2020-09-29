@@ -26,7 +26,7 @@ import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogType;
 import com.facebook.presto.type.setdigest.SetDigestType;
@@ -103,7 +103,7 @@ public final class TypeRegistry
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
     private final FeaturesConfig featuresConfig;
 
-    private FunctionManager functionManager;
+    private FunctionAndTypeManager functionAndTypeManager;
 
     private final LoadingCache<TypeSignature, Type> parametricTypeCache;
 
@@ -169,10 +169,10 @@ public final class TypeRegistry
                 .build(CacheLoader.from(this::instantiateParametricType));
     }
 
-    public void setFunctionManager(FunctionManager functionManager)
+    public void setFunctionManager(FunctionAndTypeManager functionAndTypeManager)
     {
-        checkState(this.functionManager == null, "TypeRegistry can only be associated with a single FunctionManager");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        checkState(this.functionAndTypeManager == null, "TypeRegistry can only be associated with a single FunctionManager");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     @Override
@@ -211,7 +211,7 @@ public final class TypeRegistry
             throw new IllegalArgumentException("Unknown type " + signature);
         }
         else if (parametricType instanceof MapParametricType) {
-            return ((MapParametricType) parametricType).createType(functionManager, parameters);
+            return ((MapParametricType) parametricType).createType(functionAndTypeManager, parameters);
         }
 
         Type instantiatedType = parametricType.createType(parameters);

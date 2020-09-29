@@ -138,7 +138,7 @@ public class BenchmarkMapConcat
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction(name, fromTypes(mapType, mapType));
+            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupFunction(name, fromTypes(mapType, mapType));
             projectionsBuilder.add(new CallExpression(
                     name,
                     functionHandle,

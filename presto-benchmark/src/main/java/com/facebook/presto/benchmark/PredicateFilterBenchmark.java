@@ -54,7 +54,7 @@ public class PredicateFilterBenchmark
         OperatorFactory tableScanOperator = createTableScanOperator(0, new PlanNodeId("test"), "orders", "totalprice");
         RowExpression filter = call(
                 GREATER_THAN_OR_EQUAL.name(),
-                metadata.getFunctionManager().resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                metadata.getFunctionAndTypeManager().resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
                 BOOLEAN,
                 field(0, DOUBLE),
                 constant(50000.0, DOUBLE));

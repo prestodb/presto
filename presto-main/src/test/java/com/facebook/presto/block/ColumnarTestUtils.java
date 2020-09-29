@@ -18,7 +18,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import io.airlift.slice.DynamicSliceOutput;
@@ -38,7 +38,7 @@ public final class ColumnarTestUtils
 
     static {
         // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     private ColumnarTestUtils() {}

@@ -112,12 +112,12 @@ public class TestEffectivePredicateExtractor
 
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private final LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(
-            new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
-            new FunctionResolution(metadata.getFunctionManager()),
-            metadata.getFunctionManager());
+            new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
+            new FunctionResolution(metadata.getFunctionAndTypeManager()),
+            metadata.getFunctionAndTypeManager());
     private final EffectivePredicateExtractor effectivePredicateExtractor = new EffectivePredicateExtractor(
             new RowExpressionDomainTranslator(metadata),
-            metadata.getFunctionManager(),
+            metadata.getFunctionAndTypeManager(),
             metadata.getTypeManager());
 
     private Map<VariableReferenceExpression, ColumnHandle> scanAssignments;
@@ -159,8 +159,8 @@ public class TestEffectivePredicateExtractor
                                 greaterThan(AV, bigintLiteral(2)),
                                 equals(EV, FV))),
                 ImmutableMap.of(
-                        CV, count(metadata.getFunctionManager()),
-                        DV, count(metadata.getFunctionManager())),
+                        CV, count(metadata.getFunctionAndTypeManager()),
+                        DV, count(metadata.getFunctionAndTypeManager())),
                 singleGroupingSet(ImmutableList.of(AV, BV, CV)),
                 ImmutableList.of(),
                 AggregationNode.Step.FINAL,
@@ -201,7 +201,7 @@ public class TestEffectivePredicateExtractor
     {
         PlanNode node = filter(baseTableScan,
                 and(
-                        greaterThan(AV, call(metadata.getFunctionManager(), "rand", DOUBLE, ImmutableList.of())),
+                        greaterThan(AV, call(metadata.getFunctionAndTypeManager(), "rand", DOUBLE, ImmutableList.of())),
                         lessThan(BV, bigintLiteral(10))));
 
         RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
@@ -764,7 +764,7 @@ public class TestEffectivePredicateExtractor
     {
         return call(
                 type.getFunctionName().getFunctionName(),
-                metadata.getFunctionManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
+                metadata.getFunctionAndTypeManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
                 BOOLEAN,
                 left,
                 right);

@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -82,7 +82,7 @@ public class CreateFunctionTask
             throw new PrestoException(NOT_SUPPORTED, "Invoking a dynamically registered function in SQL function body is not supported");
         }
 
-        metadata.getFunctionManager().createFunction(createSqlInvokedFunction(statement, metadata, analysis), statement.isReplace());
+        metadata.getFunctionAndTypeManager().createFunction(createSqlInvokedFunction(statement, metadata, analysis), statement.isReplace());
         return immediateFuture(null);
     }
 

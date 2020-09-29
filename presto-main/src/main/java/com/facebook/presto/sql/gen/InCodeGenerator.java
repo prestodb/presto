@@ -24,7 +24,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -63,11 +63,11 @@ import static java.util.Objects.requireNonNull;
 public class InCodeGenerator
         implements SpecialFormBytecodeGenerator
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public InCodeGenerator(FunctionManager functionManager)
+    public InCodeGenerator(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     enum SwitchGenerationCase
@@ -220,7 +220,7 @@ public class InCodeGenerator
                         .append(switchBuilder.build());
                 break;
             case SET_CONTAINS:
-                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, functionManager);
+                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, functionAndTypeManager);
                 Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
                 switchBlock = new BytecodeBlock()

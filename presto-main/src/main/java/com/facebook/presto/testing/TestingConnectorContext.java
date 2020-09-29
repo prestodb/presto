@@ -23,7 +23,7 @@ import com.facebook.presto.cost.ConnectorFilterStatsCalculatorService;
 import com.facebook.presto.cost.FilterStatsCalculator;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -58,14 +58,14 @@ public class TestingConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new ConnectorId("test"));
     private final TypeManager typeManager = new TypeRegistry();
-    private final FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
-    private final StandardFunctionResolution functionResolution = new FunctionResolution(functionManager);
+    private final FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+    private final StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager);
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
     private final Metadata metadata = MetadataManager.createTestMetadataManager();
     private final DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
     private final PredicateCompiler predicateCompiler = new RowExpressionPredicateCompiler(metadata);
-    private final DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
+    private final DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
     private final FilterStatsCalculatorService filterStatsCalculatorService = new ConnectorFilterStatsCalculatorService(new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer()));
     private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
@@ -84,7 +84,7 @@ public class TestingConnectorContext
     @Override
     public FunctionMetadataManager getFunctionMetadataManager()
     {
-        return functionManager;
+        return functionAndTypeManager;
     }
 
     @Override
@@ -137,7 +137,7 @@ public class TestingConnectorContext
             @Override
             public String formatRowExpression(ConnectorSession session, RowExpression expression)
             {
-                return new RowExpressionFormatter(functionManager).formatRowExpression(session, expression);
+                return new RowExpressionFormatter(functionAndTypeManager).formatRowExpression(session, expression);
             }
         };
     }

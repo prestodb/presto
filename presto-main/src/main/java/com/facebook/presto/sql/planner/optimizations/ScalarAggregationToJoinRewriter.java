@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
@@ -63,10 +63,10 @@ public class ScalarAggregationToJoinRewriter
     private final Lookup lookup;
     private final PlanNodeDecorrelator planNodeDecorrelator;
 
-    public ScalarAggregationToJoinRewriter(FunctionManager functionManager, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    public ScalarAggregationToJoinRewriter(FunctionAndTypeManager functionAndTypeManager, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
     {
-        requireNonNull(functionManager, "metadata is null");
-        this.functionResolution = new FunctionResolution(functionManager);
+        requireNonNull(functionAndTypeManager, "metadata is null");
+        this.functionResolution = new FunctionResolution(functionAndTypeManager);
         this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
         this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         this.lookup = requireNonNull(lookup, "lookup is null");

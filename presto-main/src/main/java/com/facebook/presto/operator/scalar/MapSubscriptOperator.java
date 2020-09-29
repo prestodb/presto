@@ -22,7 +22,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -72,14 +72,14 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         Type keyType = boundVariables.getTypeVariable("K");
         Type valueType = boundVariables.getTypeVariable("V");
 
-        MethodHandle keyNativeHashCode = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
+        MethodHandle keyNativeHashCode = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
-        MethodHandle keyNativeEquals = functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
+        MethodHandle keyNativeEquals = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.EQUAL, fromTypes(keyType, keyType))).getMethodHandle();
         MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
 
         MethodHandle methodHandle;
@@ -99,7 +99,7 @@ public class MapSubscriptOperator
             methodHandle = METHOD_HANDLE_OBJECT;
         }
         methodHandle = MethodHandles.insertArguments(methodHandle, 0, legacyMissingKey);
-        MissingKeyExceptionFactory missingKeyExceptionFactory = new MissingKeyExceptionFactory(functionManager, keyType);
+        MissingKeyExceptionFactory missingKeyExceptionFactory = new MissingKeyExceptionFactory(functionAndTypeManager, keyType);
         methodHandle = methodHandle.bindTo(missingKeyExceptionFactory).bindTo(keyNativeHashCode).bindTo(keyBlockNativeEquals).bindTo(keyBlockHashCode).bindTo(valueType);
         methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 
@@ -221,13 +221,13 @@ public class MapSubscriptOperator
         private final InterpretedFunctionInvoker functionInvoker;
         private final FunctionHandle castFunction;
 
-        public MissingKeyExceptionFactory(FunctionManager functionManager, Type keyType)
+        public MissingKeyExceptionFactory(FunctionAndTypeManager functionAndTypeManager, Type keyType)
         {
-            functionInvoker = new InterpretedFunctionInvoker(functionManager);
+            functionInvoker = new InterpretedFunctionInvoker(functionAndTypeManager);
 
             FunctionHandle castFunction = null;
             try {
-                castFunction = functionManager.lookupCast(CAST, keyType.getTypeSignature(), VARCHAR.getTypeSignature());
+                castFunction = functionAndTypeManager.lookupCast(CAST, keyType.getTypeSignature(), VARCHAR.getTypeSignature());
             }
             catch (PrestoException ignored) {
             }

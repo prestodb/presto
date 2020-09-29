@@ -21,9 +21,11 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
@@ -103,11 +105,11 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class FunctionManager
-        implements FunctionMetadataManager
+public class FunctionAndTypeManager
+        implements FunctionMetadataManager, TypeManager
 {
-    private final TypeManager typeManager;
     private final TransactionManager transactionManager;
+    private final TypeRegistry builtInTypeRegistry;
     private final BuiltInFunctionNamespaceManager builtInFunctionNamespaceManager;
     private final FunctionInvokerProvider functionInvokerProvider;
     private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
@@ -117,22 +119,26 @@ public class FunctionManager
     private final CacheStatsMBean cacheStatsMBean;
 
     @Inject
-    public FunctionManager(
+    public FunctionAndTypeManager(
             TypeManager typeManager,
             TransactionManager transactionManager,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
             HandleResolver handleResolver)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.builtInFunctionNamespaceManager = new BuiltInFunctionNamespaceManager(typeManager, blockEncodingSerde, featuresConfig, this);
         this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
-        this.handleResolver = handleResolver;
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
+        requireNonNull(typeManager, "typeManager is null");
         if (typeManager instanceof TypeRegistry) {
-            ((TypeRegistry) typeManager).setFunctionManager(this);
+            this.builtInTypeRegistry = (TypeRegistry) typeManager;
         }
+        else {
+            this.builtInTypeRegistry = new TypeRegistry();
+        }
+        builtInTypeRegistry.setFunctionManager(this);
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
         transactionManager.registerFunctionNamespaceManager(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionCache = CacheBuilder.newBuilder()
@@ -143,7 +149,7 @@ public class FunctionManager
     }
 
     @VisibleForTesting
-    public FunctionManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
+    public FunctionAndTypeManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
     {
         // TODO: Convert this constructor to a function in the testing package
         this(typeManager, createTestTransactionManager(), blockEncodingSerde, featuresConfig, new HandleResolver());
@@ -280,52 +286,52 @@ public class FunctionManager
         return resolveFunctionInternal(transactionId, functionName, parameterTypes);
     }
 
-    private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    @Override
+    public Type getType(TypeSignature signature)
     {
-        FunctionNamespaceManager<?> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace()).orElse(null);
-        if (functionNamespaceManager == null) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, ImmutableList.of()));
-        }
-
-        Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
-                .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getFunctionNamespace().getCatalogName()));
-        Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
-
-        try {
-            return lookupFunction(functionNamespaceManager, transactionHandle, functionName, parameterTypes, candidates);
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() != FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw e;
-            }
-        }
-
-        Optional<Signature> match = matchFunctionWithCoercion(candidates, parameterTypes);
-        if (match.isPresent()) {
-            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
-        }
-
-        if (functionName.getFunctionName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
-            // extract type from function functionName
-            String typeName = functionName.getFunctionName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
-
-            // lookup the type
-            Type type = typeManager.getType(parseTypeSignature(typeName));
-
-            // verify we have one parameter of the proper type
-            checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-
-            return new BuiltInFunctionHandle(getMagicLiteralFunctionSignature(type));
-        }
-
-        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
+        return builtInTypeRegistry.getType(signature);
     }
 
-    private FunctionHandle resolveBuiltInFunction(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    @Override
+    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
-        checkArgument(functionName.getFunctionNamespace().equals(DEFAULT_NAMESPACE), "Expect built-in functions");
-        checkArgument(parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency), "Expect parameter types not to have dependency");
-        return resolveFunctionInternal(Optional.empty(), functionName, parameterTypes);
+        return builtInTypeRegistry.getParameterizedType(baseTypeName, typeParameters);
+    }
+
+    @Override
+    public List<Type> getTypes()
+    {
+        return builtInTypeRegistry.getTypes();
+    }
+
+    @Override
+    public Collection<ParametricType> getParametricTypes()
+    {
+        return builtInTypeRegistry.getParametricTypes();
+    }
+
+    @Override
+    public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
+    {
+        return builtInTypeRegistry.getCommonSuperType(firstType, secondType);
+    }
+
+    @Override
+    public boolean canCoerce(Type actualType, Type expectedType)
+    {
+        return builtInTypeRegistry.canCoerce(actualType, expectedType);
+    }
+
+    @Override
+    public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
+    {
+        return builtInTypeRegistry.isTypeOnlyCoercion(actualType, expectedType);
+    }
+
+    @Override
+    public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
+    {
+        return builtInTypeRegistry.coerceTypeBase(sourceType, resultTypeBase);
     }
 
     @Override
@@ -347,7 +353,7 @@ public class FunctionManager
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getFunctionNamespace());
         checkState(functionNamespaceManager.isPresent(), format("FunctionHandle %s should have a serving function namespace", functionHandle));
-        return functionNamespaceManager.get().executeFunction(functionHandle, inputPage, channels, typeManager);
+        return functionNamespaceManager.get().executeFunction(functionHandle, inputPage, channels, this);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
@@ -426,6 +432,54 @@ public class FunctionManager
             throw e;
         }
         return builtInFunctionNamespaceManager.getFunctionHandle(Optional.empty(), signature);
+    }
+
+    private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    {
+        FunctionNamespaceManager<?> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace()).orElse(null);
+        if (functionNamespaceManager == null) {
+            throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, ImmutableList.of()));
+        }
+
+        Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
+                .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getFunctionNamespace().getCatalogName()));
+        Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
+
+        try {
+            return lookupFunction(functionNamespaceManager, transactionHandle, functionName, parameterTypes, candidates);
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode().getCode() != FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
+                throw e;
+            }
+        }
+
+        Optional<Signature> match = matchFunctionWithCoercion(candidates, parameterTypes);
+        if (match.isPresent()) {
+            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
+        }
+
+        if (functionName.getFunctionName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
+            // extract type from function functionName
+            String typeName = functionName.getFunctionName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
+
+            // lookup the type
+            Type type = getType(parseTypeSignature(typeName));
+
+            // verify we have one parameter of the proper type
+            checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
+
+            return new BuiltInFunctionHandle(getMagicLiteralFunctionSignature(type));
+        }
+
+        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
+    }
+
+    private FunctionHandle resolveBuiltInFunction(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    {
+        checkArgument(functionName.getFunctionNamespace().equals(DEFAULT_NAMESPACE), "Expect built-in functions");
+        checkArgument(parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency), "Expect parameter types not to have dependency");
+        return resolveFunctionInternal(Optional.empty(), functionName, parameterTypes);
     }
 
     private FunctionHandle lookupCachedFunction(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
@@ -543,7 +597,7 @@ public class FunctionManager
         ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
         for (SqlFunction function : candidates) {
             Signature declaredSignature = function.getSignature();
-            Optional<Signature> boundSignature = new SignatureBinder(typeManager, declaredSignature, allowCoercion)
+            Optional<Signature> boundSignature = new SignatureBinder(this, declaredSignature, allowCoercion)
                     .bind(actualParameters);
             if (boundSignature.isPresent()) {
                 applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get(), function.isCalledOnNullInput()));
@@ -561,7 +615,7 @@ public class FunctionManager
             return mostSpecificFunctions;
         }
 
-        Optional<List<Type>> optionalParameterTypes = toTypes(parameters, typeManager);
+        Optional<List<Type>> optionalParameterTypes = toTypes(parameters, this);
         if (!optionalParameterTypes.isPresent()) {
             // give up and return all remaining matches
             return mostSpecificFunctions;
@@ -635,7 +689,7 @@ public class FunctionManager
 
     private boolean onlyCastsUnknown(ApplicableFunction applicableFunction, List<Type> actualParameters)
     {
-        List<Type> boundTypes = resolveTypes(applicableFunction.getBoundSignature().getArgumentTypes(), typeManager);
+        List<Type> boundTypes = resolveTypes(applicableFunction.getBoundSignature().getArgumentTypes(), this);
         checkState(actualParameters.size() == boundTypes.size(), "type lists are of different lengths");
         for (int i = 0; i < actualParameters.size(); i++) {
             if (!boundTypes.get(i).equals(actualParameters.get(i)) && actualParameters.get(i) != UNKNOWN) {
@@ -648,7 +702,7 @@ public class FunctionManager
     private boolean returnTypeIsTheSame(List<ApplicableFunction> applicableFunctions)
     {
         Set<Type> returnTypes = applicableFunctions.stream()
-                .map(function -> typeManager.getType(function.getBoundSignature().getReturnType()))
+                .map(function -> getType(function.getBoundSignature().getReturnType()))
                 .collect(Collectors.toSet());
         return returnTypes.size() == 1;
     }
@@ -699,7 +753,7 @@ public class FunctionManager
     private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
         List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.getBoundSignature().getArgumentTypes());
-        Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, right.getDeclaredSignature(), true)
+        Optional<BoundVariables> boundVariables = new SignatureBinder(this, right.getDeclaredSignature(), true)
                 .bindVariables(resolvedTypes);
         return boundVariables.isPresent();
     }

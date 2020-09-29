@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -28,17 +28,17 @@ import static java.util.Objects.requireNonNull;
 public class ExternalCallExpressionChecker
         implements RowExpressionVisitor<Boolean, Void>
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public ExternalCallExpressionChecker(FunctionManager functionManager)
+    public ExternalCallExpressionChecker(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     @Override
     public Boolean visitCall(CallExpression call, Void context)
     {
-        FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(call.getFunctionHandle());
+        FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
         if (functionMetadata.getImplementationType().isExternal()) {
             return true;
         }
