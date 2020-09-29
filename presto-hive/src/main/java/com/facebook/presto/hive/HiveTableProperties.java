@@ -55,6 +55,9 @@ public class HiveTableProperties
     public static final String ENCRYPT_TABLE = "encrypt_table";
     public static final String DWRF_ENCRYPTION_ALGORITHM = "dwrf_encryption_algorithm";
     public static final String DWRF_ENCRYPTION_PROVIDER = "dwrf_encryption_provider";
+    public static final String CSV_SEPARATOR = "csv_separator";
+    public static final String CSV_QUOTE = "csv_quote";
+    public static final String CSV_ESCAPE = "csv_escape";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -150,6 +153,9 @@ public class HiveTableProperties
                 stringProperty(ENCRYPT_TABLE, "Key reference for encrypting the whole table", null, false),
                 stringProperty(DWRF_ENCRYPTION_ALGORITHM, "Algorithm used for encryption data in DWRF", null, false),
                 stringProperty(DWRF_ENCRYPTION_PROVIDER, "Provider for encryption keys in provider", null, false),
+                stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
+                stringProperty(CSV_QUOTE, "CSV quote character", null, false),
+                stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
                 new PropertyMetadata<>(
                         ENCRYPT_COLUMNS,
                         "List of key references and columns being encrypted. Example: ARRAY['key1:col1,col2', 'key2:col3,col4']",
@@ -232,6 +238,19 @@ public class HiveTableProperties
     public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
     {
         return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
+    }
+
+    public static Optional<Character> getCsvProperty(Map<String, Object> tableProperties, String key)
+    {
+        Object value = tableProperties.get(key);
+        if (value == null) {
+            return Optional.empty();
+        }
+        String csvValue = (String) value;
+        if (csvValue.length() != 1) {
+            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be a single character string, but was: '%s'", key, csvValue));
+        }
+        return Optional.of(csvValue.charAt(0));
     }
 
     @SuppressWarnings("unchecked")
