@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
+import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
@@ -189,7 +190,7 @@ public class RuntimeReorderJoinSides
     private boolean checkProbeSidePropertySatisfied(PlanNode node, Context context)
     {
         StreamPreferredProperties requiredProbeProperty;
-        if (isSpillEnabled(context.getSession())) {
+        if (isSpillEnabled(context.getSession()) && isJoinSpillingEnabled(context.getSession())) {
             requiredProbeProperty = fixedParallelism();
         }
         else {

@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayout;
@@ -84,7 +83,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeFullOuterJoinWithCoalesce;
+import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.common.predicate.TupleDomain.toLinkedMap;
 import static com.facebook.presto.spi.relation.DomainTranslator.BASIC_COLUMN_EXTRACTOR;
@@ -784,7 +785,7 @@ public class PropertyDerivations
 
     static boolean spillPossible(Session session, JoinNode.Type joinType)
     {
-        if (!SystemSessionProperties.isSpillEnabled(session)) {
+        if (!isSpillEnabled(session) || !isJoinSpillingEnabled(session)) {
             return false;
         }
         switch (joinType) {
