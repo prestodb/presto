@@ -44,7 +44,7 @@ public class TestRowParametricType
         List<TypeParameter> parameters = typeSignature.getParameters().stream()
                 .map(parameter -> TypeParameter.of(parameter, typeManager))
                 .collect(Collectors.toList());
-        Type rowType = RowParametricType.ROW.createType(typeManager, parameters);
+        Type rowType = RowParametricType.ROW.createType(parameters);
 
         assertEquals(rowType.getTypeSignature(), typeSignature);
     }
