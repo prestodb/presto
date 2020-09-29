@@ -17,7 +17,7 @@ import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
 
 import java.util.List;
 
-import static com.facebook.presto.common.type.StatisticalDigestParametricType.checkArgument;
+import static java.lang.String.format;
 
 public final class LongEnumParametricType
         implements ParametricType
@@ -38,7 +38,7 @@ public final class LongEnumParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type createType(List<TypeParameter> parameters)
     {
         if (parameters.isEmpty()) {
             return new LongEnumType(name, enumMap);
@@ -49,5 +49,12 @@ public final class LongEnumParametricType
                 "Enum definition expected, got %s",
                 parameters);
         return new LongEnumType(name, parameters.get(0).getLongEnumMap());
+    }
+
+    private static void checkArgument(boolean argument, String format, Object... args)
+    {
+        if (!argument) {
+            throw new IllegalArgumentException(format(format, args));
+        }
     }
 }

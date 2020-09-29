@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
@@ -42,7 +41,6 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -75,7 +73,6 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
 import static com.facebook.presto.type.ColorType.COLOR;
@@ -213,8 +210,11 @@ public final class TypeRegistry
         if (parametricType == null) {
             throw new IllegalArgumentException("Unknown type " + signature);
         }
+        else if (parametricType instanceof MapParametricType) {
+            return ((MapParametricType) parametricType).createType(functionManager, parameters);
+        }
 
-        Type instantiatedType = parametricType.createType(this, parameters);
+        Type instantiatedType = parametricType.createType(parameters);
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
         //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
@@ -676,13 +676,6 @@ public final class TypeRegistry
     public static boolean isCovariantTypeBase(String typeBase)
     {
         return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
-    }
-
-    @Override
-    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
-    {
-        requireNonNull(functionManager, "functionManager is null");
-        return functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(operatorType, fromTypes(argumentTypes))).getMethodHandle();
     }
 
     public static class TypeCompatibility

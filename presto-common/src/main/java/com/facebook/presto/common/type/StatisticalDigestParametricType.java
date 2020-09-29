@@ -21,7 +21,7 @@ public abstract class StatisticalDigestParametricType
         implements ParametricType
 {
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type createType(List<TypeParameter> parameters)
     {
         checkArgument(parameters.size() == 1, "%s type expects exactly one type as a parameter, got %s", this.getName(), parameters);
         checkArgument(

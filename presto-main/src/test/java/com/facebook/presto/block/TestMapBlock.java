@@ -22,11 +22,6 @@ import com.facebook.presto.common.block.MapBlockBuilder;
 import com.facebook.presto.common.block.SingleMapBlock;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.MapType;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
@@ -50,6 +45,7 @@ import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGette
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
@@ -61,13 +57,6 @@ import static org.testng.Assert.assertTrue;
 public class TestMapBlock
         extends AbstractTestBlock
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
-    }
-
     @Test
     public void test()
     {
@@ -108,9 +97,9 @@ public class TestMapBlock
         Block valueBlock = createStringsBlock("v");
         Block mapBlock = mapType(VARCHAR, VARCHAR).createBlockFromKeyValue(1, Optional.empty(), IntStream.range(0, 2).toArray(), keyBlock, valueBlock);
         SingleMapBlock singleMapBlock = (SingleMapBlock) mapBlock.getBlock(0);
-        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(VARCHAR));
+        MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, VARCHAR);
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(VARCHAR));
-        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(VARCHAR, VARCHAR));
+        MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, VARCHAR, VARCHAR);
         MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(VARCHAR));
 
         // Testing not found case. The key to seek should be longer than AbstractVariableWidthType#EXPECTED_BYTES_PER_ENTRY(32) and has same hash code as the key in keyBlock.
@@ -365,8 +354,8 @@ public class TestMapBlock
     private void assertValue(Block mapBlock, int position, Map<String, Long> map)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(VARCHAR));
-        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(VARCHAR, VARCHAR));
+        MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, VARCHAR);
+        MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, VARCHAR, VARCHAR);
         MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(VARCHAR));
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(VARCHAR));
 
@@ -412,9 +401,9 @@ public class TestMapBlock
     private void assertValueUnchecked(Block mapBlock, int internalPosition, Map<String, Long> map)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
-        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(VARCHAR));
+        MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, VARCHAR);
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(VARCHAR));
-        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(VARCHAR, VARCHAR));
+        MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, VARCHAR, VARCHAR);
         MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(VARCHAR));
 
         // null maps are handled by assertPositionValue
@@ -462,9 +451,9 @@ public class TestMapBlock
     {
         MapType mapType = mapType(BIGINT, BIGINT);
         MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
-        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(BIGINT, BIGINT));
+        MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, BIGINT, BIGINT);
         MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(BIGINT), nativeValueGetter(BIGINT));
-        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(BIGINT));
+        MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, BIGINT);
         MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(BIGINT));
 
         // Add 100 maps with only one entry but the same key

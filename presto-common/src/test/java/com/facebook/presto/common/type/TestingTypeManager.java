@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.function.OperatorType;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -83,12 +81,6 @@ public class TestingTypeManager
 
     @Override
     public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
     {
         throw new UnsupportedOperationException();
     }
