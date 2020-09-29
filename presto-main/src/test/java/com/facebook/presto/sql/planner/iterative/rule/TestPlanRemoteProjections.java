@@ -20,7 +20,7 @@ import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerC
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -99,8 +99,8 @@ public class TestPlanRemoteProjections
     @BeforeClass
     public void setup()
     {
-        FunctionManager functionManager = getFunctionManager();
-        functionManager.addFunctionNamespace(
+        FunctionAndTypeManager functionAndTypeManager = getFunctionManager();
+        functionAndTypeManager.addFunctionNamespace(
                 "unittest",
                 new InMemoryFunctionNamespaceManager(
                         "unittest",
@@ -110,10 +110,10 @@ public class TestPlanRemoteProjections
                                         JAVA, THRIFT),
                                 new ThriftSqlFunctionExecutor(null)),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
-        functionManager.createFunction(FUNCTION_REMOTE_FOO_0, true);
-        functionManager.createFunction(FUNCTION_REMOTE_FOO_1, true);
-        functionManager.createFunction(FUNCTION_REMOTE_FOO_2, true);
-        functionManager.createFunction(FUNCTION_REMOTE_FOO_3, true);
+        functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_0, true);
+        functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_1, true);
+        functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_2, true);
+        functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_3, true);
     }
 
     @Test

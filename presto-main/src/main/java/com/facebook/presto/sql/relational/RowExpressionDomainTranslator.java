@@ -27,7 +27,7 @@ import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.LogicalRowExpressions;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.ConnectorSession;
@@ -94,7 +94,7 @@ import static java.util.stream.Collectors.toList;
 public final class RowExpressionDomainTranslator
         implements DomainTranslator
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final LogicalRowExpressions logicalRowExpressions;
     private final StandardFunctionResolution functionResolution;
     private final Metadata metadata;
@@ -103,9 +103,9 @@ public final class RowExpressionDomainTranslator
     public RowExpressionDomainTranslator(Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionManager = metadata.getFunctionManager();
-        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager), functionManager);
-        this.functionResolution = new FunctionResolution(functionManager);
+        this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
+        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager), functionAndTypeManager);
+        this.functionResolution = new FunctionResolution(functionAndTypeManager);
     }
 
     @Override
@@ -169,7 +169,7 @@ public final class RowExpressionDomainTranslator
             // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
             return call(
                     BETWEEN.name(),
-                    functionManager.resolveOperator(BETWEEN, fromTypes(reference.getType(), type, type)),
+                    functionAndTypeManager.resolveOperator(BETWEEN, fromTypes(reference.getType(), type, type)),
                     BOOLEAN,
                     reference,
                     toRowExpression(range.getLow().getValue(), type),
@@ -302,7 +302,7 @@ public final class RowExpressionDomainTranslator
         private final InterpretedFunctionInvoker functionInvoker;
         private final Metadata metadata;
         private final ConnectorSession session;
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
         private final LogicalRowExpressions logicalRowExpressions;
         private final DeterminismEvaluator determinismEvaluator;
         private final StandardFunctionResolution resolution;
@@ -310,13 +310,13 @@ public final class RowExpressionDomainTranslator
 
         private Visitor(Metadata metadata, ConnectorSession session, ColumnExtractor<T> columnExtractor)
         {
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
             this.metadata = metadata;
             this.session = session;
-            this.functionManager = metadata.getFunctionManager();
-            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionManager), new FunctionResolution(functionManager), functionManager);
-            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
-            this.resolution = new FunctionResolution(functionManager);
+            this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager), functionAndTypeManager);
+            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
+            this.resolution = new FunctionResolution(functionAndTypeManager);
             this.columnExtractor = requireNonNull(columnExtractor, "columnExtractor is null");
         }
 
@@ -335,7 +335,7 @@ public final class RowExpressionDomainTranslator
 
                     ImmutableList.Builder<RowExpression> disjuncts = ImmutableList.builder();
                     for (RowExpression expression : values) {
-                        disjuncts.add(call(EQUAL.name(), functionManager.resolveOperator(EQUAL, fromTypes(target.getType(), expression.getType())), BOOLEAN, target, expression));
+                        disjuncts.add(call(EQUAL.name(), functionAndTypeManager.resolveOperator(EQUAL, fromTypes(target.getType(), expression.getType())), BOOLEAN, target, expression));
                     }
                     ExtractionResult extractionResult = or(disjuncts.build()).accept(this, complement);
 
@@ -403,7 +403,7 @@ public final class RowExpressionDomainTranslator
                         binaryOperator(LESS_THAN_OR_EQUAL, node.getArguments().get(0), node.getArguments().get(2))).accept(this, complement);
             }
 
-            FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(node.getFunctionHandle());
+            FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(node.getFunctionHandle());
             if (functionMetadata.getOperatorType().map(OperatorType::isComparisonOperator).orElse(false)) {
                 Optional<NormalizedSimpleComparison> optionalNormalized = toNormalizedSimpleComparison(functionMetadata.getOperatorType().get(), node.getArguments().get(0), node.getArguments().get(1));
                 if (!optionalNormalized.isPresent()) {
@@ -555,7 +555,7 @@ public final class RowExpressionDomainTranslator
         {
             return call(
                     operatorType.name(),
-                    metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(left.getType(), right.getType())),
+                    metadata.getFunctionAndTypeManager().resolveOperator(operatorType, fromTypes(left.getType(), right.getType())),
                     BOOLEAN,
                     left,
                     right);
@@ -570,7 +570,7 @@ public final class RowExpressionDomainTranslator
         private Optional<FunctionHandle> getSaturatedFloorCastOperator(Type fromType, Type toType)
         {
             try {
-                return Optional.of(metadata.getFunctionManager().lookupCast(SATURATED_FLOOR_CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
+                return Optional.of(metadata.getFunctionAndTypeManager().lookupCast(SATURATED_FLOOR_CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
             }
             catch (OperatorNotFoundException e) {
                 return Optional.empty();
@@ -579,7 +579,7 @@ public final class RowExpressionDomainTranslator
 
         private int compareOriginalValueToCoerced(Type originalValueType, Object originalValue, Type coercedValueType, Object coercedValue)
         {
-            FunctionHandle castToOriginalTypeOperator = metadata.getFunctionManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
+            FunctionHandle castToOriginalTypeOperator = metadata.getFunctionAndTypeManager().lookupCast(CAST, coercedValueType.getTypeSignature(), originalValueType.getTypeSignature());
             Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.getSqlFunctionProperties(), coercedValue);
             Block originalValueBlock = Utils.nativeValueToBlock(originalValueType, originalValue);
             Block coercedValueBlock = Utils.nativeValueToBlock(originalValueType, coercedValueInOriginalType);
@@ -833,7 +833,7 @@ public final class RowExpressionDomainTranslator
 
     private RowExpression binaryOperator(OperatorType operatorType, RowExpression left, RowExpression right)
     {
-        return call(operatorType.name(), functionManager.resolveOperator(operatorType, fromTypes(left.getType(), right.getType())), BOOLEAN, left, right);
+        return call(operatorType.name(), functionAndTypeManager.resolveOperator(operatorType, fromTypes(left.getType(), right.getType())), BOOLEAN, left, right);
     }
 
     private RowExpression greaterThan(RowExpression left, RowExpression right)

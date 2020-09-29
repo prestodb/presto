@@ -158,7 +158,7 @@ public final class TypeValidator
                 FunctionHandle functionHandle = entry.getValue().getFunctionHandle();
                 CallExpression call = entry.getValue().getFunctionCall();
 
-                verifyTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(functionHandle).getReturnType());
+                verifyTypeSignature(entry.getKey(), metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle).getReturnType());
                 checkCall(entry.getKey(), call);
             }
         }
@@ -172,7 +172,7 @@ public final class TypeValidator
         private void checkFunctionSignature(Map<VariableReferenceExpression, Aggregation> aggregations)
         {
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
-                verifyTypeSignature(entry.getKey(), metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
+                verifyTypeSignature(entry.getKey(), metadata.getFunctionAndTypeManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getReturnType());
             }
         }
 
@@ -181,7 +181,7 @@ public final class TypeValidator
             for (Map.Entry<VariableReferenceExpression, Aggregation> entry : aggregations.entrySet()) {
                 VariableReferenceExpression variable = entry.getKey();
                 Aggregation aggregation = entry.getValue();
-                FunctionMetadata functionMetadata = metadata.getFunctionManager().getFunctionMetadata(aggregation.getFunctionHandle());
+                FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getFunctionHandle());
                 verifyTypeSignature(
                         variable,
                         functionMetadata.getReturnType());

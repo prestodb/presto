@@ -14,7 +14,7 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -42,9 +42,9 @@ public class HashAggregationBenchmark
     {
         super(localQueryRunner, "hash_agg", 5, 25);
 
-        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
-        doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("sum", fromTypes(DOUBLE)));
+        FunctionAndTypeManager functionAndTypeManager = localQueryRunner.getMetadata().getFunctionAndTypeManager();
+        doubleSum = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("sum", fromTypes(DOUBLE)));
     }
 
     @Override

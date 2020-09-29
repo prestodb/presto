@@ -482,7 +482,7 @@ public class TestEqualityInference
     {
         return call(
                 type.getFunctionName().getFunctionName(),
-                METADATA.getFunctionManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
+                METADATA.getFunctionAndTypeManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
                 BOOLEAN,
                 left,
                 right);
@@ -504,7 +504,7 @@ public class TestEqualityInference
     {
         return call(
                 type.getFunctionName().getFunctionName(),
-                METADATA.getFunctionManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
+                METADATA.getFunctionAndTypeManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
                 left.getType(),
                 left,
                 right);
@@ -514,7 +514,7 @@ public class TestEqualityInference
     {
         if (expression instanceof CallExpression) {
             CallExpression call = (CallExpression) expression;
-            Optional<OperatorType> expressionOperatorType = METADATA.getFunctionManager().getFunctionMetadata(call.getFunctionHandle()).getOperatorType();
+            Optional<OperatorType> expressionOperatorType = METADATA.getFunctionAndTypeManager().getFunctionMetadata(call.getFunctionHandle()).getOperatorType();
             if (expressionOperatorType.isPresent()) {
                 return expressionOperatorType.get() == type;
             }

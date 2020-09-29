@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -32,11 +32,11 @@ public class RewriteFilterWithExternalFunctionToProject
 {
     private static final Pattern<FilterNode> PATTERN = filter();
 
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public RewriteFilterWithExternalFunctionToProject(FunctionManager functionManager)
+    public RewriteFilterWithExternalFunctionToProject(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     @Override
@@ -48,7 +48,7 @@ public class RewriteFilterWithExternalFunctionToProject
     @Override
     public Result apply(FilterNode node, Captures captures, Context context)
     {
-        if (!node.getPredicate().accept(new ExternalCallExpressionChecker(functionManager), null)) {
+        if (!node.getPredicate().accept(new ExternalCallExpressionChecker(functionAndTypeManager), null)) {
             // No remote function in predicate
             return Result.empty();
         }

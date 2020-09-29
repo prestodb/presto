@@ -17,7 +17,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -32,15 +32,15 @@ import static java.util.Objects.requireNonNull;
 
 public final class NullabilityAnalyzer
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final TypeManager typeManager;
     private final FunctionResolution functionResolution;
 
-    public NullabilityAnalyzer(FunctionManager functionManager, TypeManager typeManager)
+    public NullabilityAnalyzer(FunctionAndTypeManager functionAndTypeManager, TypeManager typeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.functionResolution = new FunctionResolution(functionManager);
+        this.functionResolution = new FunctionResolution(functionAndTypeManager);
     }
 
     public boolean mayReturnNullOnNonNullInput(RowExpression expression)
@@ -48,20 +48,20 @@ public final class NullabilityAnalyzer
         requireNonNull(expression, "expression is null");
 
         AtomicBoolean result = new AtomicBoolean(false);
-        expression.accept(new RowExpressionVisitor(functionManager, typeManager, functionResolution), result);
+        expression.accept(new RowExpressionVisitor(functionAndTypeManager, typeManager, functionResolution), result);
         return result.get();
     }
 
     private static class RowExpressionVisitor
             extends DefaultRowExpressionTraversalVisitor<AtomicBoolean>
     {
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
         private final TypeManager typeManager;
         private final FunctionResolution functionResolution;
 
-        public RowExpressionVisitor(FunctionManager functionManager, TypeManager typeManager, FunctionResolution functionResolution)
+        public RowExpressionVisitor(FunctionAndTypeManager functionAndTypeManager, TypeManager typeManager, FunctionResolution functionResolution)
         {
-            this.functionManager = functionManager;
+            this.functionAndTypeManager = functionAndTypeManager;
             this.typeManager = typeManager;
             this.functionResolution = functionResolution;
         }
@@ -69,7 +69,7 @@ public final class NullabilityAnalyzer
         @Override
         public Void visitCall(CallExpression call, AtomicBoolean result)
         {
-            FunctionMetadata function = functionManager.getFunctionMetadata(call.getFunctionHandle());
+            FunctionMetadata function = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
             Optional<OperatorType> operator = function.getOperatorType();
             if (operator.isPresent()) {
                 switch (operator.get()) {

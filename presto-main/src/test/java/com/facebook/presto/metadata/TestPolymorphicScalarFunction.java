@@ -54,7 +54,7 @@ import static org.testng.Assert.assertTrue;
 public class TestPolymorphicScalarFunction
 {
     private static final TypeRegistry TYPE_REGISTRY = new TypeRegistry();
-    private static final FunctionManager FUNCTION_MANAGER = new FunctionManager(TYPE_REGISTRY, new BlockEncodingManager(), new FeaturesConfig());
+    private static final FunctionAndTypeManager FUNCTION_MANAGER = new FunctionAndTypeManager(TYPE_REGISTRY, new BlockEncodingManager(), new FeaturesConfig());
     private static final Signature SIGNATURE = SignatureBuilder.builder()
             .name("foo")
             .kind(SCALAR)

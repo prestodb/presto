@@ -87,7 +87,7 @@ public class OptimizeMixedDistinctAggregations
     public OptimizeMixedDistinctAggregations(Metadata metadata)
     {
         this.metadata = metadata;
-        this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
+        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
     }
 
     @Override
@@ -184,14 +184,14 @@ public class OptimizeMixedDistinctAggregations
                     Aggregation aggregation = new Aggregation(
                             new CallExpression(
                                     "arbitrary",
-                                    metadata.getFunctionManager().lookupFunction("arbitrary", fromTypes(ImmutableList.of(argument.getType()))),
+                                    metadata.getFunctionAndTypeManager().lookupFunction("arbitrary", fromTypes(ImmutableList.of(argument.getType()))),
                                     entry.getKey().getType(),
                                     ImmutableList.of(argument)),
                             Optional.empty(),
                             Optional.empty(),
                             false,
                             Optional.empty());
-                    QualifiedFunctionName functionName = metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
+                    QualifiedFunctionName functionName = metadata.getFunctionAndTypeManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
                     if (functionName.equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "count")) ||
                             functionName.equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "count_if")) ||
                             functionName.equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "approx_distinct"))) {

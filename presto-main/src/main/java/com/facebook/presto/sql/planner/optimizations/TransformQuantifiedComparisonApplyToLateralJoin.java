@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -81,10 +81,10 @@ public class TransformQuantifiedComparisonApplyToLateralJoin
 {
     private final StandardFunctionResolution functionResolution;
 
-    public TransformQuantifiedComparisonApplyToLateralJoin(FunctionManager functionManager)
+    public TransformQuantifiedComparisonApplyToLateralJoin(FunctionAndTypeManager functionAndTypeManager)
     {
-        requireNonNull(functionManager, "functionManager is null");
-        this.functionResolution = new FunctionResolution(functionManager);
+        requireNonNull(functionAndTypeManager, "functionManager is null");
+        this.functionResolution = new FunctionResolution(functionAndTypeManager);
     }
 
     @Override

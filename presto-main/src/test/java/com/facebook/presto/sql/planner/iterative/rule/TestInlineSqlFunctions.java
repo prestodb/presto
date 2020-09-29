@@ -24,7 +24,7 @@ import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerC
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -119,8 +119,8 @@ public class TestInlineSqlFunctions
     public void setup()
     {
         RuleTester tester = new RuleTester();
-        FunctionManager functionManager = tester.getMetadata().getFunctionManager();
-        functionManager.addFunctionNamespace(
+        FunctionAndTypeManager functionAndTypeManager = tester.getMetadata().getFunctionAndTypeManager();
+        functionAndTypeManager.addFunctionNamespace(
                 "unittest",
                 new InMemoryFunctionNamespaceManager(
                         "unittest",
@@ -130,10 +130,10 @@ public class TestInlineSqlFunctions
                                         JAVA, THRIFT),
                                 new ThriftSqlFunctionExecutor(null)),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
-        functionManager.createFunction(SQL_FUNCTION_SQUARE, true);
-        functionManager.createFunction(THRIFT_FUNCTION_FOO, true);
-        functionManager.createFunction(SQL_FUNCTION_ADD_1_TO_INT_ARRAY, true);
-        functionManager.createFunction(SQL_FUNCTION_ADD_1_TO_BIGINT_ARRAY, true);
+        functionAndTypeManager.createFunction(SQL_FUNCTION_SQUARE, true);
+        functionAndTypeManager.createFunction(THRIFT_FUNCTION_FOO, true);
+        functionAndTypeManager.createFunction(SQL_FUNCTION_ADD_1_TO_INT_ARRAY, true);
+        functionAndTypeManager.createFunction(SQL_FUNCTION_ADD_1_TO_BIGINT_ARRAY, true);
         this.tester = tester;
     }
 

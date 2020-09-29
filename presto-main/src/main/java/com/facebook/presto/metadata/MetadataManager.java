@@ -127,7 +127,7 @@ public class MetadataManager
 {
     private static final Logger log = Logger.get(MetadataManager.class);
 
-    private final FunctionManager functions;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final ProcedureRegistry procedures;
     private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
@@ -163,7 +163,7 @@ public class MetadataManager
                 columnPropertyManager,
                 analyzePropertyManager,
                 transactionManager,
-                new FunctionManager(typeManager, transactionManager, blockEncodingSerde, featuresConfig, new HandleResolver()));
+                new FunctionAndTypeManager(typeManager, transactionManager, blockEncodingSerde, featuresConfig, new HandleResolver()));
     }
 
     @Inject
@@ -177,7 +177,7 @@ public class MetadataManager
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager,
-            FunctionManager functionManager)
+            FunctionAndTypeManager functionAndTypeManager)
     {
         procedures = new ProcedureRegistry(typeManager);
         this.typeManager = requireNonNull(typeManager, "types is null");
@@ -189,7 +189,7 @@ public class MetadataManager
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.functions = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
 
         verifyComparableOrderableContract();
     }
@@ -275,13 +275,13 @@ public class MetadataManager
     public List<SqlFunction> listFunctions(Session session)
     {
         // TODO: transactional when FunctionManager is made transactional
-        return functions.listFunctions(session);
+        return functionAndTypeManager.listFunctions(session);
     }
 
     @Override
     public void registerBuiltInFunctions(List<? extends SqlFunction> functionInfos)
     {
-        functions.registerBuiltInFunctions(functionInfos);
+        functionAndTypeManager.registerBuiltInFunctions(functionInfos);
     }
 
     @Override
@@ -1236,10 +1236,10 @@ public class MetadataManager
     }
 
     @Override
-    public FunctionManager getFunctionManager()
+    public FunctionAndTypeManager getFunctionAndTypeManager()
     {
         // TODO: transactional when FunctionManager is made transactional
-        return functions;
+        return functionAndTypeManager;
     }
 
     @Override
@@ -1362,7 +1362,7 @@ public class MetadataManager
     private boolean canResolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
     {
         try {
-            getFunctionManager().resolveOperator(operatorType, argumentTypes);
+            getFunctionAndTypeManager().resolveOperator(operatorType, argumentTypes);
             return true;
         }
         catch (OperatorNotFoundException e) {

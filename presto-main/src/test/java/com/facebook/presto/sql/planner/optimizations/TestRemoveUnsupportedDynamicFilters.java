@@ -74,9 +74,9 @@ public class TestRemoveUnsupportedDynamicFilters
     {
         metadata = getQueryRunner().getMetadata();
         logicalRowExpressions = new LogicalRowExpressions(
-                new RowExpressionDeterminismEvaluator(metadata.getFunctionManager()),
-                new FunctionResolution(metadata.getFunctionManager()),
-                metadata.getFunctionManager());
+                new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager()),
+                new FunctionResolution(metadata.getFunctionAndTypeManager()),
+                metadata.getFunctionAndTypeManager());
         builder = new PlanBuilder(getQueryRunner().getDefaultSession(), new PlanNodeIdAllocator(), metadata);
         ConnectorId connectorId = getCurrentConnectorId();
         TableHandle lineitemTableHandle = new TableHandle(
@@ -124,10 +124,10 @@ public class TestRemoveUnsupportedDynamicFilters
         PlanNode root = builder.join(
                 INNER,
                 builder.filter(
-                        createDynamicFilterExpression("DF", ordersOrderKeyVariable, metadata.getFunctionManager()),
+                        createDynamicFilterExpression("DF", ordersOrderKeyVariable, metadata.getFunctionAndTypeManager()),
                         ordersTableScanNode),
                 builder.filter(
-                        createDynamicFilterExpression("DF", ordersOrderKeyVariable, metadata.getFunctionManager()),
+                        createDynamicFilterExpression("DF", ordersOrderKeyVariable, metadata.getFunctionAndTypeManager()),
                         lineitemTableScanNode),
                 ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
                 ImmutableList.of(ordersOrderKeyVariable),
@@ -154,7 +154,7 @@ public class TestRemoveUnsupportedDynamicFilters
                         builder.filter(
                                 logicalRowExpressions.combineConjuncts(
                                         builder.rowExpression("LINEITEM_OK > 0"),
-                                        createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager())),
+                                        createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionAndTypeManager())),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
                         ImmutableList.of(),
@@ -185,10 +185,10 @@ public class TestRemoveUnsupportedDynamicFilters
                                 logicalRowExpressions.combineConjuncts(
                                         logicalRowExpressions.combineDisjuncts(
                                                 builder.rowExpression("LINEITEM_OK IS NULL"),
-                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager())),
+                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionAndTypeManager())),
                                         logicalRowExpressions.combineDisjuncts(
                                                 builder.rowExpression("LINEITEM_OK IS NOT NULL"),
-                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager()))),
+                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionAndTypeManager()))),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
                         ImmutableList.of(ordersOrderKeyVariable),
@@ -216,10 +216,10 @@ public class TestRemoveUnsupportedDynamicFilters
                                 logicalRowExpressions.combineDisjuncts(
                                         logicalRowExpressions.combineConjuncts(
                                                 builder.rowExpression("LINEITEM_OK IS NULL"),
-                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager())),
+                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionAndTypeManager())),
                                         logicalRowExpressions.combineConjuncts(
                                                 builder.rowExpression("LINEITEM_OK IS NOT NULL"),
-                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionManager()))),
+                                                createDynamicFilterExpression("DF", lineitemOrderKeyVariable, metadata.getFunctionAndTypeManager()))),
                                 lineitemTableScanNode),
                         ImmutableList.of(new JoinNode.EquiJoinClause(ordersOrderKeyVariable, lineitemOrderKeyVariable)),
                         ImmutableList.of(ordersOrderKeyVariable),
@@ -245,7 +245,7 @@ public class TestRemoveUnsupportedDynamicFilters
         return getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata.getFunctionManager()).optimize(root, session, TypeProvider.empty(), new PlanVariableAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP);
+            PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()).optimize(root, session, TypeProvider.empty(), new PlanVariableAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP);
             new DynamicFiltersChecker().validate(rewrittenPlan, session, metadata, new SqlParser(), TypeProvider.empty(), WarningCollector.NOOP);
             return rewrittenPlan;
         });

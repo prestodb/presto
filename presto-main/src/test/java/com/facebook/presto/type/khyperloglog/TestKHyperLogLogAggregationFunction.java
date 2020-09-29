@@ -16,7 +16,7 @@ package com.facebook.presto.type.khyperloglog;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.spi.function.AggregationFunction;
@@ -41,7 +41,7 @@ import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 
 public class TestKHyperLogLogAggregationFunction
 {
-    private static final FunctionManager functionManager = MetadataManager.createTestMetadataManager().getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
     private static final String NAME = KHyperLogLogAggregationFunction.class.getAnnotation(AggregationFunction.class).value();
 
     @Test
@@ -213,7 +213,7 @@ public class TestKHyperLogLogAggregationFunction
 
     private static InternalAggregationFunction getAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction(NAME, fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction(NAME, fromTypes(arguments)));
     }
 
     private List<Long> generateLongs(int size)

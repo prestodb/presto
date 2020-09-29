@@ -42,7 +42,7 @@ import com.facebook.presto.hive.parquet.ParquetPageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
@@ -95,7 +95,7 @@ public final class HiveTestUtils
 
     public static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
 
-    public static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionManager());
+    public static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionAndTypeManager());
 
     public static final RowExpressionService ROW_EXPRESSION_SERVICE = new RowExpressionService()
     {
@@ -126,7 +126,7 @@ public final class HiveTestUtils
         @Override
         public String formatRowExpression(ConnectorSession session, RowExpression expression)
         {
-            return new RowExpressionFormatter(METADATA.getFunctionManager()).formatRowExpression(session, expression);
+            return new RowExpressionFormatter(METADATA.getFunctionAndTypeManager()).formatRowExpression(session, expression);
         }
     };
 
@@ -135,7 +135,7 @@ public final class HiveTestUtils
 
     static {
         // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     public static final HiveClientConfig HIVE_CLIENT_CONFIG = new HiveClientConfig();

@@ -503,7 +503,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public FunctionManager getFunctionManager()
+    public FunctionAndTypeManager getFunctionAndTypeManager()
     {
         throw new UnsupportedOperationException();
     }

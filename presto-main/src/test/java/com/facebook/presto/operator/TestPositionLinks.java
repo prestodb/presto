@@ -315,7 +315,7 @@ public class TestPositionLinks
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 Optional.of(0),
-                MetadataManager.createTestMetadataManager().getFunctionManager(),
+                MetadataManager.createTestMetadataManager().getFunctionAndTypeManager(),
                 new FeaturesConfig().isGroupByUsesEqualTo());
     }
 

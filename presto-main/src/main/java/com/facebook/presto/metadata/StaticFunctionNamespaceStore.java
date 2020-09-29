@@ -34,14 +34,14 @@ public class StaticFunctionNamespaceStore
     private static final Logger log = Logger.get(StaticFunctionNamespaceStore.class);
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final File configDir;
     private final AtomicBoolean functionNamespaceLoading = new AtomicBoolean();
 
     @Inject
-    public StaticFunctionNamespaceStore(FunctionManager functionManager, StaticFunctionNamespaceStoreConfig config)
+    public StaticFunctionNamespaceStore(FunctionAndTypeManager functionAndTypeManager, StaticFunctionNamespaceStoreConfig config)
     {
-        this.functionManager = functionManager;
+        this.functionAndTypeManager = functionAndTypeManager;
         this.configDir = config.getFunctionNamespaceConfigurationDir();
     }
 
@@ -69,7 +69,7 @@ public class StaticFunctionNamespaceStore
         String functionNamespaceManagerName = properties.remove("function-namespace-manager.name");
         checkState(functionNamespaceManagerName != null, "Function namespace configuration %s does not contain function-namespace-manager.name", file.getAbsoluteFile());
 
-        functionManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        functionAndTypeManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
         log.info("-- Added function namespace manager [%s] --", catalogName);
     }
 

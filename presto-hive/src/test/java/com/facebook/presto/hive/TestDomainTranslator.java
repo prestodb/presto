@@ -107,7 +107,7 @@ public class TestDomainTranslator
         metadata = createTestMetadataManager();
         domainTranslator = new RowExpressionDomainTranslator(metadata);
         columnExtractor = new SubfieldExtractor(
-                new FunctionResolution(metadata.getFunctionManager()),
+                new FunctionResolution(metadata.getFunctionAndTypeManager()),
                 TEST_EXPRESSION_OPTIMIZER,
                 new TestingConnectorSession(
                         new HiveSessionProperties(
@@ -170,7 +170,7 @@ public class TestDomainTranslator
 
     private RowExpression not(RowExpression expression)
     {
-        return call("not", new FunctionResolution(metadata.getFunctionManager()).notFunction(), BOOLEAN, expression);
+        return call("not", new FunctionResolution(metadata.getFunctionAndTypeManager()).notFunction(), BOOLEAN, expression);
     }
 
     private RowExpression arraySubscript(RowExpression arrayExpression, int index)
@@ -194,7 +194,7 @@ public class TestDomainTranslator
 
     private FunctionHandle operator(OperatorType operatorType, Type... types)
     {
-        return metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(types));
+        return metadata.getFunctionAndTypeManager().resolveOperator(operatorType, fromTypes(types));
     }
 
     private void assertPredicateTranslates(RowExpression predicate, String subfield, Domain domain)
@@ -225,7 +225,7 @@ public class TestDomainTranslator
     {
         return call(
                 OperatorType.BETWEEN.name(),
-                metadata.getFunctionManager().resolveOperator(OperatorType.BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
+                metadata.getFunctionAndTypeManager().resolveOperator(OperatorType.BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
                 BOOLEAN,
                 value,
                 min,
@@ -247,7 +247,7 @@ public class TestDomainTranslator
     {
         return call(
                 operatorType.name(),
-                metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(left.getType(), right.getType())),
+                metadata.getFunctionAndTypeManager().resolveOperator(operatorType, fromTypes(left.getType(), right.getType())),
                 BOOLEAN,
                 left,
                 right);

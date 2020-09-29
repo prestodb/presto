@@ -220,7 +220,7 @@ public abstract class AbstractOperatorBenchmark
             projections.add(new PageProjectionWithOutputs(new InputPageProjection(channel), new int[] {channel}));
         }
 
-        Optional<RowExpression> hashExpression = HashGenerationOptimizer.getHashExpression(localQueryRunner.getMetadata().getFunctionManager(), variables.build());
+        Optional<RowExpression> hashExpression = HashGenerationOptimizer.getHashExpression(localQueryRunner.getMetadata().getFunctionAndTypeManager(), variables.build());
         verify(hashExpression.isPresent());
         RowExpression translatedHashExpression = translate(hashExpression.get(), variableToInputMapping.build());
 

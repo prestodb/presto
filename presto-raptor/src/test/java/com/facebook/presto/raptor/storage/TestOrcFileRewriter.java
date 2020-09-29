@@ -25,7 +25,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
@@ -125,7 +125,7 @@ public class TestOrcFileRewriter
     {
         TypeManager typeManager = new TypeRegistry();
         // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
 
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
@@ -721,7 +721,7 @@ public class TestOrcFileRewriter
     private static OrcFileRewriter createFileRewriter()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
         return new OrcFileRewriter(
                 READER_ATTRIBUTES,
                 true,
