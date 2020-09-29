@@ -247,6 +247,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWrit
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
@@ -2154,7 +2155,7 @@ public class LocalExecutionPlanner
             OptionalInt buildHashChannel = buildHashVariable.map(variableChannelGetter(buildSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
 
-            boolean spillEnabled = isSpillEnabled(context.getSession());
+            boolean spillEnabled = isSpillEnabled(context.getSession()) && isJoinSpillingEnabled(context.getSession());
             boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
             int partitionCount = buildContext.getDriverInstanceCount().orElse(1);
 
@@ -2338,7 +2339,7 @@ public class LocalExecutionPlanner
         private OptionalInt getJoinOperatorsCountForSpill(LocalExecutionPlanContext context, Session session)
         {
             OptionalInt driverInstanceCount = context.getDriverInstanceCount();
-            if (isSpillEnabled(session)) {
+            if (isSpillEnabled(session) && isJoinSpillingEnabled(session)) {
                 checkState(driverInstanceCount.isPresent(), "A fixed distribution is required for JOIN when spilling is enabled");
             }
             return driverInstanceCount;

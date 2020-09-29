@@ -58,6 +58,7 @@ public class FeaturesConfig
 {
     @VisibleForTesting
     static final String SPILL_ENABLED = "experimental.spill-enabled";
+    static final String JOIN_SPILL_ENABLED = "experimental.join-spill-enabled";
     @VisibleForTesting
     static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
 
@@ -112,6 +113,7 @@ public class FeaturesConfig
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
+    private boolean joinSpillingEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -769,6 +771,24 @@ public class FeaturesConfig
     {
         this.spillEnabled = spillEnabled;
         return this;
+    }
+
+    public boolean isJoinSpillingEnabled()
+    {
+        return joinSpillingEnabled;
+    }
+
+    @Config(JOIN_SPILL_ENABLED)
+    public FeaturesConfig setJoinSpillingEnabled(boolean joinSpillingEnabled)
+    {
+        this.joinSpillingEnabled = joinSpillingEnabled;
+        return this;
+    }
+
+    @AssertTrue(message = "If " + JOIN_SPILL_ENABLED + " is set to true, spilling must be enabled " + SPILL_ENABLED)
+    public boolean isSpillEnabledIfJoinSpillingIsEnabled()
+    {
+        return !isJoinSpillingEnabled() || isSpillEnabled();
     }
 
     public boolean isIterativeOptimizerEnabled()
