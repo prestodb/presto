@@ -210,6 +210,24 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreateTableWithInvalidProperties()
+    {
+        // CSV
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'ORC', csv_separator = 'S')"))
+                .hasMessageMatching("Cannot specify csv_separator table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_separator = 'SS')"))
+                .hasMessageMatching("csv_separator must be a single character string, but was: 'SS'");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 bigint) WITH (format = 'ORC', csv_quote = 'Q')"))
+                .hasMessageMatching("Cannot specify csv_quote table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_quote = 'QQ')"))
+                .hasMessageMatching("csv_quote must be a single character string, but was: 'QQ'");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'ORC', csv_escape = 'E')"))
+                .hasMessageMatching("Cannot specify csv_escape table property for storage format: ORC");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE invalid_table (col1 varchar) WITH (format = 'CSV', csv_escape = 'EE')"))
+                .hasMessageMatching("csv_escape must be a single character string, but was: 'EE'");
+    }
+
+    @Test
     public void testIOExplain()
     {
         // Test IO explain with small number of discrete components.
@@ -1082,8 +1100,8 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateEmptyBucketedPartition()
     {
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            testCreateEmptyBucketedPartition(storageFormat);
+        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
+            testCreateEmptyBucketedPartition(storageFormat.getFormat());
         }
     }
 
@@ -5159,6 +5177,14 @@ public class TestHiveIntegrationSmokeTest
                 });
     }
 
+    @Test
+    public void testUnsupportedCsvTable()
+    {
+        assertQueryFails(
+                "CREATE TABLE create_unsupported_csv(i INT, bound VARCHAR(10), unbound VARCHAR, dummy VARCHAR) WITH (format = 'CSV')",
+                "\\QHive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: i integer, bound varchar(10)\\E");
+    }
+
     private Session getParallelWriteSession()
     {
         return Session.builder(getSession())
@@ -5239,8 +5265,57 @@ public class TestHiveIntegrationSmokeTest
 
     private void testWithAllStorageFormats(BiConsumer<Session, HiveStorageFormat> test)
     {
-        for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
-            test.accept(getSession(), storageFormat);
+        for (TestingHiveStorageFormat storageFormat : getAllTestingHiveStorageFormat()) {
+            testWithStorageFormat(storageFormat, test);
+        }
+    }
+
+    private static void testWithStorageFormat(TestingHiveStorageFormat storageFormat, BiConsumer<Session, HiveStorageFormat> test)
+    {
+        requireNonNull(storageFormat, "storageFormat is null");
+        requireNonNull(test, "test is null");
+        Session session = storageFormat.getSession();
+        try {
+            test.accept(session, storageFormat.getFormat());
+        }
+        catch (Exception | AssertionError e) {
+            fail(format("Failure for format %s with properties %s", storageFormat.getFormat(), session.getConnectorProperties()), e);
+        }
+    }
+
+    private List<TestingHiveStorageFormat> getAllTestingHiveStorageFormat()
+    {
+        Session session = getSession();
+        ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
+        for (HiveStorageFormat hiveStorageFormat : HiveStorageFormat.values()) {
+            if (hiveStorageFormat == HiveStorageFormat.CSV) {
+                // CSV supports only unbounded VARCHAR type
+                continue;
+            }
+            formats.add(new TestingHiveStorageFormat(session, hiveStorageFormat));
+        }
+        return formats.build();
+    }
+
+    private static class TestingHiveStorageFormat
+    {
+        private final Session session;
+        private final HiveStorageFormat format;
+
+        TestingHiveStorageFormat(Session session, HiveStorageFormat format)
+        {
+            this.session = requireNonNull(session, "session is null");
+            this.format = requireNonNull(format, "format is null");
+        }
+
+        public Session getSession()
+        {
+            return session;
+        }
+
+        public HiveStorageFormat getFormat()
+        {
+            return format;
         }
     }
 }

@@ -36,6 +36,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.units.DataSize;
@@ -112,6 +113,7 @@ public class HiveWriterFactory
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
     private final HiveCompressionCodec compressionCodec;
+    private final Map<String, String> additionalTableParameters;
     private final LocationHandle locationHandle;
     private final LocationService locationService;
     private final String filePrefix;
@@ -148,6 +150,7 @@ public class HiveWriterFactory
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
             HiveCompressionCodec compressionCodec,
+            Map<String, String> additionalTableParameters,
             OptionalInt bucketCount,
             List<SortingColumn> sortedBy,
             LocationHandle locationHandle,
@@ -176,6 +179,7 @@ public class HiveWriterFactory
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+        this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
@@ -319,6 +323,8 @@ public class HiveWriterFactory
         }
 
         WriterParameters writerParameters = getWriterParameters(partitionName, bucketNumber);
+        Properties schema = writerParameters.getSchema();
+        schema.putAll(additionalTableParameters);
 
         validateSchema(partitionName, writerParameters.getSchema());
 
@@ -350,7 +356,7 @@ public class HiveWriterFactory
                             .map(DataColumn::getName)
                             .collect(toList()),
                     writerParameters.getOutputStorageFormat(),
-                    writerParameters.getSchema(),
+                    schema,
                     conf,
                     session,
                     encryptionInformation);
@@ -367,7 +373,7 @@ public class HiveWriterFactory
                             .map(DataColumn::getName)
                             .collect(toList()),
                     writerParameters.getOutputStorageFormat(),
-                    writerParameters.getSchema(),
+                    schema,
                     partitionStorageFormat.getEstimatedWriterSystemMemoryUsage(),
                     conf,
                     typeManager,
