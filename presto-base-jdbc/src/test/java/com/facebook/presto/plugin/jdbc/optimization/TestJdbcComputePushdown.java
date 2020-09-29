@@ -19,7 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
@@ -94,12 +94,12 @@ public class TestJdbcComputePushdown
     public TestJdbcComputePushdown()
     {
         this.sqlToRowExpressionTranslator = new TestingRowExpressionTranslator(METADATA);
-        FunctionManager functionManager = METADATA.getFunctionManager();
-        StandardFunctionResolution functionResolution = new FunctionResolution(functionManager);
-        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
+        FunctionAndTypeManager functionAndTypeManager = METADATA.getFunctionAndTypeManager();
+        StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager);
+        DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
 
         this.jdbcComputePushdown = new JdbcComputePushdown(
-                functionManager,
+                functionAndTypeManager,
                 functionResolution,
                 determinismEvaluator,
                 new RowExpressionOptimizer(METADATA),

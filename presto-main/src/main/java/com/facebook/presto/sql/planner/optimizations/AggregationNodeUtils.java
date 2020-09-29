@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -37,11 +37,11 @@ public class AggregationNodeUtils
 {
     private AggregationNodeUtils() {}
 
-    public static AggregationNode.Aggregation count(FunctionManager functionManager)
+    public static AggregationNode.Aggregation count(FunctionAndTypeManager functionAndTypeManager)
     {
         return new AggregationNode.Aggregation(
                 new CallExpression("count",
-                        new FunctionResolution(functionManager).countFunction(),
+                        new FunctionResolution(functionAndTypeManager).countFunction(),
                         BIGINT,
                         ImmutableList.of()),
                 Optional.empty(),

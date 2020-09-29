@@ -16,7 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -42,13 +42,13 @@ import static org.testng.Assert.assertTrue;
 
 public class TestRowExpressionRewriter
 {
-    private FunctionManager functionManager;
+    private FunctionAndTypeManager functionAndTypeManager;
 
     @BeforeClass
     public void setup()
     {
         TypeRegistry typeManager = new TypeRegistry();
-        this.functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        this.functionAndTypeManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     @Test
@@ -57,7 +57,7 @@ public class TestRowExpressionRewriter
         // successful rewrite
         RowExpression predicate = call(
                 GREATER_THAN.name(),
-                functionManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
+                functionAndTypeManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 constant(1L, BIGINT),
                 constant(2L, BIGINT));
@@ -72,7 +72,7 @@ public class TestRowExpressionRewriter
         // no rewrite
         RowExpression nonPredicate = call(
                 ADD.name(),
-                functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                functionAndTypeManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 constant(1L, BIGINT),
                 constant(2L, BIGINT));
@@ -86,7 +86,7 @@ public class TestRowExpressionRewriter
     {
         RowExpression predicate = call(
                 GREATER_THAN.name(),
-                functionManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
+                functionAndTypeManager.resolveOperator(GREATER_THAN, fromTypes(BIGINT, BIGINT)),
                 BOOLEAN,
                 constant(1L, BIGINT),
                 constant(2L, BIGINT));
@@ -94,7 +94,7 @@ public class TestRowExpressionRewriter
         // no rewrite
         RowExpression nonPredicate = call(
                 ADD.name(),
-                functionManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
+                functionAndTypeManager.resolveOperator(ADD, fromTypes(BIGINT, BIGINT)),
                 BIGINT,
                 constant(1L, BIGINT),
                 constant(2L, BIGINT));
@@ -115,20 +115,20 @@ public class TestRowExpressionRewriter
         private static class Visitor
                 extends RowExpressionRewriter<Void>
         {
-            private final FunctionManager functionManager;
+            private final FunctionAndTypeManager functionAndTypeManager;
             private final StandardFunctionResolution functionResolution;
 
             Visitor()
             {
                 TypeRegistry typeManager = new TypeRegistry();
-                this.functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
-                this.functionResolution = new FunctionResolution(functionManager);
+                this.functionAndTypeManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+                this.functionResolution = new FunctionResolution(functionAndTypeManager);
             }
 
             @Override
             public RowExpression rewriteCall(CallExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
             {
-                FunctionMetadata metadata = functionManager.getFunctionMetadata(node.getFunctionHandle());
+                FunctionMetadata metadata = functionAndTypeManager.getFunctionMetadata(node.getFunctionHandle());
                 if (metadata.getOperatorType().isPresent() && metadata.getOperatorType().get().isComparisonOperator()) {
                     return call("not", functionResolution.notFunction(), BOOLEAN, node);
                 }

@@ -19,7 +19,7 @@ import com.facebook.presto.expressions.DynamicFilters.DynamicFilterExtractResult
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -73,13 +73,13 @@ public class RemoveUnsupportedDynamicFilters
 {
     private final LogicalRowExpressions logicalRowExpressions;
 
-    public RemoveUnsupportedDynamicFilters(FunctionManager functionManager)
+    public RemoveUnsupportedDynamicFilters(FunctionAndTypeManager functionAndTypeManager)
     {
-        requireNonNull(functionManager, "functionManager is null");
+        requireNonNull(functionAndTypeManager, "functionManager is null");
         this.logicalRowExpressions = new LogicalRowExpressions(
-                new RowExpressionDeterminismEvaluator(functionManager),
-                new FunctionResolution(functionManager),
-                functionManager);
+                new RowExpressionDeterminismEvaluator(functionAndTypeManager),
+                new FunctionResolution(functionAndTypeManager),
+                functionAndTypeManager);
     }
 
     @Override

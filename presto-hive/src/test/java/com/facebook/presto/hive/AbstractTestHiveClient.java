@@ -1412,7 +1412,7 @@ public abstract class AbstractTestHiveClient
                         ROW_EXPRESSION_SERVICE,
                         FUNCTION_RESOLUTION,
                         hivePartitionManager,
-                        METADATA.getFunctionManager(),
+                        METADATA.getFunctionAndTypeManager(),
                         tableHandle,
                         predicate,
                         Optional.empty()).getLayout().getHandle();
@@ -2166,7 +2166,7 @@ public abstract class AbstractTestHiveClient
                         ROW_EXPRESSION_SERVICE,
                         FUNCTION_RESOLUTION,
                         hivePartitionManager,
-                        METADATA.getFunctionManager(),
+                        METADATA.getFunctionAndTypeManager(),
                         tableHandle,
                         predicate,
                         Optional.empty()).getLayout().getHandle();
@@ -2496,7 +2496,7 @@ public abstract class AbstractTestHiveClient
                     ROW_EXPRESSION_SERVICE,
                     FUNCTION_RESOLUTION,
                     hivePartitionManager,
-                    METADATA.getFunctionManager(),
+                    METADATA.getFunctionAndTypeManager(),
                     tableHandle,
                     TRUE_CONSTANT,
                     Optional.empty()).getLayout();

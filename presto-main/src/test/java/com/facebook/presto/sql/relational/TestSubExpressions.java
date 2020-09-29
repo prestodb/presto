@@ -15,7 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.FunctionType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -38,7 +38,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestSubExpressions
 {
-    private static final FunctionManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_MANAGER = createTestMetadataManager().getFunctionAndTypeManager();
 
     @Test
     void testExtract()

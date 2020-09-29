@@ -17,7 +17,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.google.common.collect.ImmutableList;
 
@@ -45,7 +45,7 @@ public class IdentityCast
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected only one type");
         Type type = boundVariables.getTypeVariable("T");

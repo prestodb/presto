@@ -17,7 +17,7 @@ import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.google.common.collect.ImmutableList;
 
@@ -48,7 +48,7 @@ public final class CastFromUnknownOperator
     @Override
     public BuiltInScalarFunctionImplementation specialize(
             BoundVariables boundVariables, int arity, TypeManager typeManager,
-            FunctionManager functionManager)
+            FunctionAndTypeManager functionAndTypeManager)
     {
         Type toType = boundVariables.getTypeVariable("E");
         MethodHandle methodHandle = METHOD_HANDLE_NON_NULL.asType(METHOD_HANDLE_NON_NULL.type().changeReturnType(toType.getJavaType()));

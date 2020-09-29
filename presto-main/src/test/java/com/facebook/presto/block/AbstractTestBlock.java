@@ -20,7 +20,7 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.DictionaryId;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
@@ -67,7 +67,7 @@ public abstract class AbstractTestBlock
 
     static {
         // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     protected <T> void assertBlock(Block block, Supplier<BlockBuilder> newBlockBuilder, T[] expectedValues)

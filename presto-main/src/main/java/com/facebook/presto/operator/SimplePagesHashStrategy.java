@@ -18,7 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
@@ -57,7 +57,7 @@ public class SimplePagesHashStrategy
             List<Integer> hashChannels,
             OptionalInt precomputedHashChannel,
             Optional<Integer> sortChannel,
-            FunctionManager functionManager,
+            FunctionAndTypeManager functionAndTypeManager,
             boolean groupByUsesEqualTo)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -73,12 +73,12 @@ public class SimplePagesHashStrategy
             this.precomputedHashChannel = null;
         }
         this.sortChannel = requireNonNull(sortChannel, "sortChannel is null");
-        requireNonNull(functionManager, "functionManager is null");
+        requireNonNull(functionAndTypeManager, "functionManager is null");
         this.groupByUsesEqualTo = groupByUsesEqualTo;
         ImmutableList.Builder<MethodHandle> distinctFromMethodHandlesBuilder = ImmutableList.builder();
         for (Type type : types) {
             distinctFromMethodHandlesBuilder.add(
-                    functionManager.getBuiltInScalarFunctionImplementation(functionManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type))).getMethodHandle());
+                    functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(type, type))).getMethodHandle());
         }
         distinctFromMethodHandles = distinctFromMethodHandlesBuilder.build();
     }

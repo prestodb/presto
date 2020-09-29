@@ -26,7 +26,7 @@ import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Split;
@@ -186,14 +186,14 @@ public class ExtractSpatialJoins
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final PageSourceManager pageSourceManager;
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
 
         public ExtractSpatialInnerJoin(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
-            this.functionManager = metadata.getFunctionManager();
+            this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
         }
 
         @Override
@@ -213,7 +213,7 @@ public class ExtractSpatialJoins
         {
             JoinNode joinNode = captures.get(JOIN);
             RowExpression filter = node.getPredicate();
-            List<CallExpression> spatialFunctions = extractSupportedSpatialFunctions(filter, functionManager);
+            List<CallExpression> spatialFunctions = extractSupportedSpatialFunctions(filter, functionAndTypeManager);
             for (CallExpression spatialFunction : spatialFunctions) {
                 Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
@@ -221,7 +221,7 @@ public class ExtractSpatialJoins
                 }
             }
 
-            List<CallExpression> spatialComparisons = extractSupportedSpatialComparisons(filter, functionManager);
+            List<CallExpression> spatialComparisons = extractSupportedSpatialComparisons(filter, functionAndTypeManager);
             for (CallExpression spatialComparison : spatialComparisons) {
                 Result result = tryCreateSpatialJoin(context, joinNode, filter, node.getId(), node.getOutputVariables(), spatialComparison, metadata, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
@@ -242,14 +242,14 @@ public class ExtractSpatialJoins
         private final Metadata metadata;
         private final SplitManager splitManager;
         private final PageSourceManager pageSourceManager;
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
 
         public ExtractSpatialLeftJoin(Metadata metadata, SplitManager splitManager, PageSourceManager pageSourceManager)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
-            this.functionManager = metadata.getFunctionManager();
+            this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
         }
 
         @Override
@@ -269,7 +269,7 @@ public class ExtractSpatialJoins
         {
             checkArgument(joinNode.getFilter().isPresent());
             RowExpression filter = joinNode.getFilter().get();
-            List<CallExpression> spatialFunctions = extractSupportedSpatialFunctions(filter, functionManager);
+            List<CallExpression> spatialFunctions = extractSupportedSpatialFunctions(filter, functionAndTypeManager);
             for (CallExpression spatialFunction : spatialFunctions) {
                 Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialFunction, Optional.empty(), metadata, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
@@ -277,7 +277,7 @@ public class ExtractSpatialJoins
                 }
             }
 
-            List<CallExpression> spatialComparisons = extractSupportedSpatialComparisons(filter, functionManager);
+            List<CallExpression> spatialComparisons = extractSupportedSpatialComparisons(filter, functionAndTypeManager);
             for (CallExpression spatialComparison : spatialComparisons) {
                 Result result = tryCreateSpatialJoin(context, joinNode, filter, joinNode.getId(), joinNode.getOutputVariables(), spatialComparison, metadata, splitManager, pageSourceManager);
                 if (!result.isEmpty()) {
@@ -300,7 +300,7 @@ public class ExtractSpatialJoins
             SplitManager splitManager,
             PageSourceManager pageSourceManager)
     {
-        FunctionMetadata spatialComparisonMetadata = metadata.getFunctionManager().getFunctionMetadata(spatialComparison.getFunctionHandle());
+        FunctionMetadata spatialComparisonMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(spatialComparison.getFunctionHandle());
         checkArgument(spatialComparison.getArguments().size() == 2 && spatialComparisonMetadata.getOperatorType().isPresent());
         PlanNode leftNode = joinNode.getLeft();
         PlanNode rightNode = joinNode.getRight();
@@ -334,7 +334,7 @@ public class ExtractSpatialJoins
             if (radiusVariables.isEmpty() || (rightVariables.containsAll(radiusVariables) && containsNone(leftVariables, radiusVariables))) {
                 newRadiusVariable = newRadiusVariable(context, radius);
                 OperatorType flippedOperatorType = flip(spatialComparisonMetadata.getOperatorType().get());
-                FunctionHandle flippedHandle = getFlippedFunctionHandle(spatialComparison, metadata.getFunctionManager());
+                FunctionHandle flippedHandle = getFlippedFunctionHandle(spatialComparison, metadata.getFunctionAndTypeManager());
                 newComparison = new CallExpression(
                         flippedOperatorType.getOperator(), // TODO verify if this is the correct function displayName
                         flippedHandle,
@@ -377,7 +377,7 @@ public class ExtractSpatialJoins
             SplitManager splitManager,
             PageSourceManager pageSourceManager)
     {
-        FunctionManager functionManager = metadata.getFunctionManager();
+        FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
 
         List<RowExpression> arguments = spatialFunction.getArguments();
         verify(arguments.size() == 2);
@@ -439,12 +439,12 @@ public class ExtractSpatialJoins
             rightPartitionVariable = Optional.of(context.getVariableAllocator().newVariable("pid", INTEGER));
 
             if (alignment > 0) {
-                newLeftNode = addPartitioningNodes(context, functionManager, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, functionManager, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newSecondArgument, radius);
+                newLeftNode = addPartitioningNodes(context, functionAndTypeManager, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newFirstArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, functionAndTypeManager, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newSecondArgument, radius);
             }
             else {
-                newLeftNode = addPartitioningNodes(context, functionManager, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newSecondArgument, Optional.empty());
-                newRightNode = addPartitioningNodes(context, functionManager, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newFirstArgument, radius);
+                newLeftNode = addPartitioningNodes(context, functionAndTypeManager, newLeftNode, leftPartitionVariable.get(), kdbTree.get(), newSecondArgument, Optional.empty());
+                newRightNode = addPartitioningNodes(context, functionAndTypeManager, newRightNode, rightPartitionVariable.get(), kdbTree.get(), newFirstArgument, radius);
             }
         }
 
@@ -648,14 +648,14 @@ public class ExtractSpatialJoins
         return new ProjectNode(context.getIdAllocator().getNextId(), node, projections.build(), LOCAL);
     }
 
-    private static PlanNode addPartitioningNodes(Context context, FunctionManager functionManager, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, RowExpression geometry, Optional<RowExpression> radius)
+    private static PlanNode addPartitioningNodes(Context context, FunctionAndTypeManager functionAndTypeManager, PlanNode node, VariableReferenceExpression partitionVariable, KdbTree kdbTree, RowExpression geometry, Optional<RowExpression> radius)
     {
         Assignments.Builder projections = Assignments.builder();
         for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
             projections.put(outputVariable, outputVariable);
         }
 
-        FunctionHandle castFunctionHandle = functionManager.lookupCast(CAST, VARCHAR.getTypeSignature(), KDB_TREE.getTypeSignature());
+        FunctionHandle castFunctionHandle = functionAndTypeManager.lookupCast(CAST, VARCHAR.getTypeSignature(), KDB_TREE.getTypeSignature());
 
         ImmutableList.Builder partitioningArgumentsBuilder = ImmutableList.builder()
                 .add(new CallExpression(CAST.name(), castFunctionHandle, KDB_TREE, ImmutableList.of(Expressions.constant(utf8Slice(KdbTreeUtils.toJson(kdbTree)), VARCHAR))))
@@ -664,7 +664,7 @@ public class ExtractSpatialJoins
         List<RowExpression> partitioningArguments = partitioningArgumentsBuilder.build();
 
         String spatialPartitionsFunctionName = "spatial_partitions";
-        FunctionHandle functionHandle = functionManager.lookupFunction(
+        FunctionHandle functionHandle = functionAndTypeManager.lookupFunction(
                 spatialPartitionsFunctionName,
                 fromTypes(partitioningArguments.stream()
                         .map(RowExpression::getType).collect(toImmutableList())));

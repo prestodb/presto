@@ -25,7 +25,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.CastType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
@@ -70,15 +70,15 @@ public class ArrayToArrayCast
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type fromType = boundVariables.getTypeVariable("F");
         Type toType = boundVariables.getTypeVariable("T");
 
-        FunctionHandle functionHandle = functionManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature());
-        BuiltInScalarFunctionImplementation function = functionManager.getBuiltInScalarFunctionImplementation(functionHandle);
-        Class<?> castOperatorClass = generateArrayCast(typeManager, functionManager.getFunctionMetadata(functionHandle), function);
+        FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature());
+        BuiltInScalarFunctionImplementation function = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle);
+        Class<?> castOperatorClass = generateArrayCast(typeManager, functionAndTypeManager.getFunctionMetadata(functionHandle), function);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", SqlFunctionProperties.class, Block.class);
         return new BuiltInScalarFunctionImplementation(
                 false,

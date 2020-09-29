@@ -17,7 +17,7 @@ import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.PrestoException;
@@ -40,11 +40,11 @@ import static java.util.Objects.requireNonNull;
 
 public class InterpretedFunctionInvoker
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public InterpretedFunctionInvoker(FunctionManager functionManager)
+    public InterpretedFunctionInvoker(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "registry is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "registry is null");
     }
 
     public Object invoke(FunctionHandle functionHandle, SqlFunctionProperties properties, Object... arguments)
@@ -54,7 +54,7 @@ public class InterpretedFunctionInvoker
 
     public Object invoke(FunctionHandle functionHandle, SqlFunctionProperties properties, List<Object> arguments)
     {
-        return invoke(functionManager.getBuiltInScalarFunctionImplementation(functionHandle), properties, arguments);
+        return invoke(functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle), properties, arguments);
     }
 
     /**

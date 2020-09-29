@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
@@ -107,7 +107,7 @@ public class BenchmarkTransformKey
         public void setup()
         {
             MetadataManager metadata = MetadataManager.createTestMetadataManager();
-            FunctionManager functionManager = metadata.getFunctionManager();
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Type elementType;
@@ -125,12 +125,12 @@ public class BenchmarkTransformKey
                     throw new UnsupportedOperationException();
             }
             MapType mapType = mapType(elementType, elementType);
-            FunctionHandle functionHandle = functionManager.lookupFunction(
+            FunctionHandle functionHandle = functionAndTypeManager.lookupFunction(
                     name,
                     fromTypeSignatures(
                             mapType.getTypeSignature(),
                             parseTypeSignature(format("function(%s, %s, %s)", type, type, type))));
-            FunctionHandle add = functionManager.resolveOperator(ADD, fromTypes(elementType, elementType));
+            FunctionHandle add = functionAndTypeManager.resolveOperator(ADD, fromTypes(elementType, elementType));
             projectionsBuilder.add(call(name, functionHandle, mapType, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(

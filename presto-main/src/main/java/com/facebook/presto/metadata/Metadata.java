@@ -438,7 +438,7 @@ public interface Metadata
 
     MetadataUpdates getMetadataUpdateResults(Session session, QueryManager queryManager, MetadataUpdates metadataUpdates, QueryId queryId);
 
-    FunctionManager getFunctionManager();
+    FunctionAndTypeManager getFunctionAndTypeManager();
 
     ProcedureRegistry getProcedureRegistry();
 

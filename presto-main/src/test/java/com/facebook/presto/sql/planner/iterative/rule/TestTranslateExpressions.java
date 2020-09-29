@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.FunctionType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -48,7 +48,7 @@ public class TestTranslateExpressions
         extends BaseRuleTest
 {
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final FunctionManager FUNCTION_MANAGER = METADATA.getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_MANAGER = METADATA.getFunctionAndTypeManager();
     private static final FunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(FUNCTION_MANAGER);
     private static final FunctionHandle REDUCE_AGG = FUNCTION_MANAGER.lookupFunction(
             "reduce_agg",

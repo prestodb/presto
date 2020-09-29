@@ -20,7 +20,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
@@ -89,7 +89,7 @@ import static java.util.stream.Collectors.toMap;
 public class TestPinotQueryBase
 {
     protected static final TypeManager typeManager = new TypeRegistry();
-    protected static final FunctionManager functionMetadataManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+    protected static final FunctionAndTypeManager functionMetadataManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
     protected static final StandardFunctionResolution standardFunctionResolution = new FunctionResolution(functionMetadataManager);
 
     protected static ConnectorId pinotConnectorId = new ConnectorId("id");

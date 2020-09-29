@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -35,33 +35,33 @@ import static java.util.Objects.requireNonNull;
 public class RowExpressionDeterminismEvaluator
         implements DeterminismEvaluator
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
     @Inject
     public RowExpressionDeterminismEvaluator(Metadata metadata)
     {
-        this(requireNonNull(metadata, "metadata is null").getFunctionManager());
+        this(requireNonNull(metadata, "metadata is null").getFunctionAndTypeManager());
     }
 
-    public RowExpressionDeterminismEvaluator(FunctionManager functionManager)
+    public RowExpressionDeterminismEvaluator(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     @Override
     public boolean isDeterministic(RowExpression expression)
     {
-        return expression.accept(new Visitor(functionManager), null);
+        return expression.accept(new Visitor(functionAndTypeManager), null);
     }
 
     private static class Visitor
             implements RowExpressionVisitor<Boolean, Void>
     {
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
 
-        public Visitor(FunctionManager functionManager)
+        public Visitor(FunctionAndTypeManager functionAndTypeManager)
         {
-            this.functionManager = functionManager;
+            this.functionAndTypeManager = functionAndTypeManager;
         }
 
         @Override
@@ -81,7 +81,7 @@ public class RowExpressionDeterminismEvaluator
         {
             FunctionHandle functionHandle = call.getFunctionHandle();
             try {
-                if (!functionManager.getFunctionMetadata(functionHandle).isDeterministic()) {
+                if (!functionAndTypeManager.getFunctionMetadata(functionHandle).isDeterministic()) {
                     return false;
                 }
             }

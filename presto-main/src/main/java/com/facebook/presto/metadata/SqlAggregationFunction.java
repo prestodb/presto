@@ -122,5 +122,5 @@ public abstract class SqlAggregationFunction
         return true;
     }
 
-    public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager);
+    public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager);
 }

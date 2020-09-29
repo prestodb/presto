@@ -20,7 +20,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.type.TypeRegistry;
@@ -74,9 +74,9 @@ public class TestRowBasedSerialization
     public void setUp()
     {
         Metadata metadata = MetadataManager.createTestMetadataManager();
-        FunctionManager functionManager = metadata.getFunctionManager();
+        FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         TypeRegistry typeRegistry = new TypeRegistry();
-        typeRegistry.setFunctionManager(functionManager);
+        typeRegistry.setFunctionManager(functionAndTypeManager);
         this.typeManager = typeRegistry;
     }
 

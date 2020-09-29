@@ -22,7 +22,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.CastType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlOperator;
 import com.facebook.presto.operator.aggregation.TypedSet;
 import com.facebook.presto.spi.PrestoException;
@@ -79,7 +79,7 @@ public final class MapToMapCast
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
         Type fromKeyType = boundVariables.getTypeVariable("FK");
@@ -92,8 +92,8 @@ public final class MapToMapCast
                         TypeSignatureParameter.of(toKeyType.getTypeSignature()),
                         TypeSignatureParameter.of(toValueType.getTypeSignature())));
 
-        MethodHandle keyProcessor = buildProcessor(functionManager, fromKeyType, toKeyType, true);
-        MethodHandle valueProcessor = buildProcessor(functionManager, fromValueType, toValueType, false);
+        MethodHandle keyProcessor = buildProcessor(functionAndTypeManager, fromKeyType, toKeyType, true);
+        MethodHandle valueProcessor = buildProcessor(functionAndTypeManager, fromValueType, toValueType, false);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);
         return new BuiltInScalarFunctionImplementation(true, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), target);
     }
@@ -102,12 +102,12 @@ public final class MapToMapCast
      * The signature of the returned MethodHandle is (Block fromMap, int position, SqlFunctionProperties properties, BlockBuilder mapBlockBuilder)void.
      * The processor will get the value from fromMap, cast it and write to toBlock.
      */
-    private MethodHandle buildProcessor(FunctionManager functionManager, Type fromType, Type toType, boolean isKey)
+    private MethodHandle buildProcessor(FunctionAndTypeManager functionAndTypeManager, Type fromType, Type toType, boolean isKey)
     {
         MethodHandle getter = nativeValueGetter(fromType);
 
         // Adapt cast that takes ([SqlFunctionProperties,] ?) to one that takes (?, SqlFunctionProperties), where ? is the return type of getter.
-        BuiltInScalarFunctionImplementation castImplementation = functionManager.getBuiltInScalarFunctionImplementation(functionManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
+        BuiltInScalarFunctionImplementation castImplementation = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature()));
         MethodHandle cast = castImplementation.getMethodHandle();
         if (cast.type().parameterArray()[0] != SqlFunctionProperties.class) {
             cast = MethodHandles.dropArguments(cast, 0, SqlFunctionProperties.class);

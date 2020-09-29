@@ -17,7 +17,7 @@ import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.Assignments.Builder;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -73,9 +73,9 @@ public class InlineProjections
 
     private final FunctionResolution functionResolution;
 
-    public InlineProjections(FunctionManager functionManager)
+    public InlineProjections(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionResolution = new FunctionResolution(functionManager);
+        this.functionResolution = new FunctionResolution(functionAndTypeManager);
     }
 
     @Override

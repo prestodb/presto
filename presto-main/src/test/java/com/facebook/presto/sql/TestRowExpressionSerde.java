@@ -230,12 +230,12 @@ public class TestRowExpressionSerde
 
     private FunctionHandle operator(OperatorType operatorType, Type... types)
     {
-        return metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(types));
+        return metadata.getFunctionAndTypeManager().resolveOperator(operatorType, fromTypes(types));
     }
 
     private FunctionHandle function(String name, Type... types)
     {
-        return metadata.getFunctionManager().lookupFunction(name, fromTypes(types));
+        return metadata.getFunctionAndTypeManager().lookupFunction(name, fromTypes(types));
     }
 
     private JsonCodec<RowExpression> getJsonCodec()
@@ -267,7 +267,7 @@ public class TestRowExpressionSerde
 
     private RowExpression translate(Expression expression, boolean optimize)
     {
-        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionAndTypeManager(), metadata.getTypeManager(), TEST_SESSION);
         if (optimize) {
             RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
             return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
@@ -278,7 +278,7 @@ public class TestRowExpressionSerde
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionManager(),
+                metadata.getFunctionAndTypeManager(),
                 metadata.getTypeManager(),
                 TEST_SESSION,
                 TypeProvider.empty(),

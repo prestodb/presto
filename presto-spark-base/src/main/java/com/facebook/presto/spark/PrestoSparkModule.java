@@ -65,7 +65,7 @@ import com.facebook.presto.metadata.AnalyzePropertyManager;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -269,7 +269,7 @@ public class PrestoSparkModule
         jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
 
         // metadata
-        binder.bind(FunctionManager.class).in(Scopes.SINGLETON);
+        binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(StaticFunctionNamespaceStore.class).in(Scopes.SINGLETON);

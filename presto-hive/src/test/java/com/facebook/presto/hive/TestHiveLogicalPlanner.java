@@ -21,7 +21,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.cost.StatsProvider;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -231,14 +231,14 @@ public class TestHiveLogicalPlanner
         assertPlan(pushdownFilterEnabled, "SELECT linenumber FROM lineitem WHERE orderkey = 1 AND orderkey = 2 AND linenumber % 2 = 1",
                 output(values("linenumber")));
 
-        FunctionManager functionManager = getQueryRunner().getMetadata().getFunctionManager();
-        FunctionResolution functionResolution = new FunctionResolution(functionManager);
+        FunctionAndTypeManager functionAndTypeManager = getQueryRunner().getMetadata().getFunctionAndTypeManager();
+        FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager);
         RowExpression remainingPredicate = new CallExpression(EQUAL.name(),
                 functionResolution.comparisonFunction(EQUAL, BIGINT, BIGINT),
                 BOOLEAN,
                 ImmutableList.of(
                         new CallExpression("mod",
-                                functionManager.lookupFunction("mod", fromTypes(BIGINT, BIGINT)),
+                                functionAndTypeManager.lookupFunction("mod", fromTypes(BIGINT, BIGINT)),
                                 BIGINT,
                                 ImmutableList.of(
                                         new VariableReferenceExpression("orderkey", BIGINT),

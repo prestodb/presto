@@ -17,7 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.InputPageProjection;
@@ -160,7 +160,7 @@ public class BenchmarkPageProcessor
         private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
 
         private MetadataManager metadataManager = createTestMetadataManager();
-        private FunctionManager functionManager = metadataManager.getFunctionManager();
+        private FunctionAndTypeManager functionManager = metadataManager.getFunctionAndTypeManager();
         private PageProcessor compiledProcessor;
         private Tpch1FilterAndProject handcodedProcessor;
         private PageProcessor identityProjectionProcessor;
@@ -205,7 +205,7 @@ public class BenchmarkPageProcessor
             return pageBuilder.build();
         }
 
-        private final RowExpression createFilterExpression(FunctionManager functionManager)
+        private final RowExpression createFilterExpression(FunctionAndTypeManager functionAndTypeManager)
         {
             if (filterFails.equals("never")) {
                 return new ConstantExpression(true, BOOLEAN);
@@ -265,13 +265,13 @@ public class BenchmarkPageProcessor
             }
         }
 
-        private final RowExpression createProjectExpression(FunctionManager functionManager)
+        private final RowExpression createProjectExpression(FunctionAndTypeManager functionAndTypeManager)
         {
             switch (projectionDataType) {
                 case "BIGINT":
                     return call(
                             MULTIPLY.name(),
-                            functionManager.resolveOperator(MULTIPLY, fromTypes(BIGINT, BIGINT)),
+                            functionAndTypeManager.resolveOperator(MULTIPLY, fromTypes(BIGINT, BIGINT)),
                             BIGINT,
                             field(EXTENDED_PRICE_IN_CENTS, BIGINT),
                             field(DISCOUNT_PERCENT, BIGINT));
@@ -279,7 +279,7 @@ public class BenchmarkPageProcessor
                 case "DOUBLE":
                     return call(
                             MULTIPLY.name(),
-                            functionManager.resolveOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
+                            functionAndTypeManager.resolveOperator(MULTIPLY, fromTypes(DOUBLE, DOUBLE)),
                             DOUBLE,
                             field(EXTENDED_PRICE, DOUBLE),
                             field(DISCOUNT, DOUBLE));

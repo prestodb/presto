@@ -17,7 +17,7 @@ import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -60,7 +60,7 @@ public class TestChecksumValidator
     private static final TypeRegistry typeRegistry = new TypeRegistry();
 
     static {
-        new FunctionManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
+        new FunctionAndTypeManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
     }
 
     private static final Column BIGINT_COLUMN = createColumn("bigint", BIGINT);

@@ -16,7 +16,7 @@ package com.facebook.presto.operator.index;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -38,11 +38,11 @@ public class TestFieldSetFilteringRecordSet
     public void test()
     {
         TypeManager typeManager = new TypeRegistry();
-        FunctionManager functionManager = new FunctionManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
 
         ArrayType arrayOfBigintType = new ArrayType(BIGINT);
         FieldSetFilteringRecordSet fieldSetFilteringRecordSet = new FieldSetFilteringRecordSet(
-                functionManager,
+                functionAndTypeManager,
                 new InMemoryRecordSet(
                         ImmutableList.of(BIGINT, BIGINT, TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE, arrayOfBigintType, arrayOfBigintType),
                         ImmutableList.of(

@@ -15,7 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -40,17 +40,17 @@ public class RemoteProjectOperator
         implements Operator
 {
     private final OperatorContext operatorContext;
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final List<RowExpression> projections;
 
     private final CompletableFuture<Block>[] result;
 
     private boolean finishing;
 
-    private RemoteProjectOperator(OperatorContext operatorContext, FunctionManager functionManager, List<RowExpression> projections)
+    private RemoteProjectOperator(OperatorContext operatorContext, FunctionAndTypeManager functionAndTypeManager, List<RowExpression> projections)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.projections = ImmutableList.copyOf(requireNonNull(projections, "projections is null"));
         this.result = new CompletableFuture[projections.size()];
     }
@@ -80,7 +80,7 @@ public class RemoteProjectOperator
             }
             else if (projection instanceof CallExpression) {
                 CallExpression remoteCall = (CallExpression) projection;
-                result[channel] = functionManager.executeFunction(
+                result[channel] = functionAndTypeManager.executeFunction(
                         remoteCall.getFunctionHandle(),
                         page,
                         remoteCall.getArguments().stream()
@@ -163,15 +163,15 @@ public class RemoteProjectOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final FunctionManager functionManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
         private final List<RowExpression> projections;
         private boolean closed;
 
-        public RemoteProjectOperatorFactory(int operatorId, PlanNodeId planNodeId, FunctionManager functionManager, List<RowExpression> projections)
+        public RemoteProjectOperatorFactory(int operatorId, PlanNodeId planNodeId, FunctionAndTypeManager functionAndTypeManager, List<RowExpression> projections)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
-            this.functionManager = requireNonNull(functionManager, "functionManager is null");
+            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
             this.projections = ImmutableList.copyOf(requireNonNull(projections, "projections is null"));
         }
         @Override
@@ -179,7 +179,7 @@ public class RemoteProjectOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, RemoteProjectOperator.class.getSimpleName());
-            return new RemoteProjectOperator(operatorContext, functionManager, projections);
+            return new RemoteProjectOperator(operatorContext, functionAndTypeManager, projections);
         }
 
         @Override
@@ -191,7 +191,7 @@ public class RemoteProjectOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new RemoteProjectOperatorFactory(operatorId, planNodeId, functionManager, projections);
+            return new RemoteProjectOperatorFactory(operatorId, planNodeId, functionAndTypeManager, projections);
         }
     }
 }

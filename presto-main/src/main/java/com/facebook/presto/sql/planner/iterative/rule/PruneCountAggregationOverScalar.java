@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -42,10 +42,10 @@ public class PruneCountAggregationOverScalar
     private static final Pattern<AggregationNode> PATTERN = aggregation();
     private final StandardFunctionResolution functionResolution;
 
-    public PruneCountAggregationOverScalar(FunctionManager functionManager)
+    public PruneCountAggregationOverScalar(FunctionAndTypeManager functionAndTypeManager)
     {
-        requireNonNull(functionManager, "functionManager is null");
-        this.functionResolution = new FunctionResolution(functionManager);
+        requireNonNull(functionAndTypeManager, "functionManager is null");
+        this.functionResolution = new FunctionResolution(functionAndTypeManager);
     }
 
     @Override

@@ -22,7 +22,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -100,7 +100,7 @@ public final class ZipFunction
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionAndTypeManager functionAndTypeManager)
     {
         List<Type> types = this.typeParameters.stream().map(boundVariables::getTypeVariable).collect(toImmutableList());
         List<ArgumentProperty> argumentProperties = nCopies(types.size(), valueTypeArgumentProperty(RETURN_NULL_ON_NULL));

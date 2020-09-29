@@ -49,7 +49,7 @@ public class TestPruneUnreferencedOutputs
     @Test
     public void windowNodePruning()
     {
-        FunctionHandle functionHandle = createTestMetadataManager().getFunctionManager().lookupFunction("rank", ImmutableList.of());
+        FunctionHandle functionHandle = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("rank", ImmutableList.of());
         CallExpression call = call("rank", functionHandle, BIGINT);
         WindowNode.Frame frame = new WindowNode.Frame(
                 RANGE,
