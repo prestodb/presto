@@ -14,13 +14,14 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.common.Page;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.spi.spiller.SingleStreamSpiller;
 import com.facebook.presto.spi.spiller.SpillCipher;
+import com.facebook.presto.spi.spiller.SpillContext;
+import com.facebook.presto.spi.spiller.SpillerMemoryCallback;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +44,9 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
@@ -64,7 +67,7 @@ public class FileSingleStreamSpiller
     private final PagesSerde serde;
     private final SpillerStats spillerStats;
     private final SpillContext localSpillContext;
-    private final LocalMemoryContext memoryContext;
+    private final SpillerMemoryCallback memoryCallback;
     private final Optional<SpillCipher> spillCipher;
 
     private final ListeningExecutorService executor;
@@ -79,14 +82,14 @@ public class FileSingleStreamSpiller
             Path spillPath,
             SpillerStats spillerStats,
             SpillContext spillContext,
-            LocalMemoryContext memoryContext,
+            SpillerMemoryCallback memoryCallback,
             Optional<SpillCipher> spillCipher)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
         this.localSpillContext = spillContext.newLocalSpillContext();
-        this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        this.memoryCallback = requireNonNull(memoryCallback, "memoryCallback is null");
         this.spillCipher = requireNonNull(spillCipher, "spillCipher is null");
         checkState(!spillCipher.isPresent() || !spillCipher.get().isDestroyed(), "spillCipher is already destroyed");
         this.spillCipher.ifPresent(cipher -> closer.register(cipher::destroy));
@@ -100,7 +103,7 @@ public class FileSingleStreamSpiller
         // This means we start accounting for the memory before the spiller thread allocates it, and we release the memory reservation
         // before/after the spiller thread allocates that memory -- -- whether before or after depends on whether writePages() is in the
         // middle of execution when close() is called (note that this applies to both readPages() and writePages() methods).
-        this.memoryContext.setBytes(BUFFER_SIZE);
+        this.memoryCallback.setBytes(BUFFER_SIZE);
         try {
             this.targetFile = closer.register(new FileHolder(Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX)));
         }
@@ -110,12 +113,12 @@ public class FileSingleStreamSpiller
     }
 
     @Override
-    public ListenableFuture<?> spill(Iterator<Page> pageIterator)
+    public CompletableFuture<?> spill(Iterator<Page> pageIterator)
     {
         requireNonNull(pageIterator, "pageIterator is null");
         checkNoSpillInProgress();
         spillInProgress = executor.submit(() -> writePages(pageIterator));
-        return spillInProgress;
+        return toCompletableFuture(spillInProgress);
     }
 
     @Override
@@ -132,9 +135,9 @@ public class FileSingleStreamSpiller
     }
 
     @Override
-    public ListenableFuture<List<Page>> getAllSpilledPages()
+    public CompletableFuture<List<Page>> getAllSpilledPages()
     {
-        return executor.submit(() -> ImmutableList.copyOf(getSpilledPages()));
+        return toCompletableFuture(executor.submit(() -> ImmutableList.copyOf(getSpilledPages())));
     }
 
     private void writePages(Iterator<Page> pageIterator)
@@ -175,7 +178,7 @@ public class FileSingleStreamSpiller
     public void close()
     {
         closer.register(localSpillContext);
-        closer.register(() -> memoryContext.setBytes(0));
+        closer.register(() -> memoryCallback.setBytes(0));
         try {
             closer.close();
         }

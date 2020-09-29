@@ -26,7 +26,7 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.spi.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.NullOutputOperator.NullOutputOperatorFactory;
 import com.google.common.collect.ImmutableList;

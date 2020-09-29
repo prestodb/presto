@@ -13,20 +13,23 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.SpillContext;
+import com.facebook.presto.spi.spiller.SpillerMemoryCallback;
 
-import java.util.List;
-
-public interface SingleStreamSpillerFactory
+public class LocalMemoryContextCallback
 {
-    SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext);
-
-    static SingleStreamSpillerFactory unsupportedSingleStreamSpillerFactory()
+    private LocalMemoryContextCallback()
     {
-        return (types, spillContext, memoryContext) -> {
-            throw new UnsupportedOperationException();
+    }
+
+    public static SpillerMemoryCallback fromLocalMemoryContext(LocalMemoryContext memoryContext)
+    {
+        return new SpillerMemoryCallback() {
+            @Override
+            public void setBytes(long bytes)
+            {
+                memoryContext.setBytes(bytes);
+            }
         };
     }
 }

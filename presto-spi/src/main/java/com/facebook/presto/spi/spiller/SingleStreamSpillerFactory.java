@@ -11,26 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spiller;
+package com.facebook.presto.spi.spiller;
 
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.spi.spiller.SpillContext;
 
 import java.util.List;
 
-public interface PartitioningSpillerFactory
+public interface SingleStreamSpillerFactory
 {
-    PartitioningSpiller create(
-            List<Type> types,
-            PartitionFunction partitionFunction,
-            SpillContext spillContext,
-            AggregatedMemoryContext memoryContext);
+    SingleStreamSpiller create(List<Type> types, SpillContext spillContext, SpillerMemoryCallback memoryCallback);
 
-    static PartitioningSpillerFactory unsupportedPartitioningSpillerFactory()
+    static SingleStreamSpillerFactory unsupportedSingleStreamSpillerFactory()
     {
-        return (types, partitionFunction, spillContext, memoryContext) -> {
+        return (types, spillContext, memoryCallback) -> {
             throw new UnsupportedOperationException();
         };
     }

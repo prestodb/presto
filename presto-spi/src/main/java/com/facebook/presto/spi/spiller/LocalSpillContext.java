@@ -11,13 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spiller;
-
-import com.facebook.presto.operator.SpillContext;
+package com.facebook.presto.spi.spiller;
 
 import javax.annotation.concurrent.ThreadSafe;
-
-import static com.google.common.base.Preconditions.checkState;
 
 @ThreadSafe
 public final class LocalSpillContext
@@ -35,7 +31,9 @@ public final class LocalSpillContext
     @Override
     public synchronized void updateBytes(long bytes)
     {
-        checkState(!closed, "Already closed");
+        if (closed) {
+            throw new IllegalStateException("Already closed");
+        }
         parentSpillContext.updateBytes(bytes);
         spilledBytes += bytes;
     }

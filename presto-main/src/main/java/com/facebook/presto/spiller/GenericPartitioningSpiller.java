@@ -18,7 +18,9 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.operator.PartitionFunction;
-import com.facebook.presto.operator.SpillContext;
+import com.facebook.presto.spi.spiller.SingleStreamSpiller;
+import com.facebook.presto.spi.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.spi.spiller.SpillContext;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
@@ -38,6 +40,8 @@ import java.util.function.IntPredicate;
 import java.util.function.Predicate;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.presto.spiller.LocalMemoryContextCallback.fromLocalMemoryContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -175,14 +179,18 @@ public class GenericPartitioningSpiller
         }
         Page page = pageBuilder.build();
         pageBuilder.reset();
-        return getSpiller(partition).spill(page);
+        return toListenableFuture(getSpiller(partition).spill(page));
     }
 
     private synchronized SingleStreamSpiller getSpiller(int partition)
     {
         Optional<SingleStreamSpiller> spiller = spillers[partition];
         if (!spiller.isPresent()) {
-            spiller = Optional.of(closer.register(spillerFactory.create(types, spillContext, memoryContext.newLocalMemoryContext(GenericPartitioningSpiller.class.getSimpleName()))));
+            spiller = Optional.of(closer.register(
+                    spillerFactory.create(
+                            types,
+                            spillContext,
+                            fromLocalMemoryContext(memoryContext.newLocalMemoryContext(GenericPartitioningSpiller.class.getSimpleName())))));
             spillers[partition] = spiller;
         }
         return spiller.get();

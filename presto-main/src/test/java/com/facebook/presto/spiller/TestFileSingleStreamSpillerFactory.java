@@ -18,6 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.spiller.SingleStreamSpiller;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.io.Files;
@@ -37,6 +38,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
+import static com.facebook.presto.spiller.LocalMemoryContextCallback.fromLocalMemoryContext;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -92,7 +94,10 @@ public class TestFileSingleStreamSpillerFactory
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
         for (int i = 0; i < 10; ++i) {
-            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(
+                    types,
+                    bytes -> {},
+                    fromLocalMemoryContext(newSimpleAggregatedMemoryContext().newLocalMemoryContext("test")));
             getUnchecked(singleStreamSpiller.spill(page));
             spillers.add(singleStreamSpiller);
         }
@@ -126,7 +131,10 @@ public class TestFileSingleStreamSpillerFactory
                 false,
                 false);
 
-        spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        spillerFactory.create(
+                types,
+                bytes -> {},
+                fromLocalMemoryContext(newSimpleAggregatedMemoryContext().newLocalMemoryContext("test")));
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "No spill paths configured")
@@ -142,7 +150,10 @@ public class TestFileSingleStreamSpillerFactory
                 1.0,
                 false,
                 false);
-        spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        spillerFactory.create(
+                types,
+                bytes -> {},
+                fromLocalMemoryContext(newSimpleAggregatedMemoryContext().newLocalMemoryContext("test")));
     }
 
     @Test

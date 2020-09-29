@@ -19,7 +19,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.spi.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

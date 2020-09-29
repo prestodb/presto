@@ -17,8 +17,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spiller.SingleStreamSpiller;
-import com.facebook.presto.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.spi.spiller.SingleStreamSpiller;
+import com.facebook.presto.spi.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -40,6 +40,8 @@ import java.util.Queue;
 
 import static com.facebook.airlift.concurrent.MoreFutures.checkSuccess;
 import static com.facebook.airlift.concurrent.MoreFutures.getDone;
+import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.presto.spiller.LocalMemoryContextCallback.fromLocalMemoryContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -361,7 +363,7 @@ public class HashBuilderOperator
     {
         checkState(spillInProgress.isDone(), "Previous spill still in progress");
         checkSuccess(spillInProgress, "spilling failed");
-        spillInProgress = getSpiller().spill(page);
+        spillInProgress = toListenableFuture(getSpiller().spill(page));
     }
 
     @Override
@@ -415,8 +417,11 @@ public class HashBuilderOperator
         spiller = Optional.of(singleStreamSpillerFactory.create(
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
-                operatorContext.newLocalSystemMemoryContext(HashBuilderOperator.class.getSimpleName())));
-        return getSpiller().spill(index.getPages());
+                fromLocalMemoryContext(
+                        operatorContext.newLocalSystemMemoryContext(
+                                HashBuilderOperator.class.getSimpleName()))));
+
+        return toListenableFuture(getSpiller().spill(index.getPages()));
     }
 
     @Override
@@ -541,7 +546,7 @@ public class HashBuilderOperator
         verify(!unspillInProgress.isPresent());
 
         localUserMemoryContext.setBytes(getSpiller().getSpilledPagesInMemorySize() + index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
-        unspillInProgress = Optional.of(getSpiller().getAllSpilledPages());
+        unspillInProgress = Optional.of(toListenableFuture(getSpiller().getAllSpilledPages()));
 
         state = State.INPUT_UNSPILLING;
     }

@@ -11,17 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spiller;
+package com.facebook.presto.spi.spiller;
 
 import com.facebook.presto.common.Page;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
-
-import static com.google.common.collect.Iterators.singletonIterator;
 
 public interface SingleStreamSpiller
         extends Closeable
@@ -30,15 +29,34 @@ public interface SingleStreamSpiller
      * Initiate spilling of pages stream. Returns completed future once spilling has finished.
      * Next spill can be initiated as soon as previous one completes.
      */
-    ListenableFuture<?> spill(Iterator<Page> page);
+    CompletableFuture<?> spill(Iterator<Page> page);
 
     /**
      * Initiate spilling of single page. Returns completed future once spilling has finished.
      * Next spill can be initiated as soon as previous one completes.
      */
-    default ListenableFuture<?> spill(Page page)
+    default CompletableFuture<?> spill(Page page)
     {
-        return spill(singletonIterator(page));
+        return spill(
+                new Iterator<Page>() {
+                    boolean done;
+
+                    @Override
+                    public boolean hasNext()
+                    {
+                        return !done;
+                    }
+
+                    @Override
+                    public Page next()
+                    {
+                        if (done) {
+                            throw new NoSuchElementException();
+                        }
+                        done = true;
+                        return page;
+                    }
+                });
     }
 
     /**
@@ -55,7 +73,7 @@ public interface SingleStreamSpiller
     /**
      * Initiates read of previously spilled pages. The returned {@link Future} will be complete once all pages are read.
      */
-    ListenableFuture<List<Page>> getAllSpilledPages();
+    CompletableFuture<List<Page>> getAllSpilledPages();
 
     /**
      * Close releases/removes all underlying resources used during spilling

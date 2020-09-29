@@ -16,7 +16,9 @@ package com.facebook.presto.spiller;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.operator.SpillContext;
+import com.facebook.presto.spi.spiller.SingleStreamSpiller;
+import com.facebook.presto.spi.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.spi.spiller.SpillContext;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -28,6 +30,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.presto.spiller.LocalMemoryContextCallback.fromLocalMemoryContext;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -63,10 +67,12 @@ public class GenericSpiller
         SingleStreamSpiller singleStreamSpiller = singleStreamSpillerFactory.create(
                 types,
                 spillContext,
-                aggregatedMemoryContext.newLocalMemoryContext(GenericSpiller.class.getSimpleName()));
+                fromLocalMemoryContext(
+                        aggregatedMemoryContext.newLocalMemoryContext(
+                                GenericSpiller.class.getSimpleName())));
         closer.register(singleStreamSpiller);
         singleStreamSpillers.add(singleStreamSpiller);
-        previousSpill = singleStreamSpiller.spill(pageIterator);
+        previousSpill = toListenableFuture(singleStreamSpiller.spill(pageIterator));
         return previousSpill;
     }
 

@@ -15,7 +15,8 @@ package com.facebook.presto.spiller;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
-import com.facebook.presto.operator.SpillContext;
+import com.facebook.presto.spi.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.spi.spiller.SpillContext;
 import com.google.inject.Inject;
 
 import java.util.List;

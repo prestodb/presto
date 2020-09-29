@@ -17,11 +17,13 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
-import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.spiller.SingleStreamSpiller;
+import com.facebook.presto.spi.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spi.spiller.SpillCipher;
+import com.facebook.presto.spi.spiller.SpillContext;
+import com.facebook.presto.spi.spiller.SpillerMemoryCallback;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -151,7 +153,7 @@ public class FileSingleStreamSpillerFactory
     }
 
     @Override
-    public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
+    public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, SpillerMemoryCallback memoryCallback)
     {
         Optional<SpillCipher> spillCipher = Optional.empty();
         if (spillEncryptionEnabled) {
@@ -164,7 +166,7 @@ public class FileSingleStreamSpillerFactory
                 getNextSpillPath(),
                 spillerStats,
                 spillContext,
-                memoryContext,
+                memoryCallback,
                 spillCipher);
     }
 

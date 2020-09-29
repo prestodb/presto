@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
-import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import com.facebook.presto.operator.exchange.LocalExchange.LocalExchangeFactory;
@@ -32,10 +31,12 @@ import com.facebook.presto.operator.index.PageBuffer;
 import com.facebook.presto.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.spiller.SingleStreamSpiller;
+import com.facebook.presto.spi.spiller.SingleStreamSpillerFactory;
+import com.facebook.presto.spi.spiller.SpillContext;
+import com.facebook.presto.spi.spiller.SpillerMemoryCallback;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
-import com.facebook.presto.spiller.SingleStreamSpiller;
-import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.testing.MaterializedResult;
@@ -59,6 +60,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -71,6 +73,7 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
@@ -1575,7 +1578,7 @@ public class TestHashJoinOperator
         }
 
         @Override
-        public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
+        public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, SpillerMemoryCallback memoryCallback)
         {
             return new SingleStreamSpiller()
             {
@@ -1583,14 +1586,14 @@ public class TestHashJoinOperator
                 private final List<Page> spills = new ArrayList<>();
 
                 @Override
-                public ListenableFuture<?> spill(Iterator<Page> pageIterator)
+                public CompletableFuture<?> spill(Iterator<Page> pageIterator)
                 {
                     checkState(writing, "writing already finished");
                     if (failSpill) {
-                        return immediateFailedFuture(new PrestoException(GENERIC_INTERNAL_ERROR, "Spill failed"));
+                        return toCompletableFuture(immediateFailedFuture(new PrestoException(GENERIC_INTERNAL_ERROR, "Spill failed")));
                     }
                     Iterators.addAll(spills, pageIterator);
-                    return immediateFuture(null);
+                    return toCompletableFuture(immediateFuture(null));
                 }
 
                 @Override
@@ -1612,13 +1615,13 @@ public class TestHashJoinOperator
                 }
 
                 @Override
-                public ListenableFuture<List<Page>> getAllSpilledPages()
+                public CompletableFuture<List<Page>> getAllSpilledPages()
                 {
                     if (failUnspill) {
-                        return immediateFailedFuture(new PrestoException(GENERIC_INTERNAL_ERROR, "Unspill failed"));
+                        return toCompletableFuture(immediateFailedFuture(new PrestoException(GENERIC_INTERNAL_ERROR, "Unspill failed")));
                     }
                     writing = false;
-                    return immediateFuture(ImmutableList.copyOf(spills));
+                    return toCompletableFuture(immediateFuture(ImmutableList.copyOf(spills)));
                 }
 
                 @Override
