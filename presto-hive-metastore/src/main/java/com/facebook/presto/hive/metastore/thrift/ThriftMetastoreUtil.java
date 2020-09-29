@@ -84,6 +84,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
+import static com.facebook.presto.hive.HiveStorageFormat.CSV;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBinaryColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createBooleanColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDateColumnStatistics;
@@ -423,6 +424,21 @@ public final class ThriftMetastoreUtil
         if (table.getParameters() == null) {
             return false;
         }
+        SerDeInfo serdeInfo = getSerdeInfo(table);
+
+        return serdeInfo.getSerializationLib() != null &&
+                (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (serdeInfo.getParameters() != null && serdeInfo.getParameters().get(AVRO_SCHEMA_URL_KEY) != null)) &&
+                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+    }
+
+    public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)
+    {
+        return CSV.getSerDe().equals(getSerdeInfo(table).getSerializationLib());
+    }
+
+    private static SerDeInfo getSerdeInfo(org.apache.hadoop.hive.metastore.api.Table table)
+    {
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
             throw new PrestoException(HIVE_INVALID_METADATA, "Table does not contain a storage descriptor: " + table);
@@ -432,11 +448,8 @@ public final class ThriftMetastoreUtil
             throw new PrestoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
         }
 
-        return serdeInfo.getSerializationLib() != null &&
-                table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null &&
-                serdeInfo.getSerializationLib().equals(AVRO.getSerDe());
+        return serdeInfo;
     }
-
     public static Partition fromMetastoreApiPartition(org.apache.hadoop.hive.metastore.api.Partition partition, PartitionVersionFetcher partitionVersionFetcher)
     {
         StorageDescriptor storageDescriptor = partition.getSd();
