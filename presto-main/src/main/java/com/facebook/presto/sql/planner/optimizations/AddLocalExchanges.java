@@ -68,6 +68,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
+import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -663,7 +664,7 @@ public class AddLocalExchanges
         public PlanWithProperties visitJoin(JoinNode node, StreamPreferredProperties parentPreferences)
         {
             PlanWithProperties probe;
-            if (isSpillEnabled(session)) {
+            if (isSpillEnabled(session) && isJoinSpillingEnabled(session)) {
                 probe = planAndEnforce(
                         node.getLeft(),
                         fixedParallelism(),

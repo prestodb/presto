@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.sanity.PlanChecker.Checker;
 import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
+import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
@@ -93,7 +94,7 @@ public class ValidateStreamingJoins
                 checkArgument(requiredBuildProperty.isSatisfiedBy(buildProperties), "Build side needs an additional local exchange for join: %s", node.getId());
 
                 StreamPreferredProperties requiredProbeProperty;
-                if (isSpillEnabled(session)) {
+                if (isSpillEnabled(session) && isJoinSpillingEnabled(session)) {
                     requiredProbeProperty = fixedParallelism();
                 }
                 else {
