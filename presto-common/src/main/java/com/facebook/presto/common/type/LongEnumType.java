@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.TypeUtils.flipMap;
 import static com.facebook.presto.common.type.TypeUtils.normalizeEnumMap;
 import static com.facebook.presto.common.type.TypeUtils.validateEnumMap;
 import static java.lang.String.format;
@@ -71,18 +72,26 @@ public class LongEnumType
     public static class LongEnumMap
     {
         private final Map<String, Long> enumMap;
+        private final Map<Long, String> flippedEnumMap;
 
         @JsonCreator
         public LongEnumMap(@JsonProperty("enumMap") Map<String, Long> enumMap)
         {
             validateEnumMap(enumMap);
             this.enumMap = normalizeEnumMap(enumMap);
+            this.flippedEnumMap = flipMap(this.enumMap);
         }
 
         @JsonProperty
         public Map<String, Long> getEnumMap()
         {
             return enumMap;
+        }
+
+        @JsonProperty
+        public Map<Long, String> getEnumMapFlipped()
+        {
+            return flippedEnumMap;
         }
 
         @Override

@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.TypeUtils.flipMap;
 import static com.facebook.presto.common.type.TypeUtils.normalizeEnumMap;
 import static com.facebook.presto.common.type.TypeUtils.validateEnumMap;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -59,18 +60,25 @@ public class VarcharEnumType
     public static class VarcharEnumMap
     {
         private final Map<String, String> enumMap;
+        private final Map<String, String> flippedEnumMap;
 
         @JsonCreator
         public VarcharEnumMap(@JsonProperty("enumMap") Map<String, String> enumMap)
         {
             validateEnumMap(enumMap);
             this.enumMap = normalizeEnumMap(enumMap);
+            this.flippedEnumMap = flipMap(this.enumMap);
         }
 
         @JsonProperty
         public Map<String, String> getEnumMap()
         {
             return enumMap;
+        }
+
+        public Map<String, String> getEnumMapFlipped()
+        {
+            return flippedEnumMap;
         }
 
         @Override

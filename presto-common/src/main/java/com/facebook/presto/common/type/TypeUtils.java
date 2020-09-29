@@ -131,4 +131,10 @@ public final class TypeUtils
         return entries.entrySet().stream()
                 .collect(toMap(e -> e.getKey().toUpperCase(ENGLISH), Map.Entry::getValue));
     }
+
+    static <K, V> Map<V, K> flipMap(Map<K, V> map)
+    {
+        return map.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+    }
 }

@@ -34,6 +34,9 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.StandardTypes.ARRAY;
+import static com.facebook.presto.common.type.StandardTypes.MAP;
+import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
@@ -130,6 +133,33 @@ public class ClientTypeSignature
     public List<ClientTypeSignatureParameter> getArguments()
     {
         return arguments;
+    }
+
+    public boolean isEnum()
+    {
+        if (arguments.size() != 1) {
+            return false;
+        }
+        ParameterKind argumentKind = arguments.get(0).getKind();
+        return ParameterKind.LONG_ENUM.equals(argumentKind) || ParameterKind.VARCHAR_ENUM.equals(argumentKind);
+    }
+
+    public static boolean hasEnum(ClientTypeSignature signature)
+    {
+        if (signature.getRawType().equals(ARRAY)) {
+            return hasEnum(signature.getArguments().get(0).getTypeSignature());
+        }
+        if (signature.getRawType().equals(MAP)) {
+            List<ClientTypeSignatureParameter> parameters = signature.getArguments();
+            return hasEnum(parameters.get(0).getTypeSignature()) || hasEnum(parameters.get(1).getTypeSignature());
+        }
+        if (signature.getRawType().equals(ROW)) {
+            List<ClientTypeSignatureParameter> parameters = signature.getArguments();
+            return parameters.stream()
+                    .map(p -> new ClientTypeSignature(p.getNamedTypeSignature().getTypeSignature()))
+                    .anyMatch(ClientTypeSignature::hasEnum);
+        }
+        return signature.isEnum();
     }
 
     /**

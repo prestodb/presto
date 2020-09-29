@@ -110,6 +110,16 @@ public class ClientTypeSignatureParameter
         return getValue(ParameterKind.NAMED_TYPE, NamedTypeSignature.class);
     }
 
+    public LongEnumMap getLongEnumMap()
+    {
+        return getValue(ParameterKind.LONG_ENUM, LongEnumMap.class);
+    }
+
+    public VarcharEnumMap getVarcharEnumMap()
+    {
+        return getValue(ParameterKind.VARCHAR_ENUM, VarcharEnumMap.class);
+    }
+
     @Override
     public String toString()
     {
