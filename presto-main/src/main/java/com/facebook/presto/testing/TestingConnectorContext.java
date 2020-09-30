@@ -51,14 +51,14 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
-import com.facebook.presto.type.TypeRegistry;
+
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 
 public class TestingConnectorContext
         implements ConnectorContext
 {
     private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new ConnectorId("test"));
-    private final TypeManager typeManager = new TypeRegistry();
-    private final FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+    private final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
     private final StandardFunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager);
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
     private final PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig()));
@@ -78,7 +78,7 @@ public class TestingConnectorContext
     @Override
     public TypeManager getTypeManager()
     {
-        return typeManager;
+        return functionAndTypeManager;
     }
 
     @Override

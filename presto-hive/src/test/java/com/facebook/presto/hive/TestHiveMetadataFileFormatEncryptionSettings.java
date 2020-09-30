@@ -64,13 +64,13 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.PARTITION_UPDATE_CODEC;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
-import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.APPEND;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.OVERWRITE;
@@ -104,7 +104,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
         metadataFactory = new HiveMetadataFactory(
                 metastore,
                 HDFS_ENVIRONMENT,
-                new HivePartitionManager(TYPE_MANAGER, HIVE_CLIENT_CONFIG),
+                new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, HIVE_CLIENT_CONFIG),
                 DateTimeZone.forTimeZone(TimeZone.getTimeZone(HIVE_CLIENT_CONFIG.getTimeZone())),
                 true,
                 false,
@@ -113,7 +113,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 true,
                 HIVE_CLIENT_CONFIG.getMaxPartitionBatchSize(),
                 HIVE_CLIENT_CONFIG.getMaxPartitionsPerScan(),
-                TYPE_MANAGER,
+                FUNCTION_AND_TYPE_MANAGER,
                 new HiveLocationService(HDFS_ENVIRONMENT),
                 FUNCTION_RESOLUTION,
                 ROW_EXPRESSION_SERVICE,

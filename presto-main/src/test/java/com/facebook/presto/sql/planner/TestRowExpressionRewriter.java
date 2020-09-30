@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -21,9 +20,7 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -33,6 +30,7 @@ import static com.facebook.presto.common.function.OperatorType.GREATER_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.TestRowExpressionRewriter.NegationExpressionRewriter.rewrite;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -47,8 +45,7 @@ public class TestRowExpressionRewriter
     @BeforeClass
     public void setup()
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        this.functionAndTypeManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        this.functionAndTypeManager = createTestFunctionAndTypeManager();
     }
 
     @Test
@@ -120,8 +117,7 @@ public class TestRowExpressionRewriter
 
             Visitor()
             {
-                TypeRegistry typeManager = new TypeRegistry();
-                this.functionAndTypeManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+                this.functionAndTypeManager = createTestFunctionAndTypeManager();
                 this.functionResolution = new FunctionResolution(functionAndTypeManager);
             }
 

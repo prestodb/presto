@@ -13,17 +13,12 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ColumnarMap;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.orc.metadata.CompressionKind;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
@@ -54,14 +49,6 @@ import static org.testng.Assert.assertNull;
 
 public class TestOrcMapNullKey
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    public TestOrcMapNullKey()
-    {
-        // Associate TYPE_MANAGER with a function manager.
-        new FunctionAndTypeManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
-    }
-
     @DataProvider(name = "mapNullKeysEnabled")
     public static Object[][] mapNullKeysEnabled()
     {

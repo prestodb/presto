@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -38,9 +36,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlNullable;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.LiteralParameter;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -53,6 +49,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
@@ -70,8 +67,7 @@ import static org.testng.Assert.assertTrue;
 public class TestAnnotationEngineForScalars
         extends TestAnnotationEngine
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = new FunctionAndTypeManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
 
     @ScalarFunction("single_implementation_parametric_scalar")
     @Description("Simple scalar with single implementation based on class")

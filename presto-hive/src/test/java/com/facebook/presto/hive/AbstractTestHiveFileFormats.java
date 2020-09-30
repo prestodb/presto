@@ -103,8 +103,8 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveManifestUtils.getFileSize;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
-import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.hive.HiveTestUtils.mapType;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
@@ -508,7 +508,7 @@ public abstract class AbstractTestHiveFileFormats
         List<Type> types = testColumns.stream()
                 .map(TestColumn::getType)
                 .map(HiveType::valueOf)
-                .map(type -> type.getType(TYPE_MANAGER))
+                .map(type -> type.getType(FUNCTION_AND_TYPE_MANAGER))
                 .collect(toList());
 
         PageBuilder pageBuilder = new PageBuilder(types);
@@ -689,7 +689,7 @@ public abstract class AbstractTestHiveFileFormats
             for (int i = 0, testColumnsSize = testColumns.size(); i < testColumnsSize; i++) {
                 TestColumn testColumn = testColumns.get(i);
 
-                Type type = HiveType.valueOf(testColumn.getObjectInspector().getTypeName()).getType(TYPE_MANAGER);
+                Type type = HiveType.valueOf(testColumn.getObjectInspector().getTypeName()).getType(FUNCTION_AND_TYPE_MANAGER);
                 Object fieldFromCursor = getFieldFromCursor(cursor, type, i);
                 if (fieldFromCursor == null) {
                     assertEquals(null, testColumn.getExpectedValue(), String.format("Expected null for column %s", testColumn.getName()));

@@ -162,7 +162,6 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.statusservice.NodeStatusService;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.util.FinalizerService;
 import com.facebook.presto.util.GcStatusMonitor;
 import com.facebook.presto.version.EmbedVersion;
@@ -433,8 +432,7 @@ public class ServerMainModule
         binder.bind(DeterminismEvaluator.class).to(RowExpressionDeterminismEvaluator.class).in(Scopes.SINGLETON);
 
         // type
-        binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
-        binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TypeManager.class).to(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         newSetBinder(binder, Type.class);
 

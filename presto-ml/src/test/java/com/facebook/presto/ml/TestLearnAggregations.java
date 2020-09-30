@@ -14,7 +14,6 @@
 package com.facebook.presto.ml;
 
 import com.facebook.presto.RowPageBuilder;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -31,8 +30,6 @@ import com.facebook.presto.ml.type.RegressorType;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
@@ -43,6 +40,7 @@ import java.util.Random;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.testing.AggregationTestUtils.generateInternalAggregationFunction;
 import static com.facebook.presto.tests.StructuralTestUtil.mapBlockOf;
 import static org.testng.Assert.assertNotNull;
@@ -53,12 +51,10 @@ public class TestLearnAggregations
     private static final FunctionAndTypeManager functionAndTypeManager;
 
     static {
-        TypeRegistry typeRegistry = new TypeRegistry();
-        typeRegistry.addParametricType(new ClassifierParametricType());
-        typeRegistry.addType(ModelType.MODEL);
-        typeRegistry.addType(RegressorType.REGRESSOR);
-
-        functionAndTypeManager = new FunctionAndTypeManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
+        functionAndTypeManager = createTestFunctionAndTypeManager();
+        functionAndTypeManager.addParametricType(new ClassifierParametricType());
+        functionAndTypeManager.addType(ModelType.MODEL);
+        functionAndTypeManager.addType(RegressorType.REGRESSOR);
     }
 
     @Test

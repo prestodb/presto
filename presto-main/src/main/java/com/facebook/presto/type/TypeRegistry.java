@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
@@ -30,16 +29,13 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogType;
 import com.facebook.presto.type.setdigest.SetDigestType;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -97,7 +93,6 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class TypeRegistry
-        implements TypeManager
 {
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
@@ -107,13 +102,6 @@ public final class TypeRegistry
 
     private final LoadingCache<TypeSignature, Type> parametricTypeCache;
 
-    @VisibleForTesting
-    public TypeRegistry()
-    {
-        this(ImmutableSet.of(), new FeaturesConfig());
-    }
-
-    @Inject
     public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig)
     {
         requireNonNull(types, "types is null");
@@ -175,7 +163,6 @@ public final class TypeRegistry
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
-    @Override
     public Type getType(TypeSignature signature)
     {
         Type type = types.get(signature);
@@ -191,7 +178,6 @@ public final class TypeRegistry
         return type;
     }
 
-    @Override
     public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
         return getType(new TypeSignature(baseTypeName, typeParameters));
@@ -202,7 +188,7 @@ public final class TypeRegistry
         List<TypeParameter> parameters = new ArrayList<>();
 
         for (TypeSignatureParameter parameter : signature.getParameters()) {
-            TypeParameter typeParameter = TypeParameter.of(parameter, this);
+            TypeParameter typeParameter = TypeParameter.of(parameter, functionAndTypeManager);
             parameters.add(typeParameter);
         }
 
@@ -221,13 +207,11 @@ public final class TypeRegistry
         return instantiatedType;
     }
 
-    @Override
     public List<Type> getTypes()
     {
         return ImmutableList.copyOf(types.values());
     }
 
-    @Override
     public boolean isTypeOnlyCoercion(Type source, Type result)
     {
         if (source.equals(result)) {
@@ -269,7 +253,6 @@ public final class TypeRegistry
         return false;
     }
 
-    @Override
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
         TypeCompatibility compatibility = compatibility(firstType, secondType);
@@ -279,7 +262,6 @@ public final class TypeRegistry
         return Optional.of(compatibility.getCommonSuperType());
     }
 
-    @Override
     public boolean canCoerce(Type fromType, Type toType)
     {
         TypeCompatibility typeCompatibility = compatibility(fromType, toType);
@@ -445,7 +427,6 @@ public final class TypeRegistry
         parametricTypes.putIfAbsent(name, parametricType);
     }
 
-    @Override
     public Collection<ParametricType> getParametricTypes()
     {
         return ImmutableList.copyOf(parametricTypes.values());
@@ -455,7 +436,6 @@ public final class TypeRegistry
      * coerceTypeBase and isCovariantParametrizedType defines all hand-coded rules for type coercion.
      * Other methods should reference these two functions instead of hand-code new rules.
      */
-    @Override
     public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
     {
         String sourceTypeName = sourceType.getTypeSignature().getBase();
@@ -671,11 +651,6 @@ public final class TypeRegistry
     {
         // if we ever introduce contravariant, this function should be changed to return an enumeration: INVARIANT, COVARIANT, CONTRAVARIANT
         return type instanceof MapType || type instanceof ArrayType;
-    }
-
-    public static boolean isCovariantTypeBase(String typeBase)
-    {
-        return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
     }
 
     public static class TypeCompatibility

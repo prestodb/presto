@@ -13,13 +13,10 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -53,6 +50,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
@@ -68,15 +66,13 @@ import static org.testng.Assert.fail;
 
 public class TestTypeRegistry
 {
-    private final TypeManager typeRegistry = new TypeRegistry();
-    private final FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
+    private final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
     @Test
     public void testNonexistentType()
     {
         try {
-            TypeManager typeManager = new TypeRegistry();
-            typeManager.getType(parseTypeSignature("not a real type"));
+            functionAndTypeManager.getType(parseTypeSignature("not a real type"));
             fail("Expect to throw IllegalArgumentException");
         }
         catch (IllegalArgumentException e) {
@@ -218,11 +214,11 @@ public class TestTypeRegistry
     @Test
     public void testCoerceTypeBase()
     {
-        assertEquals(typeRegistry.coerceTypeBase(createDecimalType(21, 1), "decimal"), Optional.of(createDecimalType(21, 1)));
-        assertEquals(typeRegistry.coerceTypeBase(BIGINT, "decimal"), Optional.of(createDecimalType(19, 0)));
-        assertEquals(typeRegistry.coerceTypeBase(INTEGER, "decimal"), Optional.of(createDecimalType(10, 0)));
-        assertEquals(typeRegistry.coerceTypeBase(TINYINT, "decimal"), Optional.of(createDecimalType(3, 0)));
-        assertEquals(typeRegistry.coerceTypeBase(SMALLINT, "decimal"), Optional.of(createDecimalType(5, 0)));
+        assertEquals(functionAndTypeManager.coerceTypeBase(createDecimalType(21, 1), "decimal"), Optional.of(createDecimalType(21, 1)));
+        assertEquals(functionAndTypeManager.coerceTypeBase(BIGINT, "decimal"), Optional.of(createDecimalType(19, 0)));
+        assertEquals(functionAndTypeManager.coerceTypeBase(INTEGER, "decimal"), Optional.of(createDecimalType(10, 0)));
+        assertEquals(functionAndTypeManager.coerceTypeBase(TINYINT, "decimal"), Optional.of(createDecimalType(3, 0)));
+        assertEquals(functionAndTypeManager.coerceTypeBase(SMALLINT, "decimal"), Optional.of(createDecimalType(5, 0)));
     }
 
     @Test
@@ -231,10 +227,10 @@ public class TestTypeRegistry
         Set<Type> types = getStandardPrimitiveTypes();
         for (Type transitiveType : types) {
             for (Type resultType : types) {
-                if (typeRegistry.canCoerce(transitiveType, resultType)) {
+                if (functionAndTypeManager.canCoerce(transitiveType, resultType)) {
                     for (Type sourceType : types) {
-                        if (typeRegistry.canCoerce(sourceType, transitiveType)) {
-                            if (!typeRegistry.canCoerce(sourceType, resultType)) {
+                        if (functionAndTypeManager.canCoerce(sourceType, transitiveType)) {
+                            if (!functionAndTypeManager.canCoerce(sourceType, resultType)) {
                                 fail(format("'%s' -> '%s' coercion is missing when transitive coercion is possible: '%s' -> '%s' -> '%s'",
                                         sourceType, resultType, sourceType, transitiveType, resultType));
                             }
@@ -251,7 +247,7 @@ public class TestTypeRegistry
         Set<Type> types = getStandardPrimitiveTypes();
         for (Type sourceType : types) {
             for (Type resultType : types) {
-                if (typeRegistry.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
+                if (functionAndTypeManager.canCoerce(sourceType, resultType) && sourceType != UNKNOWN && resultType != UNKNOWN) {
                     try {
                         functionAndTypeManager.lookupCast(CAST, sourceType.getTypeSignature(), resultType.getTypeSignature());
                     }
@@ -266,7 +262,7 @@ public class TestTypeRegistry
     @Test
     public void testOperatorsImplemented()
     {
-        for (Type type : typeRegistry.getTypes()) {
+        for (Type type : functionAndTypeManager.getTypes()) {
             if (type.isComparable()) {
                 functionAndTypeManager.resolveOperator(EQUAL, fromTypes(type, type));
                 functionAndTypeManager.resolveOperator(NOT_EQUAL, fromTypes(type, type));
@@ -296,7 +292,7 @@ public class TestTypeRegistry
     {
         ImmutableSet.Builder<Type> builder = ImmutableSet.builder();
         // add unparametrized types
-        builder.addAll(typeRegistry.getTypes());
+        builder.addAll(functionAndTypeManager.getTypes());
         // add corner cases for parametrized types
         builder.add(createDecimalType(1, 0));
         builder.add(createDecimalType(17, 0));
@@ -312,11 +308,11 @@ public class TestTypeRegistry
 
     private CompatibilityAssertion assertThat(Type firstType, Type secondType)
     {
-        Optional<Type> commonSuperType1 = typeRegistry.getCommonSuperType(firstType, secondType);
-        Optional<Type> commonSuperType2 = typeRegistry.getCommonSuperType(secondType, firstType);
+        Optional<Type> commonSuperType1 = functionAndTypeManager.getCommonSuperType(firstType, secondType);
+        Optional<Type> commonSuperType2 = functionAndTypeManager.getCommonSuperType(secondType, firstType);
         assertEquals(commonSuperType1, commonSuperType2, "Expected getCommonSuperType to return the same result when invoked in either order");
-        boolean canCoerceFirstToSecond = typeRegistry.canCoerce(firstType, secondType);
-        boolean canCoerceSecondToFirst = typeRegistry.canCoerce(secondType, firstType);
+        boolean canCoerceFirstToSecond = functionAndTypeManager.canCoerce(firstType, secondType);
+        boolean canCoerceSecondToFirst = functionAndTypeManager.canCoerce(secondType, firstType);
         return new CompatibilityAssertion(commonSuperType1, canCoerceFirstToSecond, canCoerceSecondToFirst);
     }
 
@@ -327,17 +323,17 @@ public class TestTypeRegistry
 
     private boolean isTypeOnlyCoercion(Type actual, Type expected)
     {
-        return typeRegistry.isTypeOnlyCoercion(actual, expected);
+        return functionAndTypeManager.isTypeOnlyCoercion(actual, expected);
     }
 
     private boolean isTypeOnlyCoercion(String actual, String expected)
     {
-        return typeRegistry.isTypeOnlyCoercion(createType(actual), createType(expected));
+        return functionAndTypeManager.isTypeOnlyCoercion(createType(actual), createType(expected));
     }
 
     private Type createType(String signature)
     {
-        return typeRegistry.getType(TypeSignature.parseTypeSignature(signature));
+        return functionAndTypeManager.getType(TypeSignature.parseTypeSignature(signature));
     }
 
     private class CompatibilityAssertion

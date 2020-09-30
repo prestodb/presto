@@ -14,8 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
-import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeSignature;
@@ -28,10 +26,8 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -48,6 +44,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
@@ -75,8 +72,7 @@ public class TestFunctionAndTypeManager
     @Test
     public void testIdentityCast()
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionAndTypeManager functionAndTypeManager = createFunctionManager(typeManager);
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         FunctionHandle exactOperator = functionAndTypeManager.lookupCast(CastType.CAST, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature());
         assertEquals(exactOperator, new BuiltInFunctionHandle(new Signature(CAST.getFunctionName(), SCALAR, HYPER_LOG_LOG.getTypeSignature(), HYPER_LOG_LOG.getTypeSignature())));
     }
@@ -84,8 +80,7 @@ public class TestFunctionAndTypeManager
     @Test
     public void testExactMatchBeforeCoercion()
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionAndTypeManager functionAndTypeManager = createFunctionManager(typeManager);
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         boolean foundOperator = false;
         for (SqlFunction function : functionAndTypeManager.listOperators()) {
             OperatorType operatorType = tryGetOperatorType(function.getSignature().getName()).get();
@@ -113,8 +108,7 @@ public class TestFunctionAndTypeManager
         assertEquals(signature.getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionAndTypeManager functionAndTypeManager = createFunctionManager(typeManager);
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         BuiltInFunctionHandle functionHandle = (BuiltInFunctionHandle) functionAndTypeManager.resolveFunction(TEST_SESSION.getTransactionId(), signature.getName(), fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(functionAndTypeManager.getFunctionMetadata(functionHandle).getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
@@ -130,8 +124,7 @@ public class TestFunctionAndTypeManager
                 .filter(input -> input.getSignature().getNameSuffix().equals("custom_add"))
                 .collect(toImmutableList());
 
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionAndTypeManager functionAndTypeManager = createFunctionManager(typeManager);
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         functionAndTypeManager.registerBuiltInFunctions(functions);
         functionAndTypeManager.registerBuiltInFunctions(functions);
     }
@@ -143,16 +136,14 @@ public class TestFunctionAndTypeManager
                 .scalars(ScalarSum.class)
                 .getFunctions();
 
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionAndTypeManager functionAndTypeManager = createFunctionManager(typeManager);
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         functionAndTypeManager.registerBuiltInFunctions(functions);
     }
 
     @Test
     public void testListingVisibilityBetaFunctionsDisabled()
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionAndTypeManager functionAndTypeManager = createFunctionManager(typeManager);
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         List<SqlFunction> functions = functionAndTypeManager.listFunctions(TEST_SESSION);
         List<String> names = transform(functions, input -> input.getSignature().getNameSuffix());
 
@@ -174,8 +165,7 @@ public class TestFunctionAndTypeManager
                 .setSchema(TINY_SCHEMA_NAME)
                 .setSystemProperty(EXPERIMENTAL_FUNCTIONS_ENABLED, "true")
                 .build();
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionAndTypeManager functionAndTypeManager = createFunctionManager(typeManager);
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         List<SqlFunction> functions = functionAndTypeManager.listFunctions(session);
         List<String> names = transform(functions, input -> input.getSignature().getNameSuffix());
 
@@ -192,8 +182,7 @@ public class TestFunctionAndTypeManager
     @Test
     public void testOperatorTypes()
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         FunctionResolution functionResolution = new FunctionResolution(functionAndTypeManager);
 
         assertTrue(functionAndTypeManager.getFunctionMetadata(functionResolution.arithmeticFunction(ADD, BIGINT, BIGINT)).getOperatorType().map(OperatorType::isArithmeticOperator).orElse(false));
@@ -344,13 +333,6 @@ public class TestFunctionAndTypeManager
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
     }
 
-    private FunctionAndTypeManager createFunctionManager(TypeRegistry typeManager)
-    {
-        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
-        FeaturesConfig featuresConfig = new FeaturesConfig();
-        return new FunctionAndTypeManager(typeManager, blockEncodingManager, featuresConfig);
-    }
-
     private SignatureBuilder functionSignature(String... argumentTypes)
     {
         return functionSignature(ImmutableList.copyOf(argumentTypes), "boolean");
@@ -382,9 +364,6 @@ public class TestFunctionAndTypeManager
     private static class ResolveFunctionAssertion
     {
         private static final String TEST_FUNCTION_NAME = "TEST_FUNCTION_NAME";
-
-        private final TypeRegistry typeRegistry = new TypeRegistry();
-        private final BlockEncodingSerde blockEncoding = new BlockEncodingManager();
 
         private List<SignatureBuilder> functionSignatures = ImmutableList.of();
         private List<TypeSignature> parameterTypes = ImmutableList.of();
@@ -428,8 +407,7 @@ public class TestFunctionAndTypeManager
 
         private FunctionHandle resolveFunctionHandle()
         {
-            FeaturesConfig featuresConfig = new FeaturesConfig();
-            FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(typeRegistry, blockEncoding, featuresConfig);
+            FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             functionAndTypeManager.registerBuiltInFunctions(createFunctionsFromSignatures());
             return functionAndTypeManager.resolveFunction(TEST_SESSION.getTransactionId(), qualifyFunctionName(QualifiedName.of(TEST_FUNCTION_NAME)), fromTypeSignatures(parameterTypes));
         }

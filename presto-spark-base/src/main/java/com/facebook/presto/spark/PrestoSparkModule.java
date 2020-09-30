@@ -154,7 +154,6 @@ import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
@@ -276,8 +275,7 @@ public class PrestoSparkModule
 
         // type
         newSetBinder(binder, Type.class);
-        binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
-        binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(TypeManager.class).to(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
 
         // PageSorter

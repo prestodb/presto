@@ -14,6 +14,7 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.raptor.NodeSupplier;
 import com.facebook.presto.raptor.metadata.BucketNode;
@@ -25,7 +26,6 @@ import com.facebook.presto.raptor.storage.BucketBalancer.BucketAssignment;
 import com.facebook.presto.raptor.storage.BucketBalancer.ClusterState;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.testing.TestingNodeManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.airlift.testing.Assertions.assertLessThanOrEqual;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.raptor.metadata.Distribution.serializeColumnTypes;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
@@ -67,9 +68,9 @@ public class TestBucketBalancer
     @BeforeMethod
     public void setup()
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
-        dbi.registerMapper(new Distribution.Mapper(typeRegistry));
+        dbi.registerMapper(new Distribution.Mapper(functionAndTypeManager));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 

@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -54,6 +53,7 @@ import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -137,10 +137,10 @@ public class BenchmarkBatchStreamReaders
                 throws Exception
         {
             if (typeSignature.startsWith("varchar")) {
-                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature("varchar"));
+                type = createTestFunctionAndTypeManager().getType(TypeSignature.parseTypeSignature("varchar"));
             }
             else {
-                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
+                type = createTestFunctionAndTypeManager().getType(TypeSignature.parseTypeSignature(typeSignature));
             }
 
             temporaryDirectory = createTempDir();

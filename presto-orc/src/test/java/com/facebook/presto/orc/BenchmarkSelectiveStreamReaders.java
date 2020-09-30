@@ -31,7 +31,6 @@ import com.facebook.presto.orc.TupleDomainFilter.BytesRange;
 import com.facebook.presto.orc.TupleDomainFilter.DoubleRange;
 import com.facebook.presto.orc.TupleDomainFilter.FloatRange;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -79,6 +78,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -228,10 +228,10 @@ public class BenchmarkSelectiveStreamReaders
                 type = VarcharType.createVarcharType(9);
             }
             else if (typeSignature.startsWith("varchar")) {
-                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature("varchar"));
+                type = createTestFunctionAndTypeManager().getType(TypeSignature.parseTypeSignature("varchar"));
             }
             else {
-                type = new TypeRegistry().getType(TypeSignature.parseTypeSignature(typeSignature));
+                type = createTestFunctionAndTypeManager().getType(TypeSignature.parseTypeSignature(typeSignature));
             }
 
             temporaryDirectory = createTempDir();

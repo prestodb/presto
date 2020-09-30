@@ -13,11 +13,9 @@
  */
 package com.facebook.presto.sql.relational;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -25,8 +23,6 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -46,6 +42,7 @@ import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ARRAY_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_MAP_CAST;
 import static com.facebook.presto.metadata.CastType.JSON_TO_ROW_CAST;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -65,8 +62,7 @@ public class TestRowExpressionOptimizer
     @BeforeClass
     public void setUp()
     {
-        TypeManager typeManager = new TypeRegistry();
-        functionAndTypeManager = new FunctionAndTypeManager(typeManager, new BlockEncodingManager(), new FeaturesConfig());
+        functionAndTypeManager = createTestFunctionAndTypeManager();
         optimizer = new RowExpressionOptimizer(MetadataManager.createTestMetadataManager());
     }
 
