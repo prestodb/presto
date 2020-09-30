@@ -481,7 +481,7 @@ public class TestLogicalPlanner
                                 filter("orderkey = BIGINT '1'",
                                         tableScan("orders", ImmutableMap.of("orderkey", "orderkey"))),
                                 anyTree(
-                                        project(ImmutableMap.of("orderkey", expression("1")), any())))));
+                                        values("expr")))));
     }
 
     @Test
@@ -778,8 +778,7 @@ public class TestLogicalPlanner
                                         join(LEFT, ImmutableList.of(), Optional.of("BIGINT '3' = ORDERKEY"),
                                                 any(
                                                         tableScan("orders", ImmutableMap.of("ORDERKEY", "orderkey"))),
-                                                project(ImmutableMap.of("NON_NULL", expression("true")),
-                                                        node(ValuesNode.class)))))));
+                                                values("non_null"))))));
     }
 
     @Test

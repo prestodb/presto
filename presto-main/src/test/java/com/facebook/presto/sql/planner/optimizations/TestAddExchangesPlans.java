@@ -93,7 +93,7 @@ public class TestAddExchangesPlans
                                         anyTree(
                                                 exchange(REMOTE_STREAMING, REPARTITION,
                                                         anyTree(
-                                                                values())))))));
+                                                                values("expr_3"))))))));
     }
 
     @Test
@@ -123,7 +123,7 @@ public class TestAddExchangesPlans
                                                         tableScan("nation", ImmutableMap.of("nationkey", "nationkey")))),
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(
-                                                        values()))),
+                                                        values("expr_3")))),
                                 anyTree(
                                         exchange(REMOTE_STREAMING, REPARTITION,
                                                 anyTree(

@@ -28,10 +28,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
-import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specification;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
@@ -51,10 +49,8 @@ public class TestCanonicalize
                         "CROSS JOIN (VALUES 1)",
                 anyTree(
                         join(INNER, ImmutableList.of(), Optional.empty(),
-                                project(
-                                        ImmutableMap.of("X", expression("BIGINT '1'")),
-                                        values(ImmutableMap.of())),
-                                values(ImmutableMap.of()))));
+                                values("expr"),
+                                values("field"))));
     }
 
     @Test

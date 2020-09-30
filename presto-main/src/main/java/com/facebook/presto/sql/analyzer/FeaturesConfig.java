@@ -162,6 +162,7 @@ public class FeaturesConfig
     private boolean optimizeNullsInJoin;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
+    private boolean optimizeUnionOverValues = true;
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -1396,6 +1397,18 @@ public class FeaturesConfig
     public FeaturesConfig setInlineSqlFunctions(boolean inlineSqlFunctions)
     {
         this.inlineSqlFunctions = inlineSqlFunctions;
+        return this;
+    }
+
+    public boolean isOptimizeUnionOverValues()
+    {
+        return optimizeUnionOverValues;
+    }
+
+    @Config("optimize-union-over-values")
+    public FeaturesConfig setOptimizeUnionOverValues(boolean optimizeUnionOverValues)
+    {
+        this.optimizeUnionOverValues = optimizeUnionOverValues;
         return this;
     }
 }

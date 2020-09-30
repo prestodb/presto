@@ -168,6 +168,7 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
+    public static final String OPTIMIZE_UNION_OVER_VALUES = "optimize_union_over_values";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -875,6 +876,11 @@ public final class SystemSessionProperties
                         INLINE_SQL_FUNCTIONS,
                         "Inline SQL function definition at plan time",
                         featuresConfig.isInlineSqlFunctions(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_UNION_OVER_VALUES,
+                        "Merge values nodes under union operator",
+                        featuresConfig.isOptimizeUnionOverValues(),
                         false));
     }
 
@@ -1480,5 +1486,10 @@ public final class SystemSessionProperties
     public static boolean isInlineSqlFunctions(Session session)
     {
         return session.getSystemProperty(INLINE_SQL_FUNCTIONS, Boolean.class);
+    }
+
+    public static boolean isOptimizeUnionOverValues(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_UNION_OVER_VALUES, Boolean.class);
     }
 }
