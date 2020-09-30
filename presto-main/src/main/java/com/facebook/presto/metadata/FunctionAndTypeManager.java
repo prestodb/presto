@@ -127,7 +127,7 @@ public class FunctionAndTypeManager
             HandleResolver handleResolver)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.builtInFunctionNamespaceManager = new BuiltInFunctionNamespaceManager(typeManager, blockEncodingSerde, featuresConfig, this);
+        this.builtInFunctionNamespaceManager = new BuiltInFunctionNamespaceManager(blockEncodingSerde, featuresConfig, this);
         this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
