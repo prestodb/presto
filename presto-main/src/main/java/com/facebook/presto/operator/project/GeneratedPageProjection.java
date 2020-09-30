@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.Work;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -36,8 +37,7 @@ public class GeneratedPageProjection
     private final boolean isDeterministic;
     private final InputChannels inputChannels;
     private final MethodHandle pageProjectionWorkFactory;
-
-    private List<BlockBuilder> blockBuilders;
+    private List<Type> types;
 
     public GeneratedPageProjection(List<RowExpression> projections, boolean isDeterministic, InputChannels inputChannels, MethodHandle pageProjectionWorkFactory)
     {
@@ -45,7 +45,7 @@ public class GeneratedPageProjection
         this.isDeterministic = isDeterministic;
         this.inputChannels = requireNonNull(inputChannels, "inputChannels is null");
         this.pageProjectionWorkFactory = requireNonNull(pageProjectionWorkFactory, "pageProjectionWorkFactory is null");
-        this.blockBuilders = projections.stream().map(RowExpression::getType).map(type -> type.createBlockBuilder(null, 1)).collect(toImmutableList());
+        this.types = projections.stream().map(RowExpression::getType).collect(toImmutableList());
     }
 
     @Override
@@ -63,7 +63,9 @@ public class GeneratedPageProjection
     @Override
     public Work<List<Block>> project(SqlFunctionProperties properties, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
     {
-        blockBuilders = blockBuilders.stream().map(blockBuilder -> blockBuilder.newBlockBuilderLike(null)).collect(toImmutableList());
+        List<BlockBuilder> blockBuilders = types.stream()
+                .map(type -> type.createBlockBuilder(null, selectedPositions.size()))
+                .collect(toImmutableList());
         try {
             return (Work<List<Block>>) pageProjectionWorkFactory.invoke(blockBuilders, properties, page, selectedPositions);
         }
