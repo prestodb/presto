@@ -142,8 +142,8 @@ public class TestDruidPlanOptimizer
 
     private PlanNode getOptimizedPlan(PlanBuilder planBuilder, PlanNode originalPlan)
     {
-        DruidQueryGenerator druidQueryGenerator = new DruidQueryGenerator(typeManager, functionMetadataManager, standardFunctionResolution);
-        DruidPlanOptimizer optimizer = new DruidPlanOptimizer(druidQueryGenerator, typeManager, new RowExpressionDeterminismEvaluator(functionMetadataManager), functionMetadataManager, standardFunctionResolution);
+        DruidQueryGenerator druidQueryGenerator = new DruidQueryGenerator(functionAndTypeManager, functionAndTypeManager, standardFunctionResolution);
+        DruidPlanOptimizer optimizer = new DruidPlanOptimizer(druidQueryGenerator, functionAndTypeManager, new RowExpressionDeterminismEvaluator(functionAndTypeManager), functionAndTypeManager, standardFunctionResolution);
         return optimizer.optimize(originalPlan, defaultSessionHolder.getConnectorSession(), new PlanVariableAllocator(), planBuilder.getIdAllocator());
     }
 
@@ -154,7 +154,7 @@ public class TestDruidPlanOptimizer
                 source,
                 ImmutableMap.of(variableAllocator.newVariable("sum", sumColumn.getColumnType()), new AggregationNode.Aggregation(
                         new CallExpression("sum",
-                                functionMetadataManager.lookupFunction("sum", fromTypes(sumColumn.getColumnType())),
+                                functionAndTypeManager.lookupFunction("sum", fromTypes(sumColumn.getColumnType())),
                                 sumColumn.getColumnType(),
                                 source.getOutputVariables().stream().filter(col -> col.getName().startsWith(sumColumn.getColumnName())).collect(toImmutableList())),
                         Optional.empty(),

@@ -67,7 +67,6 @@ import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultimap;
@@ -129,7 +128,6 @@ public class MetadataManager
 
     private final FunctionAndTypeManager functionAndTypeManager;
     private final ProcedureRegistry procedures;
-    private final TypeManager typeManager;
     private final JsonCodec<ViewDefinition> viewCodec;
     private final BlockEncodingSerde blockEncodingSerde;
     private final SessionPropertyManager sessionPropertyManager;
@@ -144,8 +142,7 @@ public class MetadataManager
 
     @VisibleForTesting
     public MetadataManager(
-            FeaturesConfig featuresConfig,
-            TypeManager typeManager,
+            FunctionAndTypeManager functionAndTypeManager,
             BlockEncodingSerde blockEncodingSerde,
             SessionPropertyManager sessionPropertyManager,
             SchemaPropertyManager schemaPropertyManager,
@@ -154,8 +151,8 @@ public class MetadataManager
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager)
     {
-        this(typeManager,
-                createTestingViewCodec(),
+        this(
+                createTestingViewCodec(functionAndTypeManager),
                 blockEncodingSerde,
                 sessionPropertyManager,
                 schemaPropertyManager,
@@ -163,12 +160,11 @@ public class MetadataManager
                 columnPropertyManager,
                 analyzePropertyManager,
                 transactionManager,
-                new FunctionAndTypeManager(typeManager, transactionManager, blockEncodingSerde, featuresConfig, new HandleResolver()));
+                functionAndTypeManager);
     }
 
     @Inject
     public MetadataManager(
-            TypeManager typeManager,
             JsonCodec<ViewDefinition> viewCodec,
             BlockEncodingSerde blockEncodingSerde,
             SessionPropertyManager sessionPropertyManager,
@@ -179,8 +175,6 @@ public class MetadataManager
             TransactionManager transactionManager,
             FunctionAndTypeManager functionAndTypeManager)
     {
-        procedures = new ProcedureRegistry(typeManager);
-        this.typeManager = requireNonNull(typeManager, "types is null");
         this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -190,6 +184,7 @@ public class MetadataManager
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
+        this.procedures = new ProcedureRegistry(functionAndTypeManager);
 
         verifyComparableOrderableContract();
     }
@@ -216,11 +211,10 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
     {
-        TypeManager typeManager = new TypeRegistry(ImmutableSet.of(), featuresConfig);
+        BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         return new MetadataManager(
-                featuresConfig,
-                typeManager,
-                new BlockEncodingManager(),
+                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, new HandleResolver(), ImmutableSet.of()),
+                blockEncodingManager,
                 new SessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
@@ -233,7 +227,7 @@ public class MetadataManager
     public final void verifyComparableOrderableContract()
     {
         Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
-        for (Type type : typeManager.getTypes()) {
+        for (Type type : functionAndTypeManager.getTypes()) {
             if (type.isComparable()) {
                 if (!canResolveOperator(HASH_CODE, fromTypes(type))) {
                     missingOperators.put(type, HASH_CODE);
@@ -269,7 +263,7 @@ public class MetadataManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        return typeManager.getType(signature);
+        return functionAndTypeManager.getType(signature);
     }
 
     public List<SqlFunction> listFunctions(Session session)
@@ -1252,7 +1246,7 @@ public class MetadataManager
     public TypeManager getTypeManager()
     {
         // TODO: make this transactional when we allow user defined types
-        return typeManager;
+        return functionAndTypeManager;
     }
 
     @Override
@@ -1352,10 +1346,10 @@ public class MetadataManager
         return getCatalogMetadataForWrite(session, connectorId).getMetadata();
     }
 
-    private static JsonCodec<ViewDefinition> createTestingViewCodec()
+    private static JsonCodec<ViewDefinition> createTestingViewCodec(FunctionAndTypeManager functionAndTypeManager)
     {
         ObjectMapperProvider provider = new ObjectMapperProvider();
-        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(new TypeRegistry())));
+        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(functionAndTypeManager)));
         return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
     }
 

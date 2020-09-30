@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.operator.aggregation.FloatingPointBitsConverterUtil;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -35,7 +34,6 @@ import static org.testng.Assert.assertEquals;
 public class TestQuantileDigestFunctions
         extends AbstractTestFunctions
 {
-    private static final TypeRegistry TYPE_REGISTRY = new TypeRegistry();
     private static final Type QDIGEST_BIGINT = QDIGEST.createType(ImmutableList.of(TypeParameter.of(BIGINT)));
 
     @Test

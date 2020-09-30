@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.raptor.RaptorMetadata;
 import com.facebook.presto.raptor.metadata.ColumnInfo;
 import com.facebook.presto.raptor.metadata.MetadataDao;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.testing.MaterializedRow;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,6 +53,7 @@ import static com.facebook.presto.common.predicate.Range.lessThanOrEqual;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.raptor.RaptorTableProperties.TABLE_SUPPORTS_DELTA_DELETE;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
@@ -76,11 +77,12 @@ public class TestShardMetadataRecordCursor
     @BeforeMethod
     public void setup()
     {
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
-        this.dbi.registerMapper(new TableColumn.Mapper(new TypeRegistry()));
+        this.dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         this.dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
-        this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), new TypeRegistry());
+        this.metadata = new RaptorMetadata("raptor", dbi, createShardManager(dbi), functionAndTypeManager);
 
         // Create table
         ConnectorTableMetadata table = tableMetadataBuilder(DEFAULT_TEST_ORDERS)

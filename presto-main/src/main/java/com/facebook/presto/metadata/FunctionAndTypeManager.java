@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -120,24 +121,18 @@ public class FunctionAndTypeManager
 
     @Inject
     public FunctionAndTypeManager(
-            TypeManager typeManager,
             TransactionManager transactionManager,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
-            HandleResolver handleResolver)
+            HandleResolver handleResolver,
+            Set<Type> types)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.builtInFunctionNamespaceManager = new BuiltInFunctionNamespaceManager(blockEncodingSerde, featuresConfig, this);
         this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-        requireNonNull(typeManager, "typeManager is null");
-        if (typeManager instanceof TypeRegistry) {
-            this.builtInTypeRegistry = (TypeRegistry) typeManager;
-        }
-        else {
-            this.builtInTypeRegistry = new TypeRegistry();
-        }
+        this.builtInTypeRegistry = new TypeRegistry(types, featuresConfig);
         builtInTypeRegistry.setFunctionManager(this);
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
         transactionManager.registerFunctionNamespaceManager(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
@@ -148,11 +143,9 @@ public class FunctionAndTypeManager
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
     }
 
-    @VisibleForTesting
-    public FunctionAndTypeManager(TypeManager typeManager, BlockEncodingSerde blockEncodingSerde, FeaturesConfig featuresConfig)
+    public static FunctionAndTypeManager createTestFunctionAndTypeManager()
     {
-        // TODO: Convert this constructor to a function in the testing package
-        this(typeManager, createTestTransactionManager(), blockEncodingSerde, featuresConfig, new HandleResolver());
+        return new FunctionAndTypeManager(createTestTransactionManager(), new BlockEncodingManager(), new FeaturesConfig(), new HandleResolver(), ImmutableSet.of());
     }
 
     @Managed
@@ -257,6 +250,16 @@ public class FunctionAndTypeManager
         else if (!exists) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName.getFunctionNamespace()));
         }
+    }
+
+    public void addType(Type type)
+    {
+        builtInTypeRegistry.addType(type);
+    }
+
+    public void addParametricType(ParametricType parametricType)
+    {
+        builtInTypeRegistry.addParametricType(parametricType);
     }
 
     public static QualifiedFunctionName qualifyFunctionName(QualifiedName name)

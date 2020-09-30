@@ -14,7 +14,6 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
@@ -23,10 +22,8 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Lists;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -34,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
@@ -43,7 +41,6 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected TypeRegistry typeRegistry;
     protected FunctionAndTypeManager functionAndTypeManager;
     protected Session session;
 
@@ -60,15 +57,13 @@ public abstract class AbstractTestAggregationFunction
     @BeforeClass
     public final void initTestAggregationFunction()
     {
-        typeRegistry = new TypeRegistry();
-        functionAndTypeManager = new FunctionAndTypeManager(typeRegistry, new BlockEncodingManager(), new FeaturesConfig());
+        functionAndTypeManager = createTestFunctionAndTypeManager();
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroyTestAggregationFunction()
     {
         functionAndTypeManager = null;
-        typeRegistry = null;
     }
 
     public abstract Block[] getSequenceBlocks(int start, int length);
@@ -81,7 +76,7 @@ public abstract class AbstractTestAggregationFunction
     protected void registerTypes(Plugin plugin)
     {
         for (Type type : plugin.getTypes()) {
-            typeRegistry.addType(type);
+            functionAndTypeManager.addType(type);
         }
     }
 

@@ -40,7 +40,7 @@ public class TestDruidExpressionConverters
     {
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
         String actualDruidExpression = pushDownExpression.accept(new DruidProjectExpressionConverter(
-                        typeManager,
+                        functionAndTypeManager,
                         standardFunctionResolution),
                 testInput).getDefinition();
         assertEquals(actualDruidExpression, expectedDruidExpression);
@@ -78,8 +78,8 @@ public class TestDruidExpressionConverters
     {
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
         String actualDruidExpression = pushDownExpression.accept(new DruidFilterExpressionConverter(
-                        typeManager,
-                        functionMetadataManager,
+                        functionAndTypeManager,
+                        functionAndTypeManager,
                         standardFunctionResolution,
                         sessionHolder.getConnectorSession()),
                 testInputFunction).getDefinition();
@@ -91,8 +91,8 @@ public class TestDruidExpressionConverters
         try {
             RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
             String actualDruidExpression = pushDownExpression.accept(new DruidFilterExpressionConverter(
-                            typeManager,
-                            functionMetadataManager,
+                            functionAndTypeManager,
+                            functionAndTypeManager,
                             standardFunctionResolution,
                             sessionHolder.getConnectorSession()),
                     testInputFunction).getDefinition();

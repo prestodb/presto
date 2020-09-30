@@ -28,7 +28,7 @@ public class TestSmallintArrayType
 {
     public TestSmallintArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(smallint)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(smallint)"))));
+        super(functionAndTypeManager.getType(parseTypeSignature("array(smallint)")), List.class, createTestBlock(functionAndTypeManager.getType(parseTypeSignature("array(smallint)"))));
     }
 
     public static Block createTestBlock(Type arrayType)

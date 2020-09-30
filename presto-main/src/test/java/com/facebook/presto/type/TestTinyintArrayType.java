@@ -28,7 +28,7 @@ public class TestTinyintArrayType
 {
     public TestTinyintArrayType()
     {
-        super(new TypeRegistry().getType(parseTypeSignature("array(tinyint)")), List.class, createTestBlock(new TypeRegistry().getType(parseTypeSignature("array(tinyint)"))));
+        super(functionAndTypeManager.getType(parseTypeSignature("array(tinyint)")), List.class, createTestBlock(functionAndTypeManager.getType(parseTypeSignature("array(tinyint)"))));
     }
 
     public static Block createTestBlock(Type arrayType)

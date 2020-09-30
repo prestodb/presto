@@ -22,6 +22,7 @@ import com.facebook.presto.common.predicate.Utils;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.Split;
@@ -78,7 +79,6 @@ import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -223,9 +223,9 @@ public final class FunctionAssertions
         compiler = runner.getExpressionCompiler();
     }
 
-    public TypeRegistry getTypeRegistry()
+    public FunctionAndTypeManager getFunctionAndTypeManager()
     {
-        return runner.getTypeManager();
+        return runner.getFunctionAndTypeManager();
     }
 
     public Metadata getMetadata()

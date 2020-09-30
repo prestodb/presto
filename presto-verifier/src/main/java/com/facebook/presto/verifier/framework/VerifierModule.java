@@ -29,7 +29,6 @@ import com.facebook.presto.transaction.ForTransactionManager;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForTest;
 import com.facebook.presto.verifier.checksum.ArrayColumnValidator;
@@ -122,7 +121,7 @@ public class VerifierModule
 
         // type
         configBinder(binder).bindConfig(FeaturesConfig.class);
-        binder.bind(TypeManager.class).to(TypeRegistry.class).in(SINGLETON);
+        binder.bind(TypeManager.class).to(FunctionAndTypeManager.class).in(SINGLETON);
         newSetBinder(binder, Type.class);
 
         // verifier

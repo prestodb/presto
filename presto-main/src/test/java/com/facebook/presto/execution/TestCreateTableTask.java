@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
@@ -38,7 +39,6 @@ import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.TableElement;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -49,6 +49,7 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
@@ -71,7 +72,7 @@ public class TestCreateTableTask
 {
     private static final String CATALOG_NAME = "catalog";
     private CatalogManager catalogManager;
-    private TypeManager typeManager;
+    private FunctionAndTypeManager functionAndTypeManager;
     private TransactionManager transactionManager;
     private TablePropertyManager tablePropertyManager;
     private ColumnPropertyManager columnPropertyManager;
@@ -83,7 +84,7 @@ public class TestCreateTableTask
     public void setUp()
     {
         catalogManager = new CatalogManager();
-        typeManager = new TypeRegistry();
+        functionAndTypeManager = createTestFunctionAndTypeManager();
         transactionManager = createTestTransactionManager(catalogManager);
         tablePropertyManager = new TablePropertyManager();
         columnPropertyManager = new ColumnPropertyManager();
@@ -95,7 +96,8 @@ public class TestCreateTableTask
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        metadata = new MockMetadata(typeManager,
+        metadata = new MockMetadata(
+                functionAndTypeManager,
                 tablePropertyManager,
                 columnPropertyManager,
                 testCatalog.getConnectorId(),

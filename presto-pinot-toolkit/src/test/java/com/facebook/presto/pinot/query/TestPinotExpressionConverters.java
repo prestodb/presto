@@ -74,7 +74,7 @@ public class TestPinotExpressionConverters
     {
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
         String actualPinotExpression = pushDownExpression.accept(
-                new PinotProjectExpressionConverter(typeManager, standardFunctionResolution),
+                new PinotProjectExpressionConverter(functionAndTypeManager, standardFunctionResolution),
                 testInput).getDefinition();
         assertEquals(actualPinotExpression, expectedPinotExpression);
     }
@@ -166,8 +166,8 @@ public class TestPinotExpressionConverters
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
         String actualPinotExpression = pushDownExpression.accept(
                 new PinotAggregationProjectConverter(
-                        typeManager,
-                        functionMetadataManager,
+                        functionAndTypeManager,
+                        functionAndTypeManager,
                         standardFunctionResolution,
                         sessionHolder.getConnectorSession()),
                 testInput).getDefinition();
@@ -180,8 +180,8 @@ public class TestPinotExpressionConverters
             RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
             String actualPinotExpression = pushDownExpression.accept(
                     new PinotAggregationProjectConverter(
-                            typeManager,
-                            functionMetadataManager,
+                            functionAndTypeManager,
+                            functionAndTypeManager,
                             standardFunctionResolution,
                             sessionHolder.getConnectorSession()),
                     testInput).getDefinition();
@@ -197,8 +197,8 @@ public class TestPinotExpressionConverters
         RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
         String actualPinotExpression = pushDownExpression.accept(
                 new PinotFilterExpressionConverter(
-                        typeManager,
-                        functionMetadataManager,
+                        functionAndTypeManager,
+                        functionAndTypeManager,
                         standardFunctionResolution),
                 testInputFunction).getDefinition();
         assertEquals(actualPinotExpression, expectedPinotExpression);
@@ -210,8 +210,8 @@ public class TestPinotExpressionConverters
             RowExpression pushDownExpression = getRowExpression(sqlExpression, sessionHolder);
             String actualPinotExpression = pushDownExpression.accept(
                     new PinotFilterExpressionConverter(
-                            typeManager,
-                            functionMetadataManager,
+                            functionAndTypeManager,
+                            functionAndTypeManager,
                             standardFunctionResolution),
                     testInputFunction).getDefinition();
             fail("expected to not reach here: Generated " + actualPinotExpression);
