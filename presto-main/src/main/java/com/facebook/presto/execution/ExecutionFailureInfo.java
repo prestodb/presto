@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.FailureInfo;
 import com.facebook.presto.spi.ErrorCode;
@@ -28,10 +31,13 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.drift.annotations.ThriftField.Recursiveness.TRUE;
+import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class ExecutionFailureInfo
 {
     private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("(.*)\\.(.*)\\(([^:]*)(?::(.*))?\\)");
@@ -47,6 +53,7 @@ public class ExecutionFailureInfo
     private final HostAddress remoteHost;
 
     @JsonCreator
+    @ThriftConstructor
     public ExecutionFailureInfo(
             @JsonProperty("type") String type,
             @JsonProperty("message") String message,
@@ -72,6 +79,7 @@ public class ExecutionFailureInfo
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getType()
     {
         return type;
@@ -79,6 +87,7 @@ public class ExecutionFailureInfo
 
     @Nullable
     @JsonProperty
+    @ThriftField(2)
     public String getMessage()
     {
         return message;
@@ -86,18 +95,21 @@ public class ExecutionFailureInfo
 
     @Nullable
     @JsonProperty
+    @ThriftField(value = 3, isRecursive = TRUE, requiredness = OPTIONAL)
     public ExecutionFailureInfo getCause()
     {
         return cause;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public List<ExecutionFailureInfo> getSuppressed()
     {
         return suppressed;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public List<String> getStack()
     {
         return stack;
@@ -105,6 +117,7 @@ public class ExecutionFailureInfo
 
     @Nullable
     @JsonProperty
+    @ThriftField(6)
     public ErrorLocation getErrorLocation()
     {
         return errorLocation;
@@ -112,6 +125,7 @@ public class ExecutionFailureInfo
 
     @Nullable
     @JsonProperty
+    @ThriftField(7)
     public ErrorCode getErrorCode()
     {
         return errorCode;
@@ -119,6 +133,7 @@ public class ExecutionFailureInfo
 
     @Nullable
     @JsonProperty
+    @ThriftField(8)
     public HostAddress getRemoteHost()
     {
         return remoteHost;
