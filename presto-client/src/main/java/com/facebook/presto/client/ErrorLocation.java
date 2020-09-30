@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -22,12 +25,14 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
 @Immutable
+@ThriftStruct
 public class ErrorLocation
 {
     private final int lineNumber;
     private final int columnNumber;
 
     @JsonCreator
+    @ThriftConstructor
     public ErrorLocation(
             @JsonProperty("lineNumber") int lineNumber,
             @JsonProperty("columnNumber") int columnNumber)
@@ -40,12 +45,14 @@ public class ErrorLocation
     }
 
     @JsonProperty
+    @ThriftField(1)
     public int getLineNumber()
     {
         return lineNumber;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public int getColumnNumber()
     {
         return columnNumber;

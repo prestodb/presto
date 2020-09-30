@@ -14,6 +14,9 @@
 
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -23,6 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Integer.parseInt;
 
+@ThriftStruct
 public class Lifespan
 {
     private static final Lifespan TASK_WIDE = new Lifespan(false, 0);
@@ -40,8 +44,10 @@ public class Lifespan
         return new Lifespan(true, id);
     }
 
-    private Lifespan(boolean grouped, int groupId)
+    @ThriftConstructor
+    public Lifespan(boolean grouped, int groupId)
     {
+        checkArgument(grouped || groupId == 0);
         this.grouped = grouped;
         this.groupId = groupId;
     }
@@ -51,9 +57,16 @@ public class Lifespan
         return !grouped;
     }
 
+    @ThriftField(1)
+    public boolean isGrouped()
+    {
+        return grouped;
+    }
+
+    @ThriftField(value = 2, name = "groupId")
     public int getId()
     {
-        checkState(grouped);
+        checkState(grouped || groupId == 0);
         return groupId;
     }
 
