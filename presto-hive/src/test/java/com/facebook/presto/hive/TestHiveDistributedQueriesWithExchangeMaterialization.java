@@ -343,6 +343,23 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
                             "JOIN nation t2\n" +
                             "    ON t1.nationkey = t2.nationkey",
                     assertRemoteMaterializedExchangesCount(2));
+
+            // do not ignore table bucketing if $bucket column is referenced
+            assertQuery(
+                    testSession,
+                    "SELECT\n" +
+                            "    *\n" +
+                            "FROM partitioned_nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey\n" +
+                            "WHERE\n" +
+                            "    \"$bucket\" < 20",
+                            "SELECT\n" +
+                            "    *\n" +
+                            "FROM nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey",
+                    assertRemoteMaterializedExchangesCount(1));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS partitioned_nation");
