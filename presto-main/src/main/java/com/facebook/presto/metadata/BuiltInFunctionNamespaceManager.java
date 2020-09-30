@@ -391,7 +391,7 @@ public class BuiltInFunctionNamespaceManager
     public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
     public static final String ID = "builtin";
 
-    private final TypeManager typeManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
@@ -400,12 +400,11 @@ public class BuiltInFunctionNamespaceManager
     private volatile FunctionMap functions = new FunctionMap();
 
     public BuiltInFunctionNamespaceManager(
-            TypeManager typeManager,
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
             FunctionAndTypeManager functionAndTypeManager)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
         this.magicLiteralFunction = new MagicLiteralFunction(blockEncodingSerde);
 
         specializedFunctionKeyCache = CacheBuilder.newBuilder()
@@ -925,10 +924,10 @@ public class BuiltInFunctionNamespaceManager
     {
         Iterable<SqlFunction> candidates = getFunctions(null, signature.getName());
         // search for exact match
-        Type returnType = typeManager.getType(signature.getReturnType());
+        Type returnType = functionAndTypeManager.getType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
         for (SqlFunction candidate : candidates) {
-            Optional<BoundVariables> boundVariables = new SignatureBinder(typeManager, candidate.getSignature(), false)
+            Optional<BoundVariables> boundVariables = new SignatureBinder(functionAndTypeManager, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, returnType);
             if (boundVariables.isPresent()) {
                 return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypeSignatureProviders.size());
@@ -937,22 +936,22 @@ public class BuiltInFunctionNamespaceManager
 
         // TODO: hack because there could be "type only" coercions (which aren't necessarily included as implicit casts),
         // so do a second pass allowing "type only" coercions
-        List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), typeManager);
+        List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), functionAndTypeManager);
         for (SqlFunction candidate : candidates) {
-            SignatureBinder binder = new SignatureBinder(typeManager, candidate.getSignature(), true);
+            SignatureBinder binder = new SignatureBinder(functionAndTypeManager, candidate.getSignature(), true);
             Optional<BoundVariables> boundVariables = binder.bindVariables(argumentTypeSignatureProviders, returnType);
             if (!boundVariables.isPresent()) {
                 continue;
             }
             Signature boundSignature = applyBoundVariables(candidate.getSignature(), boundVariables.get(), argumentTypes.size());
 
-            if (!typeManager.isTypeOnlyCoercion(typeManager.getType(boundSignature.getReturnType()), returnType)) {
+            if (!functionAndTypeManager.isTypeOnlyCoercion(functionAndTypeManager.getType(boundSignature.getReturnType()), returnType)) {
                 continue;
             }
             boolean nonTypeOnlyCoercion = false;
             for (int i = 0; i < argumentTypes.size(); i++) {
-                Type expectedType = typeManager.getType(boundSignature.getArgumentTypes().get(i));
-                if (!typeManager.isTypeOnlyCoercion(argumentTypes.get(i), expectedType)) {
+                Type expectedType = functionAndTypeManager.getType(boundSignature.getArgumentTypes().get(i));
+                if (!functionAndTypeManager.isTypeOnlyCoercion(argumentTypes.get(i), expectedType)) {
                     nonTypeOnlyCoercion = true;
                     break;
                 }
@@ -971,11 +970,11 @@ public class BuiltInFunctionNamespaceManager
             String typeName = signature.getNameSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
-            Type type = typeManager.getType(parseTypeSignature(typeName));
+            Type type = functionAndTypeManager.getType(parseTypeSignature(typeName));
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = typeManager.getType(parameterTypes.get(0));
+            Type parameterType = functionAndTypeManager.getType(parameterTypes.get(0));
             requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
 
             return new SpecializedFunctionKey(
