@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -29,14 +28,11 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -53,6 +49,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
@@ -72,21 +69,16 @@ public class TestMapFlatBatchStreamReader
 {
     // TODO: Add tests for timestamp as value type
 
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
     private static final int NUM_ROWS = 31_234;
 
-    static {
-        // associate TYPE_MANAGER with a function manager
-        new FunctionAndTypeManager(TYPE_MANAGER, new BlockEncodingManager(), new FeaturesConfig());
-    }
-
-    private static final Type LIST_TYPE = TYPE_MANAGER.getParameterizedType(
+    private static final Type LIST_TYPE = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
             StandardTypes.ARRAY,
             ImmutableList.of(TypeSignatureParameter.of(IntegerType.INTEGER.getTypeSignature())));
-    private static final Type MAP_TYPE = TYPE_MANAGER.getParameterizedType(
+    private static final Type MAP_TYPE = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
             StandardTypes.MAP,
             ImmutableList.of(TypeSignatureParameter.of(VarcharType.VARCHAR.getTypeSignature()), TypeSignatureParameter.of(RealType.REAL.getTypeSignature())));
-    private static final Type STRUCT_TYPE = TYPE_MANAGER.getParameterizedType(
+    private static final Type STRUCT_TYPE = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
             StandardTypes.ROW,
             ImmutableList.of(
                     TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("value1", false)), IntegerType.INTEGER.getTypeSignature())),
@@ -403,7 +395,7 @@ public class TestMapFlatBatchStreamReader
                 OrcReaderTestingUtils.createDefaultTestConfig(),
                 false,
                 NO_ENCRYPTION);
-        Type mapType = TYPE_MANAGER.getParameterizedType(
+        Type mapType = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(
                         TypeSignatureParameter.of(keyType.getTypeSignature()),

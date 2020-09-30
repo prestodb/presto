@@ -197,7 +197,7 @@ public class TestPinotQueryGeneratorSql
                 new OrderingScheme(ImmutableList.of(new Ordering(variable("sum_fare"), SortOrder.ASC_NULLS_FIRST))),
                 TopNNode.Step.SINGLE);
         Optional<PinotQueryGenerator.PinotQueryGeneratorResult> generatedQuery =
-                new PinotQueryGenerator(pinotConfig, typeManager, functionMetadataManager, standardFunctionResolution)
+                new PinotQueryGenerator(pinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution)
                         .generate(topN, defaultSessionHolder.getConnectorSession());
         assertFalse(generatedQuery.isPresent());
         SessionHolder sessionHolder = new SessionHolder(pinotConfig);

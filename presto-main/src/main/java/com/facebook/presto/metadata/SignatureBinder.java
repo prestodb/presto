@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
@@ -39,7 +40,6 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
-import static com.facebook.presto.type.TypeRegistry.isCovariantTypeBase;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -356,6 +356,11 @@ public class SignatureBinder
                 formalTypeParameterTypeSignatures.build(),
                 actualTypeParametersTypeSignatureProvider,
                 allowCoercion && isCovariantTypeBase(formalTypeSignature.getBase()));
+    }
+
+    private static boolean isCovariantTypeBase(String typeBase)
+    {
+        return typeBase.equals(StandardTypes.ARRAY) || typeBase.equals(StandardTypes.MAP);
     }
 
     private Set<String> typeVariablesOf(TypeSignature typeSignature)
