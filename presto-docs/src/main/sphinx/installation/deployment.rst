@@ -2,6 +2,11 @@
 Deploying Presto
 ================
 
+.. contents::
+    :local:
+    :backlinks: none
+    :depth: 1
+
 Installing Presto
 -----------------
 
@@ -270,6 +275,83 @@ After launching, you can find the log files in ``var/log``:
 * ``http-request.log``:
   This is the HTTP request log which contains every HTTP request
   received by the server. It is automatically rotated and compressed.
+
+An Example Deployment on Laptop Querying S3
+-------------------------------------------
+
+This section shows how to run Presto connecting to Hive MetaStore on a single laptop to query data in an S3 bucket.
+
+Configure Hive MetaStore
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Download and extract the binary tarball of Hive.
+For example, download and untar `apache-hive-<VERSION>-bin.tar.gz <https://downloads.apache.org/hive>`_ .
+
+You only need to launch Hive Metastore to serve Presto catalog information such as table schema and partition location.
+If it is the first time to launch the Hive Metastore, prepare corresponding configuration files and environment, also initialize a new Metastore:
+
+.. code-block:: console
+
+    $ export HIVE_HOME=`pwd`
+    $ cp conf/hive-default.xml.template conf/hive-site.xml
+    $ mkdir -p hcatalog/var/log/
+    # only required for the first time
+    $ bin/schematool -dbType derby -initSchema
+
+If you want to access AWS S3, append the following lines in ``conf/hive-env.sh``.
+Hive needs the corresponding jars to access files with ``s3a://`` addresses, and AWS credentials as well to access an S3 bucket (even it is public).
+These jars can be found in Hadoop distribution (e.g., under ``${HADOOP_HOME}/share/hadoop/tools/lib/``),
+or download from `maven central repository <https://repo1.maven.org/>`_.
+
+.. code-block:: bash
+
+    export HIVE_AUX_JARS_PATH=/path/to/aws-java-sdk-core-<version>.jar:$/path/to/aws-java-sdk-s3-<version>.jar:/path/to/hadoop-aws-<version>.jar
+    export AWS_ACCESS_KEY_ID=<Your AWS Access Key>
+    export AWS_SECRET_ACCESS_KEY=<Your AWS Secret Key>
+
+Start a Hive Metastore which will run in the background and listen on port 9083 (by default).
+
+.. code-block:: console
+
+    $ hcatalog/sbin/hcat_server.sh start
+    Started metastore server init, testing if initialized correctly...
+    Metastore initialized successfully on port[9083].
+
+To verify if the MetaStore is running, check the Hive Metastore logs at ``hcatalog/var/log/``
+
+Configure Presto
+^^^^^^^^^^^^^^^^
+
+Create a configuration file ``etc/config.properties`` to based on `Config Properties <#config-properties>`_.
+For example, follow the minimal configuration to run Presto on your laptop:
+
+.. code-block:: none
+
+    coordinator=true
+    node-scheduler.include-coordinator=true
+    http-server.http.port=8080
+    discovery-server.enabled=true
+    discovery.uri=http://localhost:8080
+
+Create ``etc/jvm.config`` according to `JVM Config <#jvm-config>`_
+and ``etc/node.properties`` according to `Node Properties <#node-properties>`_.
+
+Lastly, configure Presto Hive connector in ``etc/catalog/hive.properties``, pointing to the Hive Metastore service just started.
+Include AWS credentials here again if Presto needs to read input files from S3.
+
+.. code-block:: none
+
+    connector.name=hive-hadoop2
+    hive.metastore.uri=thrift://localhost:9083
+    hive.s3.aws-access-key=<Your AWS Access Key>
+    hive.s3.aws-secret-key=<Your AWS Secret Key>
+
+Run the Presto server:
+
+.. code-block:: bash
+
+    ./bin/launcher start
+
 
 An Example Deployment with Docker
 ---------------------------------
