@@ -26,8 +26,8 @@ public interface ColumnHandle
      * required subfields and the connector is free to prune the rest.
      * <p>
      * Examples:
-     *  - SELECT a[1], b['x'], x.y.z FROM t
-     *  - SELECT a FROM t WHERE b['y'] > 10
+     * - SELECT a[1], b['x'], x.y.z FROM t
+     * - SELECT a FROM t WHERE b['y'] > 10
      * <p>
      * Pruning must preserve the type of the values and support unmodified access.
      * <p>
@@ -40,5 +40,11 @@ public interface ColumnHandle
     default ColumnHandle withRequiredSubfields(List<Subfield> subfields)
     {
         return this;
+    }
+
+    //TODO: Is this the right way to do it?
+    default String getName()
+    {
+        return null;
     }
 }

@@ -79,6 +79,7 @@ import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_P
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.MV_OPTIMIZATION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
@@ -2761,6 +2762,35 @@ public class TestHiveIntegrationSmokeTest
 
         MaterializedResult actualAfterTransaction = computeActual(session, "SELECT * FROM tmp_create_insert");
         assertEqualsIgnoreOrder(actualAfterTransaction, expected);
+    }
+
+    @Test
+    public void testMVOptimization()
+    {
+        Session session = getSession();
+        Session withMVOptimization = Session.builder(getSession())
+                .setSystemProperty(MV_OPTIMIZATION_ENABLED, "true")
+                .build();
+
+        assertUpdate("CREATE TABLE test_mv_base_table (id1 bigint, id2 bigint, id3 bigint)");
+        assertUpdate("INSERT INTO test_mv_base_table (id1, id2, id3) VALUES" +
+                "(2,3,4)," +
+                "(4,5,5)," +
+                "(6,7,5)," +
+                "(7,8,4)", 4);
+
+        assertUpdate("CREATE TABLE test_mv_table (_id1_mult_id2_ bigint, id3 bigint)");
+        assertUpdate("INSERT INTO test_mv_table(_id1_mult_id2_, id3) SELECT SUM(id1*id2), id3 from test_mv_base_table group by id3", 2);
+
+        MaterializedResult actual = computeActual(session,
+                "SELECT SUM(id1*id2) FROM test_mv_base_table where id3>2");
+
+        MaterializedResult withMV = computeActual(withMVOptimization,
+                "SELECT SUM(id1*id2) FROM test_mv_base_table where id3>2");
+
+        assertEqualsIgnoreOrder(actual, withMV);
+
+        assertUpdate("DROP TABLE test_mv_base_table");
     }
 
     @Test

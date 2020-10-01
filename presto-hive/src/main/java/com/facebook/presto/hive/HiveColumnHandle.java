@@ -110,6 +110,7 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
+    @Override
     public String getName()
     {
         return name;

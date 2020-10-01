@@ -19,6 +19,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -42,9 +44,11 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.MV_OPTIMIZATION_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -55,21 +59,55 @@ public class MVOptimizer
         implements PlanOptimizer
 {
     private static final Logger log = Logger.get(MVOptimizer.class);
-    private static final HashMap<String, QualifiedObjectName> mvTableNames = new HashMap<>();
+    private static final HashMap<String, MVInfo> mvTableNames = new HashMap<>();
     private static final HashMap<String, String> expressionToMVColumnName = new HashMap<>();
     private final Metadata metadata;
+    private final String baseTableName;
 
     public MVOptimizer(Metadata metadata)
     {
+        log.info("Initiating MVOptimizer!");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        mvTableNames.put("orders", new QualifiedObjectName("hive", "tpch", "rj_mv_orders_derived"));
-        mvTableNames.put("rj_mv_base_table_simple", new QualifiedObjectName("hive", "tpch", "rj_mv_mv_table_simple"));
-        mvTableNames.put("admetrics_output_nrt", new QualifiedObjectName("prism", "nrt", "rj_mv_admetrics_output_nrt_approx_1"));
 
-        expressionToMVColumnName.put("MULTIPLY(orderkey, custkey)", "_orderkey_mult_custkey_");
+        MVInfo rjTableMVInfo = new MVInfo(new QualifiedObjectName("hive", "tpch", "rj_mv_base_table_simple"),
+                new QualifiedObjectName("hive", "tpch", "rj_mv_mv_table_simple"));
+
+        MVInfo simpleTableMVInfo = new MVInfo(new QualifiedObjectName("hive", "tpch", "simple_base_table"),
+                new QualifiedObjectName("hive", "tpch", "simple_mv_table"));
+
+        MVInfo adMetricsMVInfo = new MVInfo(new QualifiedObjectName("prism", "nrt", "admetrics_output_nrt"),
+                new QualifiedObjectName("prism", "nrt", "rj_mv_admetrics_output_nrt_multi_expr"));
+
+        mvTableNames.put("rj_mv_base_table_simple", rjTableMVInfo);
         expressionToMVColumnName.put("MULTIPLY(id1, id6)", "_id1_mult_id6_");
         expressionToMVColumnName.put("MULTIPLY(id2, id6)", "_id2_mult_id6_");
         expressionToMVColumnName.put("MULTIPLY(id3, id6)", "_id3_mult_id6_");
+
+        mvTableNames.put("simple_base_table", simpleTableMVInfo);
+        expressionToMVColumnName.put("MULTIPLY(id1, id2)", "_id1_mult_id2_");
+        expressionToMVColumnName.put("MULTIPLY(id3, CAST(id2))", "_id3_mult_id2_");
+
+        mvTableNames.put("admetrics_output_nrt", adMetricsMVInfo);
+
+        expressionToMVColumnName.put("MULTIPLY(orderkey, custkey)", "_orderkey_mult_custkey_");
+        expressionToMVColumnName.put("MULTIPLY(ads_conversions_down_funnel, weight)", "_ads_conversions_down_funnel_mult_weight_");
+        expressionToMVColumnName.put("MULTIPLY(ads_conversions_in_qrt, weight)", "_ads_conversions_in_qrt_mult_weight_");
+        expressionToMVColumnName.put("MULTIPLY(ads_xouts, weight)", "_ads_xouts_mult_weight_");
+        expressionToMVColumnName.put("MULTIPLY(price_to_value_ratio, CAST(weight))", "_price_to_value_ratio_mult_weight_");
+
+        baseTableName = "simple_base_table";
+    }
+
+    class MVInfo
+    {
+        QualifiedObjectName mvObject;
+        QualifiedObjectName baseObject;
+
+        public MVInfo(QualifiedObjectName baseObject, QualifiedObjectName mvObject)
+        {
+            this.mvObject = mvObject;
+            this.baseObject = baseObject;
+        }
     }
 
     @Override
@@ -81,7 +119,9 @@ public class MVOptimizer
             PlanNodeIdAllocator idAllocator,
             WarningCollector warningCollector)
     {
+        log.info("MVOptimizer optimize is called!");
         if (!isMVEnabled(session)) {
+            log.info("MVOptimizer is not enabled, returning the rootnode.");
             return planNode;
         }
 
@@ -90,36 +130,98 @@ public class MVOptimizer
             return planNode;
         }
 
+        //TODO:
+        //Get filter predicate, if ds filter is present, gets its min and max values.
+        //Get the latest partition landed on the MV table.
+        //Check if the MV has all the partitions landed?
+        //Update the table for update MV
+        //If yes, use the MV otherwise ignore it.
+//        getFilterPredicates(planNode);
+
+        //TODO: Scan last week query and build the dimension and metrics.
+        //build the column mapping
+        //Run the shadow in the T10 cluster.
+
         //TODO build object to get the table name.
-        QualifiedObjectName tableQualifiedName = new QualifiedObjectName("hive", "tpch", "rj_mv_base_table_simple");
-        QualifiedObjectName mvQualifiedObjectName = mvTableNames.get("rj_mv_base_table_simple");
+        MVInfo mvInfo = mvTableNames.get(baseTableName);
+        QualifiedObjectName tableQualifiedName = mvInfo.baseObject;
+        QualifiedObjectName mvQualifiedObjectName = mvInfo.mvObject;
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableQualifiedName);
         Optional<TableHandle> mvTableHandle = metadata.getTableHandle(session, mvQualifiedObjectName);
 
-        checkState(tableHandle.isPresent());
+        log.info("Checking it base table is present.");
+        checkState(tableHandle.isPresent(), String.format("Base Table [%s] is not present", tableHandle));
 
         //TODO: Use ODS counter.
+        log.info("Checking it MV table is present.");
         if (!mvTableHandle.isPresent()) {
+            log.info("MV table is not present, returning the root node");
             log.error("MV Table handle is not present. MV Table name: %s", mvQualifiedObjectName);
             return planNode;
         }
 
-        Context mvOptimizerContext = new Context(session, metadata, mvTableHandle.get(), tableHandle.get(), planVariableAllocator);
+        TableMetadata tableMetadata = metadata.getTableMetadata(session, mvTableHandle.get());
 
+        Context mvOptimizerContext = new Context(session, metadata, mvTableHandle.get(), tableHandle.get(), planVariableAllocator);
+        log.info("Going to rewrite the plan");
         return SimplePlanRewriter.rewriteWith(new MVOptimizer.Rewriter(session, metadata, idAllocator), planNode, mvOptimizerContext);
     }
 
     private boolean isMVCompatible(PlanNode node)
     {
-        if (!(node instanceof OutputNode)) { return false; }
+        return isPlanCompatible(node) && isProjectionCompatible(node);
+    }
+
+    private boolean isProjectionCompatible(PlanNode planNode)
+    {
+        if (planNode instanceof ProjectNode) {
+            ProjectNode node = (ProjectNode) planNode;
+            Map<VariableReferenceExpression, RowExpression> nodeAssignments = node.getAssignments().getMap();
+            Set<VariableReferenceExpression> variableReferenceExpressions = nodeAssignments.keySet();
+            for (VariableReferenceExpression variableReferenceExpression : variableReferenceExpressions) {
+                RowExpression rowExpression = nodeAssignments.get(variableReferenceExpression);
+                String key = rowExpression.toString();
+                if (rowExpression instanceof CallExpression) {
+                    if (!expressionToMVColumnName.containsKey(key)) {
+                        log.info("Expression [%s] is not registered for MV optimization. ", key);
+                        return false;
+                    }
+                }
+                else if (!(rowExpression instanceof VariableReferenceExpression)) {
+                    //TODO for variable reference check if the column is present in the MV
+                    log.info("Unsupported [%s] expression for MV optimization. ", key);
+                    return false;
+                }
+            }
+        }
+        else {
+            return planNode.getSources().size() == 1 && isProjectionCompatible(planNode.getSources().get(0));
+        }
+
+        return true;
+    }
+
+    private boolean isPlanCompatible(PlanNode node)
+    {
+        if (!(node instanceof OutputNode)) {
+            return false;
+        }
         node = ((OutputNode) node).getSource();
-        if (!(node instanceof AggregationNode)) { return false; }
+        if (!(node instanceof AggregationNode)) {
+            return false;
+        }
         node = ((AggregationNode) node).getSource();
-        if (!(node instanceof ProjectNode)) { return false; }
+        if (!(node instanceof ProjectNode)) {
+            return false;
+        }
         node = ((ProjectNode) node).getSource();
-        if (node instanceof TableScanNode) { return true; }
-        if (!(node instanceof FilterNode)) { return false; }
+        if (node instanceof TableScanNode) {
+            return true;
+        }
+        if (!(node instanceof FilterNode)) {
+            return false;
+        }
         node = ((FilterNode) node).getSource();
         return node instanceof TableScanNode;
     }
@@ -132,7 +234,7 @@ public class MVOptimizer
         private final Map<String, ColumnHandle> mvColumnHandles;
         private final PlanVariableAllocator planVariableAllocator;
         private final Map<String, VariableReferenceExpression> mvColumnNameToVariable;
-        private final List<VariableReferenceExpression> mvCarryVariables;
+        private final Set<VariableReferenceExpression> mvCarryVariables;
 
         private Context(Session session, Metadata metadata, TableHandle mvTableHandle, TableHandle tableHandle, PlanVariableAllocator planVariableAllocator)
         {
@@ -142,7 +244,7 @@ public class MVOptimizer
             this.mvColumnHandles = metadata.getColumnHandles(session, mvTableHandle);
             this.planVariableAllocator = planVariableAllocator;
             this.mvColumnNameToVariable = new HashMap<>();
-            this.mvCarryVariables = new ArrayList<>();
+            this.mvCarryVariables = new HashSet<>();
         }
 
         public TableHandle getMVTableHandle()
@@ -170,7 +272,7 @@ public class MVOptimizer
             return mvColumnNameToVariable;
         }
 
-        public List<VariableReferenceExpression> getMVCarryVariables()
+        public Set<VariableReferenceExpression> getMVCarryVariables()
         {
             return mvCarryVariables;
         }
@@ -205,20 +307,39 @@ public class MVOptimizer
             Assignments.Builder assignments = Assignments.builder();
             PlanVariableAllocator planVariableAllocator = context.get().getPlanVariableAllocator();
             Map<String, VariableReferenceExpression> mvColumnNameToVariable = context.get().getMVColumnNameToVariable();
-            node.getAssignments().forEach((variable, rowExpression) -> {
-                String key = rowExpression.toString();
-                if (expressionToMVColumnName.containsKey(key)) {
-                    String mvColumnName = expressionToMVColumnName.get(key);
-                    if (!mvColumnNameToVariable.containsKey(mvColumnName)) {
-                        VariableReferenceExpression newMVColumnVariable = planVariableAllocator.newVariable(mvColumnName, BIGINT);
-                        mvColumnNameToVariable.put(mvColumnName, newMVColumnVariable);
+            Set<VariableReferenceExpression> mvCarryVariables = context.get().getMVCarryVariables();
+
+            try {
+                node.getAssignments().forEach((variable, rowExpression) -> {
+                    String key = rowExpression.toString();
+                    if (rowExpression instanceof CallExpression) {
+                        if (expressionToMVColumnName.containsKey(key)) {
+                            String mvColumnName = expressionToMVColumnName.get(key);
+                            if (!mvColumnNameToVariable.containsKey(mvColumnName)) {
+                                VariableReferenceExpression newMVColumnVariable = planVariableAllocator.newVariable(mvColumnName, BIGINT);
+                                mvColumnNameToVariable.put(mvColumnName, newMVColumnVariable);
+                            }
+                            assignments.put(variable, mvColumnNameToVariable.get(mvColumnName));
+                        }
+                        else {
+                            //TODO: move this logic to validation.
+                            log.info("Expression [{}] is not registered for MV optimization. ", key);
+                            checkState(false);
+                        }
                     }
-                    assignments.put(variable, mvColumnNameToVariable.get(mvColumnName));
-                }
-                else {
-                    //carry variables.
-                }
-            });
+                    else if (rowExpression instanceof VariableReferenceExpression) {
+                        mvCarryVariables.add((VariableReferenceExpression) rowExpression);
+                        assignments.put(variable, rowExpression);
+                    }
+                    else {
+                        log.info("Unsupported [{}] expression for MV optimization. ", key);
+                        checkState(false);
+                    }
+                });
+            }
+            catch (IllegalStateException ex) {
+                return node;
+            }
 
             ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), node.getSource(), assignments.build(), node.getLocality());
             PlanNode planNode = super.visitProject(projectNode, context);
@@ -228,13 +349,23 @@ public class MVOptimizer
         @Override
         public PlanNode visitFilter(FilterNode node, RewriteContext<Context> context)
         {
-            List<VariableReferenceExpression> mvCarryVariables = context.get().getMVCarryVariables();
+            Set<VariableReferenceExpression> mvCarryVariables = context.get().getMVCarryVariables();
             RowExpression predicates = node.getPredicate();
             List<RowExpression> conjuncts = LogicalRowExpressions.extractConjuncts(predicates);
             conjuncts.forEach(predicate -> {
-                CallExpression callExpression = (CallExpression) predicate;
-                List<RowExpression> arguments = callExpression.getArguments();
-                mvCarryVariables.add((VariableReferenceExpression) arguments.get(0));
+                if (predicate instanceof CallExpression) {
+                    CallExpression callExpression = (CallExpression) predicate;
+                    List<RowExpression> arguments = callExpression.getArguments();
+                    arguments.stream().filter(expression -> expression instanceof VariableReferenceExpression).forEach(expression -> mvCarryVariables.add((VariableReferenceExpression) expression));
+                }
+                else if (predicate instanceof SpecialFormExpression) {
+                    SpecialFormExpression specialFormExpression = (SpecialFormExpression) predicate;
+                    List<RowExpression> arguments = specialFormExpression.getArguments();
+                    arguments.stream().filter(expression -> expression instanceof VariableReferenceExpression).forEach(expression -> mvCarryVariables.add((VariableReferenceExpression) expression));
+                }
+                else {
+                    log.error("Unsupported predicate expression [{}]", predicate);
+                }
             });
 
             return super.visitFilter(node, context);
@@ -246,24 +377,16 @@ public class MVOptimizer
             TableHandle newMVTableHandle = context.get().getMVTableHandle();
             Map<String, ColumnHandle> mvColumnHandles = context.get().getMVColumnHandles();
             Map<String, ColumnHandle> tableColumnHandles = context.get().getTableColumnHandles();
-            List<VariableReferenceExpression> mvCarryVariables = context.get().getMVCarryVariables();
+            Set<VariableReferenceExpression> mvCarryVariables = context.get().getMVCarryVariables();
 
             ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> mvAssignment = ImmutableMap.builder();
             List<VariableReferenceExpression> mvOutputVariables = new ArrayList<>();
 
             Map<String, VariableReferenceExpression> mvColumnNameToVariable = context.get().getMVColumnNameToVariable();
 
-            /*
-                In the table scan as well, variable expression name can be different than the column handle name.
-                From the projection, find out the list of columns need to be replaced.
-                From the filter operation, find out list of columns, needs to be propagated.
-                Only the columns, which are being replaced needs a new expression variable.
-                You must write test to validate each scenario.
-             */
-
             mvCarryVariables.forEach(variable -> {
-                //TODO: get the real column name from the variable name.
-                ColumnHandle mvColumnHandle = mvColumnHandles.get(variable.getName());
+                String columnName = tableColumnHandles.get(variable.getName()).getName();
+                ColumnHandle mvColumnHandle = mvColumnHandles.get(columnName);
                 mvAssignment.put(variable, mvColumnHandle);
                 mvOutputVariables.add(variable);
             });
