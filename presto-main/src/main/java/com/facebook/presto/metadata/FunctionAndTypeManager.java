@@ -132,8 +132,7 @@ public class FunctionAndTypeManager
         this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-        this.builtInTypeRegistry = new TypeRegistry(types, featuresConfig);
-        builtInTypeRegistry.setFunctionManager(this);
+        this.builtInTypeRegistry = new TypeRegistry(types, featuresConfig, this);
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
         transactionManager.registerFunctionNamespaceManager(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionCache = CacheBuilder.newBuilder()
