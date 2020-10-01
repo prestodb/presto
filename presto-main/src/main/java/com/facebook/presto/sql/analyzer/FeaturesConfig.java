@@ -222,6 +222,15 @@ public class FeaturesConfig
         }
     }
 
+    private ApproxResultsOption approxResultsOption = ApproxResultsOption.NONE;
+
+    public enum ApproxResultsOption
+    {
+        NONE,
+        SAMPLING,
+        SAMPLING_WITH_FAIL_CLOSE,
+    }
+
     public double getCpuCostWeight()
     {
         return cpuCostWeight;
@@ -1396,6 +1405,19 @@ public class FeaturesConfig
     public FeaturesConfig setInlineSqlFunctions(boolean inlineSqlFunctions)
     {
         this.inlineSqlFunctions = inlineSqlFunctions;
+        return this;
+    }
+
+    public ApproxResultsOption getApproxResultsOption()
+    {
+        return approxResultsOption;
+    }
+
+    @Config("approx-results-option")
+    @ConfigDescription("Approx Results using approx distinct")
+    public FeaturesConfig setApproxResultsOption(ApproxResultsOption approxResultsOption)
+    {
+        this.approxResultsOption = approxResultsOption;
         return this;
     }
 }

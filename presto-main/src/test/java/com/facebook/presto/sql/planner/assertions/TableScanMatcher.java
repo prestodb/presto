@@ -36,12 +36,14 @@ final class TableScanMatcher
     private final String expectedTableName;
     private final Optional<Map<String, Domain>> expectedConstraint;
     private final Optional<Boolean> hasTableLayout;
+    private final boolean sampleReplaced;
 
-    private TableScanMatcher(String expectedTableName, Optional<Map<String, Domain>> expectedConstraint, Optional<Boolean> hasTableLayout)
+    private TableScanMatcher(String expectedTableName, Optional<Map<String, Domain>> expectedConstraint, Optional<Boolean> hasTableLayout, boolean sampleReplaced)
     {
         this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
         this.expectedConstraint = requireNonNull(expectedConstraint, "expectedConstraint is null");
         this.hasTableLayout = requireNonNull(hasTableLayout, "hasTableLayout is null");
+        this.sampleReplaced = sampleReplaced;
     }
 
     @Override
@@ -61,7 +63,8 @@ final class TableScanMatcher
         return new MatchResult(
                 expectedTableName.equalsIgnoreCase(actualTableName) &&
                         ((!expectedConstraint.isPresent()) ||
-                                domainsMatch(expectedConstraint, tableScanNode.getCurrentConstraint(), tableScanNode.getTable(), session, metadata)));
+                                domainsMatch(expectedConstraint, tableScanNode.getCurrentConstraint(), tableScanNode.getTable(), session, metadata)) &&
+                        sampleReplaced == tableScanNode.isSampleReplaced());
     }
 
     @Override
@@ -72,17 +75,28 @@ final class TableScanMatcher
                 .add("expectedTableName", expectedTableName)
                 .add("expectedConstraint", expectedConstraint.orElse(null))
                 .add("hasTableLayout", hasTableLayout.orElse(null))
+                .add("sampleReplaced", sampleReplaced)
                 .toString();
     }
 
     public static Builder builder(String expectedTableName)
     {
-        return new Builder(expectedTableName);
+        return builder(expectedTableName, false);
+    }
+
+    public static Builder builder(String expectedTableName, boolean sampleReplaced)
+    {
+        return new Builder(expectedTableName, sampleReplaced);
     }
 
     public static PlanMatchPattern create(String expectedTableName)
     {
-        return builder(expectedTableName).build();
+        return create(expectedTableName, false);
+    }
+
+    public static PlanMatchPattern create(String expectedTableName, boolean sampleReplaced)
+    {
+        return builder(expectedTableName, sampleReplaced).build();
     }
 
     public static class Builder
@@ -90,10 +104,12 @@ final class TableScanMatcher
         private final String expectedTableName;
         private Optional<Map<String, Domain>> expectedConstraint = Optional.empty();
         private Optional<Boolean> hasTableLayout = Optional.empty();
+        private final boolean sampleReplaced;
 
-        private Builder(String expectedTableName)
+        private Builder(String expectedTableName, boolean sampleReplaced)
         {
             this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
+            this.sampleReplaced = sampleReplaced;
         }
 
         public Builder expectedConstraint(Map<String, Domain> expectedConstraint)
@@ -114,7 +130,8 @@ final class TableScanMatcher
                     new TableScanMatcher(
                             expectedTableName,
                             expectedConstraint,
-                            hasTableLayout));
+                            hasTableLayout,
+                            sampleReplaced));
             return result;
         }
     }

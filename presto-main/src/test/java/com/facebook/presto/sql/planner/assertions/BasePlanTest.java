@@ -36,6 +36,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -149,6 +150,22 @@ public class BasePlanTest
         });
     }
 
+    protected void assertPlanWithSession(String sql, Session session, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    {
+        queryRunner.inTransaction(session, transactionSession -> {
+            Plan actualPlan = queryRunner.createPlan(
+                    transactionSession,
+                    sql,
+                    ImmutableList.<PlanOptimizer>builder()
+                            .addAll(optimizers)
+                            .add(getExpressionTranslator()).build(), // To avoid assert plan failure not printing out plan (#12885)
+                    stage,
+                    WarningCollector.NOOP);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+            return null;
+        });
+    }
+
     protected void assertDistributedPlan(String sql, PlanMatchPattern pattern)
     {
         assertDistributedPlan(sql, getQueryRunner().getDefaultSession(), pattern);
@@ -172,6 +189,22 @@ public class BasePlanTest
                 getExpressionTranslator()); // To avoid assert plan failure not printing out plan (#12885)
 
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED, pattern, optimizers);
+    }
+
+    protected void assertMinimallyOptimizedPlanWithSession(@Language("SQL") String sql, Session session, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
+    {
+        List<PlanOptimizer> finalOptimizers = new ArrayList<>(optimizers);
+        finalOptimizers.addAll(ImmutableList.of(
+                new UnaliasSymbolReferences(queryRunner.getMetadata().getFunctionManager()),
+                new PruneUnreferencedOutputs(),
+                new IterativeOptimizer(
+                        new RuleStatsRecorder(),
+                        queryRunner.getStatsCalculator(),
+                        queryRunner.getCostCalculator(),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                getExpressionTranslator())); // To avoid assert plan failure not printing out plan (#12885)
+
+        assertPlanWithSession(sql, session, LogicalPlanner.Stage.OPTIMIZED, pattern, finalOptimizers);
     }
 
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)

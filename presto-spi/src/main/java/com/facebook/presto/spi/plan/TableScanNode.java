@@ -47,6 +47,8 @@ public final class TableScanNode
 
     private final TupleDomain<ColumnHandle> enforcedConstraint;
 
+    private final boolean sampleReplaced;
+
     /**
      * This constructor is for JSON deserialization only.  Do not use!
      */
@@ -64,6 +66,7 @@ public final class TableScanNode
         checkArgument(assignments.keySet().containsAll(outputVariables), "assignments does not cover all of outputs");
         this.currentConstraint = null;
         this.enforcedConstraint = null;
+        this.sampleReplaced = false;
     }
 
     public TableScanNode(
@@ -73,6 +76,18 @@ public final class TableScanNode
             Map<VariableReferenceExpression, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> currentConstraint,
             TupleDomain<ColumnHandle> enforcedConstraint)
+    {
+        this(id, table, outputVariables, assignments, currentConstraint, enforcedConstraint, false);
+    }
+
+    public TableScanNode(
+            PlanNodeId id,
+            TableHandle table,
+            List<VariableReferenceExpression> outputVariables,
+            Map<VariableReferenceExpression, ColumnHandle> assignments,
+            TupleDomain<ColumnHandle> currentConstraint,
+            TupleDomain<ColumnHandle> enforcedConstraint,
+            boolean sampleReplaced)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
@@ -84,6 +99,7 @@ public final class TableScanNode
         if (!currentConstraint.isAll() || !enforcedConstraint.isAll()) {
             checkArgument(table.getLayout().isPresent(), "tableLayout must be present when currentConstraint or enforcedConstraint is non-trivial");
         }
+        this.sampleReplaced = sampleReplaced;
     }
 
     /**
@@ -187,5 +203,10 @@ public final class TableScanNode
         if (!test) {
             throw new IllegalStateException(errorMessage);
         }
+    }
+
+    public boolean isSampleReplaced()
+    {
+        return this.sampleReplaced;
     }
 }

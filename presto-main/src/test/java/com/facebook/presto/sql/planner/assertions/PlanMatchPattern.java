@@ -127,12 +127,22 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern tableScan(String expectedTableName)
     {
-        return TableScanMatcher.create(expectedTableName);
+        return tableScan(expectedTableName, false);
+    }
+
+    public static PlanMatchPattern tableScan(String expectedTableName, boolean sampleReplaced)
+    {
+        return TableScanMatcher.create(expectedTableName, sampleReplaced);
     }
 
     public static PlanMatchPattern tableScan(String expectedTableName, Map<String, String> columnReferences)
     {
-        PlanMatchPattern result = tableScan(expectedTableName);
+        return tableScan(expectedTableName, columnReferences, false);
+    }
+
+    public static PlanMatchPattern tableScan(String expectedTableName, Map<String, String> columnReferences, boolean sampleReplaced)
+    {
+        PlanMatchPattern result = tableScan(expectedTableName, sampleReplaced);
         return result.addColumnReferences(expectedTableName, columnReferences);
     }
 
