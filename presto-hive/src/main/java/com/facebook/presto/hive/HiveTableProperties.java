@@ -55,6 +55,9 @@ public class HiveTableProperties
     public static final String ENCRYPT_TABLE = "encrypt_table";
     public static final String DWRF_ENCRYPTION_ALGORITHM = "dwrf_encryption_algorithm";
     public static final String DWRF_ENCRYPTION_PROVIDER = "dwrf_encryption_provider";
+    public static final String SAMPLED_TABLES = "datasampling_sampled_tables";
+    public static final String SAMPLING_PCT = "datasampling_sampling_pct";
+    public static final String SAMPLING_COLUMN = "datasampling_sampling_column";
 
     private final List<PropertyMetadata<?>> tableProperties;
 

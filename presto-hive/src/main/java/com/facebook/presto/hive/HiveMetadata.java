@@ -68,6 +68,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.TableSample;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
@@ -219,6 +220,9 @@ import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLU
 import static com.facebook.presto.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.PREFERRED_ORDERING_COLUMNS;
+import static com.facebook.presto.hive.HiveTableProperties.SAMPLED_TABLES;
+import static com.facebook.presto.hive.HiveTableProperties.SAMPLING_COLUMN;
+import static com.facebook.presto.hive.HiveTableProperties.SAMPLING_PCT;
 import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.getAvroSchemaUrl;
@@ -630,7 +634,81 @@ public class HiveMetadata
 
         Optional<String> comment = Optional.ofNullable(table.get().getParameters().get(TABLE_COMMENT));
 
-        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
+        return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment, getSampledTables(table.get()));
+    }
+
+    private boolean checkSampleTableSchemaMatch(Table parentTable, Table sampleTable)
+    {
+        String sampleTableName = sampleTable.getDatabaseName() + "." + sampleTable.getTableName();
+
+        Map<String, HiveType> samplePartitionColumnMap =
+                sampleTable.getPartitionColumns().stream().collect(Collectors.toMap(Column::getName, Column::getType));
+        for (Column partitionColumn : parentTable.getPartitionColumns()) {
+            if (!samplePartitionColumnMap.containsKey(partitionColumn.getName())) {
+                return false;
+            }
+            if (!samplePartitionColumnMap.get(partitionColumn.getName()).equals(partitionColumn.getType())) {
+                return false;
+            }
+        }
+
+        Map<String, HiveType> sampleDataColumnMap =
+                sampleTable.getDataColumns().stream().collect(Collectors.toMap(Column::getName, Column::getType));
+        for (Column dataColumn : parentTable.getDataColumns()) {
+            if (!sampleDataColumnMap.containsKey(dataColumn.getName())) {
+                return false;
+            }
+            if (!sampleDataColumnMap.get(dataColumn.getName()).equals(dataColumn.getType())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private List<TableSample> getSampledTables(Table table)
+    {
+        List<TableSample> sampledList = new ArrayList<>();
+        String sampledTables = table.getParameters().get(SAMPLED_TABLES);
+        if (sampledTables != null) {
+            for (String sampleTableName : sampledTables.split(",")) {
+                String[] parts = sampleTableName.split("[.]");
+                SchemaTableName name;
+                if (parts.length == 1) {
+                    name = new SchemaTableName(table.getDatabaseName(), parts[0]);
+                }
+                else if (parts.length == 2) {
+                    name = new SchemaTableName(parts[0], parts[1]);
+                }
+                else {
+                    continue;
+                }
+                Optional<Table> sampleTable = metastore.getTable(name.getSchemaName(), name.getTableName());
+                if (!sampleTable.isPresent() || sampleTable.get().getTableType().equals(VIRTUAL_VIEW)) {
+                    continue;
+                }
+                if (checkSampleTableSchemaMatch(table, sampleTable.get())) {
+                    Optional<Integer> samplingPct = Optional.empty();
+                    try {
+                        if (sampleTable.get().getParameters().containsKey(SAMPLING_PCT)) {
+                            samplingPct = Optional.of(Integer.valueOf(Integer.parseInt(sampleTable.get().getParameters().get(SAMPLING_PCT))));
+                        }
+                    }
+                    catch (NumberFormatException e) {
+                    }
+                    Optional<String> samplingColumn = Optional.empty();
+                    try {
+                        if (sampleTable.get().getParameters().containsKey(SAMPLING_COLUMN)) {
+                            samplingColumn = Optional.of(sampleTable.get().getParameters().get(SAMPLING_COLUMN));
+                        }
+                    }
+                    catch (Exception e) {
+                    }
+                    sampledList.add(new TableSample(name, samplingPct, samplingColumn));
+                }
+            }
+        }
+        return sampledList;
     }
 
     protected Optional<? extends TableEncryptionProperties> getTableEncryptionPropertiesFromHiveProperties(Map<String, String> parameters, HiveStorageFormat storageFormat)
