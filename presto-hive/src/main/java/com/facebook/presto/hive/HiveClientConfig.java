@@ -181,6 +181,8 @@ public class HiveClientConfig
     private boolean isPartialAggregationPushdownEnabled;
     private boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
 
+    private boolean fileRenamingEnabled;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1508,5 +1510,18 @@ public class HiveClientConfig
     public boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled()
     {
         return this.isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
+    }
+
+    @Config("hive.file_renaming_enabled")
+    @ConfigDescription("enable file renaming")
+    public HiveClientConfig setFileRenamingEnabled(boolean fileRenamingEnabled)
+    {
+        this.fileRenamingEnabled = fileRenamingEnabled;
+        return this;
+    }
+
+    public boolean isFileRenamingEnabled()
+    {
+        return this.fileRenamingEnabled;
     }
 }

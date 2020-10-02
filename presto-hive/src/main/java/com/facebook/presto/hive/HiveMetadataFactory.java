@@ -63,6 +63,7 @@ public class HiveMetadataFactory
     private final PartitionObjectBuilder partitionObjectBuilder;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final HivePartitionStats hivePartitionStats;
+    private final HiveFileRenamer hiveFileRenamer;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -86,7 +87,8 @@ public class HiveMetadataFactory
             NodeVersion nodeVersion,
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
-            HivePartitionStats hivePartitionStats)
+            HivePartitionStats hivePartitionStats,
+            HiveFileRenamer hiveFileRenamer)
     {
         this(
                 metastore,
@@ -114,7 +116,8 @@ public class HiveMetadataFactory
                 nodeVersion.toString(),
                 partitionObjectBuilder,
                 encryptionInformationProvider,
-                hivePartitionStats);
+                hivePartitionStats,
+                hiveFileRenamer);
     }
 
     public HiveMetadataFactory(
@@ -143,7 +146,8 @@ public class HiveMetadataFactory
             String prestoVersion,
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
-            HivePartitionStats hivePartitionStats)
+            HivePartitionStats hivePartitionStats,
+            HiveFileRenamer hiveFileRenamer)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -172,6 +176,7 @@ public class HiveMetadataFactory
         this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
+        this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -214,6 +219,7 @@ public class HiveMetadataFactory
                 zeroRowFileCreator,
                 partitionObjectBuilder,
                 encryptionInformationProvider,
-                hivePartitionStats);
+                hivePartitionStats,
+                hiveFileRenamer);
     }
 }

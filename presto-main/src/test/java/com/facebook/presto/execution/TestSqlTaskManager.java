@@ -28,6 +28,7 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
@@ -251,7 +252,8 @@ public class TestSqlTaskManager
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 new BlockEncodingManager(),
-                new OrderingCompiler());
+                new OrderingCompiler(),
+                new NoOpFragmentResultCacheManager());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
@@ -274,7 +276,8 @@ public class TestSqlTaskManager
                         false,
                         false,
                         false,
-                        false);
+                        false,
+                        Optional.empty());
         return sqlTaskManager.updateTask(
                 TEST_SESSION,
                 taskId,

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Objects;
 
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
@@ -88,5 +89,25 @@ public final class FilterNode
             throw new IllegalArgumentException("Expect exactly one child to replace");
         }
         return new FilterNode(getId(), newChildren.get(0), predicate);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        FilterNode that = (FilterNode) o;
+        return Objects.equals(source, that.source) &&
+                Objects.equals(predicate, that.predicate);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(source, predicate);
     }
 }

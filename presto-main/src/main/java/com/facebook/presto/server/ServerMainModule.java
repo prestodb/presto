@@ -53,6 +53,7 @@ import com.facebook.presto.execution.TaskManagementExecutor;
 import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.TaskThresholdMemoryRevokingScheduler;
 import com.facebook.presto.execution.executor.MultilevelSplitQueue;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
@@ -82,6 +83,7 @@ import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SchemaPropertyManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
@@ -93,8 +95,13 @@ import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.operator.FileFragmentResultCacheConfig;
+import com.facebook.presto.operator.FileFragmentResultCacheManager;
 import com.facebook.presto.operator.ForExchange;
+import com.facebook.presto.operator.FragmentCacheStats;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
@@ -191,6 +198,7 @@ import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinde
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -198,6 +206,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -310,7 +319,11 @@ public class ServerMainModule
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
 
         // memory revoking scheduler
-        binder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON);
+        installModuleIf(
+                FeaturesConfig.class,
+                config -> config.getTaskSpillingStrategy() == PER_TASK_MEMORY_THRESHOLD,
+                moduleBinder -> moduleBinder.bind(TaskThresholdMemoryRevokingScheduler.class).in(Scopes.SINGLETON),
+                moduleBinder -> moduleBinder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON));
 
         // Add monitoring for JVM pauses
         binder.bind(PauseMeter.class).in(Scopes.SINGLETON);
@@ -329,6 +342,9 @@ public class ServerMainModule
         binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MultilevelSplitQueue.class).withGeneratedName();
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(FileFragmentResultCacheConfig.class);
+        binder.bind(FragmentCacheStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(FragmentCacheStats.class).withGeneratedName();
         configBinder(binder).bindConfig(CompilerConfig.class);
         binder.bind(ExpressionCompiler.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExpressionCompiler.class).withGeneratedName();
@@ -466,6 +482,10 @@ public class ServerMainModule
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
 
+        // metadata updates
+        jsonCodecBinder(binder).bindJsonCodec(MetadataUpdates.class);
+        smileCodecBinder(binder).bindSmileCodec(MetadataUpdates.class);
+
         // split monitor
         binder.bind(SplitMonitor.class).in(Scopes.SINGLETON);
 
@@ -569,6 +589,21 @@ public class ServerMainModule
     public static ScheduledExecutorService createAsyncHttpTimeoutExecutor(TaskManagerConfig config)
     {
         return createConcurrentScheduledExecutor("async-http-timeout", config.getHttpTimeoutConcurrency(), config.getHttpTimeoutThreads());
+    }
+
+    @Provides
+    @Singleton
+    public static FragmentResultCacheManager createFragmentResultCacheManager(FileFragmentResultCacheConfig config, BlockEncodingSerde blockEncodingSerde, FragmentCacheStats fragmentCacheStats)
+    {
+        if (config.isCachingEnabled()) {
+            return new FileFragmentResultCacheManager(
+                    config,
+                    blockEncodingSerde,
+                    fragmentCacheStats,
+                    newFixedThreadPool(5, daemonThreadsNamed("fragment-result-cache-writer-%s")),
+                    newFixedThreadPool(1, daemonThreadsNamed("fragment-result-cache-remover-%s")));
+        }
+        return new NoOpFragmentResultCacheManager();
     }
 
     public static class ExecutorCleanup

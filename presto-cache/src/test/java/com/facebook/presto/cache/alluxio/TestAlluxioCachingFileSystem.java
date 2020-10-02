@@ -36,7 +36,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.AccessDeniedException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -188,7 +187,7 @@ public class TestAlluxioCachingFileSystem
     }
 
     // This test must go first or the LocalCacheManager singleton will be created by other tests
-    @Test(timeOut = 30_000, expectedExceptions = {AccessDeniedException.class}, priority = -1)
+    @Test(timeOut = 30_000, expectedExceptions = {IOException.class}, priority = -1)
     public void testCreationFailure()
             throws Exception
     {
@@ -274,6 +273,7 @@ public class TestAlluxioCachingFileSystem
             configuration.set("alluxio.user.client.cache.page.size", Integer.toString(PAGE_SIZE));
             configuration.set("alluxio.user.metrics.collection.enabled", String.valueOf(alluxioCacheConfig.isMetricsCollectionEnabled()));
             configuration.set("alluxio.user.client.cache.async.write.enabled", String.valueOf(alluxioCacheConfig.isAsyncWriteEnabled()));
+            configuration.set("alluxio.user.client.cache.async.restore.enabled", String.valueOf(false));
             configuration.set("sink.jmx.class", alluxioCacheConfig.getJmxClass());
             configuration.set("sink.jmx.domain", alluxioCacheConfig.getMetricsDomain());
         }

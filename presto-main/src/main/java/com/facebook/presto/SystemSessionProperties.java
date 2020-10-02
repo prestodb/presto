@@ -117,6 +117,7 @@ public final class SystemSessionProperties
     public static final String FAST_INEQUALITY_JOINS = "fast_inequality_joins";
     public static final String QUERY_PRIORITY = "query_priority";
     public static final String SPILL_ENABLED = "spill_enabled";
+    public static final String JOIN_SPILL_ENABLED = "join_spill_enabled";
     public static final String AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT = "aggregation_operator_unspill_memory_limit";
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String LEGACY_ROW_FIELD_ORDINAL_ACCESS = "legacy_row_field_ordinal_access";
@@ -168,6 +169,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
+    public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String APPROX_RESULTS_OPTION = "approx_results_option";
@@ -571,6 +573,23 @@ public final class SystemSessionProperties
                         },
                         value -> value),
                 new PropertyMetadata<>(
+                        JOIN_SPILL_ENABLED,
+                        "Experimental: Enable join spilling",
+                        BOOLEAN,
+                        Boolean.class,
+                        featuresConfig.isJoinSpillingEnabled(),
+                        false,
+                        value -> {
+                            boolean joinSpillEnabled = (Boolean) value;
+                            if (joinSpillEnabled && !featuresConfig.isSpillEnabled()) {
+                                throw new PrestoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s cannot be set to true; spilling is not configured", JOIN_SPILL_ENABLED));
+                            }
+                            return joinSpillEnabled;
+                        },
+                        value -> value),
+                new PropertyMetadata<>(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
                         "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
                         VARCHAR,
@@ -874,6 +893,11 @@ public final class SystemSessionProperties
                         false,
                         value -> DataSize.valueOf((String) value),
                         DataSize::toString),
+                booleanProperty(
+                        FRAGMENT_RESULT_CACHING_ENABLED,
+                        "Enable fragment result caching and read/write leaf fragment result pages from/to cache when applicable",
+                        featuresConfig.isFragmentResultCachingEnabled(),
+                        false),
                 booleanProperty(
                         LEGACY_TYPE_COERCION_WARNING_ENABLED,
                         "Enable warning for query relying on legacy type coercion",
@@ -1197,6 +1221,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(SPILL_ENABLED, Boolean.class);
     }
 
+    public static boolean isJoinSpillingEnabled(Session session)
+    {
+        return session.getSystemProperty(JOIN_SPILL_ENABLED, Boolean.class);
+    }
+
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
     {
         DataSize memoryLimitForMerge = session.getSystemProperty(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, DataSize.class);
@@ -1495,6 +1524,11 @@ public final class SystemSessionProperties
     public static DataSize getDynamicFilteringMaxPerDriverSize(Session session)
     {
         return session.getSystemProperty(DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE, DataSize.class);
+    }
+
+    public static boolean isFragmentResultCachingEnabled(Session session)
+    {
+        return session.getSystemProperty(FRAGMENT_RESULT_CACHING_ENABLED, Boolean.class);
     }
 
     public static boolean isLegacyTypeCoercionWarningEnabled(Session session)

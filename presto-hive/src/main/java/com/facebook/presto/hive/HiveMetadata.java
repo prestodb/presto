@@ -47,6 +47,7 @@ import com.facebook.presto.hive.statistics.HiveStatisticsProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -61,6 +62,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
@@ -360,6 +362,7 @@ public class HiveMetadata
     private final PartitionObjectBuilder partitionObjectBuilder;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
     private final HivePartitionStats hivePartitionStats;
+    private final HiveFileRenamer hiveFileRenamer;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -384,7 +387,8 @@ public class HiveMetadata
             ZeroRowFileCreator zeroRowFileCreator,
             PartitionObjectBuilder partitionObjectBuilder,
             HiveEncryptionInformationProvider encryptionInformationProvider,
-            HivePartitionStats hivePartitionStats)
+            HivePartitionStats hivePartitionStats,
+            HiveFileRenamer hiveFileRenamer)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -410,6 +414,7 @@ public class HiveMetadata
         this.partitionObjectBuilder = requireNonNull(partitionObjectBuilder, "partitionObjectBuilder is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
+        this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -2955,6 +2960,18 @@ public class HiveMetadata
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
         return toCompletableFuture(stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments)));
+    }
+
+    @Override
+    public List<ConnectorMetadataUpdateHandle> getMetadataUpdateResults(List<ConnectorMetadataUpdateHandle> metadataUpdateRequests, QueryId queryId)
+    {
+        return hiveFileRenamer.getMetadataUpdateResults(metadataUpdateRequests, queryId);
+    }
+
+    @Override
+    public void doMetadataUpdateCleanup(QueryId queryId)
+    {
+        hiveFileRenamer.cleanup(queryId);
     }
 
     private List<GrantInfo> buildGrants(SchemaTableName tableName, PrestoPrincipal principal)

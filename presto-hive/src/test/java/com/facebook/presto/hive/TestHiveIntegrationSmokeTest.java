@@ -62,6 +62,8 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -98,6 +100,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
+import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TEMP_PATH_SUBDIRECTORY_COUNT;
@@ -2356,6 +2359,96 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS scale_writers_large");
             assertUpdate("DROP TABLE IF EXISTS scale_writers_small");
         }
+    }
+
+    @Test
+    public void testFileRenamingForPartitionedTable()
+    {
+        try {
+            // Create partitioned table
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "CREATE TABLE partitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "WITH (partitioned_by = ARRAY['orderstatus'], preferred_ordering_columns = ARRAY['orderkey']) AS\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+
+            // Collect all file names
+            Map<String, List<Integer>> partitionFileNamesMap = new HashMap<>();
+            MaterializedResult partitionedResults = computeActual("SELECT DISTINCT \"$path\" FROM partitioned_ordering_table");
+            for (int i = 0; i < partitionedResults.getRowCount(); i++) {
+                MaterializedRow row = partitionedResults.getMaterializedRows().get(i);
+                Path pathName = new Path((String) row.getField(0));
+                String partitionName = pathName.getParent().toString();
+                String fileName = pathName.getName();
+                partitionFileNamesMap.putIfAbsent(partitionName, new ArrayList<>());
+                partitionFileNamesMap.get(partitionName).add(Integer.valueOf(fileName));
+            }
+
+            // Assert that file names are a continuous increasing sequence for all partitions
+            for (String partitionName : partitionFileNamesMap.keySet()) {
+                List<Integer> partitionedTableFileNames = partitionFileNamesMap.get(partitionName);
+                assertTrue(partitionedTableFileNames.size() > 0);
+                assertTrue(isIncreasingSequence(partitionedTableFileNames));
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS partitioned_ordering_table");
+        }
+    }
+
+    @Test
+    public void testFileRenamingForUnpartitionedTable()
+    {
+        try {
+            // Create un-partitioned table
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "CREATE TABLE unpartitioned_ordering_table AS SELECT * FROM tpch.sf1.orders",
+                    (long) computeActual("SELECT count(*) FROM tpch.sf1.orders").getOnlyValue());
+
+            // Collect file names of the table
+            List<Integer> fileNames = new ArrayList<>();
+            MaterializedResult results = computeActual("SELECT DISTINCT \"$path\" FROM unpartitioned_ordering_table");
+            for (int i = 0; i < results.getRowCount(); i++) {
+                MaterializedRow row = results.getMaterializedRows().get(i);
+                String pathName = (String) row.getField(0);
+                String fileName = new Path(pathName).getName();
+                fileNames.add(Integer.valueOf(fileName));
+            }
+
+            assertTrue(fileNames.size() > 0);
+
+            // Assert that file names are continuous increasing sequence
+            assertTrue(isIncreasingSequence(fileNames));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS unpartitioned_ordering_table");
+        }
+    }
+
+    boolean isIncreasingSequence(List<Integer> fileNames)
+    {
+        Collections.sort(fileNames);
+
+        int i = 0;
+        for (int fileName : fileNames) {
+            if (i != fileName) {
+                return false;
+            }
+            i++;
+        }
+        return true;
     }
 
     @Test

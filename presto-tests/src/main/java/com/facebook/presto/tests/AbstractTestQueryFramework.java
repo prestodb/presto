@@ -30,6 +30,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.assertions.PlanAssert;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
@@ -375,6 +376,26 @@ public abstract class AbstractTestQueryFramework
                     planValidator.accept(actualPlan);
                     return null;
                 });
+    }
+
+    protected SubPlan subplan(String sql)
+    {
+        return subplan(sql, queryRunner.getDefaultSession());
+    }
+
+    protected SubPlan subplan(String sql, Session session)
+    {
+        QueryExplainer explainer = getQueryExplainer();
+        try {
+            return transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                    .singleStatement()
+                    .execute(session, transactionSession -> {
+                        return explainer.getDistributedPlan(transactionSession, sqlParser.createStatement(sql, createParsingOptions(transactionSession)), emptyList(), WarningCollector.NOOP);
+                    });
+        }
+        catch (RuntimeException e) {
+            throw new AssertionError("Planning failed for SQL: " + sql, e);
+        }
     }
 
     private QueryExplainer getQueryExplainer()

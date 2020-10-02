@@ -33,9 +33,12 @@ import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
@@ -130,7 +133,8 @@ public class SqlTaskManager
             NodeSpillConfig nodeSpillConfig,
             GcMonitor gcMonitor,
             BlockEncodingSerde blockEncodingSerde,
-            OrderingCompiler orderingCompiler)
+            OrderingCompiler orderingCompiler,
+            FragmentResultCacheManager fragmentResultCacheManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -152,6 +156,7 @@ public class SqlTaskManager
                 blockEncodingSerde,
                 orderingCompiler,
                 splitMonitor,
+                fragmentResultCacheManager,
                 config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
@@ -393,6 +398,15 @@ public class SqlTaskManager
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo);
+    }
+
+    @Override
+    public void updateMetadataResults(TaskId taskId, MetadataUpdates metadataUpdates)
+    {
+        TaskMetadataContext metadataContext = tasks.getUnchecked(taskId).getTaskMetadataContext();
+        for (ConnectorMetadataUpdater metadataUpdater : metadataContext.getMetadataUpdaters()) {
+            metadataUpdater.setMetadataUpdateResults(metadataUpdates.getMetadataUpdates());
+        }
     }
 
     @Override

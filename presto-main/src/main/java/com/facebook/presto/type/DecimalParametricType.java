@@ -18,7 +18,6 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.spi.PrestoException;
 
@@ -38,7 +37,7 @@ public class DecimalParametricType
     }
 
     @Override
-    public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
+    public Type createType(List<TypeParameter> parameters)
     {
         try {
             switch (parameters.size()) {

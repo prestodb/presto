@@ -15,4 +15,8 @@ package com.facebook.presto.spi;
 
 public interface ConnectorTableLayoutHandle
 {
+    default Object getIdentifier()
+    {
+        return this;
+    }
 }

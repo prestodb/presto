@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static java.util.Collections.singletonList;
@@ -100,6 +101,27 @@ public final class ProjectNode
             throw new IllegalArgumentException("newChildren list has multiple items");
         }
         return new ProjectNode(getId(), newChildren.get(0), assignments, locality);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ProjectNode that = (ProjectNode) o;
+        return Objects.equals(source, that.source) &&
+                Objects.equals(assignments, that.assignments) &&
+                locality == that.locality;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(source, assignments, locality);
     }
 
     public enum Locality

@@ -179,6 +179,8 @@ public class HivePageSinkProvider
                 writerFactory,
                 handle.getInputColumns(),
                 handle.getBucketProperty(),
+                handle.getSchemaName(),
+                handle.getTableName(),
                 pageIndexerFactory,
                 typeManager,
                 hdfsEnvironment,

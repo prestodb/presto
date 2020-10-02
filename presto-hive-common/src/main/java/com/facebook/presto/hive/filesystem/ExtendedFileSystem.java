@@ -15,6 +15,7 @@ package com.facebook.presto.hive.filesystem;
 
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveFileInfo;
+import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -39,6 +40,12 @@ public abstract class ExtendedFileSystem
     }
 
     public RemoteIterator<LocatedFileStatus> listDirectory(Path path)
+            throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    public ListenableFuture<Void> renameFileAsync(Path source, Path destination)
             throws IOException
     {
         throw new UnsupportedOperationException();

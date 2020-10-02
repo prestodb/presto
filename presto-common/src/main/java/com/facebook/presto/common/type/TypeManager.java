@@ -13,9 +13,6 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.function.OperatorType;
-
-import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +46,4 @@ public interface TypeManager
     boolean isTypeOnlyCoercion(Type actualType, Type expectedType);
 
     Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase);
-
-    MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes);
 }

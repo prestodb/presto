@@ -463,4 +463,10 @@ public class DriverContext
     {
         return driverMemoryContext;
     }
+
+    @VisibleForTesting
+    public void addOperatorContext(OperatorContext operatorContext)
+    {
+        operatorContexts.add(operatorContext);
+    }
 }

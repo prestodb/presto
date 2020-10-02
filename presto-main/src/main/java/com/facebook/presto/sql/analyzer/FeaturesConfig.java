@@ -39,6 +39,7 @@ import java.util.List;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
+import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -58,6 +59,7 @@ public class FeaturesConfig
 {
     @VisibleForTesting
     static final String SPILL_ENABLED = "experimental.spill-enabled";
+    static final String JOIN_SPILL_ENABLED = "experimental.join-spill-enabled";
     @VisibleForTesting
     static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
 
@@ -78,6 +80,8 @@ public class FeaturesConfig
     private int concurrentLifespansPerTask;
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
+    private TaskSpillingStrategy taskSpillingStrategy = ORDER_BY_CREATE_TIME;
+    private long maxRevocableMemoryPerTask = 500000L;
     private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private int maxReorderedJoins = 9;
@@ -112,6 +116,7 @@ public class FeaturesConfig
     private ArrayAggGroupImplementation arrayAggGroupImplementation = ArrayAggGroupImplementation.NEW;
     private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
+    private boolean joinSpillingEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
@@ -137,6 +142,8 @@ public class FeaturesConfig
     private boolean enableDynamicFiltering;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
+
+    private boolean fragmentResultCachingEnabled;
 
     private DataSize filterAndProjectMinOutputPageSize = new DataSize(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -229,6 +236,13 @@ public class FeaturesConfig
         NONE,
         SAMPLING,
         SAMPLING_WITH_FAIL_CLOSE,
+    }
+  
+    public enum TaskSpillingStrategy
+    {
+        ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
+        ORDER_BY_REVOCABLE_BYTES, // When spilling is triggered, revoke tasks by most allocated revocable memory to least allocated revocable memory
+        PER_TASK_MEMORY_THRESHOLD // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
     }
 
     public double getCpuCostWeight()
@@ -557,6 +571,32 @@ public class FeaturesConfig
         return this;
     }
 
+    public TaskSpillingStrategy getTaskSpillingStrategy()
+    {
+        return taskSpillingStrategy;
+    }
+
+    @Config("experimental.spiller.task-spilling-strategy")
+    @ConfigDescription("The strategy used to pick which task to spill when spilling is enabled. See TaskSpillingStrategy.")
+    public FeaturesConfig setTaskSpillingStrategy(TaskSpillingStrategy joinReorderingStrategy)
+    {
+        this.taskSpillingStrategy = joinReorderingStrategy;
+        return this;
+    }
+
+    public long getMaxRevocableMemoryPerTask()
+    {
+        return maxRevocableMemoryPerTask;
+    }
+
+    @Config("experimental.spiller.max-revocable-task-memory")
+    @ConfigDescription("Only used when task-spilling-strategy is PER_TASK_MEMORY_THRESHOLD")
+    public FeaturesConfig setMaxRevocableMemoryPerTask(long maxRevocableMemoryPerTask)
+    {
+        this.maxRevocableMemoryPerTask = maxRevocableMemoryPerTask;
+        return this;
+    }
+
     public PartialMergePushdownStrategy getPartialMergePushdownStrategy()
     {
         return partialMergePushdownStrategy;
@@ -780,6 +820,24 @@ public class FeaturesConfig
         return this;
     }
 
+    public boolean isJoinSpillingEnabled()
+    {
+        return joinSpillingEnabled;
+    }
+
+    @Config(JOIN_SPILL_ENABLED)
+    public FeaturesConfig setJoinSpillingEnabled(boolean joinSpillingEnabled)
+    {
+        this.joinSpillingEnabled = joinSpillingEnabled;
+        return this;
+    }
+
+    @AssertTrue(message = "If " + JOIN_SPILL_ENABLED + " is set to true, spilling must be enabled " + SPILL_ENABLED)
+    public boolean isSpillEnabledIfJoinSpillingIsEnabled()
+    {
+        return !isJoinSpillingEnabled() || isSpillEnabled();
+    }
+
     public boolean isIterativeOptimizerEnabled()
     {
         return iterativeOptimizerEnabled;
@@ -997,6 +1055,19 @@ public class FeaturesConfig
     public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
     {
         this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
+        return this;
+    }
+
+    public boolean isFragmentResultCachingEnabled()
+    {
+        return fragmentResultCachingEnabled;
+    }
+
+    @Config("experimental.fragment-result-caching-enabled")
+    @ConfigDescription("Enable fragment result caching and read/write leaf fragment result pages from/to cache when applicable")
+    public FeaturesConfig setFragmentResultCachingEnabled(boolean fragmentResultCachingEnabled)
+    {
+        this.fragmentResultCachingEnabled = fragmentResultCachingEnabled;
         return this;
     }
 

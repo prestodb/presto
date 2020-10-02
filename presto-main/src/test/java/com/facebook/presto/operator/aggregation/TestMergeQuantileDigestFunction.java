@@ -57,7 +57,7 @@ public class TestMergeQuantileDigestFunction
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        Type type = QDIGEST.createType(typeRegistry, ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
+        Type type = QDIGEST.createType(ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             QuantileDigest qdigest = new QuantileDigest(0.0);
