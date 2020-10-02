@@ -13,11 +13,20 @@
  */
 package com.facebook.presto.plugin.memory;
 
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.transaction.TransactionBuilder;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
+
+import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static io.airlift.units.Duration.nanosSince;
@@ -49,13 +58,34 @@ public class TestMemoryWorkerCrash
         assertQuery("SELECT * FROM test_region ORDER BY regionkey", "SELECT * FROM region ORDER BY regionkey");
     }
 
+    private HostAddress workerWithData()
+    {
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        Metadata metadata = queryRunner.getMetadata();
+
+        TableLayout tableHandle = TransactionBuilder.transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .readOnly()
+                .execute(getSession(), transactionSession -> {
+                    Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(transactionSession, new QualifiedObjectName("memory", "default", "test_nation"));
+                    return metadata.getLayout(transactionSession, tableHandleOptional.get());
+                });
+
+        List<MemoryDataFragment> memoryDataFragments = ((MemoryTableLayoutHandle) tableHandle.getLayoutHandle()).getDataFragments();
+        return memoryDataFragments.stream()
+                .filter(df -> df.getRows() > 0)
+                .findAny()
+                .orElseThrow(() -> new IllegalStateException("No worker nodes"))
+                .getHostAddress();
+    }
+
     private void closeWorker()
             throws Exception
     {
-        int nodeCount = getNodeCount();
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        HostAddress workerAddress = workerWithData();
+        int nodeCount = getNodeCount();
         TestingPrestoServer worker = queryRunner.getServers().stream()
-                .filter(server -> !server.isCoordinator())
+                .filter(server -> server.getAddress().getHost().equals(workerAddress.getHostText()) && server.getAddress().getPort() == workerAddress.getPort())
                 .findAny()
                 .orElseThrow(() -> new IllegalStateException("No worker nodes"));
         worker.close();

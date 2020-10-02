@@ -16,12 +16,14 @@ package com.facebook.presto.plugin.memory;
 import com.facebook.airlift.configuration.Config;
 import io.airlift.units.DataSize;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 public class MemoryConfig
 {
     private int splitsPerNode = Runtime.getRuntime().availableProcessors();
     private DataSize maxDataPerNode = new DataSize(128, DataSize.Unit.MEGABYTE);
+    private int rowsPerSplit = 1;
 
     @NotNull
     public int getSplitsPerNode()
@@ -46,6 +48,20 @@ public class MemoryConfig
     public MemoryConfig setMaxDataPerNode(DataSize maxDataPerNode)
     {
         this.maxDataPerNode = maxDataPerNode;
+        return this;
+    }
+
+    @NotNull
+    @Min(1)
+    public int getRowsPerSplit()
+    {
+        return rowsPerSplit;
+    }
+
+    @Config("memory.rows-per-split")
+    public MemoryConfig setRowsPerSplit(int rowsPerSplit)
+    {
+        this.rowsPerSplit = rowsPerSplit;
         return this;
     }
 }

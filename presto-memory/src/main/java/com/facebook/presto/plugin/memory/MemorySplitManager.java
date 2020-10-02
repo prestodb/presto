@@ -30,11 +30,13 @@ public final class MemorySplitManager
         implements ConnectorSplitManager
 {
     private final int splitsPerNode;
+    private final int rowsPerSplit;
 
     @Inject
     public MemorySplitManager(MemoryConfig config)
     {
         this.splitsPerNode = config.getSplitsPerNode();
+        this.rowsPerSplit = config.getRowsPerSplit();
     }
 
     @Override
@@ -50,12 +52,13 @@ public final class MemorySplitManager
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (MemoryDataFragment dataFragment : dataFragments) {
-            for (int i = 0; i < splitsPerNode; i++) {
+            int numSplits = (int) Math.min(splitsPerNode, dataFragment.getRows() / rowsPerSplit);
+            for (int i = 0; i < numSplits; i++) {
                 splits.add(
                         new MemorySplit(
                                 layout.getTable(),
                                 i,
-                                splitsPerNode,
+                                numSplits,
                                 dataFragment.getHostAddress(),
                                 dataFragment.getRows()));
             }
