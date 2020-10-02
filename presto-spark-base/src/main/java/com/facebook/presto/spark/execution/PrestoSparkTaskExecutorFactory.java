@@ -61,7 +61,6 @@ import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PreDeter
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spiller.NodeSpillConfig;
@@ -392,7 +391,6 @@ public class PrestoSparkTaskExecutorFactory
                 sinkMaxBufferSize.toBytes(),
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
                 notificationExecutor);
-        PagesSerde pagesSerde = new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty());
 
         Optional<OutputPartitioning> preDeterminedPartition = Optional.empty();
         if (fragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION)) {
@@ -406,7 +404,7 @@ public class PrestoSparkTaskExecutorFactory
         }
         Output<T> output = configureOutput(
                 outputType,
-                pagesSerde,
+                blockEncodingManager,
                 memoryManager,
                 getShuffleOutputTargetAverageRowSize(session),
                 preDeterminedPartition);
@@ -420,7 +418,7 @@ public class PrestoSparkTaskExecutorFactory
                 fragment.getTableScanSchedulingOrder(),
                 output.getOutputFactory(),
                 new PrestoSparkRemoteSourceFactory(
-                        pagesSerde,
+                        blockEncodingManager,
                         shuffleInputs.build(),
                         pageInputs.build(),
                         partitionId,
@@ -487,7 +485,7 @@ public class PrestoSparkTaskExecutorFactory
     @SuppressWarnings("unchecked")
     private static <T extends PrestoSparkTaskOutput> Output<T> configureOutput(
             Class<T> outputType,
-            PagesSerde pagesSerde,
+            BlockEncodingManager blockEncodingManager,
             OutputBufferMemoryManager memoryManager,
             DataSize targetAverageRowSize,
             Optional<OutputPartitioning> preDeterminedPartition)
@@ -500,7 +498,7 @@ public class PrestoSparkTaskExecutorFactory
         }
         else if (outputType.equals(PrestoSparkSerializedPage.class)) {
             PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer = new PrestoSparkOutputBuffer<>(memoryManager);
-            OutputFactory outputFactory = new PrestoSparkPageOutputFactory(outputBuffer, pagesSerde);
+            OutputFactory outputFactory = new PrestoSparkPageOutputFactory(outputBuffer, blockEncodingManager);
             OutputSupplier<T> outputSupplier = (OutputSupplier<T>) new PageOutputSupplier(outputBuffer);
             return new Output<>(OutputBufferType.SPARK_PAGE_OUTPUT_BUFFER, outputBuffer, outputFactory, outputSupplier);
         }

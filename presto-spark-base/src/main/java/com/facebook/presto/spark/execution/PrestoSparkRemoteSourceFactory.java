@@ -14,13 +14,13 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.execution.PrestoSparkRemoteSourceOperator.SparkRemoteSourceOperatorFactory;
-import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.RemoteSourceFactory;
 import com.google.common.collect.ImmutableMap;
@@ -30,26 +30,27 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkRemoteSourceFactory
         implements RemoteSourceFactory
 {
-    private final PagesSerde pagesSerde;
+    private final BlockEncodingManager blockEncodingManager;
     private final Map<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputsMap;
     private final Map<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputsMap;
     private final int taskId;
     private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
 
     public PrestoSparkRemoteSourceFactory(
-            PagesSerde pagesSerde,
+            BlockEncodingManager blockEncodingManager,
             Map<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputsMap,
             Map<PlanNodeId, List<Iterator<PrestoSparkSerializedPage>>> pageInputsMap,
             int taskId,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector)
     {
-        this.pagesSerde = requireNonNull(pagesSerde, "pagesSerde is null");
+        this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.shuffleInputsMap = ImmutableMap.copyOf(requireNonNull(shuffleInputsMap, "shuffleInputsMap is null"));
         this.pageInputsMap = ImmutableMap.copyOf(requireNonNull(pageInputsMap, "pageInputs is null"));
         this.taskId = taskId;
@@ -68,7 +69,7 @@ public class PrestoSparkRemoteSourceFactory
             return new SparkRemoteSourceOperatorFactory(
                     operatorId,
                     planNodeId,
-                    new PrestoSparkSerializedPageInput(pagesSerde, pageInputs));
+                    new PrestoSparkSerializedPageInput(createPagesSerde(blockEncodingManager), pageInputs));
         }
 
         return new SparkRemoteSourceOperatorFactory(
