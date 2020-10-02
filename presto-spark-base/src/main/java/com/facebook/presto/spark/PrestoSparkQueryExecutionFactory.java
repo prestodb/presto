@@ -140,6 +140,7 @@ import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_LOST;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collectScalaIterator;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toSerializedPage;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -323,7 +324,7 @@ public class PrestoSparkQueryExecutionFactory
                     rddFactory,
                     tableWriteInfo,
                     transactionManager,
-                    new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()),
+                    createPagesSerde(blockEncodingManager),
                     executionExceptionFactory,
                     queryStatusInfoOutputPath,
                     queryDataOutputPath);

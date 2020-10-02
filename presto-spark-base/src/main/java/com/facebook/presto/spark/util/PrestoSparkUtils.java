@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spark.util;
 
+import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
+import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -22,6 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Optional;
 import java.util.zip.DeflaterInputStream;
 import java.util.zip.InflaterOutputStream;
 
@@ -74,5 +77,14 @@ public class PrestoSparkUtils
             throw new UncheckedIOException(e);
         }
         return output.toByteArray();
+    }
+
+    public static PagesSerde createPagesSerde(BlockEncodingManager blockEncodingManager)
+    {
+        return new PagesSerde(
+                blockEncodingManager,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 }
