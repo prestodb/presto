@@ -30,7 +30,6 @@ public class PrestoSparkConfig
     private int initialSparkPartitionCount = 16;
     private DataSize maxSplitsDataSizePerSparkPartition = new DataSize(2, GIGABYTE);
     private DataSize shuffleOutputTargetAverageRowSize = new DataSize(1, KILOBYTE);
-    private boolean nullifyingIteratorForBroadcastJoinEnabled = true;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -108,19 +107,6 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setShuffleOutputTargetAverageRowSize(DataSize shuffleOutputTargetAverageRowSize)
     {
         this.shuffleOutputTargetAverageRowSize = shuffleOutputTargetAverageRowSize;
-        return this;
-    }
-
-    public boolean isNullifyingIteratorForBroadcastJoinEnabled()
-    {
-        return nullifyingIteratorForBroadcastJoinEnabled;
-    }
-
-    @Config("spark.nullifying-iterator-for-broadcast-join-enabled")
-    @ConfigDescription("Enable nullifying iterator to optimize broadcast join memory footprint")
-    public PrestoSparkConfig setNullifyingIteratorForBroadcastJoinEnabled(boolean nullifyingIteratorForBroadcastJoinEnabled)
-    {
-        this.nullifyingIteratorForBroadcastJoinEnabled = nullifyingIteratorForBroadcastJoinEnabled;
         return this;
     }
 }

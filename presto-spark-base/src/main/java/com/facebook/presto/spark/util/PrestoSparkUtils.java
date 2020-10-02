@@ -15,7 +15,6 @@ package com.facebook.presto.spark.util;
 
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -23,8 +22,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Iterator;
-import java.util.List;
 import java.util.zip.DeflaterInputStream;
 import java.util.zip.InflaterOutputStream;
 
@@ -55,26 +52,6 @@ public class PrestoSparkUtils
                 prestoSparkSerializedPage.getPageCodecMarkers(),
                 toIntExact(prestoSparkSerializedPage.getPositionCount()),
                 prestoSparkSerializedPage.getUncompressedSizeInBytes());
-    }
-
-    public static <T> Iterator<T> getNullifyingIterator(List<T> list)
-    {
-        return new AbstractIterator<T>()
-        {
-            private int index;
-
-            @Override
-            protected T computeNext()
-            {
-                if (index >= list.size()) {
-                    return endOfData();
-                }
-                T element = list.get(index);
-                list.set(index, null);
-                index++;
-                return element;
-            }
-        };
     }
 
     public static byte[] compress(byte[] bytes)
