@@ -299,7 +299,7 @@ public class PinotQueryGenerator
                 RowExpression expression = node.getAssignments().get(variable);
                 PinotExpression pinotExpression = expression.accept(
                         contextIn.getVariablesInAggregation().contains(variable) ?
-                                new PinotAggregationProjectConverter(typeManager, functionMetadataManager, standardFunctionResolution, session) :
+                                new PinotAggregationProjectConverter(typeManager, functionMetadataManager, standardFunctionResolution, session, variable) :
                                 pinotProjectExpressionConverter,
                         context.getSelections());
                 newSelections.put(
