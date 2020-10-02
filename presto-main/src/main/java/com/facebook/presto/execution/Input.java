@@ -37,6 +37,7 @@ public final class Input
     private final List<Column> columns;
     private final Optional<Object> connectorInfo;
     private final Optional<TableStatistics> statistics;
+    private final boolean sampleReplaced;
 
     @JsonCreator
     public Input(
@@ -45,7 +46,8 @@ public final class Input
             @JsonProperty("table") String table,
             @JsonProperty("connectorInfo") Optional<Object> connectorInfo,
             @JsonProperty("columns") List<Column> columns,
-            @JsonProperty("statistics") Optional<TableStatistics> statistics)
+            @JsonProperty("statistics") Optional<TableStatistics> statistics,
+            @JsonProperty("sampleReplaced") boolean sampleReplaced)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -53,6 +55,7 @@ public final class Input
         this.connectorInfo = requireNonNull(connectorInfo, "connectorInfo is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.statistics = requireNonNull(statistics, "table statistics is null");
+        this.sampleReplaced = sampleReplaced;
     }
 
     @JsonProperty
@@ -91,6 +94,12 @@ public final class Input
         return statistics;
     }
 
+    @JsonProperty
+    public boolean isSampleReplaced()
+    {
+        return sampleReplaced;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -106,13 +115,14 @@ public final class Input
                 Objects.equals(table, input.table) &&
                 Objects.equals(columns, input.columns) &&
                 Objects.equals(connectorInfo, input.connectorInfo) &&
-                Objects.equals(statistics, input.statistics);
+                Objects.equals(statistics, input.statistics) &&
+                Objects.equals(sampleReplaced, input.sampleReplaced);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, schema, table, columns, connectorInfo, statistics);
+        return Objects.hash(connectorId, schema, table, columns, connectorInfo, statistics, sampleReplaced);
     }
 
     @Override
@@ -124,6 +134,7 @@ public final class Input
                 .addValue(table)
                 .addValue(columns)
                 .addValue(statistics)
+                .addValue(sampleReplaced)
                 .toString();
     }
 }

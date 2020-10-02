@@ -65,11 +65,11 @@ public class InputExtractor
         return new Column(columnMetadata.getName(), columnMetadata.getType().toString());
     }
 
-    private Input createInput(TableMetadata table, TableHandle tableHandle, Set<Column> columns, Optional<TableStatistics> statistics)
+    private Input createInput(TableMetadata table, TableHandle tableHandle, Set<Column> columns, Optional<TableStatistics> statistics, boolean sampleReplaced)
     {
         SchemaTableName schemaTable = table.getTable();
         Optional<Object> inputMetadata = metadata.getInfo(session, tableHandle);
-        return new Input(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns), statistics);
+        return new Input(table.getConnectorId(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns), statistics, sampleReplaced);
     }
 
     private class Visitor
@@ -125,7 +125,7 @@ public class InputExtractor
                 statistics = Optional.of(metadata.getTableStatistics(session, tableHandle, desiredColumns, constraint));
             }
 
-            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns, statistics));
+            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns, statistics, node.isSampleReplaced()));
 
             return null;
         }
@@ -149,7 +149,7 @@ public class InputExtractor
                 statistics = Optional.of(metadata.getTableStatistics(session, tableHandle, desiredColumns, constraint));
             }
 
-            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns, statistics));
+            inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns, statistics, false));
 
             return null;
         }

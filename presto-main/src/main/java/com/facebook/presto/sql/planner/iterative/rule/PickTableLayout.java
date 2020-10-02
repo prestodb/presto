@@ -226,7 +226,8 @@ public class PickTableLayout
                     tableScanNode.getOutputVariables(),
                     tableScanNode.getAssignments(),
                     layout.getLayout().getPredicate(),
-                    TupleDomain.all()));
+                    TupleDomain.all(),
+                    tableScanNode.isSampleReplaced()));
         }
     }
 
@@ -320,7 +321,8 @@ public class PickTableLayout
                 node.getOutputVariables(),
                 node.getAssignments(),
                 layout.getLayout().getPredicate(),
-                computeEnforced(newDomain, layout.getUnenforcedConstraint()));
+                computeEnforced(newDomain, layout.getUnenforcedConstraint()),
+                node.isSampleReplaced());
 
         // The order of the arguments to combineConjuncts matters:
         // * Unenforced constraints go first because they can only be simple column references,
