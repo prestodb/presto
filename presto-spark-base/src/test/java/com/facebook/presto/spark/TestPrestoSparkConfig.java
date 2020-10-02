@@ -36,8 +36,7 @@ public class TestPrestoSparkConfig
                 .setMinSparkInputPartitionCountForAutoTune(100)
                 .setMaxSparkInputPartitionCountForAutoTune(1000)
                 .setMaxSplitsDataSizePerSparkPartition(new DataSize(2, GIGABYTE))
-                .setShuffleOutputTargetAverageRowSize(new DataSize(1, KILOBYTE))
-                .setNullifyingIteratorForBroadcastJoinEnabled(true));
+                .setShuffleOutputTargetAverageRowSize(new DataSize(1, KILOBYTE)));
     }
 
     @Test
@@ -50,7 +49,6 @@ public class TestPrestoSparkConfig
                 .put("spark.max-spark-input-partition-count-for-auto-tune", "2000")
                 .put("spark.max-splits-data-size-per-partition", "4GB")
                 .put("spark.shuffle-output-target-average-row-size", "10kB")
-                .put("spark.nullifying-iterator-for-broadcast-join-enabled", "false")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -58,8 +56,7 @@ public class TestPrestoSparkConfig
                 .setMinSparkInputPartitionCountForAutoTune(200)
                 .setMaxSparkInputPartitionCountForAutoTune(2000)
                 .setMaxSplitsDataSizePerSparkPartition(new DataSize(4, GIGABYTE))
-                .setShuffleOutputTargetAverageRowSize(new DataSize(10, KILOBYTE))
-                .setNullifyingIteratorForBroadcastJoinEnabled(false);
+                .setShuffleOutputTargetAverageRowSize(new DataSize(10, KILOBYTE));
         assertFullMapping(properties, expected);
     }
 }
