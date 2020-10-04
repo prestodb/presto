@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -68,6 +69,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
+import static com.facebook.presto.operator.project.SelectedPositions.positionsList;
 import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -165,8 +167,8 @@ public class BenchmarkPageProcessor
         private Page inputPage;
 
         @SuppressWarnings("unused")
-        @Param({"true", "false"})
-        private boolean filterAlwaysFails;
+        @Param({"always", "never", "partial"})
+        private String filterFails = "partial";
 
         @SuppressWarnings("unused")
         @Param({"BIGINT", "DOUBLE"})
@@ -205,53 +207,62 @@ public class BenchmarkPageProcessor
 
         private final RowExpression createFilterExpression(FunctionManager functionManager)
         {
-            if (!filterAlwaysFails) {
+            if (filterFails.equals("never")) {
                 return new ConstantExpression(true, BOOLEAN);
             }
-
-            // where shipdate >= '1994-01-01'
-            //    and shipdate < '1995-01-01'
-            //    and discount >= 0.05
-            //    and discount <= 0.07
-            //    and quantity < 24;
-            // This filters out 100% of rows.
-            return specialForm(
-                    AND,
-                    BOOLEAN,
-                    call(GREATER_THAN_OR_EQUAL.name(),
-                            functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(VARCHAR, VARCHAR)),
-                            BOOLEAN,
-                            field(SHIP_DATE, VARCHAR),
-                            constant(MIN_SHIP_DATE, VARCHAR)),
-                    specialForm(
-                            AND,
-                            BOOLEAN,
-                            call(LESS_THAN.name(),
-                                    functionManager.resolveOperator(LESS_THAN, fromTypes(VARCHAR, VARCHAR)),
-                                    BOOLEAN,
-                                    field(SHIP_DATE, VARCHAR),
-                                    constant(MAX_SHIP_DATE, VARCHAR)),
-                            specialForm(
-                                    AND,
-                                    BOOLEAN,
-                                    call(GREATER_THAN_OR_EQUAL.name(),
-                                            functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
-                                            BOOLEAN,
-                                            field(DISCOUNT, DOUBLE),
-                                            constant(0.05, DOUBLE)),
-                                    specialForm(
-                                            AND,
-                                            BOOLEAN,
-                                            call(LESS_THAN_OR_EQUAL.name(),
-                                                    functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
-                                                    BOOLEAN,
-                                                    field(DISCOUNT, DOUBLE),
-                                                    constant(0.07, DOUBLE)),
-                                            call(LESS_THAN.name(),
-                                                    functionManager.resolveOperator(LESS_THAN, fromTypes(DOUBLE, DOUBLE)),
-                                                    BOOLEAN,
-                                                    field(QUANTITY, DOUBLE),
-                                                    constant(24.0, DOUBLE))))));
+            else if (filterFails.equals("always")) {
+                // where shipdate >= '1994-01-01'
+                //    and shipdate < '1995-01-01'
+                //    and discount >= 0.05
+                //    and discount <= 0.07
+                //    and quantity < 24;
+                // This filters out 100% of rows.
+                return specialForm(
+                        AND,
+                        BOOLEAN,
+                        call(GREATER_THAN_OR_EQUAL.name(),
+                                functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(VARCHAR, VARCHAR)),
+                                BOOLEAN,
+                                field(SHIP_DATE, VARCHAR),
+                                constant(MIN_SHIP_DATE, VARCHAR)),
+                        specialForm(
+                                AND,
+                                BOOLEAN,
+                                call(LESS_THAN.name(),
+                                        functionManager.resolveOperator(LESS_THAN, fromTypes(VARCHAR, VARCHAR)),
+                                        BOOLEAN,
+                                        field(SHIP_DATE, VARCHAR),
+                                        constant(MAX_SHIP_DATE, VARCHAR)),
+                                specialForm(
+                                        AND,
+                                        BOOLEAN,
+                                        call(GREATER_THAN_OR_EQUAL.name(),
+                                                functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                                                BOOLEAN,
+                                                field(DISCOUNT, DOUBLE),
+                                                constant(0.05, DOUBLE)),
+                                        specialForm(
+                                                AND,
+                                                BOOLEAN,
+                                                call(LESS_THAN_OR_EQUAL.name(),
+                                                        functionManager.resolveOperator(LESS_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                                                        BOOLEAN,
+                                                        field(DISCOUNT, DOUBLE),
+                                                        constant(0.07, DOUBLE)),
+                                                call(LESS_THAN.name(),
+                                                        functionManager.resolveOperator(LESS_THAN, fromTypes(DOUBLE, DOUBLE)),
+                                                        BOOLEAN,
+                                                        field(QUANTITY, DOUBLE),
+                                                        constant(24.0, DOUBLE))))));
+            }
+            else {
+                // Filter out 50% rows
+                return call(GREATER_THAN_OR_EQUAL.name(),
+                        functionManager.resolveOperator(GREATER_THAN_OR_EQUAL, fromTypes(DOUBLE, DOUBLE)),
+                        BOOLEAN,
+                        field(DISCOUNT, DOUBLE),
+                        constant(0.05, DOUBLE));
+            }
         }
 
         private final RowExpression createProjectExpression(FunctionManager functionManager)
@@ -281,11 +292,16 @@ public class BenchmarkPageProcessor
         private PageProcessor createIndentityProjectionPageProcessor()
         {
             PageFilter filter;
-            if (filterAlwaysFails) {
+            if (filterFails.equals("always")) {
                 filter = new TestPageProcessor.TestingPageFilter(positionsRange(0, 0));
             }
-            else {
+            else if (filterFails.equals("never")) {
                 filter = new TestPageProcessor.TestingPageFilter(positionsRange(0, POSITION_COUNT));
+            }
+            else {
+                // Filter out 50% rows
+                int[] positions = IntStream.range(0, POSITION_COUNT / 2).map(x -> x * 2).toArray();
+                filter = new TestPageProcessor.TestingPageFilter(positionsList(positions, 0, POSITION_COUNT / 2));
             }
 
             return new PageProcessor(
@@ -332,15 +348,20 @@ public class BenchmarkPageProcessor
 
             private boolean filter(int position, Block discountBlock, Block shipDateBlock, Block quantityBlock)
             {
-                if (!filterAlwaysFails) {
+                if (filterFails.equals("never")) {
                     return true;
                 }
-
-                return !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0 &&
-                        !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
-                        !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
-                        !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
-                        !quantityBlock.isNull(position) && DOUBLE.getDouble(quantityBlock, position) < 24;
+                else if (filterFails.equals("always")) {
+                    return !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MIN_SHIP_DATE) >= 0 &&
+                            !shipDateBlock.isNull(position) && VARCHAR.getSlice(shipDateBlock, position).compareTo(MAX_SHIP_DATE) < 0 &&
+                            !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05 &&
+                            !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) <= 0.07 &&
+                            !quantityBlock.isNull(position) && DOUBLE.getDouble(quantityBlock, position) < 24;
+                }
+                else {
+                    // Filter out 50% rows
+                    return !discountBlock.isNull(position) && DOUBLE.getDouble(discountBlock, position) >= 0.05;
+                }
             }
         }
     }
