@@ -16,10 +16,15 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.DriverYieldSignal;
+import com.facebook.presto.operator.project.InputPageProjection;
+import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
+import com.facebook.presto.operator.project.PageProjectionWithOutputs;
+import com.facebook.presto.operator.project.TestPageProcessor;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.google.common.collect.ImmutableList;
@@ -46,6 +51,7 @@ import org.testng.annotations.Test;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
@@ -57,9 +63,12 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
+import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
+import static com.facebook.presto.operator.project.SelectedPositions.positionsRange;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -114,6 +123,26 @@ public class BenchmarkPageProcessor
         benchmarkPageProcessor.compiled(benchmarkData);
     }
 
+    @Benchmark
+    public List<Optional<Page>> identityProjection(BenchmarkData data)
+    {
+        return ImmutableList.copyOf(
+                data.identityProjectionProcessor.process(
+                        null,
+                        new DriverYieldSignal(),
+                        newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
+                        data.inputPage));
+    }
+
+    @Test
+    public void verifyIdentityProjection()
+    {
+        BenchmarkData benchmarkData = new BenchmarkData();
+        benchmarkData.setup();
+        BenchmarkPageProcessor benchmarkPageProcessor = new BenchmarkPageProcessor();
+        benchmarkPageProcessor.identityProjection(benchmarkData);
+    }
+
     @State(Scope.Thread)
     public static class BenchmarkData
     {
@@ -123,6 +152,7 @@ public class BenchmarkPageProcessor
         private static final int QUANTITY = 3;
         private static final int EXTENDED_PRICE_IN_CENTS = 4;
         private static final int DISCOUNT_PERCENT = 5;
+        private static final int POSITION_COUNT = 10_000;
 
         private static final Slice MIN_SHIP_DATE = utf8Slice("1994-01-01");
         private static final Slice MAX_SHIP_DATE = utf8Slice("1995-01-01");
@@ -131,6 +161,7 @@ public class BenchmarkPageProcessor
         private FunctionManager functionManager = metadataManager.getFunctionManager();
         private PageProcessor compiledProcessor;
         private Tpch1FilterAndProject handcodedProcessor;
+        private PageProcessor identityProjectionProcessor;
         private Page inputPage;
 
         @SuppressWarnings("unused")
@@ -150,6 +181,7 @@ public class BenchmarkPageProcessor
                     .compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(createFilterExpression(functionManager)), ImmutableList.of(createProjectExpression(functionManager)))
                     .get();
             handcodedProcessor = new Tpch1FilterAndProject();
+            identityProjectionProcessor = createIndentityProjectionPageProcessor();
         }
 
         private static Page createInputPage()
@@ -157,7 +189,7 @@ public class BenchmarkPageProcessor
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE, BIGINT, BIGINT));
             LineItemGenerator lineItemGenerator = new LineItemGenerator(1, 1, 1);
             Iterator<LineItem> iterator = lineItemGenerator.iterator();
-            for (int i = 0; i < 10_000; i++) {
+            for (int i = 0; i < POSITION_COUNT; i++) {
                 pageBuilder.declarePosition();
 
                 LineItem lineItem = iterator.next();
@@ -244,6 +276,27 @@ public class BenchmarkPageProcessor
                 default:
                     return null;
             }
+        }
+
+        private PageProcessor createIndentityProjectionPageProcessor()
+        {
+            PageFilter filter;
+            if (filterAlwaysFails) {
+                filter = new TestPageProcessor.TestingPageFilter(positionsRange(0, 0));
+            }
+            else {
+                filter = new TestPageProcessor.TestingPageFilter(positionsRange(0, POSITION_COUNT));
+            }
+
+            return new PageProcessor(
+                    Optional.of(filter),
+                    ImmutableList.of(createInputPageProjectionWithOutputs(0, metadataManager.getType(parseTypeSignature(projectionDataType)), 0)),
+                    OptionalInt.of(MAX_BATCH_SIZE));
+        }
+
+        private PageProjectionWithOutputs createInputPageProjectionWithOutputs(int inputChannel, Type type, int outputChannel)
+        {
+            return new PageProjectionWithOutputs(new InputPageProjection(inputChannel), new int[] {outputChannel});
         }
 
         private final class Tpch1FilterAndProject
