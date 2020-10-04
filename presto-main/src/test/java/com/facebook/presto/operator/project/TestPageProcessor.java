@@ -618,7 +618,7 @@ public class TestPageProcessor
         }
     }
 
-    private static class TestingPageFilter
+    public static class TestingPageFilter
             implements PageFilter
     {
         private final SelectedPositions selectedPositions;
