@@ -84,6 +84,7 @@ public final class SystemSessionProperties
     public static final String TASK_WRITER_COUNT = "task_writer_count";
     public static final String TASK_PARTITIONED_WRITER_COUNT = "task_partitioned_writer_count";
     public static final String TASK_CONCURRENCY = "task_concurrency";
+    public static final String HASH_BUILDER_TASK_CONCURRENCY = "hash_builder_task_concurrency";
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
@@ -369,6 +370,15 @@ public final class SystemSessionProperties
                         BIGINT,
                         Integer.class,
                         taskManagerConfig.getTaskConcurrency(),
+                        false,
+                        value -> validateValueIsPowerOfTwo(requireNonNull(value, "value is null"), TASK_CONCURRENCY),
+                        value -> value),
+                new PropertyMetadata<>(
+                        HASH_BUILDER_TASK_CONCURRENCY,
+                        "Default number of local parallel jobs per worker",
+                        BIGINT,
+                        Integer.class,
+                        taskManagerConfig.getHashBuilderTaskConcurrency(),
                         false,
                         value -> validateValueIsPowerOfTwo(requireNonNull(value, "value is null"), TASK_CONCURRENCY),
                         value -> value),
@@ -1191,6 +1201,12 @@ public final class SystemSessionProperties
     public static int getTaskConcurrency(Session session)
     {
         return session.getSystemProperty(TASK_CONCURRENCY, Integer.class);
+    }
+
+    public static int getHashBuilderTaskConcurrency(Session session)
+    {
+        Integer taskConcurrency = session.getSystemProperty(HASH_BUILDER_TASK_CONCURRENCY, Integer.class);
+        return taskConcurrency != null ? taskConcurrency : getTaskConcurrency(session);
     }
 
     public static boolean isShareIndexLoading(Session session)

@@ -248,6 +248,7 @@ import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMax
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static com.facebook.presto.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
+import static com.facebook.presto.SystemSessionProperties.getHashBuilderTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
@@ -652,6 +653,7 @@ public class LocalExecutionPlanner
         private int nextOperatorId;
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
+        private boolean hasHashBuilder;
 
         public LocalExecutionPlanContext(TaskContext taskContext, TableWriteInfo tableWriteInfo)
         {
@@ -772,6 +774,16 @@ public class LocalExecutionPlanner
                 checkState(this.driverInstanceCount.getAsInt() == driverInstanceCount, "driverInstance count already set to " + this.driverInstanceCount.getAsInt());
             }
             this.driverInstanceCount = OptionalInt.of(driverInstanceCount);
+        }
+
+        public void setHasHashBuilder(boolean hasHashBuilder)
+        {
+            this.hasHashBuilder = hasHashBuilder;
+        }
+
+        public boolean getHasHashBuilder()
+        {
+            return hasHashBuilder;
         }
     }
 
@@ -2170,6 +2182,7 @@ public class LocalExecutionPlanner
 
             // Plan build
             LocalExecutionPlanContext buildContext = context.createSubContext();
+            buildContext.setHasHashBuilder(true);
             PhysicalOperation buildSource = buildNode.accept(this, buildContext);
             if (buildSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION) {
                 checkState(
@@ -2846,7 +2859,7 @@ public class LocalExecutionPlanner
                 driverInstanceCount = context.getDriverInstanceCount().getAsInt();
             }
             else {
-                driverInstanceCount = getTaskConcurrency(session);
+                driverInstanceCount = context.getHasHashBuilder() ? getHashBuilderTaskConcurrency(session) : getTaskConcurrency(session);
                 context.setDriverInstanceCount(driverInstanceCount);
             }
 
