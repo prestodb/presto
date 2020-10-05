@@ -168,6 +168,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
+    public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -887,6 +888,11 @@ public final class SystemSessionProperties
                         REMOTE_FUNCTIONS_ENABLED,
                         "Allow remote functions",
                         false,
+                        false),
+                booleanProperty(
+                        CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
+                        "Apply access control rules on only those columns that are required to produce the query output",
+                        featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
                         false));
     }
 
@@ -1492,5 +1498,10 @@ public final class SystemSessionProperties
     public static boolean isRemoteFunctionsEnabled(Session session)
     {
         return session.getSystemProperty(REMOTE_FUNCTIONS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)
+    {
+        return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
     }
 }

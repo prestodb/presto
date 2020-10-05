@@ -165,6 +165,7 @@ public class FeaturesConfig
     private boolean optimizeNullsInJoin;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
+    private boolean checkAccessControlOnUtilizedColumnsOnly;
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -1412,6 +1413,18 @@ public class FeaturesConfig
     public FeaturesConfig setInlineSqlFunctions(boolean inlineSqlFunctions)
     {
         this.inlineSqlFunctions = inlineSqlFunctions;
+        return this;
+    }
+
+    public boolean isCheckAccessControlOnUtilizedColumnsOnly()
+    {
+        return checkAccessControlOnUtilizedColumnsOnly;
+    }
+
+    @Config("check-access-control-on-utilized-columns-only")
+    public FeaturesConfig setCheckAccessControlOnUtilizedColumnsOnly(boolean checkAccessControlOnUtilizedColumnsOnly)
+    {
+        this.checkAccessControlOnUtilizedColumnsOnly = checkAccessControlOnUtilizedColumnsOnly;
         return this;
     }
 }

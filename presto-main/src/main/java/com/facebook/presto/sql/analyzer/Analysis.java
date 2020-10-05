@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
@@ -60,6 +61,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -85,6 +87,7 @@ public class Analysis
 
     // a map of users to the columns per table that they access
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
+    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> utilizedTableColumnReferences = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
@@ -365,6 +368,11 @@ public class Analysis
     public List<SubqueryExpression> getScalarSubqueries(Node node)
     {
         return ImmutableList.copyOf(scalarSubqueries.get(NodeRef.of(node)));
+    }
+
+    public boolean isScalarSubquery(SubqueryExpression subqueryExpression)
+    {
+        return scalarSubqueries.values().contains(subqueryExpression);
     }
 
     public List<ExistsPredicate> getExistsSubqueries(Node node)
@@ -666,6 +674,21 @@ public class Analysis
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
+    }
+
+    public void addUtilizedTableColumnReferences(AccessControlInfo accessControlInfo, Map<QualifiedObjectName, Set<String>> utilizedTableColumms)
+    {
+        utilizedTableColumnReferences.put(accessControlInfo, utilizedTableColumms);
+    }
+
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getUtilizedTableColumnReferences()
+    {
+        return ImmutableMap.copyOf(utilizedTableColumnReferences);
+    }
+
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferencesForAccessControl(Session session)
+    {
+        return isCheckAccessControlOnUtilizedColumnsOnly(session) ? utilizedTableColumnReferences : tableColumnReferences;
     }
 
     @Immutable
