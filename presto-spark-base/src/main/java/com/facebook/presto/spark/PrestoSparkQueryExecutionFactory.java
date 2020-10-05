@@ -126,6 +126,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -140,6 +142,7 @@ import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_LOST;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collectScalaIterator;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toSerializedPage;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -159,6 +162,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
+import static java.lang.String.format;
 import static java.nio.file.Files.notExists;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -323,7 +327,7 @@ public class PrestoSparkQueryExecutionFactory
                     rddFactory,
                     tableWriteInfo,
                     transactionManager,
-                    new PagesSerde(blockEncodingManager, Optional.empty(), Optional.empty(), Optional.empty()),
+                    createPagesSerde(blockEncodingManager),
                     executionExceptionFactory,
                     queryStatusInfoOutputPath,
                     queryDataOutputPath);
@@ -896,9 +900,29 @@ public class PrestoSparkQueryExecutionFactory
                 PlanFragment childFragment = child.getFragment();
                 if (childFragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
                     RddAndMore<PrestoSparkSerializedPage> childRdd = createRdd(child, PrestoSparkSerializedPage.class);
+
+                    // TODO: The driver might still OOM on a very large broadcast, think of how to prevent that from happening
                     List<PrestoSparkSerializedPage> broadcastPages = childRdd.collectAndDestroyDependencies().stream()
                             .map(Tuple2::_2)
                             .collect(toList());
+
+                    int compressedBroadcastSizeInBytes = broadcastPages.stream()
+                            .mapToInt(page -> page.getBytes().length)
+                            .sum();
+                    int uncompressedBroadcastSizeInBytes = broadcastPages.stream()
+                            .mapToInt(PrestoSparkSerializedPage::getUncompressedSizeInBytes)
+                            .sum();
+                    DataSize maxBroadcastSize = getQueryMaxBroadcastMemory(session);
+                    long maxBroadcastSizeInBytes = maxBroadcastSize.toBytes();
+
+                    if (compressedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
+                        throw exceededLocalBroadcastMemoryLimit(maxBroadcastSize, format("Compressed broadcast size: %s", succinctBytes(compressedBroadcastSizeInBytes)));
+                    }
+
+                    if (uncompressedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
+                        throw exceededLocalBroadcastMemoryLimit(maxBroadcastSize, format("Uncompressed broadcast size: %s", succinctBytes(compressedBroadcastSizeInBytes)));
+                    }
+
                     Broadcast<List<PrestoSparkSerializedPage>> broadcast = sparkContext.broadcast(broadcastPages);
                     broadcastInputs.put(childFragment.getId(), broadcast);
                     broadcastDependencies.add(broadcast);

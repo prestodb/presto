@@ -379,6 +379,10 @@ public abstract class AbstractTestHiveFileSystem
             throws Exception
     {
         for (HiveStorageFormat storageFormat : HiveStorageFormat.values()) {
+            if (storageFormat == HiveStorageFormat.CSV) {
+                // CSV supports only unbounded VARCHAR type
+                continue;
+            }
             createTable(temporaryCreateTable, storageFormat);
             dropTable(temporaryCreateTable);
         }

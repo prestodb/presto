@@ -52,6 +52,7 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.TEMPORARY_TABLE
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPartition;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
+import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -88,7 +89,7 @@ public class BridgingHiveMetastore
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         return delegate.getTable(databaseName, tableName).map(table -> {
-            if (isAvroTableWithSchemaSet(table)) {
+            if (isAvroTableWithSchemaSet(table) || isCsvTable(table)) {
                 return fromMetastoreApiTable(table, delegate.getFields(databaseName, tableName).get());
             }
             return fromMetastoreApiTable(table);
