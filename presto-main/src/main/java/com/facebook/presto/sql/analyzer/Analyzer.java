@@ -39,6 +39,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExtern
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.UtilizedColumnsAnalyzer.analyzeForUtilizedColumns;
 import static java.util.Objects.requireNonNull;
 
 public class Analyzer
@@ -79,9 +80,10 @@ public class Analyzer
         Analysis analysis = new Analysis(rewrittenStatement, parameters, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
+        analyzeForUtilizedColumns(analysis, analysis.getStatement());
 
         // check column access permissions for each table
-        analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
+        analysis.getTableColumnReferencesForAccessControl(session).forEach((accessControlInfo, tableColumnReferences) ->
                 tableColumnReferences.forEach((tableName, columns) ->
                         accessControlInfo.getAccessControl().checkCanSelectFromColumns(
                                 session.getRequiredTransactionId(),
