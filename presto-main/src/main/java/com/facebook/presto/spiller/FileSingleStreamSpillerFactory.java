@@ -153,6 +153,12 @@ public class FileSingleStreamSpillerFactory
     }
 
     @Override
+    public String getName()
+    {
+        return "local-file";
+    }
+
+    @Override
     public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, SpillerMemoryCallback memoryCallback)
     {
         Optional<SpillCipher> spillCipher = Optional.empty();

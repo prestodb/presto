@@ -1578,6 +1578,12 @@ public class TestHashJoinOperator
         }
 
         @Override
+        public String getName()
+        {
+            return "dummy";
+        }
+
+        @Override
         public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, SpillerMemoryCallback memoryCallback)
         {
             return new SingleStreamSpiller()

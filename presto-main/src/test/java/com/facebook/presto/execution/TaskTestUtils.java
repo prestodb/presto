@@ -41,6 +41,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSourceManager;
@@ -73,6 +74,7 @@ import java.util.Optional;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.spiller.SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 
@@ -152,12 +154,8 @@ public final class TaskTestUtils
                 new JoinFilterFunctionCompiler(metadata),
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig(),
-                new GenericSpillerFactory((types, spillContext, memoryContext) -> {
-                    throw new UnsupportedOperationException();
-                }),
-                (types, spillContext, memoryContext) -> {
-                    throw new UnsupportedOperationException();
-                },
+                new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
+                unsupportedSingleStreamSpillerFactory(),
                 (types, partitionFunction, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 },

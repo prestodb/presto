@@ -19,12 +19,25 @@ import java.util.List;
 
 public interface SingleStreamSpillerFactory
 {
+    String getName();
+
     SingleStreamSpiller create(List<Type> types, SpillContext spillContext, SpillerMemoryCallback memoryCallback);
 
     static SingleStreamSpillerFactory unsupportedSingleStreamSpillerFactory()
     {
-        return (types, spillContext, memoryCallback) -> {
-            throw new UnsupportedOperationException();
+        return new SingleStreamSpillerFactory()
+        {
+            @Override
+            public String getName()
+            {
+                return "unsupported";
+            }
+
+            @Override
+            public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, SpillerMemoryCallback memoryCallback)
+            {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 }
