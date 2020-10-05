@@ -52,7 +52,7 @@ public final class MemorySplitManager
 
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
         for (MemoryDataFragment dataFragment : dataFragments) {
-            int numSplits = (int) Math.min(splitsPerNode, dataFragment.getRows() / rowsPerSplit);
+            int numSplits = (int) Math.min(splitsPerNode, Math.max(1, dataFragment.getRows() / rowsPerSplit));
             for (int i = 0; i < numSplits; i++) {
                 splits.add(
                         new MemorySplit(
