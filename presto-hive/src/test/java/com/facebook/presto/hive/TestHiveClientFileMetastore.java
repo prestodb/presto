@@ -219,6 +219,7 @@ public class TestHiveClientFileMetastore
                         .setLocation(partitionTargetPath(new SchemaTableName(table.getDatabaseName(), table.getTableName()), partitionName))
                         .setBucketProperty(bucketProperty))
                 .setParameters(partitionParameters)
+                .setEligibleToIgnore(true)
                 .build();
     }
 }

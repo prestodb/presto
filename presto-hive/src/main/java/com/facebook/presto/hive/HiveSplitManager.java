@@ -394,7 +394,7 @@ public class HiveSplitManager
                     // verify partition is not marked as non-readable
                     String partitionNotReadable = partition.getParameters().get(OBJECT_NOT_READABLE);
                     if (!isNullOrEmpty(partitionNotReadable)) {
-                        if (!shouldIgnoreUnreadablePartition(session)) {
+                        if (!shouldIgnoreUnreadablePartition(session) || !partition.isEligibleToIgnore()) {
                             throw new HiveNotReadableException(tableName, Optional.of(partName), partitionNotReadable);
                         }
                         warningCollector.add(new PrestoWarning(
