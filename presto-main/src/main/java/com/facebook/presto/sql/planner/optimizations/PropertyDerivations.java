@@ -84,7 +84,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
-import static com.facebook.presto.SystemSessionProperties.isOptimizeFullOuterJoinWithCoalesce;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.planWithTableNodePartitioning;
 import static com.facebook.presto.common.predicate.TupleDomain.toLinkedMap;
@@ -436,8 +435,7 @@ public class PropertyDerivations
                                 .build();
                     }
 
-                    if (isOptimizeFullOuterJoinWithCoalesce(session) &&
-                            probeProperties.getNodePartitioning().isPresent() &&
+                    if (probeProperties.getNodePartitioning().isPresent() &&
                             buildProperties.getNodePartitioning().isPresent() &&
                             arePartitionHandlesCompatibleForCoalesce(
                                     probeProperties.getNodePartitioning().get().getHandle(),
