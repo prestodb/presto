@@ -39,6 +39,7 @@ public class Partition
     private final List<Column> columns;
     private final Map<String, String> parameters;
     private final Optional<Integer> partitionVersion;
+    private final boolean eligibleToIgnore;
 
     @JsonCreator
     public Partition(
@@ -48,7 +49,8 @@ public class Partition
             @JsonProperty("storage") Storage storage,
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("parameters") Map<String, String> parameters,
-            @JsonProperty("partitionVersion") Optional<Integer> partitionVersion)
+            @JsonProperty("partitionVersion") Optional<Integer> partitionVersion,
+            @JsonProperty("eligibleToIgnore") boolean eligibleToIgnore)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -57,6 +59,7 @@ public class Partition
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.partitionVersion = requireNonNull(partitionVersion, "partitionVersion is null");
+        this.eligibleToIgnore = eligibleToIgnore;
     }
 
     @JsonProperty
@@ -101,6 +104,12 @@ public class Partition
         return partitionVersion;
     }
 
+    @JsonProperty
+    public boolean isEligibleToIgnore()
+    {
+        return eligibleToIgnore;
+    }
+
     @Override
     public String toString()
     {
@@ -128,13 +137,14 @@ public class Partition
                 Objects.equals(storage, partition.storage) &&
                 Objects.equals(columns, partition.columns) &&
                 Objects.equals(parameters, partition.parameters) &&
-                Objects.equals(partitionVersion, partition.partitionVersion);
+                Objects.equals(partitionVersion, partition.partitionVersion) &&
+                Objects.equals(eligibleToIgnore, partition.eligibleToIgnore);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion);
+        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore);
     }
 
     public static Builder builder()
@@ -156,6 +166,7 @@ public class Partition
         private List<Column> columns;
         private Map<String, String> parameters = ImmutableMap.of();
         private Optional<Integer> partitionVersion = Optional.empty();
+        private boolean isEligibleToIgnore;
 
         private Builder()
         {
@@ -171,6 +182,7 @@ public class Partition
             this.columns = partition.getColumns();
             this.parameters = partition.getParameters();
             this.partitionVersion = partition.getPartitionVersion();
+            this.isEligibleToIgnore = partition.isEligibleToIgnore();
         }
 
         public Builder setDatabaseName(String databaseName)
@@ -220,9 +232,15 @@ public class Partition
             return this;
         }
 
+        public Builder setEligibleToIgnore(boolean isEligibleToIgnore)
+        {
+            this.isEligibleToIgnore = isEligibleToIgnore;
+            return this;
+        }
+
         public Partition build()
         {
-            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion);
+            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore);
         }
     }
 }
