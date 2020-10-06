@@ -118,9 +118,12 @@ public class FeaturesConfig
     private boolean spillEnabled;
     private boolean joinSpillingEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, DataSize.Unit.MEGABYTE);
+
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
+    private String spillStorageService = "local";
+
     private boolean iterativeOptimizerEnabled = true;
     private boolean runtimeOptimizerEnabled;
     private boolean enableStatsCalculator = true;
@@ -1008,6 +1011,18 @@ public class FeaturesConfig
     public FeaturesConfig setSpillMaxUsedSpaceThreshold(double spillMaxUsedSpaceThreshold)
     {
         this.spillMaxUsedSpaceThreshold = spillMaxUsedSpaceThreshold;
+        return this;
+    }
+
+    public String getSpillStorageService()
+    {
+        return spillStorageService;
+    }
+
+    @Config("experimental.spill-storage-service")
+    public FeaturesConfig setSpillStorageService(String spillStorageService)
+    {
+        this.spillStorageService = spillStorageService;
         return this;
     }
 

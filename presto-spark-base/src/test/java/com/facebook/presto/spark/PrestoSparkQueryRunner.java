@@ -47,6 +47,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.security.PrincipalType;
+import com.facebook.presto.spiller.SpillStorageServiceManager;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -56,6 +57,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.testing.TestingSpillStorageServiceManager;
 import com.facebook.presto.tests.AbstractTestQueries;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.facebook.presto.transaction.TransactionManager;
@@ -208,7 +210,8 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 new SqlParserOptions(),
                 ImmutableList.of(),
-                Optional.of(new TestingAccessControlModule()));
+                Optional.of(new TestingAccessControlModule()),
+                Optional.of(new TestingSpillStorageModule()));
 
         Injector injector = injectorFactory.create();
 
@@ -516,6 +519,17 @@ public class PrestoSparkQueryRunner
             binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
             binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
             binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
+        }
+    }
+
+    public class TestingSpillStorageModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(TestingSpillStorageServiceManager.class).in(Scopes.SINGLETON);
+            binder.bind(SpillStorageServiceManager.class).to(TestingSpillStorageServiceManager.class).in(Scopes.SINGLETON);
         }
     }
 

@@ -25,6 +25,7 @@ import com.facebook.presto.operator.SpillContext;
 import com.facebook.presto.operator.TestingOperatorContext;
 import com.facebook.presto.spiller.PartitioningSpiller.PartitioningSpillResult;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.testing.TestingSpillStorageServiceManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
@@ -62,6 +63,7 @@ public class TestGenericPartitioningSpiller
 
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
     private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
+    private final SpillStorageServiceManager spillStorageServiceManager = new TestingSpillStorageServiceManager(new FeaturesConfig());
 
     private Path tempDirectory;
     private SingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -77,7 +79,12 @@ public class TestGenericPartitioningSpiller
         featuresConfig.setSpillerSpillPaths(tempDirectory.toString());
         featuresConfig.setSpillerThreads(8);
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
-        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, new SpillerStats(), featuresConfig, new NodeSpillConfig());
+        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
+                spillStorageServiceManager,
+                blockEncodingSerde,
+                new SpillerStats(),
+                featuresConfig,
+                new NodeSpillConfig());
         factory = new GenericPartitioningSpillerFactory(singleStreamSpillerFactory);
         scheduledExecutor = newSingleThreadScheduledExecutor();
     }

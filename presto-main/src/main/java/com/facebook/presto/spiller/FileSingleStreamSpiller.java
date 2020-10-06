@@ -21,6 +21,8 @@ import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.spiller.SpillCipher;
+import com.facebook.presto.spi.spiller.SpillFileHolder;
+import com.facebook.presto.spi.spiller.SpillStorageService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +40,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
@@ -49,7 +50,6 @@ import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static com.facebook.presto.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static com.google.common.base.Preconditions.checkState;
-import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -59,7 +59,7 @@ public class FileSingleStreamSpiller
     @VisibleForTesting
     static final int BUFFER_SIZE = 4 * 1024;
 
-    private final FileHolder targetFile;
+    private final SpillFileHolder targetFile;
     private final Closer closer = Closer.create();
     private final PagesSerde serde;
     private final SpillerStats spillerStats;
@@ -74,6 +74,7 @@ public class FileSingleStreamSpiller
     private ListenableFuture<?> spillInProgress = Futures.immediateFuture(null);
 
     public FileSingleStreamSpiller(
+            SpillStorageService spillStorageService,
             PagesSerde serde,
             ListeningExecutorService executor,
             Path spillPath,
@@ -102,7 +103,8 @@ public class FileSingleStreamSpiller
         // middle of execution when close() is called (note that this applies to both readPages() and writePages() methods).
         this.memoryContext.setBytes(BUFFER_SIZE);
         try {
-            this.targetFile = closer.register(new FileHolder(Files.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX)));
+            requireNonNull(spillStorageService, "spillStorageService is null");
+            this.targetFile = closer.register(spillStorageService.createTempFile(spillPath, SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX));
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to create spill file", e);
@@ -140,7 +142,7 @@ public class FileSingleStreamSpiller
     private void writePages(Iterator<Page> pageIterator)
     {
         checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
-        try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
+        try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(), BUFFER_SIZE)) {
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 spilledPagesInMemorySize += page.getSizeInBytes();

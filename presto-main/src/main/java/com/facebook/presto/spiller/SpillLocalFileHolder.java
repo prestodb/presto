@@ -13,47 +13,48 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.spi.spiller.SpillFileHolder;
+
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-final class FileHolder
-        implements Closeable
+final class SpillLocalFileHolder
+        implements SpillFileHolder
 {
     private final Path filePath;
 
     @GuardedBy("this")
     private boolean deleted;
 
-    public FileHolder(Path filePath)
+    public SpillLocalFileHolder(Path filePath)
     {
         this.filePath = requireNonNull(filePath, "filePath is null");
     }
 
-    public synchronized OutputStream newOutputStream(OpenOption... options)
+    public synchronized OutputStream newOutputStream()
             throws IOException
     {
         checkState(!deleted, "File already deleted");
-        return Files.newOutputStream(filePath, options);
+        return Files.newOutputStream(filePath, APPEND);
     }
 
-    public synchronized InputStream newInputStream(OpenOption... options)
+    public synchronized InputStream newInputStream()
             throws IOException
     {
         checkState(!deleted, "File already deleted");
-        return Files.newInputStream(filePath, options);
+        return Files.newInputStream(filePath);
     }
 
     @Override

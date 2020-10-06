@@ -18,6 +18,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.testing.TestingSpillStorageServiceManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.io.Files;
@@ -76,8 +78,10 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Type> types = ImmutableList.of(BIGINT);
         BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
+        SpillStorageServiceManager spillStorageServiceManager = new TestingSpillStorageServiceManager(new FeaturesConfig());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
+                spillStorageServiceManager,
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
@@ -116,8 +120,10 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Type> types = ImmutableList.of(BIGINT);
         BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
+        SpillStorageServiceManager spillStorageServiceManager = new TestingSpillStorageServiceManager(new FeaturesConfig());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
+                spillStorageServiceManager,
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
@@ -134,7 +140,9 @@ public class TestFileSingleStreamSpillerFactory
     {
         List<Path> spillPaths = emptyList();
         List<Type> types = ImmutableList.of(BIGINT);
+        SpillStorageServiceManager spillStorageServiceManager = new TestingSpillStorageServiceManager(new FeaturesConfig());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
+                spillStorageServiceManager,
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(),
                 new SpillerStats(),
@@ -150,6 +158,7 @@ public class TestFileSingleStreamSpillerFactory
             throws Exception
     {
         BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
+        SpillStorageServiceManager spillStorageServiceManager = new TestingSpillStorageServiceManager(new FeaturesConfig());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         spillPath1.mkdirs();
         spillPath2.mkdirs();
@@ -165,6 +174,7 @@ public class TestFileSingleStreamSpillerFactory
         assertEquals(listFiles(spillPath2.toPath()).size(), 3);
 
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
+                spillStorageServiceManager,
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),

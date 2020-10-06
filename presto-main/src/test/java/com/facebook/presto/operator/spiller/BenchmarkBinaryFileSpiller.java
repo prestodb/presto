@@ -20,9 +20,12 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
+import com.facebook.presto.spiller.SpillStorageServiceManager;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.testing.TestingSpillStorageServiceManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.tpch.LineItem;
@@ -61,6 +64,7 @@ public class BenchmarkBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, BIGINT, DOUBLE, createUnboundedVarcharType(), DOUBLE);
     private static final BlockEncodingSerde BLOCK_ENCODING_MANAGER = new BlockEncodingManager();
+    private static final SpillStorageServiceManager SPILL_STORAGE_SERVICE_MANAGER = new TestingSpillStorageServiceManager(new FeaturesConfig());
     private static final Path SPILL_PATH = Paths.get(System.getProperty("java.io.tmpdir"), "spills");
 
     @Benchmark
@@ -112,6 +116,7 @@ public class BenchmarkBinaryFileSpiller
                 throws ExecutionException, InterruptedException
         {
             singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
+                    SPILL_STORAGE_SERVICE_MANAGER,
                     MoreExecutors.newDirectExecutorService(),
                     BLOCK_ENCODING_MANAGER,
                     spillerStats,
