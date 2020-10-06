@@ -281,6 +281,13 @@ public class DictionaryBlock
     }
 
     @Override
+    public long getApproximateRegionLogicalSizeInBytes(int position, int length)
+    {
+        int dictionaryPositionCount = dictionary.getPositionCount();
+        return dictionaryPositionCount == 0 ? 0 : dictionary.getApproximateRegionLogicalSizeInBytes(0, dictionaryPositionCount) * length / dictionaryPositionCount;
+    }
+
+    @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
         checkValidPositions(positions, positionCount);

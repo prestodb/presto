@@ -215,6 +215,20 @@ public interface Block
     }
 
     /**
+     * Returns the approximate logical size of {@code block.getRegion(position, length)}.
+     * This method is faster than getRegionLogicalSizeInBytes().
+     * For dictionary blocks, this counts the amortized flattened size of the included positions.
+     * For example, for a DictionaryBlock with 5 ids [1, 1, 1, 1, 1] and a dictionary of
+     * VariableWidthBlock with 3 elements of sizes [9, 5, 7], the result of
+     * getApproximateRegionLogicalSizeInBytes(0, 5) would be (9 + 5 + 7) / 3 * 5 = 35,
+     * while getRegionLogicalSizeInBytes(0, 5) would be 5 * 5 = 25.
+     */
+    default long getApproximateRegionLogicalSizeInBytes(int position, int length)
+    {
+        return getRegionSizeInBytes(position, length);
+    }
+
+    /**
      * Returns the size of of all positions marked true in the positions array.
      * This is equivalent to multiple calls of {@code block.getRegionSizeInBytes(position, length)}
      * where you mark all positions for the regions first.

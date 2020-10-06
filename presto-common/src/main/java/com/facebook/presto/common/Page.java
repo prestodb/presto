@@ -102,6 +102,22 @@ public final class Page
         return logicalSizeInBytes;
     }
 
+    /**
+     * Returns the approximate logical size of the page if logicalSizeInBytes was not calculated before.
+     */
+    public long getApproximateLogicalSizeInBytes()
+    {
+        if (logicalSizeInBytes < 0) {
+            long approximateLogicalSizeInBytes = 0;
+            for (Block block : blocks) {
+                approximateLogicalSizeInBytes += block.getApproximateRegionLogicalSizeInBytes(0, block.getPositionCount());
+            }
+            return approximateLogicalSizeInBytes;
+        }
+
+        return logicalSizeInBytes;
+    }
+
     public long getRetainedSizeInBytes()
     {
         long retainedSizeInBytes = this.retainedSizeInBytes;
