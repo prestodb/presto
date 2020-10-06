@@ -17,6 +17,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>configuration</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-memory-context</artifactId>
         </dependency>

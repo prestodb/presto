@@ -11,43 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.parquet.cache;
 
-import com.google.common.cache.Cache;
-import org.weakref.jmx.Managed;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import static java.util.Objects.requireNonNull;
 
-public class CacheStatsMBean
+public class ParquetFileMetadata
 {
-    private final Cache<?, ?> cache;
+    private final ParquetMetadata parquetMetadata;
+    private final int metadataSize;
 
-    public CacheStatsMBean(Cache<?, ?> cache)
+    public ParquetFileMetadata(ParquetMetadata parquetMetadata, int metadataSize)
     {
-        this.cache = requireNonNull(cache, "cache is null");
+        this.parquetMetadata = requireNonNull(parquetMetadata, "parquetMetadata is null");
+        this.metadataSize = metadataSize;
     }
 
-    @Managed
-    public long getSize()
+    public int getMetadataSize()
     {
-        return cache.size();
+        return metadataSize;
     }
 
-    @Managed
-    public long getHitCount()
+    public ParquetMetadata getParquetMetadata()
     {
-        return cache.stats().hitCount();
-    }
-
-    @Managed
-    public long getMissCount()
-    {
-        return cache.stats().missCount();
-    }
-
-    @Managed
-    public double getHitRate()
-    {
-        return cache.stats().hitRate();
+        return parquetMetadata;
     }
 }

@@ -46,6 +46,7 @@ import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
+import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.writer.ParquetWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
@@ -259,7 +260,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hdfsEnvironment, new FileFormatDataSourceStats());
+            HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hdfsEnvironment, new FileFormatDataSourceStats(), new MetadataReader());
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
         }
 
@@ -366,7 +367,7 @@ public enum FileFormat
         @Override
         public ConnectorPageSource createFileFormatReader(ConnectorSession session, HdfsEnvironment hdfsEnvironment, File targetFile, List<String> columnNames, List<Type> columnTypes)
         {
-            HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hdfsEnvironment, new FileFormatDataSourceStats());
+            HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, hdfsEnvironment, new FileFormatDataSourceStats(), new MetadataReader());
             return createPageSource(pageSourceFactory, session, targetFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
         }
 
@@ -414,7 +415,7 @@ public enum FileFormat
         return true;
     }
 
-    private static ConnectorPageSource createPageSource(
+    public static ConnectorPageSource createPageSource(
             HiveRecordCursorProvider cursorProvider,
             ConnectorSession session, File targetFile, List<String> columnNames, List<Type> columnTypes, HiveStorageFormat format)
     {
@@ -445,7 +446,7 @@ public enum FileFormat
         return new RecordPageSource(columnTypes, recordCursor);
     }
 
-    private static ConnectorPageSource createPageSource(
+    public static ConnectorPageSource createPageSource(
             HiveBatchPageSourceFactory pageSourceFactory,
             ConnectorSession session,
             File targetFile,
