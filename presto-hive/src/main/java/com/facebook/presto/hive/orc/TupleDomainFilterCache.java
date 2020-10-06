@@ -14,7 +14,7 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.orc.CacheStatsMBean;
+import com.facebook.presto.hive.CacheStatsMBean;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;

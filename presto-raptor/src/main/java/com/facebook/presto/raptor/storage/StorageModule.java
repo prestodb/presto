@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.raptor.storage;
 
-import com.facebook.presto.orc.CacheStatsMBean;
+import com.facebook.presto.hive.CacheStatsMBean;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
