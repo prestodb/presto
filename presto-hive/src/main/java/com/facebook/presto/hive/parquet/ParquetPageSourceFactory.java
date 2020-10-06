@@ -31,8 +31,8 @@ import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;
-import com.facebook.presto.parquet.reader.MetadataReader;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -126,14 +126,20 @@ public class ParquetPageSourceFactory
     private final StandardFunctionResolution functionResolution;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+    private final ParquetMetadataSource parquetMetadataSource;
 
     @Inject
-    public ParquetPageSourceFactory(TypeManager typeManager, StandardFunctionResolution functionResolution, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public ParquetPageSourceFactory(TypeManager typeManager,
+            StandardFunctionResolution functionResolution,
+            HdfsEnvironment hdfsEnvironment,
+            FileFormatDataSourceStats stats,
+            ParquetMetadataSource parquetMetadataSource)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.parquetMetadataSource = requireNonNull(parquetMetadataSource, "parquetMetadataSource is null");
     }
 
     @Override
@@ -176,7 +182,8 @@ public class ParquetPageSourceFactory
                 functionResolution,
                 effectivePredicate,
                 stats,
-                hiveFileContext));
+                hiveFileContext,
+                parquetMetadataSource));
     }
 
     public static ConnectorPageSource createParquetPageSource(
@@ -198,21 +205,23 @@ public class ParquetPageSourceFactory
             StandardFunctionResolution functionResolution,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             FileFormatDataSourceStats stats,
-            HiveFileContext hiveFileContext)
+            HiveFileContext hiveFileContext,
+            ParquetMetadataSource parquetMetadataSource)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
         ParquetDataSource dataSource = null;
         try {
             FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(user, path, configuration).openFile(path, hiveFileContext);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(inputStream, path, fileSize);
+            dataSource = buildHdfsParquetDataSource(inputStream, path, stats);
+            ParquetMetadata parquetMetadata = parquetMetadataSource.getParquetMetadata(inputStream, dataSource.getId(), fileSize, hiveFileContext.isCacheable()).getParquetMetadata();
+
             if (!columns.isEmpty() && columns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
                 return new AggregatedParquetPageSource(columns, parquetMetadata, typeManager, functionResolution);
             }
 
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
-            dataSource = buildHdfsParquetDataSource(inputStream, path, stats);
 
             Optional<MessageType> message = columns.stream()
                     .filter(column -> column.getColumnType() == REGULAR || isPushedDownSubfield(column))

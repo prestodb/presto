@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.parquet.reader;
+package com.facebook.presto.parquet.cache;
 
+import com.facebook.presto.parquet.ParquetDataSourceId;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -55,18 +56,18 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.apache.parquet.format.Util.readFileMetaData;
 
 public final class MetadataReader
+        implements ParquetMetadataSource
 {
     private static final int PARQUET_METADATA_LENGTH = 4;
     private static final byte[] MAGIC = "PAR1".getBytes(US_ASCII);
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
-    private MetadataReader() {}
-
-    public static ParquetMetadata readFooter(FileSystem fileSystem, Path file, long fileSize)
+    public static ParquetFileMetadata readFooter(FileSystem fileSystem, Path file, long fileSize)
             throws IOException
     {
         try (FSDataInputStream inputStream = fileSystem.open(file)) {
@@ -74,7 +75,7 @@ public final class MetadataReader
         }
     }
 
-    public static ParquetMetadata readFooter(FSDataInputStream inputStream, Path file, long fileSize)
+    public static ParquetFileMetadata readFooter(FSDataInputStream inputStream, Path file, long fileSize)
             throws IOException
 
     {
@@ -157,7 +158,8 @@ public final class MetadataReader
                 keyValueMetaData.put(keyValue.key, keyValue.value);
             }
         }
-        return new ParquetMetadata(new org.apache.parquet.hadoop.metadata.FileMetaData(messageType, keyValueMetaData, fileMetaData.getCreated_by()), blocks);
+        ParquetMetadata parquetMetadata = new ParquetMetadata(new org.apache.parquet.hadoop.metadata.FileMetaData(messageType, keyValueMetaData, fileMetaData.getCreated_by()), blocks);
+        return new ParquetFileMetadata(parquetMetadata, toIntExact(metadataLength));
     }
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)
@@ -316,5 +318,12 @@ public final class MetadataReader
         byte[] buffer = new byte[length];
         from.readFully(position, buffer);
         return new ByteArrayInputStream(buffer);
+    }
+
+    @Override
+    public ParquetFileMetadata getParquetMetadata(FSDataInputStream inputStream, ParquetDataSourceId parquetDataSourceId, long fileSize, boolean cacheable)
+            throws IOException
+    {
+        return readFooter(inputStream, new Path(parquetDataSourceId.toString()), fileSize);
     }
 }

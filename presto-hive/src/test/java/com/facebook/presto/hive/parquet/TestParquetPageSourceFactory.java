@@ -23,6 +23,7 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
+import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -51,7 +52,7 @@ public class TestParquetPageSourceFactory
     {
         HiveHdfsConfiguration hiveHdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveClientConfig(), new MetastoreClientConfig()), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hiveHdfsConfiguration, new MetastoreClientConfig(), new NoHdfsAuthentication());
-        parquetPageSourceFactory = new ParquetPageSourceFactory(new TestingTypeManager(), functionResolution, hdfsEnvironment, new FileFormatDataSourceStats());
+        parquetPageSourceFactory = new ParquetPageSourceFactory(new TestingTypeManager(), functionResolution, hdfsEnvironment, new FileFormatDataSourceStats(), new MetadataReader());
     }
 
     @AfterClass(alwaysRun = true)
