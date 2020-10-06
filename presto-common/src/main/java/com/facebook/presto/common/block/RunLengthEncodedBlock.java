@@ -154,6 +154,12 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public long getApproximateRegionLogicalSizeInBytes(int position, int length)
+    {
+        return positionCount * value.getApproximateRegionLogicalSizeInBytes(0, 1);
+    }
+
+    @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
         return value.getSizeInBytes();
