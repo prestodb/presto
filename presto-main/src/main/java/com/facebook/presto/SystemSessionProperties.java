@@ -151,7 +151,6 @@ public final class SystemSessionProperties
     public static final String MAX_CONCURRENT_MATERIALIZATIONS = "max_concurrent_materializations";
     public static final String PUSHDOWN_SUBFIELDS_ENABLED = "pushdown_subfields_enabled";
     public static final String TABLE_WRITER_MERGE_OPERATOR_ENABLED = "table_writer_merge_operator_enabled";
-    public static final String OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE = "optimize_full_outer_join_with_coalesce";
     public static final String INDEX_LOADER_TIMEOUT = "index_loader_timeout";
     public static final String OPTIMIZED_REPARTITIONING_ENABLED = "optimized_repartitioning";
     public static final String AGGREGATION_PARTITIONING_MERGING_STRATEGY = "aggregation_partitioning_merging_strategy";
@@ -777,11 +776,6 @@ public final class SystemSessionProperties
                         TABLE_WRITER_MERGE_OPERATOR_ENABLED,
                         "Experimental: enable table writer merge operator",
                         featuresConfig.isTableWriterMergeOperatorEnabled(),
-                        false),
-                booleanProperty(
-                        OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE,
-                        "optimize partition properties for queries using COALESCE + FULL OUTER JOIN",
-                        featuresConfig.isOptimizeFullOuterJoinWithCoalesce(),
                         false),
                 new PropertyMetadata<>(
                         INDEX_LOADER_TIMEOUT,
@@ -1429,11 +1423,6 @@ public final class SystemSessionProperties
     public static boolean isTableWriterMergeOperatorEnabled(Session session)
     {
         return session.getSystemProperty(TABLE_WRITER_MERGE_OPERATOR_ENABLED, Boolean.class);
-    }
-
-    public static boolean isOptimizeFullOuterJoinWithCoalesce(Session session)
-    {
-        return session.getSystemProperty(OPTIMIZE_FULL_OUTER_JOIN_WITH_COALESCE, Boolean.class);
     }
 
     public static Duration getIndexLoaderTimeout(Session session)
