@@ -215,7 +215,20 @@ public class PageProcessor
                 Page resultPage = result.getPage();
 
                 // if we produced a large page or if the expression is expensive, halve the batch size for the next call
-                long pageSize = resultPage.getSizeInBytes();
+                // We use the getApproximateLogicalSizeInBytes() instead of getSizeInBytes() for several reasons:
+                //
+                // 1. For DictionaryBlock, getSizeInBytes() calculates the compacted size. For example a DictionaryBlock with ids [1, 1] and dictionary with 3 elements of sizes
+                // [5, 100, 10] would have sizeInBytes = 100 + 4 * 2 = 108. However if both position 0 and 1 are being projected, the outcome block should contain the second
+                // element of the dictionary twice and the actual size of the output block should be 100 * 2 at least.
+                //
+                // 2. getSizeInBytes() is more sensitive to skew and may cause false positives on a larger number of pages. Suppose there are multiple page/block views on a base
+                // page/blocks. Page/BlockView 1 may happen to project positions with larger elements, while Page/BlockView 2 may project positions with smaller elements.
+                // Using the sizeInBytes for view 1 may cause view 2 to be sized down which is not desired. On the other hand, getApproximateLogicalSizeInBytes() returns amortized
+                // sizes and is less jittery.
+                //
+                // 3. getApproximateLogicalSizeInBytes() is over 20x faster than getSizeInBytes() for DictionaryBlock and RleBlocks, and it avoids excessive memory allocations
+                // that was known to cause reliability issues.
+                long pageSize = resultPage.getApproximateLogicalSizeInBytes();
                 if (resultPage.getPositionCount() > 1 && (pageSize > MAX_PAGE_SIZE_IN_BYTES || expressionProfiler.isExpressionExpensive())) {
                     projectBatchSize = projectBatchSize / 2;
                 }
@@ -301,7 +314,7 @@ public class PageProcessor
                 if (previouslyComputedResults[outputChannels[0]] != null && previouslyComputedResults[outputChannels[0]].getPositionCount() >= batchSize) {
                     for (int channel : outputChannels) {
                         blocks[channel] = previouslyComputedResults[channel].getRegion(0, batchSize);
-                        pageSize += blocks[channel].getSizeInBytes();
+                        pageSize += blocks[channel].getApproximateRegionLogicalSizeInBytes(0, blocks[channel].getPositionCount());
                     }
                 }
                 else {
@@ -318,7 +331,7 @@ public class PageProcessor
                         int channel = outputChannels[j];
                         previouslyComputedResults[channel] = projectionOutputs.get(j);
                         blocks[channel] = previouslyComputedResults[channel];
-                        pageSize += blocks[channel].getSizeInBytes();
+                        pageSize += blocks[channel].getApproximateRegionLogicalSizeInBytes(0, blocks[channel].getPositionCount());
                     }
                     pageProjectWork = null;
                 }
