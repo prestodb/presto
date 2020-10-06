@@ -195,6 +195,22 @@ public abstract class AbstractMapBlock
     }
 
     @Override
+    public long getApproximateRegionLogicalSizeInBytes(int position, int length)
+    {
+        int positionCount = getPositionCount();
+        checkValidRegion(positionCount, position, length);
+
+        int entriesStart = getOffset(position);
+        int entriesEnd = getOffset(position + length);
+        int entryCount = entriesEnd - entriesStart;
+
+        return getRawKeyBlock().getApproximateRegionLogicalSizeInBytes(entriesStart, entryCount) +
+                getRawValueBlock().getApproximateRegionLogicalSizeInBytes(entriesStart, entryCount) +
+                (Integer.BYTES + Byte.BYTES) * length +         // offsets and mapIsNull
+                Integer.BYTES * HASH_MULTIPLIER * entryCount;   // hashtables
+    }
+
+    @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
         // We can use either the getRegionSizeInBytes or getPositionsSizeInBytes
