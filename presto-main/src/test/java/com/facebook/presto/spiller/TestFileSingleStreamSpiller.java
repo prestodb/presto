@@ -22,6 +22,8 @@ import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.testing.TestingSpillStorageServiceManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Files;
@@ -55,6 +57,7 @@ public class TestFileSingleStreamSpiller
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, DOUBLE, VARBINARY);
 
     private final ListeningExecutorService executor = listeningDecorator(newCachedThreadPool());
+    private final SpillStorageServiceManager spillStorageServiceManager = new TestingSpillStorageServiceManager(new FeaturesConfig());
     private final File tempDirectory = Files.createTempDir();
 
     @AfterClass(alwaysRun = true)
@@ -99,6 +102,7 @@ public class TestFileSingleStreamSpiller
     {
         File spillPath = new File(tempDirectory, UUID.randomUUID().toString());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
+                spillStorageServiceManager.getSpillStorageService(),
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(),
                 new SpillerStats(),

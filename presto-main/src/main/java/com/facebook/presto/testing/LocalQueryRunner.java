@@ -127,6 +127,7 @@ import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
+import com.facebook.presto.spiller.SpillStorageServiceManager;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.split.PageSinkManager;
@@ -269,6 +270,7 @@ public class LocalQueryRunner
     private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private final SpillerFactory spillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
+    private final SpillStorageServiceManager spillStorageServiceManager;
 
     private final PageFunctionCompiler pageFunctionCompiler;
     private final ExpressionCompiler expressionCompiler;
@@ -341,6 +343,7 @@ public class LocalQueryRunner
 
         this.blockEncodingManager = new BlockEncodingManager();
         featuresConfig.setIgnoreStatsCalculatorFailures(false);
+        this.spillStorageServiceManager = new TestingSpillStorageServiceManager(featuresConfig);
 
         this.metadata = new MetadataManager(
                 featuresConfig,
@@ -425,7 +428,8 @@ public class LocalQueryRunner
                 new EventListenerManager(),
                 blockEncodingManager,
                 new SessionPropertyDefaults(nodeInfo),
-                typeRegistry);
+                typeRegistry,
+                spillStorageServiceManager);
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
@@ -477,7 +481,12 @@ public class LocalQueryRunner
                 .build();
 
         SpillerStats spillerStats = new SpillerStats();
-        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingManager, spillerStats, featuresConfig, nodeSpillConfig);
+        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
+                spillStorageServiceManager,
+                blockEncodingManager,
+                spillerStats,
+                featuresConfig,
+                nodeSpillConfig);
         this.partitioningSpillerFactory = new GenericPartitioningSpillerFactory(this.singleStreamSpillerFactory);
         this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
     }

@@ -34,6 +34,8 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.spi.spiller.SpillStorageServiceProvider;
+import com.facebook.presto.spiller.SpillStorageServiceManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
@@ -94,6 +96,8 @@ public class PluginManager
     private final BlockEncodingManager blockEncodingManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final TypeRegistry typeRegistry;
+    private final SpillStorageServiceManager spillStorageServiceManager;
+
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
     private final List<String> plugins;
@@ -112,7 +116,8 @@ public class PluginManager
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
             SessionPropertyDefaults sessionPropertyDefaults,
-            TypeRegistry typeRegistry)
+            TypeRegistry typeRegistry,
+            SpillStorageServiceManager spillStorageServiceManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -135,6 +140,7 @@ public class PluginManager
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.typeRegistry = requireNonNull(typeRegistry, "typeRegistry is null");
+        this.spillStorageServiceManager = requireNonNull(spillStorageServiceManager, "spillStorageServiceManager is null");
     }
 
     public void loadPlugins()
@@ -240,6 +246,11 @@ public class PluginManager
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
             log.info("Registering event listener %s", eventListenerFactory.getName());
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
+        }
+
+        for (SpillStorageServiceProvider spillStorageServiceProvider : plugin.getSpillStorageServiceProviders()) {
+            log.info("Registering spill storage service %s", spillStorageServiceProvider.getName());
+            spillStorageServiceManager.addSpillStorageServiceProvider(spillStorageServiceProvider);
         }
     }
 

@@ -23,6 +23,7 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.testing.TestingSpillStorageServiceManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import org.testng.annotations.AfterMethod;
@@ -52,6 +53,7 @@ public class TestBinaryFileSpiller
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
 
     private BlockEncodingSerde blockEncodingSerde;
+    private SpillStorageServiceManager spillStorageServiceManager;
     private File spillPath = Files.createTempDir();
     private SpillerStats spillerStats;
     private FileSingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -63,12 +65,18 @@ public class TestBinaryFileSpiller
     public void setUp()
     {
         blockEncodingSerde = new BlockEncodingManager();
+        spillStorageServiceManager = new TestingSpillStorageServiceManager(new FeaturesConfig());
         spillerStats = new SpillerStats();
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpillerSpillPaths(spillPath.getAbsolutePath());
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
-        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(blockEncodingSerde, spillerStats, featuresConfig, nodeSpillConfig);
+        singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
+                spillStorageServiceManager,
+                blockEncodingSerde,
+                spillerStats,
+                featuresConfig,
+                nodeSpillConfig);
         factory = new GenericSpillerFactory(singleStreamSpillerFactory);
         PagesSerdeFactory pagesSerdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), nodeSpillConfig.isSpillCompressionEnabled());
         pagesSerde = pagesSerdeFactory.createPagesSerde();

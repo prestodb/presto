@@ -26,6 +26,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.facebook.presto.spiller.SpillStorageServiceManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -133,6 +134,7 @@ public class PrestoSparkInjectorFactory
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             eventListenerProperties.ifPresent(properties -> injector.getInstance(EventListenerManager.class).loadConfiguredEventListener(properties));
+            injector.getInstance(SpillStorageServiceManager.class).loadSpillStorageServiceProvider();
 
             if (initializeAccessControl) {
                 injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
