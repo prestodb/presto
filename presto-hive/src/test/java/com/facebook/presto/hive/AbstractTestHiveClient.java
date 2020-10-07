@@ -3665,6 +3665,45 @@ public abstract class AbstractTestHiveClient
         }
     }
 
+    @Test
+    public void testAddColumn()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_add_column");
+        try {
+            doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+            metastoreClient.addColumn(tableName.getSchemaName(), tableName.getTableName(), "new_col", HIVE_LONG, null);
+            Optional<Table> table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName());
+            assertTrue(table.isPresent());
+            List<Column> columns = table.get().getDataColumns();
+            assertEquals(columns.get(columns.size() - 1).getName(), "new_col");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testDropColumn()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_drop_column");
+        try {
+            doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+            metastoreClient.dropColumn(tableName.getSchemaName(), tableName.getTableName(), CREATE_TABLE_COLUMNS.get(0).getName());
+            Optional<Table> table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName());
+            assertTrue(table.isPresent());
+            List<Column> columns = table.get().getDataColumns();
+            assertEquals(columns.get(0).getName(), CREATE_TABLE_COLUMNS.get(1).getName());
+            assertFalse(columns.stream().map(Column::getName).anyMatch(colName -> colName.equals(CREATE_TABLE_COLUMNS.get(0).getName())));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     /**
      * This test creates 2 identical partitions and verifies that the statistics projected based on
      * a single partition sample are equal to the statistics computed in a fair way
