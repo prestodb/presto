@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc.stream;
+package com.facebook.presto.common.io;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
