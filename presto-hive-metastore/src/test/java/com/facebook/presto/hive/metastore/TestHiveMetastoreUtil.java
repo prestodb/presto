@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.hive.PartitionVersionFetcher;
+import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -119,7 +119,7 @@ public class TestHiveMetastoreUtil
             1234567893,
             TEST_STORAGE_DESCRIPTOR_WITH_UNSUPPORTED_FIELDS,
             ImmutableMap.of("k1", "v1", "k2", "v2", "k3", "v3"));
-    private static final PartitionVersionFetcher TEST_PARTITION_VERSION_FETCHER = new HivePartitionVersionFetcher();
+    private static final PartitionMutator TEST_PARTITION_VERSION_FETCHER = new HivePartitionMutator();
 
     static {
         TEST_STORAGE_DESCRIPTOR_WITH_UNSUPPORTED_FIELDS.setSkewedInfo(new SkewedInfo(
