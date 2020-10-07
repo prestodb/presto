@@ -26,6 +26,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.facebook.presto.spiller.SpillStorageModule;
 import com.facebook.presto.spiller.SpillStorageServiceManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
@@ -51,7 +52,9 @@ public class PrestoSparkInjectorFactory
     private final Optional<Map<String, String>> eventListenerProperties;
     private final SqlParserOptions sqlParserOptions;
     private final List<Module> additionalModules;
+
     private final Optional<Module> accessControlModuleOverride;
+    private final Optional<Module> spillStorageModuleOverride;
 
     public PrestoSparkInjectorFactory(
             SparkProcessType sparkProcessType,
@@ -68,6 +71,7 @@ public class PrestoSparkInjectorFactory
                 eventListenerProperties,
                 sqlParserOptions,
                 additionalModules,
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -78,7 +82,8 @@ public class PrestoSparkInjectorFactory
             Optional<Map<String, String>> eventListenerProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules,
-            Optional<Module> accessControlModuleOverride)
+            Optional<Module> accessControlModuleOverride,
+            Optional<Module> spillStorageModuleOverride)
     {
         this.sparkProcessType = requireNonNull(sparkProcessType, "sparkProcessType is null");
         this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
@@ -88,6 +93,7 @@ public class PrestoSparkInjectorFactory
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.additionalModules = ImmutableList.copyOf(requireNonNull(additionalModules, "additionalModules is null"));
         this.accessControlModuleOverride = requireNonNull(accessControlModuleOverride, "accessControlModuleOverride is null");
+        this.spillStorageModuleOverride = requireNonNull(spillStorageModuleOverride, "spillStorageModuleOverride is null");
     }
 
     public Injector create()
@@ -109,6 +115,15 @@ public class PrestoSparkInjectorFactory
         else {
             modules.add(new AccessControlModule());
             initializeAccessControl = true;
+        }
+
+        boolean initializeSpillStorage = false;
+        if (spillStorageModuleOverride.isPresent()) {
+            modules.add(spillStorageModuleOverride.get());
+        }
+        else {
+            modules.add(new SpillStorageModule());
+            initializeSpillStorage = true;
         }
 
         modules.addAll(additionalModules);
@@ -138,6 +153,9 @@ public class PrestoSparkInjectorFactory
 
             if (initializeAccessControl) {
                 injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            }
+            if (initializeSpillStorage) {
+                injector.getInstance(SpillStorageServiceManager.class).loadSpillStorageServiceProvider();
             }
         }
         catch (Exception e) {
