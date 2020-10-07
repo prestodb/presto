@@ -81,7 +81,7 @@ public class TestFileSingleStreamSpillerFactory
         SpillStorageServiceManager spillStorageServiceManager = new TestingSpillStorageServiceManager(new FeaturesConfig());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                spillStorageServiceManager.getSpillStorageService(),
+                spillStorageServiceManager,
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
@@ -123,7 +123,7 @@ public class TestFileSingleStreamSpillerFactory
         SpillStorageServiceManager spillStorageServiceManager = new TestingSpillStorageServiceManager(new FeaturesConfig());
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                spillStorageServiceManager.getSpillStorageService(),
+                spillStorageServiceManager,
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),
@@ -142,7 +142,7 @@ public class TestFileSingleStreamSpillerFactory
         List<Type> types = ImmutableList.of(BIGINT);
         SpillStorageServiceManager spillStorageServiceManager = new TestingSpillStorageServiceManager(new FeaturesConfig());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                spillStorageServiceManager.getSpillStorageService(),
+                spillStorageServiceManager,
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(),
                 new SpillerStats(),
@@ -174,7 +174,7 @@ public class TestFileSingleStreamSpillerFactory
         assertEquals(listFiles(spillPath2.toPath()).size(), 3);
 
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                spillStorageServiceManager.getSpillStorageService(),
+                spillStorageServiceManager,
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 blockEncodingSerde,
                 new SpillerStats(),

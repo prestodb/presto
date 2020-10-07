@@ -116,7 +116,7 @@ public class BenchmarkBinaryFileSpiller
                 throws ExecutionException, InterruptedException
         {
             singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
-                    SPILL_STORAGE_SERVICE_MANAGER.getSpillStorageService(),
+                    SPILL_STORAGE_SERVICE_MANAGER,
                     MoreExecutors.newDirectExecutorService(),
                     BLOCK_ENCODING_MANAGER,
                     spillerStats,

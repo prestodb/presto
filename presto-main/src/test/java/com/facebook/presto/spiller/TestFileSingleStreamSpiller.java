@@ -102,7 +102,7 @@ public class TestFileSingleStreamSpiller
     {
         File spillPath = new File(tempDirectory, UUID.randomUUID().toString());
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                spillStorageServiceManager.getSpillStorageService(),
+                spillStorageServiceManager,
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(),
                 new SpillerStats(),

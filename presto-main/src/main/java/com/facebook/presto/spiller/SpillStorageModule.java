@@ -13,13 +13,9 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.security.AccessControlManager;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class SpillStorageModule
         implements Module
