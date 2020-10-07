@@ -237,7 +237,7 @@ public class FeaturesConfig
         SAMPLING,
         SAMPLING_WITH_FAIL_CLOSE,
     }
-  
+
     public enum TaskSpillingStrategy
     {
         ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
