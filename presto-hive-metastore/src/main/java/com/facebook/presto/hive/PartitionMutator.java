@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Partition.Builder;
 import org.apache.hadoop.hive.metastore.api.Partition;
 
-import java.util.Optional;
-
-public interface PartitionVersionFetcher
+public interface PartitionMutator
 {
-    Optional<Integer> getPartitionVersion(Partition partition);
+    /**
+     * Mutate the provided {@param builder} based on the given {@param partition}
+     *
+     */
+    void mutate(Builder builder, Partition partition);
 }

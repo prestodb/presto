@@ -14,7 +14,7 @@
 package com.facebook.presto.hive.metastore;
 
 import com.facebook.presto.hive.MockHiveMetastore;
-import com.facebook.presto.hive.PartitionVersionFetcher;
+import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore.MetastoreCacheScope;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
@@ -62,9 +62,9 @@ public class TestCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster);
-        PartitionVersionFetcher hivePartitionVersionFetcher = new HivePartitionVersionFetcher();
+        PartitionMutator hivePartitionMutator = new HivePartitionMutator();
         metastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionVersionFetcher),
+                new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionMutator),
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
                 new Duration(1, TimeUnit.MINUTES),
@@ -178,10 +178,10 @@ public class TestCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
         MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
-        PartitionVersionFetcher hivePartitionVersionFetcher = new HivePartitionVersionFetcher();
+        PartitionMutator hivePartitionMutator = new HivePartitionMutator();
         boolean partitionVersioningEnabled = true;
         CachingHiveMetastore partitionCachingEnabledmetastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(mockHiveMetastore, hivePartitionVersionFetcher),
+                new BridgingHiveMetastore(mockHiveMetastore, hivePartitionMutator),
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
                 new Duration(1, TimeUnit.MINUTES),
