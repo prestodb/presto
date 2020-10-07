@@ -11,9 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.orc;
+package com.facebook.presto.common.io;
 
-import com.facebook.presto.orc.stream.DataOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
