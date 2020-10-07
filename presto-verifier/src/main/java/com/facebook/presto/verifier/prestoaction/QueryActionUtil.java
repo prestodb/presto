@@ -20,6 +20,7 @@ import io.airlift.units.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_BROADCAST_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_RUN_TIME;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_MAIN;
@@ -45,6 +46,9 @@ public class QueryActionUtil
 
         // Remove query max run time to respect execution time limit.
         sessionProperties.remove(QUERY_MAX_RUN_TIME);
+
+        // Remove broadcast memory limit, since CBO may choose to broadcast on a smaller verifier cluster
+        sessionProperties.remove(QUERY_MAX_BROADCAST_MEMORY);
 
         return ImmutableMap.copyOf(sessionProperties);
     }
