@@ -16,7 +16,7 @@ package com.facebook.presto.hive.metastore.thrift;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.hive.PartitionVersionFetcher;
+import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -64,13 +64,13 @@ public class BridgingHiveMetastore
         implements ExtendedHiveMetastore
 {
     private final HiveMetastore delegate;
-    private final PartitionVersionFetcher partitionVersionFetcher;
+    private final PartitionMutator partitionMutator;
 
     @Inject
-    public BridgingHiveMetastore(HiveMetastore delegate, PartitionVersionFetcher partitionVersionFetcher)
+    public BridgingHiveMetastore(HiveMetastore delegate, PartitionMutator partitionMutator)
     {
         this.delegate = delegate;
-        this.partitionVersionFetcher = partitionVersionFetcher;
+        this.partitionMutator = partitionMutator;
     }
 
     @Override
@@ -250,7 +250,7 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
-        return delegate.getPartition(databaseName, tableName, partitionValues).map(partition -> fromMetastoreApiPartition(partition, partitionVersionFetcher));
+        return delegate.getPartition(databaseName, tableName, partitionValues).map(partition -> fromMetastoreApiPartition(partition, partitionMutator));
     }
 
     @Override
@@ -287,7 +287,7 @@ public class BridgingHiveMetastore
         Map<String, List<String>> partitionNameToPartitionValuesMap = partitionNames.stream()
                 .collect(Collectors.toMap(identity(), MetastoreUtil::toPartitionValues));
         Map<List<String>, Partition> partitionValuesToPartitionMap = delegate.getPartitionsByNames(databaseName, tableName, partitionNames).stream()
-                .map(partition -> fromMetastoreApiPartition(partition, partitionVersionFetcher))
+                .map(partition -> fromMetastoreApiPartition(partition, partitionMutator))
                 .collect(Collectors.toMap(Partition::getValues, identity()));
         ImmutableMap.Builder<String, Optional<Partition>> resultBuilder = ImmutableMap.builder();
         for (Map.Entry<String, List<String>> entry : partitionNameToPartitionValuesMap.entrySet()) {
