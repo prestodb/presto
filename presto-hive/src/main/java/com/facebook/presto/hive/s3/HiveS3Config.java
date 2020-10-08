@@ -37,7 +37,7 @@ public class HiveS3Config
     private String s3Endpoint;
     private PrestoS3SignerType s3SignerType;
     private boolean s3PathStyleAccess;
-    private boolean s3UseInstanceCredentials = true;
+    private boolean s3UseInstanceCredentials;
     private String s3IamRole;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
@@ -140,6 +140,7 @@ public class HiveS3Config
     }
 
     @Config("hive.s3.iam-role")
+    @ConfigDescription("AWS IAM role to assume to access S3 buckets")
     public HiveS3Config setS3IamRole(String s3IamRole)
     {
         this.s3IamRole = s3IamRole;
