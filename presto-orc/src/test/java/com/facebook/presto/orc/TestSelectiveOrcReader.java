@@ -907,7 +907,7 @@ public class TestSelectiveOrcReader
     public void testMemoryTracking()
             throws Exception
     {
-        List<Type> types = ImmutableList.of(INTEGER, VARCHAR, VARCHAR);
+        List<Type> types = ImmutableList.of(INTEGER, VARCHAR);
         TempFile tempFile = new TempFile();
         List<Integer> intValues = newArrayList(limit(
                 cycle(concat(
@@ -916,13 +916,11 @@ public class TestSelectiveOrcReader
                         ImmutableList.of(3), nCopies(9999, 123),
                         nCopies(1_000_000, null))),
                 NUM_ROWS));
-        List<String> varcharDirectValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
-        List<String> varcharDictionaryValues = newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), NUM_ROWS));
-        List<List<?>> values = ImmutableList.of(intValues, varcharDirectValues, varcharDictionaryValues);
+        List<String> varcharValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
 
-        writeOrcColumnsPresto(tempFile.getFile(), DWRF, CompressionKind.NONE, Optional.empty(), types, values, new OrcWriterStats());
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, CompressionKind.NONE, Optional.empty(), types, ImmutableList.of(intValues, varcharValues), new OrcWriterStats());
 
-        OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
+        OrcPredicate orcPredicate = createOrcPredicate(types, ImmutableList.of(intValues, varcharValues), DWRF, false);
         Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
                 .boxed()
                 .collect(toImmutableMap(Function.identity(), types::get));
@@ -962,7 +960,7 @@ public class TestSelectiveOrcReader
 
                 page.getLoadedPage();
 
-                assertBetweenInclusive(systemMemoryUsage.getBytes(), 150000L, 160000L);
+                assertBetweenInclusive(systemMemoryUsage.getBytes(), 110000L, 130000L);
 
                 rowsProcessed += positionCount;
             }
