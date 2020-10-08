@@ -179,10 +179,6 @@ public class OrcWriteValidation
     public void validateFileStatistics(OrcDataSourceId orcDataSourceId, List<ColumnStatistics> actualFileStatistics)
             throws OrcCorruptionException
     {
-        if (actualFileStatistics.isEmpty()) {
-            // DWRF file statistics are disabled
-            return;
-        }
         validateColumnStatisticsEquivalent(orcDataSourceId, "file", actualFileStatistics, fileStatistics);
     }
 
@@ -362,6 +358,7 @@ public class OrcWriteValidation
         if (actualColumnStatistics.getNumberOfValues() != expectedColumnStatistics.getNumberOfValues()) {
             throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected number of values in %s statistics", name);
         }
+
         if (!Objects.equals(actualColumnStatistics.getBooleanStatistics(), expectedColumnStatistics.getBooleanStatistics())) {
             throw new OrcCorruptionException(orcDataSourceId, "Write validation failed: unexpected boolean counts in %s statistics", name);
         }

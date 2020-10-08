@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
+import com.facebook.presto.orc.metadata.DwrfEncryption;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
@@ -137,6 +138,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             Optional<EncryptionLibrary> encryptionLibrary,
             Map<Integer, Integer> dwrfEncryptionGroupMap,
             Map<Integer, Slice> columnToIntermediateKeyMap,
+            Optional<DwrfEncryption> dwrfEncryption,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             PostScript.HiveWriterVersion hiveWriterVersion,

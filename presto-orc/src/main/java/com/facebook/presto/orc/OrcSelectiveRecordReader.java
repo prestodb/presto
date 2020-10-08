@@ -27,6 +27,7 @@ import com.facebook.presto.orc.TupleDomainFilter.BigintMultiRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintRange;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingBitmask;
 import com.facebook.presto.orc.TupleDomainFilter.BigintValuesUsingHashTable;
+import com.facebook.presto.orc.metadata.DwrfEncryption;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript;
@@ -167,6 +168,7 @@ public class OrcSelectiveRecordReader
             Optional<EncryptionLibrary> encryptionLibrary,
             Map<Integer, Integer> dwrfEncryptionGroupMap,
             Map<Integer, Slice> intermediateKeyMetadata,
+            Optional<DwrfEncryption> dwrfEncryption,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
@@ -208,6 +210,7 @@ public class OrcSelectiveRecordReader
                 encryptionLibrary,
                 dwrfEncryptionGroupMap,
                 intermediateKeyMetadata,
+                dwrfEncryption,
                 rowsInRowGroup,
                 hiveStorageTimeZone,
                 hiveWriterVersion,
