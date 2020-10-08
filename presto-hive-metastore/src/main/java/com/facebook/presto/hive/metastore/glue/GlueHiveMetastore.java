@@ -15,6 +15,8 @@ package com.facebook.presto.hive.metastore.glue;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.glue.AWSGlueAsync;
@@ -189,6 +191,13 @@ public class GlueHiveMetastore
             if (currentRegion != null) {
                 asyncGlueClientBuilder.setRegion(currentRegion.getName());
             }
+        }
+
+        if (config.getIamRole().isPresent()) {
+            AWSCredentialsProvider credentialsProvider = new STSAssumeRoleSessionCredentialsProvider
+                    .Builder(config.getIamRole().get(), "presto-session")
+                    .build();
+            asyncGlueClientBuilder.setCredentials(credentialsProvider);
         }
 
         return asyncGlueClientBuilder.build();
