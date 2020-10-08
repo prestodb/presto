@@ -13,6 +13,13 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.orc.DwrfDataEncryptor;
+import com.facebook.presto.orc.DwrfEncryptionProvider;
+import com.facebook.presto.orc.DwrfKeyProvider;
+import com.facebook.presto.orc.EncryptionLibrary;
+import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
@@ -27,11 +34,13 @@ import com.facebook.presto.orc.metadata.statistics.StringStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
+import com.facebook.presto.orc.stream.OrcInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
@@ -43,6 +52,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
 
+import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -62,6 +72,7 @@ import static com.facebook.presto.orc.metadata.statistics.StringStatistics.STRIN
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class DwrfMetadataReader
         implements MetadataReader
@@ -91,25 +102,119 @@ public class DwrfMetadataReader
     }
 
     @Override
-    public Footer readFooter(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
+    public Footer readFooter(HiveWriterVersion hiveWriterVersion,
+            InputStream inputStream,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            DwrfKeyProvider dwrfKeyProvider,
+            OrcDataSource orcDataSource,
+            Optional<OrcDecompressor> decompressor)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
+        List<ColumnStatistics> fileStats = toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false);
+        List<StripeInformation> fileStripes = toStripeInformation(footer.getStripesList());
+        List<OrcType> types = toType(footer.getTypesList());
+        Optional<DwrfEncryption> encryption = footer.hasEncryption() ? Optional.of(toEncryption(footer.getEncryption())) : Optional.empty();
 
-        // todo enable file stats when DWRF team verifies that the stats are correct
-        // TODO: once we enable fileStats, we will need to handle encrypted file stats
-        // List<ColumnStatistics> fileStats = toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false);
-        List<ColumnStatistics> fileStats = ImmutableList.of();
+        if (encryption.isPresent()) {
+            Map<Integer, Slice> keys = dwrfKeyProvider.getIntermediateKeys(types);
+            EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(encryption.get().getKeyProvider());
+            fileStats = decryptAndCombineFileStatistics(hiveWriterVersion, encryption.get(), encryptionLibrary, fileStats, fileStripes, keys, orcDataSource, decompressor);
+        }
 
         return new Footer(
                 footer.getNumberOfRows(),
                 footer.getRowIndexStride(),
-                toStripeInformation(footer.getStripesList()),
-                toType(footer.getTypesList()),
+                fileStripes,
+                types,
                 fileStats,
                 toUserMetadata(footer.getMetadataList()),
-                footer.hasEncryption() ? Optional.of(toEncryption(footer.getEncryption())) : Optional.empty());
+                encryption);
+    }
+
+    private List<ColumnStatistics> decryptAndCombineFileStatistics(HiveWriterVersion hiveWriterVersion,
+            DwrfEncryption dwrfEncryption,
+            EncryptionLibrary encryptionLibrary,
+            List<ColumnStatistics> fileStats,
+            List<StripeInformation> fileStripes,
+            Map<Integer, Slice> nodeToIntermediateKeys,
+            OrcDataSource orcDataSource,
+            Optional<OrcDecompressor> decompressor)
+    {
+        requireNonNull(dwrfEncryption, "dwrfEncryption is null");
+        requireNonNull(encryptionLibrary, "encryptionLibrary is null");
+
+        if (nodeToIntermediateKeys.isEmpty() || fileStats.isEmpty()) {
+            return fileStats;
+        }
+
+        ColumnStatistics[] decryptedFileStats = fileStats.toArray(new ColumnStatistics[0]);
+        List<EncryptionGroup> encryptionGroups = dwrfEncryption.getEncryptionGroups();
+        List<byte[]> stripeKeys = null;
+        if (!fileStripes.isEmpty() && !fileStripes.get(0).getKeyMetadata().isEmpty()) {
+            stripeKeys = fileStripes.get(0).getKeyMetadata();
+            checkState(stripeKeys.size() == encryptionGroups.size(),
+                    "Number of keys in the first stripe must be the same as the number of encryption groups");
+        }
+
+        // if there is a node that has child nodes then its whole subtree will be encrypted and only the parent
+        // node is added to the encryption group
+        for (int groupIdx = 0; groupIdx < encryptionGroups.size(); groupIdx++) {
+            EncryptionGroup encryptionGroup = encryptionGroups.get(groupIdx);
+            DwrfDataEncryptor decryptor = null;
+            List<Integer> nodes = encryptionGroup.getNodes();
+            for (int i = 0; i < nodes.size(); i++) {
+                Integer nodeId = nodes.get(i);
+
+                // do decryption only for those nodes that are requested (part of the projection)
+                if (!nodeToIntermediateKeys.containsKey(nodeId)) {
+                    continue;
+                }
+
+                if (decryptor == null) {
+                    // DEK for the FileStats can be stored either in the footer or/and in the first stripe.
+                    // The key in the footer takes priority over the key in the first stripe.
+                    byte[] encryptedDataKeyWithMeta = null;
+                    if (encryptionGroup.getKeyMetadata().isPresent()) {
+                        encryptedDataKeyWithMeta = encryptionGroup.getKeyMetadata().get().byteArray();
+                    }
+                    else if (stripeKeys != null) {
+                        encryptedDataKeyWithMeta = stripeKeys.get(groupIdx);
+                    }
+                    checkState(encryptedDataKeyWithMeta != null, "DEK for %s encryption group is null", groupIdx);
+
+                    // decrypt the DEK which is encrypted using the IEK passed into a record reader
+                    byte[] intermediateKey = nodeToIntermediateKeys.get(nodeId).byteArray();
+                    byte[] dataKey = encryptionLibrary.decryptKey(intermediateKey, encryptedDataKeyWithMeta, 0, encryptedDataKeyWithMeta.length);
+                    decryptor = new DwrfDataEncryptor(dataKey, encryptionLibrary);
+                }
+
+                // decrypt the FileStats
+                Slice encryptedFileStats = encryptionGroup.getStatistics().get(i);
+                try (OrcInputStream inputStream = new OrcInputStream(
+                        orcDataSource.getId(),
+                        new BasicSliceInput(encryptedFileStats),
+                        decompressor,
+                        Optional.of(decryptor),
+                        NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
+                        encryptedFileStats.length())) {
+                    CodedInputStream input = CodedInputStream.newInstance(inputStream);
+                    DwrfProto.FileStatistics nodeStats = DwrfProto.FileStatistics.parseFrom(input);
+
+                    // FileStatistics contains ColumnStatistics for the node and all its child nodes (subtree)
+                    for (int statsIdx = 0; statsIdx < nodeStats.getStatisticsCount(); statsIdx++) {
+                        decryptedFileStats[nodeId + statsIdx] =
+                                toColumnStatistics(hiveWriterVersion, nodeStats.getStatistics(statsIdx), false);
+                    }
+                }
+                catch (IOException e) {
+                    throw new OrcCorruptionException(e, orcDataSource.getId(), "Failed to read or decrypt FileStatistics for node %s", nodeId);
+                }
+            }
+        }
+
+        return ImmutableList.copyOf(decryptedFileStats);
     }
 
     private static DwrfEncryption toEncryption(DwrfProto.Encryption encryption)

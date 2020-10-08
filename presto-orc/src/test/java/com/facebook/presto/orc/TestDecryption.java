@@ -15,33 +15,28 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfEncryption;
-import com.facebook.presto.orc.metadata.DwrfMetadataReader;
 import com.facebook.presto.orc.metadata.EncryptionGroup;
 import com.facebook.presto.orc.metadata.Footer;
-import com.facebook.presto.orc.metadata.OrcFileTail;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeInformation;
-import com.facebook.presto.orc.proto.DwrfProto;
-import com.facebook.presto.orc.protobuf.CodedInputStream;
-import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.BasicSliceInput;
+import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -49,8 +44,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.AbstractOrcRecordReader.getDecryptionKeyMetadata;
 import static com.facebook.presto.orc.AbstractTestOrcReader.intsBetween;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
-import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
-import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcReader.validateEncryption;
 import static com.facebook.presto.orc.OrcTester.assertFileContentsPresto;
@@ -67,11 +60,10 @@ import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public class TestDecryption
@@ -592,119 +584,115 @@ public class TestDecryption
                     includedColumns,
                     outputColumns);
 
-            validateFileStatistics(tempFile.getFile(), dwrfWriterEncryption);
+            validateFileStatistics(tempFile, dwrfWriterEncryption, readerIntermediateKeys);
         }
     }
 
-    private static void validateFileStatistics(File file, Optional<DwrfWriterEncryption> dwrfWriterEncryption)
+    private static void validateFileStatistics(TempFile tempFile, Optional<DwrfWriterEncryption> dwrfWriterEncryption, Map<Integer, Slice> readerIntermediateKeys)
             throws IOException
     {
-        OrcDataSource orcDataSource = new FileOrcDataSource(file, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
-        DwrfMetadataReader metadataReader = new DwrfMetadataReader();
-        OrcFileTail orcFileTail = new StorageOrcFileTailSource().getOrcFileTail(orcDataSource, metadataReader, Optional.empty(), false);
-        Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), orcFileTail.getCompressionKind(), orcFileTail.getBufferSize(), false);
-        try (InputStream inputStream = new OrcInputStream(
-                orcDataSource.getId(),
-                orcFileTail.getFooterSlice().getInput(),
-                decompressor,
-                Optional.empty(),
-                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                orcFileTail.getFooterSize())) {
-            CodedInputStream input = CodedInputStream.newInstance(inputStream);
-            DwrfProto.Footer footer = DwrfProto.Footer.parseFrom(input);
-            List<DwrfProto.ColumnStatistics> fileStats = footer.getStatisticsList();
+        OrcReader readerNoKeys = OrcTester.createCustomOrcReader(tempFile, DWRF, false, ImmutableMap.of());
+        if (readerNoKeys.getFooter().getStripes().isEmpty()) {
+            // files w/o stripes don't have stats
+            assertEquals(readerNoKeys.getFooter().getFileStats().size(), 0);
+            return;
+        }
 
-            if (footer.getStripesList().isEmpty()) {
-                assertEquals(fileStats.size(), 0);
-            }
-            else {
-                assertEquals(fileStats.size(), footer.getTypesCount());
-            }
+        if (dwrfWriterEncryption.isPresent()) {
+            List<OrcType> types = readerNoKeys.getTypes();
+            List<ColumnStatistics> fileStatsNoKey = readerNoKeys.getFooter().getFileStats();
+            assertEquals(fileStatsNoKey.size(), types.size());
 
-            if (dwrfWriterEncryption.isPresent()) {
-                dwrfWriterEncryption.get().getWriterEncryptionGroups()
-                        .stream()
-                        .map(WriterEncryptionGroup::getNodes)
-                        .flatMap(Collection::stream)
-                        .forEach(node -> assertTrue(hasNoTypeStats(fileStats.get(node)), format("file stats for node %s had type stats %s", node, fileStats.get(node))));
-                DwrfProto.Encryption encryption = footer.getEncryption();
-                EncryptionLibrary encryptionLibrary = new TestingEncryptionLibrary();
-                List<byte[]> keys = IntStream.range(0, dwrfWriterEncryption.get().getWriterEncryptionGroups().size())
-                        .boxed()
-                        .map(i -> {
-                            byte[] encryptedKey = footer.getStripes(0).getKeyMetadata(i).toByteArray();
-                            byte[] intermediateKey = dwrfWriterEncryption.get().getWriterEncryptionGroups().get(i).getIntermediateKeyMetadata().getBytes();
-                            return encryptionLibrary.decryptData(intermediateKey, encryptedKey, 0, encryptedKey.length);
-                        })
-                        .collect(toImmutableList());
-                for (int i = 0; i < dwrfWriterEncryption.get().getWriterEncryptionGroups().size(); i++) {
-                    validateEncryptionGroupStats(encryption.getEncryptionGroups(i), footer.getTypesList(), keys.get(i), orcDataSource, orcFileTail);
+            Set<Integer> allEncryptedNodes = dwrfWriterEncryption.get().getWriterEncryptionGroups().stream()
+                    .flatMap(group -> group.getNodes().stream())
+                    .flatMap(node -> collectNodeTree(types, node).stream())
+                    .collect(Collectors.toSet());
+
+            for (Set<Integer> readerKeyNodes : Sets.powerSet(readerIntermediateKeys.keySet())) {
+                Map<Integer, Slice> readerKeys = new HashMap<>();
+                readerKeyNodes.forEach(node -> readerKeys.put(node, readerIntermediateKeys.get(node)));
+
+                // nodes that are supposed to be decrypted by the reader
+                Set<Integer> decryptedNodes = readerKeys.keySet().stream()
+                        .flatMap(node -> collectNodeTree(types, node).stream())
+                        .collect(Collectors.toSet());
+
+                // decryptedNodes should be a subset of encrypted nodes
+                assertTrue(allEncryptedNodes.containsAll(decryptedNodes));
+
+                OrcReader readerWithKeys = OrcTester.createCustomOrcReader(tempFile, DWRF, false, readerIntermediateKeys);
+                List<ColumnStatistics> fileStatsWithKey = readerWithKeys.getFooter().getFileStats();
+                assertEquals(fileStatsWithKey.size(), types.size());
+
+                for (int node = 0; node < types.size(); node++) {
+                    ColumnStatistics statsWithKey = fileStatsWithKey.get(node);
+                    ColumnStatistics statsNoKey = fileStatsNoKey.get(node);
+                    OrcType type = types.get(node);
+
+                    // encrypted nodes should have no type info
+                    if (allEncryptedNodes.contains(node)) {
+                        assertTrue(hasNoTypeStats(statsNoKey));
+                    }
+                    else {
+                        assertStatsTypeMatch(statsNoKey, type);
+                        assertStatsTypeMatch(statsWithKey, type);
+                        assertEquals(statsNoKey, statsWithKey);
+                    }
+
+                    if (decryptedNodes.contains(node)) {
+                        assertStatsTypeMatch(statsWithKey, type);
+                    }
                 }
             }
         }
     }
 
-    /**
-     * For each encryption groups a list of encrypted FileStatistics corresponding to every node in the encryption group is stored.
-     * The FileStatistics contains the ColumnStatistics for that node, any child nodes.
-     * This method validates the we have the expected types of stats in the expected order for each encryption group
-     **/
-    private static void validateEncryptionGroupStats(DwrfProto.EncryptionGroup group, List<DwrfProto.Type> typesList, byte[] key, OrcDataSource orcDataSource, OrcFileTail orcFileTail)
-            throws IOException
+    private static void assertStatsTypeMatch(ColumnStatistics stats, OrcType type)
     {
-        assertEquals(group.getNodesCount(), group.getStatisticsCount());
-        Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), orcFileTail.getCompressionKind(), orcFileTail.getBufferSize(), false);
-        for (int i = 0; i < group.getNodesCount(); i++) {
-            DwrfDataEncryptor decryptor = new DwrfDataEncryptor(key, new TestingEncryptionLibrary());
-            try (InputStream inputStream = new OrcInputStream(
-                    orcDataSource.getId(),
-                    new BasicSliceInput(Slices.wrappedBuffer(group.getStatistics(i).toByteArray())),
-                    decompressor,
-                    Optional.of(decryptor),
-                    NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                    group.getStatistics(i).size())) {
-                CodedInputStream input = CodedInputStream.newInstance(inputStream);
-                DwrfProto.FileStatistics fileStatistics = DwrfProto.FileStatistics.parseFrom(input);
-                int finalStatsIndex = assertStatsTypesMatch(fileStatistics, typesList, typesList.get(group.getNodes(i)), 0);
-                assertEquals(finalStatsIndex, fileStatistics.getStatisticsCount() - 1);
-            }
+        OrcType.OrcTypeKind kind = type.getOrcTypeKind();
+        if (kind == OrcType.OrcTypeKind.BINARY) {
+            assertNotNull(stats.getBinaryStatistics());
         }
-    }
-
-    private static int assertStatsTypesMatch(DwrfProto.FileStatistics fileStats, List<DwrfProto.Type> types, DwrfProto.Type type, int statsIndex)
-    {
-        DwrfProto.Type.Kind kind = type.getKind();
-        if (kind == DwrfProto.Type.Kind.BINARY) {
-            assertTrue(fileStats.getStatistics(statsIndex).hasBinaryStatistics());
+        else if (kind == OrcType.OrcTypeKind.BOOLEAN) {
+            assertNotNull(stats.getBooleanStatistics());
         }
-        else if (kind == DwrfProto.Type.Kind.BOOLEAN) {
-            assertTrue(fileStats.getStatistics(statsIndex).hasBucketStatistics());
+        else if (kind == OrcType.OrcTypeKind.BYTE || kind == OrcType.OrcTypeKind.SHORT || kind == OrcType.OrcTypeKind.INT || kind == OrcType.OrcTypeKind.LONG) {
+            assertNotNull(stats.getIntegerStatistics());
         }
-        else if (kind == DwrfProto.Type.Kind.BYTE || kind == DwrfProto.Type.Kind.SHORT || kind == DwrfProto.Type.Kind.INT || kind == DwrfProto.Type.Kind.LONG) {
-            assertTrue(fileStats.getStatistics(statsIndex).hasIntStatistics());
+        else if (kind == OrcType.OrcTypeKind.FLOAT || kind == OrcType.OrcTypeKind.DOUBLE) {
+            assertNotNull(stats.getDoubleStatistics());
         }
-        else if (kind == DwrfProto.Type.Kind.FLOAT || kind == DwrfProto.Type.Kind.DOUBLE) {
-            assertTrue(fileStats.getStatistics(statsIndex).hasDoubleStatistics());
-        }
-        else if (kind == DwrfProto.Type.Kind.STRING) {
-            assertTrue(fileStats.getStatistics(statsIndex).hasStringStatistics());
+        else if (kind == OrcType.OrcTypeKind.STRING) {
+            assertNotNull(stats.getStringStatistics());
         }
         else {
-            assertTrue(hasNoTypeStats(fileStats.getStatistics(statsIndex)));
+            assertTrue(hasNoTypeStats(stats));
         }
-
-        for (int i = 0; i < type.getSubtypesCount(); i++) {
-            statsIndex = assertStatsTypesMatch(fileStats, types, types.get(type.getSubtypes(i)), statsIndex + 1);
-        }
-        return statsIndex;
     }
 
-    private static boolean hasNoTypeStats(DwrfProto.ColumnStatistics columnStatistics)
+    private static boolean hasNoTypeStats(ColumnStatistics columnStatistics)
     {
-        return !columnStatistics.hasBinaryStatistics()
-                && !columnStatistics.hasBucketStatistics()
-                && !columnStatistics.hasDoubleStatistics()
-                && !columnStatistics.hasIntStatistics()
-                && !columnStatistics.hasStringStatistics();
+        return columnStatistics.getBooleanStatistics() == null
+                && columnStatistics.getIntegerStatistics() == null
+                && columnStatistics.getDoubleStatistics() == null
+                && columnStatistics.getStringStatistics() == null
+                && columnStatistics.getDateStatistics() == null
+                && columnStatistics.getDecimalStatistics() == null
+                && columnStatistics.getBinaryStatistics() == null;
+    }
+
+    private static Set<Integer> collectNodeTree(List<OrcType> types, int node)
+    {
+        Set<Integer> nodes = new HashSet<>();
+        collectNodeTree(nodes, types, node);
+        return nodes;
+    }
+
+    private static void collectNodeTree(Set<Integer> nodes, List<OrcType> types, int node)
+    {
+        nodes.add(node);
+        for (Integer subNode : types.get(node).getFieldTypeIndexes()) {
+            collectNodeTree(nodes, types, subNode);
+        }
     }
 }
