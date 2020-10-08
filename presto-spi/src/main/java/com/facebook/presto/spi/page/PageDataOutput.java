@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.pagefile;
+package com.facebook.presto.spi.page;
 
 import com.facebook.presto.common.io.DataOutput;
-import com.facebook.presto.spi.page.SerializedPage;
 import io.airlift.slice.SliceOutput;
 
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
