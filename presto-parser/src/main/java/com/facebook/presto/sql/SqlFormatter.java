@@ -107,6 +107,7 @@ import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
+import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
@@ -781,6 +782,19 @@ public final class SqlFormatter
             node.getEscape().ifPresent(value ->
                     builder.append(" ESCAPE ")
                             .append(formatStringLiteral(value)));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitUse(Use node, Integer context)
+        {
+            builder.append("USE ");
+            if (node.getCatalog().isPresent()) {
+                builder.append(formatExpression(node.getCatalog().get(), Optional.empty()))
+                        .append(".");
+            }
+            builder.append(formatExpression(node.getSchema(), Optional.empty()));
 
             return null;
         }
