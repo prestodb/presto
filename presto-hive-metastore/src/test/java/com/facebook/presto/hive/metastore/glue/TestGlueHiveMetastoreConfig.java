@@ -34,7 +34,8 @@ public class TestGlueHiveMetastoreConfig
                 .setDefaultWarehouseDir(null)
                 .setCatalogId(null)
                 .setPartitionSegments(5)
-                .setGetPartitionThreads(20));
+                .setGetPartitionThreads(20)
+                .setIamRole(null));
     }
 
     @Test
@@ -48,6 +49,7 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.catalogid", "0123456789")
                 .put("hive.metastore.glue.partitions-segments", "10")
                 .put("hive.metastore.glue.get-partition-threads", "42")
+                .put("hive.metastore.glue.iam-role", "role")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -57,7 +59,8 @@ public class TestGlueHiveMetastoreConfig
                 .setDefaultWarehouseDir("/location")
                 .setCatalogId("0123456789")
                 .setPartitionSegments(10)
-                .setGetPartitionThreads(42);
+                .setGetPartitionThreads(42)
+                .setIamRole("role");
 
         assertFullMapping(properties, expected);
     }
