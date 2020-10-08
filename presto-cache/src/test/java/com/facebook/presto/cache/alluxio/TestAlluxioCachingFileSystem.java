@@ -364,7 +364,9 @@ public class TestAlluxioCachingFileSystem
         Configuration configuration = new Configuration();
         if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == ALLUXIO) {
             configuration.set("alluxio.user.local.cache.enabled", String.valueOf(cacheConfig.isCachingEnabled()));
-            configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
+            if (cacheConfig.getBaseDirectory() != null) {
+                configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
+            }
             configuration.set("alluxio.user.client.cache.size", alluxioCacheConfig.getMaxCacheSize().toString());
             configuration.set("alluxio.user.client.cache.page.size", Integer.toString(PAGE_SIZE));
             configuration.set("alluxio.user.metrics.collection.enabled", String.valueOf(alluxioCacheConfig.isMetricsCollectionEnabled()));
