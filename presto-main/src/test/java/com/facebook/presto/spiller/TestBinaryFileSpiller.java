@@ -155,7 +155,7 @@ public class TestBinaryFileSpiller
         assertEquals(spillerStats.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);
         // At this point, the buffers should still be accounted for in the memory context, because
         // the spiller (FileSingleStreamSpiller) doesn't release its memory reservation until it's closed.
-        assertEquals(memoryContext.getBytes(), spills.length * FileSingleStreamSpiller.BUFFER_SIZE);
+        assertEquals(memoryContext.getBytes(), spills.length * spillStorageServiceManager.getSpillStorageService().getSpillBufferSize());
 
         List<Iterator<Page>> actualSpills = spiller.getSpills();
         assertEquals(actualSpills.size(), spills.length);

@@ -13,13 +13,16 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.common.io.DataSink;
+import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.spi.spiller.SpillFileHolder;
+import io.airlift.slice.InputStreamSliceInput;
+import io.airlift.slice.SliceInput;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -34,27 +37,32 @@ final class SpillLocalFileHolder
         implements SpillFileHolder
 {
     private final Path filePath;
+    private final int bufferSize;
 
     @GuardedBy("this")
     private boolean deleted;
 
-    public SpillLocalFileHolder(Path filePath)
+    public SpillLocalFileHolder(Path filePath, int bufferSize)
     {
         this.filePath = requireNonNull(filePath, "filePath is null");
+        this.bufferSize = bufferSize;
     }
 
-    public synchronized OutputStream newOutputStream()
+    @Override
+    public synchronized SliceInput newSliceInput()
             throws IOException
     {
         checkState(!deleted, "File already deleted");
-        return Files.newOutputStream(filePath, APPEND);
+        return new InputStreamSliceInput(Files.newInputStream(filePath), bufferSize);
     }
 
-    public synchronized InputStream newInputStream()
+    @Override
+    public synchronized DataSink newDataSink()
             throws IOException
     {
         checkState(!deleted, "File already deleted");
-        return Files.newInputStream(filePath);
+        OutputStream outputStream = Files.newOutputStream(filePath, APPEND);
+        return new OutputStreamDataSink(outputStream, bufferSize);
     }
 
     @Override

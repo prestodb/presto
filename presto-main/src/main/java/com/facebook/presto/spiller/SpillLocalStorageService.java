@@ -30,12 +30,19 @@ public class SpillLocalStorageService
         implements SpillStorageService
 {
     private static final Logger log = Logger.get(SpillLocalStorageService.class);
+    private static final int BUFFER_SIZE = 4 * 1024;
+
+    @Override
+    public int getSpillBufferSize()
+    {
+        return BUFFER_SIZE;
+    }
 
     @Override
     public SpillFileHolder createTempFile(Path spillPath, String prefix, String suffix)
             throws IOException
     {
-        return new SpillLocalFileHolder(Files.createTempFile(spillPath, prefix, suffix));
+        return new SpillLocalFileHolder(Files.createTempFile(spillPath, prefix, suffix), BUFFER_SIZE);
     }
 
     @Override

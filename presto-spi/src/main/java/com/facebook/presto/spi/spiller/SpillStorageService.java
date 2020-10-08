@@ -18,6 +18,8 @@ import java.nio.file.Path;
 
 public interface SpillStorageService
 {
+    int getSpillBufferSize();
+
     SpillFileHolder createTempFile(Path spillPath, String prefix, String suffix)
             throws IOException;
 

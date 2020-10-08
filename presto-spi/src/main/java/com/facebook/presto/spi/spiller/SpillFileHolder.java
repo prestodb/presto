@@ -13,17 +13,18 @@
  */
 package com.facebook.presto.spi.spiller;
 
+import com.facebook.presto.common.io.DataSink;
+import io.airlift.slice.SliceInput;
+
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 public interface SpillFileHolder
         extends Closeable
 {
-    InputStream newInputStream()
+    SliceInput newSliceInput()
             throws IOException;
 
-    OutputStream newOutputStream()
+    DataSink newDataSink()
             throws IOException;
 }
