@@ -131,12 +131,11 @@ public class OrcReader
         this.hiveWriterVersion = orcFileTail.getHiveWriterVersion();
 
         try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getFooterSlice().getInput(), decompressor, Optional.empty(), aggregatedMemoryContext, orcFileTail.getFooterSize())) {
-            this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream);
+            this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream, dwrfEncryptionProvider, dwrfKeyProvider, orcDataSource, decompressor);
         }
         if (this.footer.getTypes().size() == 0) {
             throw new OrcCorruptionException(orcDataSource.getId(), "File has no columns");
         }
-        validateEncryption(this.footer, this.orcDataSource.getId());
 
         Optional<DwrfEncryption> encryption = footer.getEncryption();
         if (encryption.isPresent()) {
@@ -177,7 +176,6 @@ public class OrcReader
         if (!footer.getEncryption().isPresent()) {
             return;
         }
-        footer.getEncryption().get();
         DwrfEncryption dwrfEncryption = footer.getEncryption().get();
         int encryptionGroupSize = dwrfEncryption.getEncryptionGroups().size();
         List<StripeInformation> stripes = footer.getStripes();
@@ -261,6 +259,7 @@ public class OrcReader
                 encryptionLibrary,
                 dwrfEncryptionGroupMap,
                 columnsToIntermediateKeys,
+                footer.getEncryption(),
                 footer.getRowsInRowGroup(),
                 requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
                 new OrcRecordReaderOptions(orcReaderOptions),
@@ -314,6 +313,7 @@ public class OrcReader
                 encryptionLibrary,
                 dwrfEncryptionGroupMap,
                 columnsToIntermediateKeys,
+                footer.getEncryption(),
                 footer.getRowsInRowGroup(),
                 hiveStorageTimeZone,
                 new OrcRecordReaderOptions(orcReaderOptions),
