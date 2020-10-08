@@ -763,11 +763,11 @@ public class TestSelectiveOrcReader
                         1, stringIn(true, "10", "11"),
                         2, stringIn(true, "def", "abc"))));
 
-        // direct and dictionary
+        // dictionary
         tester.testRoundTrip(VARCHAR, newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), NUM_ROWS)),
                 stringIn(false, "apple", "apple pie"));
 
-        // direct and dictionary materialized
+        // direct
         tester.testRoundTrip(VARCHAR,
                 intsBetween(0, NUM_ROWS).stream().map(Object::toString).collect(toList()),
                 stringIn(false, "10", "11"),
@@ -812,7 +812,7 @@ public class TestSelectiveOrcReader
                         .map(Object::toString)
                         .collect(toList()));
 
-        // presentStream is null in some row groups & dictionary materialized
+        // presentStream is null in some row groups
         Function<Integer, String> randomStrings = i -> String.valueOf(random.nextInt(NUM_ROWS));
         tester.testRoundTripTypes(
                 ImmutableList.of(INTEGER, VARCHAR),
