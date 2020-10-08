@@ -195,7 +195,7 @@ public class GlueHiveMetastore
 
         if (config.getIamRole().isPresent()) {
             AWSCredentialsProvider credentialsProvider = new STSAssumeRoleSessionCredentialsProvider
-                    .Builder(config.getIamRole().get(), "presto-session")
+                    .Builder(config.getIamRole().get(), "roleSessionName")
                     .build();
             asyncGlueClientBuilder.setCredentials(credentialsProvider);
         }

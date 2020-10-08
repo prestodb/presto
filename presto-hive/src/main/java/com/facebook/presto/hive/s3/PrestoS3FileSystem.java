@@ -214,7 +214,7 @@ public class PrestoS3FileSystem
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
         this.s3IamRole = conf.get(S3_IAM_ROLE, defaults.getS3IamRole());
-        verify(!(useInstanceCredentials && this.s3IamRole != null),
+        verify(!(useInstanceCredentials && conf.get(S3_IAM_ROLE) != null),
                 "Invalid configuration: either use instance credentials or specify an iam role");
         verify((pinS3ClientToCurrentRegion && conf.get(S3_ENDPOINT) == null) || !pinS3ClientToCurrentRegion,
                 "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
@@ -801,7 +801,7 @@ public class PrestoS3FileSystem
         }
 
         if (s3IamRole != null) {
-            return new STSAssumeRoleSessionCredentialsProvider.Builder(this.s3IamRole, "presto-session").build();
+            return new STSAssumeRoleSessionCredentialsProvider.Builder(s3IamRole, "presto-" + uri).build();
         }
 
         String providerClass = conf.get(S3_CREDENTIALS_PROVIDER);
