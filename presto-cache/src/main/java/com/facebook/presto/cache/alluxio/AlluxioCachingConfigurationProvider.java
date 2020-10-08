@@ -42,7 +42,9 @@ public class AlluxioCachingConfigurationProvider
     {
         if (cacheConfig.isCachingEnabled() && cacheConfig.getCacheType() == ALLUXIO) {
             configuration.set("alluxio.user.local.cache.enabled", String.valueOf(cacheConfig.isCachingEnabled()));
-            configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
+            if (cacheConfig.getBaseDirectory() != null) {
+                configuration.set("alluxio.user.client.cache.dir", cacheConfig.getBaseDirectory().getPath());
+            }
             configuration.set("alluxio.user.client.cache.size", alluxioCacheConfig.getMaxCacheSize().toString());
             configuration.set("alluxio.user.client.cache.async.write.enabled", String.valueOf(alluxioCacheConfig.isAsyncWriteEnabled()));
             configuration.set("alluxio.user.metrics.collection.enabled", String.valueOf(alluxioCacheConfig.isMetricsCollectionEnabled()));
