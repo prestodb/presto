@@ -44,7 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.array.Arrays.ExpansionFactor.MEDIUM;
-import static com.facebook.presto.orc.array.Arrays.ExpansionOption.NONE;
+import static com.facebook.presto.orc.array.Arrays.ExpansionOption.PRESERVE;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.CHAR;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -89,12 +89,8 @@ public class SliceDictionarySelectiveReader
     private final int maxCodePointCount;
     private final boolean isCharType;
 
-    private byte[] stripeDictionaryData = EMPTY_DICTIONARY_DATA;
-    private int[] stripeDictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
-    private byte[] rowGroupDictionaryData = EMPTY_DICTIONARY_DATA;
-    private int[] rowGroupDictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
-    private byte[] currentDictionaryData = EMPTY_DICTIONARY_DATA;
-    private int[] currentDictionaryOffsetVector;
+    private byte[] dictionaryData = EMPTY_DICTIONARY_DATA;
+    private int[] dictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
     private int[] stripeDictionaryLength = new int[0];
     private int[] rowGroupDictionaryLength = new int[0];
     private byte[] evaluationStatus;
@@ -302,15 +298,15 @@ public class SliceDictionarySelectiveReader
             return FILTER_FAILED;
         }
 
-        int currentLength = currentDictionaryOffsetVector[index + 1] - currentDictionaryOffsetVector[index];
+        int currentLength = dictionaryOffsetVector[index + 1] - dictionaryOffsetVector[index];
         if (isCharType && length != currentLength) {
-            System.arraycopy(currentDictionaryData, currentDictionaryOffsetVector[index], valueWithPadding, 0, currentLength);
+            System.arraycopy(dictionaryData, dictionaryOffsetVector[index], valueWithPadding, 0, currentLength);
             Arrays.fill(valueWithPadding, currentLength, length, (byte) ' ');
             if (!filter.testBytes(valueWithPadding, 0, length)) {
                 return FILTER_FAILED;
             }
         }
-        else if (!filter.testBytes(currentDictionaryData, currentDictionaryOffsetVector[index], length)) {
+        else if (!filter.testBytes(dictionaryData, dictionaryOffsetVector[index], length)) {
             return FILTER_FAILED;
         }
 
@@ -444,8 +440,8 @@ public class SliceDictionarySelectiveReader
         boolean[] isNullVector = new boolean[currentDictionarySize];
         isNullVector[currentDictionarySize - 1] = true;
 
-        byte[] dictionaryDataCopy = Arrays.copyOf(currentDictionaryData, currentDictionaryOffsetVector[currentDictionarySize]);
-        int[] dictionaryOffsetVectorCopy = Arrays.copyOf(currentDictionaryOffsetVector, currentDictionarySize + 1);
+        byte[] dictionaryDataCopy = Arrays.copyOf(dictionaryData, dictionaryOffsetVector[currentDictionarySize]);
+        int[] dictionaryOffsetVectorCopy = Arrays.copyOf(dictionaryOffsetVector, currentDictionarySize + 1);
         dictionary = new VariableWidthBlock(currentDictionarySize, wrappedBuffer(dictionaryDataCopy), dictionaryOffsetVectorCopy, Optional.of(isNullVector));
 
         dictionaryWrapped = true;
@@ -503,16 +499,16 @@ public class SliceDictionarySelectiveReader
                     dataLength += stripeDictionaryLength[i];
                 }
 
-                stripeDictionaryData = ensureCapacity(stripeDictionaryData, toIntExact(dataLength));
-                stripeDictionaryOffsetVector = ensureCapacity(stripeDictionaryOffsetVector, stripeDictionarySize + 2);
+                dictionaryData = ensureCapacity(dictionaryData, toIntExact(dataLength));
+                dictionaryOffsetVector = ensureCapacity(dictionaryOffsetVector, stripeDictionarySize + 2);
 
                 // read dictionary values
                 ByteArrayInputStream dictionaryDataStream = stripeDictionaryDataStreamSource.openStream();
-                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, stripeDictionaryData, stripeDictionaryOffsetVector, maxCodePointCount, isCharType);
+                readDictionary(dictionaryDataStream, stripeDictionarySize, stripeDictionaryLength, 0, dictionaryData, dictionaryOffsetVector, maxCodePointCount, isCharType);
             }
             else {
-                stripeDictionaryData = EMPTY_DICTIONARY_DATA;
-                stripeDictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
+                dictionaryData = EMPTY_DICTIONARY_DATA;
+                dictionaryOffsetVector = EMPTY_DICTIONARY_OFFSETS;
             }
 
             // If there is no rowgroup dictionary, we only need to wrap the stripe dictionary once per stripe because wrapping dictionary is very expensive.
@@ -524,10 +520,7 @@ public class SliceDictionarySelectiveReader
         if (dictionaryLengthStream != null) {
             int rowGroupDictionarySize = dictionaryLengthStream.getEntryCount();
 
-            // resize the dictionary lengths array if necessary
-            if (rowGroupDictionaryLength.length < rowGroupDictionarySize) {
-                rowGroupDictionaryLength = new int[rowGroupDictionarySize];
-            }
+            rowGroupDictionaryLength = ensureCapacity(rowGroupDictionaryLength, rowGroupDictionarySize);
 
             // read the lengths
             dictionaryLengthStream.nextIntVector(rowGroupDictionarySize, rowGroupDictionaryLength, 0);
@@ -536,33 +529,33 @@ public class SliceDictionarySelectiveReader
                 dataLength += rowGroupDictionaryLength[i];
             }
 
-            rowGroupDictionaryData = ensureCapacity(
-                    rowGroupDictionaryData,
-                    stripeDictionaryOffsetVector[stripeDictionarySize] + toIntExact(dataLength),
+            dictionaryData = ensureCapacity(
+                    dictionaryData,
+                    dictionaryOffsetVector[stripeDictionarySize] + toIntExact(dataLength),
                     MEDIUM,
-                    NONE);
+                    PRESERVE);
 
-            rowGroupDictionaryOffsetVector = ensureCapacity(rowGroupDictionaryOffsetVector,
+            dictionaryOffsetVector = ensureCapacity(dictionaryOffsetVector,
                     stripeDictionarySize + rowGroupDictionarySize + 2,
                     MEDIUM,
-                    NONE);
+                    PRESERVE);
 
-            if (!stripeDictionaryOpen) {
-                System.arraycopy(stripeDictionaryData, 0, rowGroupDictionaryData, 0, stripeDictionaryOffsetVector[stripeDictionarySize]);
-                System.arraycopy(stripeDictionaryOffsetVector, 0, rowGroupDictionaryOffsetVector, 0, stripeDictionarySize + 2);
-            }
             dictionaryWrapped = false;
 
             // read dictionary values
             ByteArrayInputStream dictionaryDataStream = rowGroupDictionaryDataStreamSource.openStream();
-            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, rowGroupDictionaryData, rowGroupDictionaryOffsetVector, maxCodePointCount, isCharType);
-            setDictionaryBlockData(rowGroupDictionaryData, rowGroupDictionaryOffsetVector, stripeDictionarySize + rowGroupDictionarySize + 1);
+            readDictionary(dictionaryDataStream, rowGroupDictionarySize, rowGroupDictionaryLength, stripeDictionarySize, dictionaryData, dictionaryOffsetVector, maxCodePointCount, isCharType);
+            currentDictionarySize = stripeDictionarySize + rowGroupDictionarySize + 1;
+
+            initiateEvaluationStatus(stripeDictionarySize + rowGroupDictionarySize + 1);
         }
         else {
             // there is no row group dictionary so use the stripe dictionary
-            setDictionaryBlockData(stripeDictionaryData, stripeDictionaryOffsetVector, stripeDictionarySize + 1);
+            currentDictionarySize = stripeDictionarySize + 1;
+            initiateEvaluationStatus(stripeDictionarySize + 1);
         }
 
+        dictionaryOffsetVector[currentDictionarySize] = dictionaryOffsetVector[currentDictionarySize - 1];
         stripeDictionaryOpen = true;
         presentStream = presentStreamSource.openStream();
         inDictionaryStream = inDictionaryStreamSource.openStream();
@@ -662,10 +655,9 @@ public class SliceDictionarySelectiveReader
     public void close()
     {
         dictionary = null;
-        currentDictionaryData = null;
-        rowGroupDictionaryData = null;
+        dictionaryData = null;
+        dictionaryOffsetVector = null;
         rowGroupDictionaryLength = null;
-        stripeDictionaryData = null;
         stripeDictionaryLength = null;
         values = null;
         outputPositions = null;
@@ -677,29 +669,18 @@ public class SliceDictionarySelectiveReader
     {
         return INSTANCE_SIZE +
                 sizeOf(values) +
-                sizeOf(stripeDictionaryData) +
-                sizeOf(stripeDictionaryOffsetVector) +
+                sizeOf(dictionaryData) +
+                sizeOf(dictionaryOffsetVector) +
                 sizeOf(stripeDictionaryLength) +
-                sizeOf(rowGroupDictionaryData) +
-                sizeOf(rowGroupDictionaryOffsetVector) +
                 sizeOf(rowGroupDictionaryLength) +
                 sizeOf(evaluationStatus) +
                 sizeOf(valueWithPadding) +
                 dictionary.getRetainedSizeInBytes();
     }
 
-    private void setDictionaryBlockData(byte[] dictionaryData, int[] dictionaryOffsets, int positionCount)
+    private void initiateEvaluationStatus(int positionCount)
     {
         verify(positionCount > 0);
-        // only update the block if the array changed to prevent creation of new Block objects, since
-        // the engine currently uses identity equality to test if dictionaries are the same
-        if (currentDictionaryData != dictionaryData) {
-            currentDictionaryData = dictionaryData;
-        }
-        currentDictionaryOffsetVector = dictionaryOffsets;
-        currentDictionarySize = positionCount;
-        // The last element in the dictionary is null.
-        currentDictionaryOffsetVector[currentDictionarySize] = currentDictionaryOffsetVector[currentDictionarySize - 1];
 
         evaluationStatus = ensureCapacity(evaluationStatus, positionCount - 1);
         fill(evaluationStatus, 0, evaluationStatus.length, FILTER_NOT_EVALUATED);
