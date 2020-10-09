@@ -42,7 +42,6 @@ import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionedOutputBuffer
@@ -128,13 +127,12 @@ public class PartitionedOutputBuffer
         BufferState state = this.state.get();
 
         int totalBufferedPages = 0;
-        ImmutableList.Builder<BufferInfo> infos = ImmutableList.builder();
+        ImmutableList.Builder<BufferInfo> infos = ImmutableList.builderWithExpectedSize(partitions.size());
         for (ClientBuffer partition : partitions) {
             BufferInfo bufferInfo = partition.getInfo();
             infos.add(bufferInfo);
 
-            PageBufferInfo pageBufferInfo = bufferInfo.getPageBufferInfo();
-            totalBufferedPages += pageBufferInfo.getBufferedPages();
+            totalBufferedPages += bufferInfo.getPageBufferInfo().getBufferedPages();
         }
 
         return new OutputBufferInfo(
@@ -197,23 +195,25 @@ public class PartitionedOutputBuffer
             return;
         }
 
+        ImmutableList.Builder<SerializedPageReference> references = ImmutableList.builderWithExpectedSize(pages.size());
+        long bytesAdded = 0;
+        long rowCount = 0;
+        for (SerializedPage page : pages) {
+            long retainedSize = page.getRetainedSizeInBytes();
+            bytesAdded += retainedSize;
+            rowCount += page.getPositionCount();
+            // create page reference counts with an initial single reference
+            references.add(new SerializedPageReference(page, 1, () -> dereferencePage(page, lifespan)));
+        }
+        List<SerializedPageReference> serializedPageReferences = references.build();
+
         // reserve memory
-        long bytesAdded = pages.stream().mapToLong(SerializedPage::getRetainedSizeInBytes).sum();
         memoryManager.updateMemoryUsage(bytesAdded);
 
         // update stats
-        long rowCount = pages.stream().mapToLong(SerializedPage::getPositionCount).sum();
         totalRowsAdded.addAndGet(rowCount);
-        totalPagesAdded.addAndGet(pages.size());
-        outstandingPageCountPerLifespan.computeIfAbsent(lifespan, ignore -> new AtomicLong()).addAndGet(pages.size());
-
-        // create page reference counts with an initial single reference
-        List<SerializedPageReference> serializedPageReferences = pages.stream()
-                .map(bufferedPage -> new SerializedPageReference(
-                        bufferedPage,
-                        1,
-                        () -> dereferencePage(bufferedPage, lifespan)))
-                .collect(toImmutableList());
+        totalPagesAdded.addAndGet(serializedPageReferences.size());
+        outstandingPageCountPerLifespan.computeIfAbsent(lifespan, ignore -> new AtomicLong()).addAndGet(serializedPageReferences.size());
 
         // add pages to the buffer (this will increase the reference count by one)
         partitions.get(partitionNumber).enqueuePages(serializedPageReferences);

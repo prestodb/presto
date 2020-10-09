@@ -47,15 +47,20 @@ import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicLong;
@@ -70,7 +75,6 @@ import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAG
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
@@ -376,8 +380,9 @@ public class OptimizedPartitionedOutputOperator
     {
         private final OutputBuffer outputBuffer;
         private final PartitionFunction partitionFunction;
-        private final List<Integer> partitionChannels;
-        private final List<Optional<Block>> partitionConstants;
+        private final int[] partitionChannels;
+        @Nullable
+        private final Block[] partitionConstantBlocks; // when null, no constants are present. Only non-null elements are constants
         private final PagesSerde serde;
         private final boolean replicatesAnyRow;
         private final OptionalInt nullChannel; // when present, send the position to every partition if this channel is null.
@@ -414,10 +419,24 @@ public class OptimizedPartitionedOutputOperator
                 Lifespan lifespan)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "pagePartitioner is null");
-            this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
-            this.partitionConstants = requireNonNull(partitionConstants, "partitionConstants is null").stream()
-                    .map(constant -> constant.map(ConstantExpression::getValueBlock))
-                    .collect(toImmutableList());
+            this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
+            Block[] partitionConstantBlocks = requireNonNull(partitionConstants, "partitionConstants is null").stream()
+                    .map(constant -> constant.map(ConstantExpression::getValueBlock).orElse(null))
+                    .toArray(Block[]::new);
+            if (Arrays.stream(partitionConstantBlocks).anyMatch(Objects::nonNull)) {
+                this.partitionConstantBlocks = partitionConstantBlocks;
+            }
+            else {
+                this.partitionConstantBlocks = null;
+            }
+            //  Ensure partition channels align with constant arguments provided
+            for (int i = 0; i < this.partitionChannels.length; i++) {
+                if (this.partitionChannels[i] < 0) {
+                    checkArgument(this.partitionConstantBlocks != null && this.partitionConstantBlocks[i] != null,
+                            "Expected constant for partitioning channel %s, but none was found", i);
+                }
+            }
+
             this.replicatesAnyRow = replicatesAnyRow;
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
@@ -541,14 +560,19 @@ public class OptimizedPartitionedOutputOperator
 
         private Page getPartitionFunctionArguments(Page page)
         {
-            Block[] blocks = new Block[partitionChannels.size()];
+            // Fast path for no constants
+            if (partitionConstantBlocks == null) {
+                return page.extractChannels(partitionChannels);
+            }
+
+            Block[] blocks = new Block[partitionChannels.length];
             for (int i = 0; i < blocks.length; i++) {
-                Optional<Block> partitionConstant = partitionConstants.get(i);
-                if (partitionConstant.isPresent()) {
-                    blocks[i] = new RunLengthEncodedBlock(partitionConstant.get(), page.getPositionCount());
+                int channel = partitionChannels[i];
+                if (channel < 0) {
+                    blocks[i] = new RunLengthEncodedBlock(partitionConstantBlocks[i], page.getPositionCount());
                 }
                 else {
-                    blocks[i] = page.getBlock(partitionChannels.get(i));
+                    blocks[i] = page.getBlock(channel);
                 }
             }
             return new Page(page.getPositionCount(), blocks);
