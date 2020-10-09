@@ -55,7 +55,6 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEm
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -232,23 +231,25 @@ public class ArbitraryOutputBuffer
             return;
         }
 
+        ImmutableList.Builder<SerializedPageReference> references = ImmutableList.builderWithExpectedSize(pages.size());
+        long bytesAdded = 0;
+        long rowCount = 0;
+        for (SerializedPage page : pages) {
+            long retainedSize = page.getRetainedSizeInBytes();
+            bytesAdded += retainedSize;
+            rowCount += page.getPositionCount();
+            // create page reference counts with an initial single reference
+            references.add(new SerializedPageReference(page, 1, () -> dereferencePage(page, lifespan)));
+        }
+        List<SerializedPageReference> serializedPageReferences = references.build();
+
         // reserve memory
-        long bytesAdded = pages.stream().mapToLong(SerializedPage::getRetainedSizeInBytes).sum();
         memoryManager.updateMemoryUsage(bytesAdded);
 
         // update stats
-        long rowCount = pages.stream().mapToLong(SerializedPage::getPositionCount).sum();
         totalRowsAdded.addAndGet(rowCount);
-        totalPagesAdded.addAndGet(pages.size());
-        outstandingPageCountPerLifespan.computeIfAbsent(lifespan, ignored -> new AtomicLong()).addAndGet(pages.size());
-
-        // create page reference counts with an initial single reference
-        List<SerializedPageReference> serializedPageReferences = pages.stream()
-                .map(pageSplit -> new SerializedPageReference(
-                        pageSplit,
-                        1,
-                        () -> dereferencePage(pageSplit, lifespan)))
-                .collect(toImmutableList());
+        totalPagesAdded.addAndGet(serializedPageReferences.size());
+        outstandingPageCountPerLifespan.computeIfAbsent(lifespan, ignored -> new AtomicLong()).addAndGet(serializedPageReferences.size());
 
         // add pages to the buffer (this will increase the reference count by one)
         masterBuffer.addPages(serializedPageReferences);
