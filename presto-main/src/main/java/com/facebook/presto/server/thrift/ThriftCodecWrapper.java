@@ -11,44 +11,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.smile;
+package com.facebook.presto.server.thrift;
 
-import com.facebook.airlift.json.JsonCodec;
+import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.presto.server.codec.Codec;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public class JsonCodecWrapper<T>
+public class ThriftCodecWrapper<T>
         implements Codec<T>
 {
-    private final JsonCodec<T> jsonCodec;
+    private final ThriftCodec<T> thriftCodec;
 
-    private JsonCodecWrapper(JsonCodec<T> jsonCodec)
+    public ThriftCodecWrapper(ThriftCodec<T> thriftCodec)
     {
-        this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
+        this.thriftCodec = requireNonNull(thriftCodec, "thriftCodec is null");
     }
 
-    public static <T> JsonCodecWrapper<T> wrapJsonCodec(JsonCodec<T> codec)
+    public static <T> ThriftCodecWrapper<T> wrapThriftCodec(ThriftCodec<T> codec)
     {
-        return new JsonCodecWrapper<>(codec);
+        return new ThriftCodecWrapper<>(codec);
     }
 
-    public static <T> JsonCodec<T> unwrapJsonCodec(Codec<T> codec)
+    public static <T> ThriftCodec<T> unwrapThriftCodec(Codec<T> codec)
     {
-        verify(codec instanceof JsonCodecWrapper);
-        return ((JsonCodecWrapper<T>) codec).jsonCodec;
+        verify(codec instanceof ThriftCodecWrapper);
+        return ((ThriftCodecWrapper<T>) codec).thriftCodec;
     }
-
     @Override
     public byte[] toBytes(T instance)
     {
-        return jsonCodec.toJsonBytes(instance);
+        throw new UnsupportedOperationException("Operation not supported");
     }
 
     @Override
     public T fromBytes(byte[] bytes)
     {
-        return jsonCodec.fromJson(bytes);
+        throw new UnsupportedOperationException("Operation not supported");
     }
 }

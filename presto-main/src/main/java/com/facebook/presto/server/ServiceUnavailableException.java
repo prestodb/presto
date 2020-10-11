@@ -11,11 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server.smile;
+package com.facebook.presto.server;
 
-public interface Codec<T>
+import java.net.URI;
+
+public class ServiceUnavailableException
+        extends RuntimeException
 {
-    byte[] toBytes(T instance);
-
-    T fromBytes(byte[] bytes);
+    public ServiceUnavailableException(URI uri)
+    {
+        super("Server returned SERVICE_UNAVAILABLE: " + uri);
+    }
 }
