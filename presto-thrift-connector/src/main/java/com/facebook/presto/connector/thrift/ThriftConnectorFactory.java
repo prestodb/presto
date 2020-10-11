@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.thrift;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.log.Logger;
 import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.thrift.util.RebindSafeMBeanServer;
@@ -27,6 +28,7 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
 
+import java.net.URL;
 import java.util.Map;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -38,6 +40,7 @@ public class ThriftConnectorFactory
 {
     private final String name;
     private final Module locationModule;
+    private static final Logger log = Logger.get(ThriftConnectorFactory.class);
 
     public ThriftConnectorFactory(String name, Module locationModule)
     {
@@ -61,6 +64,8 @@ public class ThriftConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         try {
+            URL location = DriftNettyClientModule.class.getProtectionDomain().getCodeSource().getLocation();
+            log.info("DriftNettyClientModule loaded from " + location + "by classloader " + DriftNettyClientModule.class.getClassLoader());
             Bootstrap app = new Bootstrap(
                     new MBeanModule(),
                     new DriftNettyClientModule(),

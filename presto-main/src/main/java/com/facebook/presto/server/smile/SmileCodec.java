@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server.smile;
 
+import com.facebook.presto.server.codec.Codec;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.Beta;

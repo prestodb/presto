@@ -83,6 +83,7 @@ public class PluginManager
             .add("com.facebook.drift.annotations.")
             .add("com.facebook.drift.TException")
             .add("com.facebook.drift.TApplicationException")
+            .add("org.objectweb.asm.")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
