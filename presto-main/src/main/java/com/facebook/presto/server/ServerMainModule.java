@@ -195,6 +195,7 @@ import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.drift.client.guice.DriftClientBinder.driftClientBinder;
+import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder;
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
@@ -373,6 +374,7 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(TableCommitContext.class);
         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
+        thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
         jaxrsBinder(binder).bind(PagesResponseWriter.class);
 
         // exchange client
