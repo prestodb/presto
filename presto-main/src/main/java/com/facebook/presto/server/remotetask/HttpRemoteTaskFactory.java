@@ -17,7 +17,8 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.log.Logger;
+import com.facebook.drift.codec.ThriftCodec;
+import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
@@ -38,7 +39,7 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
-import com.facebook.presto.server.smile.Codec;
+import com.facebook.presto.server.codec.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -57,6 +58,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.server.smile.JsonCodecWrapper.wrapJsonCodec;
+import static com.facebook.presto.server.thrift.ThriftCodecWrapper.wrapThriftCodec;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -65,8 +67,6 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 public class HttpRemoteTaskFactory
         implements RemoteTaskFactory
 {
-    private static final Logger LOG = Logger.get(HttpRemoteTaskFactory.class);
-
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final Codec<TaskStatus> taskStatusCodec;
@@ -84,7 +84,9 @@ public class HttpRemoteTaskFactory
     private final ScheduledExecutorService updateScheduledExecutor;
     private final ScheduledExecutorService errorScheduledExecutor;
     private final RemoteTaskStats stats;
-    private final boolean isBinaryTransportEnabled;
+    private final boolean binaryTransportEnabled;
+    private final boolean thriftTransportEnabled;
+    private final Protocol thriftProtocol;
     private final int maxTaskUpdateSizeInBytes;
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
@@ -97,6 +99,7 @@ public class HttpRemoteTaskFactory
             LocationFactory locationFactory,
             JsonCodec<TaskStatus> taskStatusJsonCodec,
             SmileCodec<TaskStatus> taskStatusSmileCodec,
+            ThriftCodec<TaskStatus> taskStatusThriftCodec,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
             SmileCodec<TaskInfo> taskInfoSmileCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
@@ -120,17 +123,28 @@ public class HttpRemoteTaskFactory
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
         this.stats = requireNonNull(stats, "stats is null");
-        isBinaryTransportEnabled = requireNonNull(communicationConfig, "communicationConfig is null").isBinaryTransportEnabled();
+        requireNonNull(communicationConfig, "communicationConfig is null");
+        binaryTransportEnabled = communicationConfig.isBinaryTransportEnabled();
+        thriftTransportEnabled = communicationConfig.isThriftTransportEnabled();
+        thriftProtocol = communicationConfig.getThriftProtocol();
         this.maxTaskUpdateSizeInBytes = toIntExact(requireNonNull(communicationConfig, "communicationConfig is null").getMaxTaskUpdateSize().toBytes());
 
-        if (isBinaryTransportEnabled) {
+        if (thriftTransportEnabled) {
+            this.taskStatusCodec = wrapThriftCodec(taskStatusThriftCodec);
+        }
+        else if (binaryTransportEnabled) {
             this.taskStatusCodec = taskStatusSmileCodec;
+        }
+        else {
+            this.taskStatusCodec = wrapJsonCodec(taskStatusJsonCodec);
+        }
+
+        if (binaryTransportEnabled) {
             this.taskInfoCodec = taskInfoSmileCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestSmileCodec;
             this.metadataUpdatesCodec = metadataUpdatesSmileCodec;
         }
         else {
-            this.taskStatusCodec = wrapJsonCodec(taskStatusJsonCodec);
             this.taskInfoCodec = wrapJsonCodec(taskInfoJsonCodec);
             this.taskUpdateRequestCodec = wrapJsonCodec(taskUpdateRequestJsonCodec);
             this.metadataUpdatesCodec = wrapJsonCodec(metadataUpdatesJsonCodec);
@@ -196,7 +210,9 @@ public class HttpRemoteTaskFactory
                 metadataUpdatesCodec,
                 partitionedSplitCountTracker,
                 stats,
-                isBinaryTransportEnabled,
+                binaryTransportEnabled,
+                thriftTransportEnabled,
+                thriftProtocol,
                 tableWriteInfo,
                 maxTaskUpdateSizeInBytes,
                 metadataManager,

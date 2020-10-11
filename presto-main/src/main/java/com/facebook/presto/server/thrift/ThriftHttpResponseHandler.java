@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.server.thrift;
 
 import com.facebook.airlift.http.client.HttpStatus;
-import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.server.smile.JsonResponseWrapper;
+import com.facebook.airlift.http.client.thrift.ThriftResponse;
+import com.facebook.presto.server.ServiceUnavailableException;
+import com.facebook.presto.server.SimpleHttpResponseCallback;
+import com.facebook.presto.server.SimpleHttpResponseHandlerStats;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.util.concurrent.FutureCallback;
@@ -23,34 +25,35 @@ import com.google.common.util.concurrent.FutureCallback;
 import java.net.URI;
 
 import static com.facebook.airlift.http.client.HttpStatus.OK;
-import static com.facebook.presto.server.smile.JsonResponseWrapper.unwrapJsonResponse;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class SimpleHttpResponseHandler<T>
-        implements FutureCallback<BaseResponse<T>>
+public class ThriftHttpResponseHandler<T>
+        implements FutureCallback<ThriftResponse<T>>
 {
     private final SimpleHttpResponseCallback<T> callback;
-
     private final URI uri;
     private final SimpleHttpResponseHandlerStats stats;
     private final ErrorCodeSupplier errorCode;
 
-    public SimpleHttpResponseHandler(SimpleHttpResponseCallback<T> callback, URI uri, SimpleHttpResponseHandlerStats stats, ErrorCodeSupplier errorCode)
+    public ThriftHttpResponseHandler(
+            SimpleHttpResponseCallback<T> callback,
+            URI uri,
+            SimpleHttpResponseHandlerStats stats,
+            ErrorCodeSupplier errorCode)
     {
         this.callback = callback;
         this.uri = uri;
         this.stats = requireNonNull(stats, "stats is null");
         this.errorCode = requireNonNull(errorCode, "errorCode is null");
     }
-
     @Override
-    public void onSuccess(BaseResponse<T> response)
+    public void onSuccess(ThriftResponse<T> response)
     {
         stats.updateSuccess();
-        stats.responseSize(response.getResponseSize());
+        //TODO : Find a way to add response size from thrift
         try {
-            if (response.getStatusCode() == OK.code() && response.hasValue()) {
+            if (response.getStatusCode() == OK.code() && response.getValue() != null) {
                 callback.success(response.getValue());
             }
             else if (response.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE.code()) {
@@ -74,27 +77,18 @@ public class SimpleHttpResponseHandler<T>
             }
         }
         catch (Throwable t) {
-            // this should never happen
             callback.fatal(t);
         }
     }
 
-    private String createErrorMessage(BaseResponse<T> response)
+    private String createErrorMessage(ThriftResponse<T> response)
     {
-        if (response instanceof JsonResponseWrapper) {
-            return format("Expected response code from %s to be %s, but was %s: %s%n%s",
-                    uri,
-                    OK.code(),
-                    response.getStatusCode(),
-                    response.getStatusMessage(),
-                    unwrapJsonResponse(response).getResponseBody());
-        }
-        return format("Expected response code from %s to be %s, but was %s: %s",
+        return format("Expected response code from %s to be %s, but was %s: %s%n%s",
                 uri,
                 OK.code(),
                 response.getStatusCode(),
                 response.getStatusMessage(),
-                new String(response.getResponseBytes()));
+                response.getValue());
     }
 
     @Override
