@@ -245,6 +245,7 @@ import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
+import static com.facebook.presto.SystemSessionProperties.isDisableMergingPageOutput;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
@@ -545,7 +546,14 @@ public class LocalExecutionPlanner
             boolean pageSinkCommitRequired)
     {
         Session session = taskContext.getSession();
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, tableWriteInfo);
+
+        // The output pages of the root node of plan will be input to (Optimized)PartitionedOutputOperator. If the pipeline only contains ScanFilterAndProject,
+        // there is no need to run MergingPageOutput since the (Optimized)PartitionedOutputOperator will merge the pages in a more efficient way.
+        boolean disableMergingPageOutput = isDisableMergingPageOutput(taskContext.getSession()) &&
+                plan instanceof ProjectNode &&
+                (((ProjectNode) plan).getSource() instanceof TableScanNode ||
+                        ((ProjectNode) plan).getSource() instanceof FilterNode && ((FilterNode) ((ProjectNode) plan).getSource()).getSource() instanceof TableScanNode);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, tableWriteInfo, disableMergingPageOutput);
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor, remoteSourceFactory, pageSinkCommitRequired), context);
 
         Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(outputLayout, physicalOperation.getLayout());
@@ -640,10 +648,11 @@ public class LocalExecutionPlanner
         private int nextOperatorId;
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
+        private boolean disableMergingPageOutput;
 
-        public LocalExecutionPlanContext(TaskContext taskContext, TableWriteInfo tableWriteInfo)
+        public LocalExecutionPlanContext(TaskContext taskContext, TableWriteInfo tableWriteInfo, boolean disableMergingPageOutput)
         {
-            this(taskContext, new ArrayList<>(), Optional.empty(), new LocalDynamicFiltersCollector(), new AtomicInteger(0), tableWriteInfo);
+            this(taskContext, new ArrayList<>(), Optional.empty(), new LocalDynamicFiltersCollector(), new AtomicInteger(0), tableWriteInfo, disableMergingPageOutput);
         }
 
         private LocalExecutionPlanContext(
@@ -652,7 +661,8 @@ public class LocalExecutionPlanner
                 Optional<IndexSourceContext> indexSourceContext,
                 LocalDynamicFiltersCollector dynamicFiltersCollector,
                 AtomicInteger nextPipelineId,
-                TableWriteInfo tableWriteInfo)
+                TableWriteInfo tableWriteInfo,
+                boolean disableMergingPageOutput)
         {
             this.taskContext = taskContext;
             this.driverFactories = driverFactories;
@@ -660,6 +670,7 @@ public class LocalExecutionPlanner
             this.dynamicFiltersCollector = dynamicFiltersCollector;
             this.nextPipelineId = nextPipelineId;
             this.tableWriteInfo = tableWriteInfo;
+            this.disableMergingPageOutput = disableMergingPageOutput;
         }
 
         public void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
@@ -734,12 +745,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(!indexSourceContext.isPresent(), "index build plan can not have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, dynamicFiltersCollector, nextPipelineId, tableWriteInfo);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, indexSourceContext, dynamicFiltersCollector, nextPipelineId, tableWriteInfo, disableMergingPageOutput);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), dynamicFiltersCollector, nextPipelineId, tableWriteInfo);
+            return new LocalExecutionPlanContext(taskContext, driverFactories, Optional.of(indexSourceContext), dynamicFiltersCollector, nextPipelineId, tableWriteInfo, disableMergingPageOutput);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -754,6 +765,11 @@ public class LocalExecutionPlanner
                 checkState(this.driverInstanceCount.getAsInt() == driverInstanceCount, "driverInstance count already set to " + this.driverInstanceCount.getAsInt());
             }
             this.driverInstanceCount = OptionalInt.of(driverInstanceCount);
+        }
+
+        public boolean isDisableMergingPageOutput()
+        {
+            return disableMergingPageOutput;
         }
     }
 
@@ -1379,7 +1395,8 @@ public class LocalExecutionPlanner
                             projections.stream().map(RowExpression::getType).collect(toImmutableList()),
                             dynamicFilterSupplier,
                             getFilterAndProjectMinOutputPageSize(session),
-                            getFilterAndProjectMinOutputPageRowCount(session));
+                            getFilterAndProjectMinOutputPageRowCount(session),
+                            context.isDisableMergingPageOutput());
 
                     return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
