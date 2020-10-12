@@ -190,6 +190,14 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-bigquery</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-postgresql</artifactId>
             <version>${project.version}</version>
             <type>zip</type>
