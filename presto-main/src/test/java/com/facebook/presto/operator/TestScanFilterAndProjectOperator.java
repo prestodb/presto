@@ -109,6 +109,57 @@ public class TestScanFilterAndProjectOperator
     @Test
     public void testPageSource()
     {
+        testPageSource(false);
+    }
+
+    @Test
+    public void testPageSourceMergeOutput()
+    {
+        List<Page> actual = getPages(false);
+        assertEquals(actual.size(), 1);
+
+        List<Page> expected = rowPagesBuilder(BIGINT)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .row(10L)
+                .build();
+
+        assertPageEquals(ImmutableList.of(BIGINT), actual.get(0), expected.get(0));
+    }
+
+    @Test
+    public void testPageSourceLazyLoad()
+    {
+        testPageSourceLazyLoad(false);
+    }
+
+    @Test
+    public void testPageSourceLazyBlock()
+    {
+        testPageSourceLazyBlock(false);
+    }
+
+    @Test
+    public void testRecordCursorSource()
+    {
+        testRecordCursorSource(false);
+    }
+
+    @Test
+    public void testPageYield()
+    {
+        testPageYield(false);
+    }
+
+    @Test
+    public void testRecordCursorYield()
+    {
+        testRecordCursorYield(false);
+    }
+
+    private void testPageSource(boolean disableMergingPageOutput)
+    {
         final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
 
@@ -129,7 +180,7 @@ public class TestScanFilterAndProjectOperator
                 Optional.empty(),
                 new DataSize(0, BYTE),
                 0,
-                false);
+                disableMergingPageOutput);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -142,8 +193,7 @@ public class TestScanFilterAndProjectOperator
         assertEquals(actual, expected);
     }
 
-    @Test
-    public void testPageSourceMergeOutput()
+    private List<Page> getPages(boolean disableMergingPageOutput)
     {
         List<Page> input = rowPagesBuilder(BIGINT)
                 .addSequencePage(100, 0)
@@ -175,27 +225,16 @@ public class TestScanFilterAndProjectOperator
                 Optional.empty(),
                 new DataSize(64, KILOBYTE),
                 2,
-                false);
+                disableMergingPageOutput);
 
         SourceOperator operator = factory.createOperator(newDriverContext());
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
         operator.noMoreSplits();
 
-        List<Page> actual = toPages(operator);
-        assertEquals(actual.size(), 1);
-
-        List<Page> expected = rowPagesBuilder(BIGINT)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .build();
-
-        assertPageEquals(ImmutableList.of(BIGINT), actual.get(0), expected.get(0));
+        return toPages(operator);
     }
 
-    @Test
-    public void testPageSourceLazyLoad()
+    private void testPageSourceLazyLoad(boolean disableMergingPageOutput)
     {
         Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
         // If column 1 is loaded, test will fail
@@ -206,7 +245,8 @@ public class TestScanFilterAndProjectOperator
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections, "key");
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new PageProjectionWithOutputs(new LazyPagePageProjection(), new int[] {0})));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new PageProjectionWithOutputs(new LazyPagePageProjection(), new int[] {
+                0})));
 
         ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
                 0,
@@ -221,7 +261,7 @@ public class TestScanFilterAndProjectOperator
                 Optional.empty(),
                 new DataSize(0, BYTE),
                 0,
-                false);
+                disableMergingPageOutput);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -234,8 +274,7 @@ public class TestScanFilterAndProjectOperator
         assertEquals(actual, expected);
     }
 
-    @Test
-    public void testPageSourceLazyBlock()
+    private void testPageSourceLazyBlock(boolean disableMergingPageOutput)
     {
         // Tests that a page containing a LazyBlock is loaded and its bytes are counted by the operator.
         DriverContext driverContext = newDriverContext();
@@ -261,7 +300,7 @@ public class TestScanFilterAndProjectOperator
                 Optional.empty(),
                 new DataSize(0, BYTE),
                 0,
-                false);
+                disableMergingPageOutput);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -284,8 +323,7 @@ public class TestScanFilterAndProjectOperator
         assertEquals(operator.getOperatorContext().getOperatorStats().getInputPositions(), expected.getRowCount());
     }
 
-    @Test
-    public void testRecordCursorSource()
+    private void testRecordCursorSource(boolean disableMergingPageOutput)
     {
         final Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(VARCHAR), 10_000, 0);
         DriverContext driverContext = newDriverContext();
@@ -307,7 +345,7 @@ public class TestScanFilterAndProjectOperator
                 Optional.empty(),
                 new DataSize(0, BYTE),
                 0,
-                false);
+                disableMergingPageOutput);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -320,8 +358,7 @@ public class TestScanFilterAndProjectOperator
         assertEquals(actual, expected);
     }
 
-    @Test
-    public void testPageYield()
+    private void testPageYield(boolean disableMergingPageOutput)
     {
         int totalRows = 1000;
         Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(BIGINT), totalRows, 1);
@@ -362,7 +399,7 @@ public class TestScanFilterAndProjectOperator
                 Optional.empty(),
                 new DataSize(0, BYTE),
                 0,
-                false);
+                disableMergingPageOutput);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
@@ -390,8 +427,7 @@ public class TestScanFilterAndProjectOperator
         }
     }
 
-    @Test
-    public void testRecordCursorYield()
+    private void testRecordCursorYield(boolean disableMergingPageOutput)
     {
         // create a generic long function that yields for projection on every row
         // verify we will yield #row times totally
@@ -431,7 +467,7 @@ public class TestScanFilterAndProjectOperator
                 Optional.empty(),
                 new DataSize(0, BYTE),
                 0,
-                false);
+                disableMergingPageOutput);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
