@@ -200,20 +200,29 @@ public class DwrfMetadataReader
                         columnEncoding.getDictionarySize()));
     }
 
-    private static Optional<SortedMap<Integer, DwrfSequenceEncoding>> toAdditionalSequenceEncodings(List<DwrfProto.ColumnEncoding> columnEncodings, OrcType type)
+    private static ColumnEncoding toColumnEncoding(OrcType type, List<DwrfProto.ColumnEncoding> columnEncodings)
     {
-        if (columnEncodings.size() == 1) {
-            return Optional.empty();
+        DwrfProto.ColumnEncoding sequence0 = null;
+        ImmutableSortedMap.Builder<Integer, DwrfSequenceEncoding> builder = ImmutableSortedMap.naturalOrder();
+        for (DwrfProto.ColumnEncoding columnEncoding : columnEncodings) {
+            if (columnEncoding.getSequence() == 0) {
+                sequence0 = columnEncoding;
+            }
+            else {
+                builder.put(columnEncoding.getSequence(), toSequenceEncoding(type, columnEncoding));
+            }
         }
 
-        ImmutableSortedMap.Builder<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = ImmutableSortedMap.<Integer, DwrfSequenceEncoding>naturalOrder();
-
-        for (int i = 1; i < columnEncodings.size(); i++) {
-            DwrfProto.ColumnEncoding columnEncoding = columnEncodings.get(i);
-            additionalSequenceEncodings.put(columnEncoding.getSequence(), toSequenceEncoding(type, columnEncoding));
+        SortedMap<Integer, DwrfSequenceEncoding> nonZeroSequences = builder.build();
+        Optional<SortedMap<Integer, DwrfSequenceEncoding>> nonZeroEncodingsOptional =
+                nonZeroSequences.isEmpty() ? Optional.empty() : Optional.of(nonZeroSequences);
+        if (sequence0 != null) {
+            return new ColumnEncoding(toColumnEncodingKind(type.getOrcTypeKind(), sequence0.getKind()), sequence0.getDictionarySize(), nonZeroEncodingsOptional);
         }
-
-        return Optional.of(additionalSequenceEncodings.build());
+        else {
+            // This is the case when value node of FLAT_MAP doesn't have encoding for sequence 0
+            return new ColumnEncoding(ColumnEncodingKind.DWRF_DIRECT, 0, nonZeroEncodingsOptional);
+        }
     }
 
     private static Map<Integer, ColumnEncoding> toColumnEncoding(List<OrcType> types, List<DwrfProto.ColumnEncoding> columnEncodings)
@@ -236,13 +245,9 @@ public class DwrfMetadataReader
         for (Map.Entry<Integer, List<DwrfProto.ColumnEncoding>> entry : groupedColumnEncodings.entrySet()) {
             OrcType type = types.get(entry.getKey());
 
-            DwrfProto.ColumnEncoding columnEncoding = entry.getValue().get(0);
             resultBuilder.put(
                     entry.getKey(),
-                    new ColumnEncoding(
-                            toColumnEncodingKind(type.getOrcTypeKind(), columnEncoding.getKind()),
-                            columnEncoding.getDictionarySize(),
-                            toAdditionalSequenceEncodings(entry.getValue(), type)));
+                    toColumnEncoding(type, entry.getValue()));
         }
 
         return resultBuilder.build();
