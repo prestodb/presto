@@ -58,6 +58,9 @@ public class TestEnums
             "TEST2", "",
             "TEST3", " ",
             "TEST4", ")))\"\"")));
+    private static final LongEnumParametricType TEST_LONG_ENUM = new LongEnumParametricType("TestLongEnum", new LongEnumMap(ImmutableMap.of(
+            "TEST", 6L,
+            "TEST2", 8L)));
 
     static class TestEnumPlugin
             implements Plugin
@@ -65,7 +68,7 @@ public class TestEnums
         @Override
         public Iterable<ParametricType> getParametricTypes()
         {
-            return ImmutableList.of(MOOD_ENUM, COUNTRY_ENUM, TEST_ENUM);
+            return ImmutableList.of(MOOD_ENUM, COUNTRY_ENUM, TEST_ENUM, TEST_LONG_ENUM);
         }
     }
 
@@ -261,5 +264,12 @@ public class TestEnums
                 "  SELECT first_value(b) OVER (PARTITION BY a ORDER BY a) AS rnk " +
                         "FROM (VALUES (test.enum.mood.happy, 1), (test.enum.mood.happy, 3), (test.enum.mood.sad, 5)) t(a, b)",
                 ImmutableList.of(singletonList(1), singletonList(1), singletonList(5)));
+    }
+
+    @Test
+    public void testCastFunctionCaching()
+    {
+        assertSingleValue("CAST(' ' as TestEnum)", " ");
+        assertSingleValue("CAST(8 as TestLongEnum)", 8L);
     }
 }
