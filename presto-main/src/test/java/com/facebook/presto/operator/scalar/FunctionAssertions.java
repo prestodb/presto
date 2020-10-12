@@ -976,7 +976,8 @@ public final class FunctionAssertions
                     ImmutableList.of(projection.getType()),
                     Optional.empty(),
                     new DataSize(0, BYTE),
-                    0);
+                    0,
+                    false);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {

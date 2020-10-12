@@ -555,7 +555,8 @@ public class TestOrcBatchPageSourceMemoryTracking
                     types,
                     Optional.empty(),
                     new DataSize(0, BYTE),
-                    0);
+                    0,
+                    false);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
             return operator;
