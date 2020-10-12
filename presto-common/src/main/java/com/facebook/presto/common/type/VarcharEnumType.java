@@ -106,4 +106,26 @@ public class VarcharEnumType
             return Objects.hash(enumMap);
         }
     }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(getTypeSignature().getBase(), enumMap);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        VarcharEnumType other = (VarcharEnumType) o;
+
+        return Objects.equals(getTypeSignature().getBase(), other.getTypeSignature().getBase())
+                && Objects.equals(getEnumMap(), other.getEnumMap());
+    }
 }
