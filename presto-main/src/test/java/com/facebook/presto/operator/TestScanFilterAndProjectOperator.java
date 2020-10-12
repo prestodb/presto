@@ -19,6 +19,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -45,6 +46,7 @@ import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import io.airlift.units.DataSize;
@@ -75,6 +77,7 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -109,7 +112,26 @@ public class TestScanFilterAndProjectOperator
     @Test
     public void testPageSource()
     {
+        testPageSource(true);
         testPageSource(false);
+    }
+
+    @Test
+    public void testPageSourceDisableMergeOutput()
+    {
+        List<Page> actual = getPages(true);
+        assertEquals(actual.size(), 4);
+
+        List<Page> expected = rowPagesBuilder(BIGINT)
+                .addSequencePage(1, 10)
+                .addSequencePage(1, 10)
+                .addSequencePage(1, 10)
+                .addSequencePage(1, 10)
+                .build();
+
+        for (int i = 0; i < actual.size(); i++) {
+            assertPageEquals(ImmutableList.of(BIGINT), actual.get(i), expected.get(i));
+        }
     }
 
     @Test
@@ -131,30 +153,35 @@ public class TestScanFilterAndProjectOperator
     @Test
     public void testPageSourceLazyLoad()
     {
+        testPageSourceLazyLoad(true);
         testPageSourceLazyLoad(false);
     }
 
     @Test
     public void testPageSourceLazyBlock()
     {
+        testPageSourceLazyBlock(true);
         testPageSourceLazyBlock(false);
     }
 
     @Test
     public void testRecordCursorSource()
     {
+        testRecordCursorSource(true);
         testRecordCursorSource(false);
     }
 
     @Test
     public void testPageYield()
     {
+        testPageYield(true);
         testPageYield(false);
     }
 
     @Test
     public void testRecordCursorYield()
     {
+        testRecordCursorYield(true);
         testRecordCursorYield(false);
     }
 
@@ -373,7 +400,9 @@ public class TestScanFilterAndProjectOperator
                 return value;
             }));
         }
-        Metadata metadata = functionAssertions.getMetadata();
+
+        // Create a new metadata so that functions can be registered in fresh
+        Metadata metadata = createTestMetadataManager();
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         functionAndTypeManager.registerBuiltInFunctions(functions.build());
 
@@ -437,13 +466,18 @@ public class TestScanFilterAndProjectOperator
         Page input = SequencePageBuilder.createSequencePage(ImmutableList.of(BIGINT), length, 0);
         DriverContext driverContext = newDriverContext();
 
+        // Create a new metadata so that functions can be registered in fresh
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+
         // set up generic long function with a callback to force yield
-        Metadata metadata = functionAssertions.getMetadata();
+        Metadata metadata = createTestMetadataManager();
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         functionAndTypeManager.registerBuiltInFunctions(ImmutableList.of(new GenericLongFunction("record_cursor", value -> {
             driverContext.getYieldSignal().forceYieldForTesting();
             return value;
         })));
+
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
         List<RowExpression> projections = ImmutableList.of(call(
