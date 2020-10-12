@@ -361,6 +361,16 @@ public class TestMapFlatBatchStreamReader
                 ExpectedValuesBuilder.get(Function.identity()).setMissingSequences());
     }
 
+    @Test
+    public void testIntegerWithMissingSequence0()
+            throws Exception
+    {
+        // A test case where the (dummy) encoding for sequence 0 of the value node doesn't exist
+        runTest("test_flat_map/flat_map_int_missing_sequence_0.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()));
+    }
+
     private <K, V> void runTest(String testOrcFileName, Type type, ExpectedValuesBuilder<K, V> expectedValuesBuilder)
             throws Exception
     {
