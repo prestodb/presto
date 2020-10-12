@@ -37,7 +37,7 @@ public class InternalCommunicationConfig
     private boolean binaryTransportEnabled;
     private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
     private CommunicationProtocol taskCommunicationProtocol = CommunicationProtocol.HTTP;
-    private CommunicationProtocol serverInfoCommunicationProtocol = CommunicationProtocol.HTTP;
+    private CommunicationProtocol serverInfoCommunicationProtocol = CommunicationProtocol.THRIFT;
 
     public boolean isHttpsRequired()
     {

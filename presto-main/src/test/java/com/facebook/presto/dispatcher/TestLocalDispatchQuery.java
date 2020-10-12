@@ -22,12 +22,17 @@ import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.StageInfo;
+import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
@@ -42,6 +47,7 @@ import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -86,7 +92,8 @@ public class TestLocalDispatchQuery
                 immediateFailedFuture(new IllegalStateException("abc")),
                 createClusterSizeMonitor(0),
                 directExecutor(),
-                execution -> {});
+                execution -> {},
+                new NoopHeartbeatSender());
 
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
@@ -108,7 +115,8 @@ public class TestLocalDispatchQuery
                 immediateFailedFuture(new IllegalStateException("abc")),
                 createClusterSizeMonitor(0),
                 directExecutor(),
-                execution -> {});
+                execution -> {},
+                new NoopHeartbeatSender());
 
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), QUERY_QUEUE_FULL.toErrorCode());
@@ -129,7 +137,8 @@ public class TestLocalDispatchQuery
                 directExecutor(),
                 execution -> {
                     throw new AccessDeniedException("sdf");
-                });
+                },
+                new NoopHeartbeatSender());
 
         assertEquals(query.getBasicQueryInfo().getState(), QUEUED);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -156,7 +165,8 @@ public class TestLocalDispatchQuery
                 immediateFuture(null),
                 createClusterSizeMonitor(1),
                 directExecutor(),
-                execution -> {});
+                execution -> {},
+                new NoopHeartbeatSender());
 
         assertEquals(query.getBasicQueryInfo().getState(), QUEUED);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -184,7 +194,8 @@ public class TestLocalDispatchQuery
                 immediateFuture(null),
                 createClusterSizeMonitor(0),
                 directExecutor(),
-                execution -> {});
+                execution -> {},
+                new NoopHeartbeatSender());
 
         assertEquals(query.getBasicQueryInfo().getState(), QUEUED);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -210,7 +221,8 @@ public class TestLocalDispatchQuery
                 immediateFuture(null),
                 createClusterSizeMonitor(0),
                 directExecutor(),
-                execution -> {});
+                execution -> {},
+                new NoopHeartbeatSender());
 
         assertEquals(query.getBasicQueryInfo().getState(), QUEUED);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -324,5 +336,23 @@ public class TestLocalDispatchQuery
         {
             return Optional.ofNullable(queryCompletedEvent.get());
         }
+    }
+
+    public static class NoopHeartbeatSender
+            implements HeartbeatSender
+    {
+        @Override
+        public void sendQueryHeartbeat(BasicQueryInfo basicQueryInfo)
+        { }
+
+        @Override
+        public List<ResourceGroupRuntimeInfo> getResourceGroupInfo()
+        {
+            return null;
+        }
+
+        @Override
+        public void sendNodeHeartbeat(List<TaskStatus> taskStatuses)
+        { }
     }
 }

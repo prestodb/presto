@@ -62,6 +62,7 @@ public class LocalDispatchQuery
 
     private final Consumer<QueryExecution> querySubmitter;
     private final SettableFuture<?> submitted = SettableFuture.create();
+    private final HeartbeatSender heartbeatSender;
 
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
@@ -69,7 +70,8 @@ public class LocalDispatchQuery
             ListenableFuture<QueryExecution> queryExecutionFuture,
             ClusterSizeMonitor clusterSizeMonitor,
             Executor queryExecutor,
-            Consumer<QueryExecution> querySubmitter)
+            Consumer<QueryExecution> querySubmitter,
+            HeartbeatSender heartbeatSender)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -77,6 +79,7 @@ public class LocalDispatchQuery
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
+        this.heartbeatSender = requireNonNull(heartbeatSender, "heartbeatSender is null");
 
         addExceptionCallback(queryExecutionFuture, throwable -> {
             if (stateMachine.transitionToFailed(throwable)) {
@@ -86,6 +89,7 @@ public class LocalDispatchQuery
         stateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
                 submitted.set(null);
+                heartbeatSender.sendQueryHeartbeat(getBasicQueryInfo());
             }
         });
     }
@@ -130,6 +134,7 @@ public class LocalDispatchQuery
     public void recordHeartbeat()
     {
         stateMachine.recordHeartbeat();
+        heartbeatSender.sendQueryHeartbeat(getBasicQueryInfo());
     }
 
     @Override
@@ -235,6 +240,9 @@ public class LocalDispatchQuery
     {
         if (stateMachine.transitionToFailed(throwable)) {
             queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
+            if (tryGetQueryExecution().isPresent()) {
+                tryGetQueryExecution().get().fail(throwable);
+            }
         }
     }
 

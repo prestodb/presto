@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import java.net.URI;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import static com.facebook.presto.execution.TaskState.PLANNED;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -28,6 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class TaskStatus
 {
     /**
@@ -47,11 +53,12 @@ public class TaskStatus
      */
     private static final long MAX_VERSION = Long.MAX_VALUE;
 
-    private final long taskInstanceIdLeastSignificantBits;
-    private final long taskInstanceIdMostSignificantBits;
+    private final TaskId taskId;
+    private final UUID taskInstanceId;
     private final long version;
     private final TaskState state;
     private final URI self;
+    private final String nodeId;
     private final Set<Lifespan> completedDriverGroups;
 
     private final int queuedPartitionedDrivers;
@@ -69,13 +76,15 @@ public class TaskStatus
 
     private final List<ExecutionFailureInfo> failures;
 
+    @ThriftConstructor
     @JsonCreator
     public TaskStatus(
-            @JsonProperty("taskInstanceIdLeastSignificantBits") long taskInstanceIdLeastSignificantBits,
-            @JsonProperty("taskInstanceIdMostSignificantBits") long taskInstanceIdMostSignificantBits,
+            @JsonProperty("taskId") TaskId taskId,
+            @JsonProperty("taskInstanceId") UUID taskInstanceId,
             @JsonProperty("version") long version,
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
+            @JsonProperty("nodeId") String nodeId,
             @JsonProperty("completedDriverGroups") Set<Lifespan> completedDriverGroups,
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
@@ -88,12 +97,13 @@ public class TaskStatus
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis)
     {
-        this.taskInstanceIdLeastSignificantBits = taskInstanceIdLeastSignificantBits;
-        this.taskInstanceIdMostSignificantBits = taskInstanceIdMostSignificantBits;
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        this.taskInstanceId = taskInstanceId;
         checkState(version >= MIN_VERSION, "version must be >= MIN_VERSION");
         this.version = version;
         this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.completedDriverGroups = requireNonNull(completedDriverGroups, "completedDriverGroups is null");
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
@@ -116,96 +126,119 @@ public class TaskStatus
         this.fullGcTimeInMillis = fullGcTimeInMillis;
     }
 
+    @ThriftField(1)
     @JsonProperty
-    public long getTaskInstanceIdLeastSignificantBits()
+    public TaskId getTaskId()
     {
-        return taskInstanceIdLeastSignificantBits;
+        return taskId;
     }
 
+    @ThriftField(2)
     @JsonProperty
-    public long getTaskInstanceIdMostSignificantBits()
+    public UUID getTaskInstanceId()
     {
-        return taskInstanceIdMostSignificantBits;
+        return taskInstanceId;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public long getVersion()
     {
         return version;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public TaskState getState()
     {
         return state;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public URI getSelf()
     {
         return self;
     }
 
+    @ThriftField(6)
+    @JsonProperty
+    public String getNodeId()
+    {
+        return nodeId;
+    }
+
+    @ThriftField(7)
     @JsonProperty
     public Set<Lifespan> getCompletedDriverGroups()
     {
         return completedDriverGroups;
     }
 
+    @ThriftField(8)
     @JsonProperty
     public List<ExecutionFailureInfo> getFailures()
     {
         return failures;
     }
 
+    @ThriftField(9)
     @JsonProperty
     public int getQueuedPartitionedDrivers()
     {
         return queuedPartitionedDrivers;
     }
 
+    @ThriftField(10)
     @JsonProperty
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
     }
 
+    @ThriftField(11)
     @JsonProperty
     public double getOutputBufferUtilization()
     {
         return outputBufferUtilization;
     }
 
+    @ThriftField(12)
     @JsonProperty
     public boolean isOutputBufferOverutilized()
     {
         return outputBufferOverutilized;
     }
 
+    @ThriftField(13)
     @JsonProperty
     public long getPhysicalWrittenDataSizeInBytes()
     {
         return physicalWrittenDataSizeInBytes;
     }
 
+    @ThriftField(14)
     @JsonProperty
     public long getMemoryReservationInBytes()
     {
         return memoryReservationInBytes;
     }
 
+    @ThriftField(15)
     @JsonProperty
     public long getSystemMemoryReservationInBytes()
     {
         return systemMemoryReservationInBytes;
     }
 
+    @ThriftField(16)
     @JsonProperty
     public long getFullGcCount()
     {
         return fullGcCount;
     }
 
+    @ThriftField(17)
     @JsonProperty
     public long getFullGcTimeInMillis()
     {
@@ -220,14 +253,15 @@ public class TaskStatus
                 .toString();
     }
 
-    public static TaskStatus initialTaskStatus(URI location)
+    public static TaskStatus initialTaskStatus(TaskId taskId, URI location, String nodeId)
     {
         return new TaskStatus(
-                0L,
-                0L,
+                taskId,
+                new UUID(0, 0),
                 MIN_VERSION,
                 PLANNED,
                 location,
+                nodeId,
                 ImmutableSet.of(),
                 ImmutableList.of(),
                 0,
@@ -244,11 +278,12 @@ public class TaskStatus
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
     {
         return new TaskStatus(
-                taskStatus.getTaskInstanceIdLeastSignificantBits(),
-                taskStatus.getTaskInstanceIdMostSignificantBits(),
+                taskStatus.getTaskId(),
+                taskStatus.getTaskInstanceId(),
                 MAX_VERSION,
                 state,
                 taskStatus.getSelf(),
+                taskStatus.getNodeId(),
                 taskStatus.getCompletedDriverGroups(),
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
@@ -260,5 +295,27 @@ public class TaskStatus
                 taskStatus.getSystemMemoryReservationInBytes(),
                 taskStatus.getFullGcCount(),
                 taskStatus.getFullGcTimeInMillis());
+    }
+
+    public TaskStatus createDelta(TaskStatus other)
+    {
+        return new TaskStatus(
+                other.taskId,
+                other.taskInstanceId,
+                other.version,
+                other.state,
+                other.self,
+                other.nodeId,
+                Sets.difference(completedDriverGroups, other.completedDriverGroups),
+                other.failures,
+                other.queuedPartitionedDrivers - queuedPartitionedDrivers,
+                other.runningPartitionedDrivers - runningPartitionedDrivers,
+                other.outputBufferUtilization - outputBufferUtilization,
+                other.outputBufferOverutilized,
+                other.physicalWrittenDataSizeInBytes - physicalWrittenDataSizeInBytes,
+                other.memoryReservationInBytes - memoryReservationInBytes,
+                other.systemMemoryReservationInBytes - systemMemoryReservationInBytes,
+                other.fullGcCount - fullGcCount,
+                other.fullGcTimeInMillis - fullGcTimeInMillis);
     }
 }

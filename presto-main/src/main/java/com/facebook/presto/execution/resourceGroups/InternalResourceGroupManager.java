@@ -15,6 +15,7 @@ package com.facebook.presto.execution.resourceGroups;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.dispatcher.HeartbeatSender;
 import com.facebook.presto.execution.ManagedQueryExecution;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.resourceGroups.InternalResourceGroup.RootInternalResourceGroup;
@@ -30,6 +31,8 @@ import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
@@ -45,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -60,6 +64,7 @@ import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
@@ -88,6 +93,8 @@ public final class InternalResourceGroupManager<C>
     private final AtomicBoolean taskLimitExceeded = new AtomicBoolean();
     private final int maxTotalRunningTaskCountToNotExecuteNewQuery;
     private final AtomicLong lastSchedulingCycleRunTimeMs = new AtomicLong(currentTimeMillis());
+    private final HeartbeatSender heartbeatSender;
+    private final ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = new ConcurrentHashMap<>();
 
     @Inject
     public InternalResourceGroupManager(
@@ -95,7 +102,9 @@ public final class InternalResourceGroupManager<C>
             ClusterMemoryPoolManager memoryPoolManager,
             QueryManagerConfig queryManagerConfig,
             NodeInfo nodeInfo,
-            MBeanExporter exporter)
+            MBeanExporter exporter,
+            // TODO: move this to a different class
+            HeartbeatSender heartbeatSender)
     {
         requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
@@ -103,6 +112,7 @@ public final class InternalResourceGroupManager<C>
         this.legacyManager = requireNonNull(legacyManager, "legacyManager is null");
         this.configurationManager = new AtomicReference<>(cast(legacyManager));
         this.maxTotalRunningTaskCountToNotExecuteNewQuery = queryManagerConfig.getMaxTotalRunningTaskCountToNotExecuteNewQuery();
+        this.heartbeatSender = requireNonNull(heartbeatSender, "heartbeatSender is null");
     }
 
     @Override
@@ -203,6 +213,18 @@ public final class InternalResourceGroupManager<C>
                     throw t;
                 }
             }, 1, 1, MILLISECONDS);
+            refreshExecutor.scheduleWithFixedDelay(() -> {
+                try {
+                    List<ResourceGroupRuntimeInfo> resourceGroupInfos = heartbeatSender.getResourceGroupInfo();
+                    Set<ResourceGroupId> resourceGroupIds = resourceGroupInfos.stream().map(ResourceGroupRuntimeInfo::getResourceGroupId).collect(toImmutableSet());
+                    Set<ResourceGroupId> toRemove = ImmutableSet.copyOf(Sets.difference(resourceGroupRuntimeInfos.keySet(), resourceGroupIds));
+                    resourceGroupRuntimeInfos.keySet().removeAll(toRemove);
+                    resourceGroupInfos.forEach(resourceGroupRuntimeInfo -> resourceGroupRuntimeInfos.put(resourceGroupRuntimeInfo.getResourceGroupId(), resourceGroupRuntimeInfo));
+                }
+                catch (Throwable t) {
+                    log.error(t, "Error while executing refreshAndStartQueries");
+                }
+            }, 0, 100, MILLISECONDS);
         }
     }
 
@@ -256,7 +278,7 @@ public final class InternalResourceGroupManager<C>
                 group = parent.getOrCreateSubGroup(id.getLastSegment(), !context.getFirstDynamicSegmentPosition().equals(OptionalInt.of(subGroupSegmentIndex)));
             }
             else {
-                RootInternalResourceGroup root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor);
+                RootInternalResourceGroup root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, resourceGroupRuntimeInfos);
                 group = root;
                 rootGroups.add(root);
             }

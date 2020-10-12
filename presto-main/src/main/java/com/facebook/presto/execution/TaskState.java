@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+@ThriftEnum
 public enum TaskState
 {
     /**
@@ -25,36 +29,38 @@ public enum TaskState
      * be in the planned state until, the dependencies of the task
      * have begun producing output.
      */
-    PLANNED(false),
+    PLANNED(false, 0),
     /**
      * Task is running.
      */
-    RUNNING(false),
+    RUNNING(false, 1),
     /**
      * Task has finished executing and all output has been consumed.
      */
-    FINISHED(true),
+    FINISHED(true, 2),
     /**
      * Task was canceled by a user.
      */
-    CANCELED(true),
+    CANCELED(true, 3),
     /**
      * Task was aborted due to a failure in the query.  The failure
      * was not in this task.
      */
-    ABORTED(true),
+    ABORTED(true, 4),
     /**
      * Task execution failed.
      */
-    FAILED(true);
+    FAILED(true, 5);
 
     public static final Set<TaskState> TERMINAL_TASK_STATES = Stream.of(TaskState.values()).filter(TaskState::isDone).collect(toImmutableSet());
 
     private final boolean doneState;
+    private final int value;
 
-    TaskState(boolean doneState)
+    TaskState(boolean doneState, int value)
     {
         this.doneState = doneState;
+        this.value = value;
     }
 
     /**
@@ -63,5 +69,11 @@ public enum TaskState
     public boolean isDone()
     {
         return doneState;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
     }
 }

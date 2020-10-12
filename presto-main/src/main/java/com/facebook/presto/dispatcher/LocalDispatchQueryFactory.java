@@ -56,6 +56,7 @@ public class LocalDispatchQueryFactory
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final ListeningExecutorService executor;
+    private final HeartbeatSender heartbeatSender;
 
     @Inject
     public LocalDispatchQueryFactory(
@@ -67,7 +68,8 @@ public class LocalDispatchQueryFactory
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             ClusterSizeMonitor clusterSizeMonitor,
-            DispatchExecutor dispatchExecutor)
+            DispatchExecutor dispatchExecutor,
+            HeartbeatSender heartbeatSender)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -80,6 +82,8 @@ public class LocalDispatchQueryFactory
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
         this.executor = requireNonNull(dispatchExecutor, "executorService is null").getExecutor();
+
+        this.heartbeatSender = requireNonNull(heartbeatSender, "heartbeatSender is null");
     }
 
     @Override
@@ -122,6 +126,7 @@ public class LocalDispatchQueryFactory
                 queryExecutionFuture,
                 clusterSizeMonitor,
                 executor,
-                queryManager::createQuery);
+                queryManager::createQuery,
+                heartbeatSender);
     }
 }

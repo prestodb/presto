@@ -67,7 +67,7 @@ public class SqlTask
     private static final Logger log = Logger.get(SqlTask.class);
 
     private final TaskId taskId;
-    private final TaskInstanceId taskInstanceId;
+    private final UUID taskInstanceId;
     private final URI location;
     private final String nodeId;
     private final TaskStateMachine taskStateMachine;
@@ -119,7 +119,7 @@ public class SqlTask
             DataSize maxBufferSize)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
-        this.taskInstanceId = new TaskInstanceId(UUID.randomUUID());
+        this.taskInstanceId = UUID.randomUUID();
         this.location = requireNonNull(location, "location is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
@@ -131,7 +131,7 @@ public class SqlTask
         this.taskExchangeClientManager = new TaskExchangeClientManager(exchangeClientSupplier);
         outputBuffer = new LazyOutputBuffer(
                 taskId,
-                taskInstanceId.getUuidString(),
+                taskInstanceId.toString(),
                 taskNotificationExecutor,
                 maxBufferSize,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
@@ -209,7 +209,7 @@ public class SqlTask
 
     public String getTaskInstanceId()
     {
-        return taskInstanceId.getUuidString();
+        return taskInstanceId.toString();
     }
 
     public void recordHeartbeat()
@@ -280,11 +280,12 @@ public class SqlTask
         }
 
         return new TaskStatus(
-                taskInstanceId.getUuidLeastSignificantBits(),
-                taskInstanceId.getUuidMostSignificantBits(),
+                taskId,
+                taskInstanceId,
                 versionNumber,
                 state,
                 location,
+                nodeId,
                 completedDriverGroups,
                 failures,
                 queuedPartitionedDrivers,
@@ -557,35 +558,5 @@ public class SqlTask
     public QueryContext getQueryContext()
     {
         return queryContext;
-    }
-
-    private static class TaskInstanceId
-    {
-        private final long uuidLeastSignificantBits;
-        private final long uuidMostSignificantBits;
-        private final String uuidString;
-
-        public TaskInstanceId(UUID uuid)
-        {
-            requireNonNull(uuid, "uuid is null");
-            this.uuidLeastSignificantBits = uuid.getLeastSignificantBits();
-            this.uuidMostSignificantBits = uuid.getMostSignificantBits();
-            this.uuidString = uuid.toString();
-        }
-
-        public long getUuidLeastSignificantBits()
-        {
-            return uuidLeastSignificantBits;
-        }
-
-        public long getUuidMostSignificantBits()
-        {
-            return uuidMostSignificantBits;
-        }
-
-        public String getUuidString()
-        {
-            return uuidString;
-        }
     }
 }

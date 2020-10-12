@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -36,6 +39,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * Lightweight version of QueryStats. Parts of the web UI depend on the fields
  * being named consistently across these classes.
  */
+@ThriftStruct
 @Immutable
 public class BasicQueryStats
 {
@@ -72,6 +76,7 @@ public class BasicQueryStats
 
     private final OptionalDouble progressPercentage;
 
+    @ThriftConstructor
     @JsonCreator
     public BasicQueryStats(
             @JsonProperty("createTime") DateTime createTime,
@@ -195,143 +200,167 @@ public class BasicQueryStats
                 OptionalDouble.empty());
     }
 
+    @ThriftField(1)
     @JsonProperty
     public DateTime getCreateTime()
     {
         return createTime;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public DateTime getEndTime()
     {
         return endTime;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public Duration getQueuedTime()
     {
         return queuedTime;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public Duration getElapsedTime()
     {
         return elapsedTime;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public Duration getExecutionTime()
     {
         return executionTime;
     }
 
+    @ThriftField(6)
     @JsonProperty
     public int getTotalDrivers()
     {
         return totalDrivers;
     }
 
+    @ThriftField(7)
     @JsonProperty
     public int getQueuedDrivers()
     {
         return queuedDrivers;
     }
 
+    @ThriftField(8)
     @JsonProperty
     public int getRunningDrivers()
     {
         return runningDrivers;
     }
 
+    @ThriftField(9)
     @JsonProperty
     public int getCompletedDrivers()
     {
         return completedDrivers;
     }
 
+    @ThriftField(10)
     @JsonProperty
     public DataSize getRawInputDataSize()
     {
         return rawInputDataSize;
     }
 
+    @ThriftField(11)
     @JsonProperty
     public long getRawInputPositions()
     {
         return rawInputPositions;
     }
 
+    @ThriftField(12)
     @JsonProperty
     public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
     }
 
+    @ThriftField(13)
     @JsonProperty
     public DataSize getUserMemoryReservation()
     {
         return userMemoryReservation;
     }
 
+    @ThriftField(14)
     @JsonProperty
     public DataSize getTotalMemoryReservation()
     {
         return totalMemoryReservation;
     }
 
+    @ThriftField(15)
     public int getPeakRunningTasks()
     {
         return peakRunningTasks;
     }
 
+    @ThriftField(16)
     @JsonProperty
     public DataSize getPeakUserMemoryReservation()
     {
         return peakUserMemoryReservation;
     }
 
+    @ThriftField(17)
     @JsonProperty
     public DataSize getPeakTotalMemoryReservation()
     {
         return peakTotalMemoryReservation;
     }
 
+    @ThriftField(18)
     @JsonProperty
     public DataSize getPeakTaskTotalMemoryReservation()
     {
         return peakTaskTotalMemoryReservation;
     }
 
+    @ThriftField(19)
     @JsonProperty
     public Duration getTotalCpuTime()
     {
         return totalCpuTime;
     }
 
+    @ThriftField(20)
     @JsonProperty
     public Duration getTotalScheduledTime()
     {
         return totalScheduledTime;
     }
 
+    @ThriftField(21)
     @JsonProperty
     public boolean isFullyBlocked()
     {
         return fullyBlocked;
     }
 
+    @ThriftField(22)
     @JsonProperty
     public Set<BlockedReason> getBlockedReasons()
     {
         return blockedReasons;
     }
 
+    @ThriftField(23)
     @JsonProperty
     public DataSize getTotalAllocation()
     {
         return totalAllocation;
     }
 
+    @ThriftField(24)
     @JsonProperty
     public OptionalDouble getProgressPercentage()
     {

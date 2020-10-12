@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.discovery.server.EmbeddedDiscoveryModule;
 import com.facebook.presto.dispatcher.NoopQueryManager;
+import com.facebook.presto.dispatcher.ResourceManagerServer;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -37,6 +38,7 @@ import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder
 import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -83,6 +85,8 @@ public class ResourceManagerModule
         smileCodecBinder(binder).bindSmileCodec(BasicQueryInfo.class);
 
         binder.bind(TransactionManager.class).to(NoOpTransactionManager.class);
+
+        driftServerBinder(binder).bindService(ResourceManagerServer.class);
     }
 
     @Provides

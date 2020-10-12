@@ -229,10 +229,10 @@ class ContinuousTaskStatusFetcher
         AtomicBoolean taskMismatch = new AtomicBoolean();
         taskStatus.setIf(newValue, oldValue -> {
             // did the task instance id change
-            boolean isEmpty = oldValue.getTaskInstanceIdLeastSignificantBits() == 0 && oldValue.getTaskInstanceIdMostSignificantBits() == 0;
+            boolean isEmpty = oldValue.getTaskInstanceId().getLeastSignificantBits() == 0 && oldValue.getTaskInstanceId().getMostSignificantBits() == 0;
             if (!isEmpty &&
-                    !(oldValue.getTaskInstanceIdLeastSignificantBits() == newValue.getTaskInstanceIdLeastSignificantBits() &&
-                            oldValue.getTaskInstanceIdMostSignificantBits() == newValue.getTaskInstanceIdMostSignificantBits())) {
+                    !(oldValue.getTaskInstanceId().getLeastSignificantBits() == newValue.getTaskInstanceId().getLeastSignificantBits() &&
+                            oldValue.getTaskInstanceId().getMostSignificantBits() == newValue.getTaskInstanceId().getMostSignificantBits())) {
                 taskMismatch.set(true);
                 return false;
             }

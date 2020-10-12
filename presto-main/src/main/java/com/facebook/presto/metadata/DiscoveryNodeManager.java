@@ -198,8 +198,10 @@ public final class DiscoveryNodeManager
                     break;
                 case THRIFT:
                     if (node.getThriftPort().isPresent()) {
-                        nodeStates.put(node.getNodeIdentifier(),
-                                new ThriftRemoteNodeState(driftClient, uriBuilderFrom(node.getInternalUri()).scheme("thrift").port(node.getThriftPort().getAsInt()).build()));
+                        nodeStates.computeIfAbsent(node.getNodeIdentifier(),
+                                identifier -> new ThriftRemoteNodeState(
+                                        driftClient,
+                                        uriBuilderFrom(node.getInternalUri()).scheme("thrift").port(node.getThriftPort().getAsInt()).build()));
                     }
                     else {
                         // thrift port has not yet been populated; ignore the node for now

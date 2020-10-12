@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.dispatcher.TestLocalDispatchQuery;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -252,7 +253,8 @@ public class TestSqlTaskManager
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 new BlockEncodingManager(new TypeRegistry()),
-                new OrderingCompiler());
+                new OrderingCompiler(),
+                new TestLocalDispatchQuery.NoopHeartbeatSender());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)

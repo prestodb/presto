@@ -248,11 +248,12 @@ public class MockRemoteTaskFactory
             return new TaskInfo(
                     taskStateMachine.getTaskId(),
                     new TaskStatus(
-                            TASK_INSTANCE_ID.getLeastSignificantBits(),
-                            TASK_INSTANCE_ID.getMostSignificantBits(),
+                            taskStateMachine.getTaskId(),
+                            TASK_INSTANCE_ID,
                             nextTaskInfoVersion.getAndIncrement(),
                             state,
                             location,
+                            nodeId,
                             ImmutableSet.of(),
                             failures,
                             0,
@@ -282,11 +283,12 @@ public class MockRemoteTaskFactory
         {
             TaskStats stats = taskContext.getTaskStats();
             return new TaskStatus(
-                    TASK_INSTANCE_ID.getLeastSignificantBits(),
-                    TASK_INSTANCE_ID.getMostSignificantBits(),
+                    taskStateMachine.getTaskId(),
+                    TASK_INSTANCE_ID,
                     nextTaskInfoVersion.get(),
                     taskStateMachine.getState(),
                     location,
+                    nodeId,
                     ImmutableSet.of(),
                     ImmutableList.of(),
                     stats.getQueuedPartitionedDrivers(),

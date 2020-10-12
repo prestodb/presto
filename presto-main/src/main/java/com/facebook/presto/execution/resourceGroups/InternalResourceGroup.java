@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -88,6 +89,7 @@ public class InternalResourceGroup
     private final BiConsumer<InternalResourceGroup, Boolean> jmxExportListener;
     private final Executor executor;
     private final boolean staticResourceGroup;
+    private final ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos;
 
     // Configuration
     // =============
@@ -146,7 +148,8 @@ public class InternalResourceGroup
             String name,
             BiConsumer<InternalResourceGroup, Boolean> jmxExportListener,
             Executor executor,
-            boolean staticResourceGroup)
+            boolean staticResourceGroup,
+            ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
@@ -161,6 +164,7 @@ public class InternalResourceGroup
             root = this;
         }
         this.staticResourceGroup = staticResourceGroup;
+        this.resourceGroupRuntimeInfos = resourceGroupRuntimeInfos;
     }
 
     public ResourceGroupInfo getResourceGroupInfo(boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly)
@@ -593,7 +597,8 @@ public class InternalResourceGroup
                     name,
                     jmxExportListener,
                     executor,
-                    staticResourceGroup && staticSegment);
+                    staticResourceGroup && staticSegment,
+                    resourceGroupRuntimeInfos);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -749,6 +754,10 @@ public class InternalResourceGroup
                 cachedMemoryUsageBytes = 0;
                 for (ManagedQueryExecution query : runningQueries) {
                     cachedMemoryUsageBytes += query.getUserMemoryReservation().toBytes();
+                }
+                ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfos.get(getId());
+                if (resourceGroupRuntimeInfo != null) {
+                    cachedMemoryUsageBytes += resourceGroupRuntimeInfo.getMemoryUsageBytes();
                 }
             }
             else {
@@ -964,9 +973,10 @@ public class InternalResourceGroup
         public RootInternalResourceGroup(
                 String name,
                 BiConsumer<InternalResourceGroup, Boolean> jmxExportListener,
-                Executor executor)
+                Executor executor,
+                ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos)
         {
-            super(Optional.empty(), name, jmxExportListener, executor, true);
+            super(Optional.empty(), name, jmxExportListener, executor, true, resourceGroupRuntimeInfos);
         }
 
         public synchronized void processQueuedQueries()

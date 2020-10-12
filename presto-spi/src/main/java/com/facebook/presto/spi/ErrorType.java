@@ -13,10 +13,28 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
+@ThriftEnum
 public enum ErrorType
 {
-    USER_ERROR,
-    INTERNAL_ERROR,
-    INSUFFICIENT_RESOURCES,
-    EXTERNAL
+    USER_ERROR(1),
+    INTERNAL_ERROR(2),
+    INSUFFICIENT_RESOURCES(3),
+    EXTERNAL(4),
+    /**/;
+
+    private final int value;
+
+    private ErrorType(int value)
+    {
+        this.value = value;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
+    }
 }

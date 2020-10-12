@@ -20,6 +20,7 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.dispatcher.HeartbeatSender;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
@@ -79,6 +80,7 @@ import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.notNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
@@ -113,6 +115,7 @@ public class SqlTaskManager
     private String coordinatorId;
 
     private final CounterStat failedTasks = new CounterStat();
+    private HeartbeatSender heartbeatSender;
 
     @Inject
     public SqlTaskManager(
@@ -130,7 +133,8 @@ public class SqlTaskManager
             NodeSpillConfig nodeSpillConfig,
             GcMonitor gcMonitor,
             BlockEncodingSerde blockEncodingSerde,
-            OrderingCompiler orderingCompiler)
+            OrderingCompiler orderingCompiler,
+            HeartbeatSender heartbeatSender)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -159,6 +163,8 @@ public class SqlTaskManager
         DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
         DataSize maxQueryBroadcastMemory = nodeMemoryConfig.getMaxQueryBroadcastMemory();
+
+        this.heartbeatSender = requireNonNull(heartbeatSender, "heartbeatSender is null");
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
                 queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode, maxQueryBroadcastMemory)));
@@ -251,6 +257,7 @@ public class SqlTaskManager
         taskManagementExecutor.scheduleWithFixedDelay(() -> {
             try {
                 updateStats();
+                heartbeatSender.sendNodeHeartbeat(getAllTasks().stream().map(SqlTask::getTaskStatus).collect(toImmutableList()));
             }
             catch (Throwable e) {
                 log.error(e, "Error updating stats");

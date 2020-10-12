@@ -355,8 +355,7 @@ public class TestHttpRemoteTask
         private TaskStatus initialTaskStatus;
         private long version;
         private TaskState taskState;
-        private long taskInstanceIdLeastSignificantBits = INITIAL_TASK_INSTANCE_ID.getLeastSignificantBits();
-        private long taskInstanceIdMostSignificantBits = INITIAL_TASK_INSTANCE_ID.getMostSignificantBits();
+        private UUID taskInstanceId = INITIAL_TASK_INSTANCE_ID;
 
         private long statusFetchCounter;
 
@@ -482,8 +481,7 @@ public class TestHttpRemoteTask
                 case TASK_MISMATCH:
                 case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
                     if (statusFetchCounter == 10) {
-                        taskInstanceIdLeastSignificantBits = NEW_TASK_INSTANCE_ID.getLeastSignificantBits();
-                        taskInstanceIdMostSignificantBits = NEW_TASK_INSTANCE_ID.getMostSignificantBits();
+                        taskInstanceId = NEW_TASK_INSTANCE_ID;
                         version = 0;
                     }
                     break;
@@ -500,11 +498,12 @@ public class TestHttpRemoteTask
             }
 
             return new TaskStatus(
-                    taskInstanceIdLeastSignificantBits,
-                    taskInstanceIdMostSignificantBits,
+                    initialTaskStatus.getTaskId(),
+                    taskInstanceId,
                     ++version,
                     taskState,
                     initialTaskStatus.getSelf(),
+                    initialTaskStatus.getNodeId(),
                     ImmutableSet.of(),
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),

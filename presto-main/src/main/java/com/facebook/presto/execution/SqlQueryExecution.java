@@ -18,6 +18,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.dispatcher.HeartbeatSender;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -116,6 +117,7 @@ public class SqlQueryExecution
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final PlanChecker planChecker;
+    private final HeartbeatSender heartbeatSender;
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private final AtomicReference<PlanVariableAllocator> variableAllocator = new AtomicReference<>();
 
@@ -141,7 +143,8 @@ public class SqlQueryExecution
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector,
-            PlanChecker planChecker)
+            PlanChecker planChecker,
+            HeartbeatSender heartbeatSender)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -161,6 +164,7 @@ public class SqlQueryExecution
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
+            this.heartbeatSender = requireNonNull(heartbeatSender, "heartbeatSender is null");
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
@@ -565,6 +569,7 @@ public class SqlQueryExecution
     public void recordHeartbeat()
     {
         stateMachine.recordHeartbeat();
+        heartbeatSender.sendQueryHeartbeat(getBasicQueryInfo());
     }
 
     @Override
@@ -670,6 +675,7 @@ public class SqlQueryExecution
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
         private final PlanChecker planChecker;
+        private final HeartbeatSender heartbeatSender;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -689,7 +695,8 @@ public class SqlQueryExecution
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
-                PlanChecker planChecker)
+                PlanChecker planChecker,
+                HeartbeatSender heartbeatSender)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -711,6 +718,7 @@ public class SqlQueryExecution
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
+            this.heartbeatSender = requireNonNull(heartbeatSender, "heartbeatSender is null");
         }
 
         @Override
@@ -747,7 +755,8 @@ public class SqlQueryExecution
                     statsCalculator,
                     costCalculator,
                     warningCollector,
-                    planChecker);
+                    planChecker,
+                    heartbeatSender);
 
             return execution;
         }

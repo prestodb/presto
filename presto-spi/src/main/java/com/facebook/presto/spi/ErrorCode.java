@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -20,12 +23,14 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class ErrorCode
 {
     private final int code;
     private final String name;
     private final ErrorType type;
 
+    @ThriftConstructor
     @JsonCreator
     public ErrorCode(
             @JsonProperty("code") int code,
@@ -40,18 +45,21 @@ public final class ErrorCode
         this.type = requireNonNull(type, "type is null");
     }
 
+    @ThriftField(1)
     @JsonProperty
     public int getCode()
     {
         return code;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public ErrorType getType()
     {
