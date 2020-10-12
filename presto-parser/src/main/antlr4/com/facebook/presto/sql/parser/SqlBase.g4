@@ -452,7 +452,7 @@ baseType
     : TIME_WITH_TIME_ZONE
     | TIMESTAMP_WITH_TIME_ZONE
     | DOUBLE_PRECISION
-    | identifier
+    | qualifiedName
     ;
 
 whenClause
