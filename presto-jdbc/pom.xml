@@ -228,6 +228,10 @@
                                     <shadedPattern>${shadeBase}.common</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>com.facebook.drift</pattern>
+                                    <shadedPattern>${shadeBase}.drift</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.fasterxml.jackson</pattern>
                                     <shadedPattern>${shadeBase}.jackson</shadedPattern>
                                 </relocation>

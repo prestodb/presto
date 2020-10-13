@@ -41,6 +41,7 @@
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-api</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
