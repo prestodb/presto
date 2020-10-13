@@ -37,10 +37,12 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -65,6 +67,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -353,6 +356,14 @@ public abstract class AbstractTestQueryFramework
                 .execute(queryRunner.getDefaultSession(), session -> {
                     return explainer.getJsonPlan(session, sqlParser.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
                 });
+    }
+
+    protected void assertQueryResultUnordered(@Language("SQL") String query, List<List<Object>> expectedRows)
+    {
+        MaterializedResult rows = computeActual(query);
+        assertEquals(
+                ImmutableSet.copyOf(rows.getMaterializedRows()),
+                expectedRows.stream().map(row -> new MaterializedRow(1, row)).collect(toSet()));
     }
 
     protected void assertPlan(@Language("SQL") String query, PlanMatchPattern pattern)

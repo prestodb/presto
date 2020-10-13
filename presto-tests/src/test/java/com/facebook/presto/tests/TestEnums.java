@@ -20,21 +20,14 @@ import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.VarcharEnumParametricType;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.singletonList;
-import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestEnums
@@ -85,14 +78,6 @@ public class TestEnums
         catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private void assertQueryResultUnordered(@Language("SQL") String query, List<List<Object>> expectedRows)
-    {
-        MaterializedResult rows = computeActual(query);
-        assertEquals(
-                ImmutableSet.copyOf(rows.getMaterializedRows()),
-                expectedRows.stream().map(row -> new MaterializedRow(1, row)).collect(Collectors.toSet()));
     }
 
     private void assertSingleValue(@Language("SQL") String expression, Object expectedResult)

@@ -21,7 +21,6 @@ import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
@@ -29,15 +28,10 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogType;
 import com.facebook.presto.type.setdigest.SetDigestType;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -88,7 +82,6 @@ import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -99,8 +92,6 @@ public final class TypeRegistry
     private final FeaturesConfig featuresConfig;
 
     private final FunctionAndTypeManager functionAndTypeManager;
-
-    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
 
     public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig, FunctionAndTypeManager functionAndTypeManager)
     {
@@ -153,53 +144,16 @@ public final class TypeRegistry
         for (Type type : types) {
             addType(type);
         }
-        parametricTypeCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .build(CacheLoader.from(this::instantiateParametricType));
     }
 
-    public Type getType(TypeSignature signature)
+    public Type getSimpleType(TypeSignature signature)
     {
-        Type type = types.get(signature);
-        if (type == null) {
-            try {
-                return parametricTypeCache.getUnchecked(signature);
-            }
-            catch (UncheckedExecutionException e) {
-                throwIfUnchecked(e.getCause());
-                throw new RuntimeException(e.getCause());
-            }
-        }
-        return type;
+        return types.get(signature);
     }
 
-    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    public ParametricType getParametricType(String baseTypeName)
     {
-        return getType(new TypeSignature(baseTypeName, typeParameters));
-    }
-
-    private Type instantiateParametricType(TypeSignature signature)
-    {
-        List<TypeParameter> parameters = new ArrayList<>();
-
-        for (TypeSignatureParameter parameter : signature.getParameters()) {
-            TypeParameter typeParameter = TypeParameter.of(parameter, functionAndTypeManager);
-            parameters.add(typeParameter);
-        }
-
-        ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
-        if (parametricType == null) {
-            throw new IllegalArgumentException("Unknown type " + signature);
-        }
-        else if (parametricType instanceof MapParametricType) {
-            return ((MapParametricType) parametricType).createType(functionAndTypeManager, parameters);
-        }
-
-        Type instantiatedType = parametricType.createType(parameters);
-
-        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-        return instantiatedType;
+        return parametricTypes.get(baseTypeName);
     }
 
     public List<Type> getTypes()
@@ -405,7 +359,7 @@ public final class TypeRegistry
             commonParameterTypes.add(TypeSignatureParameter.of(compatibility.getCommonSuperType().getTypeSignature()));
         }
         String typeBase = fromType.getTypeSignature().getBase();
-        return TypeCompatibility.compatible(getType(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);
+        return TypeCompatibility.compatible(functionAndTypeManager.getType(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);
     }
 
     public void addType(Type type)
@@ -464,7 +418,7 @@ public final class TypeRegistry
                     case JsonPathType.NAME:
                     case ColorType.NAME:
                     case CodePointsType.NAME:
-                        return Optional.of(getType(new TypeSignature(resultTypeBase)));
+                        return Optional.of(getSimpleType(new TypeSignature(resultTypeBase)));
                     case StandardTypes.VARCHAR:
                         return Optional.of(createVarcharType(0));
                     case StandardTypes.CHAR:
