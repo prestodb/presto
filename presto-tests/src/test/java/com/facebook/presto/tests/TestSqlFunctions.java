@@ -48,6 +48,7 @@ public class TestSqlFunctions
             Session session = testSessionBuilder()
                     .setCatalog("tpch")
                     .setSchema(TINY_SCHEMA_NAME)
+                    .setSystemProperty("remote_functions_enabled", "true")
                     .build();
             DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
                     .setExtraProperties(ImmutableMap.of("inline-sql-functions", "false"))

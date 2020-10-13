@@ -21,6 +21,8 @@ import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -30,8 +32,8 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.assertions.ExpressionMatcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
-import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
@@ -49,13 +51,13 @@ import static com.facebook.presto.spi.function.FunctionImplementationType.THRIFT
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.PlanRemotePojections.ProjectionContext;
 import static org.testng.Assert.assertEquals;
 
 public class TestPlanRemoteProjections
-        extends BaseRuleTest
 {
     private static final QualifiedFunctionName REMOTE_FOO = QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "remote_foo");
     private static final RoutineCharacteristics.Language JAVA = new RoutineCharacteristics.Language("java");
@@ -96,10 +98,13 @@ public class TestPlanRemoteProjections
             "",
             Optional.empty());
 
+    private RuleTester tester;
+
     @BeforeClass
     public void setup()
     {
-        FunctionAndTypeManager functionAndTypeManager = getFunctionManager();
+        tester = new RuleTester(ImmutableList.of(), ImmutableMap.of("remote_functions_enabled", "true"));
+        FunctionAndTypeManager functionAndTypeManager = getFunctionAndTypeManager();
         functionAndTypeManager.addFunctionNamespace(
                 "unittest",
                 new InMemoryFunctionNamespaceManager(
@@ -123,7 +128,7 @@ public class TestPlanRemoteProjections
         planBuilder.variable("x", INTEGER);
         planBuilder.variable("y", INTEGER);
 
-        PlanRemotePojections rule = new PlanRemotePojections(getFunctionManager());
+        PlanRemotePojections rule = new PlanRemotePojections(getFunctionAndTypeManager());
         List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
                 .put(planBuilder.variable("a"), planBuilder.rowExpression("abs(x) + abs(y)"))
                 .put(planBuilder.variable("b", BOOLEAN), planBuilder.rowExpression("x is null and y is null"))
@@ -137,7 +142,7 @@ public class TestPlanRemoteProjections
     {
         PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, new PlanNodeIdAllocator(), getMetadata());
 
-        PlanRemotePojections rule = new PlanRemotePojections(getFunctionManager());
+        PlanRemotePojections rule = new PlanRemotePojections(getFunctionAndTypeManager());
         List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
                 .put(planBuilder.variable("a"), planBuilder.rowExpression("unittest.memory.remote_foo()"))
                 .put(planBuilder.variable("b"), planBuilder.rowExpression("unittest.memory.remote_foo(unittest.memory.remote_foo())"))
@@ -153,7 +158,7 @@ public class TestPlanRemoteProjections
         planBuilder.variable("x", INTEGER);
         planBuilder.variable("y", INTEGER);
 
-        PlanRemotePojections rule = new PlanRemotePojections(getFunctionManager());
+        PlanRemotePojections rule = new PlanRemotePojections(getFunctionAndTypeManager());
         List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
                 .put(planBuilder.variable("a"), planBuilder.rowExpression("unittest.memory.remote_foo(x, y + unittest.memory.remote_foo(x))"))
                 .put(planBuilder.variable("b"), planBuilder.rowExpression("abs(x)"))
@@ -171,7 +176,7 @@ public class TestPlanRemoteProjections
         planBuilder.variable("x", INTEGER);
         planBuilder.variable("y", INTEGER);
 
-        PlanRemotePojections rule = new PlanRemotePojections(getFunctionManager());
+        PlanRemotePojections rule = new PlanRemotePojections(getFunctionAndTypeManager());
         List<ProjectionContext> rewritten = rule.planRemoteAssignments(Assignments.builder()
                 .put(planBuilder.variable("a"), planBuilder.rowExpression("unittest.memory.remote_foo(x, y + unittest.memory.remote_foo(x))"))
                 .put(planBuilder.variable("b"), planBuilder.rowExpression("x IS NULL OR y IS NULL"))
@@ -185,7 +190,7 @@ public class TestPlanRemoteProjections
     @Test
     void testRemoteFunctionRewrite()
     {
-        tester().assertThat(new PlanRemotePojections(getFunctionManager()))
+        tester.assertThat(new PlanRemotePojections(getFunctionAndTypeManager()))
                 .on(p -> {
                     p.variable("x", INTEGER);
                     p.variable("y", INTEGER);
@@ -213,7 +218,7 @@ public class TestPlanRemoteProjections
     @Test
     void testMixedExpressionRewrite()
     {
-        tester().assertThat(new PlanRemotePojections(getFunctionManager()))
+        tester.assertThat(new PlanRemotePojections(getFunctionAndTypeManager()))
                 .on(p -> {
                     p.variable("x", INTEGER);
                     p.variable("y", INTEGER);
@@ -260,5 +265,43 @@ public class TestPlanRemoteProjections
                                                                 .put("abs_16", PlanMatchPattern.expression("abs(x)"))
                                                                 .build(),
                                                         values(ImmutableMap.of("x", 0, "y", 1)))))));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*Remote functions are not enabled")
+    public void testRemoteFunctionDisabled()
+    {
+        RuleTester tester = new RuleTester(ImmutableList.of());
+        FunctionAndTypeManager functionAndTypeManager = tester.getMetadata().getFunctionAndTypeManager();
+        functionAndTypeManager.addFunctionNamespace(
+                "unittest",
+                new InMemoryFunctionNamespaceManager(
+                        "unittest",
+                        new SqlFunctionExecutors(
+                                ImmutableMap.of(
+                                        SQL, FunctionImplementationType.SQL,
+                                        JAVA, THRIFT),
+                                new ThriftSqlFunctionExecutor(null)),
+                        new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
+        functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_1, true);
+        tester.assertThat(new PlanRemotePojections(functionAndTypeManager))
+                .on(p -> {
+                    p.variable("x", INTEGER);
+                    return p.project(
+                            Assignments.builder()
+                                    .put(p.variable("a"), p.rowExpression("unittest.memory.remote_foo(x)"))
+                                    .build(),
+                            p.values(p.variable("x", INTEGER)));
+                })
+                .matches(anyTree());
+    }
+
+    private Metadata getMetadata()
+    {
+        return tester.getMetadata();
+    }
+
+    private FunctionAndTypeManager getFunctionAndTypeManager()
+    {
+        return getMetadata().getFunctionAndTypeManager();
     }
 }

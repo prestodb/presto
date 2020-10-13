@@ -170,6 +170,7 @@ public final class SystemSessionProperties
     public static final String FRAGMENT_RESULT_CACHING_ENABLED = "fragment_result_caching_enabled";
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
+    public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -899,6 +900,11 @@ public final class SystemSessionProperties
                         INLINE_SQL_FUNCTIONS,
                         "Inline SQL function definition at plan time",
                         featuresConfig.isInlineSqlFunctions(),
+                        false),
+                booleanProperty(
+                        REMOTE_FUNCTIONS_ENABLED,
+                        "Allow remote functions",
+                        false,
                         false));
     }
 
@@ -1514,5 +1520,10 @@ public final class SystemSessionProperties
     public static boolean isInlineSqlFunctions(Session session)
     {
         return session.getSystemProperty(INLINE_SQL_FUNCTIONS, Boolean.class);
+    }
+
+    public static boolean isRemoteFunctionsEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOTE_FUNCTIONS_ENABLED, Boolean.class);
     }
 }
