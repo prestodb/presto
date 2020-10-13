@@ -72,6 +72,8 @@ import static java.util.Objects.requireNonNull;
 public class PrestoServer
         implements Runnable
 {
+    private static final Logger log = Logger.get(PrestoServer.class);
+
     public static void main(String[] args)
     {
         new PrestoServer().run();
@@ -95,8 +97,7 @@ public class PrestoServer
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
 
-        Logger log = Logger.get(PrestoServer.class);
-
+        boolean strictConfig = isStrictConfig();
         ImmutableList.Builder<Module> modules = ImmutableList.builder();
         modules.add(
                 new NodeModule(),
@@ -121,14 +122,18 @@ public class PrestoServer
                 new EventListenerModule(),
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule(),
-                new WarningCollectorModule());
+                new WarningCollectorModule(),
+                new StrictConfigModule());
 
         modules.addAll(getAdditionalModules());
 
         Bootstrap app = new Bootstrap(modules.build());
 
         try {
-            Injector injector = app.strictConfig().initialize();
+            if (strictConfig) {
+                app.strictConfig();
+            }
+            Injector injector = app.initialize();
 
             injector.getInstance(PluginManager.class).loadPlugins();
 
@@ -166,6 +171,18 @@ public class PrestoServer
     protected Iterable<? extends Module> getAdditionalModules()
     {
         return ImmutableList.of();
+    }
+
+    private static boolean isStrictConfig()
+    {
+        try {
+            Injector injector = new Bootstrap(new StrictConfigModule()).initialize();
+            return injector.getInstance(BootstrapConfig.class).isStrictConfig();
+        }
+        catch (Throwable e) {
+            log.error(e);
+            return true;
+        }
     }
 
     private static void updateConnectorIds(Announcer announcer, CatalogManager metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
