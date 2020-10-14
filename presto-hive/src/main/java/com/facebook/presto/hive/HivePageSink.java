@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
@@ -242,7 +243,8 @@ public class HivePageSink
                 .sum();
 
         if (waitForFileRenaming && verificationTasks.isEmpty()) {
-            ImmutableList.Builder<Slice> partitionUpdatesWithRenamedFileNames = ImmutableList.builder();
+            // Use CopyOnWriteArrayList to prevent race condition when callbacks try to add partitionUpdates to this list
+            List<Slice> partitionUpdatesWithRenamedFileNames = new CopyOnWriteArrayList<>();
             List<ListenableFuture<?>> futures = new ArrayList<>();
             for (int i = 0; i < writers.size(); i++) {
                 int writerIndex = i;
@@ -251,7 +253,7 @@ public class HivePageSink
                 futures.add(renamingFuture);
                 addSuccessCallback(fileNameFuture, obj -> renameFiles((String) obj, writerIndex, renamingFuture, partitionUpdatesWithRenamedFileNames));
             }
-            return Futures.transform(Futures.allAsList(futures), input -> partitionUpdatesWithRenamedFileNames.build(), directExecutor());
+            return Futures.transform(Futures.allAsList(futures), input -> partitionUpdatesWithRenamedFileNames, directExecutor());
         }
 
         if (verificationTasks.isEmpty()) {
@@ -383,7 +385,7 @@ public class HivePageSink
         waitForFileRenaming = true;
     }
 
-    private void renameFiles(String fileName, int writerIndex, SettableFuture<?> renamingFuture, ImmutableList.Builder<Slice> partitionUpdatesWithRenamedFileNames)
+    private void renameFiles(String fileName, int writerIndex, SettableFuture<?> renamingFuture, List<Slice> partitionUpdatesWithRenamedFileNames)
     {
         HdfsContext context = new HdfsContext(session, schemaName, tableName);
         HiveWriter writer = writers.get(writerIndex);
@@ -405,7 +407,7 @@ public class HivePageSink
         }
     }
 
-    private void updateFileInfo(ImmutableList.Builder<Slice> partitionUpdatesWithRenamedFileNames, SettableFuture<?> renamingFuture, PartitionUpdate partitionUpdate, String fileName, FileWriteInfo fileWriteInfo, int writerIndex)
+    private void updateFileInfo(List<Slice> partitionUpdatesWithRenamedFileNames, SettableFuture<?> renamingFuture, PartitionUpdate partitionUpdate, String fileName, FileWriteInfo fileWriteInfo, int writerIndex)
     {
         // Update the file info in partitionUpdate with new filename
         FileWriteInfo fileInfoWithRenamedFileName = new FileWriteInfo(fileName, fileName, fileWriteInfo.getFileSize());
