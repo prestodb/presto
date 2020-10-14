@@ -33,7 +33,6 @@ import com.facebook.presto.operator.window.WindowFunctionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
@@ -51,13 +50,11 @@ import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -65,7 +62,6 @@ import org.weakref.jmx.Nested;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -75,13 +71,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
-import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
-import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
+import static com.facebook.presto.metadata.FunctionResolver.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -89,17 +83,12 @@ import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.EXPERIMENTAL;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
-import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static com.facebook.presto.type.TypeUtils.resolveTypes;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
@@ -116,6 +105,7 @@ public class FunctionAndTypeManager
     private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
     private final HandleResolver handleResolver;
     private final Map<String, FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManagers = new ConcurrentHashMap<>();
+    private final FunctionResolver functionResolver;
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
     private final CacheStatsMBean cacheStatsMBean;
 
@@ -140,6 +130,7 @@ public class FunctionAndTypeManager
                 .maximumSize(1000)
                 .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
+        this.functionResolver = new FunctionResolver(this);
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -417,7 +408,7 @@ public class FunctionAndTypeManager
             return lookupCachedFunction(functionName, parameterTypes);
         }
         Collection<? extends SqlFunction> candidates = builtInFunctionNamespaceManager.getFunctions(Optional.empty(), functionName);
-        return lookupFunction(builtInFunctionNamespaceManager, Optional.empty(), functionName, parameterTypes, candidates);
+        return functionResolver.lookupFunction(builtInFunctionNamespaceManager, Optional.empty(), functionName, parameterTypes, candidates);
     }
 
     public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
@@ -447,34 +438,7 @@ public class FunctionAndTypeManager
                 .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getFunctionNamespace().getCatalogName()));
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
 
-        try {
-            return lookupFunction(functionNamespaceManager, transactionHandle, functionName, parameterTypes, candidates);
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() != FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw e;
-            }
-        }
-
-        Optional<Signature> match = matchFunctionWithCoercion(candidates, parameterTypes);
-        if (match.isPresent()) {
-            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
-        }
-
-        if (functionName.getFunctionName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
-            // extract type from function functionName
-            String typeName = functionName.getFunctionName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
-
-            // lookup the type
-            Type type = getType(parseTypeSignature(typeName));
-
-            // verify we have one parameter of the proper type
-            checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-
-            return new BuiltInFunctionHandle(getMagicLiteralFunctionSignature(type));
-        }
-
-        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
+        return functionResolver.resolveFunction(functionNamespaceManager, transactionHandle, functionName, parameterTypes, candidates);
     }
 
     private FunctionHandle resolveBuiltInFunction(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
@@ -497,306 +461,9 @@ public class FunctionAndTypeManager
         }
     }
 
-    private FunctionHandle lookupFunction(
-            FunctionNamespaceManager<?> functionNamespaceManager,
-            Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle,
-            QualifiedFunctionName functionName,
-            List<TypeSignatureProvider> parameterTypes,
-            Collection<? extends SqlFunction> candidates)
-    {
-        List<SqlFunction> exactCandidates = candidates.stream()
-                .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(Collectors.toList());
-
-        Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
-        }
-
-        List<SqlFunction> genericCandidates = candidates.stream()
-                .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
-                .collect(Collectors.toList());
-
-        match = matchFunctionExact(genericCandidates, parameterTypes);
-        if (match.isPresent()) {
-            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
-        }
-
-        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
-    }
-
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)
     {
         return Optional.ofNullable(functionNamespaceManagers.get(functionNamespace.getCatalogName()));
-    }
-
-    private String constructFunctionNotFoundErrorMessage(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes, Collection<? extends SqlFunction> candidates)
-    {
-        String name = toConciseFunctionName(functionName);
-        List<String> expectedParameters = new ArrayList<>();
-        for (SqlFunction function : candidates) {
-            expectedParameters.add(format("%s(%s) %s",
-                    name,
-                    Joiner.on(", ").join(function.getSignature().getArgumentTypes()),
-                    Joiner.on(", ").join(function.getSignature().getTypeVariableConstraints())));
-        }
-        String parameters = Joiner.on(", ").join(parameterTypes);
-        String message = format("Function %s not registered", name);
-        if (!expectedParameters.isEmpty()) {
-            String expected = Joiner.on(", ").join(expectedParameters);
-            message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
-        }
-        return message;
-    }
-
-    private String toConciseFunctionName(QualifiedFunctionName functionName)
-    {
-        if (functionName.getFunctionNamespace().equals(DEFAULT_NAMESPACE)) {
-            return functionName.getFunctionName();
-        }
-        return functionName.toString();
-    }
-
-    private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
-    {
-        return matchFunction(candidates, actualParameters, false);
-    }
-
-    private Optional<Signature> matchFunctionWithCoercion(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)
-    {
-        return matchFunction(candidates, actualParameters, true);
-    }
-
-    private Optional<Signature> matchFunction(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
-    {
-        List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
-        if (applicableFunctions.isEmpty()) {
-            return Optional.empty();
-        }
-
-        if (coercionAllowed) {
-            applicableFunctions = selectMostSpecificFunctions(applicableFunctions, parameters);
-            checkState(!applicableFunctions.isEmpty(), "at least single function must be left");
-        }
-
-        if (applicableFunctions.size() == 1) {
-            return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
-        }
-
-        StringBuilder errorMessageBuilder = new StringBuilder();
-        errorMessageBuilder.append("Could not choose a best candidate operator. Explicit type casts must be added.\n");
-        errorMessageBuilder.append("Candidates are:\n");
-        for (ApplicableFunction function : applicableFunctions) {
-            errorMessageBuilder.append("\t * ");
-            errorMessageBuilder.append(function.getBoundSignature().toString());
-            errorMessageBuilder.append("\n");
-        }
-        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
-    }
-
-    private List<ApplicableFunction> identifyApplicableFunctions(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)
-    {
-        ImmutableList.Builder<ApplicableFunction> applicableFunctions = ImmutableList.builder();
-        for (SqlFunction function : candidates) {
-            Signature declaredSignature = function.getSignature();
-            Optional<Signature> boundSignature = new SignatureBinder(this, declaredSignature, allowCoercion)
-                    .bind(actualParameters);
-            if (boundSignature.isPresent()) {
-                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get(), function.isCalledOnNullInput()));
-            }
-        }
-        return applicableFunctions.build();
-    }
-
-    private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> applicableFunctions, List<TypeSignatureProvider> parameters)
-    {
-        checkArgument(!applicableFunctions.isEmpty());
-
-        List<ApplicableFunction> mostSpecificFunctions = selectMostSpecificFunctions(applicableFunctions);
-        if (mostSpecificFunctions.size() <= 1) {
-            return mostSpecificFunctions;
-        }
-
-        Optional<List<Type>> optionalParameterTypes = toTypes(parameters, this);
-        if (!optionalParameterTypes.isPresent()) {
-            // give up and return all remaining matches
-            return mostSpecificFunctions;
-        }
-
-        List<Type> parameterTypes = optionalParameterTypes.get();
-        if (!someParameterIsUnknown(parameterTypes)) {
-            // give up and return all remaining matches
-            return mostSpecificFunctions;
-        }
-
-        // look for functions that only cast the unknown arguments
-        List<ApplicableFunction> unknownOnlyCastFunctions = getUnknownOnlyCastFunctions(applicableFunctions, parameterTypes);
-        if (!unknownOnlyCastFunctions.isEmpty()) {
-            mostSpecificFunctions = unknownOnlyCastFunctions;
-            if (mostSpecificFunctions.size() == 1) {
-                return mostSpecificFunctions;
-            }
-        }
-
-        // If the return type for all the selected function is the same, and the parameters are declared as RETURN_NULL_ON_NULL
-        // all the functions are semantically the same. We can return just any of those.
-        if (returnTypeIsTheSame(mostSpecificFunctions) && allReturnNullOnGivenInputTypes(mostSpecificFunctions, parameterTypes)) {
-            // make it deterministic
-            ApplicableFunction selectedFunction = Ordering.usingToString()
-                    .reverse()
-                    .sortedCopy(mostSpecificFunctions)
-                    .get(0);
-            return ImmutableList.of(selectedFunction);
-        }
-
-        return mostSpecificFunctions;
-    }
-
-    private List<ApplicableFunction> selectMostSpecificFunctions(List<ApplicableFunction> candidates)
-    {
-        List<ApplicableFunction> representatives = new ArrayList<>();
-
-        for (ApplicableFunction current : candidates) {
-            boolean found = false;
-            for (int i = 0; i < representatives.size(); i++) {
-                ApplicableFunction representative = representatives.get(i);
-                if (isMoreSpecificThan(current, representative)) {
-                    representatives.set(i, current);
-                }
-                if (isMoreSpecificThan(current, representative) || isMoreSpecificThan(representative, current)) {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                representatives.add(current);
-            }
-        }
-
-        return representatives;
-    }
-
-    private static boolean someParameterIsUnknown(List<Type> parameters)
-    {
-        return parameters.stream().anyMatch(type -> type.equals(UNKNOWN));
-    }
-
-    private List<ApplicableFunction> getUnknownOnlyCastFunctions(List<ApplicableFunction> applicableFunction, List<Type> actualParameters)
-    {
-        return applicableFunction.stream()
-                .filter((function) -> onlyCastsUnknown(function, actualParameters))
-                .collect(toImmutableList());
-    }
-
-    private boolean onlyCastsUnknown(ApplicableFunction applicableFunction, List<Type> actualParameters)
-    {
-        List<Type> boundTypes = resolveTypes(applicableFunction.getBoundSignature().getArgumentTypes(), this);
-        checkState(actualParameters.size() == boundTypes.size(), "type lists are of different lengths");
-        for (int i = 0; i < actualParameters.size(); i++) {
-            if (!boundTypes.get(i).equals(actualParameters.get(i)) && actualParameters.get(i) != UNKNOWN) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private boolean returnTypeIsTheSame(List<ApplicableFunction> applicableFunctions)
-    {
-        Set<Type> returnTypes = applicableFunctions.stream()
-                .map(function -> getType(function.getBoundSignature().getReturnType()))
-                .collect(Collectors.toSet());
-        return returnTypes.size() == 1;
-    }
-
-    private boolean allReturnNullOnGivenInputTypes(List<ApplicableFunction> applicableFunctions, List<Type> parameters)
-    {
-        return applicableFunctions.stream().allMatch(x -> returnsNullOnGivenInputTypes(x, parameters));
-    }
-
-    private boolean returnsNullOnGivenInputTypes(ApplicableFunction applicableFunction, List<Type> parameterTypes)
-    {
-        Signature boundSignature = applicableFunction.getBoundSignature();
-        FunctionKind functionKind = boundSignature.getKind();
-        // Window and Aggregation functions have fixed semantic where NULL values are always skipped
-        if (functionKind != SCALAR) {
-            return true;
-        }
-
-        for (int i = 0; i < parameterTypes.size(); i++) {
-            Type parameterType = parameterTypes.get(i);
-            if (parameterType.equals(UNKNOWN)) {
-                // The original implementation checks only whether the particular argument has @SqlNullable.
-                // However, RETURNS NULL ON NULL INPUT / CALLED ON NULL INPUT is a function level metadata according
-                // to SQL spec. So there is a loss of precision here.
-                if (applicableFunction.isCalledOnNullInput()) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private static Optional<List<Type>> toTypes(List<TypeSignatureProvider> typeSignatureProviders, TypeManager typeManager)
-    {
-        ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
-        for (TypeSignatureProvider typeSignatureProvider : typeSignatureProviders) {
-            if (typeSignatureProvider.hasDependency()) {
-                return Optional.empty();
-            }
-            resultBuilder.add(typeManager.getType(typeSignatureProvider.getTypeSignature()));
-        }
-        return Optional.of(resultBuilder.build());
-    }
-
-    /**
-     * One method is more specific than another if invocation handled by the first method could be passed on to the other one
-     */
-    private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
-    {
-        List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.getBoundSignature().getArgumentTypes());
-        Optional<BoundVariables> boundVariables = new SignatureBinder(this, right.getDeclaredSignature(), true)
-                .bindVariables(resolvedTypes);
-        return boundVariables.isPresent();
-    }
-
-    private static class ApplicableFunction
-    {
-        private final Signature declaredSignature;
-        private final Signature boundSignature;
-        private final boolean calledOnNullInput;
-
-        private ApplicableFunction(Signature declaredSignature, Signature boundSignature, boolean calledOnNullInput)
-        {
-            this.declaredSignature = declaredSignature;
-            this.boundSignature = boundSignature;
-            this.calledOnNullInput = calledOnNullInput;
-        }
-
-        public Signature getDeclaredSignature()
-        {
-            return declaredSignature;
-        }
-
-        public Signature getBoundSignature()
-        {
-            return boundSignature;
-        }
-
-        public boolean isCalledOnNullInput()
-        {
-            return calledOnNullInput;
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("declaredSignature", declaredSignature)
-                    .add("boundSignature", boundSignature)
-                    .add("calledOnNullInput", calledOnNullInput)
-                    .toString();
-        }
     }
 
     private static class FunctionResolutionCacheKey
