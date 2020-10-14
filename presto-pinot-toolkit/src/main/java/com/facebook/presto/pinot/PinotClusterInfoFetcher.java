@@ -30,7 +30,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
-import org.apache.pinot.common.data.Schema;
+import org.apache.pinot.spi.data.Schema;
 
 import javax.inject.Inject;
 
@@ -53,11 +53,12 @@ import static com.facebook.airlift.http.client.StringResponseHandler.createStrin
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_HTTP_ERROR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_CONFIGURATION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROKER;
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_INSTANCE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNEXPECTED_RESPONSE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.pinot.common.config.TableNameBuilder.extractRawTableName;
+import static org.apache.pinot.spi.utils.builder.TableNameBuilder.extractRawTableName;
 
 public class PinotClusterInfoFetcher
 {
@@ -68,6 +69,7 @@ public class PinotClusterInfoFetcher
     private static final String GET_ALL_TABLES_API_TEMPLATE = "tables";
     private static final String TABLE_INSTANCES_API_TEMPLATE = "tables/%s/instances";
     private static final String TABLE_SCHEMA_API_TEMPLATE = "tables/%s/schema";
+    private static final String INSTANCE_API_TEMPLATE = "instances/%s";
     private static final String ROUTING_TABLE_API_TEMPLATE = "debug/routingTable/%s";
     private static final String TIME_BOUNDARY_API_TEMPLATE = "debug/timeBoundary/%s";
     private static final String TIME_BOUNDARY_NOT_FOUND_ERROR_CODE = "404";
@@ -80,11 +82,21 @@ public class PinotClusterInfoFetcher
 
     private final LoadingCache<String, List<String>> brokersForTableCache;
 
+    // In order to get the grpc port, we need to query Pinot controller based on Pinot instance name.
+    // When doing segment level query, we issue one query for every split (which contains the Pinot server to query and the segments to query).
+    // For non-grpc query, the query port is part of instance id (in the format of `Server_$HOSTNAME_$PORT`) to be parsed.
+    // For grpc, we need to query Pinot controller for Pinot instance then extract the grpc port.
+    // In the worst case scenario, assume one Pinot table has 100 segments, then one presto query will be split into one segment per split,
+    // which means, we will issue 100 queries to Pinot servers and 100 calls to fetch grpc port, hence the cache of instances here.
+    // The first query will go to Pinot controller to fetch instance config then extract the grpc port. This info will be cached for 2 minutes(default).
+    private final LoadingCache<String, Instance> instanceConfigCache;
+
     private final JsonCodec<GetTables> tablesJsonCodec;
     private final JsonCodec<BrokersForTable> brokersForTableJsonCodec;
     private final JsonCodec<RoutingTables> routingTablesJsonCodec;
     private final JsonCodec<RoutingTablesV2> routingTablesV2JsonCodec;
     private final JsonCodec<TimeBoundary> timeBoundaryJsonCodec;
+    private final JsonCodec<Instance> instanceJsonCodec;
 
     @Inject
     public PinotClusterInfoFetcher(
@@ -95,21 +107,26 @@ public class PinotClusterInfoFetcher
             JsonCodec<BrokersForTable> brokersForTableJsonCodec,
             JsonCodec<RoutingTables> routingTablesJsonCodec,
             JsonCodec<RoutingTablesV2> routingTablesV2JsonCodec,
-            JsonCodec<TimeBoundary> timeBoundaryJsonCodec)
+            JsonCodec<TimeBoundary> timeBoundaryJsonCodec,
+            JsonCodec<Instance> instanceJsonCodec)
     {
+        this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
+        this.pinotMetrics = requireNonNull(pinotMetrics, "pinotMetrics is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.tablesJsonCodec = requireNonNull(tablesJsonCodec, "json codec is null");
         this.brokersForTableJsonCodec = requireNonNull(brokersForTableJsonCodec, "brokers for table json codec is null");
         this.routingTablesJsonCodec = requireNonNull(routingTablesJsonCodec, "routing tables json codec is null");
         this.routingTablesV2JsonCodec = requireNonNull(routingTablesV2JsonCodec, "routing tables v2 json codec is null");
         this.timeBoundaryJsonCodec = requireNonNull(timeBoundaryJsonCodec, "time boundary json codec is null");
-        final long cacheExpiryMs = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
-        this.tablesJsonCodec = requireNonNull(tablesJsonCodec, "json codec is null");
+        this.instanceJsonCodec = requireNonNull(instanceJsonCodec, "instance json codec is null");
 
-        this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
-        this.pinotMetrics = requireNonNull(pinotMetrics, "pinotMetrics is null");
-        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        final long cacheExpiryMs = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.brokersForTableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpiryMs, TimeUnit.MILLISECONDS)
                 .build((CacheLoader.from(this::getAllBrokersForTable)));
+        this.instanceConfigCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(cacheExpiryMs, TimeUnit.MILLISECONDS)
+                .build((CacheLoader.from(this::getInstance)));
     }
 
     public static JsonCodecBinder addJsonBinders(JsonCodecBinder jsonCodecBinder)
@@ -121,6 +138,7 @@ public class PinotClusterInfoFetcher
         jsonCodecBinder.bindJsonCodec(RoutingTables.RoutingTableSnapshot.class);
         jsonCodecBinder.bindJsonCodec(RoutingTablesV2.class);
         jsonCodecBinder.bindJsonCodec(TimeBoundary.class);
+        jsonCodecBinder.bindJsonCodec(Instance.class);
         return jsonCodecBinder;
     }
 
@@ -484,6 +502,108 @@ public class PinotClusterInfoFetcher
                 }
             }
             throw e;
+        }
+    }
+
+    public static class Instance
+    {
+        private final String instanceName;
+        private final String hostName;
+        private final boolean enabled;
+        private final int port;
+        private final int grpcPort;
+        private final List<String> tags;
+        private final List<String> pools;
+
+        @JsonCreator
+        public Instance(
+                @JsonProperty String instanceName,
+                @JsonProperty String hostName,
+                @JsonProperty boolean enabled,
+                @JsonProperty int port,
+                @JsonProperty int grpcPort,
+                @JsonProperty List<String> tags,
+                @JsonProperty List<String> pools)
+        {
+            this.instanceName = instanceName;
+            this.hostName = hostName;
+            this.enabled = enabled;
+            this.port = port;
+            this.grpcPort = grpcPort;
+            this.tags = tags;
+            this.pools = pools;
+        }
+
+        @JsonProperty
+        public String getInstanceName()
+        {
+            return instanceName;
+        }
+
+        @JsonProperty
+        public String getHostName()
+        {
+            return hostName;
+        }
+
+        @JsonProperty
+        public boolean isEnabled()
+        {
+            return enabled;
+        }
+
+        @JsonProperty
+        public int getPort()
+        {
+            return port;
+        }
+
+        @JsonProperty
+        public int getGrpcPort()
+        {
+            return grpcPort;
+        }
+
+        @JsonProperty
+        public List<String> getTags()
+        {
+            return tags;
+        }
+
+        @JsonProperty
+        public List<String> getPools()
+        {
+            return pools;
+        }
+    }
+
+    public Instance getInstance(String instanceName)
+    {
+        try {
+            String responseBody = sendHttpGetToController(String.format(INSTANCE_API_TEMPLATE, instanceName));
+            return instanceJsonCodec.fromJson(responseBody);
+        }
+        catch (Exception throwable) {
+            throw new PinotException(PINOT_UNABLE_TO_FIND_INSTANCE, Optional.empty(), "Error when fetching instance configs for " + instanceName, throwable);
+        }
+    }
+
+    // Fetch grpc port from Pinot instance config.
+    public int getGrpcPort(String serverInstance)
+    {
+        try {
+            return instanceConfigCache.get(serverInstance).getGrpcPort();
+        }
+        catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof PinotException) {
+                throw (PinotException) cause;
+            }
+            throw new PinotException(
+                    PINOT_UNABLE_TO_FIND_INSTANCE,
+                    Optional.empty(),
+                    "Error when getting instance config for " + serverInstance,
+                    cause);
         }
     }
 }
