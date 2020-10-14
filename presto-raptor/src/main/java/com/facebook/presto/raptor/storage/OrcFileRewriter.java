@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
@@ -113,7 +114,8 @@ public final class OrcFileRewriter
                     new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
                     false,
-                    NO_ENCRYPTION);
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY);
 
             if (reader.getFooter().getNumberOfRows() < rowsToDelete.length()) {
                 throw new IOException("File has fewer rows than deletion vector");
@@ -181,8 +183,7 @@ public final class OrcFileRewriter
                             TRUE,
                             DEFAULT_STORAGE_TIMEZONE,
                             new RaptorOrcAggregatedMemoryContext(),
-                            INITIAL_BATCH_SIZE,
-                            ImmutableMap.of()),
+                            INITIAL_BATCH_SIZE),
                     OrcBatchRecordReader::close);
                     Closer<OrcWriter, IOException> writer = closer(new OrcWriter(
                                     orcDataEnvironment.createOrcDataSink(fileSystem, output),

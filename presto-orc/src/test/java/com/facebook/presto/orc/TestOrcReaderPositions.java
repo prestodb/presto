@@ -309,7 +309,8 @@ public class TestOrcReaderPositions
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createDefaultTestConfig(),
                     false,
-                    NO_ENCRYPTION);
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY);
             Footer footer = orcReader.getFooter();
             Map<String, String> readMetadata = Maps.transformValues(footer.getUserMetadata(), Slice::toStringAscii);
             assertEquals(readMetadata, metadata);

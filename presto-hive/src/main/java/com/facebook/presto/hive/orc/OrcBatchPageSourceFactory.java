@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
+import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
@@ -46,7 +47,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -249,6 +249,7 @@ public class OrcBatchPageSourceFactory
 
         OrcAggregatedMemoryContext systemMemoryUsage = new HiveOrcAggregatedMemoryContext();
         try {
+            DwrfKeyProvider dwrfKeyProvider = new ProjectionBasedDwrfKeyProvider(encryptionInformation, columns, useOrcColumnNames, path);
             OrcReader reader = new OrcReader(
                     orcDataSource,
                     orcEncoding,
@@ -257,9 +258,10 @@ public class OrcBatchPageSourceFactory
                     new HiveOrcAggregatedMemoryContext(),
                     orcReaderOptions,
                     hiveFileContext.isCacheable(),
-                    dwrfEncryptionProvider);
+                    dwrfEncryptionProvider,
+                    dwrfKeyProvider);
 
-            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader, path);
+            List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader.getTypes(), path);
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
             ImmutableList.Builder<ColumnReference<HiveColumnHandle>> columnReferences = ImmutableList.builder();
             for (HiveColumnHandle column : physicalColumns) {
@@ -276,11 +278,6 @@ public class OrcBatchPageSourceFactory
 
             OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), orcBloomFiltersEnabled, Optional.of(domainCompactionThreshold));
 
-            Map<Integer, Slice> keyMap = ImmutableMap.of();
-            if (encryptionInformation.isPresent() && encryptionInformation.get().getDwrfEncryptionMetadata().isPresent()) {
-                keyMap = encryptionInformation.get().getDwrfEncryptionMetadata().get().toKeyMap(reader.getTypes(), physicalColumns);
-            }
-
             OrcBatchRecordReader recordReader = reader.createBatchRecordReader(
                     includedColumns.build(),
                     predicate,
@@ -288,8 +285,7 @@ public class OrcBatchPageSourceFactory
                     length,
                     hiveStorageTimeZone,
                     systemMemoryUsage,
-                    INITIAL_BATCH_SIZE,
-                    keyMap);
+                    INITIAL_BATCH_SIZE);
 
             return new OrcBatchPageSource(
                     recordReader,

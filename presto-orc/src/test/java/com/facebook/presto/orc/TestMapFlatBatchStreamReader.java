@@ -404,7 +404,8 @@ public class TestMapFlatBatchStreamReader
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 OrcReaderTestingUtils.createDefaultTestConfig(),
                 false,
-                NO_ENCRYPTION);
+                NO_ENCRYPTION,
+                DwrfKeyProvider.EMPTY);
         Type mapType = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(
@@ -416,8 +417,7 @@ public class TestMapFlatBatchStreamReader
                 createOrcPredicate(0, mapType, expectedValues, OrcTester.Format.DWRF, true),
                 HIVE_STORAGE_TIME_ZONE,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                1024,
-                ImmutableMap.of())) {
+                1024)) {
             Iterator<?> expectedValuesIterator = expectedValues.iterator();
 
             boolean isFirst = true;

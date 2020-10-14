@@ -223,14 +223,14 @@ public class BenchmarkBatchStreamReadersWithZstd
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createTestingReaderOptions(zstdJniDecompressionEnabled),
                     false,
-                    NO_ENCRYPTION);
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY);
             return orcReader.createBatchRecordReader(
                     ImmutableMap.of(0, type),
                     OrcPredicate.TRUE,
                     UTC, // arbitrary
                     new TestingHiveOrcAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE,
-                    ImmutableMap.of());
+                    INITIAL_BATCH_SIZE);
         }
 
         private static String randomAsciiString(Random random)
