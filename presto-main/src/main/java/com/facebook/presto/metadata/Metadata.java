@@ -73,6 +73,11 @@ public interface Metadata
 
     List<String> listSchemaNames(Session session, String catalogName);
 
+    default Optional<List<String>> getPartitionNames(Session session, String databaseName, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException("getPartitionNames is not supported");
+    }
+
     /**
      * Returns a table handle for the specified table name.
      */

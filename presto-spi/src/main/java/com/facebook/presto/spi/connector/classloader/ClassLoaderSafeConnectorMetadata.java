@@ -92,6 +92,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Optional<List<String>> getPartitionNames(String databaseName, ConnectorTableHandle connectorTableHandle)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getPartitionNames(databaseName, connectorTableHandle);
+        }
+    }
+
+    @Override
     public boolean isLegacyGetLayoutSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

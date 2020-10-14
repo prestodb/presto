@@ -1370,6 +1370,13 @@ public class HiveMetadata
     }
 
     @Override
+    public Optional<List<String>> getPartitionNames(String databaseName, ConnectorTableHandle connectorTableHandle)
+    {
+        HiveTableHandle tableHandle = (HiveTableHandle) connectorTableHandle;
+        return metastore.getPartitionNames(databaseName, tableHandle.getTableName());
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;

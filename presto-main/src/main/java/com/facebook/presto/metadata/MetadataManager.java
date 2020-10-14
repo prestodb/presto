@@ -520,6 +520,16 @@ public class MetadataManager
     }
 
     @Override
+    public Optional<List<String>> getPartitionNames(Session session, String databaseName, TableHandle tableHandle)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadata(session, connectorId);
+
+        return metadata.getPartitionNames(databaseName, tableHandle.getConnectorHandle());
+    }
+
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();

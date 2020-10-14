@@ -73,6 +73,11 @@ public interface ConnectorMetadata
         return listSchemaNames(session).contains(schemaName);
     }
 
+    default Optional<List<String>> getPartitionNames(String databaseName, ConnectorTableHandle connectorTableHandle)
+    {
+        throw new UnsupportedOperationException("getPartitionNames is not supported");
+    }
+
     /**
      * Returns the schemas provided by this connector.
      */
