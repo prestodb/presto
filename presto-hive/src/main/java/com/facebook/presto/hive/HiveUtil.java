@@ -33,7 +33,7 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.pagefile.PageInputFormat;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
 import com.facebook.presto.hive.util.HudiRealtimeSplitConverter;
-import com.facebook.presto.orc.OrcReader;
+import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
@@ -1014,15 +1014,16 @@ public final class HiveUtil
         }
     }
 
-    public static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, OrcReader reader, Path path)
+    public static List<HiveColumnHandle> getPhysicalHiveColumnHandles(List<HiveColumnHandle> columns, boolean useOrcColumnNames, List<OrcType> types, Path path)
     {
         if (!useOrcColumnNames) {
             return columns;
         }
 
-        verifyFileHasColumnNames(reader.getColumnNames(), path);
+        List<String> columnNames = getColumnNames(types);
+        verifyFileHasColumnNames(columnNames, path);
 
-        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(reader);
+        Map<String, Integer> physicalNameOrdinalMap = buildPhysicalNameOrdinalMap(columnNames);
         int nextMissingColumnIndex = physicalNameOrdinalMap.size();
 
         ImmutableList.Builder<HiveColumnHandle> physicalColumns = ImmutableList.builder();
@@ -1045,6 +1046,11 @@ public final class HiveUtil
         return physicalColumns.build();
     }
 
+    private static List<String> getColumnNames(List<OrcType> types)
+    {
+        return types.get(0).getFieldNames();
+    }
+
     private static void verifyFileHasColumnNames(List<String> physicalColumnNames, Path path)
     {
         if (!physicalColumnNames.isEmpty() && physicalColumnNames.stream().allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
@@ -1054,12 +1060,12 @@ public final class HiveUtil
         }
     }
 
-    private static Map<String, Integer> buildPhysicalNameOrdinalMap(OrcReader reader)
+    private static Map<String, Integer> buildPhysicalNameOrdinalMap(List<String> columnNames)
     {
         ImmutableMap.Builder<String, Integer> physicalNameOrdinalMap = ImmutableMap.builder();
 
         int ordinal = 0;
-        for (String physicalColumnName : reader.getColumnNames()) {
+        for (String physicalColumnName : columnNames) {
             physicalNameOrdinalMap.put(physicalColumnName, ordinal);
             ordinal++;
         }

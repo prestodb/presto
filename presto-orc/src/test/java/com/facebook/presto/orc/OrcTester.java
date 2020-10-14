@@ -1455,7 +1455,8 @@ public class OrcTester
                         mapNullKeysEnabled,
                         false),
                 cacheable,
-                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()));
+                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
+                DwrfKeyProvider.of(intermediateEncryptionKeys));
 
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
 
@@ -1463,7 +1464,7 @@ public class OrcTester
                 .boxed()
                 .collect(toImmutableMap(Functions.identity(), types::get));
 
-        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize, intermediateEncryptionKeys);
+        return orcReader.createBatchRecordReader(columnTypes, predicate, HIVE_STORAGE_TIME_ZONE, new TestingHiveOrcAggregatedMemoryContext(), initialBatchSize);
     }
 
     public static void writeOrcColumnPresto(File outputFile, Format format, CompressionKind compression, Type type, List<?> values)
@@ -1584,7 +1585,8 @@ public class OrcTester
                         mapNullKeysEnabled,
                         false),
                 false,
-                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()));
+                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
+                DwrfKeyProvider.of(intermediateEncryptionKeys));
 
         assertEquals(orcReader.getColumnNames().subList(0, types.size()), makeColumnNames(types.size()));
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), 10_000);
@@ -1605,8 +1607,7 @@ public class OrcTester
                 LEGACY_MAP_SUBSCRIPT,
                 systemMemoryUsage,
                 Optional.empty(),
-                initialBatchSize,
-                intermediateEncryptionKeys);
+                initialBatchSize);
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)

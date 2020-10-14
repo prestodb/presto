@@ -742,8 +742,8 @@ public class OrcWriter
                 hiveStorageTimeZone,
                 orcEncoding,
                 new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false),
-                intermediateKeyMetadata.build(),
-                dwrfEncryptionProvider);
+                dwrfEncryptionProvider,
+                DwrfKeyProvider.of(intermediateKeyMetadata.build()));
     }
 
     private int estimateAverageLogicalSizePerRow(Page page)

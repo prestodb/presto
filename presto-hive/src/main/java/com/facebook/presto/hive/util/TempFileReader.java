@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveOrcAggregatedMemoryContext;
+import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
@@ -26,7 +27,6 @@ import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 
 import java.io.IOException;
@@ -67,7 +67,8 @@ public class TempFileReader
                             new DataSize(16, MEGABYTE),
                             false),
                     false,
-                    NO_ENCRYPTION);
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY);
 
             Map<Integer, Type> includedColumns = new HashMap<>();
             for (int i = 0; i < types.size(); i++) {
@@ -79,8 +80,7 @@ public class TempFileReader
                     OrcPredicate.TRUE,
                     UTC,
                     new HiveOrcAggregatedMemoryContext(),
-                    INITIAL_BATCH_SIZE,
-                    ImmutableMap.of());
+                    INITIAL_BATCH_SIZE);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to read temporary data");
