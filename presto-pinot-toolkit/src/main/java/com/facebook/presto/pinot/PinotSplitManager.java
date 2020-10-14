@@ -123,9 +123,14 @@ public class PinotSplitManager
                 // segments is already shuffled
                 Iterables.partition(segments, numSegmentsInThisSplit).forEach(
                         segmentsForThisSplit -> splits.add(
-                                createSegmentSplit(connectorId, pql, expectedColumnHandles, segmentsForThisSplit, host)));
+                                createSegmentSplit(connectorId, pql, expectedColumnHandles, segmentsForThisSplit, host, getGrpcPort(host))));
             });
         }
+    }
+
+    private int getGrpcPort(String host)
+    {
+        return pinotPrestoConnection.getGrpcPort(host);
     }
 
     public static class QueryNotAdequatelyPushedDownException

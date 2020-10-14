@@ -40,9 +40,10 @@ public class PinotSplit
     private final Optional<PinotQueryGenerator.GeneratedPinotQuery> brokerPinotQuery;
 
     // Properties needed for segment split type
-    private final Optional<String> segmentPql;
+    private final Optional<String> segmentPinotQuery;
     private final List<String> segments;
     private final Optional<String> segmentHost;
+    private final Optional<Integer> grpcPort;
 
     @JsonCreator
     public PinotSplit(
@@ -50,21 +51,23 @@ public class PinotSplit
             @JsonProperty("splitType") SplitType splitType,
             @JsonProperty("expectedColumnHandles") List<PinotColumnHandle> expectedColumnHandles,
             @JsonProperty("brokerQuery") Optional<PinotQueryGenerator.GeneratedPinotQuery> brokerPinotQuery,
-            @JsonProperty("segmentPql") Optional<String> segmentPql,
+            @JsonProperty("segmentPinotQuery") Optional<String> segmentPinotQuery,
             @JsonProperty("segments") List<String> segments,
-            @JsonProperty("segmentHost") Optional<String> segmentHost)
+            @JsonProperty("segmentHost") Optional<String> segmentHost,
+            @JsonProperty("grpcPort") Optional<Integer> grpcPort)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.splitType = requireNonNull(splitType, "splitType id is null");
         this.expectedColumnHandles = requireNonNull(expectedColumnHandles, "expected column handles is null");
         this.brokerPinotQuery = requireNonNull(brokerPinotQuery, "brokerPinotQuery is null");
-        this.segmentPql = requireNonNull(segmentPql, "table name is null");
+        this.segmentPinotQuery = requireNonNull(segmentPinotQuery, "segmentPinotQuery is null");
         this.segments = ImmutableList.copyOf(requireNonNull(segments, "segment is null"));
         this.segmentHost = requireNonNull(segmentHost, "host is null");
+        this.grpcPort = grpcPort;
 
         // make sure the segment properties are present when the split type is segment
         if (splitType == SplitType.SEGMENT) {
-            checkArgument(segmentPql.isPresent(), "Table name is missing from the split");
+            checkArgument(segmentPinotQuery.isPresent(), "segmentPinotQuery is missing from the split");
             checkArgument(!segments.isEmpty(), "Segments are missing from the split");
             checkArgument(segmentHost.isPresent(), "Segment host address is missing from the split");
         }
@@ -82,19 +85,21 @@ public class PinotSplit
                 Optional.of(requireNonNull(brokerQuery, "brokerQuery is null")),
                 Optional.empty(),
                 ImmutableList.of(),
+                Optional.empty(),
                 Optional.empty());
     }
 
-    public static PinotSplit createSegmentSplit(String connectorId, String pql, List<PinotColumnHandle> expectedColumnHandles, List<String> segments, String segmentHost)
+    public static PinotSplit createSegmentSplit(String connectorId, String segmentPinotQuery, List<PinotColumnHandle> expectedColumnHandles, List<String> segments, String segmentHost, int grpcPort)
     {
         return new PinotSplit(
                 requireNonNull(connectorId, "connector id is null"),
                 SplitType.SEGMENT,
                 expectedColumnHandles,
                 Optional.empty(),
-                Optional.of(requireNonNull(pql, "pql is null")),
+                Optional.of(requireNonNull(segmentPinotQuery, "segmentPinotQuery is null")),
                 requireNonNull(segments, "segments are null"),
-                Optional.of(requireNonNull(segmentHost, "segmentHost is null")));
+                Optional.of(requireNonNull(segmentHost, "segmentHost is null")),
+                Optional.of(grpcPort));
     }
 
     @JsonProperty
@@ -116,9 +121,9 @@ public class PinotSplit
     }
 
     @JsonProperty
-    public Optional<String> getSegmentPql()
+    public Optional<String> getSegmentPinotQuery()
     {
-        return segmentPql;
+        return segmentPinotQuery;
     }
 
     @JsonProperty
@@ -133,6 +138,23 @@ public class PinotSplit
         return segments;
     }
 
+    // Extract grpc host name from the segmentHost.
+    // Usually segmentHost is in the format of `Server_127.0.0.1_8090`, so the hostname can be parsed from it, or will just use the entire string for that.
+    public Optional<String> getGrpcHost()
+    {
+        if (segmentHost.isPresent()) {
+            String[] hostSplits = segmentHost.get().split("_");
+            return (hostSplits.length > 1) ? Optional.of(hostSplits[hostSplits.length - 2]) : segmentHost;
+        }
+        return Optional.empty();
+    }
+
+    @JsonProperty
+    public Optional<Integer> getGrpcPort()
+    {
+        return grpcPort;
+    }
+
     @Override
     public String toString()
     {
@@ -140,7 +162,7 @@ public class PinotSplit
                 .add("connectorId", connectorId)
                 .add("splitType", splitType)
                 .add("columnHandle", expectedColumnHandles)
-                .add("segmentPql", segmentPql)
+                .add("segmentPinotQuery", segmentPinotQuery)
                 .add("brokerPinotQuery", brokerPinotQuery)
                 .add("segments", segments)
                 .add("segmentHost", segmentHost)

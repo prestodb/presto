@@ -26,14 +26,20 @@ import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.apache.pinot.common.data.DimensionFieldSpec;
-import org.apache.pinot.common.data.FieldSpec;
 import org.apache.pinot.common.response.ProcessingException;
-import org.apache.pinot.common.response.ServerInstance;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataTable;
+import org.apache.pinot.spi.data.DimensionFieldSpec;
+import org.apache.pinot.spi.data.FieldSpec;
+import org.apache.pinot.spi.utils.ByteArray;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -50,11 +56,11 @@ public class TestPinotSegmentPageSource
         extends TestPinotQueryBase
 {
     private static final Random RANDOM = new Random(1234);
-    private static final int NUM_ROWS = 100;
+    protected static final int NUM_ROWS = 100;
 
     private static final Set<DataSchema.ColumnDataType> UNSUPPORTED_TYPES = ImmutableSet.of(
             DataSchema.ColumnDataType.OBJECT, DataSchema.ColumnDataType.BYTES);
-    private static final List<DataSchema.ColumnDataType> ALL_TYPES = Arrays.stream(DataSchema.ColumnDataType.values())
+    protected static final List<DataSchema.ColumnDataType> ALL_TYPES = Arrays.stream(DataSchema.ColumnDataType.values())
             .filter(x -> !UNSUPPORTED_TYPES.contains(x)).collect(toImmutableList());
     private static final DataSchema.ColumnDataType[] ALL_TYPES_ARRAY = ALL_TYPES.toArray(new DataSchema.ColumnDataType[0]);
 
@@ -65,7 +71,7 @@ public class TestPinotSegmentPageSource
         return new String(array, UTF_8);
     }
 
-    private List<PinotColumnHandle> createPinotColumnHandlesWithAllTypes()
+    protected List<PinotColumnHandle> createPinotColumnHandlesWithAllTypes()
     {
         DataSchema.ColumnDataType[] columnDataTypes = ALL_TYPES_ARRAY;
         int numColumns = columnDataTypes.length;
@@ -78,7 +84,7 @@ public class TestPinotSegmentPageSource
         return handles.build();
     }
 
-    private FieldSpec getFieldSpec(String columnName, DataSchema.ColumnDataType columnDataType)
+    protected FieldSpec getFieldSpec(String columnName, DataSchema.ColumnDataType columnDataType)
     {
         switch (columnDataType) {
             case INT:
@@ -108,12 +114,12 @@ public class TestPinotSegmentPageSource
         }
     }
 
-    private static final class SimpleDataTable
+    protected static final class SimpleDataTable
             implements DataTable
     {
         private final DataSchema dataSchema;
         private final int numRows;
-        private final Object[][] data;
+        private final transient Object[][] data;
 
         public SimpleDataTable(int numRows, DataSchema dataSchema)
         {
@@ -122,6 +128,36 @@ public class TestPinotSegmentPageSource
             this.data = new Object[numRows][];
             for (int i = 0; i < numRows; ++i) {
                 this.data[i] = new Object[dataSchema.size()];
+            }
+        }
+
+        public SimpleDataTable(int numRows, DataSchema dataSchema, Object[][] data)
+        {
+            this.numRows = numRows;
+            this.dataSchema = dataSchema;
+            this.data = data;
+        }
+
+        public static DataTable fromBytes(ByteBuffer byteBuffer)
+        {
+            try {
+                int numRows = byteBuffer.getInt();
+                int numDataSchemaBytes = byteBuffer.getInt();
+                int numDataBytes = byteBuffer.getInt();
+
+                byte[] dataSchemaBytes = new byte[numDataSchemaBytes];
+                byteBuffer.get(dataSchemaBytes);
+                DataSchema dataSchema = DataSchema.fromBytes(dataSchemaBytes);
+
+                byte[] dataBytes = new byte[numDataBytes];
+                byteBuffer.get(dataBytes);
+                ByteArrayInputStream bis = new ByteArrayInputStream(dataBytes);
+                ObjectInput in = new ObjectInputStream(bis);
+                Object[][] data = (Object[][]) in.readObject();
+                return new SimpleDataTable(numRows, dataSchema, data);
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
             }
         }
 
@@ -134,7 +170,25 @@ public class TestPinotSegmentPageSource
         @Override
         public byte[] toBytes()
         {
-            throw new UnsupportedOperationException("Unsupported");
+            try {
+                byte[] dataSchemaBytes = dataSchema.toBytes();
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                ObjectOutputStream out = new ObjectOutputStream(bos);
+                out.writeObject(data);
+                out.flush();
+                byte[] dataBytes = bos.toByteArray();
+                int totalBytes = 12 + dataSchemaBytes.length + dataBytes.length;
+                ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[totalBytes]);
+                byteBuffer.putInt(numRows);
+                byteBuffer.putInt(dataSchemaBytes.length);
+                byteBuffer.putInt(dataBytes.length);
+                byteBuffer.put(dataSchemaBytes);
+                byteBuffer.put(dataBytes);
+                return byteBuffer.array();
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
 
         @Override
@@ -155,12 +209,12 @@ public class TestPinotSegmentPageSource
             return numRows;
         }
 
-        private Object get(int rowIndex, int columnIndex)
+        protected Object get(int rowIndex, int columnIndex)
         {
             return this.data[rowIndex][columnIndex];
         }
 
-        private void set(int rowIndex, int columnIndex, Object o)
+        protected void set(int rowIndex, int columnIndex, Object o)
         {
             this.data[rowIndex][columnIndex] = o;
         }
@@ -193,6 +247,12 @@ public class TestPinotSegmentPageSource
         public String getString(int rowIndex, int colIndex)
         {
             return getObject(rowIndex, colIndex);
+        }
+
+        @Override
+        public ByteArray getBytes(int rowIndex, int colIndex)
+        {
+            return getBytes(rowIndex, colIndex);
         }
 
         @Override
@@ -232,7 +292,7 @@ public class TestPinotSegmentPageSource
         }
     }
 
-    private DataTable createDataTableWithAllTypes()
+    protected static DataTable createDataTableWithAllTypes()
     {
         int numColumns = ALL_TYPES.size();
         String[] columnNames = new String[numColumns];
@@ -325,10 +385,26 @@ public class TestPinotSegmentPageSource
         {
             ImmutableMap.Builder<ServerInstance, DataTable> response = ImmutableMap.builder();
             for (int i = 0; i < dataTables.size(); ++i) {
-                response.put(new ServerInstance(String.format("localhost:%d", i + 9000)), dataTables.get(i));
+                response.put(new ServerInstance(String.format("Server_localhost_%d", i + 9000)), dataTables.get(i));
             }
             return response.build();
         }
+    }
+
+    PinotSegmentPageSource getPinotSegmentPageSource(
+            ConnectorSession session,
+            List<DataTable> dataTables,
+            PinotSplit mockPinotSplit,
+            List<PinotColumnHandle> pinotColumnHandles)
+    {
+        PinotScatterGatherQueryClient mockPinotQueryClient = new MockPinotScatterGatherQueryClient(new PinotScatterGatherQueryClient.Config(
+                pinotConfig.getIdleTimeout().toMillis(),
+                pinotConfig.getThreadPoolSize(),
+                pinotConfig.getMinConnectionsPerServer(),
+                pinotConfig.getMaxBacklogPerServer(),
+                pinotConfig.getMaxConnectionsPerServer()), dataTables);
+        PinotSegmentPageSource pinotSegmentPageSource = new PinotSegmentPageSource(session, pinotConfig, mockPinotQueryClient, mockPinotSplit, pinotColumnHandles);
+        return pinotSegmentPageSource;
     }
 
     @Test
@@ -337,14 +413,8 @@ public class TestPinotSegmentPageSource
         PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
         ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
         List<DataTable> dataTables = IntStream.range(0, 3).mapToObj(i -> createDataTableWithAllTypes()).collect(toImmutableList());
-        PinotScatterGatherQueryClient mockPinotQueryClient = new MockPinotScatterGatherQueryClient(new PinotScatterGatherQueryClient.Config(
-                pinotConfig.getIdleTimeout().toMillis(),
-                pinotConfig.getThreadPoolSize(),
-                pinotConfig.getMinConnectionsPerServer(),
-                pinotConfig.getMaxBacklogPerServer(),
-                pinotConfig.getMaxConnectionsPerServer()), dataTables);
         List<PinotColumnHandle> expectedColumnHandles = createPinotColumnHandlesWithAllTypes();
-        PinotSplit mockPinotSplit = new PinotSplit(pinotConnectorId.toString(), PinotSplit.SplitType.SEGMENT, expectedColumnHandles, Optional.empty(), Optional.of("blah"), ImmutableList.of("seg"), Optional.of("host"));
+        PinotSplit mockPinotSplit = new PinotSplit(pinotConnectorId.toString(), PinotSplit.SplitType.SEGMENT, expectedColumnHandles, Optional.empty(), Optional.of("blah"), ImmutableList.of("seg"), Optional.of("host"), getGrpcPort());
 
         ImmutableList.Builder<Integer> columnsSurvivingBuilder = ImmutableList.builder();
         for (int i = expectedColumnHandles.size() - 1; i >= 0; i--) {
@@ -354,7 +424,7 @@ public class TestPinotSegmentPageSource
         }
         List<Integer> columnsSurviving = columnsSurvivingBuilder.build();
         List<PinotColumnHandle> handlesSurviving = columnsSurviving.stream().map(expectedColumnHandles::get).collect(toImmutableList());
-        PinotSegmentPageSource pinotSegmentPageSource = new PinotSegmentPageSource(session, pinotConfig, mockPinotQueryClient, mockPinotSplit, handlesSurviving);
+        PinotSegmentPageSource pinotSegmentPageSource = getPinotSegmentPageSource(session, dataTables, mockPinotSplit, handlesSurviving);
 
         for (int i = 0; i < dataTables.size(); ++i) {
             Page page = requireNonNull(pinotSegmentPageSource.getNextPage(), "Expected a valid page");
@@ -372,21 +442,20 @@ public class TestPinotSegmentPageSource
         }
     }
 
+    Optional<Integer> getGrpcPort()
+    {
+        return Optional.empty();
+    }
+
     @Test
     public void testAllDataTypes()
     {
         PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
         ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
         List<DataTable> dataTables = IntStream.range(0, 3).mapToObj(i -> createDataTableWithAllTypes()).collect(toImmutableList());
-        PinotScatterGatherQueryClient mockPinotQueryClient = new MockPinotScatterGatherQueryClient(new PinotScatterGatherQueryClient.Config(
-                pinotConfig.getIdleTimeout().toMillis(),
-                pinotConfig.getThreadPoolSize(),
-                pinotConfig.getMinConnectionsPerServer(),
-                pinotConfig.getMaxBacklogPerServer(),
-                pinotConfig.getMaxConnectionsPerServer()), dataTables);
         List<PinotColumnHandle> pinotColumnHandles = createPinotColumnHandlesWithAllTypes();
-        PinotSplit mockPinotSplit = new PinotSplit(pinotConnectorId.toString(), PinotSplit.SplitType.SEGMENT, pinotColumnHandles, Optional.empty(), Optional.of("blah"), ImmutableList.of("seg"), Optional.of("host"));
-        PinotSegmentPageSource pinotSegmentPageSource = new PinotSegmentPageSource(session, pinotConfig, mockPinotQueryClient, mockPinotSplit, pinotColumnHandles);
+        PinotSplit mockPinotSplit = new PinotSplit(pinotConnectorId.toString(), PinotSplit.SplitType.SEGMENT, pinotColumnHandles, Optional.empty(), Optional.of("blah"), ImmutableList.of("seg"), Optional.of("host"), getGrpcPort());
+        PinotSegmentPageSource pinotSegmentPageSource = getPinotSegmentPageSource(session, dataTables, mockPinotSplit, pinotColumnHandles);
 
         for (int i = 0; i < dataTables.size(); ++i) {
             Page page = requireNonNull(pinotSegmentPageSource.getNextPage(), "Expected a valid page");
@@ -418,18 +487,11 @@ public class TestPinotSegmentPageSource
 
         PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
         ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
-        PinotScatterGatherQueryClient mockPinotQueryClient = new MockPinotScatterGatherQueryClient(new PinotScatterGatherQueryClient.Config(
-                pinotConfig.getIdleTimeout().toMillis(),
-                pinotConfig.getThreadPoolSize(),
-                pinotConfig.getMinConnectionsPerServer(),
-                pinotConfig.getMaxBacklogPerServer(),
-                pinotConfig.getMaxConnectionsPerServer()), ImmutableList.of(dataTable));
-
         List<PinotColumnHandle> pinotColumnHandles = ImmutableList.of(
                 new PinotColumnHandle(columnNames[0], PinotColumnUtils.getPrestoTypeFromPinotType(getFieldSpec(columnNames[0], columnDataTypes[0]), false, false), PinotColumnHandle.PinotColumnType.REGULAR),
                 new PinotColumnHandle(columnNames[1], PinotColumnUtils.getPrestoTypeFromPinotType(getFieldSpec(columnNames[1], columnDataTypes[1]), false, false), PinotColumnHandle.PinotColumnType.REGULAR));
-        PinotSplit mockPinotSplit = new PinotSplit(pinotConnectorId.toString(), PinotSplit.SplitType.SEGMENT, pinotColumnHandles, Optional.empty(), Optional.of("blah"), ImmutableList.of("seg"), Optional.of("host"));
-        PinotSegmentPageSource pinotSegmentPageSource = new PinotSegmentPageSource(session, pinotConfig, mockPinotQueryClient, mockPinotSplit, pinotColumnHandles);
+        PinotSplit mockPinotSplit = new PinotSplit(pinotConnectorId.toString(), PinotSplit.SplitType.SEGMENT, pinotColumnHandles, Optional.empty(), Optional.of("blah"), ImmutableList.of("seg"), Optional.of("host"), getGrpcPort());
+        PinotSegmentPageSource pinotSegmentPageSource = getPinotSegmentPageSource(session, ImmutableList.of(dataTable), mockPinotSplit, pinotColumnHandles);
 
         Page page = requireNonNull(pinotSegmentPageSource.getNextPage(), "Expected a valid page");
 

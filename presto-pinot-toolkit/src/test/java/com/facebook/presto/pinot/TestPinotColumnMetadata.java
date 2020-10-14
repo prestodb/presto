@@ -18,9 +18,9 @@ import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableMap;
-import org.apache.pinot.common.data.FieldSpec;
-import org.apache.pinot.common.data.Schema;
-import org.apache.pinot.common.data.TimeGranularitySpec;
+import org.apache.pinot.spi.data.FieldSpec;
+import org.apache.pinot.spi.data.Schema;
+import org.apache.pinot.spi.data.TimeGranularitySpec;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -63,7 +63,7 @@ public class TestPinotColumnMetadata
                 .addMetric("floatMetric", FieldSpec.DataType.FLOAT)
                 .addMetric("doubleMetric", FieldSpec.DataType.DOUBLE)
                 .addMetric("bytesMetric", FieldSpec.DataType.BYTES)
-                .addTime(new TimeGranularitySpec(FieldSpec.DataType.INT, TimeUnit.DAYS, "daysSinceEpoch"))
+                .addTime(new TimeGranularitySpec(FieldSpec.DataType.INT, TimeUnit.DAYS, "daysSinceEpoch"), new TimeGranularitySpec(FieldSpec.DataType.INT, TimeUnit.DAYS, "daysSinceEpoch"))
                 .addDateTime("epochDayDateTime", FieldSpec.DataType.INT, "1:DAYS:EPOCH", "1:DAYS")
                 .addDateTime("epochMillisDateTime", FieldSpec.DataType.LONG, "1:MILLISECONDS:EPOCH", "1:SECONDS")
                 .addDateTime("epochTenDayDateTime", FieldSpec.DataType.INT, "10:DAYS:EPOCH", "1:DAYS")
@@ -141,7 +141,7 @@ public class TestPinotColumnMetadata
 
         // Test Date
         Schema testSchema = new Schema.SchemaBuilder()
-                .addTime(new TimeGranularitySpec(FieldSpec.DataType.INT, TimeUnit.DAYS, "daysSinceEpoch"))
+                .addTime(new TimeGranularitySpec(FieldSpec.DataType.INT, TimeUnit.DAYS, "daysSinceEpoch"), new TimeGranularitySpec(FieldSpec.DataType.INT, TimeUnit.DAYS, "daysSinceEpoch"))
                 .build();
         List<PinotColumn> pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         PinotColumn column = pinotColumns.get(0);
@@ -161,7 +161,7 @@ public class TestPinotColumnMetadata
 
         // Test Timestamp
         testSchema = new Schema.SchemaBuilder()
-                .addTime(new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.MILLISECONDS, "millisSinceEpoch"))
+                .addTime(new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.MILLISECONDS, "millisSinceEpoch"), new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.MILLISECONDS, "millisSinceEpoch"))
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
@@ -181,7 +181,7 @@ public class TestPinotColumnMetadata
 
         // Test fallback to BIGINT
         testSchema = new Schema.SchemaBuilder()
-                .addTime(new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.SECONDS, "secondsSinceEpoch"))
+                .addTime(new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.SECONDS, "secondsSinceEpoch"), new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.SECONDS, "secondsSinceEpoch"))
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
@@ -219,7 +219,7 @@ public class TestPinotColumnMetadata
 
         // Test Date
         Schema testSchema = new Schema.SchemaBuilder()
-                .addTime(new TimeGranularitySpec(FieldSpec.DataType.INT, TimeUnit.DAYS, "daysSinceEpoch"))
+                .addTime(new TimeGranularitySpec(FieldSpec.DataType.INT, TimeUnit.DAYS, "daysSinceEpoch"), new TimeGranularitySpec(FieldSpec.DataType.INT, TimeUnit.DAYS, "daysSinceEpoch"))
                 .build();
         List<PinotColumn> pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         PinotColumn column = pinotColumns.get(0);
@@ -239,7 +239,7 @@ public class TestPinotColumnMetadata
 
         // Test Timestamp
         testSchema = new Schema.SchemaBuilder()
-                .addTime(new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.MILLISECONDS, "millisSinceEpoch"))
+                .addTime(new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.MILLISECONDS, "millisSinceEpoch"), new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.MILLISECONDS, "millisSinceEpoch"))
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);
@@ -259,7 +259,7 @@ public class TestPinotColumnMetadata
 
         // Test fallback to BIGINT
         testSchema = new Schema.SchemaBuilder()
-                .addTime(new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.SECONDS, "secondsSinceEpoch"))
+                .addTime(new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.SECONDS, "secondsSinceEpoch"), new TimeGranularitySpec(FieldSpec.DataType.LONG, TimeUnit.SECONDS, "secondsSinceEpoch"))
                 .build();
         pinotColumns = PinotColumnUtils.getPinotColumnsForPinotSchema(testSchema, pinotConfig.isInferDateTypeInSchema(), pinotConfig.isInferTimestampTypeInSchema());
         column = pinotColumns.get(0);

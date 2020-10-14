@@ -58,6 +58,8 @@ public class TestPinotConfig
                         .setIgnoreEmptyResponses(false)
                         .setUseDateTrunc(false)
                         .setForbidSegmentQueries(false)
+                        .setUseStreamingForSegmentQueries(false)
+                        .setStreamingServerGrpcMaxInboundMessageBytes(PinotConfig.DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES)
                         .setNonAggregateLimitForBrokerQueries(PinotConfig.DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES)
                         .setUseDateTrunc(false));
     }
@@ -97,6 +99,8 @@ public class TestPinotConfig
                 .put("pinot.limit-large-for-segment", "100")
                 .put("pinot.pushdown-topn-broker-queries", "true")
                 .put("pinot.forbid-segment-queries", "true")
+                .put("pinot.use-streaming-for-segment-queries", "true")
+                .put("pinot.streaming-server-grpc-max-inbound-message-bytes", "65536")
                 .build();
 
         PinotConfig expected = new PinotConfig()
@@ -131,6 +135,8 @@ public class TestPinotConfig
                 .setLimitLargeForSegment(100)
                 .setPushdownTopNBrokerQueries(true)
                 .setForbidSegmentQueries(true)
+                .setUseStreamingForSegmentQueries(true)
+                .setStreamingServerGrpcMaxInboundMessageBytes(65536)
                 .setUseDateTrunc(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);

@@ -17,7 +17,7 @@ import com.facebook.presto.pinot.PinotClusterInfoFetcher.TimeBoundary;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import org.apache.pinot.common.data.Schema;
+import org.apache.pinot.spi.data.Schema;
 
 import javax.inject.Inject;
 
@@ -109,5 +109,10 @@ public class PinotConnection
     public TimeBoundary getTimeBoundary(String tableName)
     {
         return pinotClusterInfoFetcher.getTimeBoundaryForTable(tableName);
+    }
+
+    public int getGrpcPort(String serverInstance)
+    {
+        return pinotClusterInfoFetcher.getGrpcPort(serverInstance);
     }
 }
