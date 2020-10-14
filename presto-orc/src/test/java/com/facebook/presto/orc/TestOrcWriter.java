@@ -115,7 +115,8 @@ public class TestOrcWriter
                             dataSize,
                             false),
                     false,
-                    NO_ENCRYPTION
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY
             ).getFooter();
 
             for (StripeInformation stripe : footer.getStripes()) {

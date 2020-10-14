@@ -275,7 +275,8 @@ public class BenchmarkSelectiveStreamReaders
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     OrcReaderTestingUtils.createDefaultTestConfig(),
                     false,
-                    NO_ENCRYPTION);
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY);
 
             return orcReader.createSelectiveRecordReader(
                     IntStream.range(0, channelCount).boxed().collect(Collectors.toMap(Function.identity(), i -> type)),
@@ -295,8 +296,7 @@ public class BenchmarkSelectiveStreamReaders
                     true,
                     new TestingHiveOrcAggregatedMemoryContext(),
                     Optional.empty(),
-                    INITIAL_BATCH_SIZE,
-                    ImmutableMap.of());
+                    INITIAL_BATCH_SIZE);
         }
 
         private Optional<TupleDomainFilter> getFilter(Type type, float filterRate, boolean filterAllowNull, float selectionRateForNonNull)

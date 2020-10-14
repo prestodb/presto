@@ -280,7 +280,8 @@ public class TestStructBatchStreamReader
                         dataSize,
                         false),
                 false,
-                NO_ENCRYPTION);
+                NO_ENCRYPTION,
+                DwrfKeyProvider.EMPTY);
 
         Map<Integer, Type> includedColumns = new HashMap<>();
         includedColumns.put(0, readerType);
@@ -290,8 +291,7 @@ public class TestStructBatchStreamReader
                 OrcPredicate.TRUE,
                 UTC,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                OrcReader.INITIAL_BATCH_SIZE,
-                ImmutableMap.of());
+                OrcReader.INITIAL_BATCH_SIZE);
 
         recordReader.nextBatch();
         RowBlock block = (RowBlock) recordReader.readBlock(0);

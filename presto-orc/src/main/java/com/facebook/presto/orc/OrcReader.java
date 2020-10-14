@@ -64,6 +64,7 @@ public class OrcReader
     private final Optional<OrcDecompressor> decompressor;
     private final Optional<EncryptionLibrary> encryptionLibrary;
     private final Map<Integer, Integer> dwrfEncryptionGroupMap;
+    private final Map<Integer, Slice> columnsToIntermediateKeys;
     private final Footer footer;
     private final Metadata metadata;
 
@@ -83,7 +84,8 @@ public class OrcReader
             OrcAggregatedMemoryContext aggregatedMemoryContext,
             OrcReaderOptions orcReaderOptions,
             boolean cacheable,
-            DwrfEncryptionProvider dwrfEncryptionProvider)
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            DwrfKeyProvider dwrfKeyProvider)
             throws IOException
     {
         this(
@@ -95,7 +97,8 @@ public class OrcReader
                 aggregatedMemoryContext,
                 orcReaderOptions,
                 cacheable,
-                dwrfEncryptionProvider);
+                dwrfEncryptionProvider,
+                dwrfKeyProvider);
     }
 
     OrcReader(
@@ -107,7 +110,8 @@ public class OrcReader
             OrcAggregatedMemoryContext aggregatedMemoryContext,
             OrcReaderOptions orcReaderOptions,
             boolean cacheable,
-            DwrfEncryptionProvider dwrfEncryptionProvider)
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            DwrfKeyProvider dwrfKeyProvider)
             throws IOException
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
@@ -136,16 +140,21 @@ public class OrcReader
 
         Optional<DwrfEncryption> encryption = footer.getEncryption();
         if (encryption.isPresent()) {
+            requireNonNull(dwrfEncryptionProvider, "dwrfEncryptionProvider is null");
+            requireNonNull(dwrfKeyProvider, "dwrfKeyProvider is null");
+            validateEncryption(footer, this.orcDataSource.getId());
             this.dwrfEncryptionGroupMap = createNodeToGroupMap(
                     encryption.get().getEncryptionGroups().stream()
                             .map(EncryptionGroup::getNodes)
                             .collect(toImmutableList()),
                     footer.getTypes());
             this.encryptionLibrary = Optional.of(dwrfEncryptionProvider.getEncryptionLibrary(encryption.get().getKeyProvider()));
+            this.columnsToIntermediateKeys = ImmutableMap.copyOf(dwrfKeyProvider.getIntermediateKeys(footer.getTypes()));
         }
         else {
             this.dwrfEncryptionGroupMap = ImmutableMap.of();
             this.encryptionLibrary = Optional.empty();
+            this.columnsToIntermediateKeys = ImmutableMap.of();
         }
 
         try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getMetadataSlice().getInput(), decompressor, Optional.empty(), aggregatedMemoryContext, orcFileTail.getMetadataSize())) {
@@ -221,11 +230,10 @@ public class OrcReader
             OrcPredicate predicate,
             DateTimeZone hiveStorageTimeZone,
             OrcAggregatedMemoryContext systemMemoryUsage,
-            int initialBatchSize,
-            Map<Integer, Slice> columnsToIntermediateKeys)
+            int initialBatchSize)
             throws OrcCorruptionException
     {
-        return createBatchRecordReader(includedColumns, predicate, 0, getOrcDataSource().getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize, columnsToIntermediateKeys);
+        return createBatchRecordReader(includedColumns, predicate, 0, getOrcDataSource().getSize(), hiveStorageTimeZone, systemMemoryUsage, initialBatchSize);
     }
 
     public OrcBatchRecordReader createBatchRecordReader(
@@ -235,8 +243,7 @@ public class OrcReader
             long length,
             DateTimeZone hiveStorageTimeZone,
             OrcAggregatedMemoryContext systemMemoryUsage,
-            int initialBatchSize,
-            Map<Integer, Slice> columnsToIntermediateKeys)
+            int initialBatchSize)
             throws OrcCorruptionException
     {
         return new OrcBatchRecordReader(
@@ -283,8 +290,7 @@ public class OrcReader
             boolean legacyMapSubscript,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
-            int initialBatchSize,
-            Map<Integer, Slice> columnsToIntermediateKeys)
+            int initialBatchSize)
     {
         return new OrcSelectiveRecordReader(
                 includedColumns,
@@ -341,8 +347,8 @@ public class OrcReader
             DateTimeZone hiveStorageTimeZone,
             OrcEncoding orcEncoding,
             OrcReaderOptions orcReaderOptions,
-            Map<Integer, Slice> columnsToKeyMetadata,
-            DwrfEncryptionProvider dwrfEncryptionProvider)
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            DwrfKeyProvider dwrfKeyProvider)
             throws OrcCorruptionException
     {
         ImmutableMap.Builder<Integer, Type> readTypes = ImmutableMap.builder();
@@ -359,14 +365,14 @@ public class OrcReader
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                     orcReaderOptions,
                     false,
-                    dwrfEncryptionProvider);
+                    dwrfEncryptionProvider,
+                    dwrfKeyProvider);
             try (OrcBatchRecordReader orcRecordReader = orcReader.createBatchRecordReader(
                     readTypes.build(),
                     OrcPredicate.TRUE,
                     hiveStorageTimeZone,
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
-                    INITIAL_BATCH_SIZE,
-                    columnsToKeyMetadata)) {
+                    INITIAL_BATCH_SIZE)) {
                 while (orcRecordReader.nextBatch() >= 0) {
                     // ignored
                 }

@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.FileOrcDataSource;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcCorruptionException;
@@ -29,7 +30,6 @@ import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import org.joda.time.DateTimeZone;
 
@@ -71,7 +71,8 @@ final class OrcTestingUtil
                 new RaptorOrcAggregatedMemoryContext(),
                 createDefaultTestConfig(),
                 false,
-                NO_ENCRYPTION);
+                NO_ENCRYPTION,
+                DwrfKeyProvider.EMPTY);
 
         List<String> columnNames = orcReader.getColumnNames();
         assertEquals(columnNames.size(), columnIds.size());
@@ -98,8 +99,7 @@ final class OrcTestingUtil
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
                 new RaptorOrcAggregatedMemoryContext(),
-                MAX_BATCH_SIZE,
-                ImmutableMap.of());
+                MAX_BATCH_SIZE);
     }
 
     public static byte[] octets(int... values)
