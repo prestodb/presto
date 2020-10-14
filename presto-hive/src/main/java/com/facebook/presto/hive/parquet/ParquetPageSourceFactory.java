@@ -28,6 +28,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
+import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
@@ -51,6 +52,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
@@ -85,6 +87,7 @@ import static com.facebook.presto.common.type.StandardTypes.VARBINARY;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
@@ -104,6 +107,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getSubfieldType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
@@ -113,6 +117,8 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category.PRIMITIVE;
+import static org.apache.parquet.io.ColumnIOConverter.constructField;
+import static org.apache.parquet.io.ColumnIOConverter.findNestedColumnIO;
 
 public class ParquetPageSourceFactory
         implements HiveBatchPageSourceFactory
@@ -261,15 +267,38 @@ public class ParquetPageSourceFactory
                     batchReaderEnabled,
                     verificationEnabled);
 
-            return new ParquetPageSource(
-                    parquetReader,
-                    fileSchema,
-                    messageColumnIO,
-                    typeManager,
-                    columns,
-                    useParquetColumnNames,
-                    tableName,
-                    path);
+            ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
+            for (HiveColumnHandle column : columns) {
+                checkArgument(column.getColumnType() == REGULAR || column.getColumnType() == SYNTHESIZED, "column type must be regular or synthesized column");
+
+                String name = column.getName();
+                Type type = typeManager.getType(column.getTypeSignature());
+
+                namesBuilder.add(name);
+                typesBuilder.add(type);
+
+                if (column.getColumnType() == SYNTHESIZED) {
+                    Subfield pushedDownSubfield = getPushedDownSubfield(column);
+                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
+                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
+                    if (columnIO.isPresent()) {
+                        fieldsBuilder.add(constructField(type, columnIO.get()));
+                    }
+                    else {
+                        fieldsBuilder.add(Optional.empty());
+                    }
+                }
+                else if (getParquetType(type, fileSchema, useParquetColumnNames, column, tableName, path).isPresent()) {
+                    String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
+                    fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
+                }
+                else {
+                    fieldsBuilder.add(Optional.empty());
+                }
+            }
+            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), namesBuilder.build());
         }
         catch (Exception e) {
             try {
