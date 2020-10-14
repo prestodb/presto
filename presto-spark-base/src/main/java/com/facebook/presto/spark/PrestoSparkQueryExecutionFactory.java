@@ -635,7 +635,7 @@ public class PrestoSparkQueryExecutionFactory
     private static <T> void writeJsonFile(Path outputPath, T object, JsonCodec<T> codec)
     {
         try {
-            Files.write(outputPath, codec.toJsonBytes(object));
+            Files.write(outputPath, (codec.toJson(object) + "\n").getBytes());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
