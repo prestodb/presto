@@ -164,15 +164,8 @@ public class TestFileSingleStreamSpillerFactory
         assertEquals(listFiles(spillPath1.toPath()).size(), 3);
         assertEquals(listFiles(spillPath2.toPath()).size(), 3);
 
-        FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
-                executor, // executor won't be closed, because we don't call destroy() on the spiller factory
-                blockEncodingSerde,
-                new SpillerStats(),
-                spillPaths,
-                1.0,
-                false,
-                false);
-        spillerFactory.cleanupOldSpillFiles();
+        LocalTempFileStore tempFileStore = new LocalTempFileStore(spillPaths, 1.0);
+        tempFileStore.initialize();
 
         assertEquals(listFiles(spillPath1.toPath()).size(), 1);
         assertEquals(listFiles(spillPath2.toPath()).size(), 2);

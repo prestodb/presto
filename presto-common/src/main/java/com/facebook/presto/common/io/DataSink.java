@@ -13,10 +13,12 @@
  */
 package com.facebook.presto.common.io;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 
 public interface DataSink
+        extends Closeable
 {
     /**
      * Number of bytes written to this sink so far.
@@ -35,8 +37,9 @@ public interface DataSink
             throws IOException;
 
     /**
-     * ORC file is complete
+     * File is complete
      */
+    @Override
     void close()
             throws IOException;
 }

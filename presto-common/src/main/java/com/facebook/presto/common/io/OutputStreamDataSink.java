@@ -26,12 +26,18 @@ public class OutputStreamDataSink
         implements DataSink
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OutputStreamDataSink.class).instanceSize();
+    private static final int DEFAULT_BUFFER_SIZE = 4 * 1024;
 
     private final OutputStreamSliceOutput output;
 
     public OutputStreamDataSink(OutputStream outputStream)
     {
-        this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
+        this(outputStream, DEFAULT_BUFFER_SIZE);
+    }
+
+    public OutputStreamDataSink(OutputStream outputStream, int bufferSize)
+    {
+        this.output = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"), bufferSize);
     }
 
     @Override
