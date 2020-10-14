@@ -16,12 +16,14 @@ package com.facebook.presto.pinot;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.pinot.common.data.Schema;
+import org.apache.pinot.spi.data.Schema;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.pinot.MetadataUtil.BROKERS_FOR_TABLE_JSON_CODEC;
+import static com.facebook.presto.pinot.MetadataUtil.INSTANCE_JSON_CODEC;
 import static com.facebook.presto.pinot.MetadataUtil.ROUTING_TABLES_JSON_CODEC;
 import static com.facebook.presto.pinot.MetadataUtil.ROUTING_TABLES_V2_JSON_CODEC;
 import static com.facebook.presto.pinot.MetadataUtil.TABLES_JSON_CODEC;
@@ -30,6 +32,8 @@ import static com.facebook.presto.pinot.MetadataUtil.TIME_BOUNDARY_JSON_CODEC;
 public class MockPinotClusterInfoFetcher
         extends PinotClusterInfoFetcher
 {
+    static final int DEFAULT_GRPC_PORT = 8090;
+
     public MockPinotClusterInfoFetcher(PinotConfig pinotConfig)
     {
         super(
@@ -40,7 +44,8 @@ public class MockPinotClusterInfoFetcher
                 BROKERS_FOR_TABLE_JSON_CODEC,
                 ROUTING_TABLES_JSON_CODEC,
                 ROUTING_TABLES_V2_JSON_CODEC,
-                TIME_BOUNDARY_JSON_CODEC);
+                TIME_BOUNDARY_JSON_CODEC,
+                INSTANCE_JSON_CODEC);
     }
 
     @Override
@@ -67,6 +72,12 @@ public class MockPinotClusterInfoFetcher
         }
 
         return routingTable.build();
+    }
+
+    @Override
+    public int getGrpcPort(String serverInstance)
+    {
+        return DEFAULT_GRPC_PORT;
     }
 
     @Override
@@ -418,5 +429,11 @@ public class MockPinotClusterInfoFetcher
         }
 
         return new TimeBoundary();
+    }
+
+    @Override
+    public Instance getInstance(String instanceName)
+    {
+        return new Instance(instanceName, instanceName, true, 8089, DEFAULT_GRPC_PORT, Collections.emptyList(), Collections.emptyList());
     }
 }
