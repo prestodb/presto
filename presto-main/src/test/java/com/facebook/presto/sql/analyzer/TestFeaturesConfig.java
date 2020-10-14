@@ -149,7 +149,8 @@ public class TestFeaturesConfig
                 .setPreferDistributedUnion(true)
                 .setOptimizeNullsInJoin(false)
                 .setWarnOnNoTableLayoutFilter("")
-                .setInlineSqlFunctions(true));
+                .setInlineSqlFunctions(true)
+                .setDisableMergingPageOutput(true));
     }
 
     @Test
@@ -253,6 +254,7 @@ public class TestFeaturesConfig
                 .put("optimize-nulls-in-join", "true")
                 .put("warn-on-no-table-layout-filter", "ry@nlikestheyankees,ds")
                 .put("inline-sql-functions", "false")
+                .put("experimental.disable-merging-page-output", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -352,7 +354,8 @@ public class TestFeaturesConfig
                 .setPreferDistributedUnion(false)
                 .setOptimizeNullsInJoin(true)
                 .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds")
-                .setInlineSqlFunctions(false);
+                .setInlineSqlFunctions(false)
+                .setDisableMergingPageOutput(false);
         assertFullMapping(properties, expected);
     }
 

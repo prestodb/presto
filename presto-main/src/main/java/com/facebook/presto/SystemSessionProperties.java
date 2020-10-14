@@ -171,6 +171,7 @@ public final class SystemSessionProperties
     public static final String LEGACY_TYPE_COERCION_WARNING_ENABLED = "legacy_type_coercion_warning_enabled";
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
+    public static final String DISABLE_MERGING_PAGE_OUTPUT = "disable_merging_page_output";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -905,6 +906,11 @@ public final class SystemSessionProperties
                         REMOTE_FUNCTIONS_ENABLED,
                         "Allow remote functions",
                         false,
+                        false),
+                booleanProperty(
+                        DISABLE_MERGING_PAGE_OUTPUT,
+                        "Experimental: Disable MergingPageOutput if the stage has only ScanFilterAndProjectOperator",
+                        featuresConfig.isDisableMergingPageOutput(),
                         false));
     }
 
@@ -1525,5 +1531,10 @@ public final class SystemSessionProperties
     public static boolean isRemoteFunctionsEnabled(Session session)
     {
         return session.getSystemProperty(REMOTE_FUNCTIONS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isDisableMergingPageOutput(Session session)
+    {
+        return session.getSystemProperty(DISABLE_MERGING_PAGE_OUTPUT, Boolean.class);
     }
 }
