@@ -70,10 +70,7 @@ public final class SystemSessionProperties
     public static final String PARTITIONING_PROVIDER_CATALOG = "partitioning_provider_catalog";
     public static final String EXCHANGE_MATERIALIZATION_STRATEGY = "exchange_materialization_strategy";
     public static final String USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT = "use_stream_exchange_for_mark_distinct";
-    public static final String GROUPED_EXECUTION_FOR_AGGREGATION = "grouped_execution_for_aggregation";
-    public static final String GROUPED_EXECUTION_FOR_JOIN = "grouped_execution_for_join";
     public static final String GROUPED_EXECUTION = "grouped_execution";
-    public static final String DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION = "dynamic_schedule_for_grouped_execution";
     public static final String RECOVERABLE_GROUPED_EXECUTION = "recoverable_grouped_execution";
     public static final String MAX_FAILED_TASK_PERCENTAGE = "max_failed_task_percentage";
     public static final String MAX_STAGE_RETRIES = "max_stage_retries";
@@ -258,24 +255,9 @@ public final class SystemSessionProperties
                         queryManagerConfig.getUseStreamingExchangeForMarkDistinct(),
                         false),
                 booleanProperty(
-                        GROUPED_EXECUTION_FOR_AGGREGATION,
-                        "Use grouped execution for aggregation when possible",
-                        featuresConfig.isGroupedExecutionForAggregationEnabled(),
-                        false),
-                booleanProperty(
-                        GROUPED_EXECUTION_FOR_JOIN,
-                        "Use grouped execution for foin when possible",
-                        featuresConfig.isGroupedExecutionForJoinEnabled(),
-                        false),
-                booleanProperty(
                         GROUPED_EXECUTION,
                         "Use grouped execution when possible",
                         featuresConfig.isGroupedExecutionEnabled(),
-                        false),
-                booleanProperty(
-                        DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION,
-                        "Experimental: Use dynamic schedule for grouped execution when possible",
-                        featuresConfig.isDynamicScheduleForGroupedExecutionEnabled(),
                         false),
                 doubleProperty(
                         MAX_FAILED_TASK_PERCENTAGE,
@@ -967,24 +949,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(USE_STREAMING_EXCHANGE_FOR_MARK_DISTINCT, Boolean.class);
     }
 
-    public static boolean isGroupedExecutionForAggregationEnabled(Session session)
-    {
-        return session.getSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, Boolean.class) && isGroupedExecutionEnabled(session);
-    }
-
-    public static boolean isGroupedExecutionForJoinEnabled(Session session)
-    {
-        return session.getSystemProperty(GROUPED_EXECUTION_FOR_JOIN, Boolean.class) && isGroupedExecutionEnabled(session);
-    }
-
     public static boolean isGroupedExecutionEnabled(Session session)
     {
         return session.getSystemProperty(GROUPED_EXECUTION, Boolean.class);
-    }
-
-    public static boolean isDynamicScheduleForGroupedExecution(Session session)
-    {
-        return session.getSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, Boolean.class);
     }
 
     public static boolean isRecoverableGroupedExecutionEnabled(Session session)
