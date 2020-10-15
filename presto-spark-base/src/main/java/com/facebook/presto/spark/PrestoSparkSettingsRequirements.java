@@ -24,11 +24,8 @@ import org.apache.spark.SparkContext;
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getPartitioningProviderCatalog;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
-import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
-import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForAggregationEnabled;
-import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
@@ -48,12 +45,7 @@ public class PrestoSparkSettingsRequirements
         verify(!isDistributedSortEnabled(session), "distributed sort is not supported");
         verify(getExchangeMaterializationStrategy(session) == NONE, "exchange materialization is not supported");
         verify(getPartitioningProviderCatalog(session).equals(GlobalSystemConnector.NAME), "partitioning provider other that system is not supported");
-        verify(!isGroupedExecutionForAggregationEnabled(session) &&
-                        !isRecoverableGroupedExecutionEnabled(session) &&
-                        !isDynamicScheduleForGroupedExecution(session) &&
-                        !isGroupedExecutionForJoinEnabled(session) &&
-                        !isGroupedExecutionEnabled(session),
-                "grouped execution is not supported");
+        verify(!isRecoverableGroupedExecutionEnabled(session) && !isGroupedExecutionEnabled(session), "grouped execution is not supported");
         verify(!isRedistributeWrites(session), "redistribute writes is not supported");
         verify(!isScaleWriters(session), "scale writes is not supported");
         verify(!isForceSingleNodeOutput(session), "force single node output is expected to be disabled");
@@ -91,7 +83,6 @@ public class PrestoSparkSettingsRequirements
         config.setDistributedSortEnabled(false);
         config.setGroupedExecutionEnabled(false);
         config.setRecoverableGroupedExecutionEnabled(false);
-        config.setDynamicScheduleForGroupedExecutionEnabled(false);
         config.setColocatedJoinsEnabled(true);
         config.setRedistributeWrites(false);
         config.setScaleWriters(false);
