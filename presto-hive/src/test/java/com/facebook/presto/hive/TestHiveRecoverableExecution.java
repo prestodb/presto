@@ -40,9 +40,8 @@ import java.util.concurrent.TimeoutException;
 
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
-import static com.facebook.presto.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
-import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
+import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.MAX_STAGE_RETRIES;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
@@ -438,8 +437,7 @@ public class TestHiveRecoverableExecution
         return testSessionBuilder()
                 .setIdentity(identity)
                 .setSystemProperty(COLOCATED_JOIN, "true")
-                .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
-                .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
+                .setSystemProperty(GROUPED_EXECUTION, "true")
                 .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
                 .setSystemProperty(RECOVERABLE_GROUPED_EXECUTION, "true")
                 .setSystemProperty(SCALE_WRITERS, "false")

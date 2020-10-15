@@ -76,9 +76,8 @@ import java.util.stream.LongStream;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
-import static com.facebook.presto.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
-import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
+import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
@@ -3461,54 +3460,42 @@ public class TestHiveIntegrationSmokeTest
                             "SELECT custkey key, orderkey value FROM orders WHERE custkey <= 5 ORDER BY orderkey LIMIT 10",
                     10);
 
-            // NOT grouped execution; default
-            Session notColocated = Session.builder(session)
+            // NO colocated join, no grouped execution
+            Session notColocatedNotGrouped = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "false")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "false")
+                    .setSystemProperty(GROUPED_EXECUTION, "false")
                     .build();
-            // Co-located JOIN with all groups at once, fixed schedule
+
+            // colocated join, no grouped execution
+            Session colocatedNotGrouped = Session.builder(session)
+                    .setSystemProperty(COLOCATED_JOIN, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "false")
+                    .build();
+
+            // No colocated join, grouped execution
+            Session notColocatedGrouped = Session.builder(session)
+                    .setSystemProperty(COLOCATED_JOIN, "false")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
+                    .build();
+
+            // Co-located JOIN with all groups at once
             Session colocatedAllGroupsAtOnce = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
                     .build();
-            // Co-located JOIN, 1 group per worker at a time, fixed schedule
+            // Co-located JOIN, 1 group per worker at a time
             Session colocatedOneGroupAtATime = Session.builder(session)
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "false")
-                    .build();
-            // Co-located JOIN with all groups at once, dynamic schedule
-            Session colocatedAllGroupsAtOnceDynamic = Session.builder(session)
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "0")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
-                    .build();
-            // Co-located JOIN, 1 group per worker at a time, dynamic schedule
-            Session colocatedOneGroupAtATimeDynamic = Session.builder(session)
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
             // Broadcast JOIN, 1 group per worker at a time
             Session broadcastOneGroupAtATime = Session.builder(session)
                     .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                     .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                    .setSystemProperty(GROUPED_EXECUTION, "true")
                     .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .build();
-
-            // Broadcast JOIN, 1 group per worker at a time, dynamic schedule
-            Session broadcastOneGroupAtATimeDynamic = Session.builder(session)
-                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
-                    .setSystemProperty(COLOCATED_JOIN, "true")
-                    .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
-                    .setSystemProperty(CONCURRENT_LIFESPANS_PER_NODE, "1")
-                    .setSystemProperty(DYNAMIC_SCHEDULE_FOR_GROUPED_EXECUTION, "true")
                     .build();
 
             //
@@ -3542,27 +3529,26 @@ public class TestHiveIntegrationSmokeTest
                             "ON key1 = key2";
             @Language("SQL") String expectedOuterJoinQuery = "SELECT orderkey, comment, CASE mod(orderkey, 2) WHEN 0 THEN orderkey END, CASE mod(orderkey, 2) WHEN 0 THEN comment END from orders";
 
-            assertQuery(notColocated, joinThreeBucketedTable, expectedJoinQuery);
-            assertQuery(notColocated, leftJoinBucketedTable, expectedOuterJoinQuery);
-            assertQuery(notColocated, rightJoinBucketedTable, expectedOuterJoinQuery);
+            assertQuery(notColocatedNotGrouped, joinThreeBucketedTable, expectedJoinQuery);
+            assertQuery(notColocatedNotGrouped, leftJoinBucketedTable, expectedOuterJoinQuery);
+            assertQuery(notColocatedNotGrouped, rightJoinBucketedTable, expectedOuterJoinQuery);
+            assertQuery(notColocatedGrouped, joinThreeBucketedTable, expectedJoinQuery);
+            assertQuery(notColocatedGrouped, leftJoinBucketedTable, expectedOuterJoinQuery);
+            assertQuery(notColocatedGrouped, rightJoinBucketedTable, expectedOuterJoinQuery);
 
+            assertQuery(colocatedNotGrouped, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedNotGrouped, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinThreeBucketedTable, expectedJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinThreeMixedTable, expectedJoinQuery, assertRemoteExchangesCount(2));
 
+            assertQuery(colocatedNotGrouped, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
+            assertQuery(colocatedNotGrouped, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedAllGroupsAtOnceDynamic, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, leftJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, rightJoinBucketedTable, expectedOuterJoinQuery, assertRemoteExchangesCount(1));
 
             //
             // CROSS JOIN and HASH JOIN mixed
@@ -3580,7 +3566,9 @@ public class TestHiveIntegrationSmokeTest
                             "  (SELECT orderkey key1, comment value1 FROM orders)\n" +
                             "CROSS JOIN\n" +
                             "  (SELECT orderkey key3, comment value3 FROM orders where orderkey <= 3)";
-            assertQuery(notColocated, crossJoin, expectedCrossJoinQuery);
+            assertQuery(notColocatedNotGrouped, crossJoin, expectedCrossJoinQuery);
+            assertQuery(notColocatedGrouped, crossJoin, expectedCrossJoinQuery);
+            assertQuery(colocatedNotGrouped, crossJoin, expectedCrossJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, crossJoin, expectedCrossJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, crossJoin, expectedCrossJoinQuery, assertRemoteExchangesCount(2));
 
@@ -3601,10 +3589,11 @@ public class TestHiveIntegrationSmokeTest
                             "JOIN test_grouped_join3\n" +
                             "ON key1 = key3";
             @Language("SQL") String expectedBucketedAndUnbucketedJoinQuery = "SELECT orderkey, comment, orderkey, comment, orderkey, comment, orderkey, comment from orders";
-            assertQuery(notColocated, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
+            assertQuery(notColocatedNotGrouped, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
+            assertQuery(notColocatedGrouped, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery);
+            assertQuery(colocatedNotGrouped, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, bucketedAndUnbucketedJoin, expectedBucketedAndUnbucketedJoinQuery, assertRemoteExchangesCount(2));
 
             //
             // UNION ALL / GROUP BY
@@ -3684,12 +3673,12 @@ public class TestHiveIntegrationSmokeTest
             @Language("SQL") String expectedGroupByOfUnionOfGroupBy = "SELECT orderkey, 3 from orders";
 
             // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
+            assertQuery(notColocatedGrouped, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, groupBySingleBucketed, expectedSingleGroupByQuery, assertRemoteExchangesCount(1));
+            assertQuery(notColocatedGrouped, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, groupByOfUnionBucketed, expectedGroupByOfUnion, assertRemoteExchangesCount(1));
 
             // cannot be executed in a grouped manner but should still produce correct result
             assertQuery(colocatedOneGroupAtATime, groupByOfUnionMixed, expectedGroupByOfUnion, assertRemoteExchangesCount(2));
@@ -3756,18 +3745,17 @@ public class TestHiveIntegrationSmokeTest
             @Language("SQL") String expectedGroupOnUngroupedJoinResult = "SELECT orderkey, count(*), count(*) from orders group by orderkey";
 
             // Eligible GROUP BYs run in the same fragment regardless of colocated_join flag
+            assertQuery(notColocatedGrouped, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinGroupedWithGrouped, expectedJoinGroupedWithGrouped, assertRemoteExchangesCount(1));
+            assertQuery(notColocatedGrouped, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, joinGroupedWithUngrouped, expectedJoinGroupedWithUngrouped, assertRemoteExchangesCount(2));
+            assertQuery(notColocatedGrouped, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, groupOnJoinResult, expectedGroupOnJoinResult, assertRemoteExchangesCount(2));
 
             assertQuery(broadcastOneGroupAtATime, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(broadcastOneGroupAtATimeDynamic, groupOnUngroupedJoinResult, expectedGroupOnUngroupedJoinResult, assertRemoteExchangesCount(2));
 
             // cannot be executed in a grouped manner but should still produce correct result
             assertQuery(colocatedOneGroupAtATime, joinUngroupedWithGrouped, expectedJoinUngroupedWithGrouped, assertRemoteExchangesCount(2));
@@ -3824,16 +3812,17 @@ public class TestHiveIntegrationSmokeTest
                     "FROM ORDERS\n" +
                     "WHERE mod(orderkey, 3) = 0";
 
-            assertQuery(notColocated, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(notColocatedNotGrouped, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(notColocatedGrouped, chainedOuterJoin, expectedChainedOuterJoinResult);
+            assertQuery(colocatedNotGrouped, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
-            assertQuery(colocatedOneGroupAtATimeDynamic, chainedOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(1));
-            assertQuery(notColocated, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
+            assertQuery(notColocatedNotGrouped, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
+            assertQuery(notColocatedGrouped, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult);
+            assertQuery(colocatedNotGrouped, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
             assertQuery(colocatedAllGroupsAtOnce, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, sharedBuildOuterJoin, expectedSharedBuildOuterJoinResult, assertRemoteExchangesCount(2));
             assertQuery(colocatedOneGroupAtATime, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(2));
-            assertQuery(colocatedOneGroupAtATimeDynamic, chainedSharedBuildOuterJoin, expectedChainedOuterJoinResult, assertRemoteExchangesCount(2));
 
             //
             // Window function
@@ -3913,10 +3902,14 @@ public class TestHiveIntegrationSmokeTest
                     "FROM ORDERS\n" +
                     "WHERE mod(orderkey, 13) IN (1, 11)";
 
-            assertQuery(notColocated, noSplits, expectedNoSplits);
+            assertQuery(notColocatedNotGrouped, noSplits, expectedNoSplits);
+            assertQuery(notColocatedGrouped, noSplits, expectedNoSplits);
+            assertQuery(colocatedNotGrouped, noSplits, expectedNoSplits, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, noSplits, expectedNoSplits, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, noSplits, expectedNoSplits, assertRemoteExchangesCount(1));
-            assertQuery(notColocated, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
+            assertQuery(notColocatedNotGrouped, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
+            assertQuery(notColocatedGrouped, joinMismatchedBuckets, expectedJoinMismatchedBuckets);
+            assertQuery(colocatedNotGrouped, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
             assertQuery(colocatedAllGroupsAtOnce, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
             assertQuery(colocatedOneGroupAtATime, joinMismatchedBuckets, expectedJoinMismatchedBuckets, assertRemoteExchangesCount(1));
         }

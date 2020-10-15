@@ -46,7 +46,7 @@ import static com.facebook.airlift.log.Level.ERROR;
 import static com.facebook.airlift.log.Level.WARN;
 import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
-import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION_FOR_AGGREGATION;
+import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.spi.security.SelectedRole.Type.ROLE;
@@ -214,7 +214,7 @@ public final class HiveQueryRunner
                         "query.exchange-materialization-strategy", "ALL",
                         "query.hash-partition-count", "11",
                         "colocated-joins-enabled", "true",
-                        "grouped-execution-for-aggregation-enabled", "true"),
+                        "grouped-execution-enabled", "true"),
                 Optional.empty());
     }
 
@@ -285,7 +285,7 @@ public final class HiveQueryRunner
                 .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.ALL.toString())
                 .setSystemProperty(HASH_PARTITION_COUNT, "13")
                 .setSystemProperty(COLOCATED_JOIN, "true")
-                .setSystemProperty(GROUPED_EXECUTION_FOR_AGGREGATION, "true")
+                .setSystemProperty(GROUPED_EXECUTION, "true")
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
