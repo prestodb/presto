@@ -487,7 +487,7 @@ public final class ExpressionDomainTranslator
             Map<NodeRef<Expression>, Type> expressionTypes = analyzeExpression(cast);
             Type actualType = expressionTypes.get(NodeRef.of(cast.getExpression()));
             Type expectedType = expressionTypes.get(NodeRef.<Expression>of(cast));
-            return metadata.getTypeManager().canCoerce(actualType, expectedType);
+            return metadata.getFunctionAndTypeManager().canCoerce(actualType, expectedType);
         }
 
         private Map<NodeRef<Expression>, Type> analyzeExpression(Expression expression)

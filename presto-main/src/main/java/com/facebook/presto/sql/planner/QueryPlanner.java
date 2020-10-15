@@ -373,7 +373,7 @@ class QueryPlanner
                         rewritten,
                         coercion.getTypeSignature().toString(),
                         false,
-                        metadata.getTypeManager().isTypeOnlyCoercion(type, coercion));
+                        metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(type, coercion));
             }
             projections.put(variable, castToRowExpression(rewritten));
             translations.put(expression, variable);
@@ -698,7 +698,7 @@ class QueryPlanner
                         rewritten,
                         coercion.getTypeSignature().toString(),
                         false,
-                        metadata.getTypeManager().isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
+                        metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(analysis.getType(groupingOperation), coercion));
             }
             projections.put(variable, castToRowExpression(rewritten));
             newTranslations.put(groupingOperation, variable);

@@ -391,7 +391,7 @@ public class LocalQueryRunner
                 new HandleResolver(),
                 nodeManager,
                 nodeInfo,
-                metadata.getTypeManager(),
+                metadata.getFunctionAndTypeManager(),
                 pageSorter,
                 pageIndexerFactory,
                 transactionManager,
@@ -408,7 +408,7 @@ public class LocalQueryRunner
                 new TablePropertiesSystemTable(transactionManager, metadata),
                 new ColumnPropertiesSystemTable(transactionManager, metadata),
                 new AnalyzePropertiesSystemTable(transactionManager, metadata),
-                new TransactionsSystemTable(metadata.getTypeManager(), transactionManager)),
+                new TransactionsSystemTable(metadata.getFunctionAndTypeManager(), transactionManager)),
                 ImmutableSet.of());
 
         this.pluginManager = new PluginManager(

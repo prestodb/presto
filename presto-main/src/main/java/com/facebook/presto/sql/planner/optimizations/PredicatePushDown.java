@@ -16,7 +16,6 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.BooleanType;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.expressions.DynamicFilters;
 import com.facebook.presto.expressions.LogicalRowExpressions;
@@ -157,7 +156,6 @@ public class PredicatePushDown
         private final ExpressionEquivalence expressionEquivalence;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
         private final LogicalRowExpressions logicalRowExpressions;
-        private final TypeManager typeManager;
         private final FunctionAndTypeManager functionAndTypeManager;
         private final ExternalCallExpressionChecker externalCallExpressionChecker;
 
@@ -177,7 +175,6 @@ public class PredicatePushDown
             this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser);
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
             this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, new FunctionResolution(metadata.getFunctionAndTypeManager()), metadata.getFunctionAndTypeManager());
-            this.typeManager = metadata.getTypeManager();
             this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
             this.externalCallExpressionChecker = new ExternalCallExpressionChecker(functionAndTypeManager);
         }

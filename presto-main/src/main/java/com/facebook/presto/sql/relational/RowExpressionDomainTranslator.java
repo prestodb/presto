@@ -590,7 +590,7 @@ public final class RowExpressionDomainTranslator
         {
             Type sourceType = cast.getArguments().get(0).getType();
             Type targetType = cast.getType();
-            return metadata.getTypeManager().canCoerce(sourceType, targetType);
+            return metadata.getFunctionAndTypeManager().canCoerce(sourceType, targetType);
         }
 
         private static Domain extractOrderableDomain(OperatorType comparisonOperator, Type type, Object value, boolean complement)

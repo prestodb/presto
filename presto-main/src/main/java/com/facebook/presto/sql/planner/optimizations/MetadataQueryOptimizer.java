@@ -277,7 +277,7 @@ public class MetadataQueryOptimizer
 
         private RowExpression evaluateMinMax(FunctionMetadata aggregationFunctionMetadata, List<RowExpression> arguments)
         {
-            Type returnType = metadata.getTypeManager().getType(aggregationFunctionMetadata.getReturnType());
+            Type returnType = metadata.getFunctionAndTypeManager().getType(aggregationFunctionMetadata.getReturnType());
             if (arguments.isEmpty()) {
                 return constant(null, returnType);
             }

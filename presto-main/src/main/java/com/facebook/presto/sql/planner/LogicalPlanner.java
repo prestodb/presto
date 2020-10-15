@@ -371,7 +371,7 @@ public class LogicalPlanner
                 Type tableType = column.getType();
                 Type queryType = input.getType();
 
-                if (queryType.equals(tableType) || metadata.getTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
+                if (queryType.equals(tableType) || metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(queryType, tableType)) {
                     assignments.put(output, castToRowExpression(new SymbolReference(input.getName())));
                 }
                 else {

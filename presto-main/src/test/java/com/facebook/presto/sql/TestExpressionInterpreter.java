@@ -1722,7 +1722,7 @@ public class TestExpressionInterpreter
                 new FunctionResolution(METADATA.getFunctionAndTypeManager()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
             Type targetType = ((CallExpression) value).getType();
             Type sourceType = ((CallExpression) value).getArguments().get(0).getType();
-            return METADATA.getTypeManager().canCoerce(sourceType, targetType);
+            return METADATA.getFunctionAndTypeManager().canCoerce(sourceType, targetType);
         }
         return false;
     }

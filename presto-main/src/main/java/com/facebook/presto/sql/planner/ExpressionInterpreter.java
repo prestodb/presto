@@ -27,9 +27,9 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.expressions.DynamicFilters;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.scalar.ArraySubscriptOperator;
 import com.facebook.presto.spi.ConnectorSession;
@@ -194,7 +194,7 @@ public class ExpressionInterpreter
         analyzer.analyze(expression, Scope.create());
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
-        if (!metadata.getTypeManager().canCoerce(actualType, expectedType)) {
+        if (!metadata.getFunctionAndTypeManager().canCoerce(actualType, expectedType)) {
             throw new SemanticException(SemanticErrorCode.TYPE_MISMATCH, expression, format("Cannot cast type %s to %s",
                     actualType.getTypeSignature(),
                     expectedType.getTypeSignature()));
@@ -806,10 +806,11 @@ public class ExpressionInterpreter
                 return new NullIfExpression(toExpression(first, firstType), toExpression(second, secondType));
             }
 
-            Type commonType = metadata.getTypeManager().getCommonSuperType(firstType, secondType).get();
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            Type commonType = functionAndTypeManager.getCommonSuperType(firstType, secondType).get();
 
-            FunctionHandle firstCast = metadata.getFunctionAndTypeManager().lookupCast(CAST, firstType.getTypeSignature(), commonType.getTypeSignature());
-            FunctionHandle secondCast = metadata.getFunctionAndTypeManager().lookupCast(CAST, secondType.getTypeSignature(), commonType.getTypeSignature());
+            FunctionHandle firstCast = functionAndTypeManager.lookupCast(CAST, firstType.getTypeSignature(), commonType.getTypeSignature());
+            FunctionHandle secondCast = functionAndTypeManager.lookupCast(CAST, secondType.getTypeSignature(), commonType.getTypeSignature());
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -1062,17 +1063,17 @@ public class ExpressionInterpreter
                 Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, (Slice) escape);
                 Type valueType = type(node.getValue());
                 Type patternType = createVarcharType(unescapedPattern.length());
-                TypeManager typeManager = metadata.getTypeManager();
-                Optional<Type> commonSuperType = typeManager.getCommonSuperType(valueType, patternType);
+                FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+                Optional<Type> commonSuperType = functionAndTypeManager.getCommonSuperType(valueType, patternType);
                 checkArgument(commonSuperType.isPresent(), "Missing super type when optimizing %s", node);
                 Expression valueExpression = toExpression(value, valueType);
                 Expression patternExpression = toExpression(unescapedPattern, patternType);
                 Type superType = commonSuperType.get();
                 if (!valueType.equals(superType)) {
-                    valueExpression = new Cast(valueExpression, superType.getTypeSignature().toString(), false, typeManager.isTypeOnlyCoercion(valueType, superType));
+                    valueExpression = new Cast(valueExpression, superType.getTypeSignature().toString(), false, functionAndTypeManager.isTypeOnlyCoercion(valueType, superType));
                 }
                 if (!patternType.equals(superType)) {
-                    patternExpression = new Cast(patternExpression, superType.getTypeSignature().toString(), false, typeManager.isTypeOnlyCoercion(patternType, superType));
+                    patternExpression = new Cast(patternExpression, superType.getTypeSignature().toString(), false, functionAndTypeManager.isTypeOnlyCoercion(patternType, superType));
                 }
                 return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
             }
