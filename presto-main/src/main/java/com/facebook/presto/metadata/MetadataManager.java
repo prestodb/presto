@@ -528,7 +528,6 @@ public class MetadataManager
         return metadata.getPartitionNames(databaseName, tableHandle.getConnectorHandle());
     }
 
-
     @Override
     public Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle)
     {

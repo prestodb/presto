@@ -66,6 +66,7 @@ public class MVOptimizer
     private static final Logger log = Logger.get(MVOptimizer.class);
     private static final HashMap<String, MVInfo> mvTableNames = new HashMap<>();
     private static final HashMap<String, String> expressionToMVColumnName = new HashMap<>();
+    private static final HashSet<String> dimensions = new HashSet<>();
     private final Metadata metadata;
     private final String baseTableName;
 
@@ -174,6 +175,42 @@ public class MVOptimizer
         expressionToMVColumnName.put("MULTIPLY(post_iab_engagement_conv, weight)", "_post_iab_engagement_conv_mult_weight_");
         expressionToMVColumnName.put("MULTIPLY(is_from_related_ads, weight)", "_is_from_related_ads_mult_weight_");
         expressionToMVColumnName.put("MULTIPLY(max_bau_lookalike_score, CAST(weight))", "_max_bau_lookalike_score_mult_weight_");
+        expressionToMVColumnName.put("MULTIPLY(carousel_smart_opt_in_prediction, CAST(weight))", "_carousel_smart_opt_in_prediction_mult_weight_");
+        expressionToMVColumnName.put("MULTIPLY(multifeed_ectr, CAST(weight))", "_multifeed_ectr_mult_weight_");
+        expressionToMVColumnName.put("MULTIPLY(product_raw_pre_cali_ectr_pos0, CAST(weight))", "_product_raw_pre_cali_ectr_pos0_mult_weight_");
+
+
+        dimensions.add("ds");
+        dimensions.add("time");
+        dimensions.add("conv_purpose_flag_ads_score");
+        dimensions.add("is_ranking_legal");
+        dimensions.add("category");
+        dimensions.add("page_type_int");
+        dimensions.add("realized_adevent_trait_type");
+        dimensions.add("country");
+        dimensions.add("ad_event_primary_type");
+        dimensions.add("is_lift");
+        dimensions.add("ad_attribution_event");
+        dimensions.add("conversion_type");
+        dimensions.add("page_tab");
+        dimensions.add("ad_objective");
+        dimensions.add("account_id");
+        dimensions.add("is_legal");
+        dimensions.add("advertiser_bqrt_version");
+        dimensions.add("ad_pivot_type");
+        dimensions.add("business_id");
+        dimensions.add("mobile_os");
+        dimensions.add("ad_optimization_goal");
+        dimensions.add("adfinder_region");
+        dimensions.add("optimized_ad_primary_event_types");
+        dimensions.add("qrt_quality_emerging_surface_ccd_version");
+        dimensions.add("campaign_id");
+        dimensions.add("qrt_feed_ads_quality_2_version");
+        dimensions.add("qrt_fb_story_ads_optimization_2_version");
+        dimensions.add("qrt_feed_ads_quality_ccd_version");
+        dimensions.add("page_id");
+        dimensions.add("account_type");
+        dimensions.add("ad_event_sub_type");
 
         baseTableName = "simple_base_table";
     }
@@ -251,7 +288,47 @@ public class MVOptimizer
 
     private boolean isMVCompatible(Context mvOptimizerContext, PlanNode planNode)
     {
-        return isPlanCompatible(planNode) && isProjectionCompatible(planNode);// && isPartitionsLanded(mvOptimizerContext, planNode);
+        return isPlanCompatible(planNode) && isProjectionCompatible(planNode)
+                && isFilterCompatible(planNode); // && isPartitionsLanded(mvOptimizerContext, planNode);
+    }
+
+    private boolean isFilterCompatible(PlanNode node)
+    {
+        FilterNode filterNode = getFilterNode(node);
+
+        List<RowExpression> predicates = LogicalRowExpressions.extractPredicates(filterNode.getPredicate());
+        for (RowExpression predicate : predicates) {
+            if (predicate instanceof CallExpression) {
+                CallExpression callExpression = (CallExpression) predicate;
+                List<RowExpression> arguments = callExpression.getArguments();
+                for (RowExpression expression : arguments) {
+                    if (expression instanceof VariableReferenceExpression) {
+                        if (!dimensions.contains(((VariableReferenceExpression) expression).getName())) {
+                            log.error(String.format("Failed to find the expression in the dimension![%s], Skipping the MV optimization", expression.toString()));
+                            return false;
+                        }
+                    }
+                }
+            }
+            else if (predicate instanceof SpecialFormExpression) {
+                SpecialFormExpression specialFormExpression = (SpecialFormExpression) predicate;
+                List<RowExpression> arguments = specialFormExpression.getArguments();
+                for (RowExpression expression : arguments) {
+                    if (expression instanceof VariableReferenceExpression) {
+                        if (!dimensions.contains(((VariableReferenceExpression) expression).getName())) {
+                            log.error(String.format("Failed to find the expression in the dimension![%s], Skipping the MV optimization", expression.toString()));
+                            return false;
+                        }
+                    }
+                }
+            }
+            else {
+                log.error("Unsupported predicate expression [{}]", predicate);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private boolean isPartitionsLanded(Context context, PlanNode planNode)
