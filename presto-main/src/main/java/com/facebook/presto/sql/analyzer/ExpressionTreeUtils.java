@@ -15,7 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -126,7 +125,7 @@ public final class ExpressionTreeUtils
         return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
-    static Optional<EnumType> tryResolveEnumLiteralType(QualifiedName qualifiedName, TypeManager typeManager)
+    static Optional<EnumType> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
     {
         Optional<QualifiedName> prefix = qualifiedName.getPrefix();
         if (!prefix.isPresent()) {
@@ -134,7 +133,7 @@ public final class ExpressionTreeUtils
             return Optional.empty();
         }
         try {
-            Type baseType = typeManager.getType(parseTypeSignature(prefix.get().toString()));
+            Type baseType = functionAndTypeManager.getType(parseTypeSignature(prefix.get().toString()));
             if (baseType instanceof EnumType) {
                 return Optional.of((EnumType) baseType);
             }

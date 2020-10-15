@@ -488,7 +488,7 @@ class RelationPlanner
                     new SymbolReference(left.getVariable(leftField).getName()),
                     type.getTypeSignature().toString(),
                     false,
-                    metadata.getTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type))));
+                    metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(left.getDescriptor().getFieldByIndex(leftField).getType(), type))));
             leftJoinColumns.put(identifier, leftOutput);
 
             // compute the coercion for the field on the right to the common supertype of left & right
@@ -498,7 +498,7 @@ class RelationPlanner
                     new SymbolReference(right.getVariable(rightField).getName()),
                     type.getTypeSignature().toString(),
                     false,
-                    metadata.getTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type))));
+                    metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(right.getDescriptor().getFieldByIndex(rightField).getType(), type))));
             rightJoinColumns.put(identifier, rightOutput);
 
             clauses.add(new JoinNode.EquiJoinClause(leftOutput, rightOutput));

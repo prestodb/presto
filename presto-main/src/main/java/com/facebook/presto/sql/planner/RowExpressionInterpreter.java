@@ -23,7 +23,6 @@ import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -367,7 +366,7 @@ public class RowExpressionInterpreter
 
                     Type leftType = node.getArguments().get(0).getType();
                     Type rightType = node.getArguments().get(1).getType();
-                    Type commonType = metadata.getTypeManager().getCommonSuperType(leftType, rightType).get();
+                    Type commonType = metadata.getFunctionAndTypeManager().getCommonSuperType(leftType, rightType).get();
                     FunctionHandle firstCast = metadata.getFunctionAndTypeManager().lookupCast(CAST, leftType.getTypeSignature(), commonType.getTypeSignature());
                     FunctionHandle secondCast = metadata.getFunctionAndTypeManager().lookupCast(CAST, rightType.getTypeSignature(), commonType.getTypeSignature());
 
@@ -841,7 +840,7 @@ public class RowExpressionInterpreter
                 return changed(call(callExpression.getDisplayName(), callExpression.getFunctionHandle(), callExpression.getType(), toRowExpression(value, source)));
             }
 
-            if (metadata.getTypeManager().isTypeOnlyCoercion(sourceType, targetType)) {
+            if (metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(sourceType, targetType)) {
                 return changed(value);
             }
             return notChanged();
@@ -913,8 +912,7 @@ public class RowExpressionInterpreter
                 Slice unescapedPattern = unescapeLiteralLikePattern((Slice) nonCompiledPattern, (Slice) escape);
                 Type valueType = argumentTypes.get(0);
                 Type patternType = createVarcharType(unescapedPattern.length());
-                TypeManager typeManager = metadata.getTypeManager();
-                Optional<Type> commonSuperType = typeManager.getCommonSuperType(valueType, patternType);
+                Optional<Type> commonSuperType = metadata.getFunctionAndTypeManager().getCommonSuperType(valueType, patternType);
                 checkArgument(commonSuperType.isPresent(), "Missing super type when optimizing %s", callExpression);
                 RowExpression valueExpression = LiteralEncoder.toRowExpression(value, valueType);
                 RowExpression patternExpression = LiteralEncoder.toRowExpression(unescapedPattern, patternType);

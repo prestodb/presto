@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
 import com.facebook.presto.spi.PrestoException;
@@ -114,7 +115,7 @@ public final class TypeUtils
         return typeManager.getType(typeName);
     }
 
-    public static boolean isIntegralType(TypeSignature typeName, TypeManager typeManager)
+    public static boolean isIntegralType(TypeSignature typeName, FunctionAndTypeManager functionAndTypeManager)
     {
         switch (typeName.getBase()) {
             case StandardTypes.BIGINT:
@@ -123,17 +124,17 @@ public final class TypeUtils
             case StandardTypes.TINYINT:
                 return true;
             case StandardTypes.DECIMAL:
-                DecimalType decimalType = (DecimalType) resolveType(typeName, typeManager);
+                DecimalType decimalType = (DecimalType) resolveType(typeName, functionAndTypeManager);
                 return decimalType.getScale() == 0;
             default:
                 return false;
         }
     }
 
-    public static List<Type> resolveTypes(List<TypeSignature> typeNames, TypeManager typeManager)
+    public static List<Type> resolveTypes(List<TypeSignature> typeNames, FunctionAndTypeManager functionAndTypeManager)
     {
         return typeNames.stream()
-                .map((TypeSignature type) -> resolveType(type, typeManager))
+                .map((TypeSignature type) -> resolveType(type, functionAndTypeManager))
                 .collect(toImmutableList());
     }
 

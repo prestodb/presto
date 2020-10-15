@@ -90,7 +90,7 @@ public class TranslateExpressions
                 if (!lambdaExpressions.isEmpty()) {
                     List<FunctionType> functionTypes = metadata.getFunctionAndTypeManager().getFunctionMetadata(callExpression.getFunctionHandle()).getArgumentTypes().stream()
                             .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
-                            .map(typeSignature -> (FunctionType) (metadata.getTypeManager().getType(typeSignature)))
+                            .map(typeSignature -> (FunctionType) (metadata.getFunctionAndTypeManager().getType(typeSignature)))
                             .collect(toImmutableList());
                     InternalAggregationFunction internalAggregationFunction = metadata.getFunctionAndTypeManager().getAggregateFunctionImplementation(callExpression.getFunctionHandle());
                     List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();

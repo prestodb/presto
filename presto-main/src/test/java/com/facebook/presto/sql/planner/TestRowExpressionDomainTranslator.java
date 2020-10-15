@@ -976,7 +976,7 @@ public class TestRowExpressionDomainTranslator
     {
         Type columnType = columnValues.getInput().getType();
         Type literalType = literalValues.getInput().getType();
-        Type superType = metadata.getTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
+        Type superType = metadata.getFunctionAndTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
 
         RowExpression max = toRowExpression(literalValues.getMax(), literalType);
         RowExpression min = toRowExpression(literalValues.getMin(), literalType);

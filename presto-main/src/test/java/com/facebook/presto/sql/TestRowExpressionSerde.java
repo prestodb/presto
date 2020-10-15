@@ -281,7 +281,6 @@ public class TestRowExpressionSerde
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
-                metadata.getTypeManager(),
                 TEST_SESSION,
                 TypeProvider.empty(),
                 emptyList(),

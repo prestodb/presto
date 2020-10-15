@@ -81,7 +81,7 @@ public class TestMinMaxByAggregation
 
     private static List<Type> getTypes()
     {
-        List<Type> simpleTypes = metadata.getTypeManager().getTypes();
+        List<Type> simpleTypes = metadata.getFunctionAndTypeManager().getTypes();
         return new ImmutableList.Builder<Type>()
                 .addAll(simpleTypes)
                 .add(VARCHAR)

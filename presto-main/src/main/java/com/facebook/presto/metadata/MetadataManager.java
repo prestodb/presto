@@ -24,7 +24,6 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
@@ -1240,13 +1239,6 @@ public class MetadataManager
     public ProcedureRegistry getProcedureRegistry()
     {
         return procedures;
-    }
-
-    @Override
-    public TypeManager getTypeManager()
-    {
-        // TODO: make this transactional when we allow user defined types
-        return functionAndTypeManager;
     }
 
     @Override
