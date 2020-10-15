@@ -48,6 +48,8 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -342,6 +344,7 @@ public class HiveSplitManager
         }
 
         Optional<Set<HiveColumnHandle>> allRequestedColumns = mergeRequestedAndPredicateColumns(requestedColumns, predicateColumns);
+        Map<String, List<String>> notReadablePartitionWarnings = new HashMap<>();
 
         if (hivePartitions.size() == 1) {
             HivePartition firstPartition = getOnlyElement(hivePartitions);
@@ -397,9 +400,7 @@ public class HiveSplitManager
                         if (!shouldIgnoreUnreadablePartition(session) || !partition.isEligibleToIgnore()) {
                             throw new HiveNotReadableException(tableName, Optional.of(partName), partitionNotReadable);
                         }
-                        warningCollector.add(new PrestoWarning(
-                                PARTITION_NOT_READABLE,
-                                format("Table '%s' partition '%s' is not readable: %s", tableName, partName, partitionNotReadable)));
+                        notReadablePartitionWarnings.computeIfAbsent(partitionNotReadable, (key) -> new ArrayList<>()).add("'" + partName + "'");
                         continue;
                     }
                 }
@@ -478,6 +479,13 @@ public class HiveSplitManager
 
             return results.build();
         });
+        if (!notReadablePartitionWarnings.isEmpty()) {
+            notReadablePartitionWarnings.forEach((reason, notReadablePartitions) -> warningCollector.add(new PrestoWarning(
+                    PARTITION_NOT_READABLE,
+                    format("Table '%s' has %d out of %d partitions: %s not readable: %s",
+                            tableName, notReadablePartitions.size(), hivePartitions.size(),
+                            String.join(", ", notReadablePartitions), reason))));
+        }
         return concat(partitionBatches);
     }
 
