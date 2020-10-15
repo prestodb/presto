@@ -140,7 +140,8 @@ public class FileSingleStreamSpiller
     private void writePages(Iterator<Page> pageIterator)
     {
         checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
-        try (DataSink sink = tempFile.getDataSink()) {
+        DataSink sink = tempFile.getDataSink();
+        try {
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 spilledPagesInMemorySize += page.getSizeInBytes();
@@ -152,6 +153,12 @@ public class FileSingleStreamSpiller
             }
         }
         catch (UncheckedIOException | IOException e) {
+            try {
+                sink.close();
+            }
+            catch (IOException ex) {
+                ex.printStackTrace();
+            }
             throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
         }
     }
@@ -162,6 +169,7 @@ public class FileSingleStreamSpiller
         writable = false;
 
         try {
+            tempFile.getDataSink().close();
             SliceInput input = closer.register(fileStore.getSliceInput(tempFile.getHandle()));
             Iterator<Page> pages = PagesSerdeUtil.readPages(serde, input);
             return closeWhenExhausted(pages, input);

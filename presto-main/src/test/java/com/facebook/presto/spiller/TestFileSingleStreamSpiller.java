@@ -119,15 +119,6 @@ public class TestFileSingleStreamSpiller
         spiller.spill(Iterators.forArray(page, page, page)).get();
         assertEquals(listFiles(spillPath.toPath()).size(), 1);
 
-        // Assert the spill codec flags match the expected configuration
-        try (InputStream is = newInputStream(listFiles(spillPath.toPath()).get(0))) {
-            Iterator<SerializedPage> serializedPages = PagesSerdeUtil.readSerializedPages(new InputStreamSliceInput(is));
-            assertTrue(serializedPages.hasNext(), "at least one page should be successfully read back");
-            byte markers = serializedPages.next().getPageCodecMarkers();
-            assertEquals(PageCodecMarker.COMPRESSED.isSet(markers), compression);
-            assertEquals(PageCodecMarker.ENCRYPTED.isSet(markers), encryption);
-        }
-
         // The spillers release their memory reservations when they are closed, therefore at this point
         // they will have non-zero memory reservation.
         // assertEquals(memoryContext.getBytes(), 0);
@@ -138,6 +129,15 @@ public class TestFileSingleStreamSpiller
         // The spillers release their memory reservations when they are closed, therefore at this point
         // they will have non-zero memory reservation.
         // assertEquals(memoryContext.getBytes(), 0);
+
+        // Assert the spill codec flags match the expected configuration
+        try (InputStream is = newInputStream(listFiles(spillPath.toPath()).get(0))) {
+            Iterator<SerializedPage> serializedPages = PagesSerdeUtil.readSerializedPages(new InputStreamSliceInput(is));
+            assertTrue(serializedPages.hasNext(), "at least one page should be successfully read back");
+            byte markers = serializedPages.next().getPageCodecMarkers();
+            assertEquals(PageCodecMarker.COMPRESSED.isSet(markers), compression);
+            assertEquals(PageCodecMarker.ENCRYPTED.isSet(markers), encryption);
+        }
 
         assertEquals(4, spilledPages.size());
         for (int i = 0; i < 4; ++i) {
