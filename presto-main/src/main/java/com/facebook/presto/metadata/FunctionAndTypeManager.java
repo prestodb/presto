@@ -170,6 +170,32 @@ public class FunctionAndTypeManager
         }
     }
 
+    @Override
+    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getFunctionNamespace());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getFunctionNamespace());
+        return functionNamespaceManager.get().getFunctionMetadata(functionHandle);
+    }
+
+    @Override
+    public Type getType(TypeSignature signature)
+    {
+        return builtInTypeRegistry.getType(signature);
+    }
+
+    @Override
+    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    {
+        return builtInTypeRegistry.getParameterizedType(baseTypeName, typeParameters);
+    }
+
+    @Override
+    public boolean canCoerce(Type actualType, Type expectedType)
+    {
+        return builtInTypeRegistry.canCoerce(actualType, expectedType);
+    }
+
     public FunctionInvokerProvider getFunctionInvokerProvider()
     {
         return functionInvokerProvider;
@@ -242,16 +268,6 @@ public class FunctionAndTypeManager
         }
     }
 
-    public void addType(Type type)
-    {
-        builtInTypeRegistry.addType(type);
-    }
-
-    public void addParametricType(ParametricType parametricType)
-    {
-        builtInTypeRegistry.addParametricType(parametricType);
-    }
-
     public static QualifiedFunctionName qualifyFunctionName(QualifiedName name)
     {
         if (!name.getPrefix().isPresent()) {
@@ -279,60 +295,39 @@ public class FunctionAndTypeManager
         return resolveFunctionInternal(transactionId, functionName, parameterTypes);
     }
 
-    @Override
-    public Type getType(TypeSignature signature)
+    public void addType(Type type)
     {
-        return builtInTypeRegistry.getType(signature);
+        builtInTypeRegistry.addType(type);
     }
 
-    @Override
-    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    public void addParametricType(ParametricType parametricType)
     {
-        return builtInTypeRegistry.getParameterizedType(baseTypeName, typeParameters);
+        builtInTypeRegistry.addParametricType(parametricType);
     }
 
-    @Override
     public List<Type> getTypes()
     {
         return builtInTypeRegistry.getTypes();
     }
 
-    @Override
     public Collection<ParametricType> getParametricTypes()
     {
         return builtInTypeRegistry.getParametricTypes();
     }
 
-    @Override
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
         return builtInTypeRegistry.getCommonSuperType(firstType, secondType);
     }
 
-    @Override
-    public boolean canCoerce(Type actualType, Type expectedType)
-    {
-        return builtInTypeRegistry.canCoerce(actualType, expectedType);
-    }
-
-    @Override
     public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
     {
         return builtInTypeRegistry.isTypeOnlyCoercion(actualType, expectedType);
     }
 
-    @Override
     public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
     {
         return builtInTypeRegistry.coerceTypeBase(sourceType, resultTypeBase);
-    }
-
-    @Override
-    public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
-    {
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getFunctionNamespace());
-        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getFunctionNamespace());
-        return functionNamespaceManager.get().getFunctionMetadata(functionHandle);
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
