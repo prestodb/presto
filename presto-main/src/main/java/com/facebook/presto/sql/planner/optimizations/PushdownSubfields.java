@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Subfield.NestedField;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
@@ -117,7 +117,7 @@ public class PushdownSubfields
         private final StandardFunctionResolution functionResolution;
         private final ExpressionOptimizer expressionOptimizer;
         private final SubfieldExtractor subfieldExtractor;
-        private static final QualifiedFunctionName ARBITRARY_AGGREGATE_FUNCTION = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "arbitrary");
+        private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "arbitrary");
 
         public Rewriter(Session session, Metadata metadata)
         {
@@ -138,7 +138,7 @@ public class PushdownSubfields
                 AggregationNode.Aggregation aggregation = entry.getValue();
 
                 // Allow sub-field pruning to pass through the arbitrary() aggregation
-                QualifiedFunctionName aggregateName = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getCall().getFunctionHandle()).getName();
+                QualifiedObjectName aggregateName = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getCall().getFunctionHandle()).getName();
                 if (ARBITRARY_AGGREGATE_FUNCTION.equals(aggregateName)) {
                     checkState(aggregation.getArguments().get(0) instanceof VariableReferenceExpression);
                     context.get().addAssignment(variable, (VariableReferenceExpression) aggregation.getArguments().get(0));

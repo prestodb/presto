@@ -373,7 +373,7 @@ public class ReorderJoins
         private static boolean isJoinEqualityCondition(RowExpression expression)
         {
             return expression instanceof CallExpression
-                    && ((CallExpression) expression).getDisplayName().equals(EQUAL.getFunctionName().getFunctionName())
+                    && ((CallExpression) expression).getDisplayName().equals(EQUAL.getFunctionName().getObjectName())
                     && ((CallExpression) expression).getArguments().size() == 2
                     && ((CallExpression) expression).getArguments().get(0) instanceof VariableReferenceExpression
                     && ((CallExpression) expression).getArguments().get(1) instanceof VariableReferenceExpression;

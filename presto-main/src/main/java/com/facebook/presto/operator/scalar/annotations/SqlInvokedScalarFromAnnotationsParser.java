@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
@@ -156,7 +156,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
 
         return Stream.concat(Stream.of(functionHeader.value()), stream(functionHeader.alias()))
                 .map(name -> new SqlInvokedFunction(
-                        QualifiedFunctionName.of(DEFAULT_NAMESPACE, name),
+                        QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
                         parameters,
                         returnType,
                         functionDescription,

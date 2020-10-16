@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
 
@@ -44,7 +44,7 @@ public class SqlInvokedFunction
     private final Optional<SqlFunctionHandle> functionHandle;
 
     public SqlInvokedFunction(
-            QualifiedFunctionName functionName,
+            QualifiedObjectName functionName,
             List<Parameter> parameters,
             TypeSignature returnType,
             String description,

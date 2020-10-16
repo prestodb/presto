@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
@@ -107,7 +107,7 @@ public abstract class StatisticalDigestAggregationFunction
     StatisticalDigestAggregationFunction(String name, String type, StatisticalDigestStateFactory factory, SqlFunctionVisibility visibility, TypeSignature... typeSignatures)
     {
         super(new Signature(
-                        QualifiedFunctionName.of(DEFAULT_NAMESPACE, name),
+                        QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
                         AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("V")),
                         ImmutableList.of(),

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -29,12 +29,12 @@ import static java.util.stream.Collectors.joining;
 @Experimental
 public class SqlFunctionId
 {
-    private final QualifiedFunctionName functionName;
+    private final QualifiedObjectName functionName;
     private final List<TypeSignature> argumentTypes;
 
     @JsonCreator
     public SqlFunctionId(
-            @JsonProperty("functionName") QualifiedFunctionName functionName,
+            @JsonProperty("functionName") QualifiedObjectName functionName,
             @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes)
     {
         this.functionName = requireNonNull(functionName, "functionName is null");
@@ -42,7 +42,7 @@ public class SqlFunctionId
     }
 
     @JsonProperty
-    public QualifiedFunctionName getFunctionName()
+    public QualifiedObjectName getFunctionName()
     {
         return functionName;
     }

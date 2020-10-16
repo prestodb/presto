@@ -11,48 +11,62 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.common;
 
-import com.facebook.presto.spi.CatalogSchemaTableName;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Function;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 
-import static com.facebook.presto.metadata.MetadataUtil.checkObjectName;
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class QualifiedObjectName
 {
-    @JsonCreator
-    public static QualifiedObjectName valueOf(String name)
-    {
-        requireNonNull(name, "name is null");
-
-        ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(name));
-        checkArgument(ids.size() == 3, "Invalid name %s", name);
-
-        return new QualifiedObjectName(ids.get(0), ids.get(1), ids.get(2));
-    }
-
     private final String catalogName;
     private final String schemaName;
     private final String objectName;
 
+    @JsonCreator
+    public static QualifiedObjectName valueOf(String name)
+    {
+        if (name == null) {
+            throw new NullPointerException("name is null");
+        }
+        String[] parts = name.split("\\.");
+        if (parts.length != 3) {
+            throw new IllegalArgumentException("QualifiedObjectName should have exactly 3 parts");
+        }
+        return new QualifiedObjectName(parts[0], parts[1], parts[2]);
+    }
+
+    public static QualifiedObjectName valueOf(CatalogSchemaName catalogSchemaName, String objectName)
+    {
+        return new QualifiedObjectName(catalogSchemaName.getCatalogName(), catalogSchemaName.getSchemaName(), objectName.toLowerCase(ENGLISH));
+    }
+
+    public static QualifiedObjectName valueOf(String catalogName, String schemaName, String objectName)
+    {
+        return new QualifiedObjectName(catalogName, schemaName, objectName.toLowerCase(ENGLISH));
+    }
+
     public QualifiedObjectName(String catalogName, String schemaName, String objectName)
     {
-        checkObjectName(catalogName, schemaName, objectName);
+        checkLowerCase(catalogName, "catalogName");
+        checkLowerCase(schemaName, "schemaName");
+        checkLowerCase(objectName, "objectName");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.objectName = objectName;
+    }
+
+    public CatalogSchemaName getCatalogSchemaName()
+    {
+        return new CatalogSchemaName(catalogName, schemaName);
     }
 
     public String getCatalogName()
@@ -68,21 +82,6 @@ public class QualifiedObjectName
     public String getObjectName()
     {
         return objectName;
-    }
-
-    public SchemaTableName asSchemaTableName()
-    {
-        return new SchemaTableName(schemaName, objectName);
-    }
-
-    public CatalogSchemaTableName asCatalogSchemaTableName()
-    {
-        return new CatalogSchemaTableName(catalogName, schemaName, objectName);
-    }
-
-    public QualifiedTablePrefix asQualifiedTablePrefix()
-    {
-        return new QualifiedTablePrefix(catalogName, schemaName, objectName);
     }
 
     @Override
@@ -113,8 +112,11 @@ public class QualifiedObjectName
         return catalogName + '.' + schemaName + '.' + objectName;
     }
 
-    public static Function<SchemaTableName, QualifiedObjectName> convertFromSchemaTableName(String catalogName)
+    private static void checkLowerCase(String value, String name)
     {
-        return input -> new QualifiedObjectName(catalogName, input.getSchemaName(), input.getTableName());
+        requireNonNull(value, format("%s is null", name));
+        if (!value.equals(value.toLowerCase(ENGLISH))) {
+            throw new IllegalArgumentException(format("%s is not lowercase: %s", name, value));
+        }
     }
 }

@@ -15,8 +15,8 @@ package com.facebook.presto.functionNamespace;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.spi.PrestoException;
@@ -65,7 +65,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
 
     private final String catalogName;
     private final SqlFunctionExecutors sqlFunctionExecutors;
-    private final LoadingCache<QualifiedFunctionName, Collection<SqlInvokedFunction>> functions;
+    private final LoadingCache<QualifiedObjectName, Collection<SqlInvokedFunction>> functions;
     private final LoadingCache<SqlFunctionHandle, FunctionMetadata> metadataByHandle;
     private final LoadingCache<SqlFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
 
@@ -76,11 +76,11 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         requireNonNull(config, "config is null");
         this.functions = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getFunctionCacheExpiration().toMillis(), MILLISECONDS)
-                .build(new CacheLoader<QualifiedFunctionName, Collection<SqlInvokedFunction>>()
+                .build(new CacheLoader<QualifiedObjectName, Collection<SqlInvokedFunction>>()
                 {
                     @Override
                     @ParametersAreNonnullByDefault
-                    public Collection<SqlInvokedFunction> load(QualifiedFunctionName functionName)
+                    public Collection<SqlInvokedFunction> load(QualifiedObjectName functionName)
                     {
                         Collection<SqlInvokedFunction> functions = fetchFunctionsDirect(functionName);
                         for (SqlInvokedFunction function : functions) {
@@ -112,7 +112,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 });
     }
 
-    protected abstract Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedFunctionName functionName);
+    protected abstract Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedObjectName functionName);
 
     protected abstract FunctionMetadata fetchFunctionMetadataDirect(SqlFunctionHandle functionHandle);
 
@@ -141,7 +141,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     }
 
     @Override
-    public final Collection<SqlInvokedFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
+    public final Collection<SqlInvokedFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedObjectName functionName)
     {
         checkCatalog(functionName);
         if (transactionHandle.isPresent()) {
@@ -203,14 +203,14 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         checkCatalog(function.getSignature().getName());
     }
 
-    protected void checkCatalog(QualifiedFunctionName functionName)
+    protected void checkCatalog(QualifiedObjectName functionName)
     {
-        checkCatalog(functionName.getFunctionNamespace());
+        checkCatalog(functionName.getCatalogSchemaName());
     }
 
     protected void checkCatalog(FunctionHandle functionHandle)
     {
-        checkCatalog(functionHandle.getFunctionNamespace());
+        checkCatalog(functionHandle.getCatalogSchemaName());
     }
 
     protected void checkCatalog(CatalogSchemaName functionNamespace)
@@ -222,7 +222,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                 catalogName);
     }
 
-    protected void refreshFunctionsCache(QualifiedFunctionName functionName)
+    protected void refreshFunctionsCache(QualifiedObjectName functionName)
     {
         functions.refresh(functionName);
     }
@@ -272,7 +272,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
         }
     }
 
-    private Collection<SqlInvokedFunction> fetchFunctions(QualifiedFunctionName functionName)
+    private Collection<SqlInvokedFunction> fetchFunctions(QualifiedObjectName functionName)
     {
         return functions.getUnchecked(functionName);
     }
@@ -280,12 +280,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     private class FunctionCollection
     {
         @GuardedBy("this")
-        private final Map<QualifiedFunctionName, Collection<SqlInvokedFunction>> functions = new ConcurrentHashMap<>();
+        private final Map<QualifiedObjectName, Collection<SqlInvokedFunction>> functions = new ConcurrentHashMap<>();
 
         @GuardedBy("this")
         private final Map<SqlFunctionId, SqlFunctionHandle> functionHandles = new ConcurrentHashMap<>();
 
-        public synchronized Collection<SqlInvokedFunction> loadAndGetFunctionsTransactional(QualifiedFunctionName functionName)
+        public synchronized Collection<SqlInvokedFunction> loadAndGetFunctionsTransactional(QualifiedObjectName functionName)
         {
             Collection<SqlInvokedFunction> functions = this.functions.computeIfAbsent(functionName, AbstractSqlInvokedFunctionNamespaceManager.this::fetchFunctions);
             functionHandles.putAll(functions.stream().collect(toImmutableMap(SqlInvokedFunction::getFunctionId, SqlInvokedFunction::getRequiredFunctionHandle)));

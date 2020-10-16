@@ -13,8 +13,7 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
-import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.InvalidFunctionHandleException;
@@ -100,13 +99,13 @@ public class MySqlFunctionNamespaceManager
     }
 
     @Override
-    protected Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedFunctionName functionName)
+    protected Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedObjectName functionName)
     {
         checkCatalog(functionName);
         return functionNamespaceDao.getFunctions(
-                functionName.getFunctionNamespace().getCatalogName(),
-                functionName.getFunctionNamespace().getSchemaName(),
-                functionName.getFunctionName());
+                functionName.getCatalogName(),
+                functionName.getSchemaName(),
+                functionName.getObjectName());
     }
 
     @Override
@@ -138,13 +137,13 @@ public class MySqlFunctionNamespaceManager
         checkFunctionLanguageSupported(function);
         checkArgument(!function.getVersion().isPresent(), "function '%s' is already versioned", function);
 
-        QualifiedFunctionName functionName = function.getFunctionId().getFunctionName();
-        checkFieldLength("Catalog name", functionName.getFunctionNamespace().getCatalogName(), MAX_CATALOG_NAME_LENGTH);
-        checkFieldLength("Schema name", functionName.getFunctionNamespace().getSchemaName(), MAX_SCHEMA_NAME_LENGTH);
-        if (!functionNamespaceDao.functionNamespaceExists(functionName.getFunctionNamespace().getCatalogName(), functionName.getFunctionNamespace().getSchemaName())) {
-            throw new PrestoException(NOT_FOUND, format("Function namespace not found: %s", functionName.getFunctionNamespace()));
+        QualifiedObjectName functionName = function.getFunctionId().getFunctionName();
+        checkFieldLength("Catalog name", functionName.getCatalogName(), MAX_CATALOG_NAME_LENGTH);
+        checkFieldLength("Schema name", functionName.getSchemaName(), MAX_SCHEMA_NAME_LENGTH);
+        if (!functionNamespaceDao.functionNamespaceExists(functionName.getCatalogName(), functionName.getSchemaName())) {
+            throw new PrestoException(NOT_FOUND, format("Function namespace not found: %s", functionName.getCatalogSchemaName()));
         }
-        checkFieldLength("Function name", functionName.getFunctionName(), MAX_FUNCTION_NAME_LENGTH);
+        checkFieldLength("Function name", functionName.getObjectName(), MAX_FUNCTION_NAME_LENGTH);
 
         if (function.getParameters().size() > MAX_PARAMETER_COUNT) {
             throw new PrestoException(GENERIC_USER_ERROR, format("Function has more than %s parameters: %s", MAX_PARAMETER_COUNT, function.getParameters().size()));
@@ -182,7 +181,7 @@ public class MySqlFunctionNamespaceManager
     }
 
     @Override
-    public void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
+    public void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
     {
         checkCatalog(functionName);
         jdbi.useTransaction(handle -> {
@@ -212,7 +211,7 @@ public class MySqlFunctionNamespaceManager
     }
 
     @Override
-    public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    public void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
         checkCatalog(functionName);
         jdbi.useTransaction(handle -> {
@@ -230,7 +229,7 @@ public class MySqlFunctionNamespaceManager
         refreshFunctionsCache(functionName);
     }
 
-    private List<SqlInvokedFunction> getSqlFunctions(FunctionNamespaceDao functionNamespaceDao, QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes)
+    private List<SqlInvokedFunction> getSqlFunctions(FunctionNamespaceDao functionNamespaceDao, QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes)
     {
         List<SqlInvokedFunctionRecord> records = new ArrayList<>();
         if (parameterTypes.isPresent()) {
@@ -238,8 +237,7 @@ public class MySqlFunctionNamespaceManager
             functionNamespaceDao.getLatestRecordForUpdate(hash(functionId), functionId).ifPresent(records::add);
         }
         else {
-            CatalogSchemaName functionNamespace = functionName.getFunctionNamespace();
-            records = functionNamespaceDao.getLatestRecordsForUpdate(functionNamespace.getCatalogName(), functionNamespace.getSchemaName(), functionName.getFunctionName());
+            records = functionNamespaceDao.getLatestRecordsForUpdate(functionName.getCatalogName(), functionName.getSchemaName(), functionName.getObjectName());
         }
         return records.stream()
                 .filter(record -> !record.isDeleted())
@@ -249,14 +247,14 @@ public class MySqlFunctionNamespaceManager
 
     private void insertSqlInvokedFunction(FunctionNamespaceDao functionNamespaceDao, SqlInvokedFunction function, long version)
     {
-        QualifiedFunctionName functionName = function.getFunctionId().getFunctionName();
+        QualifiedObjectName functionName = function.getFunctionId().getFunctionName();
         functionNamespaceDao.insertFunction(
                 hash(function.getFunctionId()),
                 function.getFunctionId(),
                 version,
-                functionName.getFunctionNamespace().getCatalogName(),
-                functionName.getFunctionNamespace().getSchemaName(),
-                functionName.getFunctionName(),
+                functionName.getCatalogName(),
+                functionName.getSchemaName(),
+                functionName.getObjectName(),
                 function.getParameters(),
                 function.getSignature().getReturnType(),
                 function.getDescription(),
@@ -281,7 +279,7 @@ public class MySqlFunctionNamespaceManager
         }
     }
 
-    private static void checkUnique(List<SqlInvokedFunction> functions, QualifiedFunctionName functionName)
+    private static void checkUnique(List<SqlInvokedFunction> functions, QualifiedObjectName functionName)
     {
         if (functions.size() > 1) {
             String signatures = functions.stream()
@@ -292,7 +290,7 @@ public class MySqlFunctionNamespaceManager
         }
     }
 
-    private static void checkExists(List<SqlInvokedFunction> functions, QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes)
+    private static void checkExists(List<SqlInvokedFunction> functions, QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes)
     {
         if (functions.isEmpty()) {
             String formattedParameterTypes = parameterTypes.map(types -> types.stream()

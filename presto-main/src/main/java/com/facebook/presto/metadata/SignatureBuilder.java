@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.LongVariableConstraint;
@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class SignatureBuilder
 {
-    private QualifiedFunctionName name;
+    private QualifiedObjectName name;
     private FunctionKind kind;
     private List<TypeVariableConstraint> typeVariableConstraints = emptyList();
     private List<LongVariableConstraint> longVariableConstraints = emptyList();
@@ -49,11 +49,11 @@ public final class SignatureBuilder
 
     public SignatureBuilder name(String name)
     {
-        this.name = QualifiedFunctionName.of(DEFAULT_NAMESPACE, requireNonNull(name, "name is null"));
+        this.name = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, requireNonNull(name, "name is null"));
         return this;
     }
 
-    public SignatureBuilder name(QualifiedFunctionName name)
+    public SignatureBuilder name(QualifiedObjectName name)
     {
         this.name = requireNonNull(name, "name is null");
         return this;

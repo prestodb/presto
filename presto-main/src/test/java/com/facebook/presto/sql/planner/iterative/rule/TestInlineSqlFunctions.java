@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.IntegerType;
@@ -66,7 +66,7 @@ public class TestInlineSqlFunctions
 {
     private static final RoutineCharacteristics.Language JAVA = new RoutineCharacteristics.Language("java");
     private static final SqlInvokedFunction SQL_FUNCTION_SQUARE = new SqlInvokedFunction(
-            QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "square"),
+            QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "square"),
             ImmutableList.of(new Parameter("x", parseTypeSignature(INTEGER))),
             parseTypeSignature(INTEGER),
             "square",
@@ -78,7 +78,7 @@ public class TestInlineSqlFunctions
             Optional.empty());
 
     private static final SqlInvokedFunction THRIFT_FUNCTION_FOO = new SqlInvokedFunction(
-            QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "foo"),
+            QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "foo"),
             ImmutableList.of(new Parameter("x", parseTypeSignature(INTEGER))),
             parseTypeSignature(INTEGER),
             "thrift function foo",
@@ -90,7 +90,7 @@ public class TestInlineSqlFunctions
             Optional.empty());
 
     private static final SqlInvokedFunction SQL_FUNCTION_ADD_1_TO_INT_ARRAY = new SqlInvokedFunction(
-            QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "add_1_int"),
+            QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "add_1_int"),
             ImmutableList.of(new Parameter("x", parseTypeSignature("array(int)"))),
             parseTypeSignature("array(int)"),
             "add 1 to all elements of array",
@@ -102,7 +102,7 @@ public class TestInlineSqlFunctions
             Optional.empty());
 
     private static final SqlInvokedFunction SQL_FUNCTION_ADD_1_TO_BIGINT_ARRAY = new SqlInvokedFunction(
-            QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "add_1_bigint"),
+            QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "add_1_bigint"),
             ImmutableList.of(new Parameter("x", parseTypeSignature("array(bigint)"))),
             parseTypeSignature("array(bigint)"),
             "add 1 to all elements of array",
