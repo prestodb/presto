@@ -188,8 +188,8 @@ public class QueryContext
         // the same RootAggregatedMemoryContext instance, and one of the threads will be blocked on the monitor of that
         // RootAggregatedMemoryContext instance even before calling the QueryContext methods (the monitors of
         // RootAggregatedMemoryContext instance and this will be acquired in the same order).
-        long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
         if (delta >= 0) {
+            long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
             enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
