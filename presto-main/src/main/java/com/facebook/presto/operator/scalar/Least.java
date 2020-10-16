@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 
 import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
 
@@ -25,7 +25,7 @@ public final class Least
 
     public Least()
     {
-        super(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "least"), OperatorType.LESS_THAN);
+        super(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "least"), OperatorType.LESS_THAN);
     }
 
     @Override

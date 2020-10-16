@@ -93,7 +93,7 @@ public class HashGenerationOptimizer
         implements PlanOptimizer
 {
     public static final long INITIAL_HASH_VALUE = 0;
-    private static final String HASH_CODE = OperatorType.HASH_CODE.getFunctionName().getFunctionName();
+    private static final String HASH_CODE = OperatorType.HASH_CODE.getFunctionName().getObjectName();
 
     private final FunctionAndTypeManager functionAndTypeManager;
 

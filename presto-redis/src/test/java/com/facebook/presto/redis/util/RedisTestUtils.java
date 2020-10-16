@@ -14,7 +14,7 @@
 package com.facebook.presto.redis.util;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.redis.RedisPlugin;
 import com.facebook.presto.redis.RedisTableDescription;
 import com.facebook.presto.spi.SchemaTableName;

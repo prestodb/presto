@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.function;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 
@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 
 public class FunctionMetadata
 {
-    private final QualifiedFunctionName name;
+    private final QualifiedObjectName name;
     private final Optional<OperatorType> operatorType;
     private final List<TypeSignature> argumentTypes;
     private final Optional<List<String>> argumentNames;
@@ -40,7 +40,7 @@ public class FunctionMetadata
     private final boolean calledOnNullInput;
 
     public FunctionMetadata(
-            QualifiedFunctionName name,
+            QualifiedObjectName name,
             List<TypeSignature> argumentTypes,
             TypeSignature returnType,
             FunctionKind functionKind,
@@ -52,7 +52,7 @@ public class FunctionMetadata
     }
 
     public FunctionMetadata(
-            QualifiedFunctionName name,
+            QualifiedObjectName name,
             List<TypeSignature> argumentTypes,
             List<String> argumentNames,
             TypeSignature returnType,
@@ -78,7 +78,7 @@ public class FunctionMetadata
     }
 
     private FunctionMetadata(
-            QualifiedFunctionName name,
+            QualifiedObjectName name,
             Optional<OperatorType> operatorType,
             List<TypeSignature> argumentTypes,
             Optional<List<String>> argumentNames,
@@ -106,7 +106,7 @@ public class FunctionMetadata
         return functionKind;
     }
 
-    public QualifiedFunctionName getName()
+    public QualifiedObjectName getName()
     {
         return name;
     }

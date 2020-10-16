@@ -16,8 +16,7 @@ package com.facebook.presto.functionNamespace.mysql;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
-import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.functionNamespace.execution.SimpleAddressSqlFunctionExecutorsModule;
 import com.facebook.presto.spi.ErrorCodeSupplier;
@@ -151,8 +150,8 @@ public class TestMySqlFunctionNamespaceManager
     {
         createFunctionNamespace(TEST_CATALOG, "schema1");
         createFunctionNamespace(TEST_CATALOG, "schema2");
-        SqlInvokedFunction function1 = constructTestFunction(QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, "schema1"), "power_tower"));
-        SqlInvokedFunction function2 = constructTestFunction(QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, "schema2"), "power_tower"));
+        SqlInvokedFunction function1 = constructTestFunction(QualifiedObjectName.valueOf(TEST_CATALOG, "schema1", "power_tower"));
+        SqlInvokedFunction function2 = constructTestFunction(QualifiedObjectName.valueOf(TEST_CATALOG, "schema2", "power_tower"));
 
         createFunction(function1, false);
         createFunction(function2, false);
@@ -207,14 +206,14 @@ public class TestMySqlFunctionNamespaceManager
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Schema name exceeds max length of 128.*")
     public void testSchemaNameTooLong()
     {
-        QualifiedFunctionName functionName = QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, dummyString(129)), "tangent");
+        QualifiedObjectName functionName = QualifiedObjectName.valueOf(TEST_CATALOG, dummyString(129), "tangent");
         createFunction(createFunctionTangent(functionName), false);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function name exceeds max length of 256.*")
     public void testFunctionNameTooLong()
     {
-        QualifiedFunctionName functionName = QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, TEST_SCHEMA), dummyString(257));
+        QualifiedObjectName functionName = QualifiedObjectName.valueOf(TEST_CATALOG, TEST_SCHEMA, dummyString(257));
         createFunction(createFunctionTangent(functionName), false);
     }
 
@@ -385,7 +384,7 @@ public class TestMySqlFunctionNamespaceManager
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function not found: unittest\\.memory\\.invalid")
     public void testDropFunctionsFailed()
     {
-        dropFunction(QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, TEST_SCHEMA), "invalid"), Optional.empty(), false);
+        dropFunction(QualifiedObjectName.valueOf(TEST_CATALOG, TEST_SCHEMA, "invalid"), Optional.empty(), false);
     }
 
     @Test
@@ -421,12 +420,12 @@ public class TestMySqlFunctionNamespaceManager
         functionNamespaceManager.createFunction(function, replace);
     }
 
-    private void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics characteristics)
+    private void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics characteristics)
     {
         functionNamespaceManager.alterFunction(functionName, parameterTypes, characteristics);
     }
 
-    private void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    private void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
         functionNamespaceManager.dropFunction(functionName, parameterTypes, exists);
     }
@@ -447,7 +446,7 @@ public class TestMySqlFunctionNamespaceManager
         assertEquals(ImmutableSet.copyOf(functionNamespaceManager.listFunctions()), ImmutableSet.copyOf(Arrays.asList(functions)));
     }
 
-    private void assertGetFunctions(QualifiedFunctionName functionName, SqlInvokedFunction... functions)
+    private void assertGetFunctions(QualifiedObjectName functionName, SqlInvokedFunction... functions)
     {
         FunctionNamespaceTransactionHandle transactionHandle = functionNamespaceManager.beginTransaction();
         assertEquals(ImmutableSet.copyOf(functionNamespaceManager.getFunctions(Optional.of(transactionHandle), functionName)), ImmutableSet.copyOf(Arrays.asList(functions)));
@@ -484,7 +483,7 @@ public class TestMySqlFunctionNamespaceManager
         return Joiner.on("").join(nCopies(length, "x"));
     }
 
-    private static SqlInvokedFunction constructTestFunction(QualifiedFunctionName functionName)
+    private static SqlInvokedFunction constructTestFunction(QualifiedObjectName functionName)
     {
         return new SqlInvokedFunction(
                 functionName,
@@ -496,7 +495,7 @@ public class TestMySqlFunctionNamespaceManager
                 Optional.empty());
     }
 
-    private static SqlInvokedFunction createFunctionTangent(QualifiedFunctionName functionName)
+    private static SqlInvokedFunction createFunctionTangent(QualifiedObjectName functionName)
     {
         return new SqlInvokedFunction(
                 functionName,

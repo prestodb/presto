@@ -28,7 +28,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
@@ -63,7 +63,7 @@ public class DropFunctionTask
         analyzer.analyze(statement);
 
         metadata.getFunctionAndTypeManager().dropFunction(
-                qualifyFunctionName(statement.getFunctionName()),
+                qualifyObjectName(statement.getFunctionName()),
                 statement.getParameterTypes().map(types -> types.stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList())),
                 statement.isExists());
         return immediateFuture(null);

@@ -18,10 +18,10 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -176,8 +176,8 @@ public class FunctionAndTypeManager
     @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getFunctionNamespace());
-        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getFunctionNamespace());
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
         return functionNamespaceManager.get().getFunctionMetadata(functionHandle);
     }
 
@@ -230,56 +230,56 @@ public class FunctionAndTypeManager
                 .collect(toImmutableList());
     }
 
-    public Collection<? extends SqlFunction> getFunctions(Optional<TransactionId> transactionId, QualifiedFunctionName functionName)
+    public Collection<? extends SqlFunction> getFunctions(Optional<TransactionId> transactionId, QualifiedObjectName functionName)
     {
-        Optional<FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace());
+        Optional<FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName());
         if (!functionNamespaceManager.isPresent()) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName));
         }
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId.map(
-                id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getFunctionNamespace().getCatalogName()));
+                id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getCatalogName()));
         return functionNamespaceManager.get().getFunctions(transactionHandle, functionName);
     }
 
     public void createFunction(SqlInvokedFunction function, boolean replace)
     {
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(function.getSignature().getName().getFunctionNamespace());
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(function.getSignature().getName().getCatalogSchemaName());
         if (!functionNamespaceManager.isPresent()) {
-            throw new PrestoException(GENERIC_USER_ERROR, format("Cannot create function in function namespace: %s", function.getFunctionId().getFunctionName().getFunctionNamespace()));
+            throw new PrestoException(GENERIC_USER_ERROR, format("Cannot create function in function namespace: %s", function.getFunctionId().getFunctionName().getCatalogSchemaName()));
         }
         functionNamespaceManager.get().createFunction(function, replace);
     }
 
-    public void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
+    public void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
     {
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace());
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName());
         if (!functionNamespaceManager.isPresent()) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName));
         }
         functionNamespaceManager.get().alterFunction(functionName, parameterTypes, alterRoutineCharacteristics);
     }
 
-    public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    public void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace());
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName());
         if (functionNamespaceManager.isPresent()) {
             functionNamespaceManager.get().dropFunction(functionName, parameterTypes, exists);
         }
         else if (!exists) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName.getFunctionNamespace()));
+            throw new PrestoException(FUNCTION_NOT_FOUND, format("Function not found: %s", functionName.getCatalogSchemaName()));
         }
     }
 
-    public static QualifiedFunctionName qualifyFunctionName(QualifiedName name)
+    public static QualifiedObjectName qualifyObjectName(QualifiedName name)
     {
         if (!name.getPrefix().isPresent()) {
-            return QualifiedFunctionName.of(DEFAULT_NAMESPACE, name.getSuffix());
+            return QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name.getSuffix());
         }
         if (name.getOriginalParts().size() != 3) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Non-builtin functions must be referenced by 'catalog.schema.function_name', found: %s", name));
         }
-        return QualifiedFunctionName.of(new CatalogSchemaName(name.getOriginalParts().get(0), name.getOriginalParts().get(1)), name.getOriginalParts().get(2));
+        return QualifiedObjectName.valueOf(name.getOriginalParts().get(0), name.getOriginalParts().get(1), name.getOriginalParts().get(2));
     }
 
     /**
@@ -290,9 +290,9 @@ public class FunctionAndTypeManager
      *
      * @throws PrestoException if there are no matches or multiple matches
      */
-    public FunctionHandle resolveFunction(Optional<TransactionId> transactionId, QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    public FunctionHandle resolveFunction(Optional<TransactionId> transactionId, QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
     {
-        if (functionName.getFunctionNamespace().equals(DEFAULT_NAMESPACE) && parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
+        if (functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE) && parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
             return lookupCachedFunction(functionName, parameterTypes);
         }
         return resolveFunctionInternal(transactionId, functionName, parameterTypes);
@@ -335,14 +335,14 @@ public class FunctionAndTypeManager
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getFunctionNamespace());
-        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getFunctionNamespace());
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
         return functionNamespaceManager.get().getScalarFunctionImplementation(functionHandle);
     }
 
     public CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
     {
-        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getFunctionNamespace());
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkState(functionNamespaceManager.isPresent(), format("FunctionHandle %s should have a serving function namespace", functionHandle));
         return functionNamespaceManager.get().executeFunction(functionHandle, inputPage, channels, this);
     }
@@ -365,7 +365,7 @@ public class FunctionAndTypeManager
     @VisibleForTesting
     public List<SqlFunction> listOperators()
     {
-        Set<QualifiedFunctionName> operatorNames = Arrays.asList(OperatorType.values()).stream()
+        Set<QualifiedObjectName> operatorNames = Arrays.asList(OperatorType.values()).stream()
                 .map(OperatorType::getFunctionName)
                 .collect(toImmutableSet());
 
@@ -394,14 +394,14 @@ public class FunctionAndTypeManager
     }
 
     /**
-     * Lookup up a function with name and fully bound types. This can only be used for builtin functions. {@link #resolveFunction(Optional, QualifiedFunctionName, List)}
+     * Lookup up a function with name and fully bound types. This can only be used for builtin functions. {@link #resolveFunction(Optional, QualifiedObjectName, List)}
      * should be used for dynamically registered functions.
      *
      * @throws PrestoException if function could not be found
      */
     public FunctionHandle lookupFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
-        QualifiedFunctionName functionName = qualifyFunctionName(QualifiedName.of(name));
+        QualifiedObjectName functionName = qualifyObjectName(QualifiedName.of(name));
         if (parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
             return lookupCachedFunction(functionName, parameterTypes);
         }
@@ -425,28 +425,28 @@ public class FunctionAndTypeManager
         return builtInFunctionNamespaceManager.getFunctionHandle(Optional.empty(), signature);
     }
 
-    private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
     {
-        FunctionNamespaceManager<?> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getFunctionNamespace()).orElse(null);
+        FunctionNamespaceManager<?> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName()).orElse(null);
         if (functionNamespaceManager == null) {
             throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, ImmutableList.of()));
         }
 
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
-                .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getFunctionNamespace().getCatalogName()));
+                .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getCatalogName()));
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
 
         return functionResolver.resolveFunction(functionNamespaceManager, transactionHandle, functionName, parameterTypes, candidates);
     }
 
-    private FunctionHandle resolveBuiltInFunction(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    private FunctionHandle resolveBuiltInFunction(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
     {
-        checkArgument(functionName.getFunctionNamespace().equals(DEFAULT_NAMESPACE), "Expect built-in functions");
+        checkArgument(functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE), "Expect built-in functions");
         checkArgument(parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency), "Expect parameter types not to have dependency");
         return resolveFunctionInternal(Optional.empty(), functionName, parameterTypes);
     }
 
-    private FunctionHandle lookupCachedFunction(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+    private FunctionHandle lookupCachedFunction(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
     {
         try {
             return functionCache.getUnchecked(new FunctionResolutionCacheKey(functionName, parameterTypes));
@@ -466,10 +466,10 @@ public class FunctionAndTypeManager
 
     private static class FunctionResolutionCacheKey
     {
-        private final QualifiedFunctionName functionName;
+        private final QualifiedObjectName functionName;
         private final List<TypeSignature> parameterTypes;
 
-        private FunctionResolutionCacheKey(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes)
+        private FunctionResolutionCacheKey(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
         {
             checkArgument(parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency), "Only type signatures without dependency can be cached");
             this.functionName = requireNonNull(functionName, "functionName is null");

@@ -51,7 +51,7 @@ public class SwitchCodeGenerator
     private static boolean isEqualsExpression(RowExpression expression)
     {
         return expression instanceof CallExpression
-                && ((CallExpression) expression).getDisplayName().equals(EQUAL.getFunctionName().getFunctionName())
+                && ((CallExpression) expression).getDisplayName().equals(EQUAL.getFunctionName().getObjectName())
                 && ((CallExpression) expression).getArguments().size() == 2;
     }
 

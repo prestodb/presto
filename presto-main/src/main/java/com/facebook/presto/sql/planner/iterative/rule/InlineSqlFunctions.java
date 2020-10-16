@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isInlineSqlFunctions;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionExpression;
@@ -117,7 +117,7 @@ public class InlineSqlFunctions
 
                 FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
                         session.getTransactionId(),
-                        qualifyFunctionName(node.getName()),
+                        qualifyObjectName(node.getName()),
                         fromTypes(argumentTypes));
                 FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle);
 

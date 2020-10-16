@@ -15,11 +15,11 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
@@ -753,13 +753,13 @@ public class BuiltInFunctionNamespaceManager
     }
 
     @Override
-    public void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
+    public void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
     {
         throw new PrestoException(GENERIC_USER_ERROR, format("Cannot alter function in built-in function namespace: %s", functionName));
     }
 
     @Override
-    public void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    public void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
         throw new PrestoException(GENERIC_USER_ERROR, format("Cannot drop function in built-in function namespace: %s", functionName));
     }
@@ -792,7 +792,7 @@ public class BuiltInFunctionNamespaceManager
     }
 
     @Override
-    public Collection<SqlFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName)
+    public Collection<SqlFunction> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedObjectName functionName)
     {
         return functions.get(functionName);
     }
@@ -1000,7 +1000,7 @@ public class BuiltInFunctionNamespaceManager
 
     private static class FunctionMap
     {
-        private final Multimap<QualifiedFunctionName, SqlFunction> functions;
+        private final Multimap<QualifiedObjectName, SqlFunction> functions;
 
         public FunctionMap()
         {
@@ -1009,13 +1009,13 @@ public class BuiltInFunctionNamespaceManager
 
         public FunctionMap(FunctionMap map, Iterable<? extends SqlFunction> functions)
         {
-            this.functions = ImmutableListMultimap.<QualifiedFunctionName, SqlFunction>builder()
+            this.functions = ImmutableListMultimap.<QualifiedObjectName, SqlFunction>builder()
                     .putAll(map.functions)
                     .putAll(Multimaps.index(functions, function -> function.getSignature().getName()))
                     .build();
 
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedFunctionName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
+            for (Map.Entry<QualifiedObjectName, Collection<SqlFunction>> entry : this.functions.asMap().entrySet()) {
                 Collection<SqlFunction> values = entry.getValue();
                 long aggregations = values.stream()
                         .map(function -> function.getSignature().getKind())
@@ -1030,7 +1030,7 @@ public class BuiltInFunctionNamespaceManager
             return ImmutableList.copyOf(functions.values());
         }
 
-        public Collection<SqlFunction> get(QualifiedFunctionName name)
+        public Collection<SqlFunction> get(QualifiedObjectName name)
         {
             return functions.get(name);
         }
@@ -1043,7 +1043,7 @@ public class BuiltInFunctionNamespaceManager
 
         MagicLiteralFunction(BlockEncodingSerde blockEncodingSerde)
         {
-            super(new Signature(QualifiedFunctionName.of(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX), SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
+            super(new Signature(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX), SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
             this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         }
 

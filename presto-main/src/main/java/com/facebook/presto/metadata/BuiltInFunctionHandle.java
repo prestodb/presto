@@ -42,9 +42,9 @@ public class BuiltInFunctionHandle
     }
 
     @Override
-    public CatalogSchemaName getFunctionNamespace()
+    public CatalogSchemaName getCatalogSchemaName()
     {
-        return signature.getName().getFunctionNamespace();
+        return signature.getName().getCatalogSchemaName();
     }
 
     @Override

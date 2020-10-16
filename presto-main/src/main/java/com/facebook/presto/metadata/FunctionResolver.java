@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -64,7 +64,7 @@ public final class FunctionResolver
     public FunctionHandle resolveFunction(
             FunctionNamespaceManager<?> functionNamespaceManager,
             Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle,
-            QualifiedFunctionName functionName,
+            QualifiedObjectName functionName,
             List<TypeSignatureProvider> parameterTypes,
             Collection<? extends SqlFunction> candidates)
     {
@@ -82,9 +82,9 @@ public final class FunctionResolver
             return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
         }
 
-        if (functionName.getFunctionName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
+        if (functionName.getObjectName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
             // extract type from function functionName
-            String typeName = functionName.getFunctionName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
+            String typeName = functionName.getObjectName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
             Type type = functionAndTypeManager.getType(parseTypeSignature(typeName));
@@ -101,7 +101,7 @@ public final class FunctionResolver
     public FunctionHandle lookupFunction(
             FunctionNamespaceManager<?> functionNamespaceManager,
             Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle,
-            QualifiedFunctionName functionName,
+            QualifiedObjectName functionName,
             List<TypeSignatureProvider> parameterTypes,
             Collection<? extends SqlFunction> candidates)
     {
@@ -329,7 +329,7 @@ public final class FunctionResolver
         return true;
     }
 
-    static String constructFunctionNotFoundErrorMessage(QualifiedFunctionName functionName, List<TypeSignatureProvider> parameterTypes, Collection<? extends SqlFunction> candidates)
+    static String constructFunctionNotFoundErrorMessage(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes, Collection<? extends SqlFunction> candidates)
     {
         String name = toConciseFunctionName(functionName);
         List<String> expectedParameters = new ArrayList<>();
@@ -348,10 +348,10 @@ public final class FunctionResolver
         return message;
     }
 
-    private static String toConciseFunctionName(QualifiedFunctionName functionName)
+    private static String toConciseFunctionName(QualifiedObjectName functionName)
     {
-        if (functionName.getFunctionNamespace().equals(DEFAULT_NAMESPACE)) {
-            return functionName.getFunctionName();
+        if (functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE)) {
+            return functionName.getObjectName();
         }
         return functionName.toString();
     }

@@ -762,7 +762,7 @@ public class TestEffectivePredicateExtractor
     private RowExpression compare(OperatorType type, RowExpression left, RowExpression right)
     {
         return call(
-                type.getFunctionName().getFunctionName(),
+                type.getFunctionName().getObjectName(),
                 metadata.getFunctionAndTypeManager().resolveOperator(type, fromTypes(left.getType(), right.getType())),
                 BOOLEAN,
                 left,

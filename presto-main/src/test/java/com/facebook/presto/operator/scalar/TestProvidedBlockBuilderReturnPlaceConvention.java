@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
@@ -156,7 +156,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
         protected FunctionWithProvidedBlockReturnPlaceConvention1()
         {
             super(new Signature(
-                    QualifiedFunctionName.of(DEFAULT_NAMESPACE, "identity1"),
+                    QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "identity1"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),
@@ -276,7 +276,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
         protected FunctionWithProvidedBlockReturnPlaceConvention2()
         {
             super(new Signature(
-                    QualifiedFunctionName.of(DEFAULT_NAMESPACE, "identity2"),
+                    QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "identity2"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),

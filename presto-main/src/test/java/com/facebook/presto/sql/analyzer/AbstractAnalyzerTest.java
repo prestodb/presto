@@ -15,8 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -107,7 +106,7 @@ public class AbstractAnalyzerTest
             .build();
 
     protected static final SqlInvokedFunction SQL_FUNCTION_SQUARE = new SqlInvokedFunction(
-            QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "square"),
+            QualifiedObjectName.valueOf("unittest", "memory", "square"),
             ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
             parseTypeSignature(StandardTypes.BIGINT),
             "square",

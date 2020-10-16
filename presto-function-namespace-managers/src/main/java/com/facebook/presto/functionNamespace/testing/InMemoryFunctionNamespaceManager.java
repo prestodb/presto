@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.functionNamespace.testing;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
@@ -70,13 +70,13 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
-    public void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
+    public void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics)
     {
         throw new PrestoException(NOT_SUPPORTED, "Alter Function is not supported in InMemoryFunctionNamespaceManager");
     }
 
     @Override
-    public synchronized void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    public synchronized void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
         throw new PrestoException(NOT_SUPPORTED, "Drop Function is not supported in InMemoryFunctionNamespaceManager");
     }
@@ -88,7 +88,7 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
-    public Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedFunctionName name)
+    public Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedObjectName name)
     {
         return latestFunctions.values().stream()
                 .filter(function -> function.getSignature().getName().equals(name))

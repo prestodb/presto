@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
@@ -70,7 +70,7 @@ public final class ZipFunction
     private ZipFunction(List<String> typeParameters)
     {
         super(new Signature(
-                QualifiedFunctionName.of(DEFAULT_NAMESPACE, "zip"),
+                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "zip"),
                 FunctionKind.SCALAR,
                 typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
                 ImmutableList.of(),

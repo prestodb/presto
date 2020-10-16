@@ -99,7 +99,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
@@ -341,7 +341,7 @@ public class PlanBuilder
             FunctionCall call = (FunctionCall) expression;
             FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
                     session.getTransactionId(),
-                    qualifyFunctionName(call.getName()),
+                    qualifyObjectName(call.getName()),
                     TypeSignatureProvider.fromTypes(inputTypes));
             return addAggregation(output, new Aggregation(
                     new CallExpression(

@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.sql.analyzer.Analysis.AccessControlInfo;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Cube;

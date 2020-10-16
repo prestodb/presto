@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableMap;

@@ -134,7 +134,7 @@ public final class LambdaDefinitionExpression
         @Override
         public String visitCall(CallExpression call, Void context)
         {
-            return format("%s.%s(%s):%s", call.getFunctionHandle().getFunctionNamespace(), call.getDisplayName(), String.join(", ", call.getArguments().stream().map(e -> e.accept(this, null)).collect(Collectors.toList())), call.getType());
+            return format("%s.%s(%s):%s", call.getFunctionHandle().getCatalogSchemaName(), call.getDisplayName(), String.join(", ", call.getArguments().stream().map(e -> e.accept(this, null)).collect(Collectors.toList())), call.getType());
         }
 
         @Override

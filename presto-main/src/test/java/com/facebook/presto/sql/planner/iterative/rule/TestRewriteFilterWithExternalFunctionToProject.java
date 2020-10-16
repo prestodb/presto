@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.iterative.rule;
 
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
@@ -49,7 +49,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values
 public class TestRewriteFilterWithExternalFunctionToProject
         extends BaseRuleTest
 {
-    private static final QualifiedFunctionName REMOTE_FOO = QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "remote_foo");
+    private static final QualifiedObjectName REMOTE_FOO = QualifiedObjectName.valueOf(new CatalogSchemaName("unittest", "memory"), "remote_foo");
     private static final Language JAVA = new Language("java");
 
     private static final SqlInvokedFunction FUNCTION_REMOTE_FOO = new SqlInvokedFunction(
