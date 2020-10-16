@@ -220,6 +220,7 @@ public class TestHiveClientFileMetastore
                         .setBucketProperty(bucketProperty))
                 .setParameters(partitionParameters)
                 .setEligibleToIgnore(true)
+                .setSealedPartition(true)
                 .build();
     }
 }
