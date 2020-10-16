@@ -92,7 +92,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public final class TypeRegistry
+public final class BuiltInTypeRegistry
 {
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
@@ -102,7 +102,7 @@ public final class TypeRegistry
 
     private final LoadingCache<TypeSignature, Type> parametricTypeCache;
 
-    public TypeRegistry(Set<Type> types, FeaturesConfig featuresConfig, FunctionAndTypeManager functionAndTypeManager)
+    public BuiltInTypeRegistry(Set<Type> types, FeaturesConfig featuresConfig, FunctionAndTypeManager functionAndTypeManager)
     {
         requireNonNull(types, "types is null");
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
