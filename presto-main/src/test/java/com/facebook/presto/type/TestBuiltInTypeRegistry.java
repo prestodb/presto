@@ -64,7 +64,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestTypeRegistry
+public class TestBuiltInTypeRegistry
 {
     private final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
