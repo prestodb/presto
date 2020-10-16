@@ -57,6 +57,7 @@ public class StageExecutionInfo
             DateTime schedulingComplete,
             DistributionSnapshot getSplitDistribution,
             DataSize peakUserMemoryReservation,
+            DataSize peakNodeTotalMemoryReservation,
             int finishedLifespans,
             int totalLifespans)
     {
@@ -189,6 +190,7 @@ public class StageExecutionInfo
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
                 peakUserMemoryReservation,
+                peakNodeTotalMemoryReservation,
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),
                 succinctDuration(retriedCpuTime, NANOSECONDS),

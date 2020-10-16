@@ -78,6 +78,7 @@ public class QueryStats
     private final DataSize peakTotalMemoryReservation;
     private final DataSize peakTaskTotalMemory;
     private final DataSize peakTaskUserMemory;
+    private final DataSize peakNodeTotalMemory;
 
     private final boolean scheduled;
     private final Duration totalScheduledTime;
@@ -142,6 +143,7 @@ public class QueryStats
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("peakTaskUserMemory") DataSize peakTaskUserMemory,
             @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
+            @JsonProperty("peakNodeTotalMemory") DataSize peakNodeTotalMemory,
 
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
@@ -213,6 +215,7 @@ public class QueryStats
         this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
         this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
         this.peakTaskUserMemory = requireNonNull(peakTaskUserMemory, "peakTaskUserMemory is null");
+        this.peakNodeTotalMemory = requireNonNull(peakNodeTotalMemory, "peakNodeTotalMemory is null");
         this.scheduled = scheduled;
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -253,7 +256,8 @@ public class QueryStats
             DataSize peakUserMemoryReservation,
             DataSize peakTotalMemoryReservation,
             DataSize peakTaskUserMemory,
-            DataSize peakTaskTotalMemory)
+            DataSize peakTaskTotalMemory,
+            DataSize peakNodeTotalMemory)
     {
         int totalTasks = 0;
         int runningTasks = 0;
@@ -395,6 +399,7 @@ public class QueryStats
                 peakTotalMemoryReservation,
                 peakTaskUserMemory,
                 peakTaskTotalMemory,
+                peakNodeTotalMemory,
 
                 isScheduled(rootStage),
 
@@ -471,6 +476,7 @@ public class QueryStats
                 0,
                 0,
                 0,
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
@@ -660,6 +666,12 @@ public class QueryStats
     public DataSize getPeakTaskTotalMemory()
     {
         return peakTaskTotalMemory;
+    }
+
+    @JsonProperty
+    public DataSize getPeakNodeTotalMemory()
+    {
+        return peakNodeTotalMemory;
     }
 
     @JsonProperty

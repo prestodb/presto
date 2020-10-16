@@ -89,7 +89,7 @@ public class TrackingRemoteTaskFactory
             long deltaTotalMemoryInBytes = currentTotalMemory - (previousUserMemory + previousSystemMemory);
             previousUserMemory = currentUserMemory;
             previousSystemMemory = currentSystemMemory;
-            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, currentUserMemory, currentTotalMemory);
+            stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, currentUserMemory, currentTotalMemory, newStatus.getPeakNodeTotalMemoryReservationInBytes());
 
             if (state == PLANNED && newStatus.getState() == RUNNING) {
                 stateMachine.incrementCurrentRunningTaskCount();

@@ -48,6 +48,7 @@
     "peakTotalMemoryReservation": "0B",
     "peakTaskUserMemory": "0B",
     "peakTaskTotalMemory": "0B",
+    "peakNodeTotalMemory": "0B",
     "totalScheduledTime": "1.22ms",
     "totalCpuTime": "1.19ms",
     "retriedCpuTime": "0.0ms",

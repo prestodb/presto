@@ -71,6 +71,7 @@ public class TestThriftTaskStatus
     public static final int PHYSICAL_WRITTEN_DATA_SIZE_IN_BYTES = 1024 * 1024;
     public static final int MEMORY_RESERVATION_IN_BYTES = 1024 * 1024 * 1024;
     public static final int SYSTEM_MEMORY_RESERVATION_IN_BYTES = 2 * 1024 * 1024 * 1024;
+    public static final int PEAK_NODE_TOTAL_MEMORY_RESERVATION_IN_BYTES = 42 * 1024 * 1024;
     public static final int FULL_GC_COUNT = 10;
     public static final int FULL_GC_TIME_IN_MILLIS = 1001;
     public static final HostAddress REMOTE_HOST = HostAddress.fromParts("www.fake.invalid", 8080);
@@ -131,6 +132,7 @@ public class TestThriftTaskStatus
         assertEquals(taskStatus.isOutputBufferOverutilized(), OUTPUT_BUFFER_OVERUTILIZED);
         assertEquals(taskStatus.getPhysicalWrittenDataSizeInBytes(), PHYSICAL_WRITTEN_DATA_SIZE_IN_BYTES);
         assertEquals(taskStatus.getSystemMemoryReservationInBytes(), SYSTEM_MEMORY_RESERVATION_IN_BYTES);
+        assertEquals(taskStatus.getPeakNodeTotalMemoryReservationInBytes(), PEAK_NODE_TOTAL_MEMORY_RESERVATION_IN_BYTES);
         assertEquals(taskStatus.getFullGcCount(), FULL_GC_COUNT);
         assertEquals(taskStatus.getFullGcTimeInMillis(), FULL_GC_TIME_IN_MILLIS);
 
@@ -191,6 +193,7 @@ public class TestThriftTaskStatus
                 PHYSICAL_WRITTEN_DATA_SIZE_IN_BYTES,
                 MEMORY_RESERVATION_IN_BYTES,
                 SYSTEM_MEMORY_RESERVATION_IN_BYTES,
+                PEAK_NODE_TOTAL_MEMORY_RESERVATION_IN_BYTES,
                 FULL_GC_COUNT,
                 FULL_GC_TIME_IN_MILLIS);
     }
