@@ -670,6 +670,7 @@ public class PrestoSparkTaskExecutorFactory
                     taskStats.getPhysicalWrittenDataSizeInBytes(),
                     taskStats.getUserMemoryReservationInBytes(),
                     taskStats.getSystemMemoryReservationInBytes(),
+                    taskStats.getPeakNodeTotalMemoryInBytes(),
                     taskStats.getFullGcCount(),
                     taskStats.getFullGcTimeInMillis());
 

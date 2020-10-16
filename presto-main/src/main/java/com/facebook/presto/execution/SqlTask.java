@@ -298,6 +298,7 @@ public class SqlTask
                 physicalWrittenDataSizeInBytes,
                 userMemoryReservationInBytes,
                 systemMemoryReservationInBytes,
+                queryContext.getPeakNodeTotalMemory(),
                 fullGcCount,
                 fullGcTimeInMillis);
     }

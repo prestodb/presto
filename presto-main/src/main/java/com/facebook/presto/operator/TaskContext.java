@@ -554,6 +554,7 @@ public class TaskContext
                 systemMemory,
                 peakTotalMemoryInBytes.get(),
                 peakUserMemoryInBytes.get(),
+                queryContext.getPeakNodeTotalMemory(),
                 totalScheduledTime,
                 totalCpuTime,
                 totalBlockedTime,

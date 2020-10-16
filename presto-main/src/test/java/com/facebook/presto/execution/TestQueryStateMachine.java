@@ -355,29 +355,33 @@ public class TestQueryStateMachine
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
 
-        stateMachine.updateMemoryUsage(5, 10, 1, 3);
+        stateMachine.updateMemoryUsage(5, 10, 1, 3, 3);
         assertEquals(stateMachine.getPeakUserMemoryInBytes(), 5);
         assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 10);
         assertEquals(stateMachine.getPeakTaskUserMemory(), 1);
         assertEquals(stateMachine.getPeakTaskTotalMemory(), 3);
+        assertEquals(stateMachine.getPeakNodeTotalMemory(), 3);
 
-        stateMachine.updateMemoryUsage(0, 0, 2, 2);
+        stateMachine.updateMemoryUsage(0, 0, 2, 2, 2);
         assertEquals(stateMachine.getPeakUserMemoryInBytes(), 5);
         assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 10);
         assertEquals(stateMachine.getPeakTaskUserMemory(), 2);
         assertEquals(stateMachine.getPeakTaskTotalMemory(), 3);
+        assertEquals(stateMachine.getPeakNodeTotalMemory(), 3);
 
-        stateMachine.updateMemoryUsage(1, 1, 1, 5);
+        stateMachine.updateMemoryUsage(1, 1, 1, 5, 5);
         assertEquals(stateMachine.getPeakUserMemoryInBytes(), 6);
         assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 11);
         assertEquals(stateMachine.getPeakTaskUserMemory(), 2);
         assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
+        assertEquals(stateMachine.getPeakNodeTotalMemory(), 5);
 
-        stateMachine.updateMemoryUsage(3, 3, 5, 2);
+        stateMachine.updateMemoryUsage(3, 3, 5, 2, 2);
         assertEquals(stateMachine.getPeakUserMemoryInBytes(), 9);
         assertEquals(stateMachine.getPeakTotalMemoryInBytes(), 14);
         assertEquals(stateMachine.getPeakTaskUserMemory(), 5);
         assertEquals(stateMachine.getPeakTaskTotalMemory(), 5);
+        assertEquals(stateMachine.getPeakNodeTotalMemory(), 5);
     }
 
     @Test
