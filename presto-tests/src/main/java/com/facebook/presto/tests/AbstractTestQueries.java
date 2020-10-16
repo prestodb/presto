@@ -58,6 +58,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MUST_BE_AGGREGATE_OR_GROUP_BY;
 import static com.facebook.presto.sql.tree.ExplainType.Type.DISTRIBUTED;
@@ -4742,6 +4743,18 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testExecuteUsingWithDifferentDatatypes()
+    {
+        String query = "SELECT c1, c2, c3, c4, c5, c6, c7['alice'], c8[1], c9 FROM (SELECT ? as c1, ? as c2, ? as c3, ? as c4, ? as c5, ? as c6, ? as c7, ? as c8, ? as c9)";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+        assertQuery(session,
+                "EXECUTE my_query USING -100, 'hello', (DATE '2020-10-15'), (TIMESTAMP '2020-03-14 10:12:12'), true, ARRAY [1, 2], MAP(ARRAY['alice', 'bob'], ARRAY [100, 300]), ROW('hi!'), null",
+                "VALUES (-100, 'hello', DATE '2020-10-15', TIMESTAMP '2020-03-14 10:12:12', true, ARRAY [1, 2], 100, 'hi!', null)");
+    }
+
+    @Test
     public void testExecuteUsingWithSubquery()
     {
         String query = "SELECT ? in (SELECT orderkey FROM orders)";
@@ -4770,6 +4783,75 @@ public abstract class AbstractTestQueries
         }
         catch (RuntimeException e) {
             assertEquals(e.getMessage(), "line 1:10: '(a + ?)' must be an aggregate expression or appear in GROUP BY clause");
+        }
+    }
+
+    @Test
+    public void testExecuteUsingFunction()
+    {
+        String query = "SELECT ?";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+        assertQuery(session,
+                "EXECUTE my_query USING length('Presto!')",
+                "VALUES (7)");
+    }
+
+    @Test
+    public void testExecuteUsingSubqueryFails()
+    {
+        try {
+            String query = "SELECT ?";
+            Session session = Session.builder(getSession())
+                    .addPreparedStatement("my_query", query)
+                    .build();
+            computeActual(session, "EXECUTE my_query USING (SELECT 1 from nation)");
+            fail("nonLiteral parameters should fail");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), EXPRESSION_NOT_CONSTANT);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "line 1:24: Constant expression cannot contain table references");
+        }
+    }
+
+    @Test
+    public void testExecuteUsingSelectStarFails()
+    {
+        try {
+            String query = "SELECT ?";
+            Session session = Session.builder(getSession())
+                    .addPreparedStatement("my_query", query)
+                    .build();
+            computeActual(session, "EXECUTE my_query USING (SELECT * from nation)");
+            fail("nonLiteral parameters should fail");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), EXPRESSION_NOT_CONSTANT);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "line 1:24: Constant expression cannot contain column references");
+        }
+    }
+
+    @Test
+    public void testExecuteUsingColumnReferenceFails()
+    {
+        try {
+            String query = "SELECT ? from nation";
+            Session session = Session.builder(getSession())
+                    .addPreparedStatement("my_query", query)
+                    .build();
+            computeActual(session, "EXECUTE my_query USING \"nationkey\"");
+            fail("nonLiteral parameters should fail");
+        }
+        catch (SemanticException e) {
+            assertEquals(e.getCode(), EXPRESSION_NOT_CONSTANT);
+        }
+        catch (RuntimeException e) {
+            assertEquals(e.getMessage(), "line 1:24: Constant expression cannot contain column references");
         }
     }
 

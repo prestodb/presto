@@ -125,6 +125,12 @@ public class TestPrestoSparkAbstractTestQueries
         // prepared statement is not supported by Presto on Spark
     }
 
+    @Override
+    public void testExecuteUsingWithDifferentDatatypes()
+    {
+        // prepared statement is not supported by Presto on Spark
+    }
+
     public void testExecuteUsingComplexJoinCriteria()
     {
         // prepared statement is not supported by Presto on Spark
@@ -143,6 +149,30 @@ public class TestPrestoSparkAbstractTestQueries
 
     @Override
     public void testExecuteWithParametersInGroupBy()
+    {
+        // prepared statement is not supported by Presto on Spark
+    }
+
+    @Override
+    public void testExecuteUsingFunction()
+    {
+        // prepared statement is not supported by Presto on Spark
+    }
+
+    @Override
+    public void testExecuteUsingSubqueryFails()
+    {
+        // prepared statement is not supported by Presto on Spark
+    }
+
+    @Override
+    public void testExecuteUsingSelectStarFails()
+    {
+        // prepared statement is not supported by Presto on Spark
+    }
+
+    @Override
+    public void testExecuteUsingColumnReferenceFails()
     {
         // prepared statement is not supported by Presto on Spark
     }
