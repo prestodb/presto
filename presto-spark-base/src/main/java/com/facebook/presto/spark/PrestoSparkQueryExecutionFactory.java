@@ -453,6 +453,7 @@ public class PrestoSparkQueryExecutionFactory
         long peakTotalMemoryReservationInBytes = 0;
         long peakTaskUserMemoryInBytes = 0;
         long peakTaskTotalMemoryInBytes = 0;
+        long peakNodeTotalMemoryInBytes = 0;
 
         for (StageInfo stageInfo : getAllStages(rootStage)) {
             StageExecutionInfo stageExecutionInfo = stageInfo.getLatestAttemptExecutionInfo();
@@ -466,6 +467,7 @@ public class PrestoSparkQueryExecutionFactory
                 peakTotalMemoryReservationInBytes += taskPeakTotalMemoryInBytes;
                 peakTaskUserMemoryInBytes = max(peakTaskUserMemoryInBytes, taskPeakUserMemoryInBytes);
                 peakTaskTotalMemoryInBytes = max(peakTaskTotalMemoryInBytes, taskPeakTotalMemoryInBytes);
+                peakNodeTotalMemoryInBytes = max(taskInfo.getStats().getPeakNodeTotalMemoryInBytes(), peakNodeTotalMemoryInBytes);
             }
         }
 
@@ -476,7 +478,8 @@ public class PrestoSparkQueryExecutionFactory
                 succinctBytes(peakUserMemoryReservationInBytes),
                 succinctBytes(peakTotalMemoryReservationInBytes),
                 succinctBytes(peakTaskUserMemoryInBytes),
-                succinctBytes(peakTaskTotalMemoryInBytes));
+                succinctBytes(peakTaskTotalMemoryInBytes),
+                succinctBytes(peakNodeTotalMemoryInBytes));
 
         return new QueryInfo(
                 session.getQueryId(),
@@ -527,9 +530,11 @@ public class PrestoSparkQueryExecutionFactory
         StageId stageId = new StageId(queryId, planFragmentId.getId());
         List<TaskInfo> taskInfos = taskInfoMap.get(planFragmentId);
         long peakUserMemoryReservationInBytes = 0;
+        long peakNodeTotalMemoryReservationInBytes = 0;
         for (TaskInfo taskInfo : taskInfos) {
             long taskPeakUserMemoryInBytes = taskInfo.getStats().getUserMemoryReservationInBytes();
             peakUserMemoryReservationInBytes += taskPeakUserMemoryInBytes;
+            peakNodeTotalMemoryReservationInBytes = max(taskInfo.getStats().getPeakNodeTotalMemoryInBytes(), peakNodeTotalMemoryReservationInBytes);
         }
         StageExecutionInfo stageExecutionInfo = StageExecutionInfo.create(
                 new StageExecutionId(stageId, 0),
@@ -540,6 +545,7 @@ public class PrestoSparkQueryExecutionFactory
                 DateTime.now(),
                 new Distribution().snapshot(),
                 succinctBytes(peakUserMemoryReservationInBytes),
+                succinctBytes(peakNodeTotalMemoryReservationInBytes),
                 1,
                 1);
         return new StageInfo(

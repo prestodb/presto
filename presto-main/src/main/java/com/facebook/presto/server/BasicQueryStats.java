@@ -62,6 +62,7 @@ public class BasicQueryStats
     private final DataSize peakUserMemoryReservation;
     private final DataSize peakTotalMemoryReservation;
     private final DataSize peakTaskTotalMemoryReservation;
+    private final DataSize peakNodeTotalMemoryReservation;
     private final Duration totalCpuTime;
     private final Duration totalScheduledTime;
 
@@ -92,6 +93,7 @@ public class BasicQueryStats
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
             @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
             @JsonProperty("peakTaskTotalMemoryReservation") DataSize peakTaskTotalMemoryReservation,
+            @JsonProperty("peakNodeTotalMemoryReservation") DataSize peakNodeTotalMemoryReservation,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
@@ -126,6 +128,7 @@ public class BasicQueryStats
         this.peakUserMemoryReservation = peakUserMemoryReservation;
         this.peakTotalMemoryReservation = peakTotalMemoryReservation;
         this.peakTaskTotalMemoryReservation = peakTaskTotalMemoryReservation;
+        this.peakNodeTotalMemoryReservation = peakNodeTotalMemoryReservation;
         this.totalCpuTime = totalCpuTime;
         this.totalScheduledTime = totalScheduledTime;
 
@@ -157,6 +160,7 @@ public class BasicQueryStats
                 queryStats.getPeakUserMemoryReservation(),
                 queryStats.getPeakTotalMemoryReservation(),
                 queryStats.getPeakTaskTotalMemory(),
+                queryStats.getPeakNodeTotalMemory(),
                 queryStats.getTotalCpuTime(),
                 queryStats.getTotalScheduledTime(),
                 queryStats.isFullyBlocked(),
@@ -182,6 +186,7 @@ public class BasicQueryStats
                 new DataSize(0, BYTE),
                 0,
                 0,
+                new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
@@ -300,6 +305,12 @@ public class BasicQueryStats
     public DataSize getPeakTaskTotalMemoryReservation()
     {
         return peakTaskTotalMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getPeakNodeTotalMemorReservation()
+    {
+        return peakNodeTotalMemoryReservation;
     }
 
     @JsonProperty

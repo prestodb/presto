@@ -67,6 +67,7 @@ public class TaskStatus
     private final long physicalWrittenDataSizeInBytes;
     private final long memoryReservationInBytes;
     private final long systemMemoryReservationInBytes;
+    private final long peakNodeTotalMemoryReservationInBytes;
 
     private final long fullGcCount;
     private final long fullGcTimeInMillis;
@@ -90,6 +91,7 @@ public class TaskStatus
             @JsonProperty("physicalWrittenDataSizeInBytes") long physicalWrittenDataSizeInBytes,
             @JsonProperty("memoryReservationInBytes") long memoryReservationInBytes,
             @JsonProperty("systemMemoryReservationInBytes") long systemMemoryReservationInBytes,
+            @JsonProperty("peakNodeTotalMemoryReservationInBytes") long peakNodeTotalMemoryReservationInBytes,
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis)
     {
@@ -114,6 +116,7 @@ public class TaskStatus
 
         this.memoryReservationInBytes = memoryReservationInBytes;
         this.systemMemoryReservationInBytes = systemMemoryReservationInBytes;
+        this.peakNodeTotalMemoryReservationInBytes = peakNodeTotalMemoryReservationInBytes;
         this.failures = ImmutableList.copyOf(requireNonNull(failures, "failures is null"));
 
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
@@ -233,6 +236,13 @@ public class TaskStatus
         return fullGcTimeInMillis;
     }
 
+    @JsonProperty
+    @ThriftField(17)
+    public long getPeakNodeTotalMemoryReservationInBytes()
+    {
+        return peakNodeTotalMemoryReservationInBytes;
+    }
+
     @Override
     public String toString()
     {
@@ -259,6 +269,7 @@ public class TaskStatus
                 0,
                 0,
                 0,
+                0,
                 0);
     }
 
@@ -279,6 +290,7 @@ public class TaskStatus
                 taskStatus.getPhysicalWrittenDataSizeInBytes(),
                 taskStatus.getMemoryReservationInBytes(),
                 taskStatus.getSystemMemoryReservationInBytes(),
+                taskStatus.getPeakNodeTotalMemoryReservationInBytes(),
                 taskStatus.getFullGcCount(),
                 taskStatus.getFullGcTimeInMillis());
     }

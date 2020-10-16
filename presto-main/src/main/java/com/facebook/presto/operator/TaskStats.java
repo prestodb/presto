@@ -54,6 +54,7 @@ public class TaskStats
 
     private final long peakUserMemoryInBytes;
     private final long peakTotalMemoryInBytes;
+    private final long peakNodeTotalMemoryInBytes;
 
     private final long totalScheduledTimeInNanos;
     private final long totalCpuTimeInNanos;
@@ -105,6 +106,7 @@ public class TaskStats
                 0L,
                 0L,
                 0L,
+                0L,
                 false,
                 ImmutableSet.of(),
                 0L,
@@ -145,6 +147,7 @@ public class TaskStats
 
             @JsonProperty("peakTotalMemoryInBytes") long peakTotalMemoryInBytes,
             @JsonProperty("peakUserMemoryInBytes") long peakUserMemoryInBytes,
+            @JsonProperty("peakNodeTotalMemoryInbytes") long peakNodeTotalMemoryInBytes,
 
             @JsonProperty("totalScheduledTimeInNanos") long totalScheduledTimeInNanos,
             @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
@@ -203,6 +206,7 @@ public class TaskStats
 
         this.peakTotalMemoryInBytes = peakTotalMemoryInBytes;
         this.peakUserMemoryInBytes = peakUserMemoryInBytes;
+        this.peakNodeTotalMemoryInBytes = peakNodeTotalMemoryInBytes;
 
         this.totalScheduledTimeInNanos = totalScheduledTimeInNanos;
         this.totalCpuTimeInNanos = totalCpuTimeInNanos;
@@ -346,6 +350,12 @@ public class TaskStats
     }
 
     @JsonProperty
+    public long getPeakNodeTotalMemoryInBytes()
+    {
+        return peakNodeTotalMemoryInBytes;
+    }
+
+    @JsonProperty
     public long getTotalScheduledTimeInNanos()
     {
         return totalScheduledTimeInNanos;
@@ -476,6 +486,7 @@ public class TaskStats
                 systemMemoryReservationInBytes,
                 peakTotalMemoryInBytes,
                 peakUserMemoryInBytes,
+                peakNodeTotalMemoryInBytes,
                 totalScheduledTimeInNanos,
                 totalCpuTimeInNanos,
                 totalBlockedTimeInNanos,
@@ -517,6 +528,7 @@ public class TaskStats
                 systemMemoryReservationInBytes,
                 peakTotalMemoryInBytes,
                 peakUserMemoryInBytes,
+                peakNodeTotalMemoryInBytes,
                 totalScheduledTimeInNanos,
                 totalCpuTimeInNanos,
                 totalBlockedTimeInNanos,

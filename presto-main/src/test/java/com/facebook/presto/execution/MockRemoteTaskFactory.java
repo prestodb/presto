@@ -272,6 +272,7 @@ public class MockRemoteTaskFactory
                             0,
                             0,
                             0,
+                            0,
                             0),
                     DateTime.now(),
                     outputBuffer.getInfo(),
@@ -306,6 +307,7 @@ public class MockRemoteTaskFactory
                     stats.getPhysicalWrittenDataSizeInBytes(),
                     stats.getUserMemoryReservationInBytes(),
                     stats.getSystemMemoryReservationInBytes(),
+                    stats.getPeakNodeTotalMemoryInBytes(),
                     0,
                     0);
         }

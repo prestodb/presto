@@ -526,6 +526,7 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getPhysicalWrittenDataSizeInBytes(),
                     initialTaskStatus.getMemoryReservationInBytes(),
                     initialTaskStatus.getSystemMemoryReservationInBytes(),
+                    initialTaskStatus.getPeakNodeTotalMemoryReservationInBytes(),
                     initialTaskStatus.getFullGcCount(),
                     initialTaskStatus.getFullGcTimeInMillis());
         }

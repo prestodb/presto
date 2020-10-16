@@ -186,6 +186,7 @@ public class TestQueryStats
             new DataSize(21, BYTE),
             new DataSize(22, BYTE),
             new DataSize(23, BYTE),
+            new DataSize(42, BYTE),
 
             true,
             new Duration(20, NANOSECONDS),
