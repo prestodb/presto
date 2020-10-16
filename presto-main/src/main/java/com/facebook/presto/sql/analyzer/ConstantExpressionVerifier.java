@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.Table;
 
 import java.util.Set;
 
@@ -66,6 +68,18 @@ public final class ConstantExpressionVerifier
         protected Void visitFieldReference(FieldReference node, Void context)
         {
             throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+        }
+
+        @Override
+        protected Void visitAllColumns(AllColumns node, Void context)
+        {
+            throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain column references");
+        }
+
+        @Override
+        protected Void visitTable(Table node, Void context)
+        {
+            throw new SemanticException(EXPRESSION_NOT_CONSTANT, expression, "Constant expression cannot contain table references");
         }
     }
 }
