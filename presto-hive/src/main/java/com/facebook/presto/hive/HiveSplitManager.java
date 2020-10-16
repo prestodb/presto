@@ -48,6 +48,7 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -379,6 +380,8 @@ public class HiveSplitManager
                     partitions);
 
             ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
+            int numOfPartitions = 0;
+            ArrayList<String> partitionsNotReadable = new ArrayList<String>(); 
             for (HivePartition hivePartition : partitionBatch) {
                 Partition partition = partitions.get(hivePartition.getPartitionId());
                 if (partition == null) {
@@ -397,9 +400,7 @@ public class HiveSplitManager
                         if (!shouldIgnoreUnreadablePartition(session) || !partition.isEligibleToIgnore()) {
                             throw new HiveNotReadableException(tableName, Optional.of(partName), partitionNotReadable);
                         }
-                        warningCollector.add(new PrestoWarning(
-                                PARTITION_NOT_READABLE,
-                                format("Table '%s' partition '%s' is not readable: %s", tableName, partName, partitionNotReadable)));
+                        partitionsNotReadable.add(partName);
                         continue;
                     }
                 }
@@ -474,8 +475,14 @@ public class HiveSplitManager
                 }
 
                 results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), partitionSchemaDifference.build(), encryptionInformation));
+                numOfPartitions++;
             }
-
+            if(!partitionsNotReadable.isEmpty()) {
+                warningCollector.add(new PrestoWarning(
+                    PARTITION_NOT_READABLE,
+                    format("Table '%s' has '%s' out of '%s' partitions: '%s' not readable: %s", tableName, partitionsNotReadable.size(), numOfPartitions, partitionsNotReadable.toString(), partitionNotReadable))
+                );
+            }
             return results.build();
         });
         return concat(partitionBatches);
