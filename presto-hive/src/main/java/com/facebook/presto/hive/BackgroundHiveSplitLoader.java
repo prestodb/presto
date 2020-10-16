@@ -407,7 +407,7 @@ public class BackgroundHiveSplitLoader
             return hiveSplitSource.addToQueue(getBucketedSplits(path, fs, splitFactory, tableBucketInfo.get(), bucketConversion, partitionName, splittable, pathFilter));
         }
 
-        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, pathFilter));
+        fileIterators.addLast(createInternalHiveSplitIterator(path, fs, splitFactory, splittable, pathFilter, partition.getPartition()));
         return COMPLETED_FUTURE;
     }
 
@@ -443,9 +443,15 @@ public class BackgroundHiveSplitLoader
                 .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
     }
 
-    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, PathFilter pathFilter)
+    private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(Path path, ExtendedFileSystem fileSystem, InternalHiveSplitFactory splitFactory, boolean splittable, PathFilter pathFilter, Optional<Partition> partition)
     {
-        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, isUseListDirectoryCache(session));
+        boolean cacheable = isUseListDirectoryCache(session);
+        if (partition.isPresent()) {
+            // Use cache only for sealed partitions
+            cacheable &= partition.get().isSealedPartition();
+        }
+
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, cacheable);
         return stream(directoryLister.list(fileSystem, table, path, namenodeStats, pathFilter, hiveDirectoryContext))
                 .map(status -> splitFactory.createInternalHiveSplit(status, splittable))
                 .filter(Optional::isPresent)

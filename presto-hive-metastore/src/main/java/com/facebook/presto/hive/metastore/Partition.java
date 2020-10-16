@@ -40,6 +40,7 @@ public class Partition
     private final Map<String, String> parameters;
     private final Optional<Integer> partitionVersion;
     private final boolean eligibleToIgnore;
+    private final boolean sealedPartition;
 
     @JsonCreator
     public Partition(
@@ -50,7 +51,8 @@ public class Partition
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("parameters") Map<String, String> parameters,
             @JsonProperty("partitionVersion") Optional<Integer> partitionVersion,
-            @JsonProperty("eligibleToIgnore") boolean eligibleToIgnore)
+            @JsonProperty("eligibleToIgnore") boolean eligibleToIgnore,
+            @JsonProperty("sealedPartition") boolean sealedPartition)
     {
         this.databaseName = requireNonNull(databaseName, "databaseName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -60,6 +62,7 @@ public class Partition
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.partitionVersion = requireNonNull(partitionVersion, "partitionVersion is null");
         this.eligibleToIgnore = eligibleToIgnore;
+        this.sealedPartition = sealedPartition;
     }
 
     @JsonProperty
@@ -110,6 +113,12 @@ public class Partition
         return eligibleToIgnore;
     }
 
+    @JsonProperty
+    public boolean isSealedPartition()
+    {
+        return sealedPartition;
+    }
+
     @Override
     public String toString()
     {
@@ -138,13 +147,14 @@ public class Partition
                 Objects.equals(columns, partition.columns) &&
                 Objects.equals(parameters, partition.parameters) &&
                 Objects.equals(partitionVersion, partition.partitionVersion) &&
-                Objects.equals(eligibleToIgnore, partition.eligibleToIgnore);
+                Objects.equals(eligibleToIgnore, partition.eligibleToIgnore) &&
+                Objects.equals(sealedPartition, partition.sealedPartition);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore);
+        return Objects.hash(databaseName, tableName, values, storage, columns, parameters, partitionVersion, eligibleToIgnore, sealedPartition);
     }
 
     public static Builder builder()
@@ -167,6 +177,7 @@ public class Partition
         private Map<String, String> parameters = ImmutableMap.of();
         private Optional<Integer> partitionVersion = Optional.empty();
         private boolean isEligibleToIgnore;
+        private boolean isSealedPartition = true;
 
         private Builder()
         {
@@ -238,9 +249,15 @@ public class Partition
             return this;
         }
 
+        public Builder setSealedPartition(boolean isSealedPartition)
+        {
+            this.isSealedPartition = isSealedPartition;
+            return this;
+        }
+
         public Partition build()
         {
-            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore);
+            return new Partition(databaseName, tableName, values, storageBuilder.build(), columns, parameters, partitionVersion, isEligibleToIgnore, isSealedPartition);
         }
     }
 }
