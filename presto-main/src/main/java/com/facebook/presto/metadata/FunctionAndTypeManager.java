@@ -49,6 +49,7 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.type.BuiltInTypeRegistry;
+import com.facebook.presto.type.TypeCoercer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -106,6 +107,7 @@ public class FunctionAndTypeManager
     private final HandleResolver handleResolver;
     private final Map<String, FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManagers = new ConcurrentHashMap<>();
     private final FunctionResolver functionResolver;
+    private final TypeCoercer typeCoercer;
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
     private final CacheStatsMBean cacheStatsMBean;
 
@@ -119,10 +121,10 @@ public class FunctionAndTypeManager
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.builtInFunctionNamespaceManager = new BuiltInFunctionNamespaceManager(blockEncodingSerde, featuresConfig, this);
+        this.builtInTypeRegistry = new BuiltInTypeRegistry(types, this);
         this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
-        this.builtInTypeRegistry = new BuiltInTypeRegistry(types, featuresConfig, this);
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
         transactionManager.registerFunctionNamespaceManager(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
         this.functionCache = CacheBuilder.newBuilder()
@@ -131,6 +133,7 @@ public class FunctionAndTypeManager
                 .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
         this.functionResolver = new FunctionResolver(this);
+        this.typeCoercer = new TypeCoercer(featuresConfig, this);
     }
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
@@ -193,7 +196,7 @@ public class FunctionAndTypeManager
     @Override
     public boolean canCoerce(Type actualType, Type expectedType)
     {
-        return builtInTypeRegistry.canCoerce(actualType, expectedType);
+        return typeCoercer.canCoerce(actualType, expectedType);
     }
 
     public FunctionInvokerProvider getFunctionInvokerProvider()
@@ -317,17 +320,17 @@ public class FunctionAndTypeManager
 
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
     {
-        return builtInTypeRegistry.getCommonSuperType(firstType, secondType);
+        return typeCoercer.getCommonSuperType(firstType, secondType);
     }
 
     public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
     {
-        return builtInTypeRegistry.isTypeOnlyCoercion(actualType, expectedType);
+        return typeCoercer.isTypeOnlyCoercion(actualType, expectedType);
     }
 
     public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
     {
-        return builtInTypeRegistry.coerceTypeBase(sourceType, resultTypeBase);
+        return typeCoercer.coerceTypeBase(sourceType, resultTypeBase);
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)
