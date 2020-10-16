@@ -111,6 +111,7 @@ public class QueryStateMachine
 
     private final AtomicLong peakTaskUserMemory = new AtomicLong();
     private final AtomicLong peakTaskTotalMemory = new AtomicLong();
+    private final AtomicLong peakNodeTotalMemory = new AtomicLong();
 
     private final AtomicInteger currentRunningTaskCount = new AtomicInteger();
     private final AtomicInteger peakRunningTaskCount = new AtomicInteger();
@@ -275,6 +276,11 @@ public class QueryStateMachine
         return peakTaskUserMemory.get();
     }
 
+    public long getPeakNodeTotalMemory()
+    {
+        return peakNodeTotalMemory.get();
+    }
+
     public int getCurrentRunningTaskCount()
     {
         return currentRunningTaskCount.get();
@@ -302,7 +308,12 @@ public class QueryStateMachine
         return warningCollector;
     }
 
-    public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes, long taskUserMemoryInBytes, long taskTotalMemoryInBytes)
+    public void updateMemoryUsage(
+            long deltaUserMemoryInBytes,
+            long deltaTotalMemoryInBytes,
+            long taskUserMemoryInBytes,
+            long taskTotalMemoryInBytes,
+            long peakNodeTotalMemoryInBytes)
     {
         currentUserMemory.addAndGet(deltaUserMemoryInBytes);
         currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
@@ -310,6 +321,7 @@ public class QueryStateMachine
         peakTotalMemory.updateAndGet(currentPeakValue -> Math.max(currentTotalMemory.get(), currentPeakValue));
         peakTaskUserMemory.accumulateAndGet(taskUserMemoryInBytes, Math::max);
         peakTaskTotalMemory.accumulateAndGet(taskTotalMemoryInBytes, Math::max);
+        peakNodeTotalMemory.accumulateAndGet(peakNodeTotalMemoryInBytes, Math::max);
     }
 
     public BasicQueryInfo getBasicQueryInfo(Optional<BasicStageExecutionStats> rootStage)
@@ -344,6 +356,7 @@ public class QueryStateMachine
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
                 succinctBytes(getPeakTaskTotalMemory()),
+                succinctBytes(getPeakNodeTotalMemory()),
 
                 stageStats.getTotalCpuTime(),
                 stageStats.getTotalScheduledTime(),
@@ -446,7 +459,8 @@ public class QueryStateMachine
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
                 succinctBytes(getPeakTaskUserMemory()),
-                succinctBytes(getPeakTaskTotalMemory()));
+                succinctBytes(getPeakTaskTotalMemory()),
+                succinctBytes(getPeakNodeTotalMemory()));
     }
 
     public VersionedMemoryPoolId getMemoryPool()
@@ -907,6 +921,7 @@ public class QueryStateMachine
                 queryStats.getPeakTotalMemoryReservation(),
                 queryStats.getPeakTaskUserMemory(),
                 queryStats.getPeakTaskTotalMemory(),
+                queryStats.getPeakNodeTotalMemory(),
                 queryStats.isScheduled(),
                 queryStats.getTotalScheduledTime(),
                 queryStats.getTotalCpuTime(),

@@ -78,6 +78,8 @@ public class QueryContext
     private long maxUserMemory;
     @GuardedBy("this")
     private long maxTotalMemory;
+    @GuardedBy("this")
+    private long peakNodeTotalMemory;
 
     @GuardedBy("this")
     private long broadcastUsed;
@@ -349,6 +351,11 @@ public class QueryContext
         maxBroadcastUsedMemory = Math.min(maxBroadcastUsedMemory, queryMaxBroadcastMemory.toBytes());
     }
 
+    public synchronized long getPeakNodeTotalMemory()
+    {
+        return peakNodeTotalMemory;
+    }
+
     private static class QueryMemoryReservationHandler
             implements MemoryReservationHandler
     {
@@ -413,7 +420,9 @@ public class QueryContext
     @GuardedBy("this")
     private void enforceTotalMemoryLimit(long allocated, long delta, long maxMemory)
     {
-        if (allocated + delta > maxMemory) {
+        long totalMemory = allocated + delta;
+        peakNodeTotalMemory = Math.max(totalMemory, peakNodeTotalMemory);
+        if (totalMemory > maxMemory) {
             throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
         }
     }
