@@ -24,6 +24,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
@@ -357,6 +358,16 @@ public interface Metadata
      * Drops the specified view.
      */
     void dropView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Returns the materialized view definition for the specified materialized view name.
+     */
+    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Creates the specified materialized view with the specified view definition.
+     */
+    void createMaterializedView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, ConnectorMaterializedViewDefinition viewDefinition, boolean ignoreExisting);
 
     /**
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.

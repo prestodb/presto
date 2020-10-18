@@ -47,6 +47,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -130,6 +131,7 @@ public class MetastoreUtil
     public static final String PRESTO_OFFLINE = "presto_offline";
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String PRESTO_VIEW_FLAG = "presto_view";
+    public static final String PRESTO_MATERIALIZED_VIEW_FLAG = "presto_materialized_view";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     @SuppressWarnings("OctalInteger")
@@ -651,6 +653,12 @@ public class MetastoreUtil
     public static boolean isPrestoView(Table table)
     {
         return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
+    }
+
+    public static boolean isPrestoMaterializedView(Table table)
+    {
+        return "true".equals(table.getParameters().get(PRESTO_MATERIALIZED_VIEW_FLAG))
+                && !table.getViewOriginalText().map(Strings::isNullOrEmpty).orElse(true);
     }
 
     private static String getRenameErrorMessage(Path source, Path target)
