@@ -135,6 +135,8 @@ public class MetastoreUtil
     public static final String PRESTO_OFFLINE = "presto_offline";
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String PRESTO_VIEW_FLAG = "presto_view";
+    public static final String PRESTO_MATERIALIZED_VIEW_FLAG = "presto_materialized_view";
+    public static final String PRESTO_MATERIALIZED_VIEW_DATA = "presto_materialzied_view_data";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     @SuppressWarnings("OctalInteger")
@@ -656,6 +658,16 @@ public class MetastoreUtil
     public static boolean isPrestoView(Table table)
     {
         return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
+    }
+
+    public static boolean isPrestoMaterializedView(Table table)
+    {
+        Map<String, String> parameters = table.getParameters();
+        if ("true".equals(parameters.get(PRESTO_MATERIALIZED_VIEW_FLAG))
+                && parameters.containsKey(PRESTO_MATERIALIZED_VIEW_DATA)) {
+            return true;
+        }
+        return false;
     }
 
     private static String getRenameErrorMessage(Path source, Path target)

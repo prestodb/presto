@@ -413,6 +413,18 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createMaterializedView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         throw new UnsupportedOperationException();

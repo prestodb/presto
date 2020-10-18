@@ -359,6 +359,16 @@ public interface Metadata
     void dropView(Session session, QualifiedObjectName viewName);
 
     /**
+     * Returns the materialized view definition for the specified materialized view name.
+     */
+    Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
+
+    /**
+     * Creates the specified materialized view with the specified view definition.
+     */
+    void createMaterializedView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting);
+
+    /**
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
     Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);

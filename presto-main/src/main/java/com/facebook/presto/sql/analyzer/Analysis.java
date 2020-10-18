@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -460,6 +461,13 @@ public class Analysis
     public Collection<TableHandle> getTables()
     {
         return unmodifiableCollection(tables.values());
+    }
+
+    public Collection<Table> getTableNodes()
+    {
+        return unmodifiableCollection(tables.keySet().stream()
+                .map(NodeRef::getNode)
+                .collect(Collectors.toList()));
     }
 
     public void registerTable(Table table, TableHandle handle)

@@ -31,6 +31,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
@@ -96,6 +97,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.isIgnoreStatsCalculatorFailures;
 import static com.facebook.presto.common.function.OperatorType.BETWEEN;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -117,6 +119,7 @@ import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -1041,6 +1044,43 @@ public class MetadataManager
     }
 
     @Override
+    public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            ConnectorId connectorId = catalogMetadata.getConnectorId(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+
+            Optional<ConnectorMaterializedViewDefinition> view = metadata.getMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
+            if (view.isPresent()) {
+                return Optional.of(deserializeMaterializedView(view.get().getViewData()));
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public void createMaterializedView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        String encodedViewData = jsonCodec(MaterializedViewDefinition.class).toJson(viewDefinition);
+        List<SchemaTableName> baseTables = viewDefinition.getBaseTables().stream()
+                .map(MaterializedViewDefinition.ViewBaseTable::getName)
+                .collect(toImmutableList());
+        ConnectorMaterializedViewDefinition connectorViewDefinition = new ConnectorMaterializedViewDefinition(
+                viewMetadata.getTable(),
+                viewDefinition.getOwner(),
+                encodedViewData,
+                Optional.of(baseTables));
+
+        metadata.createMaterializedView(session.toConnectorSession(connectorId), viewMetadata, connectorViewDefinition, ignoreExisting);
+    }
+
+    @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
@@ -1310,6 +1350,17 @@ public class MetadataManager
         }
     }
 
+    private MaterializedViewDefinition deserializeMaterializedView(String data)
+    {
+        JsonCodec<MaterializedViewDefinition> codec = createTestingMaterializedViewCodec(functionAndTypeManager);
+        try {
+            return codec.fromJson(data);
+        }
+        catch (IllegalArgumentException e) {
+            throw new PrestoException(INVALID_VIEW, "Invalid materialized view JSON: " + data, e);
+        }
+    }
+
     private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
@@ -1345,6 +1396,13 @@ public class MetadataManager
         ObjectMapperProvider provider = new ObjectMapperProvider();
         provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(functionAndTypeManager)));
         return new JsonCodecFactory(provider).jsonCodec(ViewDefinition.class);
+    }
+
+    private static JsonCodec<MaterializedViewDefinition> createTestingMaterializedViewCodec(FunctionAndTypeManager functionAndTypeManager)
+    {
+        ObjectMapperProvider provider = new ObjectMapperProvider();
+        provider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(functionAndTypeManager)));
+        return new JsonCodecFactory(provider).jsonCodec(MaterializedViewDefinition.class);
     }
 
     private boolean canResolveOperator(OperatorType operatorType, List<TypeSignatureProvider> argumentTypes)
