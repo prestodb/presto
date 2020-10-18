@@ -34,6 +34,7 @@ import com.facebook.presto.security.ViewAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.TableHandle;
@@ -56,6 +57,7 @@ import com.facebook.presto.sql.tree.Analyze;
 import com.facebook.presto.sql.tree.Call;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
@@ -194,6 +196,8 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTIO
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_WINDOW_FRAME;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_ALREADY_EXISTS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MATERIALIZED_VIEW_IS_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISMATCHED_SET_COLUMN_TYPES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_ATTRIBUTE;
@@ -323,6 +327,9 @@ class StatementAnalyzer
             if (metadata.getView(session, targetTable).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
+            if (metadata.getMaterializedView(session, targetTable).isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, insert, "Inserting into materialized views is not supported");
+            }
 
             // analyze the query that creates the data
             Scope queryScope = process(insert.getQuery(), scope);
@@ -435,6 +442,9 @@ class StatementAnalyzer
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
             if (metadata.getView(session, tableName).isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
+            }
+            if (metadata.getMaterializedView(session, tableName).isPresent()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Deleting from materialized views is not supported");
             }
 
             // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
@@ -562,6 +572,37 @@ class StatementAnalyzer
 
             accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
 
+            validateColumns(node, queryScope.getRelationType());
+
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitCreateMaterializedView(CreateMaterializedView node, Optional<Scope> scope)
+        {
+            analysis.setUpdateType("CREATE MATERIALIZED VIEW");
+
+            QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            analysis.setCreateTableDestination(viewName);
+
+            Optional<TableHandle> viewHandle = metadata.getTableHandle(session, viewName);
+            if (viewHandle.isPresent()) {
+                if (node.isNotExists()) {
+                    return createAndAssignScope(node, scope);
+                }
+                throw new SemanticException(MATERIALIZED_VIEW_ALREADY_EXISTS, node, "Destination materialized view '%s' already exists", viewName);
+            }
+
+            validateProperties(node.getProperties(), scope);
+
+            analysis.setCreateTableProperties(mapFromProperties(node.getProperties()));
+            analysis.setCreateTableComment(node.getComment());
+
+            // Relaxed acl for the moment and use create table acl.
+            accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
+
+            // analyze the query that creates the table
+            Scope queryScope = process(node.getQuery(), scope);
             validateColumns(node, queryScope.getRelationType());
 
             return createAndAssignScope(node, scope);
@@ -1007,6 +1048,24 @@ class StatementAnalyzer
                 analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
                 return createAndAssignScope(table, scope, outputFields);
+            }
+
+            Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
+            if (optionalMaterializedView.isPresent()) {
+                Statement statement = analysis.getStatement();
+
+                final List<Class<? extends Statement>> statementNotSupported = ImmutableList.of(
+                        AddColumn.class,
+                        DropColumn.class,
+                        RenameColumn.class,
+                        RenameTable.class);
+                if (statementNotSupported.stream().anyMatch(notSupported -> notSupported.isInstance(statement))) {
+                    throw new SemanticException(NOT_SUPPORTED, table, "Materialized view is not supported in this statement.");
+                }
+
+                if (analysis.hasTableInView(table)) {
+                    throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
+                }
             }
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);

@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.security.Identity;
@@ -44,6 +45,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 
@@ -61,11 +63,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
+import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Multimaps.forMap;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -347,6 +352,11 @@ public class Analysis
         return joins.get(NodeRef.of(join));
     }
 
+    public boolean hasJoins()
+    {
+        return !joins.isEmpty() || !joinUsing.isEmpty();
+    }
+
     public void recordSubqueries(Node node, ExpressionAnalysis expressionAnalysis)
     {
         NodeRef<Node> key = NodeRef.of(node);
@@ -388,6 +398,14 @@ public class Analysis
         return unmodifiableList(quantifiedComparisonSubqueries.get(NodeRef.of(node)));
     }
 
+    public boolean hasSubqueries()
+    {
+        return !inPredicatesSubqueries.isEmpty() ||
+                !scalarSubqueries.isEmpty() ||
+                !existsSubqueries.isEmpty() ||
+                !quantifiedComparisonSubqueries.isEmpty();
+    }
+
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
     {
         windowFunctions.put(NodeRef.of(node), ImmutableList.copyOf(functions));
@@ -406,6 +424,12 @@ public class Analysis
     public List<FunctionCall> getOrderByWindowFunctions(OrderBy query)
     {
         return orderByWindowFunctions.get(NodeRef.of(query));
+    }
+
+    public boolean hasWindowFunctions()
+    {
+        return Iterables.any(windowFunctions.values(), list -> !list.isEmpty()) ||
+                Iterables.any(orderByWindowFunctions.values(), list -> !list.isEmpty());
     }
 
     public void addColumnReferences(Map<NodeRef<Expression>, FieldId> columnReferences)
@@ -461,6 +485,13 @@ public class Analysis
     public Collection<TableHandle> getTables()
     {
         return unmodifiableCollection(tables.values());
+    }
+
+    public Collection<Table> getTableNodes()
+    {
+        return unmodifiableCollection(tables.keySet().stream()
+                .map(NodeRef::getNode)
+                .collect(Collectors.toList()));
     }
 
     public void registerTable(Table table, TableHandle handle)
@@ -599,6 +630,11 @@ public class Analysis
         return namedQueries.get(NodeRef.of(table));
     }
 
+    public boolean hasNamedQueries()
+    {
+        return !namedQueries.isEmpty();
+    }
+
     public void registerNamedQuery(Table tableReference, Query query)
     {
         requireNonNull(tableReference, "tableReference is null");
@@ -707,6 +743,16 @@ public class Analysis
     public boolean isOrderByRedundant(OrderBy orderBy)
     {
         return redundantOrderBy.contains(NodeRef.of(orderBy));
+    }
+
+    public Map<String, Map<SchemaTableName, String>> getOriginalColumnMapping(Node node)
+    {
+        return getOutputDescriptor(node).getVisibleFields()
+                .stream()
+                .filter(field -> field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent())
+                .collect(toImmutableMap(
+                        field -> field.getName().get(),
+                        field -> ImmutableMap.of(toSchemaTableName(field.getOriginTable().get()), field.getOriginColumnName().get())));
     }
 
     @Immutable
