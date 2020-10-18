@@ -21,6 +21,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -65,6 +66,14 @@ public class AddColumnTask
         if (!tableHandle.isPresent()) {
             if (!statement.isTableExists()) {
                 throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            }
+            return immediateFuture(null);
+        }
+
+        Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
+        if (optionalMaterializedView.isPresent()) {
+            if (!statement.isTableExists()) {
+                throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, and add column is not supported", tableName);
             }
             return immediateFuture(null);
         }

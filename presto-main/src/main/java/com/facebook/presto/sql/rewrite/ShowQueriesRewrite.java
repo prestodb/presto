@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -441,9 +442,13 @@ final class ShowQueriesRewrite
         {
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
             Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
+            Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = metadata.getMaterializedView(session, objectName);
 
             if (node.getType() == VIEW) {
                 if (!viewDefinition.isPresent()) {
+                    if (materializedViewDefinition.isPresent()) {
+                        throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a view", objectName);
+                    }
                     if (metadata.getTableHandle(session, objectName).isPresent()) {
                         throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a view", objectName);
                     }
@@ -458,6 +463,9 @@ final class ShowQueriesRewrite
             if (node.getType() == TABLE) {
                 if (viewDefinition.isPresent()) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
+                }
+                if (materializedViewDefinition.isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
                 }
 
                 Optional<TableHandle> tableHandle = metadata.getTableHandle(session, objectName);

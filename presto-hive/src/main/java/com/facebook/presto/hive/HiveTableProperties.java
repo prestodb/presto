@@ -177,6 +177,11 @@ public class HiveTableProperties
         return (String) tableProperties.get(EXTERNAL_LOCATION_PROPERTY);
     }
 
+    public static boolean isExternalTable(Map<String, Object> tableProperties)
+    {
+        return tableProperties.get(EXTERNAL_LOCATION_PROPERTY) != null;
+    }
+
     public static String getAvroSchemaUrl(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(AVRO_SCHEMA_URL);
