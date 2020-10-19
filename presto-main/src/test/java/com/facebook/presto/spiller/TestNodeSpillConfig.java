@@ -23,6 +23,7 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestNodeSpillConfig
@@ -34,7 +35,8 @@ public class TestNodeSpillConfig
                 .setMaxSpillPerNode(new DataSize(100, GIGABYTE))
                 .setQueryMaxSpillPerNode(new DataSize(100, GIGABYTE))
                 .setSpillCompressionEnabled(false)
-                .setSpillEncryptionEnabled(false));
+                .setSpillEncryptionEnabled(false)
+                .setTemporaryStoreBufferSize(new DataSize(4, KILOBYTE)));
     }
 
     @Test
@@ -45,13 +47,15 @@ public class TestNodeSpillConfig
                 .put("experimental.query-max-spill-per-node", "15 MB")
                 .put("experimental.spill-compression-enabled", "true")
                 .put("experimental.spill-encryption-enabled", "true")
+                .put("experimental.temporary-store-buffer-size", "24MB")
                 .build();
 
         NodeSpillConfig expected = new NodeSpillConfig()
                 .setMaxSpillPerNode(new DataSize(10, MEGABYTE))
                 .setQueryMaxSpillPerNode(new DataSize(15, MEGABYTE))
                 .setSpillCompressionEnabled(true)
-                .setSpillEncryptionEnabled(true);
+                .setSpillEncryptionEnabled(true)
+                .setTemporaryStoreBufferSize(new DataSize(24, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }
