@@ -1371,6 +1371,21 @@ class StatementAnalyzer
 
                 leftJoinFields.add(leftField.get().getRelationFieldIndex());
                 rightJoinFields.add(rightField.get().getRelationFieldIndex());
+
+                analysis.addColumnReference(NodeRef.of(column), FieldId.from(leftField.get()));
+                analysis.addColumnReference(NodeRef.of(column), FieldId.from(rightField.get()));
+                if (leftField.get().getField().getOriginTable().isPresent() && leftField.get().getField().getOriginColumnName().isPresent()) {
+                    analysis.addTableColumnReferences(
+                            accessControl,
+                            session.getIdentity(),
+                            ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), leftField.get().getField().getOriginColumnName().get()));
+                }
+                if (rightField.get().getField().getOriginTable().isPresent() && rightField.get().getField().getOriginColumnName().isPresent()) {
+                    analysis.addTableColumnReferences(
+                            accessControl,
+                            session.getIdentity(),
+                            ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), rightField.get().getField().getOriginColumnName().get()));
+                }
             }
 
             ImmutableList.Builder<Field> outputs = ImmutableList.builder();
@@ -1712,9 +1727,8 @@ class StatementAnalyzer
                                 analyzeExpression(column, scope);
                             }
 
-                            FieldId field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
-                            if (field != null) {
-                                sets.add(ImmutableList.of(ImmutableSet.of(field)));
+                            if (analysis.getColumnReferenceFields().containsKey(NodeRef.of(column))) {
+                                sets.add(ImmutableList.of(ImmutableSet.copyOf(analysis.getColumnReferenceFields().get(NodeRef.of(column)))));
                             }
                             else {
                                 verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), column, "GROUP BY clause");
@@ -1739,6 +1753,7 @@ class StatementAnalyzer
                             Set<FieldId> cube = groupingElement.getExpressions().stream()
                                     .map(NodeRef::of)
                                     .map(analysis.getColumnReferenceFields()::get)
+                                    .flatMap(Collection::stream)
                                     .collect(toImmutableSet());
 
                             cubes.add(cube);
@@ -1747,6 +1762,7 @@ class StatementAnalyzer
                             List<FieldId> rollup = groupingElement.getExpressions().stream()
                                     .map(NodeRef::of)
                                     .map(analysis.getColumnReferenceFields()::get)
+                                    .flatMap(Collection::stream)
                                     .collect(toImmutableList());
 
                             rollups.add(rollup);
@@ -1756,6 +1772,7 @@ class StatementAnalyzer
                                     .map(set -> set.stream()
                                             .map(NodeRef::of)
                                             .map(analysis.getColumnReferenceFields()::get)
+                                            .flatMap(Collection::stream)
                                             .collect(toImmutableSet()))
                                     .collect(toImmutableList());
 
