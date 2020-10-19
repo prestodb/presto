@@ -44,7 +44,9 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
@@ -379,6 +381,16 @@ public class VariableWidthBlockBuilder
     {
         int currentSizeInBytes = positions == 0 ? positions : (getOffset(positions) - getOffset(0));
         return new VariableWidthBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positions), calculateBlockResetBytes(currentSizeInBytes));
+    }
+
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        int newSize = max(calculateBlockResetSize(positions), expectedEntries);
+        int currentSizeInBytes = offsets[positions];
+        return new VariableWidthBlockBuilder(blockBuilderStatus,
+                newSize,
+                max(calculateBlockResetBytes(currentSizeInBytes), positions == 0 ? currentSizeInBytes : toIntExact((long) currentSizeInBytes * newSize / positions)));
     }
 
     private int getOffset(int position)
