@@ -42,6 +42,7 @@ import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
@@ -65,6 +66,7 @@ import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOn
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Multimaps.forMap;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableCollection;
@@ -83,7 +85,7 @@ public class Analysis
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
 
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
-    private final Map<NodeRef<Expression>, FieldId> columnReferences = new LinkedHashMap<>();
+    private final Multimap<NodeRef<Expression>, FieldId> columnReferences = ArrayListMultimap.create();
 
     // a map of users to the columns per table that they access
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
@@ -407,7 +409,12 @@ public class Analysis
 
     public void addColumnReferences(Map<NodeRef<Expression>, FieldId> columnReferences)
     {
-        this.columnReferences.putAll(columnReferences);
+        this.columnReferences.putAll(forMap(columnReferences));
+    }
+
+    public void addColumnReference(NodeRef<Expression> node, FieldId fieldId)
+    {
+        this.columnReferences.put(node, fieldId);
     }
 
     public Scope getScope(Node node)
@@ -480,9 +487,9 @@ public class Analysis
         return unmodifiableSet(columnReferences.keySet());
     }
 
-    public Map<NodeRef<Expression>, FieldId> getColumnReferenceFields()
+    public Multimap<NodeRef<Expression>, FieldId> getColumnReferenceFields()
     {
-        return unmodifiableMap(columnReferences);
+        return ImmutableListMultimap.copyOf(columnReferences);
     }
 
     public boolean isColumnReference(Expression expression)
