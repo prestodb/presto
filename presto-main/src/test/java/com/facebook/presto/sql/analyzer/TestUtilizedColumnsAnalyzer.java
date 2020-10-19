@@ -120,9 +120,9 @@ public class TestUtilizedColumnsAnalyzer
         assertUtilizedTableColumns("SELECT w FROM (SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a AND t1.b = t2.b) AS t(u, v, w, x, y, z)",
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b", "c"), QualifiedObjectName.valueOf("tpch.s1.t2"), ImmutableSet.of("a", "b")));
 
-        // TODO: Columns in join criteria with USING should be checked
-        //assertUtilizedTableColumns("SELECT t1.c FROM t1 JOIN t2 USING (a, b)",
-        //        ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b", "c"), QualifiedObjectName.valueOf("tpch.s1.t2"), ImmutableSet.of("a", "b")));
+        // Join with USING clause
+        assertUtilizedTableColumns("SELECT t1.c FROM t1 JOIN t2 USING (a, b)",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b", "c"), QualifiedObjectName.valueOf("tpch.s1.t2"), ImmutableSet.of("a", "b")));
     }
 
     @Test

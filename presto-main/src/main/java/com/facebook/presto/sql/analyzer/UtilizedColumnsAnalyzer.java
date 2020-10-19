@@ -29,7 +29,9 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Intersect;
 import com.facebook.presto.sql.tree.Join;
+import com.facebook.presto.sql.tree.JoinCriteria;
 import com.facebook.presto.sql.tree.JoinOn;
+import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.LambdaArgumentDeclaration;
 import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Lateral;
@@ -173,9 +175,19 @@ public class UtilizedColumnsAnalyzer
         protected Void visitJoin(Join join, Context context)
         {
             handleRelation(join, context);
-            join.getCriteria()
-                    .filter(criteria -> criteria instanceof JoinOn)
-                    .map(criteria -> process(((JoinOn) criteria).getExpression(), context));
+
+            if (join.getCriteria().isPresent()) {
+                JoinCriteria joinCriteria = join.getCriteria().get();
+                if (joinCriteria instanceof JoinOn) {
+                    process(((JoinOn) joinCriteria).getExpression(), context);
+                }
+                else if (joinCriteria instanceof JoinUsing) {
+                    for (Identifier column : ((JoinUsing) joinCriteria).getColumns()) {
+                        process(column, context);
+                    }
+                }
+            }
+
             int numLeftFields = analysis.getScope(join.getLeft()).getRelationType().getAllFieldCount();
             for (FieldId fieldId : context.getFieldIdsToExploreInRelation(join)) {
                 if (fieldId.getFieldIndex() < numLeftFields) {
@@ -429,7 +441,8 @@ public class UtilizedColumnsAnalyzer
         private void handleExpression(Expression expression, Context context)
         {
             if (analysis.getColumnReferenceFields().containsKey(NodeRef.of(expression))) {
-                context.addFieldIdToExplore(analysis.getColumnReferenceFields().get(NodeRef.of(expression)));
+                analysis.getColumnReferenceFields().get(NodeRef.of(expression))
+                        .forEach(context::addFieldIdToExplore);
             }
         }
     }

@@ -25,12 +25,14 @@ import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.google.common.collect.Multimap;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.checkAndGetColumnReferenceField;
 import static com.facebook.presto.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -40,7 +42,7 @@ public final class GroupingOperationRewriter
 {
     private GroupingOperationRewriter() {}
 
-    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<Set<Integer>> groupingSets, Map<NodeRef<Expression>, FieldId> columnReferenceFields, Optional<VariableReferenceExpression> groupIdVariable)
+    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<Set<Integer>> groupingSets, Multimap<NodeRef<Expression>, FieldId> columnReferenceFields, Optional<VariableReferenceExpression> groupIdVariable)
     {
         requireNonNull(groupIdVariable, "groupIdVariable is null");
 
@@ -55,12 +57,13 @@ public final class GroupingOperationRewriter
         else {
             checkState(groupIdVariable.isPresent(), "groupId symbol is missing");
 
-            RelationId relationId = columnReferenceFields.get(NodeRef.of(expression.getGroupingColumns().get(0))).getRelationId();
+            RelationId relationId = checkAndGetColumnReferenceField(expression.getGroupingColumns().get(0), columnReferenceFields).getRelationId();
 
             List<Integer> columns = expression.getGroupingColumns().stream()
                     .map(NodeRef::of)
                     .peek(groupingColumn -> checkState(columnReferenceFields.containsKey(groupingColumn), "the grouping column is not in the columnReferencesField map"))
                     .map(columnReferenceFields::get)
+                    .flatMap(Collection::stream)
                     .map(fieldId -> translateFieldToInteger(fieldId, relationId))
                     .collect(toImmutableList());
 
