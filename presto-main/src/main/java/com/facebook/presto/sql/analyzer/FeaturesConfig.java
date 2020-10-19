@@ -527,9 +527,9 @@ public class FeaturesConfig
 
     @Config("experimental.spiller.task-spilling-strategy")
     @ConfigDescription("The strategy used to pick which task to spill when spilling is enabled. See TaskSpillingStrategy.")
-    public FeaturesConfig setTaskSpillingStrategy(TaskSpillingStrategy joinReorderingStrategy)
+    public FeaturesConfig setTaskSpillingStrategy(TaskSpillingStrategy taskSpillingStrategy)
     {
-        this.taskSpillingStrategy = joinReorderingStrategy;
+        this.taskSpillingStrategy = taskSpillingStrategy;
         return this;
     }
 
