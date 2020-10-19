@@ -47,6 +47,7 @@ import com.facebook.presto.sql.tree.CurrentUser;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FieldReference;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -285,6 +286,20 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitBinaryLiteral(BinaryLiteral node, Void context)
         {
             return constant(node.getValue(), VARBINARY);
+        }
+
+        @Override
+        protected RowExpression visitEnumLiteral(EnumLiteral node, Void context)
+        {
+            Type type;
+            try {
+                type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
+            }
+            catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Unsupported type: " + node.getType());
+            }
+
+            return constant(node.getValue(), type);
         }
 
         @Override
