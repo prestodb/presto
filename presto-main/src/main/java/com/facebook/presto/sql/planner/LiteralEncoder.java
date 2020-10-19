@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
@@ -28,6 +29,7 @@ import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.function.Signature;
@@ -37,6 +39,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
@@ -231,6 +234,10 @@ public final class LiteralEncoder
             // This if condition will evaluate to true: object instanceof Slice && !type.equals(VARCHAR)
         }
 
+        if (type instanceof EnumType) {
+            return new EnumLiteral(type.getTypeSignature().toString(), object);
+        }
+
         Signature signature = getMagicLiteralFunctionSignature(type);
         if (object instanceof Slice) {
             // HACK: we need to serialize VARBINARY in a format that can be embedded in an expression to be
@@ -312,7 +319,7 @@ public final class LiteralEncoder
             return DOUBLE;
         }
         if (!clazz.isPrimitive()) {
-            if (type instanceof VarcharType) {
+            if (type instanceof VarcharType || type instanceof VarcharEnumType) {
                 return type;
             }
             else {
