@@ -22,6 +22,7 @@ public class NodeSpillConfig
 {
     private DataSize maxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
     private DataSize queryMaxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
+    private DataSize temporaryStoreBufferSize = new DataSize(4, DataSize.Unit.KILOBYTE);
 
     private boolean spillCompressionEnabled;
     private boolean spillEncryptionEnabled;
@@ -73,6 +74,19 @@ public class NodeSpillConfig
     public NodeSpillConfig setSpillEncryptionEnabled(boolean spillEncryptionEnabled)
     {
         this.spillEncryptionEnabled = spillEncryptionEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getTemporaryStoreBufferSize()
+    {
+        return temporaryStoreBufferSize;
+    }
+
+    @Config("experimental.temporary-store-buffer-size")
+    public NodeSpillConfig setTemporaryStoreBufferSize(DataSize temporaryStoreBufferSize)
+    {
+        this.temporaryStoreBufferSize = temporaryStoreBufferSize;
         return this;
     }
 }
