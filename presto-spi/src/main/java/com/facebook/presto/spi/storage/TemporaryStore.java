@@ -11,33 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.io;
+package com.facebook.presto.spi.storage;
 
 import java.io.IOException;
-import java.util.List;
+import java.io.InputStream;
 
-public interface DataSink
+public interface TemporaryStore
 {
-    /**
-     * Number of bytes written to this sink so far.
-     */
-    long size();
-
-    /**
-     * Gets the size of the memory buffers.
-     */
-    long getRetainedSizeInBytes();
-
-    /**
-     * Write a batch of data.
-     * For example, for ORC file, it can be the stripe and optionally header and footer data
-     */
-    void write(List<DataOutput> outputData)
+    void initialize()
             throws IOException;
 
-    /**
-     * File is complete
-     */
-    void close()
+    TemporaryDataSink create()
+            throws IOException;
+
+    InputStream open(TemporaryStoreHandle handle)
+            throws IOException;
+
+    void remove(TemporaryStoreHandle handle)
             throws IOException;
 }
