@@ -15,6 +15,7 @@ package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
+import com.facebook.presto.common.type.encoding.Base32;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -221,7 +222,10 @@ public class TypeSignature
         VarcharEnumMap getVarcharEnumMap()
         {
             checkArgument(!isLongEnum, "Invalid enum map format");
-            return new VarcharEnumMap(map);
+            // Varchar enum values are base32-encoded so that they are case-insensitive, which is expected of TypeSigntures
+            Base32 base32 = new Base32();
+            return new VarcharEnumMap(map.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> new String(base32.decode(e.getValue().toUpperCase(ENGLISH))))));
         }
     }
 
