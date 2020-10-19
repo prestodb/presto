@@ -118,4 +118,9 @@ public interface BlockBuilder
      * Creates a new block builder of the same type based on the current usage statistics of this block builder.
      */
     BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus);
+
+    /**
+     * Creates a new block builder of the same type based on the expectedEntries and the current usage statistics of this block builder.
+     */
+    BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries);
 }

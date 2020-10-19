@@ -114,6 +114,12 @@ public class ShortArrayBlockBuilder
         return new ShortArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
     }
 
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return new ShortArrayBlockBuilder(blockBuilderStatus, max(calculateBlockResetSize(positionCount), expectedEntries));
+    }
+
     private void growCapacity()
     {
         int newSize;

@@ -133,6 +133,12 @@ public class Int128ArrayBlockBuilder
         return new Int128ArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
     }
 
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return new Int128ArrayBlockBuilder(blockBuilderStatus, max(calculateBlockResetSize(positionCount), expectedEntries));
+    }
+
     private void growCapacity()
     {
         int newSize;

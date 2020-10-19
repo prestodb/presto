@@ -29,6 +29,8 @@ import java.util.function.BiConsumer;
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.common.block.MapBlock.createMapBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -450,6 +452,22 @@ public class MapBlockBuilder
                 blockBuilderStatus,
                 keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
+                new int[newSize + 1],
+                new boolean[newSize],
+                newNegativeOneFilledArray(newSize * HASH_MULTIPLIER));
+    }
+
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        int newSize = max(calculateBlockResetSize(getPositionCount()), expectedEntries);
+        int nestedExpectedEntries = positionCount == 0 ? expectedEntries : toIntExact((long) offsets[positionCount] * newSize / positionCount);
+        return new MapBlockBuilder(
+                keyBlockEquals,
+                keyBlockHashCode,
+                blockBuilderStatus,
+                keyBlockBuilder.newBlockBuilderLike(blockBuilderStatus, nestedExpectedEntries),
+                valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus, nestedExpectedEntries),
                 new int[newSize + 1],
                 new boolean[newSize],
                 newNegativeOneFilledArray(newSize * HASH_MULTIPLIER));

@@ -114,6 +114,12 @@ public class ByteArrayBlockBuilder
         return new ByteArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
     }
 
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return new ByteArrayBlockBuilder(blockBuilderStatus, max(calculateBlockResetSize(positionCount), expectedEntries));
+    }
+
     private void growCapacity()
     {
         int newSize;
