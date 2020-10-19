@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.type.encoding.Base32;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -91,11 +92,13 @@ public class VarcharEnumType
         @Override
         public String toString()
         {
+            // Varchar enum values are base32-encoded so that they are case-insensitive, which is expected of TypeSigntures
+            Base32 base32 = new Base32();
             return "enum:varchar{"
                     + enumMap.entrySet()
                     .stream()
                     .sorted(Comparator.comparing(Map.Entry::getKey))
-                    .map(e -> format("\"%s\": \"%s\"", e.getKey().replaceAll("\"", "\"\""), e.getValue().replaceAll("\"", "\"\"")))
+                    .map(e -> format("\"%s\": \"%s\"", e.getKey().replaceAll("\"", "\"\""), base32.encodeAsString(e.getValue().getBytes())))
                     .collect(Collectors.joining(", "))
                     + "}";
         }

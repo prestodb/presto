@@ -296,11 +296,11 @@ public class TestTypeSignature
     public void testEnumSignature()
     {
         assertEquals(
-                parseTypeSignature("test_enum(enum:varchar{\"test\" :\"\"\"\", \"hello\": \" \" , \"a\":\"}{{\" })"),
+                parseTypeSignature("test_enum(enum:varchar{\"test\" :\"EI======\", \"hello\": \"EA======\" , \"a\":\"PV5XW===\" })"),
                 new VarcharEnumType("test_enum", new VarcharEnumMap(ImmutableMap.of("a", "}{{", "hello", " ", "test", "\""))).getTypeSignature());
 
         assertEquals(
-                parseTypeSignature("test_enum(enum:varchar{\"my  key\" :\"मूल्य\"})"),
+                parseTypeSignature("test_enum(enum:varchar{\"my  key\" :\"4CSK5YFFQLQKJMXAUWG6BJFP\"})"),
                 new VarcharEnumType("test_enum", new VarcharEnumMap(ImmutableMap.of("my  key", "मूल्य"))).getTypeSignature());
 
         assertEquals(
@@ -308,11 +308,11 @@ public class TestTypeSignature
                 new LongEnumType("other_enum", new LongEnumMap(ImmutableMap.of("hello", -5L, "AAA", 9999L))).getTypeSignature());
 
         assertEquals(
-                parseTypeSignature("my_enum(enum:varchar{\"))(\" :\"){}\"})"),
+                parseTypeSignature("my_enum(enum:varchar{\"))(\" :\"FF5X2===\"})"),
                 new VarcharEnumType("my_enum", new VarcharEnumMap(ImmutableMap.of("))(", "){}"))).getTypeSignature());
 
         assertEquals(
-                parseTypeSignature("map(my_enum(enum:varchar{\"k\": \"v)))\"}), my_enum_2(enum:bigint{\"k\": 1}))"),
+                parseTypeSignature("map(my_enum(enum:varchar{\"k\": \"OYUSSKI=\"}), my_enum_2(enum:bigint{\"k\": 1}))"),
                 new TypeSignature(
                         StandardTypes.MAP,
                         TypeSignatureParameter.of((new VarcharEnumType("my_enum", new VarcharEnumMap(ImmutableMap.of("k", "v)))"))).getTypeSignature())),
