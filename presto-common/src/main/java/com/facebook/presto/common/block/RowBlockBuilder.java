@@ -27,6 +27,8 @@ import java.util.function.BiConsumer;
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.common.block.RowBlock.createRowBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -295,6 +297,18 @@ public class RowBlockBuilder
         BlockBuilder[] newBlockBuilders = new BlockBuilder[numFields];
         for (int i = 0; i < numFields; i++) {
             newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
+        }
+        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[newSize + 1], new boolean[newSize]);
+    }
+
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        int newSize = max(calculateBlockResetSize(getPositionCount()), expectedEntries);
+        BlockBuilder[] newBlockBuilders = new BlockBuilder[numFields];
+        int nestedExpectedEntries = positionCount == 0 ? expectedEntries : toIntExact((long) fieldBlockOffsets[positionCount] * newSize / positionCount);
+        for (int i = 0; i < numFields; i++) {
+            newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus, nestedExpectedEntries);
         }
         return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[newSize + 1], new boolean[newSize]);
     }
