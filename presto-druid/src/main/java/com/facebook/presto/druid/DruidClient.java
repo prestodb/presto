@@ -46,8 +46,8 @@ import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticB
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_BROKER_RESULT_ERROR;
-import static com.facebook.presto.druid.DruidResultFormat.ARRAY_LINES;
 import static com.facebook.presto.druid.DruidResultFormat.OBJECT;
+import static com.facebook.presto.druid.DruidResultFormat.OBJECT_LINES;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
@@ -169,7 +169,7 @@ public class DruidClient
 
         return setContentTypeHeaders(preparePost())
                 .setUri(uriBuilder.build())
-                .setBodyGenerator(createStaticBodyGenerator(createRequestBody(query, ARRAY_LINES, false)))
+                .setBodyGenerator(createStaticBodyGenerator(createRequestBody(query, OBJECT_LINES, false)))
                 .build();
     }
 
