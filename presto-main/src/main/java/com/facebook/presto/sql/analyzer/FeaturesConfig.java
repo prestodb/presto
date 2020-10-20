@@ -78,6 +78,7 @@ public class FeaturesConfig
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
     private TaskSpillingStrategy taskSpillingStrategy = ORDER_BY_CREATE_TIME;
+    private SingleStreamSpillerChoice singleStreamSpillerChoice = SingleStreamSpillerChoice.FILE;
     private long maxRevocableMemoryPerTask = 500000L;
     private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
@@ -231,6 +232,12 @@ public class FeaturesConfig
         ORDER_BY_CREATE_TIME, // When spilling is triggered, revoke tasks in order of oldest to newest
         ORDER_BY_REVOCABLE_BYTES, // When spilling is triggered, revoke tasks by most allocated revocable memory to least allocated revocable memory
         PER_TASK_MEMORY_THRESHOLD // Spill any task after it reaches the per task memory threshold defined by experimental.spiller.max-revocable-task-memory
+    }
+
+    public enum SingleStreamSpillerChoice
+    {
+        FILE,
+        TEMPORARY_STORE
     }
 
     public double getCpuCostWeight()
@@ -530,6 +537,19 @@ public class FeaturesConfig
     public FeaturesConfig setTaskSpillingStrategy(TaskSpillingStrategy taskSpillingStrategy)
     {
         this.taskSpillingStrategy = taskSpillingStrategy;
+        return this;
+    }
+
+    public SingleStreamSpillerChoice getSingleStreamSpillerChoice()
+    {
+        return singleStreamSpillerChoice;
+    }
+
+    @Config("experimental.spiller.single-stream-spiller-choice")
+    @ConfigDescription("The SingleStreamSpiller to be used when spilling is enabled.")
+    public FeaturesConfig setSingleStreamSpillerChoice(SingleStreamSpillerChoice singleStreamSpillerChoice)
+    {
+        this.singleStreamSpillerChoice = singleStreamSpillerChoice;
         return this;
     }
 
