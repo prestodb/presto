@@ -13,16 +13,11 @@
  */
 package com.facebook.presto.tests;
 
-public class TestSpilledWindowQueries
-        extends AbstractTestWindowQueries
+public class TestSpilledWindowQueriesWithTemporaryStorage
+        extends TestSpilledWindowQueries
 {
-    public TestSpilledWindowQueries()
+    public TestSpilledWindowQueriesWithTemporaryStorage()
     {
-        this(TestDistributedSpilledQueries::createQueryRunner);
-    }
-
-    protected TestSpilledWindowQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
+        super(TestDistributedSpilledQueriesWithTemporaryStore::createQueryRunner);
     }
 }

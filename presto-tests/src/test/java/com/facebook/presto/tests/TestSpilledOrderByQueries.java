@@ -19,6 +19,11 @@ public class TestSpilledOrderByQueries
 {
     public TestSpilledOrderByQueries()
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        this(TestDistributedSpilledQueries::createQueryRunner);
+    }
+
+    protected TestSpilledOrderByQueries(QueryRunnerSupplier supplier)
+    {
+        super(supplier);
     }
 }

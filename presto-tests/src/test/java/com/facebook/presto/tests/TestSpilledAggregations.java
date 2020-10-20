@@ -20,7 +20,12 @@ public class TestSpilledAggregations
 {
     public TestSpilledAggregations()
     {
-        super(TestDistributedSpilledQueries::createQueryRunner);
+        this(TestDistributedSpilledQueries::createQueryRunner);
+    }
+
+    protected TestSpilledAggregations(QueryRunnerSupplier supplier)
+    {
+        super(supplier);
     }
 
     @Test

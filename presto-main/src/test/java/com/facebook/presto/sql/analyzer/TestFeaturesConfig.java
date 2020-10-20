@@ -19,6 +19,7 @@ import com.facebook.presto.operator.aggregation.arrayagg.ArrayAggGroupImplementa
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -94,6 +95,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
                 .setTaskSpillingStrategy(ORDER_BY_CREATE_TIME)
+                .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.FILE)
                 .setMaxRevocableMemoryPerTask(500000L)
                 .setOptimizeMixedDistinctAggregations(false)
                 .setLegacyLogFunction(false)
@@ -213,6 +215,7 @@ public class TestFeaturesConfig
                 .put("experimental.memory-revoking-threshold", "0.2")
                 .put("experimental.memory-revoking-target", "0.8")
                 .put("experimental.spiller.task-spilling-strategy", "PER_TASK_MEMORY_THRESHOLD")
+                .put("experimental.spiller.single-stream-spiller-choice", "TEMPORARY_STORE")
                 .put("experimental.spiller.max-revocable-task-memory", "100000")
                 .put("exchange.compression-enabled", "true")
                 .put("deprecated.legacy-timestamp", "false")
@@ -306,6 +309,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.2)
                 .setMemoryRevokingTarget(0.8)
                 .setTaskSpillingStrategy(PER_TASK_MEMORY_THRESHOLD)
+                .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.TEMPORARY_STORE)
                 .setMaxRevocableMemoryPerTask(100000L)
                 .setLegacyLogFunction(true)
                 .setExchangeCompressionEnabled(true)

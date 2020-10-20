@@ -128,6 +128,7 @@ import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
+import com.facebook.presto.spiller.TemporaryStoreSingleStreamSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSinkProvider;
 import com.facebook.presto.split.PageSourceManager;
@@ -140,6 +141,7 @@ import com.facebook.presto.sql.Serialization.VariableReferenceExpressionDeserial
 import com.facebook.presto.sql.Serialization.VariableReferenceExpressionSerializer;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -532,12 +534,26 @@ public class ServerMainModule
 
         // Spiller
         binder.bind(SpillerFactory.class).to(GenericSpillerFactory.class).in(Scopes.SINGLETON);
-        binder.bind(SingleStreamSpillerFactory.class).to(FileSingleStreamSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(PartitioningSpillerFactory.class).to(GenericPartitioningSpillerFactory.class).in(Scopes.SINGLETON);
         binder.bind(SpillerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SpillerFactory.class).withGeneratedName();
         binder.bind(LocalSpillManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(NodeSpillConfig.class);
+
+        install(installModuleIf(
+                FeaturesConfig.class,
+                config -> config.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.FILE,
+                moduleBinder -> moduleBinder
+                        .bind(SingleStreamSpillerFactory.class)
+                        .to(FileSingleStreamSpillerFactory.class)
+                        .in(Scopes.SINGLETON)));
+        install(installModuleIf(
+                FeaturesConfig.class,
+                config -> config.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.TEMPORARY_STORE,
+                moduleBinder -> moduleBinder
+                        .bind(SingleStreamSpillerFactory.class)
+                        .to(TemporaryStoreSingleStreamSpillerFactory.class)
+                        .in(Scopes.SINGLETON)));
 
         // Thrift RPC
         binder.install(new DriftNettyServerModule());
