@@ -332,7 +332,7 @@ public class PrestoSparkQueryExecutionFactory
                     queryStatusInfoOutputPath,
                     queryDataOutputPath);
         }
-        catch (RuntimeException executionFailure) {
+        catch (Throwable executionFailure) {
             queryStateTimer.beginFinishing();
             try {
                 rollback(session, transactionManager);
@@ -738,7 +738,7 @@ public class PrestoSparkQueryExecutionFactory
                 commit(session, transactionManager);
                 queryStateTimer.endQuery();
             }
-            catch (Exception executionException) {
+            catch (Throwable executionException) {
                 queryStateTimer.beginFinishing();
                 try {
                     rollback(session, transactionManager);
