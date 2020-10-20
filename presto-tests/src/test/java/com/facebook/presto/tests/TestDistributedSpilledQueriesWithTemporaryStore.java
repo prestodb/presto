@@ -17,24 +17,18 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
-public class TestDistributedSpilledQueries
-        extends AbstractTestQueries
+public class TestDistributedSpilledQueriesWithTemporaryStore
+        extends TestDistributedSpilledQueries
 {
-    public TestDistributedSpilledQueries()
+    public TestDistributedSpilledQueriesWithTemporaryStore()
     {
-        this(TestDistributedSpilledQueries::createQueryRunner);
-    }
-
-    protected TestDistributedSpilledQueries(QueryRunnerSupplier queryRunnerSupplier)
-    {
-        super(queryRunnerSupplier);
+        super(TestDistributedSpilledQueriesWithTemporaryStore::createQueryRunner);
     }
 
     public static DistributedQueryRunner createQueryRunner()
@@ -52,6 +46,7 @@ public class TestDistributedSpilledQueries
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.spill-enabled", "true")
+                .put("experimental.spiller.single-stream-spiller-choice", "TEMPORARY_STORE")
                 .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                 .put("experimental.spiller-max-used-space-threshold", "1.0")
                 .put("experimental.memory-revoking-threshold", "0.0") // revoke always
@@ -69,31 +64,5 @@ public class TestDistributedSpilledQueries
             queryRunner.close();
             throw e;
         }
-    }
-
-    @Test(enabled = false)
-    public void testJoinPredicatePushdown()
-    {
-        // TODO: disabled until join spilling is reworked
-    }
-
-    @Test(enabled = false)
-    @Override
-    public void testAssignUniqueId()
-    {
-        // TODO: disabled until https://github.com/prestodb/presto/issues/8926 is resolved
-        //       due to long running query test created many spill files on disk.
-    }
-
-    @Test(enabled = false)
-    public void testLimitWithJoin()
-    {
-        // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.
-    }
-
-    @Test(enabled = false)
-    public void testJoinDoubleClauseWithRightOverlap()
-    {
-        // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.
     }
 }

@@ -11,18 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.tests;
 
-public class TestSpilledWindowQueries
-        extends AbstractTestWindowQueries
+public class TestSpilledOrderByQueriesWithTemporaryStorage
+        extends TestSpilledOrderByQueries
 {
-    public TestSpilledWindowQueries()
+    public TestSpilledOrderByQueriesWithTemporaryStorage()
     {
-        this(TestDistributedSpilledQueries::createQueryRunner);
-    }
-
-    protected TestSpilledWindowQueries(QueryRunnerSupplier supplier)
-    {
-        super(supplier);
+        super(TestDistributedSpilledQueriesWithTemporaryStore::createQueryRunner);
     }
 }
