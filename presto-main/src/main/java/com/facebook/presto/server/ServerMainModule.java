@@ -318,11 +318,11 @@ public class ServerMainModule
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
 
         // memory revoking scheduler
-        installModuleIf(
+        install(installModuleIf(
                 FeaturesConfig.class,
                 config -> config.getTaskSpillingStrategy() == PER_TASK_MEMORY_THRESHOLD,
                 moduleBinder -> moduleBinder.bind(TaskThresholdMemoryRevokingScheduler.class).in(Scopes.SINGLETON),
-                moduleBinder -> moduleBinder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON));
+                moduleBinder -> moduleBinder.bind(MemoryRevokingScheduler.class).in(Scopes.SINGLETON)));
 
         // Add monitoring for JVM pauses
         binder.bind(PauseMeter.class).in(Scopes.SINGLETON);
