@@ -47,10 +47,13 @@ public class GlueMetastoreModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
+        binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).annotatedWith(ForCachingHiveMetastore.class).to(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(ExtendedHiveMetastore.class).to(CachingHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ExtendedHiveMetastore.class)
                 .as(generatedNameOf(CachingHiveMetastore.class, connectorId));
+        newExporter(binder).export(GlueHiveMetastore.class)
+                .as(generatedNameOf(GlueHiveMetastore.class, connectorId));
     }
 
     @Provides
