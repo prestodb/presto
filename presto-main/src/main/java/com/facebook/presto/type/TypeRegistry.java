@@ -16,6 +16,8 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.LongEnumParametricType;
+import com.facebook.presto.common.type.LongEnumType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.RowType;
@@ -24,6 +26,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.VarcharEnumParametricType;
+import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -33,6 +37,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -149,6 +154,16 @@ public final class TypeRegistry
         addParametricType(FUNCTION);
         addParametricType(QDIGEST);
         addParametricType(TDIGEST);
+
+        addParametricType(new LongEnumParametricType("test.Hello", new LongEnumType.LongEnumMap(
+                ImmutableMap.of(
+                        "HAPPY", 0L,
+                        "SAD", 1L))));
+
+        addParametricType(new VarcharEnumParametricType("test.Country", new VarcharEnumType.VarcharEnumMap(
+                ImmutableMap.of(
+                        "FR", "France",
+                        "US", "United States"))));
 
         for (Type type : types) {
             addType(type);

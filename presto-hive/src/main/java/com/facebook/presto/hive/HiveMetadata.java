@@ -464,7 +464,7 @@ public class HiveMetadata
             return null;
         }
         Optional<List<List<String>>> partitionValuesList = getPartitionList(analyzeProperties);
-        ConnectorTableMetadata tableMetadata = getTableMetadata(handle.getSchemaTableName());
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, handle.getSchemaTableName());
         handle = handle.withAnalyzePartitionValues(partitionValuesList);
 
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
@@ -566,12 +566,12 @@ public class HiveMetadata
     {
         requireNonNull(tableHandle, "tableHandle is null");
         SchemaTableName tableName = schemaTableName(tableHandle);
-        return getTableMetadata(tableName);
+        return getTableMetadata(session, tableName);
     }
 
-    private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
-        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName(), Optional.of(session));
         if (!table.isPresent() || table.get().getTableType().equals(VIRTUAL_VIEW)) {
             throw new TableNotFoundException(tableName);
         }
@@ -728,7 +728,7 @@ public class HiveMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SchemaTableName tableName = schemaTableName(tableHandle);
-        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName(), Optional.of(session));
         if (!table.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
@@ -747,7 +747,7 @@ public class HiveMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             try {
-                columns.put(tableName, getTableMetadata(tableName).getColumns());
+                columns.put(tableName, getTableMetadata(session, tableName).getColumns());
             }
             catch (HiveViewNotSupportedException e) {
                 // view is not supported
@@ -2385,7 +2385,7 @@ public class HiveMetadata
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
         SchemaTableName tableName = hiveLayoutHandle.getSchemaTableName();
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName(), Optional.of(session))
                 .orElseThrow(() -> new TableNotFoundException(tableName));
         // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
         boolean bucketExecutionEnabled = table.getTableType().equals(TEMPORARY_TABLE) || isBucketExecutionEnabled(session);

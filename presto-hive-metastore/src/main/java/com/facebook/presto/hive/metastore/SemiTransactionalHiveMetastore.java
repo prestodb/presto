@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.ExtendedTypeInfo;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
@@ -44,6 +45,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -158,10 +160,32 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized Optional<Table> getTable(String databaseName, String tableName)
     {
+        return getTable(databaseName, tableName, Optional.empty());
+    }
+
+    public synchronized Optional<Table> getTable(String databaseName, String tableName, Optional<ConnectorSession> session)
+    {
         checkReadable();
         Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
         if (tableAction == null) {
-            return delegate.getTable(databaseName, tableName);
+            // TODO do it better – probably add semantic type instead of remove in case of leaks
+            Optional<Table> table = delegate.getTable(databaseName, tableName);
+            // TODO cannot import HiveSessionProperties class here to do this check because of circular dependency on presto-hive
+            if (table.isPresent() && session.isPresent() && !session.get().getProperty("semantic_types_enabled", Boolean.class)) {
+                return Optional.of(Table.builder(table.get())
+                        .setDataColumns(table.get().getDataColumns().stream()
+                                .map(c -> {
+                                    HiveType type = c.getType();
+                                    TypeInfo typeInfo = type.getTypeInfo();
+                                    if (typeInfo instanceof ExtendedTypeInfo) {
+                                        typeInfo = ((ExtendedTypeInfo) typeInfo).getTypeInfo();
+                                    }
+                                    return new Column(c.getName(), HiveType.toHiveType(typeInfo), c.getComment());
+                                })
+                                .collect(toList()))
+                        .build());
+            }
+            return table;
         }
         switch (tableAction.getType()) {
             case ADD:
