@@ -45,7 +45,6 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.verifier.prestoaction.QueryActionUtil.mangleSessionProperties;
-import static com.google.common.collect.Iterators.cycle;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcPrestoAction
@@ -57,8 +56,8 @@ public class JdbcPrestoAction
     private final SqlExceptionClassifier exceptionClassifier;
     private final QueryConfiguration queryConfiguration;
     private final VerificationContext verificationContext;
+    private final Iterator<String> jdbcUrlSelector;
 
-    private final Iterator<String> jdbcUrls;
     private final Duration queryTimeout;
     private final Duration metadataTimeout;
     private final Duration checksumTimeout;
@@ -73,6 +72,7 @@ public class JdbcPrestoAction
             SqlExceptionClassifier exceptionClassifier,
             QueryConfiguration queryConfiguration,
             VerificationContext verificationContext,
+            Iterator<String> jdbcUrlSelector,
             PrestoActionConfig prestoActionConfig,
             Duration metadataTimeout,
             Duration checksumTimeout,
@@ -83,8 +83,8 @@ public class JdbcPrestoAction
         this.exceptionClassifier = requireNonNull(exceptionClassifier, "exceptionClassifier is null");
         this.queryConfiguration = requireNonNull(queryConfiguration, "queryConfiguration is null");
         this.verificationContext = requireNonNull(verificationContext, "verificationContext is null");
+        this.jdbcUrlSelector = requireNonNull(jdbcUrlSelector, "jdbcUrlSelector is null");
 
-        this.jdbcUrls = requireNonNull(cycle(prestoActionConfig.getJdbcUrls()), "jdbcUrls is null");
         this.queryTimeout = requireNonNull(prestoActionConfig.getQueryTimeout(), "queryTimeout is null");
         this.applicationName = requireNonNull(prestoActionConfig.getApplicationName(), "applicationName is null");
         this.metadataTimeout = requireNonNull(metadataTimeout, "metadataTimeout is null");
@@ -150,7 +150,7 @@ public class JdbcPrestoAction
             throws SQLException
     {
         PrestoConnection connection = DriverManager.getConnection(
-                jdbcUrls.next(),
+                jdbcUrlSelector.next(),
                 queryConfiguration.getUsername().orElse(null),
                 queryConfiguration.getPassword().orElse(null))
                 .unwrap(PrestoConnection.class);

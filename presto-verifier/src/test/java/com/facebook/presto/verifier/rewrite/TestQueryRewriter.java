@@ -27,6 +27,7 @@ import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
+import com.facebook.presto.verifier.prestoaction.JdbcUrlSelector;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
@@ -76,13 +77,15 @@ public class TestQueryRewriter
     {
         queryRunner = setupPresto();
         queryRunner.execute("CREATE TABLE test_table (a bigint, b varchar)");
+        PrestoActionConfig prestoActionConfig = new PrestoActionConfig()
+                .setHosts(queryRunner.getServer().getAddress().getHost())
+                .setJdbcPort(queryRunner.getServer().getAddress().getPort());
         prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 CONFIGURATION,
                 VerificationContext.create(SUITE, NAME),
-                new PrestoActionConfig()
-                        .setHosts(queryRunner.getServer().getAddress().getHost())
-                        .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
+                new JdbcUrlSelector(prestoActionConfig.getJdbcUrls()),
+                prestoActionConfig,
                 new QueryActionsConfig().getMetadataTimeout(),
                 new QueryActionsConfig().getChecksumTimeout(),
                 new RetryConfig(),
