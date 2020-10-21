@@ -18,8 +18,6 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 
-import java.nio.file.Paths;
-
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -47,8 +45,6 @@ public class TestDistributedSpilledQueriesWithTemporaryStore
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.spiller.single-stream-spiller-choice", "TEMPORARY_STORE")
-                .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
-                .put("experimental.spiller-max-used-space-threshold", "1.0")
                 .put("experimental.memory-revoking-threshold", "0.0") // revoke always
                 .put("experimental.memory-revoking-target", "0.0")
                 .build();

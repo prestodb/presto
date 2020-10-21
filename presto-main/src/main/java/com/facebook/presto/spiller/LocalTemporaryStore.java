@@ -20,7 +20,9 @@ import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.storage.TemporaryDataSink;
 import com.facebook.presto.spi.storage.TemporaryStore;
+import com.facebook.presto.spi.storage.TemporaryStoreFactory;
 import com.facebook.presto.spi.storage.TemporaryStoreHandle;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -31,9 +33,13 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.delete;
@@ -45,6 +51,9 @@ import static java.util.Objects.requireNonNull;
 public class LocalTemporaryStore
         implements TemporaryStore
 {
+    public static final String NAME = "local";
+    public static final String TEMPORARY_STORE_PATH = "temporary-store.path";
+
     private static final Logger log = Logger.get(LocalTemporaryStore.class);
 
     private static final String SPILL_FILE_PREFIX = "spill";
@@ -223,6 +232,31 @@ public class LocalTemporaryStore
                 throws IOException
         {
             sink.close();
+        }
+    }
+
+    public static class Factory
+            implements TemporaryStoreFactory
+    {
+        @Override
+        public String getName()
+        {
+            return NAME;
+        }
+
+        @Override
+        public TemporaryStore create(Map<String, String> config)
+        {
+            String configPaths = config.get(TEMPORARY_STORE_PATH);
+            checkState(configPaths != null, "Local temporary store configuration must contain the '%s' property", TEMPORARY_STORE_PATH);
+
+            List<String> pathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(config.get(TEMPORARY_STORE_PATH)));
+            List<Path> temporaryStorePaths = pathsSplit.stream()
+                    .map(Paths::get)
+                    .collect(toImmutableList());
+
+            // TODO: make maxUsedSpaceThreshold configurable
+            return new LocalTemporaryStore(temporaryStorePaths, 1.0);
         }
     }
 }

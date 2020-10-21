@@ -28,6 +28,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
+import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -545,7 +546,9 @@ public final class SystemSessionProperties
                         false,
                         value -> {
                             boolean spillEnabled = (Boolean) value;
-                            if (spillEnabled && featuresConfig.getSpillerSpillPaths().isEmpty()) {
+                            if (spillEnabled
+                                    && featuresConfig.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.FILE
+                                    && featuresConfig.getSpillerSpillPaths().isEmpty()) {
                                 throw new PrestoException(
                                         INVALID_SESSION_PROPERTY,
                                         format("%s cannot be set to true; no spill paths configured", SPILL_ENABLED));

@@ -59,9 +59,11 @@ public class FeaturesConfig
 {
     @VisibleForTesting
     static final String SPILL_ENABLED = "experimental.spill-enabled";
-    static final String JOIN_SPILL_ENABLED = "experimental.join-spill-enabled";
     @VisibleForTesting
     static final String SPILLER_SPILL_PATH = "experimental.spiller-spill-path";
+
+    private static final String JOIN_SPILL_ENABLED = "experimental.join-spill-enabled";
+    private static final String SINGLE_STREAM_SPILLER_CHOICE = "experimental.spiller.single-stream-spiller-choice";
 
     private double cpuCostWeight = 75;
     private double memoryCostWeight = 10;
@@ -79,6 +81,7 @@ public class FeaturesConfig
     private boolean fastInequalityJoins = true;
     private TaskSpillingStrategy taskSpillingStrategy = ORDER_BY_CREATE_TIME;
     private SingleStreamSpillerChoice singleStreamSpillerChoice = SingleStreamSpillerChoice.FILE;
+    private String spillerTempStorage = "local";
     private long maxRevocableMemoryPerTask = 500000L;
     private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
@@ -545,12 +548,25 @@ public class FeaturesConfig
         return singleStreamSpillerChoice;
     }
 
-    @Config("experimental.spiller.single-stream-spiller-choice")
+    @Config(SINGLE_STREAM_SPILLER_CHOICE)
     @ConfigDescription("The SingleStreamSpiller to be used when spilling is enabled.")
     public FeaturesConfig setSingleStreamSpillerChoice(SingleStreamSpillerChoice singleStreamSpillerChoice)
     {
         this.singleStreamSpillerChoice = singleStreamSpillerChoice;
         return this;
+    }
+
+    @Config("experimental.spiller.spiller-temp-storage")
+    @ConfigDescription("Temp storage used by spiller when single stream spiller is set to TEMP_STORAGE")
+    public FeaturesConfig setSpillerTempStorage(String spillerTempStorage)
+    {
+        this.spillerTempStorage = spillerTempStorage;
+        return this;
+    }
+
+    public String getSpillerTempStorage()
+    {
+        return spillerTempStorage;
     }
 
     public long getMaxRevocableMemoryPerTask()
@@ -929,10 +945,10 @@ public class FeaturesConfig
         return this;
     }
 
-    @AssertTrue(message = SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true")
+    @AssertTrue(message = SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true and " + SINGLE_STREAM_SPILLER_CHOICE + " is set to file")
     public boolean isSpillerSpillPathsConfiguredIfSpillEnabled()
     {
-        return !isSpillEnabled() || !spillerSpillPaths.isEmpty();
+        return !isSpillEnabled() || !spillerSpillPaths.isEmpty() || singleStreamSpillerChoice != SingleStreamSpillerChoice.FILE;
     }
 
     @Min(1)

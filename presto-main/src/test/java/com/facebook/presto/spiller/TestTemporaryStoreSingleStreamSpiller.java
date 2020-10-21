@@ -23,6 +23,7 @@ import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.testing.TestingTemporaryStoreManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -60,7 +61,7 @@ public class TestTemporaryStoreSingleStreamSpiller
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, DOUBLE, VARBINARY);
 
     private ListeningExecutorService executor;
-    private final Path spillPath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills");
+    private final Path spillPath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage");
 
     @BeforeClass
     public void setUp()
@@ -109,12 +110,14 @@ public class TestTemporaryStoreSingleStreamSpiller
             throws Exception
     {
         TemporaryStoreSingleStreamSpillerFactory spillerFactory = new TemporaryStoreSingleStreamSpillerFactory(
+                new TestingTemporaryStoreManager(spillPath.toAbsolutePath().toString()),
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(),
                 new SpillerStats(),
                 compression,
                 encryption,
-                toIntExact(new DataSize(4, KILOBYTE).toBytes()));
+                toIntExact(new DataSize(4, KILOBYTE).toBytes()),
+                LocalTemporaryStore.NAME);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
         SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
         assertTrue(singleStreamSpiller instanceof TemporaryStoreSingleStreamSpiller);
