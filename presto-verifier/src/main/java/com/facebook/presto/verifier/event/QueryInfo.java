@@ -18,11 +18,13 @@ import com.facebook.airlift.event.client.EventType;
 import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -36,6 +38,7 @@ public class QueryInfo
     private final String catalog;
     private final String schema;
     private final String originalQuery;
+    private final Map<String, String> sessionProperties;
     private final String queryId;
     private final List<String> setupQueryIds;
     private final List<String> teardownQueryIds;
@@ -57,6 +60,7 @@ public class QueryInfo
             String catalog,
             String schema,
             String originalQuery,
+            Map<String, String> sessionProperties,
             List<String> setupQueryIds,
             List<String> teardownQueryIds,
             Optional<String> checksumQueryId,
@@ -71,6 +75,7 @@ public class QueryInfo
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.originalQuery = requireNonNull(originalQuery, "originalQuery is null");
+        this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
         this.queryId = stats.map(QueryStats::getQueryId).orElse(null);
         this.setupQueryIds = ImmutableList.copyOf(setupQueryIds);
         this.teardownQueryIds = ImmutableList.copyOf(teardownQueryIds);
@@ -108,6 +113,12 @@ public class QueryInfo
     public String getOriginalQuery()
     {
         return originalQuery;
+    }
+
+    @EventField
+    public Map<String, String> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     @EventField
@@ -194,9 +205,13 @@ public class QueryInfo
         return extraStats;
     }
 
-    public static Builder builder(String catalog, String schema, String originalQuery)
+    public static Builder builder(
+            String catalog,
+            String schema,
+            String originalQuery,
+            Map<String, String> sessionProperties)
     {
-        return new Builder(catalog, schema, originalQuery);
+        return new Builder(catalog, schema, originalQuery, sessionProperties);
     }
 
     public static class Builder
@@ -204,6 +219,7 @@ public class QueryInfo
         private final String catalog;
         private final String schema;
         private final String originalQuery;
+        private final Map<String, String> sessionProperties;
         private List<String> setupQueryIds = ImmutableList.of();
         private List<String> teardownQueryIds = ImmutableList.of();
         private Optional<String> checksumQueryId = Optional.empty();
@@ -214,11 +230,16 @@ public class QueryInfo
         private Optional<String> jsonPlan = Optional.empty();
         private Optional<QueryActionStats> queryActionStats = Optional.empty();
 
-        private Builder(String catalog, String schema, String originalQuery)
+        private Builder(
+                String catalog,
+                String schema,
+                String originalQuery,
+                Map<String, String> sessionProperties)
         {
             this.catalog = requireNonNull(catalog, "catalog is null");
             this.schema = requireNonNull(schema, "schema is null");
             this.originalQuery = requireNonNull(originalQuery, "originalQuery is null");
+            this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
         }
 
         public Builder setSetupQueryIds(List<String> setupQueryIds)
@@ -281,6 +302,7 @@ public class QueryInfo
                     catalog,
                     schema,
                     originalQuery,
+                    sessionProperties,
                     setupQueryIds,
                     teardownQueryIds,
                     checksumQueryId,

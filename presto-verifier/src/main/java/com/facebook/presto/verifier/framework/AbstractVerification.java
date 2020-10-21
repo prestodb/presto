@@ -356,7 +356,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             QueryContext queryContext,
             Optional<QueryResult<V>> queryResult)
     {
-        QueryInfo.Builder queryInfo = QueryInfo.builder(configuration.getCatalog(), configuration.getSchema(), originalQuery)
+        QueryInfo.Builder queryInfo = QueryInfo.builder(configuration.getCatalog(), configuration.getSchema(), originalQuery, configuration.getSessionProperties())
                 .setSetupQueryIds(queryContext.getSetupQueryIds())
                 .setTeardownQueryIds(queryContext.getTeardownQueryIds())
                 .setChecksumQueryId(checksumQueryContext.getChecksumQueryId())
