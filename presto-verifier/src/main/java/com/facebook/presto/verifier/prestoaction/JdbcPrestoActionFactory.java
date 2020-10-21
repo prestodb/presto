@@ -31,6 +31,7 @@ public class JdbcPrestoActionFactory
     private final Duration metadataTimeout;
     private final Duration checksumTimeout;
     private final VerifierConfig verifierConfig;
+    private final JdbcUrlSelector jdbcUrlSelector;
 
     public JdbcPrestoActionFactory(
             SqlExceptionClassifier exceptionClassifier,
@@ -48,6 +49,7 @@ public class JdbcPrestoActionFactory
         this.metadataTimeout = requireNonNull(metadataTimeout, "metadataTimeout is null");
         this.checksumTimeout = requireNonNull(checksumTimeout, "checksumTimeout is null");
         this.verifierConfig = requireNonNull(verifierConfig, "verifierConfig is null");
+        this.jdbcUrlSelector = new JdbcUrlSelector(prestoActionConfig.getJdbcUrls());
     }
 
     @Override
@@ -57,6 +59,7 @@ public class JdbcPrestoActionFactory
                 exceptionClassifier,
                 queryConfiguration,
                 verificationContext,
+                jdbcUrlSelector,
                 prestoActionConfig,
                 metadataTimeout,
                 checksumTimeout,
