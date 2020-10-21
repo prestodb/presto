@@ -20,12 +20,14 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
+import com.facebook.presto.verifier.prestoaction.JdbcUrlSelector;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
 import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -73,6 +75,7 @@ public class TestDeterminismAnalyzer
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 configuration,
                 verificationContext,
+                new JdbcUrlSelector(ImmutableList.of()),
                 new PrestoActionConfig(),
                 queryActionsConfig.getMetadataTimeout(),
                 queryActionsConfig.getChecksumTimeout(),

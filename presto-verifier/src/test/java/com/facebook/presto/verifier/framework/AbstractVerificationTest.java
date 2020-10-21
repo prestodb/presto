@@ -22,6 +22,7 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.tests.StandaloneQueryRunner;
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
+import com.facebook.presto.verifier.prestoaction.JdbcUrlSelector;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
 import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
@@ -127,14 +128,16 @@ public abstract class AbstractVerificationTest
         VerificationContext verificationContext = VerificationContext.create(NAME, SUITE);
         VerifierConfig verifierConfig = new VerifierConfig().setTestId(TEST_ID);
         RetryConfig retryConfig = new RetryConfig();
+        PrestoActionConfig prestoActionConfig = new PrestoActionConfig()
+                .setHosts(queryRunner.getServer().getAddress().getHost())
+                .setJdbcPort(queryRunner.getServer().getAddress().getPort());
         QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
         return new JdbcPrestoAction(
                 exceptionClassifier,
                 queryConfiguration.orElse(QUERY_CONFIGURATION),
                 verificationContext,
-                new PrestoActionConfig()
-                        .setHosts(queryRunner.getServer().getAddress().getHost())
-                        .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
+                new JdbcUrlSelector(prestoActionConfig.getJdbcUrls()),
+                prestoActionConfig,
                 queryActionsConfig.getMetadataTimeout(),
                 queryActionsConfig.getChecksumTimeout(),
                 retryConfig,
