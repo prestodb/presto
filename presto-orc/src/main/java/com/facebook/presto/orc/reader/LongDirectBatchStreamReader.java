@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.ShortArrayBlock;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.LongEnumType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
@@ -84,7 +85,7 @@ public class LongDirectBatchStreamReader
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
+        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType || t instanceof LongEnumType);
         this.type = type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -153,7 +154,7 @@ public class LongDirectBatchStreamReader
             throws IOException
     {
         verify(dataStream != null);
-        if (type instanceof BigintType) {
+        if (type instanceof BigintType || type instanceof LongEnumType) {
             long[] values = new long[nextBatchSize];
             dataStream.next(values, nextBatchSize);
             return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
@@ -174,7 +175,7 @@ public class LongDirectBatchStreamReader
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
     {
-        if (type instanceof BigintType) {
+        if (type instanceof BigintType || type instanceof LongEnumType) {
             return longReadNullBlock(isNull, nonNullCount);
         }
         if (type instanceof IntegerType || type instanceof DateType) {

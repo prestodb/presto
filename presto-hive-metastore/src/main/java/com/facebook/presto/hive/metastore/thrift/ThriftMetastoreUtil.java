@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.hive.ExtendedFieldSchema;
+import com.facebook.presto.hive.ExtendedTypeInfo;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.PartitionMutator;
@@ -623,12 +625,22 @@ public final class ThriftMetastoreUtil
 
     public static FieldSchema toMetastoreApiFieldSchema(Column column)
     {
+        if (column.getType().getTypeInfo() instanceof ExtendedTypeInfo) {
+            return new ExtendedFieldSchema(column.getName(), column.getType().getHiveTypeName().toString(), column.getComment().orElse(null), column.getType().getTypeInfo());
+        }
         return new FieldSchema(column.getName(), column.getType().getHiveTypeName().toString(), column.getComment().orElse(null));
     }
 
     public static Column fromMetastoreApiFieldSchema(FieldSchema fieldSchema)
     {
-        return new Column(fieldSchema.getName(), HiveType.valueOf(fieldSchema.getType()), Optional.ofNullable(emptyToNull(fieldSchema.getComment())));
+        HiveType type;
+        if (fieldSchema instanceof ExtendedFieldSchema) {
+            type = HiveType.toHiveType(((ExtendedFieldSchema) fieldSchema).getTypeInfo());
+        }
+        else {
+            type = HiveType.valueOf(fieldSchema.getType());
+        }
+        return new Column(fieldSchema.getName(), type, Optional.ofNullable(emptyToNull(fieldSchema.getComment())));
     }
 
     public static void fromMetastoreApiStorageDescriptor(StorageDescriptor storageDescriptor, Storage.Builder builder, String tablePartitionName)

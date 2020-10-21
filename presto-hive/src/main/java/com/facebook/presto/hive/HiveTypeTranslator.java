@@ -15,9 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.LongEnumType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
@@ -119,6 +121,12 @@ public class HiveTypeTranslator
         }
         if (TIMESTAMP.equals(type)) {
             return HIVE_TIMESTAMP.getTypeInfo();
+        }
+        if (type instanceof LongEnumType) {
+            return new ExtendedTypeInfo(type.getTypeSignature(), HIVE_LONG.getTypeInfo());
+        }
+        if (type instanceof VarcharEnumType) {
+            return new ExtendedTypeInfo(type.getTypeSignature(), HIVE_STRING.getTypeInfo());
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;

@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcRecordReaderOptions;
@@ -98,7 +99,7 @@ public final class SelectiveStreamReaders
             case VARCHAR:
             case CHAR:
                 checkArgument(requiredSubfields.isEmpty(), "Primitive stream reader doesn't support subfields");
-                verifyStreamType(streamDescriptor, outputType, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType);
+                verifyStreamType(streamDescriptor, outputType, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType || t instanceof VarcharEnumType);
                 return new SliceSelectiveStreamReader(streamDescriptor, getOptionalOnlyFilter(type, filters), outputType, systemMemoryContext);
             case TIMESTAMP: {
                 checkArgument(requiredSubfields.isEmpty(), "Timestamp stream reader doesn't support subfields");

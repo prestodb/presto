@@ -447,6 +447,10 @@ public final class HiveWriteUtils
 
     private static boolean isWritableType(TypeInfo typeInfo)
     {
+        if (typeInfo instanceof ExtendedTypeInfo) {
+            return isWritableType(((ExtendedTypeInfo) typeInfo).getTypeInfo());
+        }
+
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
                 PrimitiveCategory primitiveCategory = ((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory();

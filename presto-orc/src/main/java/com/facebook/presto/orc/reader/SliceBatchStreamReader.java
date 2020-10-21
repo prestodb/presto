@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
@@ -60,7 +61,7 @@ public class SliceBatchStreamReader
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType);
+        verifyStreamType(streamDescriptor, type, t -> t instanceof VarcharType || t instanceof CharType || t instanceof VarbinaryType || t instanceof VarcharEnumType);
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.directReader = new SliceDirectBatchStreamReader(streamDescriptor, getMaxCodePointCount(type), isCharType(type));
         this.dictionaryReader = new SliceDictionaryBatchStreamReader(streamDescriptor, getMaxCodePointCount(type), isCharType(type), systemMemoryContext.newOrcLocalMemoryContext(SliceBatchStreamReader.class.getSimpleName()));
@@ -123,7 +124,7 @@ public class SliceBatchStreamReader
         if (isCharType(type)) {
             return ((CharType) type).getLength();
         }
-        if (isVarbinaryType(type)) {
+        if (isVarbinaryType(type) || type instanceof VarcharEnumType) {
             return -1;
         }
         throw new IllegalArgumentException("Unsupported encoding " + type.getDisplayName());

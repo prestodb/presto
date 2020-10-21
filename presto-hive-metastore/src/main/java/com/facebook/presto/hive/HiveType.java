@@ -162,6 +162,10 @@ public final class HiveType
 
     public static boolean isSupportedType(TypeInfo typeInfo)
     {
+        if (typeInfo instanceof ExtendedTypeInfo) {
+            return isSupportedType(((ExtendedTypeInfo) typeInfo).getTypeInfo());
+        }
+
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
                 return getPrimitiveType((PrimitiveTypeInfo) typeInfo) != null;
@@ -194,7 +198,7 @@ public final class HiveType
                 .collect(toList()));
     }
 
-    private static HiveType toHiveType(TypeInfo typeInfo)
+    public static HiveType toHiveType(TypeInfo typeInfo)
     {
         requireNonNull(typeInfo, "typeInfo is null");
         return new HiveType(typeInfo);
@@ -220,6 +224,9 @@ public final class HiveType
 
     private static TypeSignature getTypeSignature(TypeInfo typeInfo)
     {
+        if (typeInfo instanceof ExtendedTypeInfo) {
+            return ((ExtendedTypeInfo) typeInfo).getSignature();
+        }
         switch (typeInfo.getCategory()) {
             case PRIMITIVE:
                 Type primitiveType = getPrimitiveType((PrimitiveTypeInfo) typeInfo);
