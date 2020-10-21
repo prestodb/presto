@@ -345,6 +345,7 @@ public class TestDataVerification
     private static void assertSuccessQueryInfo(QueryType queryType, QueryInfo queryInfo)
     {
         assertNotNull(queryInfo.getQuery());
+        assertNotNull(queryInfo.getSessionProperties());
         assertNotNull(queryInfo.getSetupQueries());
         assertNotNull(queryInfo.getTeardownQueries());
         assertEquals(queryInfo.getTeardownQueries().size(), 1);

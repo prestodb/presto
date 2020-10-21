@@ -120,11 +120,13 @@ public class VerifierQueryEvent
                         Optional.of(QueryInfo.builder(
                                 sourceQuery.getControlConfiguration().getCatalog(),
                                 sourceQuery.getControlConfiguration().getSchema(),
-                                sourceQuery.getQuery(CONTROL)).build()),
+                                sourceQuery.getQuery(CONTROL),
+                                sourceQuery.getControlConfiguration().getSessionProperties()).build()),
                 QueryInfo.builder(
                         sourceQuery.getTestConfiguration().getCatalog(),
                         sourceQuery.getTestConfiguration().getSchema(),
-                        sourceQuery.getQuery(TEST)).build(),
+                        sourceQuery.getQuery(TEST),
+                        sourceQuery.getTestConfiguration().getSessionProperties()).build(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
