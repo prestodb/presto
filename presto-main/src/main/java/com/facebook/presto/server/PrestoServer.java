@@ -44,6 +44,8 @@ import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.server.smile.SmileModule;
+import com.facebook.presto.spiller.TemporaryStoreManager;
+import com.facebook.presto.spiller.TemporaryStoreModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
@@ -121,7 +123,8 @@ public class PrestoServer
                 new EventListenerModule(),
                 new ServerMainModule(sqlParserOptions),
                 new GracefulShutdownModule(),
-                new WarningCollectorModule());
+                new WarningCollectorModule(),
+                new TemporaryStoreModule());
 
         modules.addAll(getAdditionalModules());
 
@@ -152,6 +155,7 @@ public class PrestoServer
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
+            injector.getInstance(TemporaryStoreManager.class).loadTemporaryStores();
 
             injector.getInstance(Announcer.class).start();
 

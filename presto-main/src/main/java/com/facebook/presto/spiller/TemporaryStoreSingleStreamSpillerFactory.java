@@ -23,14 +23,13 @@ import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.spiller.SpillCipher;
 import com.facebook.presto.spi.storage.TemporaryStore;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.google.common.collect.ImmutableList;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 
 import javax.annotation.PreDestroy;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,21 +43,26 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 public class TemporaryStoreSingleStreamSpillerFactory
         implements SingleStreamSpillerFactory
 {
-    private final TemporaryStore temporaryStore;
+    private final TemporaryStoreManager temporaryStoreManager;
     private final ListeningExecutorService executor;
     private final PagesSerdeFactory serdeFactory;
     private final SpillerStats spillerStats;
     private final boolean spillEncryptionEnabled;
     private final int bufferSizeInBytes;
+    private final String tempStorageName;
+
+    private volatile TemporaryStore temporaryStore;
 
     @Inject
     public TemporaryStoreSingleStreamSpillerFactory(
+            TemporaryStoreManager temporaryStoreManager,
             BlockEncodingSerde blockEncodingSerde,
             SpillerStats spillerStats,
             FeaturesConfig featuresConfig,
             NodeSpillConfig nodeSpillConfig)
     {
         this(
+                temporaryStoreManager,
                 listeningDecorator(newFixedThreadPool(
                         requireNonNull(featuresConfig, "featuresConfig is null").getSpillerThreads(),
                         daemonThreadsNamed("binary-spiller-%s"))),
@@ -66,33 +70,28 @@ public class TemporaryStoreSingleStreamSpillerFactory
                 spillerStats,
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillEncryptionEnabled(),
-                toIntExact(requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getTemporaryStoreBufferSize().toBytes()));
+                toIntExact(requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getTemporaryStoreBufferSize().toBytes()),
+                requireNonNull(featuresConfig, "featuresConfig is null").getSpillerTempStorage());
     }
 
+    @VisibleForTesting
     TemporaryStoreSingleStreamSpillerFactory(
+            TemporaryStoreManager temporaryStoreManager,
             ListeningExecutorService executor,
             BlockEncodingSerde blockEncodingSerde,
             SpillerStats spillerStats,
             boolean spillCompressionEnabled,
             boolean spillEncryptionEnabled,
-            int bufferSizeInBytes)
+            int bufferSizeInBytes,
+            String tempStorageName)
     {
+        this.temporaryStoreManager = requireNonNull(temporaryStoreManager, "temporaryStoreManager is null");
         this.serdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), spillCompressionEnabled);
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats can not be null");
         this.spillEncryptionEnabled = spillEncryptionEnabled;
         this.bufferSizeInBytes = bufferSizeInBytes;
-
-        // TODO: Make this plugable and configurable
-        this.temporaryStore = new LocalTemporaryStore(
-                ImmutableList.of(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills")),
-                1.0);
-        try {
-            temporaryStore.initialize();
-        }
-        catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to initialize temporary store", e);
-        }
+        this.tempStorageName = requireNonNull(tempStorageName, "tempStorageName is null");
     }
 
     @PreDestroy
@@ -104,6 +103,10 @@ public class TemporaryStoreSingleStreamSpillerFactory
     @Override
     public SingleStreamSpiller create(List<Type> types, SpillContext spillContext, LocalMemoryContext memoryContext)
     {
+        if (temporaryStore == null) {
+            initialize();
+        }
+
         Optional<SpillCipher> spillCipher = Optional.empty();
         if (spillEncryptionEnabled) {
             spillCipher = Optional.of(new AesSpillCipher());
@@ -118,5 +121,22 @@ public class TemporaryStoreSingleStreamSpillerFactory
                 memoryContext,
                 spillCipher,
                 bufferSizeInBytes);
+    }
+
+    private synchronized void initialize()
+    {
+        if (this.temporaryStore != null) {
+            return;
+        }
+
+        TemporaryStore temporaryStore = temporaryStoreManager.getTemporaryStore(tempStorageName);
+        try {
+            temporaryStore.initialize();
+        }
+        catch (IOException e) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to initialize temporary store", e);
+        }
+
+        this.temporaryStore = temporaryStore;
     }
 }
