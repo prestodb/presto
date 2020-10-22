@@ -25,6 +25,7 @@ import org.apache.hadoop.fs.Path;
 import java.io.IOException;
 import java.net.URI;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.hash.Hashing.md5;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -50,7 +51,18 @@ public class AlluxioCachingFileSystem
     public synchronized void initialize(URI uri, Configuration configuration)
             throws IOException
     {
-        this.localCacheFileSystem = new LocalCacheFileSystem(dataTier);
+        this.localCacheFileSystem = new LocalCacheFileSystem(dataTier, uriStatus -> {
+            // URIStatus is the mechanism to pass the hiveFileContext to the source filesystem
+            // hiveFileContext is critical to use to open file.
+            checkState(uriStatus instanceof AlluxioURIStatus);
+            HiveFileContext hiveFileContext = ((AlluxioURIStatus) uriStatus).getHiveFileContext();
+            try {
+                return dataTier.openFile(new Path(uriStatus.getPath()), hiveFileContext);
+            }
+            catch (Exception e) {
+                throw new IOException("Failed to open file", e);
+            }
+        });
         localCacheFileSystem.initialize(uri, configuration);
     }
 
