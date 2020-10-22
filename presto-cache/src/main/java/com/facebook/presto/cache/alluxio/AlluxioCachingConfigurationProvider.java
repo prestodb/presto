@@ -51,6 +51,13 @@ public class AlluxioCachingConfigurationProvider
             configuration.set("sink.jmx.class", alluxioCacheConfig.getJmxClass());
             configuration.set("sink.jmx.domain", alluxioCacheConfig.getMetricsDomain());
             configuration.set("alluxio.conf.validation.enabled", String.valueOf(alluxioCacheConfig.isConfigValidationEnabled()));
+            if (alluxioCacheConfig.getTimeoutEnabled()) {
+                configuration.set("alluxio.user.client.cache.timeout.duration", String.valueOf(alluxioCacheConfig.getTimeoutDuration().toMillis()));
+                configuration.set("alluxio.user.client.cache.timeout.threads", String.valueOf(alluxioCacheConfig.getTimeoutThreads()));
+            }
+            else {
+                configuration.set("alluxio.user.client.cache.timeout.duration", "-1");
+            }
         }
     }
 }
