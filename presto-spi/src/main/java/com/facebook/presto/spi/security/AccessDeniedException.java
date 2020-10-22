@@ -153,7 +153,7 @@ public class AccessDeniedException
 
     public static void denyDropColumn(String tableName, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot drop a column from table %s%s", tableName, formatExtraInfo(extraInfo)));
+//        throw new AccessDeniedException(format("Cannot drop a column from table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyRenameColumn(String tableName)

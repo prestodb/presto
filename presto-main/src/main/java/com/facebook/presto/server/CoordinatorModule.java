@@ -107,6 +107,7 @@ import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.optimizations.MVOptimizerStats;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Call;
@@ -288,6 +289,9 @@ public class CoordinatorModule
 
         binder.bind(RemoteTaskStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskStats.class).withGeneratedName();
+
+        binder.bind(MVOptimizerStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(MVOptimizerStats.class).withGeneratedName();
 
         httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class)
                 .withTracing()
