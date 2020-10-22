@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
+import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.tpch.TpchTable.NATION;
@@ -74,8 +75,6 @@ public class TestHiveExternalWorkersQueries
 
         defaultQueryRunner.close();
 
-        Path tempDirectoryPath = Files.createTempDirectory(TestHiveExternalWorkersQueries.class.getSimpleName());
-
         // Make query runner with external workers for tests
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(ImmutableList.of(),
                 ImmutableMap.of("optimizer.optimize-hash-generation", "false"),
@@ -86,11 +85,19 @@ public class TestHiveExternalWorkersQueries
                 baseDataDir,
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
-                        if (workerIndex == 0) {
-                            // Write discovery URL to /tmp/config.properties
-                            Files.write(tempDirectoryPath.resolve("config.properties"),
-                                    format("discovery.uri=%s\n", discoveryUri).getBytes());
-                        }
+                        Path tempDirectoryPath = Files.createTempDirectory(TestHiveExternalWorkersQueries.class.getSimpleName());
+                        int port = 1234 + workerIndex;
+
+                        // Write config files
+                        Files.write(tempDirectoryPath.resolve("config.properties"),
+                                format("discovery.uri=%s\n" +
+                                        "node.version=testversion\n" +
+                                        "http-server.http.port=%d", discoveryUri, port).getBytes());
+                        Files.write(tempDirectoryPath.resolve("node.properties"),
+                                format("node.id=%s\n" +
+                                        "node.address=127.0.0.1\n" +
+                                        "node.environment=testing", UUID.randomUUID()).getBytes());
+
                         return new ProcessBuilder(prestoServerPath.get(), "--logtostderr=1", "--v=1")
                                 .directory(tempDirectoryPath.toFile())
                                 .redirectErrorStream(true)
