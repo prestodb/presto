@@ -589,6 +589,8 @@ public class GenericAccumulatorFactory
 
         private ObjectBigArray<GroupIdPage> rawInputs = new ObjectBigArray<>();
         private ObjectBigArray<RowBlockBuilder> blockBuilders;
+        private long rawInputsSizeInBytes;
+        private long blockBuildersSizeInBytes;
         private long rawInputsLength;
 
         public SpillableFinalOnlyGroupedAccumulator(List<Type> types, FinalOnlyGroupedAccumulator delegate)
@@ -602,8 +604,8 @@ public class GenericAccumulatorFactory
         {
             return INSTANCE_SIZE +
                     delegate.getEstimatedSize() +
-                    (rawInputs == null ? 0 : rawInputs.sizeOf()) +
-                    (blockBuilders == null ? 0 : blockBuilders.sizeOf());
+                    (rawInputs == null ? 0 : rawInputsSizeInBytes + rawInputs.sizeOf()) +
+                    (blockBuilders == null ? 0 : blockBuildersSizeInBytes + blockBuilders.sizeOf());
         }
 
         @Override
@@ -623,7 +625,9 @@ public class GenericAccumulatorFactory
         {
             checkState(rawInputs != null && blockBuilders == null);
             rawInputs.ensureCapacity(rawInputsLength);
-            rawInputs.set(rawInputsLength, new GroupIdPage(groupIdsBlock, page));
+            GroupIdPage groupIdPage = new GroupIdPage(groupIdsBlock, page);
+            rawInputsSizeInBytes += groupIdPage.getRetainedSizeInBytes();
+            rawInputs.set(rawInputsLength, groupIdPage);
             // TODO(sakshams) deduplicate inputs for DISTINCT accumulator case by doing page compaction
             rawInputsLength++;
         }
@@ -659,7 +663,9 @@ public class GenericAccumulatorFactory
             GroupByIdBlock squashedGroupIds = new GroupByIdBlock(groupIdsBlock.getGroupCount(), new LongArrayBlock(newPositionCount, Optional.of(nulls), newGroupIds));
 
             rawInputs.ensureCapacity(rawInputsLength);
-            rawInputs.set(rawInputsLength, new GroupIdPage(squashedGroupIds, page));
+            GroupIdPage groupIdPage = new GroupIdPage(squashedGroupIds, page);
+            rawInputsSizeInBytes += groupIdPage.getRetainedSizeInBytes();
+            rawInputs.set(rawInputsLength, groupIdPage);
             rawInputsLength++;
         }
 
@@ -678,9 +684,14 @@ public class GenericAccumulatorFactory
                     for (int position = 0; position < page.getPositionCount(); position++) {
                         long currentGroupId = groupIdsBlock.getGroupId(position);
                         blockBuilders.ensureCapacity(currentGroupId);
+
                         RowBlockBuilder rowBlockBuilder = blockBuilders.get(currentGroupId);
+                        long currentRowBlockSizeInBytes = 0;
                         if (rowBlockBuilder == null) {
                             rowBlockBuilder = new RowBlockBuilder(spillingTypes, null, (int) groupIdsBlock.getGroupCount());
+                        }
+                        else {
+                            currentRowBlockSizeInBytes = rowBlockBuilder.getRetainedSizeInBytes();
                         }
 
                         BlockBuilder currentOutput = rowBlockBuilder.beginBlockEntry();
@@ -689,10 +700,12 @@ public class GenericAccumulatorFactory
                         }
                         rowBlockBuilder.closeEntry();
 
+                        blockBuildersSizeInBytes += (rowBlockBuilder.getRetainedSizeInBytes() - currentRowBlockSizeInBytes);
                         blockBuilders.set(currentGroupId, rowBlockBuilder);
                     }
                 }
                 rawInputs = null;
+                rawInputsSizeInBytes = 0;
                 rawInputsLength = 0;
             }
 
@@ -724,12 +737,15 @@ public class GenericAccumulatorFactory
             }
 
             rawInputs = null;
+            rawInputsSizeInBytes = 0;
             rawInputsLength = 0;
             delegate.prepareFinal();
         }
 
         private static class GroupIdPage
         {
+            private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupIdPage.class).instanceSize();
+
             private final GroupByIdBlock groupByIdBlock;
             private final Page page;
 
@@ -747,6 +763,11 @@ public class GenericAccumulatorFactory
             public GroupByIdBlock getGroupByIdBlock()
             {
                 return groupByIdBlock;
+            }
+
+            public long getRetainedSizeInBytes()
+            {
+                return INSTANCE_SIZE + groupByIdBlock.getRetainedSizeInBytes() + page.getRetainedSizeInBytes();
             }
         }
     }
