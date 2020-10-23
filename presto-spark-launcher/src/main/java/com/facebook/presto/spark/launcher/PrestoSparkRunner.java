@@ -59,7 +59,8 @@ public class PrestoSparkRunner
                 distribution.getPackageSupplier(),
                 distribution.getConfigProperties(),
                 distribution.getCatalogProperties(),
-                distribution.getEventListenerProperties());
+                distribution.getEventListenerProperties(),
+                distribution.getAccessControlProperties());
     }
 
     public void run(
@@ -148,11 +149,17 @@ public class PrestoSparkRunner
             PackageSupplier packageSupplier,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
-            Optional<Map<String, String>> eventListenerProperties)
+            Optional<Map<String, String>> eventListenerProperties,
+            Optional<Map<String, String>> accessControlProperties)
     {
         String packagePath = getPackagePath(packageSupplier);
         File pluginsDirectory = checkDirectory(new File(packagePath, "plugin"));
-        PrestoSparkConfiguration configuration = new PrestoSparkConfiguration(configProperties, pluginsDirectory.getAbsolutePath(), catalogProperties, eventListenerProperties);
+        PrestoSparkConfiguration configuration = new PrestoSparkConfiguration(
+                configProperties,
+                pluginsDirectory.getAbsolutePath(),
+                catalogProperties,
+                eventListenerProperties,
+                accessControlProperties);
         IPrestoSparkServiceFactory serviceFactory = createServiceFactory(checkDirectory(new File(packagePath, "lib")));
         return serviceFactory.createService(sparkProcessType, configuration);
     }
@@ -169,6 +176,7 @@ public class PrestoSparkRunner
         private final Map<String, String> configProperties;
         private final Map<String, Map<String, String>> catalogProperties;
         private final Map<String, String> eventListenerProperties;
+        private final Map<String, String> accessControlProperties;
 
         public DistributionBasedPrestoSparkTaskExecutorFactoryProvider(PrestoSparkDistribution distribution)
         {
@@ -178,6 +186,7 @@ public class PrestoSparkRunner
             this.catalogProperties = distribution.getCatalogProperties();
             // Optional is not Serializable
             this.eventListenerProperties = distribution.getEventListenerProperties().orElse(null);
+            this.accessControlProperties = distribution.getAccessControlProperties().orElse(null);
         }
 
         @Override
@@ -193,21 +202,32 @@ public class PrestoSparkRunner
         private static Map<String, String> currentConfigProperties;
         private static Map<String, Map<String, String>> currentCatalogProperties;
         private static Map<String, String> currentEventListenerProperties;
+        private static Map<String, String> currentAccessControlProperties;
 
         private IPrestoSparkService getOrCreatePrestoSparkService()
         {
             synchronized (DistributionBasedPrestoSparkTaskExecutorFactoryProvider.class) {
                 if (service == null) {
-                    service = createService(SparkProcessType.EXECUTOR, packageSupplier, configProperties, catalogProperties, Optional.ofNullable(eventListenerProperties));
+                    service = createService(
+                            SparkProcessType.EXECUTOR,
+                            packageSupplier,
+                            configProperties,
+                            catalogProperties,
+                            Optional.ofNullable(eventListenerProperties),
+                            Optional.ofNullable(accessControlProperties));
                     currentPackagePath = getPackagePath(packageSupplier);
                     currentConfigProperties = configProperties;
                     currentCatalogProperties = catalogProperties;
                     currentEventListenerProperties = eventListenerProperties;
+                    currentAccessControlProperties = accessControlProperties;
                 }
-                checkEquals("packagePath", currentPackagePath, getPackagePath(packageSupplier));
-                checkEquals("configProperties", currentConfigProperties, configProperties);
-                checkEquals("catalogProperties", currentCatalogProperties, catalogProperties);
-                checkEquals("eventListenerProperties", currentEventListenerProperties, eventListenerProperties);
+                else {
+                    checkEquals("packagePath", currentPackagePath, getPackagePath(packageSupplier));
+                    checkEquals("configProperties", currentConfigProperties, configProperties);
+                    checkEquals("catalogProperties", currentCatalogProperties, catalogProperties);
+                    checkEquals("eventListenerProperties", currentEventListenerProperties, eventListenerProperties);
+                    checkEquals("accessControlProperties", currentAccessControlProperties, accessControlProperties);
+                }
                 return service;
             }
         }
