@@ -375,10 +375,10 @@ public class HivePageSink
         }
     }
 
-    private void sendMetadataUpdateRequest(Optional<String> partitionName, int writerIndex)
+    private void sendMetadataUpdateRequest(Optional<String> partitionName, int writerIndex, boolean writeTempData)
     {
         // Bucketed tables already have unique bucket number as part of fileName. So no need to rename.
-        if (!fileRenamingEnabled || bucketFunction != null) {
+        if (writeTempData || !fileRenamingEnabled || bucketFunction != null) {
             return;
         }
         hiveMetadataUpdater.addMetadataUpdateRequest(schemaName, tableName, partitionName, writerIndex);
@@ -454,7 +454,7 @@ public class HivePageSink
             writers.set(writerIndex, writer);
 
             // Send metadata update request if needed
-            sendMetadataUpdateRequest(writer.getPartitionName(), writerIndex);
+            sendMetadataUpdateRequest(writer.getPartitionName(), writerIndex, writer.isWriteTempData());
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
         verify(!writers.contains(null));

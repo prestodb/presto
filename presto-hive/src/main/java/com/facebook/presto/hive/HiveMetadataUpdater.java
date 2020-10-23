@@ -89,7 +89,7 @@ public class HiveMetadataUpdater
         }
     }
 
-    public synchronized void addMetadataUpdateRequest(String schemaName, String tableName, Optional<String> partitionName, int writerIndex)
+    public void addMetadataUpdateRequest(String schemaName, String tableName, Optional<String> partitionName, int writerIndex)
     {
         UUID requestId = UUID.randomUUID();
         requestFutureMap.put(requestId, SettableFuture.create());
