@@ -35,8 +35,6 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
@@ -62,10 +60,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Binder;
 import com.google.inject.Injector;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
 import io.airlift.tpch.TpchTable;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
@@ -206,9 +201,10 @@ public class PrestoSparkQueryRunner
                         "query.hash-partition-count", Integer.toString(NODE_COUNT * 2)),
                 ImmutableMap.of(),
                 Optional.empty(),
+                Optional.empty(),
                 new SqlParserOptions(),
                 ImmutableList.of(),
-                Optional.of(new TestingAccessControlModule()));
+                true);
 
         Injector injector = injectorFactory.create();
 
@@ -505,18 +501,6 @@ public class PrestoSparkQueryRunner
                 .setOwnerName("public")
                 .setOwnerType(PrincipalType.ROLE)
                 .build();
-    }
-
-    private static class TestingAccessControlModule
-            implements Module
-    {
-        @Override
-        public void configure(Binder binder)
-        {
-            binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-            binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
-            binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
-        }
     }
 
     private static class SparkContextHolder

@@ -27,18 +27,22 @@ public class PrestoSparkConfiguration
     private final String pluginsDirectoryPath;
     private final Map<String, Map<String, String>> catalogProperties;
     private final Optional<Map<String, String>> eventListenerProperties;
+    private final Optional<Map<String, String>> accessControlProperties;
 
     public PrestoSparkConfiguration(
             Map<String, String> configProperties,
             String pluginsDirectoryPath,
             Map<String, Map<String, String>> catalogProperties,
-            Optional<Map<String, String>> eventListenerProperties)
+            Optional<Map<String, String>> eventListenerProperties,
+            Optional<Map<String, String>> accessControlProperties)
     {
         this.configProperties = unmodifiableMap(new HashMap<>(requireNonNull(configProperties, "configProperties is null")));
         this.pluginsDirectoryPath = requireNonNull(pluginsDirectoryPath, "pluginsDirectoryPath is null");
         this.catalogProperties = unmodifiableMap(requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null")
+                .map(properties -> unmodifiableMap(new HashMap<>(properties)));
+        this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
     }
 
@@ -60,5 +64,10 @@ public class PrestoSparkConfiguration
     public Optional<Map<String, String>> getEventListenerProperties()
     {
         return eventListenerProperties;
+    }
+
+    public Optional<Map<String, String>> getAccessControlProperties()
+    {
+        return accessControlProperties;
     }
 }
