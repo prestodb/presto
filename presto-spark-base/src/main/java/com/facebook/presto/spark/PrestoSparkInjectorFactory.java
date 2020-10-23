@@ -20,6 +20,7 @@ import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
+import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.PluginManager;
@@ -27,10 +28,12 @@ import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.testing.TestingAccessControlManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
+import com.google.inject.Scopes;
 
 import java.util.HashMap;
 import java.util.List;
@@ -48,15 +51,17 @@ public class PrestoSparkInjectorFactory
     private final Map<String, String> configProperties;
     private final Map<String, Map<String, String>> catalogProperties;
     private final Optional<Map<String, String>> eventListenerProperties;
+    private final Optional<Map<String, String>> accessControlProperties;
     private final SqlParserOptions sqlParserOptions;
     private final List<Module> additionalModules;
-    private final Optional<Module> accessControlModuleOverride;
+    private final boolean useAccessControlForTesting;
 
     public PrestoSparkInjectorFactory(
             SparkProcessType sparkProcessType,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
             Optional<Map<String, String>> eventListenerProperties,
+            Optional<Map<String, String>> accessControlProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules)
     {
@@ -65,9 +70,10 @@ public class PrestoSparkInjectorFactory
                 configProperties,
                 catalogProperties,
                 eventListenerProperties,
+                accessControlProperties,
                 sqlParserOptions,
                 additionalModules,
-                Optional.empty());
+                false);
     }
 
     public PrestoSparkInjectorFactory(
@@ -75,18 +81,20 @@ public class PrestoSparkInjectorFactory
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
             Optional<Map<String, String>> eventListenerProperties,
+            Optional<Map<String, String>> accessControlProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules,
-            Optional<Module> accessControlModuleOverride)
+            boolean useAccessControlForTesting)
     {
         this.sparkProcessType = requireNonNull(sparkProcessType, "sparkProcessType is null");
         this.configProperties = ImmutableMap.copyOf(requireNonNull(configProperties, "configProperties is null"));
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null").entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null").map(ImmutableMap::copyOf);
+        this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null").map(ImmutableMap::copyOf);
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.additionalModules = ImmutableList.copyOf(requireNonNull(additionalModules, "additionalModules is null"));
-        this.accessControlModuleOverride = requireNonNull(accessControlModuleOverride, "accessControlModuleOverride is null");
+        this.useAccessControlForTesting = useAccessControlForTesting;
     }
 
     public Injector create()
@@ -101,13 +109,16 @@ public class PrestoSparkInjectorFactory
                 new EventListenerModule(),
                 new PrestoSparkModule(sparkProcessType, sqlParserOptions));
 
-        boolean initializeAccessControl = false;
-        if (accessControlModuleOverride.isPresent()) {
-            modules.add(accessControlModuleOverride.get());
+        if (useAccessControlForTesting) {
+            modules.add(
+                    binder -> {
+                        binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                        binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                        binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
+                    });
         }
         else {
             modules.add(new AccessControlModule());
-            initializeAccessControl = true;
         }
 
         modules.addAll(additionalModules);
@@ -133,9 +144,13 @@ public class PrestoSparkInjectorFactory
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             eventListenerProperties.ifPresent(properties -> injector.getInstance(EventListenerManager.class).loadConfiguredEventListener(properties));
-
-            if (initializeAccessControl) {
-                injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+            if (!useAccessControlForTesting) {
+                if (accessControlProperties.isPresent()) {
+                    injector.getInstance(AccessControlManager.class).loadSystemAccessControl(accessControlProperties.get());
+                }
+                else {
+                    injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
+                }
             }
         }
         catch (Exception e) {

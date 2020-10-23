@@ -58,6 +58,7 @@ public class PrestoSparkLauncherCommand
                 packageSupplier,
                 loadProperties(checkFile(new File(clientOptions.config))),
                 loadCatalogProperties(new File(clientOptions.catalogs)),
+                Optional.empty(),
                 Optional.empty());
 
         String query = readFileUtf8(checkFile(new File(clientOptions.file)));
