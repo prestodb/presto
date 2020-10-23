@@ -814,8 +814,8 @@ public final class StringFunctions
                 distance++;
             }
 
-            leftPosition += codePointLeft > 0 ? lengthOfCodePoint(codePointLeft) : -codePointLeft;
-            rightPosition += codePointRight > 0 ? lengthOfCodePoint(codePointRight) : -codePointRight;
+            leftPosition += codePointLeft >= 0 ? lengthOfCodePoint(codePointLeft) : -codePointLeft;
+            rightPosition += codePointRight >= 0 ? lengthOfCodePoint(codePointRight) : -codePointRight;
         }
 
         checkCondition(
