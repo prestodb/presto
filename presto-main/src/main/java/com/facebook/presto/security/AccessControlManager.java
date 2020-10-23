@@ -110,17 +110,26 @@ public class AccessControlManager
             throws Exception
     {
         if (ACCESS_CONTROL_CONFIGURATION.exists()) {
-            Map<String, String> properties = new HashMap<>(loadProperties(ACCESS_CONTROL_CONFIGURATION));
+            Map<String, String> properties = loadProperties(ACCESS_CONTROL_CONFIGURATION);
+            checkArgument(!isNullOrEmpty(properties.get(ACCESS_CONTROL_PROPERTY_NAME)),
+                    "Access control configuration %s does not contain %s",
+                    ACCESS_CONTROL_CONFIGURATION.getAbsoluteFile(),
+                    ACCESS_CONTROL_PROPERTY_NAME);
 
-            String accessControlName = properties.remove(ACCESS_CONTROL_PROPERTY_NAME);
-            checkArgument(!isNullOrEmpty(accessControlName),
-                    "Access control configuration %s does not contain %s", ACCESS_CONTROL_CONFIGURATION.getAbsoluteFile(), ACCESS_CONTROL_PROPERTY_NAME);
-
-            setSystemAccessControl(accessControlName, properties);
+            loadSystemAccessControl(properties);
         }
         else {
             setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
         }
+    }
+
+    public void loadSystemAccessControl(Map<String, String> properties)
+    {
+        properties = new HashMap<>(properties);
+        String accessControlName = properties.remove(ACCESS_CONTROL_PROPERTY_NAME);
+        checkArgument(!isNullOrEmpty(accessControlName), "%s property must be present", ACCESS_CONTROL_PROPERTY_NAME);
+
+        setSystemAccessControl(accessControlName, properties);
     }
 
     @VisibleForTesting
