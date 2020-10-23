@@ -195,6 +195,7 @@ public class TestStringFunctions
         assertFunction("HAMMING_DISTANCE('hello', 'jello')", BIGINT, 1L);
         assertFunction("HAMMING_DISTANCE('like', 'hate')", BIGINT, 3L);
         assertFunction("HAMMING_DISTANCE('hello', 'world')", BIGINT, 4L);
+        assertFunction("HAMMING_DISTANCE('\u0000', '\u0001')", BIGINT, 1L);
         assertFunction("HAMMING_DISTANCE(NULL, NULL)", BIGINT, null);
         assertFunction("HAMMING_DISTANCE('hello', NULL)", BIGINT, null);
         assertFunction("HAMMING_DISTANCE(NULL, 'world')", BIGINT, null);
