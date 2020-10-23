@@ -100,12 +100,6 @@ public class HiveFileRenamer
         return queryPartitionFileCounterMap.size();
     }
 
-    @Managed
-    public int getHiveMetadataUpdateResultMapSize()
-    {
-        return queryHiveMetadataResultMap.size();
-    }
-
     private static class HiveMetadataUpdateKey
     {
         private final SchemaTableName schemaTableName;
