@@ -60,6 +60,7 @@ public class DruidBrokerPageSource
     private BufferedReader responseStream;
     private final PageBuilder pageBuilder;
     private List<Type> columnTypes;
+    private boolean columnHandlesHasErrorMessageField;
 
     public DruidBrokerPageSource(
             GeneratedDql brokerDql,
@@ -77,6 +78,8 @@ public class DruidBrokerPageSource
                 .map(DruidColumnHandle::getColumnType)
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(this.columnTypes);
+        this.columnHandlesHasErrorMessageField = columnHandles.stream().anyMatch(
+                handle -> ((DruidColumnHandle)handle).getColumnName().equals("errorMessage"));
     }
 
     @Override
@@ -121,6 +124,9 @@ public class DruidBrokerPageSource
                 }
                 else {
                     JsonNode rootNode = OBJECT_MAPPER.readTree(readLine);
+                    if (rootNode.has("errorMessage") && !columnHandlesHasErrorMessageField) {
+                        throw new PrestoException(DRUID_BROKER_RESULT_ERROR, rootNode.findValue("errorMessage").asText());
+                    }
                     for (int i = 0; i < columnHandles.size(); i++) {
                         Type type = columnTypes.get(i);
                         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
