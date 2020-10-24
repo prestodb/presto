@@ -91,11 +91,11 @@ public class TestHiveExternalWorkersQueries
                         // Write config files
                         Files.write(tempDirectoryPath.resolve("config.properties"),
                                 format("discovery.uri=%s\n" +
-                                        "node.version=testversion\n" +
+                                        "presto.version=testversion\n" +
                                         "http-server.http.port=%d", discoveryUri, port).getBytes());
                         Files.write(tempDirectoryPath.resolve("node.properties"),
                                 format("node.id=%s\n" +
-                                        "node.address=127.0.0.1\n" +
+                                        "node.ip=127.0.0.1\n" +
                                         "node.environment=testing", UUID.randomUUID()).getBytes());
 
                         return new ProcessBuilder(prestoServerPath.get(), "--logtostderr=1", "--v=1")
