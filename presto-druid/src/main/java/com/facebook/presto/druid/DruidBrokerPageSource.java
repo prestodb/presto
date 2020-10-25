@@ -60,7 +60,6 @@ public class DruidBrokerPageSource
     private BufferedReader responseStream;
     private final PageBuilder pageBuilder;
     private List<Type> columnTypes;
-    private boolean columnHandlesHasErrorMessageField;
 
     public DruidBrokerPageSource(
             GeneratedDql brokerDql,
@@ -78,8 +77,6 @@ public class DruidBrokerPageSource
                 .map(DruidColumnHandle::getColumnType)
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(this.columnTypes);
-        this.columnHandlesHasErrorMessageField = columnHandles.stream().anyMatch(
-                handle -> ((DruidColumnHandle)handle).getColumnName().equals("errorMessage"));
     }
 
     @Override
@@ -114,6 +111,8 @@ public class DruidBrokerPageSource
         }
 
         long start = System.nanoTime();
+        boolean columnHandlesHasErrorMessageField = columnHandles.stream().anyMatch(
+                handle -> ((DruidColumnHandle) handle).getColumnName().equals("errorMessage"));
         try {
             String readLine;
             while ((readLine = responseStream.readLine()) != null) {
