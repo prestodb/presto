@@ -20,9 +20,12 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFunction;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
@@ -189,10 +192,12 @@ import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.CharOperators;
+import com.facebook.presto.type.CharParametricType;
 import com.facebook.presto.type.ColorOperators;
 import com.facebook.presto.type.DateOperators;
 import com.facebook.presto.type.DateTimeOperators;
 import com.facebook.presto.type.DecimalOperators;
+import com.facebook.presto.type.DecimalParametricType;
 import com.facebook.presto.type.DoubleOperators;
 import com.facebook.presto.type.EnumCasts;
 import com.facebook.presto.type.HyperLogLogOperators;
@@ -203,6 +208,7 @@ import com.facebook.presto.type.IpAddressOperators;
 import com.facebook.presto.type.IpPrefixOperators;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.LongEnumOperators;
+import com.facebook.presto.type.MapParametricType;
 import com.facebook.presto.type.QuantileDigestOperators;
 import com.facebook.presto.type.RealOperators;
 import com.facebook.presto.type.SmallintOperators;
@@ -216,6 +222,7 @@ import com.facebook.presto.type.UnknownOperators;
 import com.facebook.presto.type.VarbinaryOperators;
 import com.facebook.presto.type.VarcharEnumOperators;
 import com.facebook.presto.type.VarcharOperators;
+import com.facebook.presto.type.VarcharParametricType;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogAggregationFunction;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogFunctions;
 import com.facebook.presto.type.khyperloglog.KHyperLogLogOperators;
@@ -238,14 +245,37 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.common.function.OperatorType.tryGetOperatorType;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.JsonType.JSON;
+import static com.facebook.presto.common.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
+import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
@@ -336,6 +366,9 @@ import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
+import static com.facebook.presto.type.ArrayParametricType.ARRAY;
+import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
+import static com.facebook.presto.type.ColorType.COLOR;
 import static com.facebook.presto.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static com.facebook.presto.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -377,33 +410,55 @@ import static com.facebook.presto.type.DecimalSaturatedFloorCasts.INTEGER_TO_DEC
 import static com.facebook.presto.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static com.facebook.presto.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static com.facebook.presto.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
+import static com.facebook.presto.type.FunctionParametricType.FUNCTION;
+import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.type.IpAddressType.IPADDRESS;
+import static com.facebook.presto.type.IpPrefixType.IPPREFIX;
+import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
+import static com.facebook.presto.type.JsonPathType.JSON_PATH;
+import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
+import static com.facebook.presto.type.MapParametricType.MAP;
+import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
+import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
+import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
+import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
-public class BuiltInFunctionNamespaceManager
+public class BuiltInTypeAndFunctionNamespaceManager
         implements FunctionNamespaceManager<SqlFunction>
 {
     public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
     public static final String ID = "builtin";
 
     private final FunctionAndTypeManager functionAndTypeManager;
+
+    private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
+    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
+
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private final MagicLiteralFunction magicLiteralFunction;
+
     private volatile FunctionMap functions = new FunctionMap();
 
-    public BuiltInFunctionNamespaceManager(
+    public BuiltInTypeAndFunctionNamespaceManager(
             BlockEncodingSerde blockEncodingSerde,
             FeaturesConfig featuresConfig,
+            Set<Type> types,
             FunctionAndTypeManager functionAndTypeManager)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
@@ -452,6 +507,65 @@ public class BuiltInFunctionNamespaceManager
                             .specialize(key.getBoundVariables(), key.getArity(), functionAndTypeManager);
                 }));
 
+        parametricTypeCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .build(CacheLoader.from(this::instantiateParametricType));
+
+        registerBuiltInFunctions(getBuildInFunctions(featuresConfig));
+        registerBuiltInTypes();
+
+        for (Type type : requireNonNull(types, "types is null")) {
+            addType(type);
+        }
+    }
+
+    private void registerBuiltInTypes()
+    {
+        // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
+        this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
+
+        // always add the built-in types; Presto will not function without these
+        addType(BOOLEAN);
+        addType(BIGINT);
+        addType(INTEGER);
+        addType(SMALLINT);
+        addType(TINYINT);
+        addType(DOUBLE);
+        addType(REAL);
+        addType(VARBINARY);
+        addType(DATE);
+        addType(TIME);
+        addType(TIME_WITH_TIME_ZONE);
+        addType(TIMESTAMP);
+        addType(TIMESTAMP_WITH_TIME_ZONE);
+        addType(INTERVAL_YEAR_MONTH);
+        addType(INTERVAL_DAY_TIME);
+        addType(HYPER_LOG_LOG);
+        addType(SET_DIGEST);
+        addType(K_HYPER_LOG_LOG);
+        addType(P4_HYPER_LOG_LOG);
+        addType(JONI_REGEXP);
+        addType(RE2J_REGEXP);
+        addType(LIKE_PATTERN);
+        addType(JSON_PATH);
+        addType(COLOR);
+        addType(JSON);
+        addType(CODE_POINTS);
+        addType(IPADDRESS);
+        addType(IPPREFIX);
+        addParametricType(VarcharParametricType.VARCHAR);
+        addParametricType(CharParametricType.CHAR);
+        addParametricType(DecimalParametricType.DECIMAL);
+        addParametricType(ROW);
+        addParametricType(ARRAY);
+        addParametricType(MAP);
+        addParametricType(FUNCTION);
+        addParametricType(QDIGEST);
+        addParametricType(TDIGEST);
+    }
+
+    private List<? extends SqlFunction> getBuildInFunctions(FeaturesConfig featuresConfig)
+    {
         FunctionListBuilder builder = new FunctionListBuilder()
                 .window(RowNumberFunction.class)
                 .window(RankFunction.class)
@@ -732,8 +846,7 @@ public class BuiltInFunctionNamespaceManager
         if (featuresConfig.isLegacyLogFunction()) {
             builder.scalar(LegacyLogFunction.class);
         }
-
-        registerBuiltInFunctions(builder.getFunctions());
+        return builder.getFunctions();
     }
 
     public synchronized void registerBuiltInFunctions(List<? extends SqlFunction> functions)
@@ -911,6 +1024,74 @@ public class BuiltInFunctionNamespaceManager
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw e;
         }
+    }
+
+    public Type getType(TypeSignature signature)
+    {
+        Type type = types.get(signature);
+        if (type == null) {
+            try {
+                return parametricTypeCache.getUnchecked(signature);
+            }
+            catch (UncheckedExecutionException e) {
+                throwIfUnchecked(e.getCause());
+                throw new RuntimeException(e.getCause());
+            }
+        }
+        return type;
+    }
+
+    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    {
+        return getType(new TypeSignature(baseTypeName, typeParameters));
+    }
+
+    public List<Type> getTypes()
+    {
+        return ImmutableList.copyOf(types.values());
+    }
+
+    public void addType(Type type)
+    {
+        requireNonNull(type, "type is null");
+        Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
+        checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
+    }
+
+    public void addParametricType(ParametricType parametricType)
+    {
+        String name = parametricType.getName().toLowerCase(Locale.ENGLISH);
+        checkArgument(!parametricTypes.containsKey(name), "Parametric type already registered: %s", name);
+        parametricTypes.putIfAbsent(name, parametricType);
+    }
+
+    public Collection<ParametricType> getParametricTypes()
+    {
+        return ImmutableList.copyOf(parametricTypes.values());
+    }
+
+    private Type instantiateParametricType(TypeSignature signature)
+    {
+        List<TypeParameter> parameters = new ArrayList<>();
+
+        for (TypeSignatureParameter parameter : signature.getParameters()) {
+            TypeParameter typeParameter = TypeParameter.of(parameter, functionAndTypeManager);
+            parameters.add(typeParameter);
+        }
+
+        ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
+        if (parametricType == null) {
+            throw new IllegalArgumentException("Unknown type " + signature);
+        }
+        else if (parametricType instanceof MapParametricType) {
+            return ((MapParametricType) parametricType).createType(functionAndTypeManager, parameters);
+        }
+
+        Type instantiatedType = parametricType.createType(parameters);
+
+        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
+        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+        return instantiatedType;
     }
 
     private SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)
