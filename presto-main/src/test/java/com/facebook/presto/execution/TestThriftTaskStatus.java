@@ -162,7 +162,7 @@ public class TestThriftTaskStatus
         assertEquals(thirdFailure.getType(), ParsingException.class.getName());
         assertEquals(thirdFailure.getErrorCode(), SYNTAX_ERROR.toErrorCode());
         assertEquals(thirdFailure.getErrorLocation().getLineNumber(), 100);
-        assertEquals(thirdFailure.getErrorLocation().getColumnNumber(), 3);
+        assertEquals(thirdFailure.getErrorLocation().getColumnNumber(), 2);
     }
 
     private TaskStatus getRoundTripSerialize(ThriftCodec<TaskStatus> readCodec, ThriftCodec<TaskStatus> writeCodec, Function<TTransport, TProtocol> protocolFactory)
