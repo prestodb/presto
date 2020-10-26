@@ -18,6 +18,6 @@ public class TestSpilledWindowQueriesWithTemporaryStorage
 {
     public TestSpilledWindowQueriesWithTemporaryStorage()
     {
-        super(TestDistributedSpilledQueriesWithTemporaryStore::createQueryRunner);
+        super(TestDistributedSpilledQueriesWithTempStorage::createQueryRunner);
     }
 }

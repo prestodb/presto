@@ -18,10 +18,10 @@ import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.storage.TemporaryDataSink;
-import com.facebook.presto.spi.storage.TemporaryStore;
-import com.facebook.presto.spi.storage.TemporaryStoreFactory;
-import com.facebook.presto.spi.storage.TemporaryStoreHandle;
+import com.facebook.presto.spi.storage.TempDataSink;
+import com.facebook.presto.spi.storage.TempStorage;
+import com.facebook.presto.spi.storage.TempStorageFactory;
+import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
@@ -48,13 +48,13 @@ import static java.nio.file.Files.newDirectoryStream;
 import static java.nio.file.StandardOpenOption.APPEND;
 import static java.util.Objects.requireNonNull;
 
-public class LocalTemporaryStore
-        implements TemporaryStore
+public class LocalTempStorage
+        implements TempStorage
 {
     public static final String NAME = "local";
-    public static final String TEMPORARY_STORE_PATH = "temporary-store.path";
+    public static final String TEMP_STORAGE_PATH = "temp-storage.path";
 
-    private static final Logger log = Logger.get(LocalTemporaryStore.class);
+    private static final Logger log = Logger.get(LocalTempStorage.class);
 
     private static final String SPILL_FILE_PREFIX = "spill";
     private static final String SPILL_FILE_SUFFIX = ".bin";
@@ -66,7 +66,7 @@ public class LocalTemporaryStore
     @GuardedBy("this")
     private int roundRobinIndex;
 
-    public LocalTemporaryStore(List<Path> spillPaths, double maxUsedSpaceThreshold)
+    public LocalTempStorage(List<Path> spillPaths, double maxUsedSpaceThreshold)
     {
         this.spillPaths = ImmutableList.copyOf(requireNonNull(spillPaths, "spillPaths is null"));
         this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
@@ -92,29 +92,29 @@ public class LocalTemporaryStore
         });
 
         // From FileSingleStreamSpillerFactory#cleanupOldSpillFiles
-        spillPaths.forEach(LocalTemporaryStore::cleanupOldSpillFiles);
+        spillPaths.forEach(LocalTempStorage::cleanupOldSpillFiles);
     }
 
     @Override
-    public TemporaryDataSink create()
+    public TempDataSink create()
             throws IOException
     {
         Path path = Files.createTempFile(getNextSpillPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
-        return new LocalTemporaryDataSink(path);
+        return new LocalTempDataSink(path);
     }
 
     @Override
-    public InputStream open(TemporaryStoreHandle handle)
+    public InputStream open(TempStorageHandle handle)
             throws IOException
     {
-        return Files.newInputStream(((LocalTemporaryStoreHandle) handle).getFilePath());
+        return Files.newInputStream(((LocalTempStorageHandle) handle).getFilePath());
     }
 
     @Override
-    public void remove(TemporaryStoreHandle handle)
+    public void remove(TempStorageHandle handle)
             throws IOException
     {
-        Files.delete(((LocalTemporaryStoreHandle) handle).getFilePath());
+        Files.delete(((LocalTempStorageHandle) handle).getFilePath());
     }
 
     private static void cleanupOldSpillFiles(Path path)
@@ -163,12 +163,12 @@ public class LocalTemporaryStore
         }
     }
 
-    private static class LocalTemporaryStoreHandle
-            implements TemporaryStoreHandle
+    private static class LocalTempStorageHandle
+            implements TempStorageHandle
     {
         private final Path filePath;
 
-        public LocalTemporaryStoreHandle(Path filePath)
+        public LocalTempStorageHandle(Path filePath)
         {
             this.filePath = requireNonNull(filePath, "filePath is null");
         }
@@ -179,13 +179,13 @@ public class LocalTemporaryStore
         }
     }
 
-    private static class LocalTemporaryDataSink
-            implements TemporaryDataSink
+    private static class LocalTempDataSink
+            implements TempDataSink
     {
         private final DataSink sink;
         private final Path path;
 
-        public LocalTemporaryDataSink(Path path)
+        public LocalTempDataSink(Path path)
                 throws IOException
         {
             this.path = requireNonNull(path, "path is null");
@@ -193,11 +193,11 @@ public class LocalTemporaryStore
         }
 
         @Override
-        public TemporaryStoreHandle commit()
+        public TempStorageHandle commit()
                 throws IOException
         {
             sink.close();
-            return new LocalTemporaryStoreHandle(path);
+            return new LocalTempStorageHandle(path);
         }
 
         @Override
@@ -236,7 +236,7 @@ public class LocalTemporaryStore
     }
 
     public static class Factory
-            implements TemporaryStoreFactory
+            implements TempStorageFactory
     {
         @Override
         public String getName()
@@ -245,18 +245,18 @@ public class LocalTemporaryStore
         }
 
         @Override
-        public TemporaryStore create(Map<String, String> config)
+        public TempStorage create(Map<String, String> config)
         {
-            String configPaths = config.get(TEMPORARY_STORE_PATH);
-            checkState(configPaths != null, "Local temporary store configuration must contain the '%s' property", TEMPORARY_STORE_PATH);
+            String configPaths = config.get(TEMP_STORAGE_PATH);
+            checkState(configPaths != null, "Local temp storage configuration must contain the '%s' property", TEMP_STORAGE_PATH);
 
-            List<String> pathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(config.get(TEMPORARY_STORE_PATH)));
-            List<Path> temporaryStorePaths = pathsSplit.stream()
+            List<String> pathsSplit = ImmutableList.copyOf(Splitter.on(",").trimResults().omitEmptyStrings().split(config.get(TEMP_STORAGE_PATH)));
+            List<Path> tempStoragePaths = pathsSplit.stream()
                     .map(Paths::get)
                     .collect(toImmutableList());
 
             // TODO: make maxUsedSpaceThreshold configurable
-            return new LocalTemporaryStore(temporaryStorePaths, 1.0);
+            return new LocalTempStorage(tempStoragePaths, 1.0);
         }
     }
 }

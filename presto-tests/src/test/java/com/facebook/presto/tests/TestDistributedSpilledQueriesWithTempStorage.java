@@ -21,12 +21,12 @@ import com.google.common.collect.ImmutableMap;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
-public class TestDistributedSpilledQueriesWithTemporaryStore
+public class TestDistributedSpilledQueriesWithTempStorage
         extends TestDistributedSpilledQueries
 {
-    public TestDistributedSpilledQueriesWithTemporaryStore()
+    public TestDistributedSpilledQueriesWithTempStorage()
     {
-        super(TestDistributedSpilledQueriesWithTemporaryStore::createQueryRunner);
+        super(TestDistributedSpilledQueriesWithTempStorage::createQueryRunner);
     }
 
     public static DistributedQueryRunner createQueryRunner()
@@ -44,7 +44,7 @@ public class TestDistributedSpilledQueriesWithTemporaryStore
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.spill-enabled", "true")
-                .put("experimental.spiller.single-stream-spiller-choice", "TEMPORARY_STORE")
+                .put("experimental.spiller.single-stream-spiller-choice", "TEMP_STORAGE")
                 .put("experimental.memory-revoking-threshold", "0.0") // revoke always
                 .put("experimental.memory-revoking-target", "0.0")
                 .build();

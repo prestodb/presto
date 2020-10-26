@@ -128,7 +128,7 @@ import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
-import com.facebook.presto.spiller.TemporaryStoreSingleStreamSpillerFactory;
+import com.facebook.presto.spiller.TempStorageSingleStreamSpillerFactory;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSinkProvider;
 import com.facebook.presto.split.PageSourceManager;
@@ -549,10 +549,10 @@ public class ServerMainModule
                         .in(Scopes.SINGLETON)));
         install(installModuleIf(
                 FeaturesConfig.class,
-                config -> config.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.TEMPORARY_STORE,
+                config -> config.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.TEMP_STORAGE,
                 moduleBinder -> moduleBinder
                         .bind(SingleStreamSpillerFactory.class)
-                        .to(TemporaryStoreSingleStreamSpillerFactory.class)
+                        .to(TempStorageSingleStreamSpillerFactory.class)
                         .in(Scopes.SINGLETON)));
 
         // Thrift RPC

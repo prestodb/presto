@@ -18,12 +18,12 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
-public class TemporaryStoreModule
+public class TempStorageModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(TemporaryStoreManager.class).in(Scopes.SINGLETON);
+        binder.bind(TempStorageManager.class).in(Scopes.SINGLETON);
     }
 }

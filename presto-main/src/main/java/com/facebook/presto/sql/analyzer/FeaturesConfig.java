@@ -240,7 +240,7 @@ public class FeaturesConfig
     public enum SingleStreamSpillerChoice
     {
         FILE,
-        TEMPORARY_STORE
+        TEMP_STORAGE
     }
 
     public double getCpuCostWeight()

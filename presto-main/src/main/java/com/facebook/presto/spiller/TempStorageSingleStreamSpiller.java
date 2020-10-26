@@ -23,9 +23,9 @@ import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.spiller.SpillCipher;
-import com.facebook.presto.spi.storage.TemporaryDataSink;
-import com.facebook.presto.spi.storage.TemporaryStore;
-import com.facebook.presto.spi.storage.TemporaryStoreHandle;
+import com.facebook.presto.spi.storage.TempDataSink;
+import com.facebook.presto.spi.storage.TempStorage;
+import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
@@ -50,10 +50,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
-public class TemporaryStoreSingleStreamSpiller
+public class TempStorageSingleStreamSpiller
         implements SingleStreamSpiller
 {
-    private final TemporaryStore temporaryStore;
+    private final TempStorage tempStorage;
     private final PagesSerde serde;
     private final ListeningExecutorService executor;
     private final SpillerStats spillerStats;
@@ -65,15 +65,15 @@ public class TemporaryStoreSingleStreamSpiller
     private final Closer closer = Closer.create();
 
     private boolean writable = true;
-    private final TemporaryDataSink dataSink;
-    private TemporaryStoreHandle temporaryStoreHandle;
+    private final TempDataSink dataSink;
+    private TempStorageHandle tempStorageHandle;
     private int bufferedBytes;
     private List<DataOutput> bufferedPages = new ArrayList<>();
     private long spilledPagesInMemorySize;
     private ListenableFuture<?> spillInProgress = Futures.immediateFuture(null);
 
-    public TemporaryStoreSingleStreamSpiller(
-            TemporaryStore temporaryStore,
+    public TempStorageSingleStreamSpiller(
+            TempStorage tempStorage,
             PagesSerde serde,
             ListeningExecutorService executor,
             SpillerStats spillerStats,
@@ -82,7 +82,7 @@ public class TemporaryStoreSingleStreamSpiller
             Optional<SpillCipher> spillCipher,
             int maxBufferSizeInBytes)
     {
-        this.temporaryStore = requireNonNull(temporaryStore, "temporaryStore is null");
+        this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
         this.serde = requireNonNull(serde, "serde is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats is null");
@@ -94,7 +94,7 @@ public class TemporaryStoreSingleStreamSpiller
         this.maxBufferSizeInBytes = maxBufferSizeInBytes;
 
         try {
-            dataSink = temporaryStore.create();
+            dataSink = tempStorage.create();
             memoryContext.setBytes(dataSink.getRetainedSizeInBytes());
         }
         catch (IOException e) {
@@ -162,9 +162,9 @@ public class TemporaryStoreSingleStreamSpiller
             if (!bufferedPages.isEmpty()) {
                 flushBufferedPages();
             }
-            temporaryStoreHandle = dataSink.commit();
+            tempStorageHandle = dataSink.commit();
 
-            InputStream input = closer.register(temporaryStore.open(temporaryStoreHandle));
+            InputStream input = closer.register(tempStorage.open(tempStorageHandle));
             Iterator<Page> pages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input));
             return closeWhenExhausted(pages, input);
         }
@@ -179,8 +179,8 @@ public class TemporaryStoreSingleStreamSpiller
         if (writable) {
             closer.register(() -> dataSink.rollback());
         }
-        if (temporaryStoreHandle != null) {
-            closer.register(() -> temporaryStore.remove(temporaryStoreHandle));
+        if (tempStorageHandle != null) {
+            closer.register(() -> tempStorage.remove(tempStorageHandle));
         }
 
         closer.register(localSpillContext);

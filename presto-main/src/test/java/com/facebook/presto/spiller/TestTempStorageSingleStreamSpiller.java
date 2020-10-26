@@ -23,7 +23,7 @@ import com.facebook.presto.operator.PageAssertions;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.facebook.presto.testing.TestingTemporaryStoreManager;
+import com.facebook.presto.testing.TestingTempStorageManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -56,7 +56,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestTemporaryStoreSingleStreamSpiller
+public class TestTempStorageSingleStreamSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, DOUBLE, VARBINARY);
 
@@ -109,19 +109,19 @@ public class TestTemporaryStoreSingleStreamSpiller
     private void assertSpill(boolean compression, boolean encryption)
             throws Exception
     {
-        TemporaryStoreSingleStreamSpillerFactory spillerFactory = new TemporaryStoreSingleStreamSpillerFactory(
-                new TestingTemporaryStoreManager(spillPath.toAbsolutePath().toString()),
+        TempStorageSingleStreamSpillerFactory spillerFactory = new TempStorageSingleStreamSpillerFactory(
+                new TestingTempStorageManager(spillPath.toAbsolutePath().toString()),
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(),
                 new SpillerStats(),
                 compression,
                 encryption,
                 toIntExact(new DataSize(4, KILOBYTE).toBytes()),
-                LocalTemporaryStore.NAME);
+                LocalTempStorage.NAME);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
         SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
-        assertTrue(singleStreamSpiller instanceof TemporaryStoreSingleStreamSpiller);
-        TemporaryStoreSingleStreamSpiller spiller = (TemporaryStoreSingleStreamSpiller) singleStreamSpiller;
+        assertTrue(singleStreamSpiller instanceof TempStorageSingleStreamSpiller);
+        TempStorageSingleStreamSpiller spiller = (TempStorageSingleStreamSpiller) singleStreamSpiller;
 
         Page page = buildPage();
 
