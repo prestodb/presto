@@ -26,7 +26,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;

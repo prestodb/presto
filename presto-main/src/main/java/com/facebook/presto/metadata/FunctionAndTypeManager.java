@@ -48,7 +48,6 @@ import com.facebook.presto.sql.gen.CacheStatsMBean;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.type.BuiltInTypeRegistry;
 import com.facebook.presto.type.TypeCoercer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -74,7 +73,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionResolver.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
@@ -100,8 +99,7 @@ public class FunctionAndTypeManager
         implements FunctionMetadataManager, TypeManager
 {
     private final TransactionManager transactionManager;
-    private final BuiltInTypeRegistry builtInTypeRegistry;
-    private final BuiltInFunctionNamespaceManager builtInFunctionNamespaceManager;
+    private final BuiltInTypeAndFunctionNamespaceManager builtInTypeAndFunctionNamespaceManager;
     private final FunctionInvokerProvider functionInvokerProvider;
     private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
     private final HandleResolver handleResolver;
@@ -120,13 +118,12 @@ public class FunctionAndTypeManager
             Set<Type> types)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.builtInFunctionNamespaceManager = new BuiltInFunctionNamespaceManager(blockEncodingSerde, featuresConfig, this);
-        this.builtInTypeRegistry = new BuiltInTypeRegistry(types, this);
-        this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
+        this.builtInTypeAndFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, featuresConfig, types, this);
+        this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
-        transactionManager.registerFunctionNamespaceManager(DEFAULT_NAMESPACE.getCatalogName(), builtInFunctionNamespaceManager);
+        transactionManager.registerFunctionNamespaceManager(DEFAULT_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
         this.functionCache = CacheBuilder.newBuilder()
                 .recordStats()
                 .maximumSize(1000)
@@ -184,13 +181,13 @@ public class FunctionAndTypeManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        return builtInTypeRegistry.getType(signature);
+        return builtInTypeAndFunctionNamespaceManager.getType(signature);
     }
 
     @Override
     public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
-        return builtInTypeRegistry.getParameterizedType(baseTypeName, typeParameters);
+        return builtInTypeAndFunctionNamespaceManager.getParameterizedType(baseTypeName, typeParameters);
     }
 
     @Override
@@ -214,13 +211,13 @@ public class FunctionAndTypeManager
 
     public void registerBuiltInFunctions(List<? extends SqlFunction> functions)
     {
-        builtInFunctionNamespaceManager.registerBuiltInFunctions(functions);
+        builtInTypeAndFunctionNamespaceManager.registerBuiltInFunctions(functions);
     }
 
     public List<SqlFunction> listFunctions(Session session)
     {
         Collection<FunctionNamespaceManager<?>> managers = isListBuiltInFunctionsOnly(session) ?
-                ImmutableSet.of(builtInFunctionNamespaceManager) :
+                ImmutableSet.of(builtInTypeAndFunctionNamespaceManager) :
                 functionNamespaceManagers.values();
 
         return managers.stream()
@@ -300,22 +297,22 @@ public class FunctionAndTypeManager
 
     public void addType(Type type)
     {
-        builtInTypeRegistry.addType(type);
+        builtInTypeAndFunctionNamespaceManager.addType(type);
     }
 
     public void addParametricType(ParametricType parametricType)
     {
-        builtInTypeRegistry.addParametricType(parametricType);
+        builtInTypeAndFunctionNamespaceManager.addParametricType(parametricType);
     }
 
     public List<Type> getTypes()
     {
-        return builtInTypeRegistry.getTypes();
+        return builtInTypeAndFunctionNamespaceManager.getTypes();
     }
 
     public Collection<ParametricType> getParametricTypes()
     {
-        return builtInTypeRegistry.getParametricTypes();
+        return builtInTypeAndFunctionNamespaceManager.getParametricTypes();
     }
 
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
@@ -349,17 +346,17 @@ public class FunctionAndTypeManager
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
     {
-        return builtInFunctionNamespaceManager.getWindowFunctionImplementation(functionHandle);
+        return builtInTypeAndFunctionNamespaceManager.getWindowFunctionImplementation(functionHandle);
     }
 
     public InternalAggregationFunction getAggregateFunctionImplementation(FunctionHandle functionHandle)
     {
-        return builtInFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle);
+        return builtInTypeAndFunctionNamespaceManager.getAggregateFunctionImplementation(functionHandle);
     }
 
     public BuiltInScalarFunctionImplementation getBuiltInScalarFunctionImplementation(FunctionHandle functionHandle)
     {
-        return (BuiltInScalarFunctionImplementation) builtInFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
+        return (BuiltInScalarFunctionImplementation) builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(functionHandle);
     }
 
     @VisibleForTesting
@@ -369,7 +366,7 @@ public class FunctionAndTypeManager
                 .map(OperatorType::getFunctionName)
                 .collect(toImmutableSet());
 
-        return builtInFunctionNamespaceManager.listFunctions().stream()
+        return builtInTypeAndFunctionNamespaceManager.listFunctions().stream()
                 .filter(function -> operatorNames.contains(function.getSignature().getName()))
                 .collect(toImmutableList());
     }
@@ -405,8 +402,8 @@ public class FunctionAndTypeManager
         if (parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency)) {
             return lookupCachedFunction(functionName, parameterTypes);
         }
-        Collection<? extends SqlFunction> candidates = builtInFunctionNamespaceManager.getFunctions(Optional.empty(), functionName);
-        return functionResolver.lookupFunction(builtInFunctionNamespaceManager, Optional.empty(), functionName, parameterTypes, candidates);
+        Collection<? extends SqlFunction> candidates = builtInTypeAndFunctionNamespaceManager.getFunctions(Optional.empty(), functionName);
+        return functionResolver.lookupFunction(builtInTypeAndFunctionNamespaceManager, Optional.empty(), functionName, parameterTypes, candidates);
     }
 
     public FunctionHandle lookupCast(CastType castType, TypeSignature fromType, TypeSignature toType)
@@ -414,7 +411,7 @@ public class FunctionAndTypeManager
         Signature signature = new Signature(castType.getCastName(), SCALAR, emptyList(), emptyList(), toType, singletonList(fromType), false);
 
         try {
-            builtInFunctionNamespaceManager.getScalarFunctionImplementation(signature);
+            builtInTypeAndFunctionNamespaceManager.getScalarFunctionImplementation(signature);
         }
         catch (PrestoException e) {
             if (castType.isOperatorType() && e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
@@ -422,7 +419,7 @@ public class FunctionAndTypeManager
             }
             throw e;
         }
-        return builtInFunctionNamespaceManager.getFunctionHandle(Optional.empty(), signature);
+        return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), signature);
     }
 
     private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
