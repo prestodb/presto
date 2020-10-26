@@ -39,7 +39,9 @@ public class ParsingException
 
     public ParsingException(String message, NodeLocation nodeLocation)
     {
-        this(message, null, nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());
+        // charPositionInLine is 0-based whereas columnNumber is 1-based.
+        // We need to decrement the columnNumber by 1 here since we are storing charPositionInLine.
+        this(message, null, nodeLocation.getLineNumber(), nodeLocation.getColumnNumber() - 1);
     }
 
     public int getLineNumber()
