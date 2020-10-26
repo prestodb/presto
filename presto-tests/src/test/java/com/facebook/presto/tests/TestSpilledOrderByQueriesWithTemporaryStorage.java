@@ -19,6 +19,6 @@ public class TestSpilledOrderByQueriesWithTemporaryStorage
 {
     public TestSpilledOrderByQueriesWithTemporaryStorage()
     {
-        super(TestDistributedSpilledQueriesWithTemporaryStore::createQueryRunner);
+        super(TestDistributedSpilledQueriesWithTempStorage::createQueryRunner);
     }
 }

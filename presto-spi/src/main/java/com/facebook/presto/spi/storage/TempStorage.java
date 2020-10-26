@@ -13,22 +13,20 @@
  */
 package com.facebook.presto.spi.storage;
 
-import com.facebook.presto.common.io.DataSink;
-
 import java.io.IOException;
+import java.io.InputStream;
 
-public interface TemporaryDataSink
-        extends DataSink
+public interface TempStorage
 {
-    /**
-     * File is complete
-     */
-    TemporaryStoreHandle commit()
+    void initialize()
             throws IOException;
 
-    /**
-     * Abort
-     */
-    void rollback()
+    TempDataSink create()
+            throws IOException;
+
+    InputStream open(TempStorageHandle handle)
+            throws IOException;
+
+    void remove(TempStorageHandle handle)
             throws IOException;
 }

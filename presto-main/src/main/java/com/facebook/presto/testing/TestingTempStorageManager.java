@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.spiller.LocalTemporaryStore;
-import com.facebook.presto.spiller.TemporaryStoreManager;
+import com.facebook.presto.spiller.LocalTempStorage;
+import com.facebook.presto.spiller.TempStorageManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
@@ -22,28 +22,28 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.UUID;
 
-import static com.facebook.presto.spiller.LocalTemporaryStore.TEMPORARY_STORE_PATH;
+import static com.facebook.presto.spiller.LocalTempStorage.TEMP_STORAGE_PATH;
 
-public class TestingTemporaryStoreManager
-        extends TemporaryStoreManager
+public class TestingTempStorageManager
+        extends TempStorageManager
 {
-    public TestingTemporaryStoreManager()
+    public TestingTempStorageManager()
             throws IOException
     {
-        // For tests like TestSpilled{Aggregations, Window, OrderBy}WithTemporaryStorage, TestDistributedSpilledQueriesWithTemporaryStore
-        // Each of them will create their own TemporaryStore
-        // Since TemporaryStore#initilaize is called lazily, the temporary directory might be cleaned up when other tests is still spilling.
+        // For tests like TestSpilled{Aggregations, Window, OrderBy}WithTemporaryStorage, TestDistributedSpilledQueriesWithTempStorage
+        // Each of them will create their own TempStorage
+        // Since TempStorage#initilaize is called lazily, the temporary directory might be cleaned up when other tests is still spilling.
         this(Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage", UUID.randomUUID().toString().replaceAll("-", "_"))
                 .toAbsolutePath()
                 .toString());
     }
 
     @VisibleForTesting
-    public TestingTemporaryStoreManager(String temporaryStorePath)
+    public TestingTempStorageManager(String tempStoragePath)
     {
         super();
-        loadTemporaryStore(
-                LocalTemporaryStore.NAME,
-                ImmutableMap.of(TEMPORARY_STORE_PATH, temporaryStorePath));
+        loadTempStorage(
+                LocalTempStorage.NAME,
+                ImmutableMap.of(TEMP_STORAGE_PATH, tempStoragePath));
     }
 }
