@@ -13,20 +13,11 @@
  */
 package com.facebook.presto.spi.storage;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.util.Map;
 
-public interface TemporaryStore
+public interface TempStorageFactory
 {
-    void initialize()
-            throws IOException;
+    String getName();
 
-    TemporaryDataSink create()
-            throws IOException;
-
-    InputStream open(TemporaryStoreHandle handle)
-            throws IOException;
-
-    void remove(TemporaryStoreHandle handle)
-            throws IOException;
+    TempStorage create(Map<String, String> config);
 }

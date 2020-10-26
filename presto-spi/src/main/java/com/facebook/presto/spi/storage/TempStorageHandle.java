@@ -13,11 +13,6 @@
  */
 package com.facebook.presto.spi.storage;
 
-import java.util.Map;
-
-public interface TemporaryStoreFactory
+public interface TempStorageHandle
 {
-    String getName();
-
-    TemporaryStore create(Map<String, String> config);
 }

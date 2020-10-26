@@ -34,7 +34,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
-import com.facebook.presto.spi.storage.TemporaryStoreFactory;
+import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.resolver.ArtifactResolver;
@@ -242,8 +242,8 @@ public class PluginManager
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
         }
 
-        for (TemporaryStoreFactory temporaryStoreFactory : plugin.getTemporaryStoreFactories()) {
-            log.info("Registering temporary store %s", temporaryStoreFactory.getName());
+        for (TempStorageFactory tempStorageFactory : plugin.getTempStorageFactories()) {
+            log.info("Registering temp storage %s", tempStorageFactory.getName());
         }
     }
 

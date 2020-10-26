@@ -36,7 +36,7 @@ public class TestNodeSpillConfig
                 .setQueryMaxSpillPerNode(new DataSize(100, GIGABYTE))
                 .setSpillCompressionEnabled(false)
                 .setSpillEncryptionEnabled(false)
-                .setTemporaryStoreBufferSize(new DataSize(4, KILOBYTE)));
+                .setTempStorageBufferSize(new DataSize(4, KILOBYTE)));
     }
 
     @Test
@@ -47,7 +47,7 @@ public class TestNodeSpillConfig
                 .put("experimental.query-max-spill-per-node", "15 MB")
                 .put("experimental.spill-compression-enabled", "true")
                 .put("experimental.spill-encryption-enabled", "true")
-                .put("experimental.temporary-store-buffer-size", "24MB")
+                .put("experimental.temp-storage-buffer-size", "24MB")
                 .build();
 
         NodeSpillConfig expected = new NodeSpillConfig()
@@ -55,7 +55,7 @@ public class TestNodeSpillConfig
                 .setQueryMaxSpillPerNode(new DataSize(15, MEGABYTE))
                 .setSpillCompressionEnabled(true)
                 .setSpillEncryptionEnabled(true)
-                .setTemporaryStoreBufferSize(new DataSize(24, MEGABYTE));
+                .setTempStorageBufferSize(new DataSize(24, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

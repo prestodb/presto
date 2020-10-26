@@ -18,6 +18,6 @@ public class TestSpilledAggregationsWithTemporaryStorage
 {
     public TestSpilledAggregationsWithTemporaryStorage()
     {
-        super(TestDistributedSpilledQueriesWithTemporaryStore::createQueryRunner);
+        super(TestDistributedSpilledQueriesWithTempStorage::createQueryRunner);
     }
 }
