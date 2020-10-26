@@ -34,6 +34,7 @@ import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 @Path("/v1/cluster")
 @RolesAllowed({ADMIN, USER})
@@ -101,6 +102,7 @@ public class ClusterStatsResource
 
     @GET
     @Path("memory")
+    @Produces(APPLICATION_JSON)
     public Response getClusterMemoryPoolInfo()
     {
         return Response.ok()
@@ -110,6 +112,7 @@ public class ClusterStatsResource
 
     @GET
     @Path("workerMemory")
+    @Produces(APPLICATION_JSON)
     public Response getWorkerMemoryInfo()
     {
         return Response.ok()

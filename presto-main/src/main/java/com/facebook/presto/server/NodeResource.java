@@ -20,11 +20,13 @@ import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
 
 import java.util.Collection;
 
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static com.google.common.base.Predicates.in;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 @Path("/v1/node")
 @RolesAllowed(INTERNAL)
@@ -39,6 +41,7 @@ public class NodeResource
     }
 
     @GET
+    @Produces(APPLICATION_JSON)
     public Collection<HeartbeatFailureDetector.Stats> getNodeStats()
     {
         return failureDetector.getStats().values();
@@ -46,6 +49,7 @@ public class NodeResource
 
     @GET
     @Path("failed")
+    @Produces(APPLICATION_JSON)
     public Collection<HeartbeatFailureDetector.Stats> getFailed()
     {
         return Maps.filterKeys(failureDetector.getStats(), in(failureDetector.getFailed())).values();

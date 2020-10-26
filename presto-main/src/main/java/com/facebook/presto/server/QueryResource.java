@@ -24,11 +24,13 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -42,6 +44,7 @@ import static com.facebook.presto.connector.system.KillQueryProcedure.createPree
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 /**
  * Manage queries scheduled on this node
@@ -62,6 +65,7 @@ public class QueryResource
     }
 
     @GET
+    @Produces(APPLICATION_JSON)
     public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter)
     {
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
@@ -76,6 +80,7 @@ public class QueryResource
 
     @GET
     @Path("{queryId}")
+    @Produces(APPLICATION_JSON)
     public Response getQueryInfo(@PathParam("queryId") QueryId queryId)
     {
         requireNonNull(queryId, "queryId is null");
@@ -105,6 +110,8 @@ public class QueryResource
 
     @PUT
     @Path("{queryId}/killed")
+    @Consumes(APPLICATION_JSON)
+    @Produces(APPLICATION_JSON)
     public Response killQuery(@PathParam("queryId") QueryId queryId, String message)
     {
         return failQuery(queryId, createKillQueryException(message));
@@ -112,6 +119,8 @@ public class QueryResource
 
     @PUT
     @Path("{queryId}/preempted")
+    @Consumes(APPLICATION_JSON)
+    @Produces(APPLICATION_JSON)
     public Response preemptQuery(@PathParam("queryId") QueryId queryId, String message)
     {
         return failQuery(queryId, createPreemptQueryException(message));

@@ -25,6 +25,7 @@ import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 
@@ -57,6 +58,7 @@ public class WorkerResource
 
     @GET
     @Path("{nodeId}/status")
+    @Produces(APPLICATION_JSON)
     public Response getStatus(@PathParam("nodeId") String nodeId)
     {
         return proxyJsonResponse(nodeId, "v1/status");
@@ -64,6 +66,7 @@ public class WorkerResource
 
     @GET
     @Path("{nodeId}/thread")
+    @Produces(APPLICATION_JSON)
     public Response getThreads(@PathParam("nodeId") String nodeId)
     {
         return proxyJsonResponse(nodeId, "v1/thread");
