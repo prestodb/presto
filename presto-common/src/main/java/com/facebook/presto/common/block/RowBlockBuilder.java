@@ -28,7 +28,6 @@ import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize
 import static com.facebook.presto.common.block.RowBlock.createRowBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -306,7 +305,8 @@ public class RowBlockBuilder
     {
         int newSize = max(calculateBlockResetSize(getPositionCount()), expectedEntries);
         BlockBuilder[] newBlockBuilders = new BlockBuilder[numFields];
-        int nestedExpectedEntries = positionCount == 0 ? expectedEntries : toIntExact((long) fieldBlockOffsets[positionCount] * newSize / positionCount);
+        // We still calculate the new expected fieldBlockBuilders sizes because the positions could be null.
+        int nestedExpectedEntries = BlockUtil.calculateNestedStructureResetSize(fieldBlockOffsets[positionCount], positionCount, expectedEntries);
         for (int i = 0; i < numFields; i++) {
             newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus, nestedExpectedEntries);
         }
