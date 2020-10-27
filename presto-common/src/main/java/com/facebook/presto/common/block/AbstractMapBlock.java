@@ -284,6 +284,7 @@ public abstract class AbstractMapBlock
         int startEntryOffset = getOffset(position);
         int endEntryOffset = getOffset(position + 1);
         return new SingleMapBlock(
+                position,
                 startEntryOffset * 2,
                 (endEntryOffset - startEntryOffset) * 2,
                 this);
@@ -459,7 +460,7 @@ public abstract class AbstractMapBlock
 
         int startEntryOffset = getOffsets()[internalPosition];
         int endEntryOffset = getOffsets()[internalPosition + 1];
-        return new SingleMapBlock(startEntryOffset * 2, (endEntryOffset - startEntryOffset) * 2, this);
+        return new SingleMapBlock(internalPosition - getOffsetBase(), startEntryOffset * 2, (endEntryOffset - startEntryOffset) * 2, this);
     }
 
     @Override
