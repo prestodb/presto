@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 import com.facebook.presto.common.type.encoding.Base32;
@@ -41,7 +42,7 @@ import static java.util.Locale.ENGLISH;
 
 public class TypeSignature
 {
-    private final String base;
+    private final TypeSignatureBase base;
     private final List<TypeSignatureParameter> parameters;
     private final boolean calculated;
 
@@ -65,6 +66,16 @@ public class TypeSignature
         SIMPLE_TYPE_WITH_SPACES.add("double precision");
     }
 
+    public TypeSignature(QualifiedObjectName base, TypeSignatureParameter... parameters)
+    {
+        this(base, asList(parameters));
+    }
+
+    public TypeSignature(QualifiedObjectName base, List<TypeSignatureParameter> parameters)
+    {
+        this(new TypeSignatureBase(base), parameters);
+    }
+
     public TypeSignature(String base, TypeSignatureParameter... parameters)
     {
         this(base, asList(parameters));
@@ -72,10 +83,12 @@ public class TypeSignature
 
     public TypeSignature(String base, List<TypeSignatureParameter> parameters)
     {
-        checkArgument(base != null, "base is null");
+        this(new TypeSignatureBase(base), parameters);
+    }
+
+    private TypeSignature(TypeSignatureBase base, List<TypeSignatureParameter> parameters)
+    {
         this.base = base;
-        checkArgument(!base.isEmpty(), "base is empty");
-        checkArgument(validateName(base), "Bad characters in base type: %s", base);
         checkArgument(parameters != null, "parameters is null");
         this.parameters = unmodifiableList(new ArrayList<>(parameters));
 
@@ -84,7 +97,7 @@ public class TypeSignature
 
     public String getBase()
     {
-        return base;
+        return base.toString();
     }
 
     public List<TypeSignatureParameter> getParameters()
@@ -516,18 +529,19 @@ public class TypeSignature
     @JsonValue
     public String toString()
     {
+        String baseString = base.toString();
         if (parameters.isEmpty()) {
-            return base;
+            return baseString;
         }
 
-        if (base.equalsIgnoreCase(StandardTypes.VARCHAR) &&
+        if (baseString.equalsIgnoreCase(StandardTypes.VARCHAR) &&
                 (parameters.size() == 1) &&
                 parameters.get(0).isLongLiteral() &&
                 parameters.get(0).getLongLiteral() == VarcharType.UNBOUNDED_LENGTH) {
-            return base;
+            return baseString;
         }
 
-        StringBuilder typeName = new StringBuilder(base);
+        StringBuilder typeName = new StringBuilder(baseString);
         typeName.append("(").append(parameters.get(0));
         for (int i = 1; i < parameters.size(); i++) {
             typeName.append(",").append(parameters.get(i));
@@ -548,11 +562,6 @@ public class TypeSignature
         if (!argument) {
             throw new AssertionError(message);
         }
-    }
-
-    private static boolean validateName(String name)
-    {
-        return name.chars().noneMatch(c -> c == '<' || c == '>' || c == ',');
     }
 
     private static String canonicalizeBaseName(String baseName)
@@ -576,13 +585,13 @@ public class TypeSignature
 
         TypeSignature other = (TypeSignature) o;
 
-        return Objects.equals(this.base.toLowerCase(ENGLISH), other.base.toLowerCase(ENGLISH)) &&
+        return Objects.equals(this.base, other.base) &&
                 Objects.equals(this.parameters, other.parameters);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(base.toLowerCase(ENGLISH), parameters);
+        return Objects.hash(base, parameters);
     }
 }
