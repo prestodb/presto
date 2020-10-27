@@ -34,12 +34,14 @@ public class SingleMapBlock
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleMapBlock.class).instanceSize();
 
+    private final int positionInMap;
     private final int offset;
     private final int positionCount;  // The number of keys in this single map * 2
     private final AbstractMapBlock mapBlock;
 
-    SingleMapBlock(int offset, int positionCount, AbstractMapBlock mapBlock)
+    SingleMapBlock(int positionInMap, int offset, int positionCount, AbstractMapBlock mapBlock)
     {
+        this.positionInMap = positionInMap;
         this.offset = offset;
         this.positionCount = positionCount;
         this.mapBlock = mapBlock;
@@ -120,9 +122,30 @@ public class SingleMapBlock
             return this;
         }
         return new SingleMapBlock(
+                positionInMap,
                 offset,
                 positionCount,
                 mapBlock);
+    }
+
+    public Block getKeyBlock()
+    {
+        return mapBlock.getRawKeyBlock().getRegion(mapBlock.getOffset(positionInMap), positionCount / 2);
+    }
+
+    public Block getValueBlock()
+    {
+        return mapBlock.getRawValueBlock().getRegion(positionInMap, positionCount / 2);
+    }
+
+    public Block getBaseMapBlock()
+    {
+        return mapBlock;
+    }
+
+    public int getPositionInMap()
+    {
+        return positionInMap;
     }
 
     @Override
