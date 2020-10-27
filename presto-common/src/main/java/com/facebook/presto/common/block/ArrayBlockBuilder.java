@@ -26,7 +26,6 @@ import static com.facebook.presto.common.block.ArrayBlock.createArrayBlockIntern
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlockBuilder
@@ -297,7 +296,7 @@ public class ArrayBlockBuilder
     public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         int newSize = max(calculateBlockResetSize(positionCount), expectedEntries);
-        int valueExpectedEntries = positionCount == 0 ? expectedEntries : toIntExact((long) offsets[positionCount] * newSize / positionCount);
+        int valueExpectedEntries = BlockUtil.calculateNestedStructureResetSize(offsets[positionCount], positionCount, newSize);
         return new ArrayBlockBuilder(blockBuilderStatus, values.newBlockBuilderLike(blockBuilderStatus, valueExpectedEntries), newSize);
     }
 
