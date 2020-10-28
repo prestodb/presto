@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -34,7 +35,7 @@ public class LongEnumType
 {
     private final LongEnumMap enumMap;
 
-    public LongEnumType(String name, LongEnumMap enumMap)
+    public LongEnumType(QualifiedObjectName name, LongEnumMap enumMap)
     {
         super(new TypeSignature(name, TypeSignatureParameter.of(enumMap)));
         this.enumMap = enumMap;

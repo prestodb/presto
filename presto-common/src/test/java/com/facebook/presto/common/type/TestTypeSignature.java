@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 import com.google.common.collect.ImmutableList;
@@ -296,47 +297,47 @@ public class TestTypeSignature
     public void testEnumSignature()
     {
         assertEquals(
-                parseTypeSignature("test_enum(enum:varchar{\"test\" :\"EI======\", \"hello\": \"EA======\" , \"a\":\"PV5XW===\" })"),
-                new VarcharEnumType("test_enum", new VarcharEnumMap(ImmutableMap.of("a", "}{{", "hello", " ", "test", "\""))).getTypeSignature());
+                parseTypeSignature("test.enum.test_enum(enum:varchar{\"test\" :\"EI======\", \"hello\": \"EA======\" , \"a\":\"PV5XW===\" })"),
+                new VarcharEnumType(QualifiedObjectName.valueOf("test.enum.test_enum"), new VarcharEnumMap(ImmutableMap.of("a", "}{{", "hello", " ", "test", "\""))).getTypeSignature());
 
         assertEquals(
-                parseTypeSignature("test_enum(enum:varchar{\"my  key\" :\"4CSK5YFFQLQKJMXAUWG6BJFP\"})"),
-                new VarcharEnumType("test_enum", new VarcharEnumMap(ImmutableMap.of("my  key", "मूल्य"))).getTypeSignature());
+                parseTypeSignature("test.enum.test_enum(enum:varchar{\"my  key\" :\"4CSK5YFFQLQKJMXAUWG6BJFP\"})"),
+                new VarcharEnumType(QualifiedObjectName.valueOf("test.enum.test_enum"), new VarcharEnumMap(ImmutableMap.of("my  key", "मूल्य"))).getTypeSignature());
 
         assertEquals(
-                parseTypeSignature("other_enum(ENUM:bigint{\"hello\" :  -5, \"AaA\"  : 9999 })"),
-                new LongEnumType("other_enum", new LongEnumMap(ImmutableMap.of("hello", -5L, "AAA", 9999L))).getTypeSignature());
+                parseTypeSignature("test.enum.other_enum(ENUM:bigint{\"hello\" :  -5, \"AaA\"  : 9999 })"),
+                new LongEnumType(QualifiedObjectName.valueOf("test.enum.other_enum"), new LongEnumMap(ImmutableMap.of("hello", -5L, "AAA", 9999L))).getTypeSignature());
 
         assertEquals(
-                parseTypeSignature("my_enum(enum:varchar{\"))(\" :\"FF5X2===\"})"),
-                new VarcharEnumType("my_enum", new VarcharEnumMap(ImmutableMap.of("))(", "){}"))).getTypeSignature());
+                parseTypeSignature("test.enum.my_enum(enum:varchar{\"))(\" :\"FF5X2===\"})"),
+                new VarcharEnumType(QualifiedObjectName.valueOf("test.enum.my_enum"), new VarcharEnumMap(ImmutableMap.of("))(", "){}"))).getTypeSignature());
 
         assertEquals(
-                parseTypeSignature("map(my_enum(enum:varchar{\"k\": \"OYUSSKI=\"}), my_enum_2(enum:bigint{\"k\": 1}))"),
+                parseTypeSignature("map(test.enum.my_enum(enum:varchar{\"k\": \"OYUSSKI=\"}), test.enum.my_enum_2(enum:bigint{\"k\": 1}))"),
                 new TypeSignature(
                         StandardTypes.MAP,
-                        TypeSignatureParameter.of((new VarcharEnumType("my_enum", new VarcharEnumMap(ImmutableMap.of("k", "v)))"))).getTypeSignature())),
-                        TypeSignatureParameter.of(new LongEnumType("my_enum_2", new LongEnumMap(ImmutableMap.of("k", 1L))).getTypeSignature())));
+                        TypeSignatureParameter.of((new VarcharEnumType(QualifiedObjectName.valueOf("test.enum.my_enum"), new VarcharEnumMap(ImmutableMap.of("k", "v)))"))).getTypeSignature())),
+                        TypeSignatureParameter.of(new LongEnumType(QualifiedObjectName.valueOf("test.enum.my_enum_2"), new LongEnumMap(ImmutableMap.of("k", 1L))).getTypeSignature())));
 
-        assertSignatureFail("test_enum(enum:bigint{\"k\"})");         // no value
-        assertSignatureFail("test_enum(enum:bigint{\"k\", 2})");      // `,` instead of `:`
-        assertSignatureFail("test_enum(enum:bigint{})");              // empty map
-        assertSignatureFail("test_enum(enum:bigint{a: 2})");          // no quotes around key
-        assertSignatureFail("test_enum(enum:varchar{\"a\" \"b\"})");  // missing `:`
-        assertSignatureFail("test_enum(enum:varchar{:\"a\"})");       // missing key before `:`
-        assertSignatureFail("test_enum(enum:varchar{,\"a\"})");       // missing key before `,`
-        assertSignatureFail("test_enum(enum:bigint{{\"a\": 2})");     // extra `{`
-        assertSignatureFail("test_enum(enum:bigint{\"a\":: 2})");     // extra `:`
-        assertSignatureFail("t(enum:bigint{\"k\": {\"k1\": 1}})");    // nested enum
-        assertSignatureFail("test_enum(enum:bigint{\"k\": 2}haha)");  // extra input after `}`
-        assertSignatureFail("test_enum(enum:varchar{\"k\": 2})");     // long value for varchar enum
-        assertSignatureFail("test_enum(enum:bigint{\"k\": \"2\"})");  // varchar value for long enum
-        assertSignatureFail("test_enum(enum:bigint{\"k\": 2-})");     // invalid number
-        assertSignatureFail("test_enum(enum:bigint{\"k\": -})");      // invalid number
-        assertSignatureFail("test_enum(enum:bigint{\"k\": 2.29})");   // decimal value
-        assertSignatureFail("test_enum(enum:bigint{\"k\": \"2})");    // missing closing `"`
-        assertSignatureFail("test_enum(enum:varchar{\"k\": \"2\")");  // missing closing `}`
-        assertSignatureFail("test_enum(enum:bigint{\"k\": \"2\"}");   // missing closing `)`
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"k\"})");         // no value
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"k\", 2})");      // `,` instead of `:`
+        assertSignatureFail("test.enum.test_enum(enum:bigint{})");              // empty map
+        assertSignatureFail("test.enum.test_enum(enum:bigint{a: 2})");          // no quotes around key
+        assertSignatureFail("test.enum.test_enum(enum:varchar{\"a\" \"b\"})");  // missing `:`
+        assertSignatureFail("test.enum.test_enum(enum:varchar{:\"a\"})");       // missing key before `:`
+        assertSignatureFail("test.enum.test_enum(enum:varchar{,\"a\"})");       // missing key before `,`
+        assertSignatureFail("test.enum.test_enum(enum:bigint{{\"a\": 2})");     // extra `{`
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"a\":: 2})");     // extra `:`
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"k\": {\"k1\": 1}})");    // nested enum
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"k\": 2}haha)");  // extra input after `}`
+        assertSignatureFail("test.enum.test_enum(enum:varchar{\"k\": 2})");     // long value for varchar enum
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"k\": \"2\"})");  // varchar value for long enum
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"k\": 2-})");     // invalid number
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"k\": -})");      // invalid number
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"k\": 2.29})");   // decimal value
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"k\": \"2})");    // missing closing `"`
+        assertSignatureFail("test.enum.test_enum(enum:varchar{\"k\": \"2\")");  // missing closing `}`
+        assertSignatureFail("test.enum.test_enum(enum:bigint{\"k\": \"2\"}");   // missing closing `)`
     }
 
     private static void assertRowSignature(

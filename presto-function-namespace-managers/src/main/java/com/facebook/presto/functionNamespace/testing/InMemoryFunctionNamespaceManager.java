@@ -14,6 +14,8 @@
 package com.facebook.presto.functionNamespace.testing;
 
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.ParametricType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
@@ -36,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Long.parseLong;
@@ -46,6 +49,8 @@ public class InMemoryFunctionNamespaceManager
         extends AbstractSqlInvokedFunctionNamespaceManager
 {
     private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
+    private final Map<TypeSignature, Type> types = new ConcurrentHashMap<>();
+    private final Map<QualifiedObjectName, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     public InMemoryFunctionNamespaceManager(String catalogName, SqlFunctionExecutors sqlFunctionExecutors, SqlInvokedFunctionNamespaceManagerConfig config)
     {
@@ -88,12 +93,29 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
+    public void addParametricType(ParametricType type)
+    {
+        QualifiedObjectName name = type.getTypeSignatureBase().getQualifiedObjectName();
+        checkArgument(
+                !parametricTypes.containsKey(name),
+                "Parametric type %s already registered",
+                        name);
+        parametricTypes.put(name, type);
+    }
+
+    @Override
     public Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedObjectName name)
     {
         return latestFunctions.values().stream()
                 .filter(function -> function.getSignature().getName().equals(name))
                 .map(InMemoryFunctionNamespaceManager::copyFunction)
                 .collect(toImmutableList());
+    }
+
+    @Override
+    protected ParametricType fetchParametricTypeDirect(TypeSignature typeSignature)
+    {
+        return parametricTypes.get(typeSignature.getTypeSignatureBase().getQualifiedObjectName());
     }
 
     @Override

@@ -30,6 +30,7 @@ public class SqlInvokedFunctionNamespaceManagerConfig
 
     private Duration functionCacheExpiration = new Duration(5, MINUTES);
     private Duration functionInstanceCacheExpiration = new Duration(8, HOURS);
+    private Duration typeCacheExpiration = new Duration(1, HOURS);
     private Set<String> supportedFunctionLanguages = ImmutableSet.of("sql");
 
     @MinDuration("0ns")
@@ -55,6 +56,19 @@ public class SqlInvokedFunctionNamespaceManagerConfig
     public SqlInvokedFunctionNamespaceManagerConfig setFunctionInstanceCacheExpiration(Duration functionInstanceCacheExpiration)
     {
         this.functionInstanceCacheExpiration = functionInstanceCacheExpiration;
+        return this;
+    }
+
+    @MinDuration("0ns")
+    public Duration getTypeCacheExpiration()
+    {
+        return typeCacheExpiration;
+    }
+
+    @Config("type-cache-expiration")
+    public SqlInvokedFunctionNamespaceManagerConfig setTypeCacheExpiration(Duration typeCacheExpiration)
+    {
+        this.typeCacheExpiration = typeCacheExpiration;
         return this;
     }
 
