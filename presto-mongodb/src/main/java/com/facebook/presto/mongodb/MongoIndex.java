@@ -19,6 +19,7 @@ import com.mongodb.client.ListIndexesIterable;
 import org.bson.Document;
 
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -52,8 +53,9 @@ public class MongoIndex
     {
         ImmutableList.Builder<MongodbIndexKey> builder = ImmutableList.builder();
 
-        for (String name : key.keySet()) {
-            Object value = key.get(name);
+        for (Map.Entry<String,Object> keyEntry : key.entrySet()) {
+            String name = key.getKey();
+            Object value = key.getValue();
             if (value instanceof Number) {
                 int order = ((Number) value).intValue();
                 checkState(order == 1 || order == -1, "Unknown index sort order");

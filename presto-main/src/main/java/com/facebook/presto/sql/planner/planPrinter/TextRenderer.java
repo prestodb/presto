@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
@@ -140,8 +141,9 @@ public class TextRenderer
 
         Map<String, String> translatedOperatorTypes = translateOperatorTypes(stats.getOperatorTypes());
 
-        for (String operator : translatedOperatorTypes.keySet()) {
-            String translatedOperatorType = translatedOperatorTypes.get(operator);
+        for (Map.Entry<String, String> translatedOperatorTypesEntry : translatedOperatorTypes.entrySet()) {
+            String operator = translatedOperatorTypesEntry.getKey();
+            String translatedOperatorType = translatedOperatorTypesEntry.getValue();
             double inputAverage = inputAverages.get(operator);
 
             output.append(translatedOperatorType);

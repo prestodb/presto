@@ -53,6 +53,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -472,8 +473,9 @@ public class MongoSession
 
         ImmutableList.Builder<Document> builder = ImmutableList.builder();
 
-        for (String key : doc.keySet()) {
-            Object value = doc.get(key);
+        for (Map.Entry<String,Object> docEntry : doc.entrySet()) {
+            key = doc.getKey();
+            Object value = doc.getValue();
             Optional<TypeSignature> fieldType = guessFieldType(value);
             if (fieldType.isPresent()) {
                 Document metadata = new Document();

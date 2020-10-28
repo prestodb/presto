@@ -49,6 +49,7 @@ import com.google.inject.Inject;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -176,8 +177,9 @@ public class AlluxioHiveMetastore
                         entry -> groupStatisticsByColumn(entry.getValue(), partitionRowCounts.getOrDefault(entry.getKey(), OptionalLong.empty()))));
 
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
-        for (String partitionName : partitionBasicStatistics.keySet()) {
-            HiveBasicStatistics basicStatistics = partitionBasicStatistics.get(partitionName);
+        for (Map.Entry<String, HiveBasicStatistics> partitionBasicStatisticsEntry : partitionBasicStatistics.entrySet()) {
+            String partitionName = partitionBasicStatisticsEntry.getKey();
+            HiveBasicStatistics basicStatistics = partitionBasicStatisticsEntry.getValue();
             Map<String, HiveColumnStatistics> columnStatistics = partitionColumnStatistics.getOrDefault(partitionName, ImmutableMap.of());
             result.put(partitionName, new PartitionStatistics(basicStatistics, columnStatistics));
         }
