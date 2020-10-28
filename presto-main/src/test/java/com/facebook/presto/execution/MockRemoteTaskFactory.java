@@ -17,7 +17,7 @@ import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
-import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -104,7 +104,7 @@ public class MockRemoteTaskFactory
         this.scheduledExecutor = scheduledExecutor;
     }
 
-    public MockRemoteTask createTableScanTask(TaskId taskId, InternalNode newNode, List<Split> splits, PartitionedSplitCountTracker partitionedSplitCountTracker)
+    public MockRemoteTask createTableScanTask(TaskId taskId, InternalNode newNode, List<Split> splits, NodeTaskMap.NodeStatsTracker nodeStatsTracker)
     {
         VariableReferenceExpression variable = new VariableReferenceExpression("column", VARCHAR);
         PlanNodeId sourceId = new PlanNodeId("sourceId");
@@ -137,7 +137,7 @@ public class MockRemoteTaskFactory
                 testFragment,
                 initialSplits.build(),
                 createInitialEmptyOutputBuffers(BROADCAST),
-                partitionedSplitCountTracker,
+                nodeStatsTracker,
                 true,
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
     }
@@ -150,11 +150,11 @@ public class MockRemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            PartitionedSplitCountTracker partitionedSplitCountTracker,
+            NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
-        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, partitionedSplitCountTracker);
+        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, nodeStatsTracker);
     }
 
     public static final class MockRemoteTask
@@ -182,7 +182,7 @@ public class MockRemoteTaskFactory
         @GuardedBy("this")
         private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();
 
-        private final PartitionedSplitCountTracker partitionedSplitCountTracker;
+        private final NodeStatsTracker nodeStatsTracker;
 
         public MockRemoteTask(TaskId taskId,
                 PlanFragment fragment,
@@ -190,7 +190,7 @@ public class MockRemoteTaskFactory
                 Executor executor,
                 ScheduledExecutorService scheduledExecutor,
                 Multimap<PlanNodeId, Split> initialSplits,
-                PartitionedSplitCountTracker partitionedSplitCountTracker)
+                NodeStatsTracker nodeStatsTracker)
         {
             this.taskStateMachine = new TaskStateMachine(requireNonNull(taskId, "taskId is null"), requireNonNull(executor, "executor is null"));
 
@@ -228,8 +228,8 @@ public class MockRemoteTaskFactory
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
             splits.putAll(initialSplits);
-            this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
-            partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            this.nodeStatsTracker = requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
+            nodeStatsTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
         }
 
@@ -273,6 +273,8 @@ public class MockRemoteTaskFactory
                             0,
                             0,
                             0,
+                            0,
+                            0,
                             0),
                     DateTime.now(),
                     outputBuffer.getInfo(),
@@ -309,6 +311,8 @@ public class MockRemoteTaskFactory
                     stats.getSystemMemoryReservationInBytes(),
                     stats.getPeakNodeTotalMemoryInBytes(),
                     0,
+                    0,
+                    stats.getTotalCpuTimeInNanos(),
                     0);
         }
 
@@ -342,7 +346,7 @@ public class MockRemoteTaskFactory
         public synchronized void clearSplits()
         {
             splits.clear();
-            partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            nodeStatsTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             runningDrivers = 0;
             updateSplitQueueSpace();
         }
@@ -370,7 +374,7 @@ public class MockRemoteTaskFactory
             synchronized (this) {
                 this.splits.putAll(splits);
             }
-            partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+            nodeStatsTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
         }
 

@@ -50,6 +50,11 @@ public final class NodeAssignmentStats
         return assignmentCount.getOrDefault(node, 0) + splitCountByNode.computeIfAbsent(node, nodeTaskMap::getPartitionedSplitsOnNode);
     }
 
+    public long getTotalMemoryUsage(InternalNode node)
+    {
+        return nodeTaskMap.getMemoryUsageOnNode(node);
+    }
+
     public int getQueuedSplitCountForStage(InternalNode node)
     {
         return queuedSplitCountByNode.getOrDefault(node.getNodeIdentifier(), 0) + assignmentCount.getOrDefault(node, 0);

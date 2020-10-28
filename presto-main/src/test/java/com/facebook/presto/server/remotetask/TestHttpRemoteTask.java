@@ -238,7 +238,7 @@ public class TestHttpRemoteTask
                 createPlanFragment(),
                 ImmutableMultimap.of(),
                 createInitialEmptyOutputBuffers(OutputBuffers.BufferType.BROADCAST),
-                new NodeTaskMap.PartitionedSplitCountTracker(i -> {}),
+                new NodeTaskMap.NodeStatsTracker(i -> {}, i -> {}, (i, j) -> {}),
                 true,
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
     }
@@ -548,7 +548,9 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getSystemMemoryReservationInBytes(),
                     initialTaskStatus.getPeakNodeTotalMemoryReservationInBytes(),
                     initialTaskStatus.getFullGcCount(),
-                    initialTaskStatus.getFullGcTimeInMillis());
+                    initialTaskStatus.getFullGcTimeInMillis(),
+                    initialTaskStatus.getTotalCpuTimeInNanos(),
+                    initialTaskStatus.getTaskAge());
         }
     }
 }

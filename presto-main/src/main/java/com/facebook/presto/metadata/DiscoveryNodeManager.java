@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -138,9 +139,11 @@ public final class DiscoveryNodeManager
         for (ServiceDescriptor service : allServices) {
             URI uri = getHttpUri(service, httpsRequired);
             OptionalInt thriftPort = getThriftServerPort(service);
+            OptionalLong nodeMemory = getNodeMemory(service);
+            OptionalInt nodeCpuCore = getNodeCpuCore(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, isCoordinator(service));
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeMemory, nodeCpuCore, nodeVersion, isCoordinator(service));
 
                 if (node.getNodeIdentifier().equals(currentNodeId)) {
                     checkState(
@@ -243,10 +246,12 @@ public final class DiscoveryNodeManager
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
             OptionalInt thriftPort = getThriftServerPort(service);
+            OptionalLong nodeMemory = getNodeMemory(service);
+            OptionalInt nodeCpuCore = getNodeCpuCore(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             boolean coordinator = isCoordinator(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeMemory, nodeCpuCore, nodeVersion, coordinator);
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -417,6 +422,32 @@ public final class DiscoveryNodeManager
         if (port != null) {
             try {
                 return OptionalInt.of(Integer.parseInt(port));
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+        return OptionalInt.empty();
+    }
+
+    private static OptionalLong getNodeMemory(ServiceDescriptor descriptor)
+    {
+        String nodeMemory = descriptor.getProperties().get("nodeMemory");
+        if (nodeMemory != null) {
+            try {
+                return OptionalLong.of(Long.parseLong(nodeMemory));
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+        return OptionalLong.empty();
+    }
+
+    private static OptionalInt getNodeCpuCore(ServiceDescriptor descriptor)
+    {
+        String nodeCpuCore = descriptor.getProperties().get("nodeCpuCore");
+        if (nodeCpuCore != null) {
+            try {
+                return OptionalInt.of(Integer.parseInt(nodeCpuCore));
             }
             catch (IllegalArgumentException ignored) {
             }

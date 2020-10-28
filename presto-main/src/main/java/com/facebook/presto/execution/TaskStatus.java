@@ -71,8 +71,11 @@ public class TaskStatus
 
     private final long fullGcCount;
     private final long fullGcTimeInMillis;
+    private final long totalCpuTimeInNanos;
 
     private final List<ExecutionFailureInfo> failures;
+
+    private final long taskAge;
 
     @JsonCreator
     @ThriftConstructor
@@ -93,7 +96,9 @@ public class TaskStatus
             @JsonProperty("systemMemoryReservationInBytes") long systemMemoryReservationInBytes,
             @JsonProperty("peakNodeTotalMemoryReservationInBytes") long peakNodeTotalMemoryReservationInBytes,
             @JsonProperty("fullGcCount") long fullGcCount,
-            @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis)
+            @JsonProperty("fullGcTimeInMillis") long fullGcTimeInMillis,
+            @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
+            @JsonProperty("taskAge") long taskAge)
     {
         this.taskInstanceIdLeastSignificantBits = taskInstanceIdLeastSignificantBits;
         this.taskInstanceIdMostSignificantBits = taskInstanceIdMostSignificantBits;
@@ -122,6 +127,8 @@ public class TaskStatus
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
         this.fullGcTimeInMillis = fullGcTimeInMillis;
+        this.totalCpuTimeInNanos = totalCpuTimeInNanos;
+        this.taskAge = taskAge;
     }
 
     @JsonProperty
@@ -243,6 +250,20 @@ public class TaskStatus
         return peakNodeTotalMemoryReservationInBytes;
     }
 
+    @JsonProperty
+    @ThriftField(18)
+    public long getTotalCpuTimeInNanos()
+    {
+        return totalCpuTimeInNanos;
+    }
+
+    @JsonProperty
+    @ThriftField(19)
+    public long getTaskAge()
+    {
+        return taskAge;
+    }
+
     @Override
     public String toString()
     {
@@ -270,6 +291,8 @@ public class TaskStatus
                 0,
                 0,
                 0,
+                0,
+                0,
                 0);
     }
 
@@ -292,6 +315,8 @@ public class TaskStatus
                 taskStatus.getSystemMemoryReservationInBytes(),
                 taskStatus.getPeakNodeTotalMemoryReservationInBytes(),
                 taskStatus.getFullGcCount(),
-                taskStatus.getFullGcTimeInMillis());
+                taskStatus.getFullGcTimeInMillis(),
+                taskStatus.getTotalCpuTimeInNanos(),
+                taskStatus.getTaskAge());
     }
 }

@@ -87,6 +87,8 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
 
+    private final long creationTime;
+
     public static SqlTask createSqlTask(
             TaskId taskId,
             URI location,
@@ -142,6 +144,7 @@ public class SqlTask
                 // because we haven't created the task context that holds the the memory context yet.
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext());
         taskStateMachine = new TaskStateMachine(taskId, taskNotificationExecutor);
+        this.creationTime = System.nanoTime();
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -252,6 +255,7 @@ public class SqlTask
         long physicalWrittenDataSizeInBytes = 0L;
         long userMemoryReservationInBytes = 0L;
         long systemMemoryReservationInBytes = 0L;
+        long totalCpuTimeInNanos = 0L;
         // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
@@ -265,6 +269,7 @@ public class SqlTask
             systemMemoryReservationInBytes = taskStats.getSystemMemoryReservationInBytes();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTimeInMillis = taskStats.getFullGcTimeInMillis();
+            totalCpuTimeInNanos = taskStats.getTotalCpuTimeInNanos();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -274,6 +279,7 @@ public class SqlTask
                 queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
                 runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
+                totalCpuTimeInNanos += pipelineContext.getPipelineStats().getTotalCpuTimeInNanos();
             }
             physicalWrittenDataSizeInBytes = physicalWrittenBytes;
             userMemoryReservationInBytes = taskContext.getMemoryReservation().toBytes();
@@ -300,7 +306,9 @@ public class SqlTask
                 systemMemoryReservationInBytes,
                 queryContext.getPeakNodeTotalMemory(),
                 fullGcCount,
-                fullGcTimeInMillis);
+                fullGcTimeInMillis,
+                totalCpuTimeInNanos,
+                System.nanoTime() - creationTime);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)

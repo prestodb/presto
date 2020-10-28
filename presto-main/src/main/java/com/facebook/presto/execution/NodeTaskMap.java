@@ -14,6 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.stats.Distribution;
+import com.facebook.airlift.stats.ExponentialDecay;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.Sets;
@@ -21,13 +23,21 @@ import com.google.common.collect.Sets;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntConsumer;
+import java.util.function.LongConsumer;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 @ThreadSafe
 public class NodeTaskMap
@@ -35,11 +45,51 @@ public class NodeTaskMap
     private static final Logger log = Logger.get(NodeTaskMap.class);
     private final ConcurrentHashMap<InternalNode, NodeTasks> nodeTasksMap = new ConcurrentHashMap<>();
     private final FinalizerService finalizerService;
+    private final ScheduledExecutorService logger = newScheduledThreadPool(1, daemonThreadsNamed("node-task-map"));
+    private Distribution nodeCpuDistribution = new Distribution(ExponentialDecay.seconds(10));
+    private Distribution nodeMemoryDistribution = new Distribution(ExponentialDecay.seconds(10));
 
     @Inject
     public NodeTaskMap(FinalizerService finalizerService)
     {
         this.finalizerService = requireNonNull(finalizerService, "finalizerService is null");
+
+        logger.scheduleAtFixedRate(() -> {
+            if (!nodeTasksMap.isEmpty()) {
+                log.info("------------------");
+                Distribution nodeCpuDistribution = new Distribution(ExponentialDecay.seconds(10));
+                Distribution nodeMemoryDistribution = new Distribution(ExponentialDecay.seconds(10));
+                boolean printOneTime = true;
+                for (Map.Entry<InternalNode, NodeTasks> internalNodeNodeTasksEntry : nodeTasksMap.entrySet()) {
+                    if (printOneTime) {
+                        log.info(
+                                "Node: " + internalNodeNodeTasksEntry.getKey().getNodeIdentifier() +
+                                        " Cpu: " + internalNodeNodeTasksEntry.getValue().nodeTotalCpuUsage + "/" + internalNodeNodeTasksEntry.getKey().getNodeCpuCore().getAsInt() +
+                                        " Mem: " + internalNodeNodeTasksEntry.getValue().nodeTotalMemoryUsage + "/" + internalNodeNodeTasksEntry.getKey().getNodeMemory().getAsLong() +
+                                        " Split: " + internalNodeNodeTasksEntry.getValue().nodeTotalPartitionedSplitCount);
+
+                        nodeCpuDistribution.add(internalNodeNodeTasksEntry.getValue().nodeTotalCpuUsage.longValue());
+                        nodeMemoryDistribution.add(internalNodeNodeTasksEntry.getValue().nodeTotalMemoryUsage.longValue());
+                        Set<RemoteTask> remoteTasks = internalNodeNodeTasksEntry.getValue().remoteTasks;
+                    }
+                    printOneTime = false;
+                }
+//                log.info(nodeCpuDistribution.snapshot().toString());
+//                log.info(nodeMemoryDistribution.snapshot().toString());
+                this.nodeCpuDistribution = nodeCpuDistribution;
+                this.nodeMemoryDistribution = nodeMemoryDistribution;
+            }
+        }, 0, 1, TimeUnit.SECONDS);
+    }
+
+    public Distribution getNodeCpuDistribution()
+    {
+        return nodeCpuDistribution;
+    }
+
+    public Distribution getNodeMemoryDistribution()
+    {
+        return nodeMemoryDistribution;
     }
 
     public void addTask(InternalNode node, RemoteTask task)
@@ -52,9 +102,19 @@ public class NodeTaskMap
         return createOrGetNodeTasks(node).getPartitionedSplitCount();
     }
 
-    public PartitionedSplitCountTracker createPartitionedSplitCountTracker(InternalNode node, TaskId taskId)
+    public long getMemoryUsageOnNode(InternalNode node)
     {
-        return createOrGetNodeTasks(node).createPartitionedSplitCountTracker(taskId);
+        return createOrGetNodeTasks(node).getMemoryUsage();
+    }
+
+    public long getCpuUsageOnNode(InternalNode node)
+    {
+        return createOrGetNodeTasks(node).getCpuUsage();
+    }
+
+    public NodeStatsTracker createNodeStatsTracker(InternalNode node, TaskId taskId)
+    {
+        return createOrGetNodeTasks(node).createTaskStatsTracker(taskId);
     }
 
     private NodeTasks createOrGetNodeTasks(InternalNode node)
@@ -79,7 +139,9 @@ public class NodeTaskMap
     private static class NodeTasks
     {
         private final Set<RemoteTask> remoteTasks = Sets.newConcurrentHashSet();
-        private final AtomicInteger nodeTotalPartitionedSplitCount = new AtomicInteger();
+        private final AtomicLong nodeTotalPartitionedSplitCount = new AtomicLong();
+        private final AtomicLong nodeTotalMemoryUsage = new AtomicLong();
+        private final AtomicLong nodeTotalCpuUsage = new AtomicLong();
         private final FinalizerService finalizerService;
 
         public NodeTasks(FinalizerService finalizerService)
@@ -89,7 +151,17 @@ public class NodeTaskMap
 
         private int getPartitionedSplitCount()
         {
-            return nodeTotalPartitionedSplitCount.get();
+            return (int) nodeTotalPartitionedSplitCount.get();
+        }
+
+        private long getMemoryUsage()
+        {
+            return nodeTotalMemoryUsage.get();
+        }
+
+        private long getCpuUsage()
+        {
+            return nodeTotalCpuUsage.get();
         }
 
         private void addTask(RemoteTask task)
@@ -108,56 +180,64 @@ public class NodeTaskMap
             }
         }
 
-        public PartitionedSplitCountTracker createPartitionedSplitCountTracker(TaskId taskId)
+        public NodeStatsTracker createTaskStatsTracker(TaskId taskId)
         {
             requireNonNull(taskId, "taskId is null");
 
-            TaskPartitionedSplitCountTracker tracker = new TaskPartitionedSplitCountTracker(taskId);
-            PartitionedSplitCountTracker partitionedSplitCountTracker = new PartitionedSplitCountTracker(tracker::setPartitionedSplitCount);
+            TaskResourceTracker splitTracker = new TaskResourceTracker(taskId, "SplitTracker", nodeTotalPartitionedSplitCount);
+            TaskResourceTracker memoryUsageTracker = new TaskResourceTracker(taskId, "MemoryTracker", nodeTotalMemoryUsage);
+            TaskCumulativeResourceTracker cpuUsageTracker = new TaskCumulativeResourceTracker(taskId, "CpuTracker", nodeTotalCpuUsage);
+            NodeStatsTracker nodeStatsTracker = new NodeStatsTracker(splitTracker::setResource, memoryUsageTracker::setResource, cpuUsageTracker::setCumulativeResource);
 
-            // when partitionedSplitCountTracker is garbage collected, run the cleanup method on the tracker
-            // Note: tracker can not have a reference to partitionedSplitCountTracker
-            finalizerService.addFinalizer(partitionedSplitCountTracker, tracker::cleanup);
+            // when nodeStatsTracker is garbage collected, run the cleanup method on the tracker
+            // Note: tracker can not have a reference to nodeStatsTracker
+            finalizerService.addFinalizer(splitTracker, splitTracker::cleanup);
+            finalizerService.addFinalizer(memoryUsageTracker, memoryUsageTracker::cleanup);
 
-            return partitionedSplitCountTracker;
+            return nodeStatsTracker;
         }
 
         @ThreadSafe
-        private class TaskPartitionedSplitCountTracker
+        private class TaskResourceTracker
         {
             private final TaskId taskId;
-            private final AtomicInteger localPartitionedSplitCount = new AtomicInteger();
+            private final String resourceName;
+            private final AtomicLong totalResource;
+            private final AtomicLong localResource = new AtomicLong();
 
-            public TaskPartitionedSplitCountTracker(TaskId taskId)
+            public TaskResourceTracker(TaskId taskId, String resourceName, AtomicLong totalResource)
             {
                 this.taskId = requireNonNull(taskId, "taskId is null");
+                this.resourceName = requireNonNull(resourceName, "resourceName is null");
+                this.totalResource = requireNonNull(totalResource, "totalResource is null");
             }
 
-            public synchronized void setPartitionedSplitCount(int partitionedSplitCount)
+            public synchronized void setResource(long resource)
             {
-                if (partitionedSplitCount < 0) {
-                    int oldValue = localPartitionedSplitCount.getAndSet(0);
-                    nodeTotalPartitionedSplitCount.addAndGet(-oldValue);
-                    throw new IllegalArgumentException("partitionedSplitCount is negative");
+                if (resource < 0) {
+                    long oldValue = localResource.getAndSet(0);
+                    totalResource.addAndGet(-oldValue);
+                    throw new IllegalArgumentException("resource is negative");
                 }
 
-                int oldValue = localPartitionedSplitCount.getAndSet(partitionedSplitCount);
-                nodeTotalPartitionedSplitCount.addAndGet(partitionedSplitCount - oldValue);
+                long oldValue = localResource.getAndSet(resource);
+                totalResource.addAndGet(resource - oldValue);
             }
 
             public void cleanup()
             {
-                int leakedSplits = localPartitionedSplitCount.getAndSet(0);
-                if (leakedSplits == 0) {
+                long leakedResources = localResource.getAndSet(0);
+                if (leakedResources == 0) {
                     return;
                 }
 
-                log.error("BUG! %s for %s leaked with %s partitioned splits.  Cleaning up so server can continue to function.",
+                log.error("BUG! %s for %s leaked with %s %s.  Cleaning up so server can continue to function.",
                         getClass().getName(),
                         taskId,
-                        leakedSplits);
+                        leakedResources,
+                        resourceName);
 
-                nodeTotalPartitionedSplitCount.addAndGet(-leakedSplits);
+                totalResource.addAndGet(-leakedResources);
             }
 
             @Override
@@ -165,19 +245,61 @@ public class NodeTaskMap
             {
                 return toStringHelper(this)
                         .add("taskId", taskId)
-                        .add("splits", localPartitionedSplitCount)
+                        .add(resourceName, localResource)
                         .toString();
+            }
+        }
+
+        @ThreadSafe
+        private class TaskCumulativeResourceTracker
+                extends TaskResourceTracker
+        {
+            SortedMap<Long, Long> resource = new TreeMap<>();
+
+            public TaskCumulativeResourceTracker(TaskId taskId, String resourceName, AtomicLong totalResource)
+            {
+                super(taskId, resourceName, totalResource);
+            }
+
+            private long getDeltaPerSecond(long taskAge, long cumulativeResource)
+            {
+                if (cumulativeResource > 0) {
+                    resource.put(taskAge, cumulativeResource);
+                    resource = resource.tailMap(resource.lastKey() - 2_000_000_000);
+                    if (resource.size() > 1) {
+                        Long firstReporting = resource.firstKey();
+                        Long lastAge = resource.lastKey();
+                        long delta = (cumulativeResource - resource.get(firstReporting)) * 100;
+                        long duration = lastAge - firstReporting;
+                        if (delta >= 0 && duration > 0) {
+                            return delta / duration;
+                        }
+                        else {
+                            System.out.println("Delta is negative");
+                        }
+                    }
+                }
+                return 0;
+            }
+
+            public synchronized void setCumulativeResource(long taskAge, long cumulativeResource)
+            {
+                super.setResource(getDeltaPerSecond(taskAge, cumulativeResource));
             }
         }
     }
 
-    public static class PartitionedSplitCountTracker
+    public static class NodeStatsTracker
     {
         private final IntConsumer splitSetter;
+        private final LongConsumer memoryUsageSetter;
+        private final CumulativeResourceConsumer cpuUsageSetter;
 
-        public PartitionedSplitCountTracker(IntConsumer splitSetter)
+        public NodeStatsTracker(IntConsumer splitSetter, LongConsumer memoryUsageSetter, CumulativeResourceConsumer cpuUsageSetter)
         {
             this.splitSetter = requireNonNull(splitSetter, "splitSetter is null");
+            this.memoryUsageSetter = requireNonNull(memoryUsageSetter, "memoryUsageSetter is null");
+            this.cpuUsageSetter = requireNonNull(cpuUsageSetter, "cpuUsageSetter is null");
         }
 
         public void setPartitionedSplitCount(int partitionedSplitCount)
@@ -185,10 +307,28 @@ public class NodeTaskMap
             splitSetter.accept(partitionedSplitCount);
         }
 
+        public void setMemoryUsage(long memoryUsage)
+        {
+            memoryUsageSetter.accept(memoryUsage);
+        }
+
+        public void setCpuUsage(long age, long cpuUsage)
+        {
+            cpuUsageSetter.accept(age, cpuUsage);
+        }
+
         @Override
         public String toString()
         {
-            return splitSetter.toString();
+            return toStringHelper(this)
+                    .add("splitSetter", splitSetter)
+                    .add("memoryUsageSetter", memoryUsageSetter)
+                    .toString();
         }
+    }
+
+    public interface CumulativeResourceConsumer
+    {
+        void accept(long age, long value);
     }
 }

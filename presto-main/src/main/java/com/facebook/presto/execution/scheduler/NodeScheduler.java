@@ -18,6 +18,7 @@ import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.ScoreBasedBucketsNodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleNodeSelector;
 import com.facebook.presto.execution.scheduler.nodeSelection.TopologyAwareNodeSelector;
 import com.facebook.presto.metadata.InternalNode;
@@ -137,7 +138,12 @@ public class NodeScheduler
         return createNodeSelector(connectorId, Integer.MAX_VALUE);
     }
 
-    public NodeSelector createNodeSelector(ConnectorId connectorId, int maxTasksPerStage)
+    public NodeSelector createNodeSelector(ConnectorId connectorId, boolean resourceAwareScheduling)
+    {
+        return createNodeSelector(connectorId, Integer.MAX_VALUE, resourceAwareScheduling);
+    }
+
+    public NodeSelector createNodeSelector(ConnectorId connectorId, int maxTasksPerStage, boolean resourceAwareScheduling)
     {
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
@@ -158,9 +164,15 @@ public class NodeScheduler
                     networkLocationSegmentNames,
                     networkLocationCache);
         }
-        else {
-            return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxTasksPerStage);
+        else if (resourceAwareScheduling) {
+            return new ScoreBasedBucketsNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxTasksPerStage);
         }
+        return new SimpleNodeSelector(nodeManager, nodeSelectionStats, nodeTaskMap, includeCoordinator, nodeMap, minCandidates, maxSplitsPerNode, maxPendingSplitsPerTask, maxTasksPerStage);
+    }
+
+    public NodeSelector createNodeSelector(ConnectorId connectorId, int maxTasksPerStage)
+    {
+        return createNodeSelector(connectorId, maxTasksPerStage, false);
     }
 
     private Supplier<NodeMap> createNodeMapSupplier(ConnectorId connectorId)

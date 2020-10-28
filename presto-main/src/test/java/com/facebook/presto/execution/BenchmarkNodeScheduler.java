@@ -162,7 +162,7 @@ public class BenchmarkNodeScheduler
                     initialSplits.add(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote(i)));
                 }
                 TaskId taskId = new TaskId("test", 1, 0, i);
-                MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
+                MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createNodeStatsTracker(node, taskId));
                 nodeTaskMap.addTask(node, remoteTask);
                 taskMap.put(node, remoteTask);
             }

@@ -672,7 +672,9 @@ public class PrestoSparkTaskExecutorFactory
                     taskStats.getSystemMemoryReservationInBytes(),
                     taskStats.getPeakNodeTotalMemoryInBytes(),
                     taskStats.getFullGcCount(),
-                    taskStats.getFullGcTimeInMillis());
+                    taskStats.getFullGcTimeInMillis(),
+                    taskStats.getTotalCpuTimeInNanos(),
+                    0);
 
             OutputBufferInfo outputBufferInfo = new OutputBufferInfo(
                     outputBufferType.name(),

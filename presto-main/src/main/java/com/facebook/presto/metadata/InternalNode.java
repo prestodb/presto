@@ -19,6 +19,7 @@ import com.facebook.presto.spi.Node;
 
 import java.net.URI;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Strings.emptyToNull;
@@ -34,20 +35,24 @@ public class InternalNode
     private final String nodeIdentifier;
     private final URI internalUri;
     private final OptionalInt thriftPort;
+    private final OptionalLong nodeMemory;
+    private final OptionalInt nodeCpuCore;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
-        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator);
+        this(nodeIdentifier, internalUri, OptionalInt.empty(), OptionalLong.empty(), OptionalInt.empty(), nodeVersion, coordinator);
     }
 
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator)
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, OptionalLong nodeMemory, OptionalInt nodeCpuCore, NodeVersion nodeVersion, boolean coordinator)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
         this.internalUri = requireNonNull(internalUri, "internalUri is null");
         this.thriftPort = requireNonNull(thriftPort, "thriftPort is null");
+        this.nodeMemory = requireNonNull(nodeMemory, "nodeMemory is null");
+        this.nodeCpuCore = requireNonNull(nodeCpuCore, "nodeCpuCore is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
     }
@@ -74,6 +79,16 @@ public class InternalNode
     public OptionalInt getThriftPort()
     {
         return thriftPort;
+    }
+
+    public OptionalLong getNodeMemory()
+    {
+        return nodeMemory;
+    }
+
+    public OptionalInt getNodeCpuCore()
+    {
+        return nodeCpuCore;
     }
 
     public URI getInternalUri()
@@ -130,6 +145,7 @@ public class InternalNode
                 .add("nodeIdentifier", nodeIdentifier)
                 .add("internalUri", internalUri)
                 .add("thriftPort", thriftPort)
+                .add("nodeMemory", nodeMemory)
                 .add("nodeVersion", nodeVersion)
                 .toString();
     }

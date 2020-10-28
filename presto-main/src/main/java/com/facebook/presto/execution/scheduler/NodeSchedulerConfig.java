@@ -35,6 +35,7 @@ public class NodeSchedulerConfig
     private int maxSplitsPerNode = 100;
     private int maxPendingSplitsPerTask = 10;
     private String networkTopology = NetworkTopologyType.LEGACY;
+    private boolean resourceAwareScheduling = true;
 
     @NotNull
     public String getNetworkTopology()
@@ -96,6 +97,18 @@ public class NodeSchedulerConfig
     public NodeSchedulerConfig setMaxSplitsPerNode(int maxSplitsPerNode)
     {
         this.maxSplitsPerNode = maxSplitsPerNode;
+        return this;
+    }
+
+    public boolean isResourceAwareScheduling()
+    {
+        return resourceAwareScheduling;
+    }
+
+    @Config("experimental.node-scheduler.resource-aware-scheduling")
+    public NodeSchedulerConfig setResourceAwareScheduling(boolean resourceAwareScheduling)
+    {
+        this.resourceAwareScheduling = resourceAwareScheduling;
         return this;
     }
 }
