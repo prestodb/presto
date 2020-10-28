@@ -19,6 +19,7 @@ import com.facebook.presto.client.StatementClient;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
@@ -44,6 +45,7 @@ import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -94,6 +96,7 @@ public class PrestoConnection
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
     private final WarningsManager warningsManager = new WarningsManager();
+    private final List<QueryInterceptor> queryInterceptorInstances;
 
     PrestoConnection(PrestoDriverUri uri, QueryExecutor queryExecutor)
             throws SQLException
@@ -113,6 +116,9 @@ public class PrestoConnection
 
         timeZoneId.set(TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
+
+        this.queryInterceptorInstances = ImmutableList.copyOf(uri.getQueryInterceptors());
+        initializeQueryInterceptors();
     }
 
     @Override
@@ -205,6 +211,23 @@ public class PrestoConnection
         }
         finally {
             closed.set(true);
+            Throwable innerException = null;
+            for (QueryInterceptor queryInterceptor : this.queryInterceptorInstances) {
+                try {
+                    queryInterceptor.destroy();
+                }
+                catch (Throwable t) {
+                    if (innerException == null) {
+                        innerException = t;
+                    }
+                    else if (innerException != t) {
+                        innerException.addSuppressed(t);
+                    }
+                }
+            }
+            if (innerException != null) {
+                throw new RuntimeException(innerException);
+            }
         }
     }
 
@@ -655,6 +678,12 @@ public class PrestoConnection
         return serverInfo.get();
     }
 
+    @VisibleForTesting
+    List<QueryInterceptor> getQueryInterceptorInstances()
+    {
+        return queryInterceptorInstances;
+    }
+
     boolean shouldStartTransaction()
     {
         return !autoCommit.get() && (transactionId.get() == null);
@@ -741,11 +770,44 @@ public class PrestoConnection
         return warningsManager;
     }
 
+    Optional<PrestoResultSet> invokeQueryInterceptorsPre(String sql, Statement interceptedStatement)
+    {
+        Optional<PrestoResultSet> interceptedResultSet = Optional.empty();
+
+        for (QueryInterceptor interceptor : this.queryInterceptorInstances) {
+            Optional<PrestoResultSet> newResultSet = interceptor.preProcess(sql, interceptedStatement);
+            if (newResultSet.isPresent()) {
+                interceptedResultSet = newResultSet;
+            }
+        }
+        return interceptedResultSet;
+    }
+
+    PrestoResultSet invokeQueryInterceptorsPost(String sql, Statement interceptedStatement, PrestoResultSet originalResultSet)
+    {
+        PrestoResultSet interceptedResultSet = originalResultSet;
+
+        for (QueryInterceptor interceptor : this.queryInterceptorInstances) {
+            Optional<PrestoResultSet> newResultSet = interceptor.postProcess(sql, interceptedStatement, interceptedResultSet);
+            if (newResultSet.isPresent()) {
+                interceptedResultSet = newResultSet.get();
+            }
+        }
+        return interceptedResultSet;
+    }
+
     private void checkOpen()
             throws SQLException
     {
         if (isClosed()) {
             throw new SQLException("Connection is closed");
+        }
+    }
+
+    private void initializeQueryInterceptors()
+    {
+        for (QueryInterceptor interceptor : this.queryInterceptorInstances) {
+            interceptor.init(this.sessionProperties);
         }
     }
 

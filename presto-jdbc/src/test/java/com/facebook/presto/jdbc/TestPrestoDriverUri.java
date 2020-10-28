@@ -25,6 +25,7 @@ import java.util.Properties;
 import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
+import static com.facebook.presto.jdbc.ConnectionProperties.QUERY_INTERCEPTORS;
 import static com.facebook.presto.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
@@ -263,6 +264,20 @@ public class TestPrestoDriverUri
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(SESSION_PROPERTIES.getKey()), sessionProperties);
     }
+
+    @Test
+    public void testUriWithQueryInterceptors()
+            throws SQLException
+    {
+        String queryInterceptor = TestForUriQueryInterceptor.class.getName();
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?queryInterceptors=" + queryInterceptor);
+        Properties properties = parameters.getProperties();
+        assertEquals(properties.getProperty(QUERY_INTERCEPTORS.getKey()), queryInterceptor);
+    }
+
+    public static class TestForUriQueryInterceptor
+                implements QueryInterceptor
+    {}
 
     private static void assertUriPortScheme(PrestoDriverUri parameters, int port, String scheme)
     {
