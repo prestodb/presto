@@ -556,23 +556,11 @@ public final class SystemSessionProperties
                             return spillEnabled;
                         },
                         value -> value),
-                new PropertyMetadata<>(
+                booleanProperty(
                         JOIN_SPILL_ENABLED,
-                        "Experimental: Enable join spilling",
-                        BOOLEAN,
-                        Boolean.class,
+                        "Enable join spilling",
                         featuresConfig.isJoinSpillingEnabled(),
-                        false,
-                        value -> {
-                            boolean joinSpillEnabled = (Boolean) value;
-                            if (joinSpillEnabled && !featuresConfig.isSpillEnabled()) {
-                                throw new PrestoException(
-                                        INVALID_SESSION_PROPERTY,
-                                        format("%s cannot be set to true; spilling is not configured", JOIN_SPILL_ENABLED));
-                            }
-                            return joinSpillEnabled;
-                        },
-                        value -> value),
+                        false),
                 new PropertyMetadata<>(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
                         "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
@@ -1185,7 +1173,7 @@ public final class SystemSessionProperties
 
     public static boolean isJoinSpillingEnabled(Session session)
     {
-        return session.getSystemProperty(JOIN_SPILL_ENABLED, Boolean.class);
+        return session.getSystemProperty(JOIN_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)
