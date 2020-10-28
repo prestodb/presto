@@ -280,7 +280,7 @@ public class HiveFilterPushdown
                                         tableName,
                                         hivePartitionResult.getBucketHandle(),
                                         hivePartitionResult.getBucketFilter(),
-                                        decomposedFilter.getRemainingExpression(),
+                                        remainingExpression,
                                         domainPredicate),
                                 currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty()),
                                 false)),
