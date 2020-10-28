@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
+import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
@@ -31,7 +32,8 @@ import java.util.Optional;
 
 @RegisterRowMappers({
         @RegisterRowMapper(SqlInvokedFunctionRowMapper.class),
-        @RegisterRowMapper(SqlInvokedFunctionRecordRowMapper.class)
+        @RegisterRowMapper(SqlInvokedFunctionRecordRowMapper.class),
+        @RegisterRowMapper(EnumParametricTypeRowMapper.class)
 })
 @RegisterArgumentFactories({
         @RegisterArgumentFactory(SqlFunctionIdArgumentFactory.class),
@@ -41,6 +43,7 @@ import java.util.Optional;
 })
 @DefineFunctionNamespacesTable
 @DefineSqlFunctionsTable
+@DefineEnumTypesTable
 public interface FunctionNamespaceDao
 {
     @SqlUpdate("CREATE TABLE IF NOT EXISTS <function_namespaces_table> (\n" +
@@ -70,6 +73,16 @@ public interface FunctionNamespaceDao
             "  KEY function_id_hash_version (function_id_hash, version),\n" +
             "  KEY qualified_function_name (catalog_name, schema_name, function_name))")
     void createSqlFunctionsTableIfNotExists();
+
+    @SqlUpdate("CREATE TABLE IF NOT EXISTS <enum_types_table> (\n" +
+            "   id bigint(20) NOT NULL AUTO_INCREMENT,\n" +
+            "  catalog_name varchar(128) NOT NULL,\n" +
+            "  schema_name varchar(128) NOT NULL,\n" +
+            "  type_name varchar(256) NOT NULL,\n" +
+            "  type_parameters text NOT NULL,\n" +
+            "  PRIMARY KEY (id), \n" +
+            "  UNIQUE KEY type_name (catalog_name, schema_name, type_name))")
+    void createEnumTypesTableIfNotExists();
 
     @SqlQuery("SELECT\n" +
             "   count(1) > 0\n" +
@@ -283,4 +296,49 @@ public interface FunctionNamespaceDao
             @Bind("function_id") SqlFunctionId functionId,
             @Bind("version") long version,
             @Bind("deleted") boolean deleted);
+
+    @SqlQuery("SELECT\n" +
+            "   count(1) > 0\n" +
+            "FROM <enum_types_table>\n" +
+            "WHERE catalog_name = :catalog_name\n" +
+            "  AND schema_name = :schema_name\n" +
+            "  AND type_name = :type_name")
+    boolean enumTypeExists(
+            @Bind("catalog_name") String catalogName,
+            @Bind("schema_name") String schemaName,
+            @Bind("type_name") String typeName);
+
+    @SqlQuery("SELECT\n" +
+            "    catalog_name,\n" +
+            "    schema_name,\n" +
+            "    type_name,\n" +
+            "    type_parameters\n" +
+            "  FROM <enum_types_table>\n" +
+            "WHERE\n" +
+            "    catalog_name = :catalog_name\n" +
+            "    AND schema_name = :schema_name\n" +
+            "    AND type_name = :type_name")
+    Optional<ParametricType> getEnumParametricType(
+            @Bind("catalog_name") String catalogName,
+            @Bind("schema_name") String schemaName,
+            @Bind("type_name") String typeName);
+
+    @SqlUpdate("INSERT INTO <enum_types_table> (\n" +
+            "        catalog_name,\n" +
+            "        schema_name,\n" +
+            "        type_name,\n" +
+            "        type_parameters\n" +
+            "    )\n" +
+            "VALUES\n" +
+            "    (\n" +
+            "        :catalog_name,\n" +
+            "        :schema_name,\n" +
+            "        :type_name,\n" +
+            "        :type_parameters\n" +
+            "    )")
+    void insertEnumType(
+            @Bind("catalog_name") String catalogName,
+            @Bind("schema_name") String schemaName,
+            @Bind("type_name") String typeName,
+            @Bind("type_parameters") String typeParameters);
 }

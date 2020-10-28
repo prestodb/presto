@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.encoding.Base32;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -33,7 +34,7 @@ public class VarcharEnumType
 {
     private final VarcharEnumMap enumMap;
 
-    public VarcharEnumType(String name, VarcharEnumMap enumMap)
+    public VarcharEnumType(QualifiedObjectName name, VarcharEnumMap enumMap)
     {
         super(VarcharType.UNBOUNDED_LENGTH, new TypeSignature(name, TypeSignatureParameter.of(enumMap)));
         this.enumMap = enumMap;

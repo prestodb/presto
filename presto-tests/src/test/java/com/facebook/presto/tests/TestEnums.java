@@ -14,12 +14,11 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.LongEnumParametricType;
 import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
-import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.VarcharEnumParametricType;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
-import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -42,35 +41,25 @@ public class TestEnums
 {
     private static final Long BIG_VALUE = Integer.MAX_VALUE + 10L; // 2147483657
 
-    private static final LongEnumParametricType MOOD_ENUM = new LongEnumParametricType("test.enum.Mood", new LongEnumMap(ImmutableMap.of(
+    private static final LongEnumParametricType MOOD_ENUM = new LongEnumParametricType(QualifiedObjectName.valueOf("test.enum.mood"), new LongEnumMap(ImmutableMap.of(
             "HAPPY", 0L,
             "SAD", 1L,
             "MELLOW", BIG_VALUE,
             "curious", -2L)));
-    private static final VarcharEnumParametricType COUNTRY_ENUM = new VarcharEnumParametricType("test.enum.Country", new VarcharEnumMap(ImmutableMap.of(
+    private static final VarcharEnumParametricType COUNTRY_ENUM = new VarcharEnumParametricType(QualifiedObjectName.valueOf("test.enum.country"), new VarcharEnumMap(ImmutableMap.of(
             "US", "United States",
             "BAHAMAS", "The Bahamas",
             "FRANCE", "France",
             "CHINA", "中国",
             "भारत", "India")));
-    private static final VarcharEnumParametricType TEST_ENUM = new VarcharEnumParametricType("TestEnum", new VarcharEnumMap(ImmutableMap.of(
+    private static final VarcharEnumParametricType TEST_ENUM = new VarcharEnumParametricType(QualifiedObjectName.valueOf("test.enum.testenum"), new VarcharEnumMap(ImmutableMap.of(
             "TEST", "\"}\"",
             "TEST2", "",
             "TEST3", " ",
             "TEST4", ")))\"\"")));
-    private static final LongEnumParametricType TEST_LONG_ENUM = new LongEnumParametricType("TestLongEnum", new LongEnumMap(ImmutableMap.of(
+    private static final LongEnumParametricType TEST_LONG_ENUM = new LongEnumParametricType(QualifiedObjectName.valueOf("test.enum.testlongenum"), new LongEnumMap(ImmutableMap.of(
             "TEST", 6L,
             "TEST2", 8L)));
-
-    static class TestEnumPlugin
-            implements Plugin
-    {
-        @Override
-        public Iterable<ParametricType> getParametricTypes()
-        {
-            return ImmutableList.of(MOOD_ENUM, COUNTRY_ENUM, TEST_ENUM, TEST_LONG_ENUM);
-        }
-    }
 
     protected TestEnums()
     {
@@ -81,8 +70,12 @@ public class TestEnums
     {
         try {
             Session session = testSessionBuilder().build();
-            QueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
-            queryRunner.installPlugin(new TestEnumPlugin());
+            DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+            queryRunner.enableTestFunctionNamespaces(ImmutableList.of("test"), ImmutableMap.of());
+            queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(MOOD_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(COUNTRY_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(TEST_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(TEST_LONG_ENUM);
             return queryRunner;
         }
         catch (Exception e) {
@@ -115,10 +108,10 @@ public class TestEnums
                 singletonList(ImmutableList.of("United States", "中国", "India")));
 
         assertQueryResultUnordered(
-                "SELECT testEnum.TEST, testEnum.TEST2, testEnum.TEST3, array[testEnum.TEST4]",
+                "SELECT test.enum.testEnum.TEST, test.enum.testEnum.TEST2, test.enum.testEnum.TEST3, array[test.enum.testEnum.TEST4]",
                 singletonList(ImmutableList.of("\"}\"", "", " ", ImmutableList.of(")))\"\""))));
 
-        assertQueryFails("SELECT test.enum.mood.hello", ".*No key 'HELLO' in enum 'test.enum.Mood'");
+        assertQueryFails("SELECT test.enum.mood.hello", ".*No key 'HELLO' in enum 'test.enum.mood'");
     }
 
     @Test
@@ -137,7 +130,7 @@ public class TestEnums
         assertSingleValue(
                 "cast(JSON '{\"France\": [0]}' as MAP<test.enum.country,ARRAY<test.enum.mood>>)",
                 ImmutableMap.of("France", singletonList(0L)));
-        assertQueryFails("select cast(7 as test.enum.mood)", ".*No value '7' in enum 'test.enum.Mood'");
+        assertQueryFails("select cast(7 as test.enum.mood)", ".*No value '7' in enum 'test.enum.mood'");
     }
 
     @Test
@@ -167,10 +160,10 @@ public class TestEnums
         assertSingleValue("test.enum.country.\"भारत\" between test.enum.country.FRANCE and test.enum.country.BAHAMAS", true);
         assertSingleValue("test.enum.country.US between test.enum.country.FRANCE and test.enum.country.\"भारत\"", false);
 
-        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to test.enum.Country.*, test.enum.Mood.*");
+        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to test.enum.country.*, test.enum.mood.*");
         assertQueryFails("select test.enum.country.US IN (test.enum.country.CHINA, test.enum.mood.SAD)", ".* All IN list values must be the same type.*");
-        assertQueryFails("select test.enum.country.US IN (test.enum.mood.HAPPY, test.enum.mood.SAD)", ".* IN value and list items must be the same type: test.enum.Country");
-        assertQueryFails("select test.enum.country.US > 2", ".* '>' cannot be applied to test.enum.Country.*, integer");
+        assertQueryFails("select test.enum.country.US IN (test.enum.mood.HAPPY, test.enum.mood.SAD)", ".* IN value and list items must be the same type: test.enum.country");
+        assertQueryFails("select test.enum.country.US > 2", ".* '>' cannot be applied to test.enum.country.*, integer");
     }
 
     @Test
@@ -200,7 +193,7 @@ public class TestEnums
         assertSingleValue("test.enum.mood.HAPPY between test.enum.mood.CURIOUS and test.enum.mood.SAD ", true);
         assertSingleValue("test.enum.mood.MELLOW between test.enum.mood.SAD and test.enum.mood.HAPPY", false);
 
-        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to test.enum.Mood.*, integer");
+        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to test.enum.mood.*, integer");
     }
 
     @Test
@@ -269,7 +262,7 @@ public class TestEnums
     @Test
     public void testCastFunctionCaching()
     {
-        assertSingleValue("CAST(' ' as TestEnum)", " ");
-        assertSingleValue("CAST(8 as TestLongEnum)", 8L);
+        assertSingleValue("CAST(' ' as test.enum.TestEnum)", " ");
+        assertSingleValue("CAST(8 as test.enum.TestLongEnum)", 8L);
     }
 }

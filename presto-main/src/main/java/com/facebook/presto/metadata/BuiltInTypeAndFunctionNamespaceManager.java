@@ -23,9 +23,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFunction;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
@@ -208,7 +206,6 @@ import com.facebook.presto.type.IpAddressOperators;
 import com.facebook.presto.type.IpPrefixOperators;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.LongEnumOperators;
-import com.facebook.presto.type.MapParametricType;
 import com.facebook.presto.type.QuantileDigestOperators;
 import com.facebook.presto.type.RealOperators;
 import com.facebook.presto.type.SmallintOperators;
@@ -245,7 +242,6 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -428,7 +424,6 @@ import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -445,7 +440,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
-    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
 
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
@@ -506,10 +500,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     return ((SqlWindowFunction) key.getFunction())
                             .specialize(key.getBoundVariables(), key.getArity(), functionAndTypeManager);
                 }));
-
-        parametricTypeCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .build(CacheLoader.from(this::instantiateParametricType));
 
         registerBuiltInFunctions(getBuildInFunctions(featuresConfig));
         registerBuiltInTypes();
@@ -1026,24 +1016,15 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
     }
 
-    public Type getType(TypeSignature signature)
+    public Optional<Type> getType(TypeSignature typeSignature)
     {
-        Type type = types.get(signature);
-        if (type == null) {
-            try {
-                return parametricTypeCache.getUnchecked(signature);
-            }
-            catch (UncheckedExecutionException e) {
-                throwIfUnchecked(e.getCause());
-                throw new RuntimeException(e.getCause());
-            }
-        }
-        return type;
+        return Optional.ofNullable(types.get(typeSignature));
     }
 
-    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    @Override
+    public Optional<ParametricType> getParametricType(TypeSignature typeSignature)
     {
-        return getType(new TypeSignature(baseTypeName, typeParameters));
+        return Optional.ofNullable(parametricTypes.get(typeSignature.getBase().toLowerCase(Locale.ENGLISH)));
     }
 
     public List<Type> getTypes()
@@ -1068,30 +1049,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
     public Collection<ParametricType> getParametricTypes()
     {
         return ImmutableList.copyOf(parametricTypes.values());
-    }
-
-    private Type instantiateParametricType(TypeSignature signature)
-    {
-        List<TypeParameter> parameters = new ArrayList<>();
-
-        for (TypeSignatureParameter parameter : signature.getParameters()) {
-            TypeParameter typeParameter = TypeParameter.of(parameter, functionAndTypeManager);
-            parameters.add(typeParameter);
-        }
-
-        ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
-        if (parametricType == null) {
-            throw new IllegalArgumentException("Unknown type " + signature);
-        }
-        else if (parametricType instanceof MapParametricType) {
-            return ((MapParametricType) parametricType).createType(functionAndTypeManager, parameters);
-        }
-
-        Type instantiatedType = parametricType.createType(parameters);
-
-        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-        return instantiatedType;
     }
 
     private SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)

@@ -16,6 +16,7 @@ package com.facebook.presto.spi.function;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
@@ -78,4 +79,8 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
     ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle);
 
     CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager);
+
+    void addParametricType(ParametricType type);
+
+    Optional<ParametricType> getParametricType(TypeSignature typeSignature);
 }

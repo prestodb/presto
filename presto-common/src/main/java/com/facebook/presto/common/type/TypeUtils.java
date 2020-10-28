@@ -131,4 +131,15 @@ public final class TypeUtils
         return entries.entrySet().stream()
                 .collect(toMap(e -> e.getKey().toUpperCase(ENGLISH), Map.Entry::getValue));
     }
+
+    public static ParametricType toEnumParametricType(TypeSignature typeSignature)
+    {
+        if (!typeSignature.isEnum() && typeSignature.getParameters().size() == 1) {
+            throw new IllegalStateException("Expect enum type with enum map");
+        }
+        if (typeSignature.isLongEnum()) {
+            return new LongEnumParametricType(typeSignature.getTypeSignatureBase().getQualifiedObjectName(), typeSignature.getParameters().get(0).getLongEnumMap());
+        }
+        return new VarcharEnumParametricType(typeSignature.getTypeSignatureBase().getQualifiedObjectName(), typeSignature.getParameters().get(0).getVarcharEnumMap());
+    }
 }

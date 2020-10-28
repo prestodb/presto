@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 
 import java.util.List;
@@ -22,10 +23,10 @@ import static java.lang.String.format;
 public final class VarcharEnumParametricType
         implements ParametricType
 {
-    private final String name;
+    private final QualifiedObjectName name;
     private final VarcharEnumMap enumMap;
 
-    public VarcharEnumParametricType(String name, VarcharEnumMap enumMap)
+    public VarcharEnumParametricType(QualifiedObjectName name, VarcharEnumMap enumMap)
     {
         this.name = name;
         this.enumMap = enumMap;
@@ -34,7 +35,13 @@ public final class VarcharEnumParametricType
     @Override
     public String getName()
     {
-        return name;
+        return name.toString();
+    }
+
+    @Override
+    public TypeSignatureBase getTypeSignatureBase()
+    {
+        return TypeSignatureBase.of(name);
     }
 
     @Override
@@ -49,6 +56,11 @@ public final class VarcharEnumParametricType
                 "Enum definition expected, got %s",
                 parameters);
         return new VarcharEnumType(name, parameters.get(0).getVarcharEnumMap());
+    }
+
+    public VarcharEnumMap getEnumMap()
+    {
+        return enumMap;
     }
 
     private static void checkArgument(boolean argument, String format, Object... args)

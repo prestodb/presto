@@ -73,7 +73,7 @@ public class TypeSignature
 
     public TypeSignature(QualifiedObjectName base, List<TypeSignatureParameter> parameters)
     {
-        this(new TypeSignatureBase(base), parameters);
+        this(TypeSignatureBase.of(base), parameters);
     }
 
     public TypeSignature(String base, TypeSignatureParameter... parameters)
@@ -83,7 +83,7 @@ public class TypeSignature
 
     public TypeSignature(String base, List<TypeSignatureParameter> parameters)
     {
-        this(new TypeSignatureBase(base), parameters);
+        this(TypeSignatureBase.of(base), parameters);
     }
 
     private TypeSignature(TypeSignatureBase base, List<TypeSignatureParameter> parameters)
@@ -93,6 +93,11 @@ public class TypeSignature
         this.parameters = unmodifiableList(new ArrayList<>(parameters));
 
         this.calculated = parameters.stream().anyMatch(TypeSignatureParameter::isCalculated);
+    }
+
+    public TypeSignatureBase getTypeSignatureBase()
+    {
+        return base;
     }
 
     public String getBase()

@@ -11,18 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.common.type;
+package com.facebook.presto.functionNamespace.mysql;
 
-import java.util.List;
+import org.jdbi.v3.sqlobject.customizer.SqlStatementCustomizingAnnotation;
 
-public interface ParametricType
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@SqlStatementCustomizingAnnotation(EnumTypesTableCustomizerFactory.class)
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.METHOD, ElementType.PARAMETER})
+public @interface DefineEnumTypesTable
 {
-    String getName();
-
-    default TypeSignatureBase getTypeSignatureBase()
-    {
-        return TypeSignatureBase.of(getName());
-    }
-
-    Type createType(List<TypeParameter> parameters);
 }

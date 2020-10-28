@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -94,7 +95,7 @@ public class BenchmarkTypeSignatureParsing
             for (int i = 0; i < 35_000; i++) {
                 bigMap.put(format("KEY_%d", i), format("VALUE_%d_%s", i, randomString()));
             }
-            return new VarcharEnumParametricType("test.enum.bigVarcharEnum", new VarcharEnumType.VarcharEnumMap(bigMap)).createType(emptyList());
+            return new VarcharEnumParametricType(QualifiedObjectName.valueOf("test", "enum", "bigvarcharenum"), new VarcharEnumType.VarcharEnumMap(bigMap)).createType(emptyList());
         }
 
         private static Type bigLongEnumType()
@@ -103,7 +104,7 @@ public class BenchmarkTypeSignatureParsing
             for (int i = 0; i < 35_000; i++) {
                 bigMap.put(format("KEY_%d", i), ThreadLocalRandom.current().nextLong());
             }
-            return new LongEnumParametricType("test.enum.bigLongEnum", new LongEnumType.LongEnumMap(bigMap)).createType(emptyList());
+            return new LongEnumParametricType(QualifiedObjectName.valueOf("test", "enum", "biglongenum"), new LongEnumType.LongEnumMap(bigMap)).createType(emptyList());
         }
 
         @Setup
