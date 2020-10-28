@@ -52,8 +52,9 @@ public class MongoIndex
     {
         ImmutableList.Builder<MongodbIndexKey> builder = ImmutableList.builder();
 
-        for (String name : key.keySet()) {
-            Object value = key.get(name);
+        for (java.util.Map.Entry<String, Object> keyEntry : key.entrySet()) {
+            String name = keyEntry.getKey();
+            Object value = keyEntry.getValue();
             if (value instanceof Number) {
                 int order = ((Number) value).intValue();
                 checkState(order == 1 || order == -1, "Unknown index sort order");

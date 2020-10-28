@@ -176,8 +176,9 @@ public class AlluxioHiveMetastore
                         entry -> groupStatisticsByColumn(entry.getValue(), partitionRowCounts.getOrDefault(entry.getKey(), OptionalLong.empty()))));
 
         ImmutableMap.Builder<String, PartitionStatistics> result = ImmutableMap.builder();
-        for (String partitionName : partitionBasicStatistics.keySet()) {
-            HiveBasicStatistics basicStatistics = partitionBasicStatistics.get(partitionName);
+        for (java.util.Map.Entry<String, HiveBasicStatistics> partitionBasicStatisticsEntry : partitionBasicStatistics.entrySet()) {
+            String partitionName = partitionBasicStatisticsEntry.getKey();
+            HiveBasicStatistics basicStatistics = partitionBasicStatisticsEntry.getValue();
             Map<String, HiveColumnStatistics> columnStatistics = partitionColumnStatistics.getOrDefault(partitionName, ImmutableMap.of());
             result.put(partitionName, new PartitionStatistics(basicStatistics, columnStatistics));
         }

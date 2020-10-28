@@ -140,8 +140,9 @@ public class TextRenderer
 
         Map<String, String> translatedOperatorTypes = translateOperatorTypes(stats.getOperatorTypes());
 
-        for (String operator : translatedOperatorTypes.keySet()) {
-            String translatedOperatorType = translatedOperatorTypes.get(operator);
+        for (java.util.Map.Entry<String, String> translatedOperatorTypesEntry : translatedOperatorTypes.entrySet()) {
+            String operator = translatedOperatorTypesEntry.getKey();
+            String translatedOperatorType = translatedOperatorTypesEntry.getValue();
             double inputAverage = inputAverages.get(operator);
 
             output.append(translatedOperatorType);
