@@ -1039,7 +1039,7 @@ public class TestHashJoinOperator
     public void testBroadcastMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
     {
         TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, new DataSize(100, MEGABYTE));
-        taskContext.getQueryContext().setMemoryLimits(new DataSize(512, MEGABYTE), new DataSize(512, MEGABYTE), new DataSize(100, BYTE));
+        taskContext.getQueryContext().setMemoryLimits(new DataSize(512, MEGABYTE), new DataSize(512, MEGABYTE), new DataSize(100, BYTE), true);
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT, BIGINT))
                 .addSequencePage(10, 20, 30, 40);
         BuildSideSetup buildSideSetup = setupBuildSide(parallelBuild, taskContext, Ints.asList(0),

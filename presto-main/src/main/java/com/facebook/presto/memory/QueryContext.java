@@ -73,6 +73,9 @@ public class QueryContext
     private final SpillSpaceTracker spillSpaceTracker;
     private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap();
 
+    @GuardedBy("this")
+    private boolean enforceTotalMemoryWithUserMemory;
+
     // TODO: This field should be final. However, due to the way QueryContext is constructed the memory limit is not known in advance
     @GuardedBy("this")
     private long maxUserMemory;
@@ -102,7 +105,8 @@ public class QueryContext
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
             DataSize maxSpill,
-            SpillSpaceTracker spillSpaceTracker)
+            SpillSpaceTracker spillSpaceTracker,
+            boolean enforceTotalMemoryWithUserMemory)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
@@ -118,6 +122,7 @@ public class QueryContext
                 newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateUserMemory, this::tryUpdateUserMemory, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), GUARANTEED_MEMORY),
                 newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateRevocableMemory, this::tryReserveMemoryNotSupported, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), 0L),
                 newRootAggregatedMemoryContext(new QueryMemoryReservationHandler(this::updateSystemMemory, this::tryReserveMemoryNotSupported, this::updateBroadcastMemory, this::tryUpdateBroadcastMemory), 0L));
+        this.enforceTotalMemoryWithUserMemory = enforceTotalMemoryWithUserMemory;
     }
 
     // TODO: This method should be removed, and the correct limit set in the constructor. However, due to the way QueryContext is constructed the memory limit is not known in advance
@@ -153,6 +158,9 @@ public class QueryContext
     {
         if (delta >= 0) {
             enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
+            if (enforceTotalMemoryWithUserMemory) {
+                enforceTotalMemoryLimit(memoryPool.getQueryMemoryReservation(queryId), delta, maxTotalMemory);
+            }
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
         memoryPool.free(queryId, allocationTag, -delta);
@@ -341,12 +349,17 @@ public class QueryContext
         return queryId;
     }
 
-    public synchronized void setMemoryLimits(DataSize queryMaxTaskMemory, DataSize queryMaxTotalTaskMemory, DataSize queryMaxBroadcastMemory)
+    public synchronized void setMemoryLimits(
+            DataSize queryMaxTaskMemory,
+            DataSize queryMaxTotalTaskMemory,
+            DataSize queryMaxBroadcastMemory,
+            boolean enforceTotalMemoryWithUserMemory)
     {
         // Don't allow session properties to increase memory beyond configured limits
         maxUserMemory = Math.min(maxUserMemory, queryMaxTaskMemory.toBytes());
         maxTotalMemory = Math.min(maxTotalMemory, queryMaxTotalTaskMemory.toBytes());
         maxBroadcastUsedMemory = Math.min(maxBroadcastUsedMemory, queryMaxBroadcastMemory.toBytes());
+        this.enforceTotalMemoryWithUserMemory = enforceTotalMemoryWithUserMemory;
     }
 
     private static class QueryMemoryReservationHandler

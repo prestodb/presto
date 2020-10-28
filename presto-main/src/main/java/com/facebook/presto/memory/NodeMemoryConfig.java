@@ -30,6 +30,7 @@ public class NodeMemoryConfig
     public static final String QUERY_SOFT_MAX_MEMORY_PER_NODE_CONFIG = "query.soft-max-memory-per-node";
     public static final String QUERY_MAX_TOTAL_MEMORY_PER_NODE_CONFIG = "query.max-total-memory-per-node";
     public static final String QUERY_SOFT_MAX_TOTAL_MEMORY_PER_NODE_CONFIG = "query.soft-max-total-memory-per-node";
+    public static final String QUERY_ENFORCE_TOTAL_MEMORY_WITH_USER_MEMORY = "query.enforce-total-memory-with-user-memory";
 
     private boolean isReservedPoolEnabled = true;
 
@@ -41,6 +42,8 @@ public class NodeMemoryConfig
     private DataSize maxQueryTotalMemoryPerNode = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
     private DataSize softMaxQueryTotalMemoryPerNode;
     private DataSize heapHeadroom = new DataSize(AVAILABLE_HEAP_MEMORY * 0.3, BYTE);
+
+    private boolean enforceTotalMemoryWithUserMemory;
 
     @NotNull
     public DataSize getMaxQueryBroadcastMemory()
@@ -141,6 +144,20 @@ public class NodeMemoryConfig
     public NodeMemoryConfig setHeapHeadroom(DataSize heapHeadroom)
     {
         this.heapHeadroom = heapHeadroom;
+        return this;
+    }
+
+    public boolean getEnforceTotalMemoryWithUserMemory()
+    {
+        return enforceTotalMemoryWithUserMemory;
+    }
+
+    @NotNull
+    @Config(QUERY_ENFORCE_TOTAL_MEMORY_WITH_USER_MEMORY)
+    @ConfigDescription("The amount of heap memory to set aside as headroom/buffer (e.g., for untracked allocations)")
+    public NodeMemoryConfig setEnforceTotalMemoryWithUserMemory(boolean enforceTotalMemoryWithUserMemory)
+    {
+        this.enforceTotalMemoryWithUserMemory = enforceTotalMemoryWithUserMemory;
         return this;
     }
 }

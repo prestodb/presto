@@ -107,7 +107,8 @@ public class TestMemoryTracking
                 notificationExecutor,
                 yieldExecutor,
                 queryMaxSpillSize,
-                spillSpaceTracker);
+                spillSpaceTracker,
+                true);
         taskContext = queryContext.addTaskContext(
                 new TaskStateMachine(new TaskId("query", 0, 0, 0), notificationExecutor),
                 testSessionBuilder().build(),

@@ -84,7 +84,8 @@ public class TestQueryContext
                     localQueryRunner.getExecutor(),
                     localQueryRunner.getScheduler(),
                     new DataSize(0, BYTE),
-                    new SpillSpaceTracker(new DataSize(0, BYTE)));
+                    new SpillSpaceTracker(new DataSize(0, BYTE)),
+                    true);
 
             // Use memory
             queryContext.getQueryMemoryContext().initializeLocalMemoryContexts("test");
@@ -150,6 +151,7 @@ public class TestQueryContext
                 TEST_EXECUTOR,
                 TEST_EXECUTOR,
                 new DataSize(0, BYTE),
-                new SpillSpaceTracker(new DataSize(0, BYTE)));
+                new SpillSpaceTracker(new DataSize(0, BYTE)),
+                true);
     }
 }

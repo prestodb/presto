@@ -102,7 +102,8 @@ public class TestMemoryPools
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
                 TEN_MEGABYTES,
-                spillSpaceTracker);
+                spillSpaceTracker,
+                true);
         taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), session);
         drivers = driversSupplier.get();
     }

@@ -170,6 +170,7 @@ public final class SystemSessionProperties
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
+    public static final String ENFORCE_TOTAL_MEMORY_WITH_USER_MEMORY = "enforce_total_memory_with_user_memory";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -896,6 +897,11 @@ public final class SystemSessionProperties
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
                         "Apply access control rules on only those columns that are required to produce the query output",
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
+                        false),
+                booleanProperty(
+                        ENFORCE_TOTAL_MEMORY_WITH_USER_MEMORY,
+                        "Enforce total memory limit at the same time that user memory is reserved",
+                        nodeMemoryConfig.getEnforceTotalMemoryWithUserMemory(),
                         false));
     }
 
@@ -1506,5 +1512,10 @@ public final class SystemSessionProperties
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)
     {
         return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
+    }
+
+    public static boolean isEnforceTotalMemoryWithUserMemory(Session session)
+    {
+        return session.getSystemProperty(ENFORCE_TOTAL_MEMORY_WITH_USER_MEMORY, Boolean.class);
     }
 }

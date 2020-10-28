@@ -74,6 +74,7 @@ import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.isEnforceTotalMemoryWithUserMemory;
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.execution.SqlTask.createSqlTask;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
@@ -164,9 +165,10 @@ public class SqlTaskManager
         DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
         DataSize maxQueryBroadcastMemory = nodeMemoryConfig.getMaxQueryBroadcastMemory();
+        boolean enforceTotalMemoryWithUserMemory = nodeMemoryConfig.getEnforceTotalMemoryWithUserMemory();
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
-                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode, maxQueryBroadcastMemory)));
+                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode, maxQueryBroadcastMemory, enforceTotalMemoryWithUserMemory)));
 
         tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
                 taskId -> createSqlTask(
@@ -193,7 +195,8 @@ public class SqlTaskManager
             DataSize maxQueryUserMemoryPerNode,
             DataSize maxQueryTotalMemoryPerNode,
             DataSize maxQuerySpillPerNode,
-            DataSize maxQueryBroadcastMemory)
+            DataSize maxQueryBroadcastMemory,
+            boolean enforceTotalMemoryWithUserMemory)
     {
         return new QueryContext(
                 queryId,
@@ -205,7 +208,8 @@ public class SqlTaskManager
                 taskNotificationExecutor,
                 driverYieldExecutor,
                 maxQuerySpillPerNode,
-                localSpillManager.getSpillSpaceTracker());
+                localSpillManager.getSpillSpaceTracker(),
+                enforceTotalMemoryWithUserMemory);
     }
 
     @Override
@@ -392,7 +396,8 @@ public class SqlTaskManager
                     taskId.getQueryId()).setMemoryLimits(
                     getQueryMaxMemoryPerNode(session),
                     getQueryMaxTotalMemoryPerNode(session),
-                    getQueryMaxBroadcastMemory(session));
+                    getQueryMaxBroadcastMemory(session),
+                    isEnforceTotalMemoryWithUserMemory(session));
         }
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);

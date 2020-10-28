@@ -619,7 +619,8 @@ public class TestSqlTaskExecution
                 taskNotificationExecutor,
                 driverYieldExecutor,
                 new DataSize(1, MEGABYTE),
-                new SpillSpaceTracker(new DataSize(1, GIGABYTE)));
+                new SpillSpaceTracker(new DataSize(1, GIGABYTE)),
+                true);
         return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false, false, false, Optional.empty());
     }
 

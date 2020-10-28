@@ -85,7 +85,8 @@ public class MemoryLocalQueryRunner
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
                 new DataSize(4, GIGABYTE),
-                spillSpaceTracker);
+                spillSpaceTracker,
+                true);
 
         TaskContext taskContext = queryContext
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0, 0), localQueryRunner.getExecutor()),

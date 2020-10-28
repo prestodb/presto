@@ -146,6 +146,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final DataSize maxUserMemory;
     private final DataSize maxTotalMemory;
+    private final boolean enforceTotalMemoryWithUserMemory;
     private final DataSize maxSpillMemory;
     private final DataSize sinkMaxBufferSize;
 
@@ -194,6 +195,7 @@ public class PrestoSparkTaskExecutorFactory
                 fragmentResultCacheManager,
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryMemoryPerNode(),
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryTotalMemoryPerNode(),
+                requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getEnforceTotalMemoryWithUserMemory(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorCpuTimerEnabled(),
@@ -220,6 +222,7 @@ public class PrestoSparkTaskExecutorFactory
             FragmentResultCacheManager fragmentResultCacheManager,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
+            boolean enforceTotalMemoryWithUserMemory,
             DataSize maxSpillMemory,
             DataSize sinkMaxBufferSize,
             boolean perOperatorCpuTimerEnabled,
@@ -244,6 +247,7 @@ public class PrestoSparkTaskExecutorFactory
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null");
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null");
+        this.enforceTotalMemoryWithUserMemory = enforceTotalMemoryWithUserMemory;
         this.maxSpillMemory = requireNonNull(maxSpillMemory, "maxSpillMemory is null");
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -332,7 +336,8 @@ public class PrestoSparkTaskExecutorFactory
                 notificationExecutor,
                 yieldExecutor,
                 maxSpillMemory,
-                spillSpaceTracker);
+                spillSpaceTracker,
+                enforceTotalMemoryWithUserMemory);
 
         TaskStateMachine taskStateMachine = new TaskStateMachine(taskId, notificationExecutor);
         TaskContext taskContext = queryContext.addTaskContext(

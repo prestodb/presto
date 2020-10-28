@@ -281,7 +281,8 @@ public abstract class AbstractOperatorBenchmark
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
                 new DataSize(256, MEGABYTE),
-                spillSpaceTracker)
+                spillSpaceTracker,
+                true)
                 .addTaskContext(new TaskStateMachine(new TaskId("query", 0, 0, 0), localQueryRunner.getExecutor()),
                         session,
                         false,

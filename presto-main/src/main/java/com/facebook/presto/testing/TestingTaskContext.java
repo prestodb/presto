@@ -179,7 +179,8 @@ public final class TestingTaskContext
                     notificationExecutor,
                     yieldExecutor,
                     queryMaxSpillSize,
-                    spillSpaceTracker);
+                    spillSpaceTracker,
+                    true);
 
             return createTaskContext(queryContext, session, taskStateMachine, fragmentResultCacheContext);
         }

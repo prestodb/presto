@@ -205,7 +205,8 @@ public class MockRemoteTaskFactory
                     executor,
                     scheduledExecutor,
                     new DataSize(1, MEGABYTE),
-                    spillSpaceTracker);
+                    spillSpaceTracker,
+                    true);
             this.taskContext = queryContext.addTaskContext(
                     taskStateMachine,
                     TEST_SESSION,
