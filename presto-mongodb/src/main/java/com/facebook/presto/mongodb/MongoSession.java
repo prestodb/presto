@@ -473,9 +473,9 @@ public class MongoSession
 
         ImmutableList.Builder<Document> builder = ImmutableList.builder();
 
-        for (Map.Entry<String,Object> docEntry : doc.entrySet()) {
-            key = doc.getKey();
-            Object value = doc.getValue();
+        for (Map.Entry<String, Object> docEntry : doc.entrySet()) {
+            String key = docEntry.getKey();
+            Object value = docEntry.getValue();
             Optional<TypeSignature> fieldType = guessFieldType(value);
             if (fieldType.isPresent()) {
                 Document metadata = new Document();
