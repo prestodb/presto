@@ -18,12 +18,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.jdbc.AbstractConnectionProperty.ClassListConverter.CLASS_LIST_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.StringMapConverter.STRING_MAP_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.checkedPredicate;
 import static java.util.Collections.unmodifiableMap;
@@ -52,6 +54,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
+    public static final ConnectionProperty<List<QueryInterceptor>> QUERY_INTERCEPTORS = new QueryInterceptors();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -74,6 +77,7 @@ final class ConnectionProperties
             .add(ACCESS_TOKEN)
             .add(EXTRA_CREDENTIALS)
             .add(SESSION_PROPERTIES)
+            .add(QUERY_INTERCEPTORS)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -306,6 +310,15 @@ final class ConnectionProperties
         public SessionProperties()
         {
             super("sessionProperties", NOT_REQUIRED, ALLOWED, STRING_MAP_CONVERTER);
+        }
+    }
+
+    private static class QueryInterceptors
+            extends AbstractConnectionProperty<List<QueryInterceptor>>
+    {
+        public QueryInterceptors()
+        {
+            super("queryInterceptors", NOT_REQUIRED, ALLOWED, CLASS_LIST_CONVERTER);
         }
     }
 }
