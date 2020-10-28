@@ -55,6 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestHiveClientFileMetastore
@@ -152,6 +153,8 @@ public class TestHiveClientFileMetastore
                 splitManager.getSplits(transaction.getTransactionHandle(), session, tableLayout.getHandle(), SPLIT_SCHEDULING_CONTEXT);
                 assertNotNull(SPLIT_SCHEDULING_CONTEXT.getWarningCollector());
                 assertEquals(SPLIT_SCHEDULING_CONTEXT.getWarningCollector().getWarnings().size(), 1);
+                assertTrue(SPLIT_SCHEDULING_CONTEXT.getWarningCollector().getWarnings().get(0).getMessage().contains("has 1 out of 3 partitions unreadable: ds=2020-01-03... are due to Testing Unreadable Partition. "));
+                assertEquals(SPLIT_SCHEDULING_CONTEXT.getWarningCollector().getWarnings().get(0).getWarningCode().getName(), "PARTITION_NOT_READABLE");
             }
         }
         catch (Exception e) {
