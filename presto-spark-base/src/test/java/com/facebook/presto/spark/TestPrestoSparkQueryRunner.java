@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
@@ -565,6 +566,24 @@ public class TestPrestoSparkQueryRunner
         long totalRows = (Long) computeActual("SELECT count(*) FROM orders").getOnlyValue();
         long sampledRows = (Long) computeActual("SELECT count(*) FROM orders TABLESAMPLE SYSTEM (1)").getOnlyValue();
         assertThat(sampledRows).isLessThan(totalRows);
+    }
+
+    @Test
+    public void testTimeouts()
+    {
+        // Expected run time for this query is ~30s
+        String longRunningCrossJoin = "SELECT count(l1.orderkey), count(l2.orderkey) FROM lineitem l1, lineitem l2";
+
+        Session queryMaxRunTimeLimitSession = Session.builder(getSession())
+                .setSystemProperty("query_max_run_time", "2s")
+                .build();
+        assertQueryFails(queryMaxRunTimeLimitSession, longRunningCrossJoin, "Query exceeded maximum time limit of 2.00s");
+
+        Session queryMaxExecutionTimeLimitSession = Session.builder(getSession())
+                .setSystemProperty("query_max_run_time", "3s")
+                .setSystemProperty("query_max_execution_time", "2s")
+                .build();
+        assertQueryFails(queryMaxExecutionTimeLimitSession, longRunningCrossJoin, "Query exceeded maximum time limit of 2.00s");
     }
 
     private void assertBucketedQuery(String sql)
