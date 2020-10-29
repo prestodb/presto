@@ -299,7 +299,8 @@ public class MapBlock
 
             verify(this.hashTables.getExpectedHashTableCount() <= offsets.length, "incorrect offsets size");
 
-            for (int i = 0; i < this.hashTables.getExpectedHashTableCount(); i++) {
+            for (int i = 0; i < positionCount; i++) {
+//            for (int i = 0; i < this.hashTables.getExpectedHashTableCount(); i++) {
                 int keyOffset = offsets[i];
                 int keyCount = offsets[i + 1] - keyOffset;
                 if (keyCount < 0) {

@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
+import static com.facebook.presto.common.block.BlockUtil.ensureCapacity;
 import static com.facebook.presto.common.block.MapBlock.createMapBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
@@ -70,7 +71,7 @@ public class MapBlockBuilder
                 valueType.createBlockBuilder(blockBuilderStatus, expectedEntries),
                 new int[expectedEntries + 1],
                 new boolean[expectedEntries],
-                newNegativeOneFilledArray(expectedEntries * HASH_MULTIPLIER));
+                null);
     }
 
     private MapBlockBuilder(
@@ -92,7 +93,7 @@ public class MapBlockBuilder
         this.mapIsNull = requireNonNull(mapIsNull, "mapIsNull is null");
         this.keyBlockBuilder = requireNonNull(keyBlockBuilder, "keyBlockBuilder is null");
         this.valueBlockBuilder = requireNonNull(valueBlockBuilder, "valueBlockBuilder is null");
-        this.hashTables = new HashTables(Optional.of(requireNonNull(rawHashTables, "hashTables is null")), 0, rawHashTables.length);
+        this.hashTables = new HashTables(Optional.ofNullable(rawHashTables), 0, rawHashTables != null ? rawHashTables.length : 0);
         this.logicalSizeInBytes = -1;
     }
 
@@ -193,20 +194,6 @@ public class MapBlockBuilder
         entryAdded(false);
         currentEntryOpened = false;
 
-        ensureHashTableSize();
-        int previousAggregatedEntryCount = offsets[positionCount - 1];
-        int aggregatedEntryCount = offsets[positionCount];
-        int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        int[] rawHashTables = hashTables.get();
-        verify(rawHashTables != null, "rawHashTables is null");
-        buildHashTable(
-                keyBlockBuilder,
-                previousAggregatedEntryCount,
-                entryCount,
-                keyBlockHashCode,
-                rawHashTables,
-                previousAggregatedEntryCount * HASH_MULTIPLIER,
-                entryCount * HASH_MULTIPLIER);
         return this;
     }
 
@@ -227,21 +214,6 @@ public class MapBlockBuilder
         entryAdded(false);
         currentEntryOpened = false;
 
-        ensureHashTableSize();
-        int previousAggregatedEntryCount = offsets[positionCount - 1];
-        int aggregatedEntryCount = offsets[positionCount];
-        int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        int[] rawHashTables = hashTables.get();
-        verify(rawHashTables != null, "rawHashTables is null");
-        buildHashTableStrict(
-                keyBlockBuilder,
-                previousAggregatedEntryCount,
-                entryCount,
-                keyBlockEquals,
-                keyBlockHashCode,
-                rawHashTables,
-                previousAggregatedEntryCount * HASH_MULTIPLIER,
-                entryCount * HASH_MULTIPLIER);
         return this;
     }
 
@@ -254,32 +226,24 @@ public class MapBlockBuilder
         entryAdded(false);
         currentEntryOpened = false;
 
-        ensureHashTableSize();
         int previousAggregatedEntryCount = offsets[positionCount - 1];
         int aggregatedEntryCount = offsets[positionCount];
 
-        int[] rawHashTables = hashTables.get();
-        verify(rawHashTables != null, "rawHashTables is null");
+//        verify(rawHashTables != null, "rawHashTables is null");
         if (providedHashTable != null) {
+            ensureHashTableSize();
+            int[] rawHashTables = hashTables.get();
+
             // Directly copy instead of building hashtable if providedHashTable is not null
             int hashTableOffset = previousAggregatedEntryCount * HASH_MULTIPLIER;
             int hashTableSize = (aggregatedEntryCount - previousAggregatedEntryCount) * HASH_MULTIPLIER;
-            for (int i = 0; i < hashTableSize; i++) {
-                rawHashTables[hashTableOffset + i] = providedHashTable[providedHashTableOffset + i];
-            }
+
+            System.arraycopy(providedHashTable, providedHashTableOffset, rawHashTables, hashTableOffset, hashTableSize);
+//            for (int i = 0; i < hashTableSize; i++) {
+//                rawHashTables[hashTableOffset + i] = providedHashTable[providedHashTableOffset + i];
+//            }
         }
-        else {
-            // Build hash table for this map entry.
-            int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-            buildHashTable(
-                    keyBlockBuilder,
-                    previousAggregatedEntryCount,
-                    entryCount,
-                    keyBlockHashCode,
-                    rawHashTables,
-                    previousAggregatedEntryCount * HASH_MULTIPLIER,
-                    entryCount * HASH_MULTIPLIER);
-        }
+
         return this;
     }
 
@@ -317,13 +281,10 @@ public class MapBlockBuilder
     private void ensureHashTableSize()
     {
         int[] rawHashTables = hashTables.get();
-        verify(rawHashTables != null, "rawHashTables is null");
-        if (rawHashTables.length < offsets[positionCount] * HASH_MULTIPLIER) {
-            int newSize = BlockUtil.calculateNewArraySize(offsets[positionCount] * HASH_MULTIPLIER);
-            int[] newRawHashTables = Arrays.copyOf(rawHashTables, newSize);
-            Arrays.fill(newRawHashTables, rawHashTables.length, newSize, -1);
-            hashTables.set(newRawHashTables);
-        }
+        int newSize = BlockUtil.calculateNewArraySize(offsets[positionCount] * HASH_MULTIPLIER);
+        int[] newRawHashTables = ensureCapacity(rawHashTables, newSize);
+//        Arrays.fill(newRawHashTables, rawHashTables == null ? 0 : rawHashTables.length, newSize, -1);
+        hashTables.set(newRawHashTables);
     }
 
     @Override
@@ -353,8 +314,15 @@ public class MapBlockBuilder
         }
 
         int[] rawHashTables = hashTables.get();
-        verify(rawHashTables != null, "rawHashTables is null");
-        int hashTablesEntries = offsets[positionCount] * HASH_MULTIPLIER;
+        HashTables newHashTables = null;
+        if (rawHashTables != null) {
+            int hashTablesEntries = offsets[positionCount] * HASH_MULTIPLIER;
+            newHashTables = new HashTables(Optional.of(Arrays.copyOf(rawHashTables, hashTablesEntries)), positionCount, hashTablesEntries);
+        }
+        else {
+            newHashTables = new HashTables(Optional.empty(), 0, 0);
+        }
+
         return createMapBlockInternal(
                 0,
                 positionCount,
@@ -362,7 +330,7 @@ public class MapBlockBuilder
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
-                new HashTables(Optional.of(Arrays.copyOf(rawHashTables, hashTablesEntries)), positionCount, hashTablesEntries));
+                newHashTables);
     }
 
     @Override
@@ -453,7 +421,7 @@ public class MapBlockBuilder
                 valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus),
                 new int[newSize + 1],
                 new boolean[newSize],
-                newNegativeOneFilledArray(newSize * HASH_MULTIPLIER));
+                null);
     }
 
     @Override
@@ -469,11 +437,51 @@ public class MapBlockBuilder
                 valueBlockBuilder.newBlockBuilderLike(blockBuilderStatus, nestedExpectedEntries),
                 new int[newSize + 1],
                 new boolean[newSize],
-                newNegativeOneFilledArray(newSize * HASH_MULTIPLIER));
+                null);
     }
 
+//    @Override
+//    protected void ensureHashTableLoaded(MethodHandle keyBlockHashCode) {}
+
     @Override
-    protected void ensureHashTableLoaded(MethodHandle keyBlockHashCode) {}
+    protected void ensureHashTableLoaded(MethodHandle keyBlockHashCode)
+    {
+        if (isHashTablesPresent()) {
+            return;
+        }
+
+        // We need to synchronize access to the hashTables field as it may be shared by multiple MapBlock instances.
+        synchronized (hashTables) {
+            if (isHashTablesPresent()) {
+                return;
+            }
+
+            int[] hashTables = new int[getRawKeyBlock().getPositionCount() * HASH_MULTIPLIER];
+            Arrays.fill(hashTables, -1);
+
+            verify(this.hashTables.getExpectedHashTableCount() <= offsets.length, "incorrect offsets size");
+
+            for (int i = 0; i < positionCount; i++) {
+                int keyOffset = offsets[i];
+                int keyCount = offsets[i + 1] - keyOffset;
+                if (keyCount < 0) {
+                    throw new IllegalArgumentException(format("Offset is not monotonically ascending. offsets[%s]=%s, offsets[%s]=%s", i, offsets[i], i + 1, offsets[i + 1]));
+                }
+                if (mapIsNull != null && mapIsNull[i] && keyCount != 0) {
+                    throw new IllegalArgumentException("A null map must have zero entries");
+                }
+                buildHashTable(
+                        getRawKeyBlock(),
+                        keyOffset,
+                        keyCount,
+                        keyBlockHashCode,
+                        hashTables,
+                        keyOffset * HASH_MULTIPLIER,
+                        keyCount * HASH_MULTIPLIER);
+            }
+            this.hashTables.set(hashTables);
+        }
+    }
 
     private static int[] newNegativeOneFilledArray(int size)
     {

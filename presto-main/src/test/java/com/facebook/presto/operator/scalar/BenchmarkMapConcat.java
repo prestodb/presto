@@ -65,7 +65,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(2)
+@Fork(0)
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
@@ -92,7 +92,7 @@ public class BenchmarkMapConcat
         private String name = "map_concat";
 
         @Param({"left_empty", "right_empty", "both_empty", "non_empty"})
-        private String mapConfig = "left_empty";
+        private String mapConfig = "non_empty";
 
         private Page page;
         private PageProcessor pageProcessor;

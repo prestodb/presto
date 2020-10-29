@@ -67,7 +67,7 @@ public class MapSubscriptOperator
                 ImmutableList.of(),
                 parseTypeSignature("V"),
                 ImmutableList.of(parseTypeSignature("map(K,V)"), parseTypeSignature("K")));
-        this.legacyMissingKey = legacyMissingKey;
+        this.legacyMissingKey = true;
     }
 
     @Override
