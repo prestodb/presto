@@ -119,15 +119,6 @@ public final class BlockUtil
         return toIntExact(newSize);
     }
 
-    static int calculateBlockResetBytes(int currentBytes)
-    {
-        long newBytes = (long) ceil(currentBytes * BLOCK_RESET_SKEW);
-        if (newBytes > MAX_ARRAY_SIZE) {
-            return MAX_ARRAY_SIZE;
-        }
-        return (int) newBytes;
-    }
-
     /**
      * Recalculate the <code>offsets</code> array for the specified range.
      * The returned <code>offsets</code> array contains <code>length + 1</code> integers
