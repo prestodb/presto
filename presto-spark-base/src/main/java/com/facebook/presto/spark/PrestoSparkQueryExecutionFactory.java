@@ -271,7 +271,6 @@ public class PrestoSparkQueryExecutionFactory
         WarningCollector warningCollector = WarningCollector.NOOP;
 
         Session session = sessionSupplier.createSession(queryId, sessionContext);
-        settingsRequirements.verify(sparkContext, session);
 
         TransactionId transactionId = transactionManager.beginTransaction(true);
         session = session.beginTransactionId(transactionId, transactionManager, accessControl);
@@ -290,6 +289,8 @@ public class PrestoSparkQueryExecutionFactory
 
         PlanAndMore planAndMore = null;
         try {
+            settingsRequirements.verify(sparkContext, session);
+
             queryStateTimer.beginAnalyzing();
 
             PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, sql, warningCollector);
