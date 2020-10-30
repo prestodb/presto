@@ -166,4 +166,18 @@ public class TestHiveExternalWorkersQueries
 
         assertQuery("SELECT custkey, min(totalprice), max(orderkey) FROM orders GROUP BY custkey");
     }
+
+    @Test
+    public void testTopN()
+    {
+        assertQuery("SELECT nationkey, regionkey FROM nation ORDER BY nationkey LIMIT 5");
+
+        assertQuery("SELECT nationkey, regionkey FROM nation ORDER BY nationkey LIMIT 50");
+
+        assertQuery("SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax " +
+                "FROM lineitem ORDER BY orderkey, linenumber DESC LIMIT 10");
+
+        assertQuery("SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax " +
+                "FROM lineitem ORDER BY orderkey, linenumber DESC LIMIT 2000");
+    }
 }
