@@ -98,6 +98,10 @@ public class TestHiveExternalWorkersQueries
                                         "node.ip=127.0.0.1\n" +
                                         "node.environment=testing", UUID.randomUUID()).getBytes());
 
+                        Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
+                        Files.createDirectory(catalogDirectoryPath);
+                        Files.write(catalogDirectoryPath.resolve("hive.properties"), "connector.name=hive".getBytes());
+
                         return new ProcessBuilder(prestoServerPath.get(), "--logtostderr=1", "--v=1")
                                 .directory(tempDirectoryPath.toFile())
                                 .redirectErrorStream(true)
