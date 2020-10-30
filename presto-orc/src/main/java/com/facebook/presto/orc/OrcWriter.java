@@ -87,8 +87,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.lang.Integer.max;
 import static java.lang.Integer.min;
+import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -309,8 +309,8 @@ public class OrcWriter
         }
 
         // avoid chunk with huge logical size
-        int averageLogicalSizePerRow = estimateAverageLogicalSizePerRow(page);
-        int maxChunkRowCount = max(1, chunkMaxLogicalBytes / max(1, averageLogicalSizePerRow));
+        double averageLogicalSizePerRow = (double) page.getApproximateLogicalSizeInBytes() / page.getPositionCount();
+        int maxChunkRowCount = max(1, (int) (chunkMaxLogicalBytes / max(1, averageLogicalSizePerRow)));
 
         while (page != null) {
             // logical size and row group boundaries
@@ -744,14 +744,6 @@ public class OrcWriter
                 new OrcReaderOptions(new DataSize(1, MEGABYTE), new DataSize(8, MEGABYTE), new DataSize(16, MEGABYTE), false),
                 dwrfEncryptionProvider,
                 DwrfKeyProvider.of(intermediateKeyMetadata.build()));
-    }
-
-    private int estimateAverageLogicalSizePerRow(Page page)
-    {
-        checkArgument(page.getPositionCount() > 0, "page is empty");
-        // sample at most 100 rows to estimate average row logical size
-        Page chunk = page.getRegion(0, min(page.getPositionCount(), 100));
-        return toIntExact(chunk.getLogicalSizeInBytes() / chunk.getPositionCount());
     }
 
     private static <T> List<T> toDenseList(Map<Integer, T> data, int expectedSize)
