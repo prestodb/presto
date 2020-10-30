@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.TestBackgroundHiveSplitLoader;
@@ -22,7 +23,6 @@ import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.type.TimeZoneKey;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -109,7 +109,7 @@ public class TestSemiTransactionalHiveMetastore
 
     private Table table(String path)
     {
-        Storage storage = new Storage(StorageFormat.VIEW_STORAGE_FORMAT, path, Optional.empty(), false, ImmutableMap.of());
+        Storage storage = new Storage(StorageFormat.VIEW_STORAGE_FORMAT, path, Optional.empty(), false, ImmutableMap.of(), ImmutableMap.of());
         return new Table("db001", "tbl001", "user001", MANAGED_TABLE, storage, ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(), Optional.empty(), Optional.empty());
     }
 
@@ -145,12 +145,12 @@ public class TestSemiTransactionalHiveMetastore
 
     private SemiTransactionalHiveMetastore getSemiTransactionalHiveMetastore()
     {
-        HdfsEnvironment hdfsEnvironment = new TestBackgroundHiveSplitLoader.TestingHdfsEnvironment();
+        HdfsEnvironment hdfsEnvironment = new TestBackgroundHiveSplitLoader.TestingHdfsEnvironment(ImmutableList.of());
         FileHiveMetastore hiveMetastore = new FileHiveMetastore(hdfsEnvironment, "/tmp/test", "user001");
         HiveMetastoreAuthentication authentication = new NoHiveMetastoreAuthentication();
         ExecutorService executor = newSingleThreadExecutor(daemonThreadsNamed("test-%s"));
         ListeningExecutorService renameExecutor = listeningDecorator(executor);
 
-        return new SemiTransactionalHiveMetastore(hdfsEnvironment, hiveMetastore, renameExecutor, authentication, false, false);
+        return new SemiTransactionalHiveMetastore(hdfsEnvironment, hiveMetastore, renameExecutor, false, false);
     }
 }

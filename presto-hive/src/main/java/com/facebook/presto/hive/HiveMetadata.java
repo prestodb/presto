@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
@@ -78,6 +79,7 @@ import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
+import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -1918,7 +1920,7 @@ public class HiveMetadata
 
     private PrincipalPrivileges getTablePrincipalPrivileges(ConnectorIdentity identity, String databaseName, String tableName, PrestoPrincipal principal)
     {
-        return PrincipalPrivileges.fromHivePrivilegeInfos(metastore.listTablePrivileges(identity, databaseName, tableName, principal));
+        return PrincipalPrivileges.fromHivePrivilegeInfos(metastore.listTablePrivileges(databaseName, tableName, principal));
     }
 
     private static boolean isTempPathRequired(ConnectorSession session, Optional<HiveBucketProperty> bucketProperty, List<SortingColumn> preferredOrderingColumns)

@@ -41,6 +41,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
@@ -443,9 +444,9 @@ public class TestBackgroundHiveSplitLoader
     {
         ConnectorSession connectorSession = new TestingConnectorSession(
                 new HiveSessionProperties(
-                    new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
-                    new OrcFileWriterConfig(),
-                    new ParquetFileWriterConfig()).getSessionProperties());
+                        new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig()).getSessionProperties());
         return backgroundHiveSplitLoader(connectorSession, files, pathDomain, hiveBucketFilter, table, bucketHandle);
     }
 
@@ -639,24 +640,7 @@ public class TestBackgroundHiveSplitLoader
                 new BlockLocation[] {});
     }
 
-    private static LocatedFileStatus locatedFileStatus(Path path, long fileSize)
-    {
-        return new LocatedFileStatus(
-                fileSize,
-                false,
-                0,
-                fileSize,
-                0L,
-                0L,
-                null,
-                null,
-                null,
-                null,
-                path,
-                new BlockLocation[] {new BlockLocation(null, null, 0, fileSize)});
-    }
-
-    private static class TestingDirectoryLister
+    public static class TestingDirectoryLister
             implements DirectoryLister
     {
         private final List<HiveFileInfo> files;
@@ -667,7 +651,13 @@ public class TestBackgroundHiveSplitLoader
         }
 
         @Override
-        public Iterator<HiveFileInfo> list(FileSystem fs, Path path, NamenodeStats namenodeStats, NestedDirectoryPolicy nestedDirectoryPolicy, PathFilter pathFilter)
+        public Iterator<HiveFileInfo> list(
+                ExtendedFileSystem fs,
+                Table table,
+                Path path,
+                NamenodeStats namenodeStats,
+                PathFilter pathFilter,
+                HiveDirectoryContext hiveDirectoryContext)
         {
             return files.iterator();
         }

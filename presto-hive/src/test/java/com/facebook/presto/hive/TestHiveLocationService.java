@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
@@ -94,7 +95,7 @@ public class TestHiveLocationService
 
         public Assertion(LocationHandle locationHandle, boolean overwrite)
         {
-            HdfsEnvironment hdfsEnvironment = new TestBackgroundHiveSplitLoader.TestingHdfsEnvironment();
+            HdfsEnvironment hdfsEnvironment = new TestBackgroundHiveSplitLoader.TestingHdfsEnvironment(ImmutableList.of());
             HiveLocationService service = new HiveLocationService(hdfsEnvironment);
             this.actual = service.getTableWriteInfo(locationHandle, overwrite);
         }
