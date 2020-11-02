@@ -202,6 +202,7 @@ public class PrestoSparkQueryRunner
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 new SqlParserOptions(),
                 ImmutableList.of(),
                 true);

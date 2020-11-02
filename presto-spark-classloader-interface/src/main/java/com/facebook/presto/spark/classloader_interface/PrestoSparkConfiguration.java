@@ -28,13 +28,15 @@ public class PrestoSparkConfiguration
     private final Map<String, Map<String, String>> catalogProperties;
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
+    private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
 
     public PrestoSparkConfiguration(
             Map<String, String> configProperties,
             String pluginsDirectoryPath,
             Map<String, Map<String, String>> catalogProperties,
             Optional<Map<String, String>> eventListenerProperties,
-            Optional<Map<String, String>> accessControlProperties)
+            Optional<Map<String, String>> accessControlProperties,
+            Optional<Map<String, String>> sessionPropertyConfigurationProperties)
     {
         this.configProperties = unmodifiableMap(new HashMap<>(requireNonNull(configProperties, "configProperties is null")));
         this.pluginsDirectoryPath = requireNonNull(pluginsDirectoryPath, "pluginsDirectoryPath is null");
@@ -43,6 +45,8 @@ public class PrestoSparkConfiguration
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null")
+                .map(properties -> unmodifiableMap(new HashMap<>(properties)));
+        this.sessionPropertyConfigurationProperties = requireNonNull(sessionPropertyConfigurationProperties, "sessionPropertyConfigurationProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
     }
 
@@ -69,5 +73,10 @@ public class PrestoSparkConfiguration
     public Optional<Map<String, String>> getAccessControlProperties()
     {
         return accessControlProperties;
+    }
+
+    public Optional<Map<String, String>> getSessionPropertyConfigurationProperties()
+    {
+        return sessionPropertyConfigurationProperties;
     }
 }
