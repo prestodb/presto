@@ -47,6 +47,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.QuerySessionSupplier;
 import com.facebook.presto.server.SessionContext;
+import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
@@ -198,6 +199,7 @@ public class PrestoSparkQueryExecutionFactory
     private final PrestoSparkSettingsRequirements settingsRequirements;
     private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
     private final PrestoSparkTaskExecutorFactory prestoSparkTaskExecutorFactory;
+    private final SessionPropertyDefaults sessionPropertyDefaults;
 
     private final Set<PrestoSparkCredentialsProvider> credentialsProviders;
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
@@ -222,6 +224,7 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkSettingsRequirements settingsRequirements,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             PrestoSparkTaskExecutorFactory prestoSparkTaskExecutorFactory,
+            SessionPropertyDefaults sessionPropertyDefaults,
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
     {
@@ -243,6 +246,7 @@ public class PrestoSparkQueryExecutionFactory
         this.settingsRequirements = requireNonNull(settingsRequirements, "settingsRequirements is null");
         this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
         this.prestoSparkTaskExecutorFactory = requireNonNull(prestoSparkTaskExecutorFactory, "prestoSparkTaskExecutorFactory is null");
+        this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
         this.credentialsProviders = ImmutableSet.copyOf(requireNonNull(credentialsProviders, "credentialsProviders is null"));
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
     }
@@ -277,6 +281,8 @@ public class PrestoSparkQueryExecutionFactory
         WarningCollector warningCollector = WarningCollector.NOOP;
 
         Session session = sessionSupplier.createSession(queryId, sessionContext);
+
+        session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 
         TransactionId transactionId = transactionManager.beginTransaction(true);
         session = session.beginTransactionId(transactionId, transactionManager, accessControl);

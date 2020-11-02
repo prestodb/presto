@@ -60,7 +60,8 @@ public class PrestoSparkRunner
                 distribution.getConfigProperties(),
                 distribution.getCatalogProperties(),
                 distribution.getEventListenerProperties(),
-                distribution.getAccessControlProperties());
+                distribution.getAccessControlProperties(),
+                distribution.getSessionPropertyConfigurationProperties());
     }
 
     public void run(
@@ -150,7 +151,8 @@ public class PrestoSparkRunner
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
             Optional<Map<String, String>> eventListenerProperties,
-            Optional<Map<String, String>> accessControlProperties)
+            Optional<Map<String, String>> accessControlProperties,
+            Optional<Map<String, String>> sessionPropertyConfigurationProperties)
     {
         String packagePath = getPackagePath(packageSupplier);
         File pluginsDirectory = checkDirectory(new File(packagePath, "plugin"));
@@ -159,7 +161,8 @@ public class PrestoSparkRunner
                 pluginsDirectory.getAbsolutePath(),
                 catalogProperties,
                 eventListenerProperties,
-                accessControlProperties);
+                accessControlProperties,
+                sessionPropertyConfigurationProperties);
         IPrestoSparkServiceFactory serviceFactory = createServiceFactory(checkDirectory(new File(packagePath, "lib")));
         return serviceFactory.createService(sparkProcessType, configuration);
     }
@@ -177,6 +180,7 @@ public class PrestoSparkRunner
         private final Map<String, Map<String, String>> catalogProperties;
         private final Map<String, String> eventListenerProperties;
         private final Map<String, String> accessControlProperties;
+        private final Map<String, String> sessionPropertyConfigurationProperties;
 
         public DistributionBasedPrestoSparkTaskExecutorFactoryProvider(PrestoSparkDistribution distribution)
         {
@@ -187,6 +191,7 @@ public class PrestoSparkRunner
             // Optional is not Serializable
             this.eventListenerProperties = distribution.getEventListenerProperties().orElse(null);
             this.accessControlProperties = distribution.getAccessControlProperties().orElse(null);
+            this.sessionPropertyConfigurationProperties = distribution.getSessionPropertyConfigurationProperties().orElse(null);
         }
 
         @Override
@@ -203,6 +208,7 @@ public class PrestoSparkRunner
         private static Map<String, Map<String, String>> currentCatalogProperties;
         private static Map<String, String> currentEventListenerProperties;
         private static Map<String, String> currentAccessControlProperties;
+        private static Map<String, String> currentSessionPropertyConfigurationProperties;
 
         private IPrestoSparkService getOrCreatePrestoSparkService()
         {
@@ -214,12 +220,15 @@ public class PrestoSparkRunner
                             configProperties,
                             catalogProperties,
                             Optional.ofNullable(eventListenerProperties),
-                            Optional.ofNullable(accessControlProperties));
+                            Optional.ofNullable(accessControlProperties),
+                            Optional.ofNullable(sessionPropertyConfigurationProperties));
+
                     currentPackagePath = getPackagePath(packageSupplier);
                     currentConfigProperties = configProperties;
                     currentCatalogProperties = catalogProperties;
                     currentEventListenerProperties = eventListenerProperties;
                     currentAccessControlProperties = accessControlProperties;
+                    currentSessionPropertyConfigurationProperties = sessionPropertyConfigurationProperties;
                 }
                 else {
                     checkEquals("packagePath", currentPackagePath, getPackagePath(packageSupplier));
@@ -227,6 +236,9 @@ public class PrestoSparkRunner
                     checkEquals("catalogProperties", currentCatalogProperties, catalogProperties);
                     checkEquals("eventListenerProperties", currentEventListenerProperties, eventListenerProperties);
                     checkEquals("accessControlProperties", currentAccessControlProperties, accessControlProperties);
+                    checkEquals("sessionPropertyConfigurationProperties",
+                            currentSessionPropertyConfigurationProperties,
+                            sessionPropertyConfigurationProperties);
                 }
                 return service;
             }
