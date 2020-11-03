@@ -14,9 +14,8 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.aggregation.TypedSet;
+import com.facebook.presto.operator.aggregation.OptimizedTypedSet;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
@@ -41,28 +40,16 @@ public final class ArrayIntersectFunction
             rightArray = tempArray;
         }
 
-        int leftPositionCount = leftArray.getPositionCount();
         int rightPositionCount = rightArray.getPositionCount();
 
         if (rightPositionCount == 0) {
             return rightArray;
         }
 
-        TypedSet rightTypedSet = new TypedSet(type, rightPositionCount, "array_intersect");
-        for (int i = 0; i < rightPositionCount; i++) {
-            rightTypedSet.add(rightArray, i);
-        }
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(type, rightPositionCount);
+        typedSet.union(rightArray);
+        typedSet.intersect(leftArray);
 
-        BlockBuilder blockBuilder = type.createBlockBuilder(null, Math.min(leftPositionCount, rightPositionCount));
-
-        // The intersected set can have at most rightPositionCount elements
-        TypedSet intersectTypedSet = new TypedSet(type, blockBuilder, rightPositionCount, "array_intersect");
-        for (int i = 0; i < leftPositionCount; i++) {
-            if (rightTypedSet.contains(leftArray, i)) {
-                intersectTypedSet.add(leftArray, i);
-            }
-        }
-
-        return blockBuilder.build();
+        return typedSet.getBlock();
     }
 }
