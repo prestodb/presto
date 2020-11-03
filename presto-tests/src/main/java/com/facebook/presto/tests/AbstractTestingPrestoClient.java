@@ -155,7 +155,8 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getIdentity().getRoles(),
                 session.getIdentity().getExtraCredentials(),
                 session.getTransactionId().map(Object::toString).orElse(null),
-                clientRequestTimeout);
+                clientRequestTimeout,
+                true);
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
