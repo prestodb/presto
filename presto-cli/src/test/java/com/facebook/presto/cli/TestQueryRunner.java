@@ -99,7 +99,8 @@ public class TestQueryRunner
                         ImmutableMap.of(),
                         ImmutableMap.of(),
                         null,
-                        new Duration(2, MINUTES)));
+                        new Duration(2, MINUTES),
+                        true));
         try (Query query = queryRunner.startQuery("first query will introduce a cookie")) {
             query.renderOutput(new PrintStream(nullOutputStream()), CSV, false);
         }

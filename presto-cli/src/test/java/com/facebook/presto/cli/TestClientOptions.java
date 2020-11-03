@@ -23,6 +23,7 @@ import java.util.Optional;
 
 import static io.airlift.airline.SingleCommand.singleCommand;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestClientOptions
 {
@@ -123,6 +124,14 @@ public class TestClientOptions
 
         // empty values are allowed
         assertEquals(new ClientSessionProperty("foo="), new ClientSessionProperty(Optional.empty(), "foo", ""));
+    }
+
+    @Test
+    public void testDisableCompression()
+    {
+        Console console = singleCommand(Console.class).parse("--disable-compression");
+        assertTrue(console.clientOptions.disableCompression);
+        assertTrue(console.clientOptions.toClientSession().isCompressionDisabled());
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)

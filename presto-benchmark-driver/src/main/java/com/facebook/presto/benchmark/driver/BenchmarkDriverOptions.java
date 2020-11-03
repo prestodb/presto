@@ -85,6 +85,9 @@ public class BenchmarkDriverOptions
     @Option(name = "--client-request-timeout", title = "client request timeout", description = "Client request timeout (default: 2m)")
     public Duration clientRequestTimeout = new Duration(2, MINUTES);
 
+    @Option(name = "--disable-compression", title = "disable response compression", description = "Disable compression of query results")
+    public boolean disableCompression;
+
     public ClientSession getClientSession()
     {
         return new ClientSession(
@@ -104,7 +107,8 @@ public class BenchmarkDriverOptions
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 null,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                disableCompression);
     }
 
     private static URI parseServer(String server)
