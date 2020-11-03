@@ -556,6 +556,12 @@ public class OperatorContext
             }
         }
 
+        @Override
+        public Session getSession()
+        {
+            return driverContext.getSession();
+        }
+
         public long getSpilledBytes()
         {
             return spilledBytes.longValue();

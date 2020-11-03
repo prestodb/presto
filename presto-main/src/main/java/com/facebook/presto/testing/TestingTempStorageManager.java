@@ -14,7 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.spiller.LocalTempStorage;
-import com.facebook.presto.spiller.TempStorageManager;
+import com.facebook.presto.storage.TempStorageManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
@@ -41,7 +41,7 @@ public class TestingTempStorageManager
     @VisibleForTesting
     public TestingTempStorageManager(String tempStoragePath)
     {
-        super();
+        super(new TestingNodeManager());
         loadTempStorage(
                 LocalTempStorage.NAME,
                 ImmutableMap.of(TEMP_STORAGE_PATH, tempStoragePath));

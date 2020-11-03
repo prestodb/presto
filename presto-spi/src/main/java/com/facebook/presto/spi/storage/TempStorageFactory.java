@@ -19,5 +19,5 @@ public interface TempStorageFactory
 {
     String getName();
 
-    TempStorage create(Map<String, String> config);
+    TempStorage create(Map<String, String> config, TempStorageContext context);
 }

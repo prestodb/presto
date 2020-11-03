@@ -122,7 +122,7 @@ public class TestTempStorageSingleStreamSpiller
                 toIntExact(new DataSize(4, KILOBYTE).toBytes()),
                 LocalTempStorage.NAME);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
-        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
+        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, new TestingSpillContext(), memoryContext);
         assertTrue(singleStreamSpiller instanceof TempStorageSingleStreamSpiller);
         TempStorageSingleStreamSpiller spiller = (TempStorageSingleStreamSpiller) singleStreamSpiller;
 

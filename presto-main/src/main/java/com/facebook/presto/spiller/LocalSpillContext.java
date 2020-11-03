@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.operator.SpillContext;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -38,6 +39,12 @@ public final class LocalSpillContext
         checkState(!closed, "Already closed");
         parentSpillContext.updateBytes(bytes);
         spilledBytes += bytes;
+    }
+
+    @Override
+    public Session getSession()
+    {
+        return parentSpillContext.getSession();
     }
 
     @Override
