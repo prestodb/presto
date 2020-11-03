@@ -14,19 +14,12 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.aggregation.TypedSet;
+import com.facebook.presto.operator.aggregation.OptimizedTypedSet;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongSet;
-
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 
 @ScalarFunction("array_union")
 @Description("Union elements of the two given arrays")
@@ -43,52 +36,13 @@ public final class ArrayUnionFunction
     {
         int leftArrayCount = leftArray.getPositionCount();
         int rightArrayCount = rightArray.getPositionCount();
-        TypedSet typedSet = new TypedSet(type, leftArrayCount + rightArrayCount, "array_union");
-        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftArrayCount + rightArrayCount);
-        appendTypedArray(leftArray, type, typedSet, distinctElementBlockBuilder);
-        appendTypedArray(rightArray, type, typedSet, distinctElementBlockBuilder);
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(type, leftArrayCount + rightArrayCount);
 
-        return distinctElementBlockBuilder.build();
+        typedSet.union(leftArray);
+        typedSet.union(rightArray);
+
+        return typedSet.getBlock();
     }
 
-    private static void appendTypedArray(Block array, Type type, TypedSet typedSet, BlockBuilder blockBuilder)
-    {
-        for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!typedSet.contains(array, i)) {
-                typedSet.add(array, i);
-                type.appendTo(array, i, blockBuilder);
-            }
-        }
-    }
-
-    @SqlType("array(bigint)")
-    public static Block bigintUnion(@SqlType("array(bigint)") Block leftArray, @SqlType("array(bigint)") Block rightArray)
-    {
-        int leftArrayCount = leftArray.getPositionCount();
-        int rightArrayCount = rightArray.getPositionCount();
-        LongSet set = new LongOpenHashSet(leftArrayCount + rightArrayCount);
-        BlockBuilder distinctElementBlockBuilder = BIGINT.createBlockBuilder(null, leftArrayCount + rightArrayCount);
-        AtomicBoolean containsNull = new AtomicBoolean(false);
-        appendBigintArray(leftArray, containsNull, set, distinctElementBlockBuilder);
-        appendBigintArray(rightArray, containsNull, set, distinctElementBlockBuilder);
-
-        return distinctElementBlockBuilder.build();
-    }
-
-    private static void appendBigintArray(Block array, AtomicBoolean containsNull, LongSet set, BlockBuilder blockBuilder)
-    {
-        for (int i = 0; i < array.getPositionCount(); i++) {
-            if (array.isNull(i)) {
-                if (!containsNull.get()) {
-                    containsNull.set(true);
-                    blockBuilder.appendNull();
-                }
-                continue;
-            }
-            long value = BIGINT.getLong(array, i);
-            if (set.add(value)) {
-                BIGINT.writeLong(blockBuilder, value);
-            }
-        }
-    }
+    // TODO: Specialize for bigint using LongOpenHashSet
 }
