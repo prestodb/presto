@@ -52,7 +52,10 @@ import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.validateEncryption;
+import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.orc.OrcTester.MAX_BLOCK_SIZE;
 import static com.facebook.presto.orc.OrcTester.assertFileContentsPresto;
 import static com.facebook.presto.orc.OrcTester.rowType;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnsPresto;
@@ -67,6 +70,7 @@ import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.Resources.getResource;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -466,6 +470,42 @@ public class TestDecryption
                 outputColumns);
     }
 
+    @Test
+    public void testSkipFirstStripe()
+            throws Exception
+    {
+        OrcDataSource orcDataSource = new FileOrcDataSource(
+                new File(getResource("encrypted_2splits.dwrf").getFile()),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                true);
+        OrcReader orcReader = new OrcReader(
+                orcDataSource,
+                DWRF,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource(),
+                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
+                new OrcReaderOptions(
+                        new DataSize(1, MEGABYTE),
+                        new DataSize(1, MEGABYTE),
+                        MAX_BLOCK_SIZE,
+                        false,
+                        false,
+                        false),
+                false,
+                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingPlainKeyEncryptionLibrary()));
+
+        int offset = 10;
+        try (OrcSelectiveRecordReader recordReader = getSelectiveRecordReader(orcDataSource, orcReader, offset, ImmutableMap.of(0, Slices.utf8Slice("key")))) {
+            assertFileContentsPresto(
+                    ImmutableList.of(BIGINT),
+                    recordReader,
+                    ImmutableList.of(ImmutableList.of(1L)),
+                    ImmutableList.of(0));
+        }
+    }
+
     @Test(expectedExceptions = OrcPermissionsException.class)
     public void testPermissionErrorForEncryptedWithoutKeys()
             throws Exception
@@ -706,5 +746,27 @@ public class TestDecryption
                 && !columnStatistics.hasDoubleStatistics()
                 && !columnStatistics.hasIntStatistics()
                 && !columnStatistics.hasStringStatistics();
+    }
+
+    private static OrcSelectiveRecordReader getSelectiveRecordReader(OrcDataSource orcDataSource, OrcReader orcReader, int offset, Map<Integer, Slice> columnsToIntermediateKeys)
+    {
+        return orcReader.createSelectiveRecordReader(
+                ImmutableMap.of(0, BIGINT),
+                ImmutableList.of(0),
+                ImmutableMap.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                OrcPredicate.TRUE,
+                offset,
+                orcDataSource.getSize(),
+                HIVE_STORAGE_TIME_ZONE,
+                false,
+                new TestingHiveOrcAggregatedMemoryContext(),
+                Optional.empty(),
+                MAX_BATCH_SIZE,
+                columnsToIntermediateKeys);
     }
 }
