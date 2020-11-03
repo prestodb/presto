@@ -84,6 +84,7 @@ public class PrestoConnection
     private final URI jdbcUri;
     private final URI httpUri;
     private final String user;
+    private final boolean compressionDisabled;
     private final Map<String, String> extraCredentials;
     private final Map<String, String> sessionProperties;
     private final Optional<String> applicationNamePrefix;
@@ -104,6 +105,7 @@ public class PrestoConnection
         this.catalog.set(uri.getCatalog());
         this.user = uri.getUser();
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
+        this.compressionDisabled = uri.isCompressionDisabled();
 
         this.extraCredentials = uri.getExtraCredentials();
         this.sessionProperties = new ConcurrentHashMap<>(uri.getSessionProperties());
@@ -709,7 +711,8 @@ public class PrestoConnection
                 ImmutableMap.copyOf(roles),
                 extraCredentials,
                 transactionId.get(),
-                timeout);
+                timeout,
+                compressionDisabled);
 
         return queryExecutor.startQuery(session, sql);
     }

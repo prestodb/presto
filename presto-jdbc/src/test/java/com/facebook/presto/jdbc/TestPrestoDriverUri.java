@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SESSION_PROPERTIES;
@@ -32,6 +33,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestPrestoDriverUri
@@ -162,6 +164,15 @@ public class TestPrestoDriverUri
 
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(HTTP_PROXY.getKey()), "localhost:5678");
+    }
+
+    @Test
+    public void testUriWithoutCompression()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?disableCompression=true");
+        assertTrue(parameters.isCompressionDisabled());
+        assertEquals(parameters.getProperties().getProperty(DISABLE_COMPRESSION.getKey()), "true");
     }
 
     @Test

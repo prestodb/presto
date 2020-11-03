@@ -140,6 +140,9 @@ public class ClientOptions
     @Option(name = "--ignore-errors", title = "ignore errors", description = "Continue processing in batch mode when an error occurs (default is to exit immediately)")
     public boolean ignoreErrors;
 
+    @Option(name = "--disable-compression", title = "disable response compression", description = "Disable compression of query results")
+    public boolean disableCompression;
+
     public enum OutputFormat
     {
         ALIGNED,
@@ -170,7 +173,8 @@ public class ClientOptions
                 emptyMap(),
                 toExtraCredentials(extraCredentials),
                 null,
-                clientRequestTimeout);
+                clientRequestTimeout,
+                disableCompression);
     }
 
     public static URI parseServer(String server)
