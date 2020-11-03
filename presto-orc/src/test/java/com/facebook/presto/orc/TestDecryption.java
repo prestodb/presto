@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.orc.metadata.DwrfEncryption;
 import com.facebook.presto.orc.metadata.EncryptionGroup;
 import com.facebook.presto.orc.metadata.Footer;
@@ -27,8 +28,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,8 +47,12 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.AbstractOrcRecordReader.getDecryptionKeyMetadata;
 import static com.facebook.presto.orc.AbstractTestOrcReader.intsBetween;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
+import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcEncoding.DWRF;
+import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.validateEncryption;
+import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
+import static com.facebook.presto.orc.OrcTester.MAX_BLOCK_SIZE;
 import static com.facebook.presto.orc.OrcTester.assertFileContentsPresto;
 import static com.facebook.presto.orc.OrcTester.rowType;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnsPresto;
@@ -60,6 +67,8 @@ import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.Resources.getResource;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -458,6 +467,43 @@ public class TestDecryption
                 outputColumns);
     }
 
+    @Test
+    public void testSkipFirstStripe()
+            throws Exception
+    {
+        OrcDataSource orcDataSource = new FileOrcDataSource(
+                new File(getResource("encrypted_2splits.dwrf").getFile()),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                true);
+        OrcReader orcReader = new OrcReader(
+                orcDataSource,
+                DWRF,
+                new StorageOrcFileTailSource(),
+                new StorageStripeMetadataSource(),
+                NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
+                new OrcReaderOptions(
+                        new DataSize(1, MEGABYTE),
+                        new DataSize(1, MEGABYTE),
+                        MAX_BLOCK_SIZE,
+                        false,
+                        false,
+                        false),
+                false,
+                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingPlainKeyEncryptionLibrary()),
+                DwrfKeyProvider.of(ImmutableMap.of(0, Slices.utf8Slice("key"))));
+
+        int offset = 10;
+        try (OrcSelectiveRecordReader recordReader = getSelectiveRecordReader(orcDataSource, orcReader, offset)) {
+            assertFileContentsPresto(
+                    ImmutableList.of(BIGINT),
+                    recordReader,
+                    ImmutableList.of(ImmutableList.of(1L)),
+                    ImmutableList.of(0));
+        }
+    }
+
     @Test(expectedExceptions = OrcPermissionsException.class)
     public void testPermissionErrorForEncryptedWithoutKeys()
             throws Exception
@@ -694,5 +740,26 @@ public class TestDecryption
         for (Integer subNode : types.get(node).getFieldTypeIndexes()) {
             collectNodeTree(nodes, types, subNode);
         }
+    }
+
+    private static OrcSelectiveRecordReader getSelectiveRecordReader(OrcDataSource orcDataSource, OrcReader orcReader, int offset)
+    {
+        return orcReader.createSelectiveRecordReader(
+                ImmutableMap.of(0, BIGINT),
+                ImmutableList.of(0),
+                ImmutableMap.of(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                OrcPredicate.TRUE,
+                offset,
+                orcDataSource.getSize(),
+                HIVE_STORAGE_TIME_ZONE,
+                false,
+                new TestingHiveOrcAggregatedMemoryContext(),
+                Optional.empty(),
+                MAX_BATCH_SIZE);
     }
 }
