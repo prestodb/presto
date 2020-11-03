@@ -42,7 +42,7 @@ public class TestFileSessionPropertyManager
             Optional.of("source"),
             ImmutableSet.of("tag1", "tag2"),
             Optional.of(QueryType.DATA_DEFINITION.toString()),
-            new ResourceGroupId(ImmutableList.of("global", "pipeline", "user_foo", "bar")));
+            Optional.of(new ResourceGroupId(ImmutableList.of("global", "pipeline", "user_foo", "bar"))));
 
     @Test
     public void testResourceGroupMatch()
