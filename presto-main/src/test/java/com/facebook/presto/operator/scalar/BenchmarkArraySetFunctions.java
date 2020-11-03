@@ -69,13 +69,13 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkArrayIntersect
+public class BenchmarkArraySetFunctions
 {
     private static final int POSITIONS = 1_000;
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
-    public List<Optional<Page>> arrayIntersect(BenchmarkData data)
+    public List<Optional<Page>> arrayFunction(BenchmarkData data)
     {
         return ImmutableList.copyOf(data.getPageProcessor().process(
                 SESSION.getSqlFunctionProperties(),
@@ -88,13 +88,14 @@ public class BenchmarkArrayIntersect
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private String name = "array_intersect";
+        @Param({"array_except", "array_intersect", "array_union"})
+        private String name = "array_union";
 
         @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";
 
         @Param({"10", "100", "1000"})
-        private int arraySize = 10;
+        private int arraySize = 1000;
 
         private Page page;
         private PageProcessor pageProcessor;
@@ -178,7 +179,7 @@ public class BenchmarkArrayIntersect
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        new BenchmarkArrayIntersect().arrayIntersect(data);
+        new BenchmarkArraySetFunctions().arrayFunction(data);
     }
 
     public static void main(String[] args)
@@ -187,11 +188,11 @@ public class BenchmarkArrayIntersect
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        new BenchmarkArrayIntersect().arrayIntersect(data);
+        new BenchmarkArraySetFunctions().arrayFunction(data);
 
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkArrayIntersect.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkArraySetFunctions.class.getSimpleName() + ".*")
                 .build();
         new Runner(options).run();
     }
