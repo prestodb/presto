@@ -101,7 +101,10 @@ public class SessionPropertyDefaults
         log.info("-- Loaded session property configuration manager %s --", configManagerName);
     }
 
-    public Session newSessionWithDefaultProperties(Session session, Optional<String> queryType, ResourceGroupId resourceGroupId)
+    public Session newSessionWithDefaultProperties(
+            Session session,
+            Optional<String> queryType,
+            Optional<ResourceGroupId> resourceGroupId)
     {
         SessionPropertyConfigurationManager configurationManager = delegate.get();
         if (configurationManager == null) {
