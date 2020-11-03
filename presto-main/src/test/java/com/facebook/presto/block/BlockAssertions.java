@@ -117,6 +117,11 @@ public final class BlockAssertions
         }
     }
 
+    public static Block createEmptyBlock(Type type)
+    {
+        return createAllNullsBlock(type, 0);
+    }
+
     public static Block createAllNullsBlock(Type type, int positionCount)
     {
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
