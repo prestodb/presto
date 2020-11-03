@@ -92,7 +92,7 @@ public class TestFileSingleStreamSpillerFactory
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
         for (int i = 0; i < 10; ++i) {
-            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+            SingleStreamSpiller singleStreamSpiller = spillerFactory.create(types, new TestingSpillContext(), newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
             getUnchecked(singleStreamSpiller.spill(page));
             spillers.add(singleStreamSpiller);
         }
@@ -126,7 +126,7 @@ public class TestFileSingleStreamSpillerFactory
                 false,
                 false);
 
-        spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        spillerFactory.create(types, new TestingSpillContext(), newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "No spill paths configured")
@@ -142,7 +142,7 @@ public class TestFileSingleStreamSpillerFactory
                 1.0,
                 false,
                 false);
-        spillerFactory.create(types, bytes -> {}, newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
+        spillerFactory.create(types, new TestingSpillContext(), newSimpleAggregatedMemoryContext().newLocalMemoryContext("test"));
     }
 
     @Test

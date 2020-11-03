@@ -11,25 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.spi.storage;
 
-import com.facebook.presto.Session;
-import com.facebook.presto.spiller.LocalSpillContext;
+import com.facebook.presto.spi.NodeManager;
 
-import java.io.Closeable;
+import static java.util.Objects.requireNonNull;
 
-public interface SpillContext
-        extends Closeable
+public class TempStorageContext
 {
-    void updateBytes(long bytes);
+    private final NodeManager nodeManager;
 
-    Session getSession();
-
-    default SpillContext newLocalSpillContext()
+    public TempStorageContext(NodeManager nodeManager)
     {
-        return new LocalSpillContext(this);
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
     }
 
-    @Override
-    default void close() {}
+    public NodeManager getNodeManager()
+    {
+        return nodeManager;
+    }
 }

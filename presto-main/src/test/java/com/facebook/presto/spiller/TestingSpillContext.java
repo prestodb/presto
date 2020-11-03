@@ -11,25 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.spiller;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spiller.LocalSpillContext;
+import com.facebook.presto.operator.SpillContext;
 
-import java.io.Closeable;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
-public interface SpillContext
-        extends Closeable
+public class TestingSpillContext
+        implements SpillContext
 {
-    void updateBytes(long bytes);
-
-    Session getSession();
-
-    default SpillContext newLocalSpillContext()
+    @Override
+    public void updateBytes(long bytes)
     {
-        return new LocalSpillContext(this);
     }
 
     @Override
-    default void close() {}
+    public Session getSession()
+    {
+        return testSessionBuilder().build();
+    }
 }

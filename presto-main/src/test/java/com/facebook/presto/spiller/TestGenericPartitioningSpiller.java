@@ -223,7 +223,7 @@ public class TestGenericPartitioningSpiller
 
     private static SpillContext mockSpillContext()
     {
-        return bytes -> {};
+        return new TestingSpillContext();
     }
 
     private static class FourFixedPartitionsPartitionFunction

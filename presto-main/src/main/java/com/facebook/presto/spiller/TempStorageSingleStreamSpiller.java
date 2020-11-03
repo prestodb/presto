@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -23,6 +24,7 @@ import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.spiller.SpillCipher;
+import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempDataSink;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageHandle;
@@ -61,6 +63,7 @@ public class TempStorageSingleStreamSpiller
     private final LocalMemoryContext memoryContext;
     private final Optional<SpillCipher> spillCipher;
     private final int maxBufferSizeInBytes;
+    private final TempDataOperationContext tempDataOperationContext;
 
     private final Closer closer = Closer.create();
 
@@ -93,8 +96,17 @@ public class TempStorageSingleStreamSpiller
         this.spillCipher.ifPresent(cipher -> closer.register(cipher::destroy));
         this.maxBufferSizeInBytes = maxBufferSizeInBytes;
 
+        Session session = spillContext.getSession();
+        this.tempDataOperationContext = new TempDataOperationContext(
+                // Only return the user if there is a principal attached.
+                // This avoids returning a delegated user in the case of views.
+                session.getIdentity().getPrincipal().map(ignored -> session.getIdentity().getUser()),
+                session.getSource(),
+                session.getQueryId().getId(),
+                session.getClientInfo());
+
         try {
-            dataSink = tempStorage.create();
+            dataSink = tempStorage.create(tempDataOperationContext);
             memoryContext.setBytes(dataSink.getRetainedSizeInBytes());
         }
         catch (IOException e) {
@@ -164,7 +176,7 @@ public class TempStorageSingleStreamSpiller
             }
             tempStorageHandle = dataSink.commit();
 
-            InputStream input = closer.register(tempStorage.open(tempStorageHandle));
+            InputStream input = closer.register(tempStorage.open(tempDataOperationContext, tempStorageHandle));
             Iterator<Page> pages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input));
             return closeWhenExhausted(pages, input);
         }
@@ -180,7 +192,7 @@ public class TempStorageSingleStreamSpiller
             closer.register(() -> dataSink.rollback());
         }
         if (tempStorageHandle != null) {
-            closer.register(() -> tempStorage.remove(tempStorageHandle));
+            closer.register(() -> tempStorage.remove(tempDataOperationContext, tempStorageHandle));
         }
 
         closer.register(localSpillContext);

@@ -11,13 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spiller;
+package com.facebook.presto.storage;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.connector.ConnectorAwareNodeManager;
+import com.facebook.presto.connector.system.GlobalSystemConnector;
+import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.storage.TempStorage;
+import com.facebook.presto.spi.storage.TempStorageContext;
 import com.facebook.presto.spi.storage.TempStorageFactory;
+import com.facebook.presto.spiller.LocalTempStorage;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+
+import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,8 +56,21 @@ public class TempStorageManager
     private final Map<String, TempStorage> loadedTempStorages = new ConcurrentHashMap<>();
     private final AtomicBoolean tempStorageLoading = new AtomicBoolean();
 
-    public TempStorageManager()
+    private final NodeManager nodeManager;
+
+    @Inject
+    public TempStorageManager(InternalNodeManager internalNodeManager, NodeInfo nodeInfo)
     {
+        this(new ConnectorAwareNodeManager(
+                requireNonNull(internalNodeManager, "internalNodeManager is null"),
+                requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment(),
+                new ConnectorId(GlobalSystemConnector.NAME)));
+    }
+
+    @VisibleForTesting
+    public TempStorageManager(NodeManager nodeManager)
+    {
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         addTempStorageFactory(new LocalTempStorage.Factory());
     }
 
@@ -100,7 +124,7 @@ public class TempStorageManager
         TempStorageFactory factory = tempStorageFactories.get(name);
         checkState(factory != null, "Temp Storage %s is not registered", name);
 
-        TempStorage tempStorage = factory.create(properties);
+        TempStorage tempStorage = factory.create(properties, new TempStorageContext(nodeManager));
         if (loadedTempStorages.putIfAbsent(name, tempStorage) != null) {
             throw new IllegalArgumentException(format("Temp Storage '%s' is already loaded", name));
         }
