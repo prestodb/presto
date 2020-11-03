@@ -28,6 +28,7 @@ public class ServerConfig
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean enhancedErrorReporting = true;
+    private boolean queryResultsCompressionEnabled = true;
 
     public boolean isCoordinator()
     {
@@ -104,6 +105,18 @@ public class ServerConfig
     public ServerConfig setEnhancedErrorReporting(boolean value)
     {
         this.enhancedErrorReporting = value;
+        return this;
+    }
+
+    public boolean isQueryResultsCompressionEnabled()
+    {
+        return queryResultsCompressionEnabled;
+    }
+
+    @Config("query-results.compression-enabled")
+    public ServerConfig setQueryResultsCompressionEnabled(boolean queryResultsCompressionEnabled)
+    {
+        this.queryResultsCompressionEnabled = queryResultsCompressionEnabled;
         return this;
     }
 }
