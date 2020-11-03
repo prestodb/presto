@@ -888,42 +888,51 @@ public class OrcTester
                 new TestingHiveOrcAggregatedMemoryContext())) {
             assertEquals(recordReader.getReaderPosition(), 0);
             assertEquals(recordReader.getFilePosition(), 0);
+            assertFileContentsPresto(types, recordReader, expectedValues, outputColumns);
+        }
+    }
 
-            int rowsProcessed = 0;
-            while (true) {
-                Page page = recordReader.getNextPage();
-                if (page == null) {
-                    break;
-                }
-
-                int positionCount = page.getPositionCount();
-                if (positionCount == 0) {
-                    continue;
-                }
-
-                assertTrue(expectedValues.get(0).size() >= rowsProcessed + positionCount);
-
-                for (int i = 0; i < outputColumns.size(); i++) {
-                    Type type = types.get(outputColumns.get(i));
-                    Block block = page.getBlock(i);
-                    assertEquals(block.getPositionCount(), positionCount);
-                    checkNullValues(type, block);
-
-                    List<Object> data = new ArrayList<>(positionCount);
-                    for (int position = 0; position < positionCount; position++) {
-                        data.add(type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position));
-                    }
-
-                    for (int position = 0; position < positionCount; position++) {
-                        assertColumnValueEquals(type, data.get(position), expectedValues.get(i).get(rowsProcessed + position));
-                    }
-                }
-
-                rowsProcessed += positionCount;
+    public static void assertFileContentsPresto(
+            List<Type> types,
+            OrcSelectiveRecordReader recordReader,
+            List<List<?>> expectedValues,
+            List<Integer> outputColumns)
+            throws IOException
+    {
+        int rowsProcessed = 0;
+        while (true) {
+            Page page = recordReader.getNextPage();
+            if (page == null) {
+                break;
             }
 
-            assertEquals(rowsProcessed, expectedValues.get(0).size());
+            int positionCount = page.getPositionCount();
+            if (positionCount == 0) {
+                continue;
+            }
+
+            assertTrue(expectedValues.get(0).size() >= rowsProcessed + positionCount);
+
+            for (int i = 0; i < outputColumns.size(); i++) {
+                Type type = types.get(outputColumns.get(i));
+                Block block = page.getBlock(i);
+                assertEquals(block.getPositionCount(), positionCount);
+                checkNullValues(type, block);
+
+                List<Object> data = new ArrayList<>(positionCount);
+                for (int position = 0; position < positionCount; position++) {
+                    data.add(type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position));
+                }
+
+                for (int position = 0; position < positionCount; position++) {
+                    assertColumnValueEquals(type, data.get(position), expectedValues.get(i).get(rowsProcessed + position));
+                }
+            }
+
+            rowsProcessed += positionCount;
         }
+
+        assertEquals(rowsProcessed, expectedValues.get(0).size());
     }
 
     private static Map<Integer, Map<Subfield, TupleDomainFilter>> addOrderTracking(Map<Integer, Map<Subfield, TupleDomainFilter>> filters, TupleDomainFilterOrderChecker orderChecker)

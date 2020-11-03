@@ -143,22 +143,33 @@ public class DwrfMetadataReader
         }
     }
 
-    private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> types)
+    private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> stripeInformationList)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toStripeInformation));
+        ImmutableList.Builder<StripeInformation> stripeInfoBuilder = ImmutableList.builder();
+        List<byte[]> previousKeyMetadata = ImmutableList.of();
+        for (DwrfProto.StripeInformation dwrfStripeInfo : stripeInformationList) {
+            StripeInformation prestoStripeInfo = toStripeInformation(dwrfStripeInfo, previousKeyMetadata);
+            stripeInfoBuilder.add(prestoStripeInfo);
+            previousKeyMetadata = prestoStripeInfo.getKeyMetadata();
+        }
+        return stripeInfoBuilder.build();
     }
 
-    private static StripeInformation toStripeInformation(DwrfProto.StripeInformation stripeInformation)
+    private static StripeInformation toStripeInformation(DwrfProto.StripeInformation stripeInformation, List<byte[]> previousKeyMetadata)
     {
+        List<byte[]> keyMetadata = stripeInformation.getKeyMetadataList().stream()
+                .map(ByteString::toByteArray)
+                .collect(toImmutableList());
+        if (keyMetadata.isEmpty()) {
+            keyMetadata = previousKeyMetadata;
+        }
         return new StripeInformation(
                 toIntExact(stripeInformation.getNumberOfRows()),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
                 stripeInformation.getFooterLength(),
-                stripeInformation.getKeyMetadataList().stream()
-                        .map(ByteString::toByteArray)
-                        .collect(toImmutableList()));
+                keyMetadata);
     }
 
     @Override
