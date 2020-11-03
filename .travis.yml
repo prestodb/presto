@@ -44,6 +44,7 @@ env:
     - HIVE_TESTS=true
     - KUDU_TESTS=true
     - SPARK_INTEGRATION_TESTS=true
+    - SONAR_TESTS=true
 
 sudo: required
 dist: trusty
@@ -225,10 +226,19 @@ script:
     if [[ -v SPARK_INTEGRATION_TESTS ]]; then
       ./mvnw test $MAVEN_SKIP_CHECKS_AND_DOCS -B -pl presto-spark-launcher,presto-spark-package,presto-spark-testing -P test-presto-spark-integration-smoke-test
     fi
-
+  - |
+    if [[ -v SONAR_TESTS ]] && [[ "$TRAVIS_BRANCH" = "master" ]]; then
+      mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent install sonar:sonar -Dsonar.projectKey=prestodb_presto
+    fi
 before_cache:
   # Make the cache stable between builds by removing build output
   - rm -rf $HOME/.m2/repository/com/facebook
+
+addons:
+  sonarcloud:
+    organization: "prestodb"
+    token:
+      secure: "QS60m2z8NaSKXFdBIMqJ1HSOyaoPWc4QCh4MhF3WycCOGc27YwitYDPr56Pr/xmQ++ziF8CfTWmJpeHzfjAFoJacumJO/6pqbvmErAOvfenPjeSr0iaq1MWJmgpITD+pVIgRTOSN8cayDDsLBsxUkMAe/F64P/KIL+KoQojVgqqH2MWlu5y0KIeIy08UOEAmuZRMpgxJchZ9ojfZI2oT30EMmoSMS64/q5UWKeXCBZtw5BM81Ik1PVGwPgvQcyO+4991Kq6TVLcqxAsrsBj021gwFNGI8EA0sEX4wvo+BhmLpGfbUkQS4RHCswdwFvmq6SVHqlEFW2eCatqJg010n1AIaJtfgkroVvLrmkfTPgSx0wfQ18iNsqt75st/c7HmanLv/A6OkFbf+juXpvuS53Uk5bm5NqqQTVVYJcYIn0Rd5Mz80rJyowIf/XqDi1izDTjNv8DAlqLwqmoPqq9Tqx1D0DmQAHpoJNsRrpwNR0ZM2d9mxSEntcjnL4gotTCwXsS/Hzh5EytALprqwH89fqb4Z5k6nGeeOYUwHqvFI9QmhyaWTwT9ijja3zkkchFT2gEqyBPVSZ9dVPaf/OGIOd7b7Grhttjjv59yZEIbpXNxAgDa4BW7gGvWRn6U31NUxDa8QM3RoGIDd1hyVVBqZNjfPOElXE+GEmSwt7jUm+4="
 
 notifications:
   slack:
