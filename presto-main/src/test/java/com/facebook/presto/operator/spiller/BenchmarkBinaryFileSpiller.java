@@ -23,6 +23,7 @@ import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
+import com.facebook.presto.spiller.TestingSpillContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.tpch.LineItem;
@@ -121,7 +122,7 @@ public class BenchmarkBinaryFileSpiller
                     encryptionEnabled);
             spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
             pages = createInputPages();
-            readSpiller = spillerFactory.create(TYPES, bytes -> {}, newSimpleAggregatedMemoryContext());
+            readSpiller = spillerFactory.create(TYPES, new TestingSpillContext(), newSimpleAggregatedMemoryContext());
             readSpiller.spill(pages.iterator()).get();
         }
 
@@ -169,7 +170,7 @@ public class BenchmarkBinaryFileSpiller
 
         public Spiller createSpiller()
         {
-            return spillerFactory.create(TYPES, bytes -> {}, newSimpleAggregatedMemoryContext());
+            return spillerFactory.create(TYPES, new TestingSpillContext(), newSimpleAggregatedMemoryContext());
         }
     }
 }

@@ -21,12 +21,12 @@ public interface TempStorage
     void initialize()
             throws IOException;
 
-    TempDataSink create()
+    TempDataSink create(TempDataOperationContext context)
             throws IOException;
 
-    InputStream open(TempStorageHandle handle)
+    InputStream open(TempDataOperationContext context, TempStorageHandle handle)
             throws IOException;
 
-    void remove(TempStorageHandle handle)
+    void remove(TempDataOperationContext context, TempStorageHandle handle)
             throws IOException;
 }
