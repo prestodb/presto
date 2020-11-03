@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.session;
 
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -78,8 +79,11 @@ public class SessionMatchSpec
             }
         }
 
-        if (resourceGroupRegex.isPresent() && !resourceGroupRegex.get().matcher(context.getResourceGroupId().toString()).matches()) {
-            return ImmutableMap.of();
+        if (resourceGroupRegex.isPresent()) {
+            String resourceGroupId = context.getResourceGroupId().map(ResourceGroupId::toString).orElse("");
+            if (!resourceGroupRegex.get().matcher(resourceGroupId).matches()) {
+                return ImmutableMap.of();
+            }
         }
 
         return sessionProperties;

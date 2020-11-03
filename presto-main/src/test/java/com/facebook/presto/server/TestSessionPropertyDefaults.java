@@ -76,7 +76,7 @@ public class TestSessionPropertyDefaults
                                 .put("explicit_set", "explicit_set")
                                 .build()));
 
-        session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), TEST_RESOURCE_GROUP_ID);
+        session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.of(TEST_RESOURCE_GROUP_ID));
 
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
