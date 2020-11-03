@@ -77,6 +77,7 @@ import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.glue.converter.GlueInputConverter;
 import com.facebook.presto.hive.metastore.glue.converter.GlueToPrestoConverter;
+import com.facebook.presto.hive.metastore.glue.converter.GlueToPrestoConverter.GluePartitionConverter;
 import com.facebook.presto.spi.ColumnNotFoundException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
@@ -125,6 +126,7 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.VIRTUAL_VIEW;
 import static com.facebook.presto.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static com.facebook.presto.hive.metastore.glue.converter.GlueInputConverter.convertColumn;
 import static com.facebook.presto.hive.metastore.glue.converter.GlueInputConverter.toTableInput;
+import static com.facebook.presto.hive.metastore.glue.converter.GlueToPrestoConverter.mappedCopy;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
@@ -133,7 +135,6 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 public class GlueHiveMetastore
@@ -643,7 +644,7 @@ public class GlueHiveMetastore
                         .withDatabaseName(databaseName)
                         .withTableName(tableName)
                         .withPartitionValues(partitionValues));
-                return Optional.of(GlueToPrestoConverter.convertPartition(result.getPartition()));
+                return Optional.of(new GluePartitionConverter(databaseName, tableName).apply(result.getPartition()));
             }
             catch (EntityNotFoundException e) {
                 return Optional.empty();
@@ -729,7 +730,8 @@ public class GlueHiveMetastore
     private List<Partition> getPartitions(String databaseName, String tableName, String expression, @Nullable Segment segment)
     {
         try {
-            List<Partition> partitions = new ArrayList<>();
+            GluePartitionConverter converter = new GluePartitionConverter(databaseName, tableName);
+            ArrayList<Partition> partitions = new ArrayList<>();
             GetPartitionsRequest request = new GetPartitionsRequest()
                     .withCatalogId(catalogId)
                     .withDatabaseName(databaseName)
@@ -740,8 +742,10 @@ public class GlueHiveMetastore
             do {
                 GetPartitionsResult result = stats.getGetPartitions().record(() -> glueClient.getPartitions(request));
                 request.setNextToken(result.getNextToken());
-                result.getPartitions()
-                        .forEach(partition -> partitions.add(GlueToPrestoConverter.convertPartition(partition)));
+                partitions.ensureCapacity(partitions.size() + result.getPartitions().size());
+                result.getPartitions().stream()
+                        .map(converter)
+                        .forEach(partitions::add);
             }
             while (request.getNextToken() != null);
 
@@ -754,9 +758,7 @@ public class GlueHiveMetastore
 
     private static List<String> buildPartitionNames(List<Column> partitionColumns, List<Partition> partitions)
     {
-        return partitions.stream()
-                .map(partition -> makePartName(partitionColumns, partition.getValues()))
-                .collect(toList());
+        return mappedCopy(partitions, partition -> makePartName(partitionColumns, partition.getValues()));
     }
 
     /**
@@ -794,27 +796,26 @@ public class GlueHiveMetastore
     private List<Partition> batchGetPartition(String databaseName, String tableName, List<String> partitionNames)
     {
         try {
-            List<PartitionValueList> partitionValueLists = partitionNames.stream()
-                    .map(partitionName -> new PartitionValueList().withValues(toPartitionValues(partitionName))).collect(toList());
-
-            List<List<PartitionValueList>> batchedPartitionValueLists = Lists.partition(partitionValueLists, BATCH_GET_PARTITION_MAX_PAGE_SIZE);
             List<Future<BatchGetPartitionResult>> batchGetPartitionFutures = new ArrayList<>();
-            List<Partition> result = new ArrayList<>();
 
-            for (List<PartitionValueList> partitions : batchedPartitionValueLists) {
+            for (List<String> partitionNamesBatch : Lists.partition(partitionNames, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {
+                List<PartitionValueList> partitionValuesBatch = mappedCopy(partitionNamesBatch, partitionName -> new PartitionValueList().withValues(toPartitionValues(partitionName)));
                 batchGetPartitionFutures.add(glueClient.batchGetPartitionAsync(new BatchGetPartitionRequest()
                         .withCatalogId(catalogId)
                         .withDatabaseName(databaseName)
                         .withTableName(tableName)
-                        .withPartitionsToGet(partitions), stats.getBatchGetPartitions().metricsAsyncHandler()));
+                        .withPartitionsToGet(partitionValuesBatch), stats.getBatchGetPartitions().metricsAsyncHandler()));
             }
 
+            GluePartitionConverter converter = new GluePartitionConverter(databaseName, tableName);
+            ImmutableList.Builder<Partition> resultsBuilder = ImmutableList.builderWithExpectedSize(partitionNames.size());
             for (Future<BatchGetPartitionResult> future : batchGetPartitionFutures) {
-                future.get().getPartitions()
-                        .forEach(partition -> result.add(GlueToPrestoConverter.convertPartition(partition)));
+                future.get().getPartitions().stream()
+                        .map(converter)
+                        .forEach(resultsBuilder::add);
             }
 
-            return result;
+            return resultsBuilder.build();
         }
         catch (AmazonServiceException | InterruptedException | ExecutionException e) {
             if (e instanceof InterruptedException) {
@@ -828,11 +829,10 @@ public class GlueHiveMetastore
     public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
         try {
-            List<List<PartitionWithStatistics>> batchedPartitions = Lists.partition(partitions, BATCH_CREATE_PARTITION_MAX_PAGE_SIZE);
             List<Future<BatchCreatePartitionResult>> futures = new ArrayList<>();
 
-            for (List<PartitionWithStatistics> partitionBatch : batchedPartitions) {
-                List<PartitionInput> partitionInputs = partitionBatch.stream().map(GlueInputConverter::convertPartition).collect(toList());
+            for (List<PartitionWithStatistics> partitionBatch : Lists.partition(partitions, BATCH_CREATE_PARTITION_MAX_PAGE_SIZE)) {
+                List<PartitionInput> partitionInputs = mappedCopy(partitionBatch, GlueInputConverter::convertPartition);
                 futures.add(glueClient.batchCreatePartitionAsync(new BatchCreatePartitionRequest()
                         .withCatalogId(catalogId)
                         .withDatabaseName(databaseName)
