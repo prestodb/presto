@@ -138,7 +138,7 @@ public class ScanQueryPageSource
         SearchResponse searchResponse = client.beginSearch(
                 split.getIndex(),
                 split.getShard(),
-                buildSearchQuery(session, split.getTupleDomain().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
+                buildSearchQuery(session, split.getTupleDomain().transform(ElasticsearchColumnHandle.class::cast), table.getQuery(), true),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
                 sort);
@@ -189,10 +189,21 @@ public class ScanQueryPageSource
         while (size < PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES && iterator.hasNext()) {
             SearchHit hit = iterator.next();
             Map<String, Object> document = hit.getSourceAsMap();
-
-            for (int i = 0; i < decoders.size(); i++) {
-                String field = columns.get(i).getName();
-                decoders.get(i).decode(hit, () -> getField(document, field), columnBuilders[i]);
+            
+            if (document.containsKey("rows")) {
+              Object t = document.get("rows");
+              for (Object r : (List) t) {
+                Map<String, Object> row = (Map<String, Object>) r;
+                for (int i = 0; i < decoders.size(); i++) {
+                  String field = columns.get(i).getName();
+                  decoders.get(i).decode(hit, () -> getField(row, field), columnBuilders[i]);
+                }
+              }
+            } else {
+              for (int i = 0; i < decoders.size(); i++) {
+                  String field = columns.get(i).getName();
+                  decoders.get(i).decode(hit, () -> getField(document, field), columnBuilders[i]);
+              }
             }
 
             if (hit.getSourceRef() != null) {

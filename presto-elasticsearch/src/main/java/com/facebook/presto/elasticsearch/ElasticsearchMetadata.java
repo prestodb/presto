@@ -184,10 +184,12 @@ public class ElasticsearchMetadata
         }
 
         for (IndexMetadata.Field field : fields) {
+            boolean supportDocRows = field.getDocRows();
             result.put(field.getName(), new ElasticsearchColumnHandle(
                     field.getName(),
                     toPrestoType(field),
-                    supportsPredicates(field.getType())));
+                    supportsPredicates(field.getType()),
+                    supportDocRows));
         }
         return result.build();
     }

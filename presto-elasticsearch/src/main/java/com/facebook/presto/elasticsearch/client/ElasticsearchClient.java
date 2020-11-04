@@ -90,6 +90,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -474,8 +475,19 @@ public class ElasticsearchClient
                 }
 
                 JsonNode metaNode = nullSafeNode(mappings, "_meta");
+                // Check here to see if the document_rows is set, if so then look for this objects property since it will be
+                // used for it for rows.
+                boolean isDocumentRows = false;
+                if (metaNode != null && metaNode.has("presto") && metaNode.get("presto").has("document_rows")) {
+                  // It is set, so lets extract out the rows param
+                  JsonNode rowNode = mappings.get("properties");
+                  mappings = rowNode.get("rows");
+                  isDocumentRows = true;
+                }
 
-                return new IndexMetadata(parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto")));
+                IndexMetadata im = new IndexMetadata(parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto")));
+                im.setDocumentRows(isDocumentRows);
+                return im;
             }
             catch (IOException e) {
                 throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
@@ -501,20 +513,20 @@ public class ElasticsearchClient
 
             JsonNode metaNode = nullSafeNode(metaProperties, name);
             boolean isArray = !metaNode.isNull() && metaNode.has("isArray") && metaNode.get("isArray").asBoolean();
-
+            boolean isDocRows =  metaProperties.has("document_rows") && metaProperties.get("document_rows").asBoolean();
             switch (type) {
                 case "date":
                     List<String> formats = ImmutableList.of();
                     if (value.has("format")) {
                         formats = Arrays.asList(value.get("format").asText().split("\\|\\|"));
                     }
-                    result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.DateTimeType(formats)));
+                    result.add(new IndexMetadata.Field(isArray, isDocRows, name, new IndexMetadata.DateTimeType(formats)));
                     break;
 
                 case "nested":
                 case "object":
                     if (value.has("properties")) {
-                        result.add(new IndexMetadata.Field(isArray, name, parseType(value.get("properties"), metaNode)));
+                        result.add(new IndexMetadata.Field(isArray, isDocRows, name, parseType(value.get("properties"), metaNode)));
                     }
                     else {
                         LOG.debug("Ignoring empty object field: %s", name);
@@ -522,7 +534,7 @@ public class ElasticsearchClient
                     break;
 
                 default:
-                    result.add(new IndexMetadata.Field(isArray, name, new IndexMetadata.PrimitiveType(type)));
+                    result.add(new IndexMetadata.Field(isArray,isDocRows, name, new IndexMetadata.PrimitiveType(type)));
             }
         }
 
@@ -550,6 +562,7 @@ public class ElasticsearchClient
                 sourceBuilder.fetchSource(false);
             }
             else {
+                values = values.stream().map(v -> "rows." + v).collect(Collectors.toList());
                 sourceBuilder.fetchSource(values.toArray(new String[0]), null);
             }
         });
@@ -562,7 +575,9 @@ public class ElasticsearchClient
                 .source(sourceBuilder);
 
         try {
-            return client.search(request);
+          SearchResponse sr = client.search(request);
+         
+          return sr;
         }
         catch (IOException e) {
             throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);

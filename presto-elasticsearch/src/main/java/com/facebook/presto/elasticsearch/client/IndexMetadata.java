@@ -22,7 +22,8 @@ import static java.util.Objects.requireNonNull;
 public class IndexMetadata
 {
     private final ObjectType schema;
-
+    private boolean isDocumentRows = false;
+    
     public IndexMetadata(ObjectType schema)
     {
         this.schema = requireNonNull(schema, "schema is null");
@@ -38,14 +39,27 @@ public class IndexMetadata
         private final boolean isArray;
         private final String name;
         private final Type type;
-
+        private boolean docRows = false;
+        
         public Field(boolean isArray, String name, Type type)
         {
             this.isArray = isArray;
             this.name = requireNonNull(name, "name is null");
             this.type = requireNonNull(type, "type is null");
         }
+        
+        public Field(boolean isArray, boolean docRows, String name, Type type)
+        {
+            this.isArray = isArray;
+            this.docRows = docRows;
+            this.name = requireNonNull(name, "name is null");
+            this.type = requireNonNull(type, "type is null");
+        }
 
+        public boolean getDocRows() {
+          return docRows;
+        }
+    
         public boolean isArray()
         {
             return isArray;
@@ -114,5 +128,13 @@ public class IndexMetadata
         {
             return fields;
         }
+    }
+
+    public void setDocumentRows(boolean isDocumentRows) {
+      this.isDocumentRows = isDocumentRows;
+    }
+    
+    public boolean isDocumentRows() {
+      return isDocumentRows;
     }
 }

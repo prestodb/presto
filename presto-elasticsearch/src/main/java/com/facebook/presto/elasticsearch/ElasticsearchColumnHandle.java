@@ -29,18 +29,25 @@ public final class ElasticsearchColumnHandle
     private final String name;
     private final Type type;
     private final boolean supportsPredicates;
-
+    private boolean docRows;
     @JsonCreator
     public ElasticsearchColumnHandle(
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
-            @JsonProperty("supportsPredicates") boolean supportsPredicates)
+            @JsonProperty("supportsPredicates") boolean supportsPredicates,
+            @JsonProperty("docRows") boolean docRows)
     {
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.supportsPredicates = supportsPredicates;
+        this.docRows = docRows;
     }
 
+    @JsonProperty
+    public boolean getDocRows() {
+      return this.docRows;
+    }
+ 
     @JsonProperty
     public String getName()
     {

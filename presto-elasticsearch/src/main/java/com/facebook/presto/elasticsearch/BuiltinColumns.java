@@ -62,6 +62,6 @@ enum BuiltinColumns
 
     public ColumnHandle getColumnHandle()
     {
-        return new ElasticsearchColumnHandle(name, type, supportsPredicates);
+        return new ElasticsearchColumnHandle(name, type, supportsPredicates, false);
     }
 }

@@ -19,6 +19,8 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.slice.Slice;
+
+import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.ExistsQueryBuilder;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
@@ -26,6 +28,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.index.query.NestedQueryBuilder;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -48,12 +51,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
+import static org.elasticsearch.index.query.QueryBuilders.nestedQuery;
 
 public final class ElasticsearchQueryBuilder
 {
     private ElasticsearchQueryBuilder() {}
 
-    public static QueryBuilder buildSearchQuery(ConnectorSession session, TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
+    public static QueryBuilder buildSearchQuery(ConnectorSession session, TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query, boolean poc)
     {
         BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
         if (constraint.getDomains().isPresent()) {
@@ -72,9 +76,21 @@ public final class ElasticsearchQueryBuilder
                 .ifPresent(queryBuilder::must);
 
         if (queryBuilder.hasClauses()) {
-            return queryBuilder;
+            if (poc) {
+              NestedQueryBuilder nqb = nestedQuery("rows", queryBuilder, ScoreMode.None);
+              nqb.innerHit();
+              return nqb;
+            } else {
+              return queryBuilder;
+            }
         }
-        return new MatchAllQueryBuilder();
+        if (poc) {
+          NestedQueryBuilder nqb = nestedQuery("rows", new MatchAllQueryBuilder(), ScoreMode.None);
+          nqb.innerHit();
+          return nqb;
+        } else {
+          return new MatchAllQueryBuilder();
+        }
     }
 
     private static QueryBuilder buildPredicate(ConnectorSession session, String columnName, Domain domain, Type type)

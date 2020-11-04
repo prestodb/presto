@@ -44,7 +44,7 @@ public class CountQueryPageSource
         long count = client.count(
                 split.getIndex(),
                 split.getShard(),
-                buildSearchQuery(session, split.getTupleDomain().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()));
+                buildSearchQuery(session, split.getTupleDomain().transform(ElasticsearchColumnHandle.class::cast), table.getQuery(), false));
 
         readTimeNanos = System.nanoTime() - start;
         remaining = count;
