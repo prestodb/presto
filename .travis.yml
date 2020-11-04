@@ -1,5 +1,10 @@
 language: java
 
+jobs:
+  include:
+    - name: arm64
+      arch: arm64
+  
 env:
   global:
     - MAVEN_OPTS="-Xmx1024M -XX:+ExitOnOutOfMemoryError"
