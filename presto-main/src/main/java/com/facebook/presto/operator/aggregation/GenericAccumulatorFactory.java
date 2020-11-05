@@ -604,7 +604,8 @@ public class GenericAccumulatorFactory
         {
             return INSTANCE_SIZE +
                     delegate.getEstimatedSize() +
-                    (rawInputs == null ? 0 : rawInputsSizeInBytes + rawInputs.sizeOf()) +
+                    // add blockBuildersSizeInBytes to overreport memory
+                    (rawInputs == null ? 0 : rawInputsSizeInBytes + blockBuildersSizeInBytes + rawInputs.sizeOf()) +
                     (blockBuilders == null ? 0 : blockBuildersSizeInBytes + blockBuilders.sizeOf());
         }
 
@@ -627,6 +628,7 @@ public class GenericAccumulatorFactory
             rawInputs.ensureCapacity(rawInputsLength);
             GroupIdPage groupIdPage = new GroupIdPage(groupIdsBlock, page);
             rawInputsSizeInBytes += groupIdPage.getRetainedSizeInBytes();
+            blockBuildersSizeInBytes = rawInputsSizeInBytes;
             rawInputs.set(rawInputsLength, groupIdPage);
             // TODO(sakshams) deduplicate inputs for DISTINCT accumulator case by doing page compaction
             rawInputsLength++;
@@ -665,6 +667,7 @@ public class GenericAccumulatorFactory
             rawInputs.ensureCapacity(rawInputsLength);
             GroupIdPage groupIdPage = new GroupIdPage(squashedGroupIds, page);
             rawInputsSizeInBytes += groupIdPage.getRetainedSizeInBytes();
+            blockBuildersSizeInBytes = rawInputsSizeInBytes;
             rawInputs.set(rawInputsLength, groupIdPage);
             rawInputsLength++;
         }
@@ -677,6 +680,7 @@ public class GenericAccumulatorFactory
                 checkState(rawInputs != null);
 
                 blockBuilders = new ObjectBigArray<>();
+                blockBuildersSizeInBytes = 0;
                 for (int i = 0; i < rawInputsLength; i++) {
                     GroupIdPage groupIdPage = rawInputs.get(i);
                     Page page = groupIdPage.getPage();
