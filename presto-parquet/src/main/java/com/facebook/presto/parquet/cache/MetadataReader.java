@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.parquet.cache;
 
+import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSourceId;
+import io.airlift.slice.Slice;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -40,10 +42,7 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type.Repetition;
 import org.apache.parquet.schema.Types;
 
-import java.io.ByteArrayInputStream;
-import java.io.EOFException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,15 +55,19 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
+import static io.airlift.slice.Slices.wrappedBuffer;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.apache.parquet.format.Util.readFileMetaData;
 
 public final class MetadataReader
         implements ParquetMetadataSource
 {
-    private static final int PARQUET_METADATA_LENGTH = 4;
-    private static final byte[] MAGIC = "PAR1".getBytes(US_ASCII);
+    private static final Slice MAGIC = wrappedBuffer("PAR1".getBytes(US_ASCII));
+    private static final int POST_SCRIPT_SIZE = Integer.BYTES + MAGIC.length();
+    private static final int EXPECTED_FOOTER_SIZE = 16 * 1024;
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
 
     public static ParquetFileMetadata readFooter(FileSystem fileSystem, Path file, long fileSize)
@@ -87,24 +90,33 @@ public final class MetadataReader
         // 4 bytes: MetadataLength
         // MAGIC
 
-        validateParquet(fileSize >= MAGIC.length + PARQUET_METADATA_LENGTH + MAGIC.length, "%s is not a valid Parquet File", file);
-        long metadataLengthIndex = fileSize - PARQUET_METADATA_LENGTH - MAGIC.length;
+        validateParquet(fileSize >= MAGIC.length() + POST_SCRIPT_SIZE, "%s is not a valid Parquet File", file);
 
-        InputStream footerStream = readFully(inputStream, metadataLengthIndex, PARQUET_METADATA_LENGTH + MAGIC.length);
-        int metadataLength = readIntLittleEndian(footerStream);
+        //  EXPECTED_FOOTER_SIZE is an int, so this will never fail
+        byte[] buffer = new byte[toIntExact(min(fileSize, EXPECTED_FOOTER_SIZE))];
+        inputStream.readFully(fileSize - buffer.length, buffer);
+        Slice tailSlice = wrappedBuffer(buffer);
 
-        byte[] magic = new byte[MAGIC.length];
-        footerStream.read(magic);
-        validateParquet(Arrays.equals(MAGIC, magic), "Not valid Parquet file: %s expected magic number: %s got: %s", file, Arrays.toString(MAGIC), Arrays.toString(magic));
+        Slice magic = tailSlice.slice(tailSlice.length() - MAGIC.length(), MAGIC.length());
+        if (!MAGIC.equals(magic)) {
+            throw new ParquetCorruptionException(format("Not valid Parquet file: %s expected magic number: %s got: %s", file, Arrays.toString(MAGIC.getBytes()), Arrays.toString(magic.getBytes())));
+        }
 
-        long metadataIndex = metadataLengthIndex - metadataLength;
-        validateParquet(
-                metadataIndex >= MAGIC.length && metadataIndex < metadataLengthIndex,
-                "Corrupted Parquet file: %s metadata index: %s out of range",
-                file,
-                metadataIndex);
-        InputStream metadataStream = readFully(inputStream, metadataIndex, metadataLength);
-        FileMetaData fileMetaData = readFileMetaData(metadataStream);
+        int metadataLength = tailSlice.getInt(tailSlice.length() - POST_SCRIPT_SIZE);
+        int completeFooterSize = metadataLength + POST_SCRIPT_SIZE;
+
+        long metadataFileOffset = fileSize - completeFooterSize;
+        validateParquet(metadataFileOffset >= MAGIC.length() && metadataFileOffset + POST_SCRIPT_SIZE < fileSize, "Corrupted Parquet file: %s metadata index: %s out of range", file, metadataFileOffset);
+        //  Ensure the slice covers the entire metadata range
+        if (tailSlice.length() < completeFooterSize) {
+            byte[] footerBuffer = new byte[completeFooterSize];
+            inputStream.readFully(metadataFileOffset, footerBuffer, 0, footerBuffer.length - tailSlice.length());
+            // Copy the previous slice contents into the new buffer
+            tailSlice.getBytes(0, footerBuffer, footerBuffer.length - tailSlice.length(), tailSlice.length());
+            tailSlice = wrappedBuffer(footerBuffer, 0, footerBuffer.length);
+        }
+
+        FileMetaData fileMetaData = readFileMetaData(tailSlice.slice(tailSlice.length() - completeFooterSize, metadataLength).getInput());
         List<SchemaElement> schema = fileMetaData.getSchema();
         validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", file);
 
@@ -297,27 +309,6 @@ public final class MetadataReader
             default:
                 throw new IllegalArgumentException("Unknown converted type " + type);
         }
-    }
-
-    private static int readIntLittleEndian(InputStream in)
-            throws IOException
-    {
-        int ch1 = in.read();
-        int ch2 = in.read();
-        int ch3 = in.read();
-        int ch4 = in.read();
-        if ((ch1 | ch2 | ch3 | ch4) < 0) {
-            throw new EOFException();
-        }
-        return ((ch4 << 24) + (ch3 << 16) + (ch2 << 8) + (ch1));
-    }
-
-    private static InputStream readFully(FSDataInputStream from, long position, int length)
-            throws IOException
-    {
-        byte[] buffer = new byte[length];
-        from.readFully(position, buffer);
-        return new ByteArrayInputStream(buffer);
     }
 
     @Override
