@@ -44,6 +44,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalRevocableMemoryLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
 import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
@@ -82,6 +83,9 @@ public class QueryContext
     private long peakNodeTotalMemory;
 
     @GuardedBy("this")
+    private Optional<Long> maxRevocableMemory;
+
+    @GuardedBy("this")
     private long broadcastUsed;
     @GuardedBy("this")
     private long maxBroadcastUsedMemory;
@@ -99,6 +103,7 @@ public class QueryContext
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
             DataSize maxBroadcastUsedMemory,
+            Optional<DataSize> maxRevocableMemory,
             MemoryPool memoryPool,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
@@ -110,6 +115,7 @@ public class QueryContext
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null").toBytes();
         this.maxBroadcastUsedMemory = requireNonNull(maxBroadcastUsedMemory, "maxBroadcastUsedMemory is null").toBytes();
+        this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null").isPresent() ? Optional.of(maxRevocableMemory.get().toBytes()) : Optional.empty();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -164,7 +170,9 @@ public class QueryContext
     //TODO Add tagging support for revocable memory reservations if needed
     private synchronized ListenableFuture<?> updateRevocableMemory(String allocationTag, long delta)
     {
+        long totalRevocableMemory = memoryPool.getQueryRevocableMemoryReservation(queryId);
         if (delta >= 0) {
+            maxRevocableMemory.ifPresent(maxRevocable -> enforceRevocableMemoryLimit(totalRevocableMemory, delta, maxRevocable));
             return memoryPool.reserveRevocable(queryId, delta);
         }
         memoryPool.freeRevocable(queryId, -delta);
@@ -424,6 +432,14 @@ public class QueryContext
         peakNodeTotalMemory = Math.max(totalMemory, peakNodeTotalMemory);
         if (totalMemory > maxMemory) {
             throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+        }
+    }
+
+    @GuardedBy("this")
+    private void enforceRevocableMemoryLimit(long allocated, long delta, long maxMemory)
+    {
+        if (allocated + delta > maxMemory) {
+            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
         }
     }
 

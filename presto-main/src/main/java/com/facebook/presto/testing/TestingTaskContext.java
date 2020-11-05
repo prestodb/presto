@@ -174,6 +174,7 @@ public final class TestingTaskContext
                     queryMaxMemory,
                     queryMaxTotalMemory,
                     queryMaxMemory,
+                    Optional.empty(),
                     memoryPool,
                     GC_MONITOR,
                     notificationExecutor,

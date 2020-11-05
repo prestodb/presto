@@ -502,6 +502,7 @@ public class TestMemoryRevokingScheduler
                         new DataSize(1, MEGABYTE),
                         new DataSize(2, MEGABYTE),
                         new DataSize(1, MEGABYTE),
+                        Optional.empty(),
                         memoryPool,
                         new TestingGcMonitor(),
                         executor,

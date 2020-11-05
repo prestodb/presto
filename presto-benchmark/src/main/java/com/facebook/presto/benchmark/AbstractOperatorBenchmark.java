@@ -225,7 +225,8 @@ public abstract class AbstractOperatorBenchmark
         RowExpression translatedHashExpression = translate(hashExpression.get(), variableToInputMapping.build());
 
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
-        projections.add(new PageProjectionWithOutputs(functionCompiler.compileProjection(session.getSqlFunctionProperties(), translatedHashExpression, Optional.empty()).get(), new int[] {types.size()}));
+        projections.add(new PageProjectionWithOutputs(functionCompiler.compileProjection(session.getSqlFunctionProperties(), translatedHashExpression, Optional.empty()).get(), new int[] {
+                types.size()}));
 
         return new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 operatorId,
@@ -276,6 +277,7 @@ public abstract class AbstractOperatorBenchmark
                 new DataSize(256, MEGABYTE),
                 new DataSize(512, MEGABYTE),
                 new DataSize(256, MEGABYTE),
+                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),

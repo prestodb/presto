@@ -97,6 +97,7 @@ public class TestMemoryPools
                 TEN_MEGABYTES,
                 new DataSize(20, MEGABYTE),
                 TEN_MEGABYTES,
+                Optional.empty(),
                 userPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),

@@ -80,6 +80,7 @@ public class MemoryLocalQueryRunner
                 new DataSize(1, GIGABYTE),
                 new DataSize(2, GIGABYTE),
                 new DataSize(1, GIGABYTE),
+                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),

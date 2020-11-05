@@ -327,6 +327,7 @@ public class PrestoSparkTaskExecutorFactory
                 maxUserMemory,
                 maxTotalMemory,
                 maxUserMemory,
+                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 notificationExecutor,

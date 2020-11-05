@@ -27,6 +27,7 @@ import io.airlift.units.DataSize;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -84,6 +85,7 @@ public final class GroupByHashYieldAssertion
                 new DataSize(512, MEGABYTE),
                 new DataSize(1024, MEGABYTE),
                 new DataSize(512, MEGABYTE),
+                Optional.empty(),
                 memoryPool,
                 new TestingGcMonitor(),
                 EXECUTOR,
