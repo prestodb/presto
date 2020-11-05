@@ -21,6 +21,7 @@ import javax.validation.constraints.NotNull;
 public class NodeSpillConfig
 {
     private DataSize maxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
+    private DataSize maxRevocableMemoryPerNode = new DataSize(16, DataSize.Unit.GIGABYTE);
     private DataSize queryMaxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
     private DataSize tempStorageBufferSize = new DataSize(4, DataSize.Unit.KILOBYTE);
 
@@ -50,6 +51,19 @@ public class NodeSpillConfig
     public NodeSpillConfig setQueryMaxSpillPerNode(DataSize queryMaxSpillPerNode)
     {
         this.queryMaxSpillPerNode = queryMaxSpillPerNode;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getMaxRevocableMemoryPerNode()
+    {
+        return maxRevocableMemoryPerNode;
+    }
+
+    @Config("experimental.max-revocable-memory-per-node")
+    public NodeSpillConfig setMaxRevocableMemoryPerNode(DataSize maxRevocableMemoryPerNode)
+    {
+        this.maxRevocableMemoryPerNode = maxRevocableMemoryPerNode;
         return this;
     }
 
