@@ -77,7 +77,8 @@ public class TestHiveExternalWorkersQueries
 
         // Make query runner with external workers for tests
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(ImmutableList.of(),
-                ImmutableMap.of("optimizer.optimize-hash-generation", "false"),
+                ImmutableMap.of("optimizer.optimize-hash-generation", "false",
+                        "parse-decimal-literals-as-double", "true"),
                 ImmutableMap.of(),
                 "sql-standard",
                 ImmutableMap.of(),
@@ -148,6 +149,7 @@ public class TestHiveExternalWorkersQueries
         assertQuery("SELECT * FROM nation WHERE nationkey <= 4");
         assertQuery("SELECT * FROM nation WHERE nationkey > 4");
         assertQuery("SELECT * FROM nation WHERE nationkey >= 4");
+        assertQuery("SELECT * FROM nation WHERE nationkey BETWEEN 3 AND 7");
         assertQuery("SELECT nationkey * 10, nationkey % 5, -nationkey, nationkey / 3 FROM nation");
         assertQuery("SELECT *, nationkey / 3 FROM nation");
 
@@ -183,5 +185,22 @@ public class TestHiveExternalWorkersQueries
 
         assertQuery("SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax " +
                 "FROM lineitem ORDER BY orderkey, linenumber DESC LIMIT 2000");
+    }
+
+    @Test
+    public void testCast()
+    {
+        // TODO Fix cast double-to-varchar and boolean-to-varchar.
+        //  cast(0.0 as varchar) should return "0.0", not "0".
+        //  cast(bool as varchar) should return "TRUE" or "FALSE", not "true" or "false".
+        assertQuery("SELECT CAST(linenumber as TINYINT), CAST(linenumber AS SMALLINT), " +
+                "CAST(linenumber AS INTEGER), CAST(linenumber AS BIGINT), CAST(quantity AS REAL), " +
+                "CAST(orderkey AS DOUBLE), CAST(orderkey AS VARCHAR) FROM lineitem");
+    }
+
+    @Test
+    public void testValues()
+    {
+        assertQuery("SELECT 1, 0.24, ceil(4.5), 'A not too short ASCII string'");
     }
 }
