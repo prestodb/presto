@@ -84,6 +84,7 @@ public final class GroupByHashYieldAssertion
                 new DataSize(512, MEGABYTE),
                 new DataSize(1024, MEGABYTE),
                 new DataSize(512, MEGABYTE),
+                new DataSize(1, GIGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 EXECUTOR,

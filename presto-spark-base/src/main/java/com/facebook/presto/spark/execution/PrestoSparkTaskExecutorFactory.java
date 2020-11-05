@@ -146,6 +146,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final DataSize maxUserMemory;
     private final DataSize maxTotalMemory;
+    private final DataSize maxRevocableMemory;
     private final DataSize maxSpillMemory;
     private final DataSize sinkMaxBufferSize;
 
@@ -194,6 +195,7 @@ public class PrestoSparkTaskExecutorFactory
                 fragmentResultCacheManager,
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryMemoryPerNode(),
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryTotalMemoryPerNode(),
+                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxRevocableMemoryPerNode(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorCpuTimerEnabled(),
@@ -220,6 +222,7 @@ public class PrestoSparkTaskExecutorFactory
             FragmentResultCacheManager fragmentResultCacheManager,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
+            DataSize maxRevocableMemory,
             DataSize maxSpillMemory,
             DataSize sinkMaxBufferSize,
             boolean perOperatorCpuTimerEnabled,
@@ -244,6 +247,7 @@ public class PrestoSparkTaskExecutorFactory
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null");
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null");
+        this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null");
         this.maxSpillMemory = requireNonNull(maxSpillMemory, "maxSpillMemory is null");
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -327,6 +331,7 @@ public class PrestoSparkTaskExecutorFactory
                 maxUserMemory,
                 maxTotalMemory,
                 maxUserMemory,
+                maxRevocableMemory,
                 memoryPool,
                 new TestingGcMonitor(),
                 notificationExecutor,
