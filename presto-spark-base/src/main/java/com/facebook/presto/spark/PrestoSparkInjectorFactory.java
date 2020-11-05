@@ -42,6 +42,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.facebook.presto.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static com.facebook.presto.spark.classloader_interface.SparkProcessType.DRIVER;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
@@ -156,11 +157,13 @@ public class PrestoSparkInjectorFactory
                     injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
                 }
             }
-            if (sessionPropertyConfigurationProperties.isPresent()) {
-                injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager(sessionPropertyConfigurationProperties.get());
-            }
-            else {
-                injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
+            if ((sparkProcessType.equals(DRIVER))) {
+                if (sessionPropertyConfigurationProperties.isPresent()) {
+                    injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager(sessionPropertyConfigurationProperties.get());
+                }
+                else {
+                    injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
+                }
             }
         }
         catch (Exception e) {
