@@ -220,7 +220,7 @@ public class SliceDirectSelectiveStreamReader
                             if (outputRequired) {
                                 int truncatedLength = computeTruncatedLength(dataAsSlice, dataOffset, length, maxCodePointCount, isCharType);
                                 offsets[outputPositionCount + 1] = offset + truncatedLength;
-                                if (nullsAllowed && isNullVector != null) {
+                                if (nullsAllowed && presentStream != null) {
                                     nulls[outputPositionCount] = false;
                                 }
                             }
@@ -233,7 +233,7 @@ public class SliceDirectSelectiveStreamReader
                         if (filter.testBytes("".getBytes(), 0, 0)) {
                             if (outputRequired) {
                                 offsets[outputPositionCount + 1] = offset;
-                                if (nullsAllowed && isNullVector != null) {
+                                if (nullsAllowed && presentStream != null) {
                                     nulls[outputPositionCount] = false;
                                 }
                             }
