@@ -40,6 +40,7 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,6 +58,7 @@ import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMe
 import static com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Sets.intersection;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.UnaryOperator.identity;
 
@@ -239,6 +241,27 @@ public class BridgingHiveMetastore
         org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         table.getSd().getCols().removeIf(fieldSchema -> fieldSchema.getName().equals(columnName));
+        alterTable(databaseName, tableName, table);
+    }
+
+    @Override
+    public void updateTableParameters(String databaseName, String tableName, Map<String, String> update, Set<String> drop)
+    {
+        requireNonNull(update, "update is null");
+        requireNonNull(drop, "drop is null");
+        checkArgument(intersection(update.keySet(), drop).size() == 0, "Parameters to drop conflict with parameters to update");
+
+        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
+        if (!source.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+
+        Map<String, String> newParameters = new HashMap<>(table.getParameters());
+        newParameters.putAll(update);
+        drop.forEach(newParameters::remove);
+        table.setParameters(ImmutableMap.copyOf(newParameters));
+
         alterTable(databaseName, tableName, table);
     }
 

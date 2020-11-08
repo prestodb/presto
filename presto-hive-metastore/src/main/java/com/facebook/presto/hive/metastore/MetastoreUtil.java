@@ -137,6 +137,7 @@ public class MetastoreUtil
     public static final String PRESTO_VIEW_FLAG = "presto_view";
     public static final String PRESTO_MATERIALIZED_VIEW_FLAG = "presto_materialized_view";
     public static final String PRESTO_MATERIALIZED_VIEW_DATA = "presto_materialzied_view_data";
+    public static final String PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST = "presto_dependent_materialzied_view_list";
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     @SuppressWarnings("OctalInteger")

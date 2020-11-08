@@ -2198,23 +2198,28 @@ public class HiveMetadata
     @Override
     public void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, ConnectorMaterializedViewDefinition viewDefinition, boolean ignoreExisting)
     {
+        checkArgument(viewDefinition.getBaseTableNames().isPresent(), "baseTableNames list is not set in %s.", viewDefinition);
+
         Table basicTable = prepareTable(session, viewMetadata);
+
         Map<String, String> parameters = ImmutableMap.<String, String>builder()
                 .putAll(basicTable.getParameters())
                 .put(PRESTO_MATERIALIZED_VIEW_FLAG, "true")
                 .put(PRESTO_MATERIALIZED_VIEW_DATA, encodeViewData(viewDefinition.getViewData()))
                 .build();
         Table viewTable = Table.builder(basicTable).setParameters(parameters).build();
+
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(viewTable.getOwner());
         HiveBasicStatistics basicStatistics = viewTable.getPartitionColumns().isEmpty() ? createZeroStatistics() : createEmptyStatistics();
 
-        metastore.createTable(
+        metastore.createMaterializedView(
                 session,
                 viewTable,
                 principalPrivileges,
                 Optional.empty(),
                 ignoreExisting,
-                new PartitionStatistics(basicStatistics, ImmutableMap.of()));
+                new PartitionStatistics(basicStatistics, ImmutableMap.of()),
+                viewDefinition.getBaseTableNames().get());
     }
 
     @Override

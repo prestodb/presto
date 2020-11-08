@@ -21,6 +21,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.LocationHandle.WriteMode;
+import com.facebook.presto.hive.MaterializedViewAlreadyExistsException;
 import com.facebook.presto.hive.PartitionNotFoundException;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.spi.ConnectorSession;
@@ -34,6 +35,7 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -68,6 +70,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.convertPredicateToParts;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
@@ -91,6 +94,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Sets.difference;
 import static com.google.common.util.concurrent.Futures.whenAllSucceed;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
@@ -436,6 +440,86 @@ public class SemiTransactionalHiveMetastore
     public synchronized void dropColumn(String databaseName, String tableName, String columnName)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.dropColumn(databaseName, tableName, columnName));
+    }
+
+    /**
+     * {@code currentLocation} needs to be supplied if a writePath exists for the table.
+     */
+    public synchronized void createMaterializedView(
+            ConnectorSession session,
+            Table table,
+            PrincipalPrivileges principalPrivileges,
+            Optional<Path> currentPath,
+            boolean ignoreExisting,
+            PartitionStatistics statistics,
+            List<SchemaTableName> baseTableNames)
+    {
+        setExclusive((delegate, hdfsEnvironment) -> {
+            CreateTableOperation createTable = new CreateTableOperation(table, principalPrivileges, ignoreExisting);
+            UpdateStatisticsOperation updateStatistics = new UpdateStatisticsOperation(
+                    new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                    Optional.empty(),
+                    statistics,
+                    false);
+
+            List<UpdateTableParametersOperation> updateTableParameters = new ArrayList<>();
+            for (SchemaTableName baseTableName : baseTableNames) {
+                Table baseTable = delegate.getTable(baseTableName.getSchemaName(), baseTableName.getTableName())
+                        .orElseThrow(() -> new TableNotFoundException(baseTableName));
+
+                ImmutableMap.Builder<String, String> newParameters = ImmutableMap.builder();
+                ImmutableMap.Builder<String, String> oldParameters = ImmutableMap.builder();
+
+                String oldViewList = baseTable.getParameters().get(PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST);
+                if (oldViewList != null) {
+                    oldParameters.put(
+                            PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST,
+                            oldViewList);
+
+                    Set<String> newViewSet = new HashSet<>(Splitter.on(",").splitToList(oldViewList));
+                    newViewSet.add(new SchemaTableName(table.getDatabaseName(), table.getTableName()).toString());
+                    newParameters.put(
+                            PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST,
+                            Joiner.on(",").join(newViewSet));
+
+                }
+                else {
+                     newParameters.put(
+                             PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST,
+                             new SchemaTableName(table.getDatabaseName(), table.getTableName()).toString());
+                }
+
+                updateTableParameters.add(new UpdateTableParametersOperation(baseTableName, newParameters.build(), oldParameters.build()));
+            }
+
+            try {
+                if (table.getTableType().equals(MANAGED_TABLE)) {
+                    HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+                    Path targetPath = new Path(table.getStorage().getLocation());
+                    if (pathExists(context, hdfsEnvironment, targetPath)) {
+                        throw new PrestoException(
+                                HIVE_PATH_ALREADY_EXISTS,
+                                format("Unable to create directory %s: target directory already exists", targetPath));
+                    }
+                    createDirectory(context, hdfsEnvironment, targetPath);
+                }
+
+                createTable.run(delegate);
+                updateStatistics.run(delegate);
+                updateTableParameters.forEach(operation -> operation.run(delegate));
+            }
+            catch (Throwable t) {
+                updateTableParameters.forEach(operation -> operation.undo(delegate));
+                updateStatistics.undo(delegate);
+                createTable.undo(delegate);
+
+                if (t instanceof TableNotFoundException) {
+                    throw new MaterializedViewAlreadyExistsException(((TableNotFoundException) t).getTableName());
+                }
+                throw t;
+            }
+
+        });
     }
 
     public synchronized void finishInsertIntoExistingTable(
@@ -2604,6 +2688,52 @@ public class SemiTransactionalHiveMetastore
         private PartitionStatistics resetStatistics(PartitionStatistics currentStatistics)
         {
             return new PartitionStatistics(reduce(currentStatistics.getBasicStatistics(), statistics.getBasicStatistics(), SUBTRACT), ImmutableMap.of());
+        }
+    }
+
+    private static class UpdateTableParametersOperation
+    {
+        private final SchemaTableName tableName;
+        private final Map<String, String> oldParameters;
+        private final Map<String, String> newParameters;
+
+        private boolean done;
+
+        public UpdateTableParametersOperation(SchemaTableName tableName, Map<String, String> newParameters, Map<String, String> oldParameters)
+        {
+            this.tableName = requireNonNull(tableName, "tableName is null");
+            this.oldParameters = ImmutableMap.copyOf(requireNonNull(oldParameters, "oldParameters is null"));
+            this.newParameters = ImmutableMap.copyOf(requireNonNull(newParameters, "newParameters is null"));
+
+            checkArgument(
+                    newParameters.keySet().containsAll(oldParameters.keySet()), "oldParameters are not allowed to include parameters that are not in newParameters.");
+            checkArgument(oldParameters.getClass().equals(newParameters.getClass()), "oldParameters and newParameters are of different types.");
+
+            done = false;
+        }
+
+        public String getDescription()
+        {
+            return format(
+                    "update table parameters %s.%s",
+                    tableName.getSchemaName(),
+                    tableName.getTableName());
+        }
+
+        public void run(ExtendedHiveMetastore metastore)
+        {
+            metastore.updateTableParameters(tableName.getSchemaName(), tableName.getTableName(), newParameters, ImmutableSet.of());
+            done = true;
+        }
+
+        public void undo(ExtendedHiveMetastore metastore)
+        {
+            if (!done) {
+                return;
+            }
+            Set<String> drop = difference(newParameters.keySet(), oldParameters.keySet());
+            metastore.updateTableParameters(tableName.getSchemaName(), tableName.getTableName(), oldParameters, drop);
+            done = false;
         }
     }
 
