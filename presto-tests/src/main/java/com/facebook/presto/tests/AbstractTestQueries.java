@@ -449,6 +449,17 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMapTransformKeys()
+    {
+        assertQuery(
+                "SELECT\n" +
+                        "   MAP_KEYS(TRANSFORM_KEYS(features, (k, v) -> MAP(ARRAY[1, 2], ARRAY[10, 20])[k])) as k1, \n" +
+                        "   MAP_KEYS(TRANSFORM_KEYS(features, (k, v) -> MAP(ARRAY[1, 2], ARRAY[30, 40])[k])) as k2 \n" +
+                        "FROM (SELECT MAP(ARRAY[1], ARRAY[1]) as features) ",
+                "VALUES ((10), (30))");
+    }
+
+    @Test
     public void testTryMapTransformValueFunction()
     {
         // MaterializedResult#Builder doesn't support null row. Coalesce null value to empty map for comparison.
