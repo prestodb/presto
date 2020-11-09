@@ -104,7 +104,7 @@ public class SingleMapBlock
     @Override
     public String toString()
     {
-        return format("SingleMapBlock{positionCount=%d}", getPositionCount());
+        return format("SingleMapBlock(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     @Override

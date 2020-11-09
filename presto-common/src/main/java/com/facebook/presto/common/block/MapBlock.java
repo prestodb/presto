@@ -253,10 +253,7 @@ public class MapBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("MapBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("MapBlock(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     @Override

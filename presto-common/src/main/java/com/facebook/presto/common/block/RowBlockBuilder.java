@@ -234,7 +234,7 @@ public class RowBlockBuilder
     @Override
     public String toString()
     {
-        return format("RowBlockBuilder{numFields=%d, positionCount=%d", numFields, getPositionCount());
+        return format("RowBlockBuilder(%d){numFields=%d, positionCount=%d", hashCode(), numFields, getPositionCount());
     }
 
     @Override
