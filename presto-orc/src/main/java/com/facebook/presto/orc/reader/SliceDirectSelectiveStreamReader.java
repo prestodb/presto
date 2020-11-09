@@ -133,6 +133,8 @@ public class SliceDirectSelectiveStreamReader
 
         int streamPosition;
 
+        System.out.println("presentStream " + presentStream + " presentStream == null ? " + (presentStream == null) + " positionCount=" + positionCount);
+
         if (lengthStream == null) {
             streamPosition = readAllNulls(positions, positionCount);
         }
@@ -220,7 +222,7 @@ public class SliceDirectSelectiveStreamReader
                             if (outputRequired) {
                                 int truncatedLength = computeTruncatedLength(dataAsSlice, dataOffset, length, maxCodePointCount, isCharType);
                                 offsets[outputPositionCount + 1] = offset + truncatedLength;
-                                if (nullsAllowed && presentStream != null) {
+                                if (nullsAllowed && isNullVector != null) {
                                     nulls[outputPositionCount] = false;
                                 }
                             }
@@ -444,6 +446,7 @@ public class SliceDirectSelectiveStreamReader
         dataStream = dataStreamSource.openStream();
 
         rowGroupOpen = true;
+        System.out.println("openning rowgroup");
     }
 
     @Override

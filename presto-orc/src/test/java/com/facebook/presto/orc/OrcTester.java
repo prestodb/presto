@@ -1553,6 +1553,47 @@ public class OrcTester
                 true));
     }
 
+    public static void writeOrcPagesPresto(File outputFile, Format format, CompressionKind compression, Optional<DwrfWriterEncryption> dwrfWriterEncryption, List<Type> types, List<Page> pages, OrcWriterStats stats)
+            throws Exception
+    {
+        requireNonNull(pages, "pages is null");
+        checkArgument(pages.size() > 0, "At least one page is required.");
+        checkArgument(types.size() == pages.get(0).getChannelCount());
+
+        List<String> columnNames = makeColumnNames(types.size());
+
+        ImmutableMap.Builder<String, String> metadata = ImmutableMap.builder();
+        metadata.put("columns", String.join(", ", columnNames));
+        metadata.put("columns.types", createSettableStructObjectInspector(types).getTypeName());
+
+        OrcWriter writer = new OrcWriter(
+                new OutputStreamDataSink(new FileOutputStream(outputFile)),
+                columnNames,
+                types,
+                format.getOrcEncoding(),
+                compression,
+                dwrfWriterEncryption,
+                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
+                new OrcWriterOptions(),
+                ImmutableMap.of(),
+                HIVE_STORAGE_TIME_ZONE,
+                true,
+                BOTH,
+                stats);
+
+        for (Page page: pages) {
+            writer.write(page);
+        }
+
+        writer.close();
+        writer.validate(new FileOrcDataSource(
+                outputFile,
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                new DataSize(1, MEGABYTE),
+                true));
+    }
+
     private static DwrfWriterEncryption generateWriterEncryption()
     {
         return new DwrfWriterEncryption(
