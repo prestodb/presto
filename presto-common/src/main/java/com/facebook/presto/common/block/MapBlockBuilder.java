@@ -368,9 +368,7 @@ public class MapBlockBuilder
     @Override
     public String toString()
     {
-        return "MapBlockBuilder{" +
-                "positionCount=" + getPositionCount() +
-                '}';
+        return format("MapBlockBuilder(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     @Override

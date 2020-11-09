@@ -30,6 +30,7 @@ import static com.facebook.presto.common.block.BlockUtil.ensureCapacity;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 
 public class LongArrayBlock
         implements Block
@@ -262,10 +263,7 @@ public class LongArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("LongArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("LongArrayBlock(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     private void checkReadablePosition(int position)

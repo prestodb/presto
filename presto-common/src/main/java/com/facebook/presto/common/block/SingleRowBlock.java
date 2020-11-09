@@ -93,7 +93,7 @@ public class SingleRowBlock
     @Override
     public String toString()
     {
-        return format("SingleRowBlock{numFields=%d}", fieldBlocks.length);
+        return format("SingleRowBlock(%d){numFields=%d}", hashCode(), fieldBlocks.length);
     }
 
     @Override
