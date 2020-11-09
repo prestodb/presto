@@ -30,6 +30,7 @@ import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 
 public class LongArrayBlockBuilder
         implements BlockBuilder
@@ -350,10 +351,7 @@ public class LongArrayBlockBuilder
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("LongArrayBlockBuilder{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("LongArrayBlockBuilder(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     private void checkReadablePosition(int position)

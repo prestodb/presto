@@ -45,6 +45,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 
 public class VariableWidthBlockBuilder
         extends AbstractVariableWidthBlock
@@ -397,11 +398,7 @@ public class VariableWidthBlockBuilder
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("VariableWidthBlockBuilder{");
-        sb.append("positionCount=").append(positions);
-        sb.append(", size=").append(sliceOutput.size());
-        sb.append('}');
-        return sb.toString();
+        return format("VariableWidthBlockBuilder(%d){positionCount=%d,size=%d}", hashCode(), getPositionCount(), sliceOutput.size());
     }
 
     @Override
