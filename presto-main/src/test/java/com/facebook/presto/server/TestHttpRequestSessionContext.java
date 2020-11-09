@@ -15,6 +15,8 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.sql.parser.IdentifierSymbol;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -24,6 +26,7 @@ import javax.ws.rs.WebApplicationException;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.EnumSet;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
@@ -67,7 +70,7 @@ public class TestHttpRequestSessionContext
                         .build(),
                 "testRemote");
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(request);
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
         assertEquals(context.getSource(), "testSource");
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
@@ -99,7 +102,28 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
                         .build(),
                 "testRemote");
-        new HttpRequestSessionContext(request);
+        new HttpRequestSessionContext(request, new SqlParserOptions());
+    }
+
+    @Test
+    public void testPreparedStatementsSpecialCharacters()
+    {
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_SOURCE, "testSource")
+                        .put(PRESTO_CATALOG, "testCatalog")
+                        .put(PRESTO_SCHEMA, "testSchema")
+                        .put(PRESTO_LANGUAGE, "zh-TW")
+                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                        .put(PRESTO_CLIENT_INFO, "null")
+                        .put(PRESTO_PREPARED_STATEMENT, "query1=select * from tbl:ns")
+                        .build(),
+                "testRemote");
+        SqlParserOptions options = new SqlParserOptions();
+        options.allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class));
+
+        new HttpRequestSessionContext(request, options);
     }
 
     @Test
@@ -127,7 +151,7 @@ public class TestHttpRequestSessionContext
                         .build(),
                 "testRemote");
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(request);
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
         assertEquals(
                 context.getIdentity().getExtraCredentials(),
                 ImmutableMap.builder()
