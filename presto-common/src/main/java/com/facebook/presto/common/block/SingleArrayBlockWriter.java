@@ -176,6 +176,6 @@ public class SingleArrayBlockWriter
     @Override
     public String toString()
     {
-        return format("SingleArrayBlockWriter{positionCount=%d}", getPositionCount());
+        return format("SingleArrayBlockWriter(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 }

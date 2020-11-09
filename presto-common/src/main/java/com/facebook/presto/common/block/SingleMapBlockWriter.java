@@ -258,6 +258,6 @@ public class SingleMapBlockWriter
     @Override
     public String toString()
     {
-        return format("SingleMapBlockWriter{positionCount=%d}", getPositionCount());
+        return format("SingleMapBlockWriter(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 }
