@@ -29,6 +29,7 @@ public class PrestoSparkConfiguration
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
+    private final Optional<Map<String, Map<String, String>>> functionNamespaceProperties;
 
     public PrestoSparkConfiguration(
             Map<String, String> configProperties,
@@ -36,7 +37,8 @@ public class PrestoSparkConfiguration
             Map<String, Map<String, String>> catalogProperties,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
-            Optional<Map<String, String>> sessionPropertyConfigurationProperties)
+            Optional<Map<String, String>> sessionPropertyConfigurationProperties,
+            Optional<Map<String, Map<String, String>>> functionNamespaceProperties)
     {
         this.configProperties = unmodifiableMap(new HashMap<>(requireNonNull(configProperties, "configProperties is null")));
         this.pluginsDirectoryPath = requireNonNull(pluginsDirectoryPath, "pluginsDirectoryPath is null");
@@ -48,6 +50,9 @@ public class PrestoSparkConfiguration
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.sessionPropertyConfigurationProperties = requireNonNull(sessionPropertyConfigurationProperties, "sessionPropertyConfigurationProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
+        this.functionNamespaceProperties = requireNonNull(functionNamespaceProperties, "functionNamespaceProperties is null")
+                .map(map -> map.entrySet().stream()
+                        .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
     }
 
     public Map<String, String> getConfigProperties()
@@ -78,5 +83,10 @@ public class PrestoSparkConfiguration
     public Optional<Map<String, String>> getSessionPropertyConfigurationProperties()
     {
         return sessionPropertyConfigurationProperties;
+    }
+
+    public Optional<Map<String, Map<String, String>>> getFunctionNamespaceProperties()
+    {
+        return functionNamespaceProperties;
     }
 }

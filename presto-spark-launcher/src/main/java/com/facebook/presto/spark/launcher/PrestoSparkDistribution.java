@@ -23,6 +23,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class PrestoSparkDistribution
 {
@@ -33,6 +34,7 @@ public class PrestoSparkDistribution
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
+    private final Optional<Map<String, Map<String, String>>> functionNamespaceProperties;
 
     public PrestoSparkDistribution(
             SparkContext sparkContext,
@@ -41,7 +43,8 @@ public class PrestoSparkDistribution
             Map<String, Map<String, String>> catalogProperties,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
-            Optional<Map<String, String>> sessionPropertyConfigurationProperties)
+            Optional<Map<String, String>> sessionPropertyConfigurationProperties,
+            Optional<Map<String, Map<String, String>>> functionNamespaceProperties)
     {
         this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
         this.packageSupplier = requireNonNull(packageSupplier, "packageSupplier is null");
@@ -54,6 +57,9 @@ public class PrestoSparkDistribution
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
         this.sessionPropertyConfigurationProperties = requireNonNull(sessionPropertyConfigurationProperties, "sessionPropertyConfigurationProperties is null")
                 .map(properties -> unmodifiableMap(new HashMap<>(properties)));
+        this.functionNamespaceProperties = requireNonNull(functionNamespaceProperties, "functionNamespaceProperties is null")
+                .map(map -> map.entrySet().stream()
+                        .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
     }
 
     public SparkContext getSparkContext()
@@ -89,5 +95,10 @@ public class PrestoSparkDistribution
     public Optional<Map<String, String>> getSessionPropertyConfigurationProperties()
     {
         return sessionPropertyConfigurationProperties;
+    }
+
+    public Optional<Map<String, Map<String, String>>> getFunctionNamespaceProperties()
+    {
+        return functionNamespaceProperties;
     }
 }
