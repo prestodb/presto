@@ -9,20 +9,26 @@ clause to specify the window. A window has three components:
 
 * The partition specification, which separates the input rows into different
   partitions. This is analogous to how the ``GROUP BY`` clause separates rows
-  into different groups for aggregate functions.
+  into different groups for aggregate functions. ``PARTITION BY NULL`` is
+  equivalent to an ungrouped query.
 * The ordering specification, which determines the order in which input rows
   will be processed by the window function.
 * The window frame, which specifies a sliding window of rows to be processed
   by the function for a given row. If the frame is not specified, it defaults
   to ``RANGE UNBOUNDED PRECEDING``, which is the same as
   ``RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW``. This frame contains all
-  rows from the start of the partition up to the last peer of the current row.
+  rows from the start of the partition up to the last peer of the current row. 
+  By contrast, ``RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING`` contains
+  all rows from the current row up to the last row of the partition.
 
-For example, the following query ranks orders for each clerk by price::
+For example, the following query separately ranks orders for each clerk and 
+all clerks by price::
 
     SELECT orderkey, clerk, totalprice,
            rank() OVER (PARTITION BY clerk
-                        ORDER BY totalprice DESC) AS rnk
+                        ORDER BY totalprice DESC) AS clerk_rank,
+           rank() OVER (PARTITION BY NULL
+                        ORDER BY totalprice DESC) AS global_rank
     FROM orders
     ORDER BY clerk, rnk
 
@@ -33,14 +39,29 @@ All :doc:`aggregate` can be used as window functions by adding the ``OVER``
 clause. The aggregate function is computed for each row over the rows within
 the current row's window frame.
 
-For example, the following query produces a rolling sum of order prices
-by day for each clerk::
+For example, the following query produces both a rolling sum of order prices
+by day for each clerk and the sum of all of each clerk's orders::
 
     SELECT clerk, orderdate, orderkey, totalprice,
            sum(totalprice) OVER (PARTITION BY clerk
-                                 ORDER BY orderdate) AS rolling_sum
+                                 ORDER BY orderdate) AS rolling_sum,
+           sum(totalprice) OVER (
+               PARTITION BY clerk
+               RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+           ) AS total_sum
     FROM orders
     ORDER BY clerk, orderdate, orderkey
+
+To obtain a moving average of the price of each clerk's most recent 5 orders::
+
+    SELECT orderkey, clerk,
+           AVG(totalprice) OVER (
+               PARTITION BY clerk
+               ORDER BY orderkey ASC
+               ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+           ) AS moving_avg
+    FROM orders
+    ORDER BY clerk, orderkey
 
 Ranking Functions
 -----------------
