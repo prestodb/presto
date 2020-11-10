@@ -54,6 +54,7 @@ public class PrestoSparkInjectorFactory
     private final Optional<Map<String, String>> eventListenerProperties;
     private final Optional<Map<String, String>> accessControlProperties;
     private final Optional<Map<String, String>> sessionPropertyConfigurationProperties;
+    private final Optional<Map<String, Map<String, String>>> functionNamespaceProperties;
     private final SqlParserOptions sqlParserOptions;
     private final List<Module> additionalModules;
     private final boolean useAccessControlForTesting;
@@ -65,6 +66,7 @@ public class PrestoSparkInjectorFactory
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
+            Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules)
     {
@@ -75,6 +77,7 @@ public class PrestoSparkInjectorFactory
                 eventListenerProperties,
                 accessControlProperties,
                 sessionPropertyConfigurationProperties,
+                functionNamespaceProperties,
                 sqlParserOptions,
                 additionalModules,
                 false);
@@ -87,6 +90,7 @@ public class PrestoSparkInjectorFactory
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
+            Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
             SqlParserOptions sqlParserOptions,
             List<Module> additionalModules,
             boolean useAccessControlForTesting)
@@ -98,6 +102,9 @@ public class PrestoSparkInjectorFactory
         this.eventListenerProperties = requireNonNull(eventListenerProperties, "eventListenerProperties is null").map(ImmutableMap::copyOf);
         this.accessControlProperties = requireNonNull(accessControlProperties, "accessControlProperties is null").map(ImmutableMap::copyOf);
         this.sessionPropertyConfigurationProperties = requireNonNull(sessionPropertyConfigurationProperties, "sessionPropertyConfigurationProperties is null").map(ImmutableMap::copyOf);
+        this.functionNamespaceProperties = requireNonNull(functionNamespaceProperties, "functionNamespaceProperties is null")
+                .map(map -> map.entrySet().stream()
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue()))));
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.additionalModules = ImmutableList.copyOf(requireNonNull(additionalModules, "additionalModules is null"));
         this.useAccessControlForTesting = useAccessControlForTesting;
@@ -145,7 +152,12 @@ public class PrestoSparkInjectorFactory
         try {
             injector.getInstance(PluginManager.class).loadPlugins();
             injector.getInstance(StaticCatalogStore.class).loadCatalogs(catalogProperties);
-            injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
+            if (functionNamespaceProperties.isPresent()) {
+                injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(functionNamespaceProperties.get());
+            }
+            else {
+                injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
+            }
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             eventListenerProperties.ifPresent(properties -> injector.getInstance(EventListenerManager.class).loadConfiguredEventListener(properties));
