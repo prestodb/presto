@@ -2,6 +2,9 @@
 Release 0.243
 =============
 
+.. warning::
+    There is a bug in LambdaDefinitionExpression canonicalization introduced since 0.238. For more details, go to :issue:`15424`.
+
 **Highlights**
 ==============
 * Add :func:`approx_most_frequent` aggregation function.

@@ -2,6 +2,9 @@
 Release 0.241
 =============
 
+.. warning::
+    There is a bug in LambdaDefinitionExpression canonicalization introduced since 0.238. For more details, go to :issue:`15424`.
+
 General Changes
 _______________
 * Fix incorrect results from function :func:`classification_precision` introduced in release 0.239.

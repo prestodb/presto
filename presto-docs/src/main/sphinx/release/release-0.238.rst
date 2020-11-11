@@ -7,6 +7,9 @@ Release 0.238
    There is a bug in this release that will cause certain queries with lambda expressions to fail.
    There is a reliability issue in ZSTD compression that causes frequent excessive GC events in this release.
 
+.. warning::
+    There is a bug in LambdaDefinitionExpression canonicalization introduced in this release. For more details, go to :issue:`15424`.
+
 **Highlights**
 ==============
 * Fix SQL function parameters to be case-insensitive.
