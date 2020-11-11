@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
@@ -37,7 +38,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.Swapper;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -84,7 +84,7 @@ public class PagesIndex
     private final boolean groupByUsesEqualTo;
 
     private final List<Type> types;
-    private final LongArrayList valueAddresses;
+    private LongBigArray valueAddresses;
     private final ObjectArrayList<Block>[] channels;
     private final boolean eagerCompact;
 
@@ -107,7 +107,7 @@ public class PagesIndex
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.groupByUsesEqualTo = groupByUsesEqualTo;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-        this.valueAddresses = new LongArrayList(expectedPositions);
+        this.valueAddresses = new LongBigArray();
         this.eagerCompact = eagerCompact;
 
         //noinspection rawtypes
@@ -180,7 +180,7 @@ public class PagesIndex
         return positionCount;
     }
 
-    public LongArrayList getValueAddresses()
+    public LongBigArray getValueAddresses()
     {
         return valueAddresses;
     }
@@ -196,8 +196,7 @@ public class PagesIndex
             channel.clear();
             channel.trim();
         }
-        valueAddresses.clear();
-        valueAddresses.trim();
+        valueAddresses = new LongBigArray();
         positionCount = 0;
         nextBlockToCompact = 0;
         pagesMemorySize = 0;
@@ -212,8 +211,6 @@ public class PagesIndex
             return;
         }
 
-        positionCount += page.getPositionCount();
-
         int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
         for (int i = 0; i < channels.length; i++) {
             Block block = page.getBlock(i);
@@ -224,9 +221,11 @@ public class PagesIndex
             pagesMemorySize += block.getRetainedSizeInBytes();
         }
 
+        valueAddresses.ensureCapacity(positionCount + page.getPositionCount());
         for (int position = 0; position < page.getPositionCount(); position++) {
             long sliceAddress = encodeSyntheticAddress(pageIndex, position);
-            valueAddresses.add(sliceAddress);
+            valueAddresses.set(positionCount, sliceAddress);
+            positionCount++;
         }
         estimatedSize = calculateEstimatedSize();
     }
@@ -261,7 +260,7 @@ public class PagesIndex
     {
         long elementsSize = (channels.length > 0) ? sizeOf(channels[0].elements()) : 0;
         long channelsArraySize = elementsSize * channels.length;
-        long addressesArraySize = sizeOf(valueAddresses.elements());
+        long addressesArraySize = valueAddresses.sizeOf();
         return INSTANCE_SIZE + pagesMemorySize + channelsArraySize + addressesArraySize;
     }
 
@@ -273,16 +272,15 @@ public class PagesIndex
     @Override
     public void swap(int a, int b)
     {
-        long[] elements = valueAddresses.elements();
-        long temp = elements[a];
-        elements[a] = elements[b];
-        elements[b] = temp;
+        long temp = valueAddresses.get(a);
+        valueAddresses.set(a, valueAddresses.get(b));
+        valueAddresses.set(b, temp);
     }
 
     public int buildPage(int position, int[] outputChannels, PageBuilder pageBuilder)
     {
         while (!pageBuilder.isFull() && position < positionCount) {
-            long pageAddress = valueAddresses.getLong(position);
+            long pageAddress = valueAddresses.get(position);
             int blockIndex = decodeSliceIndex(pageAddress);
             int blockPosition = decodePosition(pageAddress);
 
@@ -303,7 +301,7 @@ public class PagesIndex
 
     public void appendTo(int channel, int position, BlockBuilder output)
     {
-        long pageAddress = valueAddresses.getLong(position);
+        long pageAddress = valueAddresses.get(position);
 
         Type type = types.get(channel);
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
@@ -313,7 +311,7 @@ public class PagesIndex
 
     public boolean isNull(int channel, int position)
     {
-        long pageAddress = valueAddresses.getLong(position);
+        long pageAddress = valueAddresses.get(position);
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
@@ -322,7 +320,7 @@ public class PagesIndex
 
     public boolean getBoolean(int channel, int position)
     {
-        long pageAddress = valueAddresses.getLong(position);
+        long pageAddress = valueAddresses.get(position);
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
@@ -331,7 +329,7 @@ public class PagesIndex
 
     public long getLong(int channel, int position)
     {
-        long pageAddress = valueAddresses.getLong(position);
+        long pageAddress = valueAddresses.get(position);
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
@@ -340,7 +338,7 @@ public class PagesIndex
 
     public double getDouble(int channel, int position)
     {
-        long pageAddress = valueAddresses.getLong(position);
+        long pageAddress = valueAddresses.get(position);
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
@@ -349,7 +347,7 @@ public class PagesIndex
 
     public Slice getSlice(int channel, int position)
     {
-        long pageAddress = valueAddresses.getLong(position);
+        long pageAddress = valueAddresses.get(position);
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
@@ -358,7 +356,7 @@ public class PagesIndex
 
     public Object getObject(int channel, int position)
     {
-        long pageAddress = valueAddresses.getLong(position);
+        long pageAddress = valueAddresses.get(position);
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
@@ -367,7 +365,7 @@ public class PagesIndex
 
     public Block getSingleValueBlock(int channel, int position)
     {
-        long pageAddress = valueAddresses.getLong(position);
+        long pageAddress = valueAddresses.get(position);
 
         Block block = channels[channel].get(decodeSliceIndex(pageAddress));
         int blockPosition = decodePosition(pageAddress);
@@ -386,11 +384,11 @@ public class PagesIndex
 
     public boolean positionEqualsPosition(PagesHashStrategy partitionHashStrategy, int leftPosition, int rightPosition)
     {
-        long leftAddress = valueAddresses.getLong(leftPosition);
+        long leftAddress = valueAddresses.get(leftPosition);
         int leftPageIndex = decodeSliceIndex(leftAddress);
         int leftPagePosition = decodePosition(leftAddress);
 
-        long rightAddress = valueAddresses.getLong(rightPosition);
+        long rightAddress = valueAddresses.get(rightPosition);
         int rightPageIndex = decodeSliceIndex(rightAddress);
         int rightPagePosition = decodePosition(rightAddress);
 
@@ -399,7 +397,7 @@ public class PagesIndex
 
     public boolean positionEqualsRow(PagesHashStrategy pagesHashStrategy, int indexPosition, int rightPosition, Page rightPage)
     {
-        long pageAddress = valueAddresses.getLong(indexPosition);
+        long pageAddress = valueAddresses.get(indexPosition);
         int pageIndex = decodeSliceIndex(pageAddress);
         int pagePosition = decodePosition(pageAddress);
 
@@ -470,7 +468,7 @@ public class PagesIndex
     {
         // TODO probably shouldn't copy to reduce memory and for memory accounting's sake
         List<List<Block>> channels = ImmutableList.copyOf(this.channels);
-        return new PagesSpatialIndexSupplier(session, valueAddresses, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions, localUserMemoryContext);
+        return new PagesSpatialIndexSupplier(session, valueAddresses, positionCount, types, outputChannels, channels, geometryChannel, radiusChannel, partitionChannel, spatialRelationshipTest, filterFunctionFactory, partitions, localUserMemoryContext);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -493,6 +491,7 @@ public class PagesIndex
                 return lookupSourceFactory.createLookupSourceSupplier(
                         session,
                         valueAddresses,
+                        positionCount,
                         channels,
                         hashChannel,
                         filterFunctionFactory,
@@ -519,6 +518,7 @@ public class PagesIndex
                 session,
                 hashStrategy,
                 valueAddresses,
+                positionCount,
                 channels,
                 filterFunctionFactory,
                 sortChannel,
