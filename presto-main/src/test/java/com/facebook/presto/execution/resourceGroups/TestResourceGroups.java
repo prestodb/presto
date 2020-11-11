@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.airlift.testing.Assertions.assertBetweenInclusive;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
@@ -63,7 +64,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testQueueFull()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(1);
         root.setHardConcurrencyLimit(1);
@@ -82,7 +83,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testFairEligibility()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -137,7 +138,7 @@ public class TestResourceGroups
     @Test
     public void testSetSchedulingPolicy()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -179,7 +180,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testFairQueuing()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(1);
@@ -221,7 +222,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testMemoryLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
@@ -246,7 +247,7 @@ public class TestResourceGroups
     @Test
     public void testSubgroupMemoryLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(10, BYTE));
         root.setMaxQueuedQueries(4);
         root.setHardConcurrencyLimit(3);
@@ -276,7 +277,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testSoftCpuLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setSoftCpuLimit(new Duration(1, SECONDS));
         root.setHardCpuLimit(new Duration(2, SECONDS));
@@ -310,7 +311,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testHardCpuLimit()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, BYTE));
         root.setHardCpuLimit(new Duration(1, SECONDS));
         root.setCpuQuotaGenerationMillisPerSecond(2000);
@@ -335,7 +336,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testPriorityScheduling()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(100);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -385,7 +386,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedScheduling()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(4);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -434,7 +435,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedFairScheduling()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(50);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -477,7 +478,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedFairSchedulingEqualWeights()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(50);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -536,7 +537,7 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedFairSchedulingNoStarvation()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(50);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -577,7 +578,7 @@ public class TestResourceGroups
     @Test
     public void testGetInfo()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         // Start with zero capacity, so that nothing starts running until we've added all the queries
@@ -667,7 +668,7 @@ public class TestResourceGroups
     @Test
     public void testGetResourceGroupStateInfo()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(10);
@@ -735,7 +736,7 @@ public class TestResourceGroups
     @Test
     public void testGetStaticResourceGroupInfo()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, GIGABYTE));
         root.setMaxQueuedQueries(100);
         root.setHardConcurrencyLimit(10);
@@ -812,7 +813,7 @@ public class TestResourceGroups
     @Test
     public void testGetBlockedQueuedQueries()
     {
-        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         // Start with zero capacity, so that nothing starts running until we've added all the queries

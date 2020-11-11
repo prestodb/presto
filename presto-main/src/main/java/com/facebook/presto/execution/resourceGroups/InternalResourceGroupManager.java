@@ -95,6 +95,8 @@ public final class InternalResourceGroupManager<C>
     private final AtomicLong lastSchedulingCycleRunTimeMs = new AtomicLong(currentTimeMillis());
     private final HeartbeatSender heartbeatSender;
     private final ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = new ConcurrentHashMap<>();
+    private final AtomicLong lastUpdatedResourceGroupRuntimeInfo = new AtomicLong(0l);
+    private final int concurrencyThresholdPercentage;
 
     @Inject
     public InternalResourceGroupManager(
@@ -113,6 +115,7 @@ public final class InternalResourceGroupManager<C>
         this.configurationManager = new AtomicReference<>(cast(legacyManager));
         this.maxTotalRunningTaskCountToNotExecuteNewQuery = queryManagerConfig.getMaxTotalRunningTaskCountToNotExecuteNewQuery();
         this.heartbeatSender = requireNonNull(heartbeatSender, "heartbeatSender is null");
+        this.concurrencyThresholdPercentage = queryManagerConfig.getConcurrencyThresholdToEnableResourceGroupRefresh();
     }
 
     @Override
@@ -214,17 +217,23 @@ public final class InternalResourceGroupManager<C>
                 }
             }, 1, 1, MILLISECONDS);
             refreshExecutor.scheduleWithFixedDelay(() -> {
-                try {
-                    List<ResourceGroupRuntimeInfo> resourceGroupInfos = heartbeatSender.getResourceGroupInfo();
-                    Set<ResourceGroupId> resourceGroupIds = resourceGroupInfos.stream().map(ResourceGroupRuntimeInfo::getResourceGroupId).collect(toImmutableSet());
-                    Set<ResourceGroupId> toRemove = ImmutableSet.copyOf(Sets.difference(resourceGroupRuntimeInfos.keySet(), resourceGroupIds));
-                    resourceGroupRuntimeInfos.keySet().removeAll(toRemove);
-                    resourceGroupInfos.forEach(resourceGroupRuntimeInfo -> resourceGroupRuntimeInfos.put(resourceGroupRuntimeInfo.getResourceGroupId(), resourceGroupRuntimeInfo));
-                }
-                catch (Throwable t) {
-                    log.error(t, "Error while executing refreshAndStartQueries");
-                }
+                refreshResourceGroupRuntimeInfo();
             }, 0, 100, MILLISECONDS);
+        }
+    }
+
+    private void refreshResourceGroupRuntimeInfo()
+    {
+        try {
+            List<ResourceGroupRuntimeInfo> resourceGroupInfos = heartbeatSender.getResourceGroupInfo();
+            Set<ResourceGroupId> resourceGroupIds = resourceGroupInfos.stream().map(ResourceGroupRuntimeInfo::getResourceGroupId).collect(toImmutableSet());
+            Set<ResourceGroupId> toRemove = ImmutableSet.copyOf(Sets.difference(resourceGroupRuntimeInfos.keySet(), resourceGroupIds));
+            resourceGroupRuntimeInfos.keySet().removeAll(toRemove);
+            resourceGroupInfos.forEach(resourceGroupRuntimeInfo -> resourceGroupRuntimeInfos.put(resourceGroupRuntimeInfo.getResourceGroupId(), resourceGroupRuntimeInfo));
+            lastUpdatedResourceGroupRuntimeInfo.set(currentTimeMillis());
+        }
+        catch (Throwable t) {
+            log.error(t, "Error while executing refreshAndStartQueries");
         }
     }
 
@@ -278,7 +287,8 @@ public final class InternalResourceGroupManager<C>
                 group = parent.getOrCreateSubGroup(id.getLastSegment(), !context.getFirstDynamicSegmentPosition().equals(OptionalInt.of(subGroupSegmentIndex)));
             }
             else {
-                RootInternalResourceGroup root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, resourceGroupRuntimeInfos);
+                RootInternalResourceGroup root = new RootInternalResourceGroup(id.getSegments().get(0), this::exportGroup, executor, resourceGroupRuntimeInfos,
+                        lastUpdatedResourceGroupRuntimeInfo, concurrencyThresholdPercentage);
                 group = root;
                 rootGroups.add(root);
             }

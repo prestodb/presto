@@ -56,6 +56,7 @@ public class QueryManagerConfig
     private int maxTotalRunningTaskCountToKillQuery = Integer.MAX_VALUE;
     private int maxQueryRunningTaskCount = Integer.MAX_VALUE;
     private int maxTotalRunningTaskCountToNotExecuteNewQuery = Integer.MAX_VALUE;
+    private int concurrencyThresholdToEnableResourceGroupRefresh = 100;
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
@@ -297,6 +298,19 @@ public class QueryManagerConfig
     {
         this.maxQueryRunningTaskCount = maxQueryRunningTaskCount;
         return this;
+    }
+
+    @Config("concurrency-threshold-to-enable-resource-group-refresh")
+    @ConfigDescription("Resource group concurrency threshold precentage, once crossed new queries won't run till updated resource group info comes from resource manager")
+    public QueryManagerConfig setConcurrencyThresholdToEnableResourceGroupRefresh(int concurrencyThresholdToEnableResourceGroupRefresh)
+    {
+        this.concurrencyThresholdToEnableResourceGroupRefresh = concurrencyThresholdToEnableResourceGroupRefresh;
+        return this;
+    }
+
+    public int getConcurrencyThresholdToEnableResourceGroupRefresh()
+    {
+        return concurrencyThresholdToEnableResourceGroupRefresh;
     }
 
     @MinDuration("5s")

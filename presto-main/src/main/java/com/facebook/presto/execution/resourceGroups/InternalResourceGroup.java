@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryPriority;
@@ -70,6 +71,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.lang.System.currentTimeMillis;
 
 /**
  * Resource groups form a tree, and all access to a group is guarded by the root of the tree.
@@ -142,6 +144,12 @@ public class InternalResourceGroup
     private long lastStartMillis;
     @GuardedBy("root")
     private final CounterStat timeBetweenStartsSec = new CounterStat();
+    @GuardedBy("root")
+    private AtomicLong lastUpdatedResourceGroupRuntimeInfo;
+    @GuardedBy("root")
+    private AtomicLong lastRunningQueryStartTime = new AtomicLong(0);
+    @GuardedBy("root")
+    private int concurrencyThresholdPercentage;
 
     protected InternalResourceGroup(
             Optional<InternalResourceGroup> parent,
@@ -149,7 +157,9 @@ public class InternalResourceGroup
             BiConsumer<InternalResourceGroup, Boolean> jmxExportListener,
             Executor executor,
             boolean staticResourceGroup,
-            ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos)
+            ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos,
+            AtomicLong lastUpdatedResourceGroupRuntimeInfo,
+            int concurrencyThresholdPercentage)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
@@ -165,6 +175,8 @@ public class InternalResourceGroup
         }
         this.staticResourceGroup = staticResourceGroup;
         this.resourceGroupRuntimeInfos = resourceGroupRuntimeInfos;
+        this.lastUpdatedResourceGroupRuntimeInfo = lastUpdatedResourceGroupRuntimeInfo;
+        this.concurrencyThresholdPercentage = concurrencyThresholdPercentage;
     }
 
     public ResourceGroupInfo getResourceGroupInfo(boolean includeQueryInfo, boolean summarizeSubgroups, boolean includeStaticSubgroupsOnly)
@@ -598,7 +610,9 @@ public class InternalResourceGroup
                     jmxExportListener,
                     executor,
                     staticResourceGroup && staticSegment,
-                    resourceGroupRuntimeInfos);
+                    resourceGroupRuntimeInfos,
+                    lastUpdatedResourceGroupRuntimeInfo,
+                    concurrencyThresholdPercentage);
             // Sub group must use query priority to ensure ordering
             if (schedulingPolicy == QUERY_PRIORITY) {
                 subGroup.setSchedulingPolicy(QUERY_PRIORITY);
@@ -707,6 +721,7 @@ public class InternalResourceGroup
             }
             updateEligibility();
             executor.execute(query::startWaitingForResources);
+            lastRunningQueryStartTime.set(currentTimeMillis());
         }
     }
 
@@ -898,6 +913,10 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock");
         synchronized (root) {
+            ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfos.get(getId());
+            if (resourceGroupRuntimeInfo != null) {
+                return descendantQueuedQueries + queuedQueries.size() + resourceGroupRuntimeInfo.getQueuedQueries() < maxQueuedQueries;
+            }
             return descendantQueuedQueries + queuedQueries.size() < maxQueuedQueries;
         }
     }
@@ -925,8 +944,20 @@ public class InternalResourceGroup
                 // Always allow at least one running query
                 hardConcurrencyLimit = Math.max(1, hardConcurrencyLimit);
             }
-            return runningQueries.size() + descendantRunningQueries < hardConcurrencyLimit &&
-                    cachedMemoryUsageBytes <= softMemoryLimitBytes;
+
+            int totalRunningQueries = runningQueries.size() + descendantRunningQueries;
+
+            ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfos.get(getId());
+            if (resourceGroupRuntimeInfo != null) {
+                totalRunningQueries += resourceGroupRuntimeInfo.getRunningQueries();
+            }
+
+            //If lastRunnintStartTime earlier than the last resource group refresh time, won't let the resource group start new query
+            if (totalRunningQueries > (hardConcurrencyLimit * concurrencyThresholdPercentage / 100) && lastUpdatedResourceGroupRuntimeInfo.get() < lastRunningQueryStartTime.get()) {
+                return false;
+            }
+
+            return totalRunningQueries < hardConcurrencyLimit && cachedMemoryUsageBytes <= softMemoryLimitBytes;
         }
     }
 
@@ -974,9 +1005,12 @@ public class InternalResourceGroup
                 String name,
                 BiConsumer<InternalResourceGroup, Boolean> jmxExportListener,
                 Executor executor,
-                ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos)
+                ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos,
+                AtomicLong lastUpdatedResourceGroupRuntimeInfo,
+                int concurrencyThresholdPercentage)
         {
-            super(Optional.empty(), name, jmxExportListener, executor, true, resourceGroupRuntimeInfos);
+            super(Optional.empty(), name, jmxExportListener, executor, true, resourceGroupRuntimeInfos,
+                    lastUpdatedResourceGroupRuntimeInfo, concurrencyThresholdPercentage);
         }
 
         public synchronized void processQueuedQueries()

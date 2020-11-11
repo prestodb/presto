@@ -2,6 +2,7 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.drift.annotations.ThriftMethod;
 import com.facebook.drift.annotations.ThriftService;
+import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.metadata.InternalNode;
@@ -13,6 +14,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;

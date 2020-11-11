@@ -53,6 +53,7 @@ public class ResourceGroupRuntimeInfo
         return runningQueries;
     }
 
+
     public static class Builder
     {
         private final ResourceGroupId resourceGroupId;

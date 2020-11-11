@@ -31,6 +31,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -46,7 +47,7 @@ public class TestQueryStateInfo
     @Test
     public void testQueryStateInfo()
     {
-        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>());
+        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), new ConcurrentHashMap<>(), new AtomicLong(0));
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(0);
