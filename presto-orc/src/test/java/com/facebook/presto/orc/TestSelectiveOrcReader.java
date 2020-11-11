@@ -962,7 +962,7 @@ public class TestSelectiveOrcReader
 
                 page.getLoadedPage();
 
-                assertBetweenInclusive(systemMemoryUsage.getBytes(), 150000L, 160000L);
+                assertBetweenInclusive(systemMemoryUsage.getBytes(), 270000L, 290000L);
 
                 rowsProcessed += positionCount;
             }

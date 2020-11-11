@@ -184,7 +184,6 @@ public class TestOrcBatchPageSourceMemoryTracking
 
         assertEquals(pageSource.getSystemMemoryUsage(), 0);
 
-        long memoryUsage = -1;
         int totalRows = 0;
         while (totalRows < 20000) {
             assertFalse(pageSource.isFinished());
@@ -192,59 +191,30 @@ public class TestOrcBatchPageSourceMemoryTracking
             assertNotNull(page);
             Block block = page.getBlock(1);
 
-            if (memoryUsage == -1) {
-                assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
-                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                memoryUsage = pageSource.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L); // Memory usage after lazy-loading the actual block
-            }
-            else {
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
-                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
-            }
+            createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
+            assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 300000L, 500000L); // Memory usage after lazy-loading the actual block
             totalRows += page.getPositionCount();
         }
 
-        memoryUsage = -1;
         while (totalRows < 40000) {
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             Block block = page.getBlock(1);
 
-            if (memoryUsage == -1) {
-                assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
-                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                memoryUsage = pageSource.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L); // Memory usage after lazy-loading the actual block
-            }
-            else {
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
-                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
-            }
+            createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
+            assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 300000L, 500000L); // Memory usage after lazy-loading the actual block
             totalRows += page.getPositionCount();
         }
 
-        memoryUsage = -1;
         while (totalRows < NUM_ROWS) {
             assertFalse(pageSource.isFinished());
             Page page = pageSource.getNextPage();
             assertNotNull(page);
             Block block = page.getBlock(1);
 
-            if (memoryUsage == -1) {
-                assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 90000L, 99999L); // Memory usage before lazy-loading the block
-                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                memoryUsage = pageSource.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 360000L, 369999L); // Memory usage after lazy-loading the actual block
-            }
-            else {
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
-                createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
-                assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
-            }
+            createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
+            assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 300000L, 500000L); // Memory usage after lazy-loading the actual block
             totalRows += page.getPositionCount();
         }
 
@@ -324,52 +294,31 @@ public class TestOrcBatchPageSourceMemoryTracking
 
         assertEquals(driverContext.getSystemMemoryUsage(), 0);
 
-        long memoryUsage = -1;
         int totalRows = 0;
         while (totalRows < 20000) {
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
             page.getBlock(1);
-            if (memoryUsage == -1) {
-                memoryUsage = driverContext.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L);
-            }
-            else {
-                assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
-            }
+            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 300000L, 500000L);
             totalRows += page.getPositionCount();
         }
 
-        memoryUsage = -1;
         while (totalRows < 40000) {
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
             page.getBlock(1);
-            if (memoryUsage == -1) {
-                memoryUsage = driverContext.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L);
-            }
-            else {
-                assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
-            }
+            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 300000L, 500000L);
             totalRows += page.getPositionCount();
         }
 
-        memoryUsage = -1;
         while (totalRows < NUM_ROWS) {
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
             page.getBlock(1);
-            if (memoryUsage == -1) {
-                memoryUsage = driverContext.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 360000L, 369999L);
-            }
-            else {
-                assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
-            }
+            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 300000L, 500000L);
             totalRows += page.getPositionCount();
         }
 

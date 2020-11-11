@@ -57,8 +57,6 @@ public final class OrcInputStream
     private int currentCompressedBlockOffset;
 
     private byte[] buffer;
-    private byte[] compressedBuffer;
-    private byte[] decompressionResultBuffer;
     private int position;
     private int length;
     private int uncompressedOffset;
@@ -94,6 +92,7 @@ public final class OrcInputStream
             int sliceInputPosition = toIntExact(sliceInput.position());
             int sliceInputRemaining = toIntExact(sliceInput.remaining());
             this.buffer = new byte[sliceInputRemaining];
+            bufferMemoryUsage.setBytes(sliceInputRemaining);
             this.length = buffer.length;
             sliceInput.readFully(buffer, sliceInputPosition, sliceInputRemaining);
             this.compressedSliceInput = EMPTY_SLICE.getInput();
@@ -101,6 +100,7 @@ public final class OrcInputStream
         else {
             this.compressedSliceInput = sliceInput;
             this.buffer = new byte[0];
+            bufferMemoryUsage.setBytes(0);
         }
     }
 
@@ -212,6 +212,7 @@ public final class OrcInputStream
             }
             compressedSliceInput.setPosition(compressedBlockOffset);
             buffer = new byte[0];
+            bufferMemoryUsage.setBytes(0);
             position = 0;
             length = 0;
             uncompressedOffset = 0;
@@ -444,6 +445,7 @@ public final class OrcInputStream
     {
         if (compressedSliceInput == null || compressedSliceInput.remaining() == 0) {
             buffer = null;
+            bufferMemoryUsage.setBytes(0);
             position = 0;
             length = 0;
             uncompressedOffset = 0;
@@ -464,34 +466,32 @@ public final class OrcInputStream
         }
 
         if (isUncompressed) {
-            buffer = ensureCapacity(buffer, chunkLength);
+            buffer = new byte[chunkLength];
             length = compressedSliceInput.read(buffer, 0, chunkLength);
             if (dwrfDecryptor.isPresent()) {
                 buffer = dwrfDecryptor.get().decrypt(buffer, 0, chunkLength);
                 length = buffer.length;
             }
             position = 0;
+            bufferMemoryUsage.setBytes(buffer.length);
         }
         else {
-            compressedBuffer = ensureCapacity(compressedBuffer, chunkLength);
+            byte[] compressedBuffer = new byte[chunkLength];
             int readCompressed = compressedSliceInput.read(compressedBuffer, 0, chunkLength);
             if (dwrfDecryptor.isPresent()) {
                 compressedBuffer = dwrfDecryptor.get().decrypt(compressedBuffer, 0, chunkLength);
                 readCompressed = compressedBuffer.length;
             }
 
-            buffer = decompressionResultBuffer;
             OrcDecompressor.OutputBuffer output = new OrcDecompressor.OutputBuffer()
             {
                 @Override
                 public byte[] initialize(int size)
                 {
-                    if (buffer == null || size > buffer.length) {
-                        buffer = new byte[size];
-                        bufferMemoryUsage.setBytes(buffer.length);
-                        position = 0;
-                        length = size;
-                    }
+                    buffer = new byte[size];
+                    bufferMemoryUsage.setBytes(buffer.length);
+                    position = 0;
+                    length = size;
                     return buffer;
                 }
 
@@ -506,19 +506,9 @@ public final class OrcInputStream
                 }
             };
             length = decompressor.get().decompress(compressedBuffer, 0, readCompressed, output);
-            decompressionResultBuffer = buffer;
             position = 0;
         }
         uncompressedOffset = position;
-    }
-
-    private static byte[] ensureCapacity(byte[] buffer, int capacity)
-    {
-        if (buffer == null || buffer.length < capacity) {
-            return new byte[capacity];
-        }
-
-        return buffer;
     }
 
     @Override
