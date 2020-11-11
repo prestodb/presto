@@ -7,6 +7,9 @@ Release 0.239
    There is a reliability issue in ZSTD compression that causes frequent excessive GC events in this release.
    classification_precision function returns wrong results, fixed in 0.239.2 release.
 
+.. warning::
+    There is a bug in LambdaDefinitionExpression canonicalization introduced since 0.238. For more details, go to :issue:`15424`.
+
 **Highlights**
 ==============
 * Add support for ``DEFINER`` and ``INVOKER`` view security models.

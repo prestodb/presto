@@ -2,6 +2,9 @@
 Release 0.242
 =============
 
+.. warning::
+    There is a bug in LambdaDefinitionExpression canonicalization introduced since 0.238. For more details, go to :issue:`15424`.
+
 **Highlights**
 ==============
 * Add configuration property ``experimental.spiller.task-spilling-strategy`` for choosing different spilling strategy to use.
