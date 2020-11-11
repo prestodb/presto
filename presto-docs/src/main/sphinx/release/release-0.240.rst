@@ -2,6 +2,9 @@
 Release 0.240
 =============
 
+.. warning::
+    There is a bug in LambdaDefinitionExpression canonicalization introduced since 0.238. For more details, go to :issue:`15424`.
+
 **Highlights**
 ==============
 * Add ability to spill window functions to local disk when a worker is out of memory.
