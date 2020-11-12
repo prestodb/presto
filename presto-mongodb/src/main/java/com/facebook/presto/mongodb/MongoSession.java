@@ -17,9 +17,11 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
@@ -55,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -332,6 +335,12 @@ public class MongoSession
             else {
                 return ((Slice) source).toStringUtf8();
             }
+        }
+        else if (type instanceof TimestampType) {
+            return new Date((Long) source);
+        }
+        else if (type instanceof DateType) {
+            return new Date(TimeUnit.DAYS.toMillis((Long) source));
         }
 
         return source;

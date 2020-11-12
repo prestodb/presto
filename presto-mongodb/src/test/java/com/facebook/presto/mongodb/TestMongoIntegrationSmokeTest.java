@@ -237,6 +237,14 @@ public class TestMongoIntegrationSmokeTest
         assertOneNotNullResult("SELECT id FROM tmp_objectid WHERE id = ObjectId('ffffffffffffffffffffffff')");
     }
 
+    @Test
+    public void testDateTimeTypes()
+    {
+        assertUpdate("CREATE TABLE tmp_date AS SELECT DATE '1980-05-07' AS _date, TIMESTAMP '1980-05-07 11:22:33.456' _timestamp", 1);
+        assertOneNotNullResult("SELECT _date FROM tmp_date WHERE _date = DATE '1980-05-07'");
+        assertOneNotNullResult("SELECT _timestamp FROM tmp_date WHERE _timestamp = TIMESTAMP '1980-05-07 11:22:33.456'");
+    }
+
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
