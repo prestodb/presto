@@ -17,6 +17,8 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -50,11 +52,12 @@ public class CanonicalPartitioningScheme
                         .collect(toImmutableList()));
     }
 
-    private CanonicalPartitioningScheme(
-            Optional<ConnectorId> connectorId,
-            ConnectorPartitioningHandle connectorHandle,
-            List<RowExpression> arguments,
-            List<VariableReferenceExpression> outputLayout)
+    @JsonCreator
+    CanonicalPartitioningScheme(
+            @JsonProperty("connectorId") Optional<ConnectorId> connectorId,
+            @JsonProperty("connectorHandle") ConnectorPartitioningHandle connectorHandle,
+            @JsonProperty("arguments") List<RowExpression> arguments,
+            @JsonProperty("outputLayout") List<VariableReferenceExpression> outputLayout)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
         this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
@@ -62,21 +65,25 @@ public class CanonicalPartitioningScheme
         this.outputLayout = ImmutableList.copyOf(requireNonNull(outputLayout, "outputLayout is null"));
     }
 
+    @JsonProperty
     public Optional<ConnectorId> getConnectorId()
     {
         return connectorId;
     }
 
+    @JsonProperty
     public ConnectorPartitioningHandle getConnectorHandle()
     {
         return connectorHandle;
     }
 
+    @JsonProperty
     public List<RowExpression> getArguments()
     {
         return arguments;
     }
 
+    @JsonProperty
     public List<VariableReferenceExpression> getOutputLayout()
     {
         return outputLayout;

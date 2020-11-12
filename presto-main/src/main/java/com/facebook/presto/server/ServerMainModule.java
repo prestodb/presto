@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.http.server.TheServlet;
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.airlift.stats.JmxGcMonitor;
 import com.facebook.airlift.stats.PauseMeter;
@@ -167,6 +168,7 @@ import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.util.FinalizerService;
 import com.facebook.presto.util.GcStatusMonitor;
 import com.facebook.presto.version.EmbedVersion;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Key;
@@ -461,6 +463,7 @@ public class ServerMainModule
 
         // handle resolver
         binder.install(new HandleJsonModule());
+        binder.bind(ObjectMapper.class).toProvider(ObjectMapperProvider.class);
 
         // connector
         binder.bind(ScalarStatsCalculator.class).in(Scopes.SINGLETON);

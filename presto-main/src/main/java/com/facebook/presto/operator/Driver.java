@@ -260,7 +260,7 @@ public class Driver
 
             if (fragmentResultCacheContext.isPresent() && !(split.getConnectorSplit() instanceof RemoteSplit)) {
                 checkState(!this.cachedResult.get().isPresent());
-                this.cachedResult.set(fragmentResultCacheContext.get().getFragmentResultCacheManager().get(fragmentResultCacheContext.get().getCanonicalPlanFragment(), split));
+                this.cachedResult.set(fragmentResultCacheContext.get().getFragmentResultCacheManager().get(fragmentResultCacheContext.get().getHashedCanonicalPlanFragment(), split));
                 this.split.set(split);
             }
 
@@ -458,7 +458,7 @@ public class Driver
                     if (shouldUseFragmentResultCache() && outputOperatorFinished && !cachedResult.get().isPresent()) {
                         checkState(split.get() != null);
                         checkState(fragmentResultCacheContext.isPresent());
-                        fragmentResultCacheContext.get().getFragmentResultCacheManager().put(fragmentResultCacheContext.get().getCanonicalPlanFragment(), split.get(), outputPages);
+                        fragmentResultCacheContext.get().getFragmentResultCacheManager().put(fragmentResultCacheContext.get().getHashedCanonicalPlanFragment(), split.get(), outputPages);
                     }
 
                     // Finish the next operator, which is now the first operator.
