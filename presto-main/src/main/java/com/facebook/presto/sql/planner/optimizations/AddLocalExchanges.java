@@ -549,7 +549,7 @@ public class AddLocalExchanges
                 }
             }
             else {
-                PlanWithProperties source = originalTableWriterNode.getSource().accept(this, fixedParallelism());
+                PlanWithProperties source = originalTableWriterNode.getSource().accept(this, defaultParallelism(session));
                 PlanWithProperties exchange = deriveProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
