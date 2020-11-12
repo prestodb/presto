@@ -21,6 +21,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.HashMap;
 import java.util.List;
@@ -41,11 +43,12 @@ public class CanonicalTableScanNode
     private final Map<VariableReferenceExpression, ColumnHandle> assignments;
     private final List<VariableReferenceExpression> outputVariables;
 
+    @JsonCreator
     public CanonicalTableScanNode(
-            PlanNodeId id,
-            CanonicalTableHandle table,
-            List<VariableReferenceExpression> outputVariables,
-            Map<VariableReferenceExpression, ColumnHandle> assignments)
+            @JsonProperty("id") PlanNodeId id,
+            @JsonProperty("table") CanonicalTableHandle table,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
@@ -61,6 +64,7 @@ public class CanonicalTableScanNode
     }
 
     @Override
+    @JsonProperty
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return outputVariables;
@@ -73,11 +77,13 @@ public class CanonicalTableScanNode
         return this;
     }
 
+    @JsonProperty
     public CanonicalTableHandle getTable()
     {
         return table;
     }
 
+    @JsonProperty
     public Map<VariableReferenceExpression, ColumnHandle> getAssignments()
     {
         return assignments;
@@ -113,29 +119,33 @@ public class CanonicalTableScanNode
 
         public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle)
         {
-            return new CanonicalTableHandle(tableHandle.getConnectorId(), tableHandle.getConnectorHandle(), tableHandle.getLayout());
+            return new CanonicalTableHandle(tableHandle.getConnectorId(), tableHandle.getConnectorHandle(), tableHandle.getLayout().map(ConnectorTableLayoutHandle::getIdentifier));
         }
 
-        private CanonicalTableHandle(
-                ConnectorId connectorId,
-                ConnectorTableHandle connectorHandle,
-                Optional<ConnectorTableLayoutHandle> layout)
+        @JsonCreator
+        public CanonicalTableHandle(
+                @JsonProperty("coonectorId") ConnectorId connectorId,
+                @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
+                @JsonProperty("layoutIdentifier") Optional<Object> layoutIdentifier)
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
-            this.layoutIdentifier = requireNonNull(layout, "layout is null").map(ConnectorTableLayoutHandle::getIdentifier);
+            this.layoutIdentifier = requireNonNull(layoutIdentifier, "layoutIdentifier is null");
         }
 
+        @JsonProperty
         public ConnectorId getConnectorId()
         {
             return connectorId;
         }
 
+        @JsonProperty
         public ConnectorTableHandle getConnectorHandle()
         {
             return connectorHandle;
         }
 
+        @JsonProperty
         public Optional<Object> getLayoutIdentifier()
         {
             return layoutIdentifier;

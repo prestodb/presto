@@ -13,10 +13,19 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.TestingBlockEncodingSerde;
+import com.facebook.presto.common.block.TestingBlockJsonSerde;
+import com.facebook.presto.common.type.TestingTypeDeserializer;
+import com.facebook.presto.common.type.TestingTypeManager;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.CanonicalTableScanNode.CanonicalTableHandle;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
@@ -29,6 +38,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
 import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -40,8 +50,23 @@ import static org.testng.Assert.assertTrue;
 public class TestCanonicalPlanGenerator
         extends BasePlanTest
 {
+    private final ObjectMapper objectMapper;
+
+    public TestCanonicalPlanGenerator()
+    {
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+        this.objectMapper = new ObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)))
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+    }
+
     @Test
     public void testPartialAggregation()
+            throws Exception
     {
         // Equal cases:
         assertSameCanonicalLeafSubPlan("SELECT avg(totalprice) FROM orders");
@@ -97,6 +122,7 @@ public class TestCanonicalPlanGenerator
 
     @Test
     public void testProject()
+            throws Exception
     {
         assertSameCanonicalLeafSubPlan("SELECT 1 + 2 FROM orders");
         assertSameCanonicalLeafSubPlan("SELECT totalprice / 2 FROM orders");
@@ -108,6 +134,7 @@ public class TestCanonicalPlanGenerator
 
     @Test
     public void testFilter()
+            throws Exception
     {
         assertSameCanonicalLeafSubPlan("SELECT totalprice FROM orders WHERE orderkey < 100");
 
@@ -118,6 +145,7 @@ public class TestCanonicalPlanGenerator
 
     @Test
     public void testTableScan()
+            throws Exception
     {
         assertSameCanonicalLeafSubPlan("SELECT totalprice FROM orders");
         assertSameCanonicalLeafSubPlan("SELECT orderkey, totalprice FROM orders");
@@ -142,6 +170,7 @@ public class TestCanonicalPlanGenerator
     }
 
     private void assertSameCanonicalLeafSubPlan(String sql)
+            throws Exception
     {
         assertSameCanonicalLeafSubPlan(sql, sql);
     }
@@ -149,6 +178,7 @@ public class TestCanonicalPlanGenerator
     // This helper method would check if the provided sql could generate the same leaf canonical plan fragment when it appears
     // at two sides of UNION ALL. The provided sql should only contain queries that don't have subplan fanout like JOIN.
     private void assertSameCanonicalLeafSubPlan(String sql1, String sql2)
+            throws Exception
     {
         SubPlan subplan = subplan(
                 format("( %s ) UNION ALL ( %s )", sql1, sql2),
@@ -161,9 +191,11 @@ public class TestCanonicalPlanGenerator
                 .collect(Collectors.toList());
         assertEquals(leafCanonicalPlans.size(), 2);
         assertEquals(leafCanonicalPlans.get(0), leafCanonicalPlans.get(1));
+        assertEquals(objectMapper.writeValueAsString(leafCanonicalPlans.get(0)), objectMapper.writeValueAsString(leafCanonicalPlans.get(1)));
     }
 
     private void assertDifferentCanonicalLeafSubPlan(String sql1, String sql2)
+            throws Exception
     {
         PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, OPTIMIZED_AND_VALIDATED, false))).getFragment();
         PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, OPTIMIZED_AND_VALIDATED, false))).getFragment();
@@ -171,7 +203,7 @@ public class TestCanonicalPlanGenerator
         Optional<CanonicalPlanFragment> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), fragment2.getPartitioningScheme());
         assertTrue(canonicalPlan1.isPresent());
         assertTrue(canonicalPlan2.isPresent());
-        assertNotEquals(canonicalPlan1, canonicalPlan2);
+        assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1), objectMapper.writeValueAsString(canonicalPlan2));
     }
 
     // We add the following field test to make sure corresponding canonical class is still correct.

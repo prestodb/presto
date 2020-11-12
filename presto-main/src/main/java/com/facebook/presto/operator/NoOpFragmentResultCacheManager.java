@@ -15,7 +15,6 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.sql.planner.CanonicalPlanFragment;
 
 import java.util.Iterator;
 import java.util.List;
@@ -28,13 +27,13 @@ public class NoOpFragmentResultCacheManager
         implements FragmentResultCacheManager
 {
     @Override
-    public Future<?> put(CanonicalPlanFragment plan, Split split, List<Page> result)
+    public Future<?> put(String serializedPlan, Split split, List<Page> result)
     {
         return immediateFuture(null);
     }
 
     @Override
-    public Optional<Iterator<Page>> get(CanonicalPlanFragment plan, Split split)
+    public Optional<Iterator<Page>> get(String serializedPlan, Split split)
     {
         return Optional.empty();
     }

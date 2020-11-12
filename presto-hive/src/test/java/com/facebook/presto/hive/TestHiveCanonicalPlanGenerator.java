@@ -13,12 +13,21 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.TestingBlockEncodingSerde;
+import com.facebook.presto.common.block.TestingBlockJsonSerde;
+import com.facebook.presto.common.type.TestingTypeDeserializer;
+import com.facebook.presto.common.type.TestingTypeManager;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.sql.planner.CanonicalPlanFragment;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -30,6 +39,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
@@ -42,13 +52,24 @@ import static org.testng.Assert.assertTrue;
 public class TestHiveCanonicalPlanGenerator
         extends AbstractTestQueryFramework
 {
+    private ObjectMapper objectMapper;
+
     public TestHiveCanonicalPlanGenerator()
     {
         super(() -> createQueryRunner(ImmutableList.of(ORDERS, LINE_ITEM)));
+        TestingTypeManager typeManager = new TestingTypeManager();
+        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
+        this.objectMapper = new ObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
+                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
+                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)))
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
 
     @Test
     public void testColumnPredicates()
+            throws Exception
     {
         QueryRunner queryRunner = getQueryRunner();
 
@@ -97,6 +118,7 @@ public class TestHiveCanonicalPlanGenerator
 
     @Test
     public void testBucketFilter()
+            throws Exception
     {
         QueryRunner queryRunner = getQueryRunner();
 
@@ -139,6 +161,7 @@ public class TestHiveCanonicalPlanGenerator
     }
 
     private void assertSameCanonicalLeafSubPlan(Session session, String sql)
+            throws Exception
     {
         assertSameCanonicalLeafSubPlan(session, sql, sql);
     }
@@ -146,6 +169,7 @@ public class TestHiveCanonicalPlanGenerator
     // This helper method would check if the provided sql could generate the same leaf canonical plan fragment when it appears
     // at two sides of UNION ALL. The provided sql should only contain queries that don't have subplan fanout like JOIN.
     private void assertSameCanonicalLeafSubPlan(Session session, String sql2, String sql1)
+            throws Exception
     {
         SubPlan subplan = subplan(format("( %s ) UNION ALL ( %s )", sql1, sql2), session);
         List<CanonicalPlanFragment> leafCanonicalPlans = getLeafSubPlans(subplan).stream()
@@ -154,10 +178,11 @@ public class TestHiveCanonicalPlanGenerator
                 .map(Optional::get)
                 .collect(Collectors.toList());
         assertEquals(leafCanonicalPlans.size(), 2);
-        assertEquals(leafCanonicalPlans.get(0), leafCanonicalPlans.get(1));
+        assertEquals(objectMapper.writeValueAsString(leafCanonicalPlans.get(0)), objectMapper.writeValueAsString(leafCanonicalPlans.get(1)));
     }
 
     private void assertDifferentCanonicalLeafSubPlan(Session session, String sql1, String sql2)
+            throws Exception
     {
         PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, session))).getFragment();
         PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, session))).getFragment();
@@ -165,6 +190,6 @@ public class TestHiveCanonicalPlanGenerator
         Optional<CanonicalPlanFragment> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), fragment2.getPartitioningScheme());
         assertTrue(canonicalPlan1.isPresent());
         assertTrue(canonicalPlan2.isPresent());
-        assertNotEquals(canonicalPlan1, canonicalPlan2);
+        assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1), objectMapper.writeValueAsString(canonicalPlan2));
     }
 }
