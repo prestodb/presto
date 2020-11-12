@@ -89,10 +89,11 @@ public class QueryMonitor
     private final EventListenerManager eventListenerManager;
     private final String serverVersion;
     private final String serverAddress;
-    private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
     private final FunctionAndTypeManager functionAndTypeManager;
     private final int maxJsonLimit;
+
+    private String environment;
 
     @Inject
     public QueryMonitor(
@@ -600,5 +601,10 @@ public class QueryMonitor
                 createResourceDistribution(memoryDistribution.snapshot())));
 
         stageInfo.getSubStages().forEach(subStage -> computeStageStatistics(subStage, stageStatisticsBuilder));
+    }
+
+    public void setEnvironment(String environment)
+    {
+        this.environment = environment;
     }
 }

@@ -82,6 +82,7 @@ public class PrestoSparkLauncherCommand
                     query,
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.empty());
         }
     }

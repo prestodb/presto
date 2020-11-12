@@ -81,7 +81,8 @@ public class PrestoSparkRunner
             String query,
             Optional<String> sparkQueueName,
             Optional<Path> queryStatusInfoOutputPath,
-            Optional<Path> queryDataOutputPath)
+            Optional<Path> queryDataOutputPath,
+            Optional<String> environment)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
 
@@ -108,7 +109,8 @@ public class PrestoSparkRunner
                 sparkQueueName,
                 new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
                 queryStatusInfoOutputPath,
-                queryDataOutputPath);
+                queryDataOutputPath,
+                environment);
 
         List<List<Object>> results = queryExecution.execute();
 

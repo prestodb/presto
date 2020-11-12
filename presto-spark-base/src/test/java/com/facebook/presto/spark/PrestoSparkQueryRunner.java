@@ -369,6 +369,7 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
         List<List<Object>> results = execution.execute();
         List<MaterializedRow> rows = results.stream()

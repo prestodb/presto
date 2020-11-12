@@ -259,12 +259,14 @@ public class PrestoSparkQueryExecutionFactory
             Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<Path> queryStatusInfoOutputPath,
-            Optional<Path> queryDataOutputPath)
+            Optional<Path> queryDataOutputPath,
+            Optional<String> environment)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
 
         queryStatusInfoOutputPath.ifPresent(path -> checkArgument(notExists(path), "File already exist: %s", path));
         queryDataOutputPath.ifPresent(path -> checkArgument(notExists(path), "File already exist: %s", path));
+        environment.ifPresent(name -> queryMonitor.setEnvironment(name));
 
         QueryStateTimer queryStateTimer = new QueryStateTimer(systemTicker());
 
