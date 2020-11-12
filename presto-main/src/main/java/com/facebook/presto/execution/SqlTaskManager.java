@@ -44,6 +44,7 @@ import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -134,7 +135,8 @@ public class SqlTaskManager
             GcMonitor gcMonitor,
             BlockEncodingSerde blockEncodingSerde,
             OrderingCompiler orderingCompiler,
-            FragmentResultCacheManager fragmentResultCacheManager)
+            FragmentResultCacheManager fragmentResultCacheManager,
+            ObjectMapper objectMapper)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -157,6 +159,7 @@ public class SqlTaskManager
                 orderingCompiler,
                 splitMonitor,
                 fragmentResultCacheManager,
+                objectMapper,
                 config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");

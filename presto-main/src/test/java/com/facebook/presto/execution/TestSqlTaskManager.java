@@ -33,6 +33,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -253,7 +254,8 @@ public class TestSqlTaskManager
                 new TestingGcMonitor(),
                 new BlockEncodingManager(),
                 new OrderingCompiler(),
-                new NoOpFragmentResultCacheManager());
+                new NoOpFragmentResultCacheManager(),
+                new ObjectMapper());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)

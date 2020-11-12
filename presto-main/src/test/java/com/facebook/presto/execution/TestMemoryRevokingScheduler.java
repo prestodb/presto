@@ -39,6 +39,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.testing.TestingSession;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -119,6 +120,7 @@ public class TestMemoryRevokingScheduler
                 new OrderingCompiler(),
                 createTestSplitMonitor(),
                 new NoOpFragmentResultCacheManager(),
+                new ObjectMapper(),
                 new TaskManagerConfig()
                         .setPerOperatorAllocationTrackingEnabled(true)
                         .setTaskCpuTimerEnabled(true)
