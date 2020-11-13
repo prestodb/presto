@@ -42,6 +42,7 @@ import com.facebook.presto.execution.scheduler.ExecutionWriterTarget;
 import com.facebook.presto.execution.scheduler.StreamingPlanSection;
 import com.facebook.presto.execution.scheduler.StreamingSubPlan;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -134,6 +135,7 @@ import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroa
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
+import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -200,6 +202,7 @@ public class PrestoSparkQueryExecutionFactory
     private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
     private final PrestoSparkTaskExecutorFactory prestoSparkTaskExecutorFactory;
     private final SessionPropertyDefaults sessionPropertyDefaults;
+    private final WarningCollectorFactory warningCollectorFactory;
 
     private final Set<PrestoSparkCredentialsProvider> credentialsProviders;
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
@@ -225,6 +228,7 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             PrestoSparkTaskExecutorFactory prestoSparkTaskExecutorFactory,
             SessionPropertyDefaults sessionPropertyDefaults,
+            WarningCollectorFactory warningCollectorFactory,
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
     {
@@ -247,6 +251,7 @@ public class PrestoSparkQueryExecutionFactory
         this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
         this.prestoSparkTaskExecutorFactory = requireNonNull(prestoSparkTaskExecutorFactory, "prestoSparkTaskExecutorFactory is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
+        this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.credentialsProviders = ImmutableSet.copyOf(requireNonNull(credentialsProviders, "credentialsProviders is null"));
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
     }
@@ -277,12 +282,11 @@ public class PrestoSparkQueryExecutionFactory
                 credentialsProviders,
                 authenticatorProviders);
 
-        // TODO: implement warning collection
-        WarningCollector warningCollector = WarningCollector.NOOP;
-
         Session session = sessionSupplier.createSession(queryId, sessionContext);
 
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
+
+        WarningCollector warningCollector = warningCollectorFactory.create(getWarningHandlingLevel(session));
 
         TransactionId transactionId = transactionManager.beginTransaction(true);
         session = session.beginTransactionId(transactionId, transactionManager, accessControl);
