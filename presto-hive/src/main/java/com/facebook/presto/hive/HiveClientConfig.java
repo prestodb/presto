@@ -182,6 +182,7 @@ public class HiveClientConfig
     private boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
 
     private boolean fileRenamingEnabled;
+    private boolean preferManifestToListFiles;
 
     public int getMaxInitialSplits()
     {
@@ -1523,5 +1524,18 @@ public class HiveClientConfig
     public boolean isFileRenamingEnabled()
     {
         return this.fileRenamingEnabled;
+    }
+
+    @Config("hive.prefer-manifests-to-list-files")
+    @ConfigDescription("Prefer to fetch the list of file names and sizes from manifests rather than storage")
+    public HiveClientConfig setPreferManifestsToListFiles(boolean preferManifestToListFiles)
+    {
+        this.preferManifestToListFiles = preferManifestToListFiles;
+        return this;
+    }
+
+    public boolean isPreferManifestsToListFiles()
+    {
+        return this.preferManifestToListFiles;
     }
 }
