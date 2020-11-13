@@ -111,6 +111,7 @@ public final class HiveSessionProperties
     public static final String PARTIAL_AGGREGATION_PUSHDOWN_ENABLED = "partial_aggregation_pushdown_enabled";
     public static final String PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED = "partial_aggregation_pushdown_for_variable_length_datatypes_enabled";
     public static final String FILE_RENAMING_ENABLED = "file_renaming_enabled";
+    public static final String PREFER_MANIFESTS_TO_LIST_FILES = "prefer_manifests_to_list_files";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -520,6 +521,11 @@ public final class HiveSessionProperties
                         FILE_RENAMING_ENABLED,
                         "Enable renaming the files written by writers",
                         hiveClientConfig.isFileRenamingEnabled(),
+                        false),
+                booleanProperty(
+                        PREFER_MANIFESTS_TO_LIST_FILES,
+                        "Prefer to fetch the list of file names and sizes from manifest",
+                        hiveClientConfig.isPreferManifestsToListFiles(),
                         false));
     }
 
@@ -909,5 +915,10 @@ public final class HiveSessionProperties
     public static boolean isFileRenamingEnabled(ConnectorSession session)
     {
         return session.getProperty(FILE_RENAMING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPreferManifestsToListFiles(ConnectorSession session)
+    {
+        return session.getProperty(PREFER_MANIFESTS_TO_LIST_FILES, Boolean.class);
     }
 }
