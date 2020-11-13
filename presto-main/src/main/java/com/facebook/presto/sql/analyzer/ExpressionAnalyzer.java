@@ -119,6 +119,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.SystemSessionProperties.getMaxInListValues;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -149,6 +150,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDU
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MULTIPLE_FIELDS_FROM_SUBQUERY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TOO_MANY_IN_LIST_VALUES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -201,6 +203,7 @@ public class ExpressionAnalyzer
     private final SqlFunctionProperties sqlFunctionProperties;
     private final List<Expression> parameters;
     private final WarningCollector warningCollector;
+    private final Optional<Integer> maxInListValues;
 
     private ExpressionAnalyzer(
             FunctionAndTypeManager functionAndTypeManager,
@@ -210,7 +213,8 @@ public class ExpressionAnalyzer
             TypeProvider symbolTypes,
             List<Expression> parameters,
             WarningCollector warningCollector,
-            boolean isDescribe)
+            boolean isDescribe,
+            Optional<Integer> maxInListValues)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
@@ -220,6 +224,7 @@ public class ExpressionAnalyzer
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.maxInListValues = requireNonNull(maxInListValues, "maxInListValues is null");
     }
 
     public Map<NodeRef<FunctionCall>, FunctionHandle> getResolvedFunctions()
@@ -910,7 +915,8 @@ public class ExpressionAnalyzer
                                         symbolTypes,
                                         parameters,
                                         warningCollector,
-                                        isDescribe);
+                                        isDescribe,
+                                        maxInListValues);
                                 if (context.getContext().isInLambda()) {
                                     for (LambdaArgumentDeclaration argument : context.getContext().getFieldToLambdaArgumentDeclaration().values()) {
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
@@ -1100,7 +1106,10 @@ public class ExpressionAnalyzer
         protected Type visitInListExpression(InListExpression node, StackableAstVisitorContext<Context> context)
         {
             Type type = coerceToSingleType(context, "All IN list values must be the same type: %s", node.getValues());
-
+            int numInListValues = node.getValues().size();
+            if (maxInListValues.isPresent() && numInListValues > maxInListValues.get()) {
+                throw new SemanticException(TOO_MANY_IN_LIST_VALUES, node, format("Max values in IN list is %d, got %d", maxInListValues.get(), numInListValues));
+            }
             setExpressionType(node, type);
             return type; // TODO: this really should a be relation type
         }
@@ -1659,7 +1668,8 @@ public class ExpressionAnalyzer
                 types,
                 analysis.getParameters(),
                 warningCollector,
-                analysis.isDescribe());
+                analysis.isDescribe(),
+                Optional.of(getMaxInListValues(session)));
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, List<Expression> parameters, WarningCollector warningCollector)
@@ -1745,6 +1755,7 @@ public class ExpressionAnalyzer
                 symbolTypes,
                 parameters,
                 warningCollector,
-                isDescribe);
+                isDescribe,
+                Optional.empty());
     }
 }

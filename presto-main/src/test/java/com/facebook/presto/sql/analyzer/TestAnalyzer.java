@@ -66,6 +66,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SAMPLE_PERCENTA
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.STANDALONE_LAMBDA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TOO_MANY_GROUPING_SETS;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TOO_MANY_IN_LIST_VALUES;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_ERROR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSIVE;
@@ -492,6 +493,22 @@ public class TestAnalyzer
                         "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae, af)\n" +
                         "GROUP BY CUBE (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, " +
                         "q, r, s, t, u, v, x, w, y, z, aa, ab, ac, ad, ae)");
+    }
+
+    @Test
+    public void testTooManyInListValues()
+    {
+        Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
+                new QueryManagerConfig().setMaxInListValues(5),
+                new TaskManagerConfig(),
+                new MemoryManagerConfig(),
+                new FeaturesConfig(),
+                new NodeMemoryConfig(),
+                new WarningCollectorConfig()))).build();
+        analyze(session, "SELECT * FROM (VALUES 1) t(x) WHERE x IN (1, 2, 3, 4, 5)");
+        assertFails(session, TOO_MANY_IN_LIST_VALUES,
+                "line 1:39: Max values in IN list is 5, got 6",
+                "SELECT * FROM (VALUES 1) t(x) WHERE x IN (1, 2, 3, 4, 5, 6)");
     }
 
     @Test

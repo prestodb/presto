@@ -53,6 +53,7 @@ public class QueryManagerConfig
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
+    private int maxInListValues = 10_000;
     private int maxStageCount = 100;
     private int stageCountWarningThreshold = 50;
     private int maxTotalRunningTaskCountToKillQuery = Integer.MAX_VALUE;
@@ -231,6 +232,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryLength(int maxQueryLength)
     {
         this.maxQueryLength = maxQueryLength;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxInListValues()
+    {
+        return maxInListValues;
+    }
+
+    @Config("query.max-in-list-values")
+    public QueryManagerConfig setMaxInListValues(int maxInListValues)
+    {
+        this.maxInListValues = maxInListValues;
         return this;
     }
 

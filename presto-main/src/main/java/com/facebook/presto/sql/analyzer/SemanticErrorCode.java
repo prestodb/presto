@@ -101,4 +101,5 @@ public enum SemanticErrorCode
     MISSING_ROLE,
 
     TOO_MANY_GROUPING_SETS,
+    TOO_MANY_IN_LIST_VALUES,
 }

@@ -170,6 +170,7 @@ public final class SystemSessionProperties
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
+    public static final String MAX_IN_LIST_VALUES = "max_in_list_values";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -884,7 +885,12 @@ public final class SystemSessionProperties
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
                         "Apply access control rules on only those columns that are required to produce the query output",
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
-                        false));
+                        false),
+                integerProperty(
+                        MAX_IN_LIST_VALUES,
+                        "Maximum number of values allowed in an IN list",
+                        queryManagerConfig.getMaxInListValues(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1494,5 +1500,10 @@ public final class SystemSessionProperties
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)
     {
         return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
+    }
+
+    public static int getMaxInListValues(Session session)
+    {
+        return session.getSystemProperty(MAX_IN_LIST_VALUES, Integer.class);
     }
 }
