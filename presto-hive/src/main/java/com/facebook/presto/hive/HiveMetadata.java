@@ -183,6 +183,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_ENCRYPTION_OPERATION;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveManifestUtils.createPartitionManifest;
+import static com.facebook.presto.hive.HiveManifestUtils.updatePartitionMetadataWithFileNamesAndSizes;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatiblePartitioningHandle;
 import static com.facebook.presto.hive.HivePartitioningHandle.createPrestoNativePartitioningHandle;
@@ -1623,7 +1624,11 @@ public class HiveMetadata
             Verify.verify(handle.getPartitionStorageFormat() == handle.getTableStorageFormat());
         }
         for (PartitionUpdate update : partitionUpdates) {
-            Partition partition = partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionEncryptionParameters);
+            Map<String, String> partitionParameters = partitionEncryptionParameters;
+            if (HiveSessionProperties.isFileRenamingEnabled(session)) {
+                partitionParameters = updatePartitionMetadataWithFileNamesAndSizes(update, partitionParameters);
+            }
+            Partition partition = partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters);
             PartitionStatistics partitionStatistics = createPartitionStatistics(
                     session,
                     update.getStatistics(),
@@ -1633,7 +1638,7 @@ public class HiveMetadata
                     session,
                     handle.getSchemaName(),
                     handle.getTableName(),
-                    partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionEncryptionParameters),
+                    partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters),
                     update.getWritePath(),
                     partitionStatistics);
         }
@@ -1927,6 +1932,10 @@ public class HiveMetadata
                 Map<String, String> extraPartitionMetadata = handle.getEncryptionInformation()
                         .map(encryptionInfo -> encryptionInfo.getDwrfEncryptionMetadata().map(DwrfEncryptionMetadata::getExtraMetadata).orElseGet(ImmutableMap::of))
                         .orElseGet(ImmutableMap::of);
+
+                if (HiveSessionProperties.isFileRenamingEnabled(session)) {
+                    extraPartitionMetadata = updatePartitionMetadataWithFileNamesAndSizes(partitionUpdate, extraPartitionMetadata);
+                }
 
                 // TODO: Put the manifest blob in partition parameters
                 // Track the manifest blob size

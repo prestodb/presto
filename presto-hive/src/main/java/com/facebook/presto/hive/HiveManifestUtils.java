@@ -17,14 +17,28 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.spi.PrestoException;
+import com.github.luben.zstd.Zstd;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import org.roaringbitmap.RoaringBitmap;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.LongStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveErrorCode.MALFORMED_HIVE_FILE_STATISTICS;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 
@@ -32,6 +46,13 @@ public class HiveManifestUtils
 {
     private static final int FILE_SIZE_CHANNEL = 0;
     private static final int ROW_COUNT_CHANNEL = 1;
+    private static final int COMPRESSION_LEVEL = 7; // default level
+    private static final String COMMA = ",";
+    private static final String MANIFEST_VERSION = "MANIFEST_VERSION";
+
+    public static final String FILE_NAMES = "FILE_NAMES";
+    public static final String FILE_SIZES = "FILE_SIZES";
+    public static final String VERSION_1 = "V1";
 
     private HiveManifestUtils()
     {
@@ -84,5 +105,113 @@ public class HiveManifestUtils
             BIGINT.writeLong(fileSizeBuilder, fileWriteInfo.getFileSize().get());
         }
         return Optional.of(manifestBuilder.build());
+    }
+
+    public static Map<String, String> updatePartitionMetadataWithFileNamesAndSizes(PartitionUpdate partitionUpdate, Map<String, String> metadata)
+    {
+        ImmutableMap.Builder<String, String> partitionMetadata = ImmutableMap.builder();
+        List<FileWriteInfo> fileWriteInfos = new ArrayList<>(partitionUpdate.getFileWriteInfos());
+
+        // Sort the file infos based on fileName
+        fileWriteInfos.sort(Comparator.comparing(info -> Integer.valueOf(info.getWriteFileName())));
+
+        // Compress the file names into a consolidated string
+        String fileNames = compressFileNames(fileWriteInfos.stream().map(FileWriteInfo::getWriteFileName).collect(toImmutableList()));
+
+        // Compress the file sizes
+        String fileSizes = compressFileSizes(fileWriteInfos.stream().map(FileWriteInfo::getFileSize).map(Optional::get).collect(toImmutableList()));
+
+        partitionMetadata.put(FILE_NAMES, fileNames);
+        partitionMetadata.put(FILE_SIZES, fileSizes);
+        partitionMetadata.put(MANIFEST_VERSION, VERSION_1);
+        partitionMetadata.putAll(metadata);
+
+        return partitionMetadata.build();
+    }
+
+    static String compressFileNames(List<String> fileNames)
+    {
+        if (fileNames.size() == 1) {
+            return fileNames.get(0);
+        }
+
+        boolean isContinuousSequence = true;
+        int start = 0;
+        for (String name : fileNames) {
+            if (start != Integer.parseInt(name)) {
+                isContinuousSequence = false;
+                break;
+            }
+            start++;
+        }
+
+        if (isContinuousSequence) {
+            return fileNames.get(fileNames.size() - 1);
+        }
+
+        return compressFileNamesUsingRoaringBitmap(fileNames);
+    }
+
+    static List<String> decompressFileNames(String compressedFileNames)
+    {
+        // Check if the compressed fileNames string is a number
+        if (compressedFileNames.matches("\\d+")) {
+            long end = Long.parseLong(compressedFileNames);
+
+            if (end == 0) {
+                return ImmutableList.of("0");
+            }
+
+            return LongStream.range(0, end + 1).mapToObj(String::valueOf).collect(toImmutableList());
+        }
+
+        try {
+            RoaringBitmap roaringBitmap = new RoaringBitmap();
+            ByteBuffer byteBuffer = ByteBuffer.wrap(compressedFileNames.getBytes(StandardCharsets.ISO_8859_1));
+            roaringBitmap.deserialize(byteBuffer);
+            return Arrays.stream(roaringBitmap.toArray()).mapToObj(Integer::toString).collect(toImmutableList());
+        }
+        catch (IOException e) {
+            throw new PrestoException(MALFORMED_HIVE_FILE_STATISTICS, "Failed de-compressing the file names in manifest");
+        }
+    }
+
+    private static String compressFileNamesUsingRoaringBitmap(List<String> fileNames)
+    {
+        RoaringBitmap roaringBitmap = new RoaringBitmap();
+
+        // Add file names to roaring bitmap
+        fileNames.forEach(name -> roaringBitmap.add(Integer.parseInt(name)));
+
+        // Serialize the compressed data into ByteBuffer
+        ByteBuffer byteBuffer = ByteBuffer.allocate(roaringBitmap.serializedSizeInBytes());
+        roaringBitmap.serialize(byteBuffer);
+        byteBuffer.flip();
+
+        return new String(byteBuffer.array(), StandardCharsets.ISO_8859_1);
+    }
+
+    public static String compressFileSizes(List<Long> fileSizes)
+    {
+        String fileSizesString = Joiner.on(COMMA).join(fileSizes.stream().map(String::valueOf).collect(toImmutableList()));
+        try {
+            return new String(Zstd.compress(fileSizesString.getBytes(StandardCharsets.ISO_8859_1), COMPRESSION_LEVEL), StandardCharsets.ISO_8859_1);
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(MALFORMED_HIVE_FILE_STATISTICS, "Failed compressing the file sizes for manifest");
+        }
+    }
+
+    public static List<Long> decompressFileSizes(String compressedFileSizes)
+    {
+        try {
+            byte[] compressedBytes = compressedFileSizes.getBytes(StandardCharsets.ISO_8859_1);
+            long decompressedSize = Zstd.decompressedSize(compressedBytes);
+            String decompressedFileSizes = new String(Zstd.decompress(compressedBytes, (int) decompressedSize), StandardCharsets.ISO_8859_1);
+            return Arrays.stream(decompressedFileSizes.split(COMMA)).map(Long::valueOf).collect(toImmutableList());
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(MALFORMED_HIVE_FILE_STATISTICS, "Failed de-compressing the file sizes in manifest");
+        }
     }
 }
