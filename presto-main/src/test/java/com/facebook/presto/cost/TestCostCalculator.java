@@ -64,6 +64,7 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -134,7 +135,7 @@ public class TestCostCalculator
                 new InMemoryNodeManager(),
                 new NodeSelectionStats(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
-                new NodeTaskMap(finalizerService));
+                new NodeTaskMap(finalizerService, Duration.valueOf("10s")));
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager);
         planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser(), new FeaturesConfig());

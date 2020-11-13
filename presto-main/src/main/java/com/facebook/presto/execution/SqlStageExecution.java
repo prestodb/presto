@@ -518,7 +518,7 @@ public final class SqlStageExecution
                 planFragment,
                 initialSplits.build(),
                 outputBuffers,
-                nodeTaskMap.createPartitionedSplitCountTracker(node, taskId),
+                nodeTaskMap.createTaskStatsTracker(node, taskId),
                 summarizeTaskInfo,
                 tableWriteInfo);
 

@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
+import io.airlift.units.Duration;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -145,7 +146,7 @@ public class BenchmarkNodeScheduler
             TestingTransactionHandle transactionHandle = TestingTransactionHandle.create();
 
             finalizerService.start();
-            NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+            NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService, Duration.valueOf("10s"));
 
             ImmutableList.Builder<InternalNode> nodeBuilder = ImmutableList.builder();
             for (int i = 0; i < NODES; i++) {
@@ -162,7 +163,7 @@ public class BenchmarkNodeScheduler
                     initialSplits.add(new Split(CONNECTOR_ID, transactionHandle, new TestSplitRemote(i)));
                 }
                 TaskId taskId = new TaskId("test", 1, 0, i);
-                MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
+                MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createTaskStatsTracker(node, taskId));
                 nodeTaskMap.addTask(node, remoteTask);
                 taskMap.put(node, remoteTask);
             }
