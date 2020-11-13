@@ -178,6 +178,12 @@ public class SortingFileWriter
         return outputWriter.getVerificationTask();
     }
 
+    @Override
+    public long getFileSizeInBytes()
+    {
+        return getWrittenBytes();
+    }
+
     private void flushToTempFile()
     {
         writeTempFile(writer -> sortBuffer.flushTo(writer::writePage));

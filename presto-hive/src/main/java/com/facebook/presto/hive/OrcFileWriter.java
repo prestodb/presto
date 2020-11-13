@@ -127,6 +127,12 @@ public class OrcFileWriter
     }
 
     @Override
+    public long getFileSizeInBytes()
+    {
+        return orcWriter.getWrittenBytes();
+    }
+
+    @Override
     public long getSystemMemoryUsage()
     {
         return INSTANCE_SIZE + orcWriter.getRetainedBytes();
@@ -184,7 +190,7 @@ public class OrcFileWriter
             }
         }
 
-        return Optional.of(createFileStatisticsPage(getWrittenBytes(), rowCount));
+        return Optional.of(createFileStatisticsPage(getFileSizeInBytes(), rowCount));
     }
 
     @Override
