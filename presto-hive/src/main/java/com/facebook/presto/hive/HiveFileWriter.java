@@ -36,4 +36,6 @@ public interface HiveFileWriter
     {
         return Optional.empty();
     }
+
+    long getFileSizeInBytes();
 }

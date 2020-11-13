@@ -547,7 +547,7 @@ public abstract class AbstractTestHiveFileFormats
         hiveFileWriter.appendRows(page);
         Optional<Page> fileStatistics = hiveFileWriter.commit();
 
-        assertFileStatistics(fileStatistics, hiveFileWriter.getWrittenBytes(), storageFormat);
+        assertFileStatistics(fileStatistics, hiveFileWriter.getFileSizeInBytes(), storageFormat);
 
         return new FileSplit(new Path(filePath), 0, new File(filePath).length(), new String[0]);
     }

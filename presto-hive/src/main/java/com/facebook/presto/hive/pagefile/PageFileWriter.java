@@ -114,4 +114,10 @@ public class PageFileWriter
     {
         return 0;
     }
+
+    @Override
+    public long getFileSizeInBytes()
+    {
+        return getWrittenBytes();
+    }
 }
