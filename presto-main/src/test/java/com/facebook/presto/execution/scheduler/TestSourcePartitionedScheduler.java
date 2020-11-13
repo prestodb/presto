@@ -61,6 +61,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -134,7 +135,7 @@ public class TestSourcePartitionedScheduler
     public void testScheduleNoSplits()
     {
         SubPlan plan = createPlan();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService, Duration.valueOf("10s"));
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(0, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 1);
@@ -151,7 +152,7 @@ public class TestSourcePartitionedScheduler
     public void testScheduleSplitsOneAtATime()
     {
         SubPlan plan = createPlan();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService, Duration.valueOf("10s"));
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(60, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 1);
@@ -188,7 +189,7 @@ public class TestSourcePartitionedScheduler
     public void testScheduleSplitsBatched()
     {
         SubPlan plan = createPlan();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService, Duration.valueOf("10s"));
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(60, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 7);
@@ -225,7 +226,7 @@ public class TestSourcePartitionedScheduler
     public void testScheduleSplitsBlock()
     {
         SubPlan plan = createPlan();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService, Duration.valueOf("10s"));
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(createFixedSplitSource(80, TestingSplit::createRemoteSplit), stage, nodeManager, nodeTaskMap, 1);
@@ -290,7 +291,7 @@ public class TestSourcePartitionedScheduler
     {
         QueuedSplitSource queuedSplitSource = new QueuedSplitSource(TestingSplit::createRemoteSplit);
         SubPlan plan = createPlan();
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService, Duration.valueOf("10s"));
         SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
         StageScheduler scheduler = getSourcePartitionedScheduler(queuedSplitSource, stage, nodeManager, nodeTaskMap, 1);
@@ -310,7 +311,7 @@ public class TestSourcePartitionedScheduler
     public void testNoNodes()
     {
         try {
-            NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+            NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService, Duration.valueOf("10s"));
             InMemoryNodeManager nodeManager = new InMemoryNodeManager();
             NodeScheduler nodeScheduler = new NodeScheduler(
                     new LegacyNetworkTopology(),
@@ -346,7 +347,7 @@ public class TestSourcePartitionedScheduler
                 new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
                 new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService, Duration.valueOf("10s"));
 
         // Schedule 15 splits - there are 3 nodes, each node should get 5 splits
         SubPlan firstPlan = createPlan();
@@ -386,7 +387,7 @@ public class TestSourcePartitionedScheduler
     @Test
     public void testBlockCausesFullSchedule()
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService, Duration.valueOf("10s"));
 
         // Schedule 60 splits - filling up all nodes
         SubPlan firstPlan = createPlan();
