@@ -100,7 +100,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
-@OutputTimeUnit(TimeUnit.SECONDS)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(2)
 @Warmup(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
 @Measurement(iterations = 10, time = 1000, timeUnit = MILLISECONDS)
@@ -216,6 +216,19 @@ public class BenchmarkSelectiveStreamReaders
                 "0.8|-1",
                 "0.9|-1",
                 "1|-1",
+                "0|0.5",
+                "0.1|0.5",
+                "0.2|0.5",
+                "0.3|0.5",
+                "0.4|0.5",
+                "0.5|0.5",
+                "0.6|0.5",
+                "0.7|0.5",
+                "0.8|0.5",
+                "0.9|0.5",
+                "1|0.5",
+                "-1|-1",
+                "1|1",
         })
         private String filterRateSignature = "0.1|-1";
 
