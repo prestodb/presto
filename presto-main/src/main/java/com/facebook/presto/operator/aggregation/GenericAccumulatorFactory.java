@@ -703,6 +703,7 @@ public class GenericAccumulatorFactory
                         blockBuildersSizeInBytes += (rowBlockBuilder.getRetainedSizeInBytes() - currentRowBlockSizeInBytes);
                         blockBuilders.set(currentGroupId, rowBlockBuilder);
                     }
+                    rawInputs.set(i, null);
                 }
                 rawInputs = null;
                 rawInputsSizeInBytes = 0;
@@ -718,6 +719,10 @@ public class GenericAccumulatorFactory
                 singleArrayBlockWriter.appendStructure(rowBlock.getBlock(i));
             }
             output.closeEntry();
+
+            // We only call evaluateIntermediate when it is time to spill. We never call evaluate intermediate twice for the same groupId.
+            // This means we can null our reference to the groupId's corresponding blockBuilder to reduce memory usage
+            blockBuilders.set(groupId, null);
         }
 
         @Override
