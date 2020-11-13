@@ -18,6 +18,7 @@ import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.execution.warnings.WarningCollectorModule;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.security.AccessControl;
@@ -120,7 +121,8 @@ public class PrestoSparkInjectorFactory
         modules.add(
                 new JsonModule(),
                 new EventListenerModule(),
-                new PrestoSparkModule(sparkProcessType, sqlParserOptions));
+                new PrestoSparkModule(sparkProcessType, sqlParserOptions),
+                new WarningCollectorModule());
 
         if (useAccessControlForTesting) {
             modules.add(
