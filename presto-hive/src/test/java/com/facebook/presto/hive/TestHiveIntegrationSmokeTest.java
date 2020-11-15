@@ -100,6 +100,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.PREFER_MANIFESTS_TO_LIST_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TEMP_PATH_SUBDIRECTORY_COUNT;
@@ -2375,6 +2376,105 @@ public class TestHiveIntegrationSmokeTest
         finally {
             assertUpdate("DROP TABLE IF EXISTS scale_writers_large");
             assertUpdate("DROP TABLE IF EXISTS scale_writers_small");
+        }
+    }
+
+    @Test
+    public void testPreferManifestsToListFilesForPartitionedTable()
+    {
+        try {
+            // Create partitioned table. Partitions are populated with list of fileNames,sizes
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "CREATE TABLE partitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "WITH (partitioned_by = ARRAY['orderstatus'], preferred_ordering_columns = ARRAY['orderkey']) AS\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders where orderstatus = 'O'",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders where orderstatus = 'O'").getOnlyValue());
+
+            // Assert that we are able to read data after disabling listFiles() call to storage
+            assertQuery(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .build(),
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM partitioned_ordering_table",
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O'");
+
+            // Insert a new partition with NO file_renaming. Meaning the list of filenames,sizes will NOT be stored in Metastore partition.
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "INSERT INTO partitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders where orderstatus = 'P'",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders where orderstatus = 'P'").getOnlyValue());
+
+            // This SELECT involves querying partitions with and without list of filenames, sizes.
+            // Assert that we are able to read mixed partition metadata with and without path/size info.
+            assertQuery(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .build(),
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM partitioned_ordering_table",
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O' OR orderstatus = 'P'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS partitioned_ordering_table");
+        }
+    }
+
+    @Test
+    public void testPreferManifestsToListFilesForUnPartitionedTable()
+    {
+        try {
+            // Create un-partitioned table
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "CREATE TABLE unpartitioned_ordering_table AS SELECT * FROM tpch.tiny.orders where orderstatus = 'O'",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders where orderstatus = 'O'").getOnlyValue());
+
+            assertQuery(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .build(),
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM unpartitioned_ordering_table",
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O'");
+
+            // Insert data with NO file_renaming.
+            assertUpdate(
+                    Session.builder(getSession())
+                            .setSystemProperty("scale_writers", "false")
+                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("task_writer_count", "1")
+                            .build(),
+                    "INSERT INTO unpartitioned_ordering_table (orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus)\n" +
+                            "SELECT orderkey, custkey, totalprice, orderdate, orderpriority, clerk, shippriority, comment, orderstatus FROM tpch.tiny.orders where orderstatus = 'P'",
+                    (long) computeActual("SELECT count(*) FROM tpch.tiny.orders where orderstatus = 'P'").getOnlyValue());
+
+            assertQuery(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .build(),
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM unpartitioned_ordering_table",
+                    "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O' OR orderstatus = 'P'");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS unpartitioned_ordering_table");
         }
     }
 
