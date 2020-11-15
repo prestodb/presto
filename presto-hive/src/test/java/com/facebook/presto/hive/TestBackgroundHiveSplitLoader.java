@@ -67,7 +67,6 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
@@ -75,6 +74,7 @@ import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.hive.HiveUtil.getRegularColumnHandles;
+import static com.facebook.presto.hive.StoragePartitionLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -443,9 +443,9 @@ public class TestBackgroundHiveSplitLoader
     {
         ConnectorSession connectorSession = new TestingConnectorSession(
                 new HiveSessionProperties(
-                    new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
-                    new OrcFileWriterConfig(),
-                    new ParquetFileWriterConfig()).getSessionProperties());
+                        new HiveClientConfig().setMaxSplitSize(new DataSize(1.0, GIGABYTE)),
+                        new OrcFileWriterConfig(),
+                        new ParquetFileWriterConfig()).getSessionProperties());
         return backgroundHiveSplitLoader(connectorSession, files, pathDomain, hiveBucketFilter, table, bucketHandle);
     }
 

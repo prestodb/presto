@@ -48,10 +48,10 @@ public class HiveManifestUtils
     private static final int ROW_COUNT_CHANNEL = 1;
     private static final int COMPRESSION_LEVEL = 7; // default level
     private static final String COMMA = ",";
-    private static final String MANIFEST_VERSION = "MANIFEST_VERSION";
 
     public static final String FILE_NAMES = "FILE_NAMES";
     public static final String FILE_SIZES = "FILE_SIZES";
+    public static final String MANIFEST_VERSION = "MANIFEST_VERSION";
     public static final String VERSION_1 = "V1";
 
     private HiveManifestUtils()
