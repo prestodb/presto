@@ -54,7 +54,6 @@ public class MySqlFunctionNamespaceManagerFactory
                     new SimpleAddressSqlFunctionExecutorsModule());
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

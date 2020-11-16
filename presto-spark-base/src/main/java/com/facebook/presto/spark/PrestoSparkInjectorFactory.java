@@ -155,7 +155,7 @@ public class PrestoSparkInjectorFactory
 
         app.setRequiredConfigurationProperties(ImmutableMap.copyOf(requiredProperties));
 
-        Injector injector = app.strictConfig().initialize();
+        Injector injector = app.initialize();
 
         try {
             injector.getInstance(PluginManager.class).loadPlugins();

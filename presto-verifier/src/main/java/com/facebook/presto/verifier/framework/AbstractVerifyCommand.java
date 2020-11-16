@@ -52,7 +52,7 @@ public abstract class AbstractVerifyCommand
                 .build());
         Injector injector = null;
         try {
-            injector = app.strictConfig().initialize();
+            injector = app.initialize();
         }
         catch (Exception e) {
             throwIfUnchecked(e);
