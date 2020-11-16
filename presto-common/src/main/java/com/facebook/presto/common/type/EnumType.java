@@ -14,11 +14,14 @@
 package com.facebook.presto.common.type;
 
 import java.util.Map;
+import java.util.Optional;
 
 public interface EnumType<T>
         extends Type
 {
     Map<String, T> getEnumMap();
+
+    Optional<String> getEnumKeyForValue(T value);
 
     Type getValueType();
 }

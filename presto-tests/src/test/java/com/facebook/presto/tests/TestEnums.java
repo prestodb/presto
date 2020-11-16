@@ -269,4 +269,17 @@ public class TestEnums
         assertSingleValue("CAST(' ' as test.enum.TestEnum)", " ");
         assertSingleValue("CAST(8 as test.enum.TestLongEnum)", 8L);
     }
+
+    @Test
+    public void testEnumKey()
+    {
+        assertSingleValue("enum_key(test.enum.mood.curious)", "CURIOUS");
+        assertSingleValue("enum_key(test.enum.country.CHINA)", "CHINA");
+
+        assertSingleValue("enum_key(cast(1 as test.enum.mood))", "SAD");
+        assertSingleValue("enum_key(cast('中国' as test.enum.country))", "CHINA");
+
+        assertSingleValue("enum_key(try_cast(7 as test.enum.mood))", null);
+        assertSingleValue("enum_key(try_cast('invalid_value' as test.enum.country))", null);
+    }
 }
