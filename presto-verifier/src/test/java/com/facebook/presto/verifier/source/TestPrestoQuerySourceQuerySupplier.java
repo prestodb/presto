@@ -99,7 +99,7 @@ public class TestPrestoQuerySourceQuerySupplier
                             binder.bind(SqlParser.class).in(SINGLETON);
                         })
                         .build());
-        injector = app.strictConfig()
+        injector = app
                 .setRequiredConfigurationProperties(ImmutableMap.<String, String>builder()
                         .put("test-id", "10000")
                         .put("control.hosts", format("%s,%s", host, host))

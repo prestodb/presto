@@ -108,7 +108,7 @@ public class TestMySqlFunctionNamespaceManager
                 .build();
 
         try {
-            this.injector = app.strictConfig()
+            this.injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

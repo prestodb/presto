@@ -58,7 +58,6 @@ public class H2FunctionNamespaceManagerFactory
                     new SimpleAddressSqlFunctionExecutorsModule());
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

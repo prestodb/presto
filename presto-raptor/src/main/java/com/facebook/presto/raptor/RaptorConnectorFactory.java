@@ -95,7 +95,6 @@ public class RaptorConnectorFactory
                     new RaptorProcedureModule());
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

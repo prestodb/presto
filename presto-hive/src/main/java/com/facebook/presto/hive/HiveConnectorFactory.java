@@ -130,7 +130,6 @@ public class HiveConnectorFactory
                     });
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .quiet()

@@ -75,7 +75,6 @@ public class JdbcConnectorFactory
                     module);
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)
                     .initialize();
