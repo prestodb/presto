@@ -53,9 +53,10 @@ public class KuduConnectorFactory
             Bootstrap app = new Bootstrap(new JsonModule(),
                     new KuduModule(catalogName, context.getTypeManager()));
 
-            Injector injector =
-                    app.strictConfig().doNotInitializeLogging().setRequiredConfigurationProperties(config)
-                            .initialize();
+            Injector injector = app
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(config)
+                    .initialize();
 
             return injector.getInstance(KuduConnector.class);
         }

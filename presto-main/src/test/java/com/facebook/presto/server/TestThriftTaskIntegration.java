@@ -89,7 +89,6 @@ public class TestThriftTaskIntegration
                 new TestingTaskThriftModule());
 
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .initialize();
 

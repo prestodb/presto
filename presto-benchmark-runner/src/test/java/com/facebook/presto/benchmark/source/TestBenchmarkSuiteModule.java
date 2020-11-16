@@ -41,7 +41,7 @@ public class TestBenchmarkSuiteModule
                 .build());
         Injector injector = null;
         try {
-            injector = app.strictConfig()
+            injector = app
                     .setRequiredConfigurationProperties(ImmutableMap.<String, String>builder()
                             .putAll(DEFAULT_CONFIGURATION_PROPERTIES)
                             .put("benchmark-suite.database-url", "jdbc://localhost:1080")
@@ -65,7 +65,7 @@ public class TestBenchmarkSuiteModule
                 .build());
         Injector injector = null;
         try {
-            injector = app.strictConfig()
+            injector = app
                     .setRequiredConfigurationProperties(ImmutableMap.<String, String>builder()
                             .putAll(DEFAULT_CONFIGURATION_PROPERTIES)
                             .put("benchmark-suite-supplier", "test-supplier")
@@ -87,7 +87,7 @@ public class TestBenchmarkSuiteModule
                 .build());
         Injector injector = null;
         try {
-            injector = app.strictConfig()
+            injector = app
                     .setRequiredConfigurationProperties(ImmutableMap.<String, String>builder()
                             .putAll(DEFAULT_CONFIGURATION_PROPERTIES)
                             .put("benchmark-query-supplier", "unknown-supplier")
