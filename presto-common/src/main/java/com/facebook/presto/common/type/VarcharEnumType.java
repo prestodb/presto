@@ -21,12 +21,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeUtils.normalizeEnumMap;
 import static com.facebook.presto.common.type.TypeUtils.validateEnumMap;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.toMap;
 
 public class VarcharEnumType
         extends AbstractVarcharType
@@ -47,6 +50,12 @@ public class VarcharEnumType
     }
 
     @Override
+    public Optional<String> getEnumKeyForValue(String value)
+    {
+        return enumMap.getKeyForValue(value);
+    }
+
+    @Override
     public Type getValueType()
     {
         return VARCHAR;
@@ -61,18 +70,30 @@ public class VarcharEnumType
     public static class VarcharEnumMap
     {
         private final Map<String, String> enumMap;
+        private Map<String, String> flippedEnumMap;
+        private final AtomicBoolean isFlippedEnumComputed = new AtomicBoolean();
 
         @JsonCreator
         public VarcharEnumMap(@JsonProperty("enumMap") Map<String, String> enumMap)
         {
             validateEnumMap(enumMap);
             this.enumMap = normalizeEnumMap(enumMap);
+            this.flippedEnumMap = null;
         }
 
         @JsonProperty
         public Map<String, String> getEnumMap()
         {
             return enumMap;
+        }
+
+        public Optional<String> getKeyForValue(String value)
+        {
+            if (!isFlippedEnumComputed.getAndSet(true)) {
+                this.flippedEnumMap = this.enumMap.entrySet().stream()
+                        .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
+            }
+            return Optional.ofNullable(flippedEnumMap.get(value));
         }
 
         @Override
