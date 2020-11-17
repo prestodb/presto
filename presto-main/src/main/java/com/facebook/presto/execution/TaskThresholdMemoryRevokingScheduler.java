@@ -60,7 +60,7 @@ public class TaskThresholdMemoryRevokingScheduler
         this(
                 requireNonNull(sqlTaskManager, "sqlTaskManager cannot be null")::getAllTasks,
                 requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor(),
-                config.getMaxRevocableMemoryPerTask());
+                requireNonNull(config.getMaxRevocableMemoryPerTask(), "maxRevocableMemoryPerTask cannot be null").toBytes());
         log.debug("Using TaskThresholdMemoryRevokingScheduler spilling strategy");
     }
 
