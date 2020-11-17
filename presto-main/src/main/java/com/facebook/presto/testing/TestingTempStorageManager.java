@@ -18,7 +18,6 @@ import com.facebook.presto.storage.TempStorageManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
-import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.UUID;
 
@@ -28,7 +27,6 @@ public class TestingTempStorageManager
         extends TempStorageManager
 {
     public TestingTempStorageManager()
-            throws IOException
     {
         // For tests like TestSpilled{Aggregations, Window, OrderBy}WithTemporaryStorage, TestDistributedSpilledQueriesWithTempStorage
         // Each of them will create their own TempStorage
