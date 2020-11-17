@@ -183,6 +183,7 @@ public class HiveClientConfig
 
     private boolean fileRenamingEnabled;
     private boolean preferManifestToListFiles;
+    private boolean manifestVerificationEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -1537,5 +1538,18 @@ public class HiveClientConfig
     public boolean isPreferManifestsToListFiles()
     {
         return this.preferManifestToListFiles;
+    }
+
+    @Config("hive.manifest-verification-enabled")
+    @ConfigDescription("Enable verification of file names and sizes in manifest / partition parameters")
+    public HiveClientConfig setManifestVerificationEnabled(boolean manifestVerificationEnabled)
+    {
+        this.manifestVerificationEnabled = manifestVerificationEnabled;
+        return this;
+    }
+
+    public boolean isManifestVerificationEnabled()
+    {
+        return this.manifestVerificationEnabled;
     }
 }
