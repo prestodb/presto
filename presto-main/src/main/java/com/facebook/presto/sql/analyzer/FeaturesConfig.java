@@ -43,6 +43,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrate
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -82,7 +83,7 @@ public class FeaturesConfig
     private TaskSpillingStrategy taskSpillingStrategy = ORDER_BY_CREATE_TIME;
     private SingleStreamSpillerChoice singleStreamSpillerChoice = SingleStreamSpillerChoice.LOCAL_FILE;
     private String spillerTempStorage = "local";
-    private long maxRevocableMemoryPerTask = 500000L;
+    private DataSize maxRevocableMemoryPerTask = new DataSize(500, MEGABYTE);
     private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private int maxReorderedJoins = 9;
@@ -569,14 +570,14 @@ public class FeaturesConfig
         return spillerTempStorage;
     }
 
-    public long getMaxRevocableMemoryPerTask()
+    public DataSize getMaxRevocableMemoryPerTask()
     {
         return maxRevocableMemoryPerTask;
     }
 
     @Config("experimental.spiller.max-revocable-task-memory")
     @ConfigDescription("Only used when task-spilling-strategy is PER_TASK_MEMORY_THRESHOLD")
-    public FeaturesConfig setMaxRevocableMemoryPerTask(long maxRevocableMemoryPerTask)
+    public FeaturesConfig setMaxRevocableMemoryPerTask(DataSize maxRevocableMemoryPerTask)
     {
         this.maxRevocableMemoryPerTask = maxRevocableMemoryPerTask;
         return this;
