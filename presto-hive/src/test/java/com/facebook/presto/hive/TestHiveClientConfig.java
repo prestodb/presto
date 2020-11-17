@@ -146,7 +146,8 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownEnabled(false)
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false)
                 .setFileRenamingEnabled(false)
-                .setPreferManifestsToListFiles(false));
+                .setPreferManifestsToListFiles(false)
+                .setManifestVerificationEnabled(false));
     }
 
     @Test
@@ -254,6 +255,7 @@ public class TestHiveClientConfig
                 .put("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
                 .put("hive.file_renaming_enabled", "true")
                 .put("hive.prefer-manifests-to-list-files", "true")
+                .put("hive.manifest-verification-enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -358,7 +360,8 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownEnabled(true)
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true)
                 .setFileRenamingEnabled(true)
-                .setPreferManifestsToListFiles(true);
+                .setPreferManifestsToListFiles(true)
+                .setManifestVerificationEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

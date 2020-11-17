@@ -52,7 +52,7 @@ public class DelegatingPartitionLoader
     {
         this.session = requireNonNull(session, "session is null");
         this.storagePartitionLoader = new StoragePartitionLoader(table, pathDomain, tableBucketInfo, session, hdfsEnvironment, namenodeStats, directoryLister, fileIterators, recursiveDirWalkerEnabled, schedulerUsesHostAddresses, partialAggregationsPushedDown);
-        this.manifestPartitionLoader = new ManifestPartitionLoader(table, pathDomain, session, hdfsEnvironment, schedulerUsesHostAddresses);
+        this.manifestPartitionLoader = new ManifestPartitionLoader(table, pathDomain, session, hdfsEnvironment, namenodeStats, directoryLister, recursiveDirWalkerEnabled, schedulerUsesHostAddresses);
     }
 
     @Override

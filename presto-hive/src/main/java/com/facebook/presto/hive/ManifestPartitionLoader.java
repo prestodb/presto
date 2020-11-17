@@ -20,6 +20,7 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.InternalHiveSplitFactory;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.hadoop.conf.Configuration;
@@ -31,10 +32,12 @@ import org.apache.hadoop.mapred.InputFormat;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.hive.HiveErrorCode.MALFORMED_HIVE_FILE_STATISTICS;
 import static com.facebook.presto.hive.HiveManifestUtils.FILE_NAMES;
 import static com.facebook.presto.hive.HiveManifestUtils.FILE_SIZES;
 import static com.facebook.presto.hive.HiveManifestUtils.MANIFEST_VERSION;
@@ -44,7 +47,10 @@ import static com.facebook.presto.hive.HiveManifestUtils.decompressFileSizes;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
+import static com.facebook.presto.hive.HiveSessionProperties.isManifestVerificationEnabled;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
+import static com.facebook.presto.hive.NestedDirectoryPolicy.RECURSE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionLocation;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -63,6 +69,9 @@ public class ManifestPartitionLoader
     private final ConnectorSession session;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
+    private final NamenodeStats namenodeStats;
+    private final DirectoryLister directoryLister;
+    private final boolean recursiveDirWalkerEnabled;
     private final boolean schedulerUsesHostAddresses;
 
     public ManifestPartitionLoader(
@@ -70,6 +79,9 @@ public class ManifestPartitionLoader
             Optional<Domain> pathDomain,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
+            NamenodeStats namenodeStats,
+            DirectoryLister directoryLister,
+            boolean recursiveDirWalkerEnabled,
             boolean schedulerUsesHostAddresses)
     {
         this.table = requireNonNull(table, "table is null");
@@ -77,6 +89,9 @@ public class ManifestPartitionLoader
         this.session = requireNonNull(session, "session is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
+        this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
+        this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
     }
 
@@ -95,6 +110,11 @@ public class ManifestPartitionLoader
 
         // Verify that the count of fileNames and fileSizes are same
         verify(fileNames.size() == fileSizes.size(), "List of fileNames and fileSizes differ in length");
+
+        if (isManifestVerificationEnabled(session)) {
+            // Verify that the file names and sizes in manifest are the same as listed by directory lister
+            validateManifest(partition, path, fileNames, fileSizes);
+        }
 
         ImmutableList.Builder<HiveFileInfo> fileListBuilder = ImmutableList.builder();
         for (int i = 0; i < fileNames.size(); i++) {
@@ -159,5 +179,51 @@ public class ManifestPartitionLoader
                         Optional.empty()),
                 schedulerUsesHostAddresses,
                 partition.getEncryptionInformation());
+    }
+
+    private void validateManifest(HivePartitionMetadata partition, Path path, List<String> manifestFileNames, List<Long> manifestFileSizes)
+            throws IOException
+    {
+        ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
+        HiveDirectoryContext hiveDirectoryContext = new HiveDirectoryContext(recursiveDirWalkerEnabled ? RECURSE : IGNORED, false);
+
+        Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fileSystem, table, path, namenodeStats, ignore -> true, hiveDirectoryContext);
+        int fileCount = 0;
+        while (fileInfoIterator.hasNext()) {
+            HiveFileInfo fileInfo = fileInfoIterator.next();
+            String fileName = fileInfo.getPath().getName();
+            if (!manifestFileNames.contains(fileName)) {
+                throw new PrestoException(
+                        MALFORMED_HIVE_FILE_STATISTICS,
+                        format("Filename = %s not stored in manifest. Partition = %s, TableName = %s",
+                                fileName,
+                                partition.getHivePartition().getPartitionId(),
+                                table.getTableName()));
+            }
+
+            int index = manifestFileNames.indexOf(fileName);
+            if (!manifestFileSizes.get(index).equals(fileInfo.getLength())) {
+                throw new PrestoException(
+                        MALFORMED_HIVE_FILE_STATISTICS,
+                        format("FilesizeFromManifest = %s is not equal to FilesizeFromStorage = %s. File = %s, Partition = %s, TableName = %s",
+                                manifestFileSizes.get(index),
+                                fileInfo.getLength(),
+                                fileName,
+                                partition.getHivePartition().getPartitionId(),
+                                table.getTableName()));
+            }
+
+            fileCount++;
+        }
+
+        if (fileCount != manifestFileNames.size()) {
+            throw new PrestoException(
+                    MALFORMED_HIVE_FILE_STATISTICS,
+                    format("Number of files in Manifest = %s is not equal to Number of files in storage = %s. Partition = %s, TableName = %s",
+                            manifestFileNames.size(),
+                            fileCount,
+                            partition.getHivePartition().getPartitionId(),
+                            table.getTableName()));
+        }
     }
 }

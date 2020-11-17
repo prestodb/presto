@@ -100,6 +100,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.createBucketedSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializeExchangesSession;
 import static com.facebook.presto.hive.HiveQueryRunner.createQueryRunner;
 import static com.facebook.presto.hive.HiveSessionProperties.FILE_RENAMING_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.MANIFEST_VERIFICATION_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PREFER_MANIFESTS_TO_LIST_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.RCFILE_OPTIMIZED_WRITER_ENABLED;
@@ -2401,6 +2402,7 @@ public class TestHiveIntegrationSmokeTest
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
                             .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .setCatalogSessionProperty(catalog, MANIFEST_VERIFICATION_ENABLED, "true")
                             .build(),
                     "SELECT orderkey, custkey, totalprice, orderdate FROM partitioned_ordering_table",
                     "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O'");
@@ -2422,6 +2424,7 @@ public class TestHiveIntegrationSmokeTest
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
                             .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .setCatalogSessionProperty(catalog, MANIFEST_VERIFICATION_ENABLED, "true")
                             .build(),
                     "SELECT orderkey, custkey, totalprice, orderdate FROM partitioned_ordering_table",
                     "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O' OR orderstatus = 'P'");
@@ -2450,6 +2453,7 @@ public class TestHiveIntegrationSmokeTest
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
                             .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .setCatalogSessionProperty(catalog, MANIFEST_VERIFICATION_ENABLED, "true")
                             .build(),
                     "SELECT orderkey, custkey, totalprice, orderdate FROM unpartitioned_ordering_table",
                     "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O'");
@@ -2469,6 +2473,7 @@ public class TestHiveIntegrationSmokeTest
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
                             .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
+                            .setCatalogSessionProperty(catalog, MANIFEST_VERIFICATION_ENABLED, "true")
                             .build(),
                     "SELECT orderkey, custkey, totalprice, orderdate FROM unpartitioned_ordering_table",
                     "SELECT orderkey, custkey, totalprice, orderdate FROM orders where orderstatus = 'O' OR orderstatus = 'P'");
