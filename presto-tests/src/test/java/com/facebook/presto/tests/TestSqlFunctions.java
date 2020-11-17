@@ -59,6 +59,7 @@ public class TestSqlFunctions
                     ImmutableMap.of(
                             "supported-function-languages", "sql, java",
                             "java.function-implementation-type", "THRIFT",
+                            "java.thrift-page-format", "PRESTO_SERIALIZED",
                             "java.thrift.client.addresses", "localhost:7779"));
             queryRunner.createTestFunctionNamespace("testing", "common");
             queryRunner.createTestFunctionNamespace("testing", "test");

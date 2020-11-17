@@ -39,7 +39,7 @@ public final class Page
      * Visible to give trusted classes like {@link PageBuilder} access to a constructor that doesn't
      * defensively copy the blocks
      */
-    static Page wrapBlocksWithoutCopy(int positionCount, Block[] blocks)
+    public static Page wrapBlocksWithoutCopy(int positionCount, Block[] blocks)
     {
         return new Page(false, positionCount, blocks);
     }

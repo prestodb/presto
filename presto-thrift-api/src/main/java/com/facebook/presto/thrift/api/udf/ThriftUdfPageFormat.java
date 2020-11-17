@@ -19,7 +19,8 @@ import com.facebook.drift.annotations.ThriftEnumValue;
 @ThriftEnum("PageFormat")
 public enum ThriftUdfPageFormat
 {
-    PRESTO_THRIFT(0);
+    PRESTO_THRIFT(0),
+    PRESTO_SERIALIZED(1);
 
     private final int value;
 
