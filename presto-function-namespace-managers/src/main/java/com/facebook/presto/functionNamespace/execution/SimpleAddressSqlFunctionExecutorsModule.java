@@ -17,6 +17,7 @@ import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.drift.client.address.SimpleAddressSelectorConfig;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.thrift.SimpleAddressThriftSqlFunctionExecutionModule;
+import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutionConfig;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import com.google.common.collect.ImmutableMap;
@@ -39,15 +40,18 @@ public class SimpleAddressSqlFunctionExecutorsModule
         SqlInvokedFunctionNamespaceManagerConfig config = buildConfigObject(SqlInvokedFunctionNamespaceManagerConfig.class);
         ImmutableMap.Builder<Language, SimpleAddressSelectorConfig> thriftConfigs = ImmutableMap.builder();
         ImmutableMap.Builder<Language, FunctionImplementationType> languageImplementationTypeMap = ImmutableMap.builder();
+        ImmutableMap.Builder<Language, ThriftSqlFunctionExecutionConfig> thriftExecutionConfigs = ImmutableMap.builder();
         for (String languageName : config.getSupportedFunctionLanguages()) {
             Language language = new Language(languageName);
             FunctionImplementationType implementationType = buildConfigObject(SqlFunctionLanguageConfig.class, languageName).getFunctionImplementationType();
             languageImplementationTypeMap.put(language, implementationType);
             if (implementationType.equals(THRIFT)) {
                 thriftConfigs.put(language, buildConfigObject(SimpleAddressSelectorConfig.class, languageName));
+                thriftExecutionConfigs.put(language, buildConfigObject(ThriftSqlFunctionExecutionConfig.class, languageName));
             }
         }
         binder.bind(new TypeLiteral<Map<Language, FunctionImplementationType>>() {}).toInstance(languageImplementationTypeMap.build());
         binder.install(new SimpleAddressThriftSqlFunctionExecutionModule(thriftConfigs.build()));
+        binder.bind(new TypeLiteral<Map<Language, ThriftSqlFunctionExecutionConfig>>() {}).toInstance(thriftExecutionConfigs.build());
     }
 }
