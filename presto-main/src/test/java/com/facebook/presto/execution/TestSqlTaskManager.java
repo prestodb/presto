@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.TestingGcMonitor;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffers;

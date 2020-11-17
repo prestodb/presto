@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;

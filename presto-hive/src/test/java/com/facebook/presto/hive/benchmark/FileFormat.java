@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.benchmark;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
