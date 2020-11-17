@@ -11,37 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.block;
+package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.block.ArrayBlockEncoding;
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockEncoding;
-import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.common.block.ByteArrayBlockEncoding;
-import com.facebook.presto.common.block.DictionaryBlockEncoding;
-import com.facebook.presto.common.block.Int128ArrayBlockEncoding;
-import com.facebook.presto.common.block.IntArrayBlockEncoding;
-import com.facebook.presto.common.block.LazyBlockEncoding;
-import com.facebook.presto.common.block.LongArrayBlockEncoding;
-import com.facebook.presto.common.block.MapBlockEncoding;
-import com.facebook.presto.common.block.RowBlockEncoding;
-import com.facebook.presto.common.block.RunLengthBlockEncoding;
-import com.facebook.presto.common.block.ShortArrayBlockEncoding;
-import com.facebook.presto.common.block.SingleMapBlockEncoding;
-import com.facebook.presto.common.block.SingleRowBlockEncoding;
-import com.facebook.presto.common.block.VariableWidthBlockEncoding;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import javax.inject.Inject;
-
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -50,13 +29,7 @@ public final class BlockEncodingManager
 {
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
 
-    public BlockEncodingManager(BlockEncoding... blockEncodings)
-    {
-        this(ImmutableSet.copyOf(blockEncodings));
-    }
-
-    @Inject
-    public BlockEncodingManager(Set<BlockEncoding> blockEncodings)
+    public BlockEncodingManager()
     {
         // This function should be called from Guice and tests only
 
@@ -75,17 +48,15 @@ public final class BlockEncodingManager
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
-
-        for (BlockEncoding blockEncoding : requireNonNull(blockEncodings, "blockEncodings is null")) {
-            addBlockEncoding(blockEncoding);
-        }
     }
 
     public void addBlockEncoding(BlockEncoding blockEncoding)
     {
         requireNonNull(blockEncoding, "blockEncoding is null");
         BlockEncoding existingEntry = blockEncodings.putIfAbsent(blockEncoding.getName(), blockEncoding);
-        checkArgument(existingEntry == null, "Encoding %s is already registered", blockEncoding.getName());
+        if (existingEntry != null) {
+            throw new IllegalArgumentException(format("Encoding %s is already registered", blockEncoding.getName()));
+        }
     }
 
     @Override
@@ -96,7 +67,9 @@ public final class BlockEncodingManager
 
         // look up the encoding factory
         BlockEncoding blockEncoding = blockEncodings.get(encodingName);
-        checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
+        if (blockEncoding == null) {
+            throw new IllegalArgumentException(format("Unknown block encoding %s", encodingName));
+        }
 
         // load read the encoding factory from the output stream
         return blockEncoding.readBlock(this, input);
