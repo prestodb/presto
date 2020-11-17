@@ -112,6 +112,7 @@ public final class HiveSessionProperties
     public static final String PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED = "partial_aggregation_pushdown_for_variable_length_datatypes_enabled";
     public static final String FILE_RENAMING_ENABLED = "file_renaming_enabled";
     public static final String PREFER_MANIFESTS_TO_LIST_FILES = "prefer_manifests_to_list_files";
+    public static final String MANIFEST_VERIFICATION_ENABLED = "manifest_verification_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -526,6 +527,11 @@ public final class HiveSessionProperties
                         PREFER_MANIFESTS_TO_LIST_FILES,
                         "Prefer to fetch the list of file names and sizes from manifest",
                         hiveClientConfig.isPreferManifestsToListFiles(),
+                        false),
+                booleanProperty(
+                        MANIFEST_VERIFICATION_ENABLED,
+                        "Enable manifest verification",
+                        hiveClientConfig.isManifestVerificationEnabled(),
                         false));
     }
 
@@ -920,5 +926,10 @@ public final class HiveSessionProperties
     public static boolean isPreferManifestsToListFiles(ConnectorSession session)
     {
         return session.getProperty(PREFER_MANIFESTS_TO_LIST_FILES, Boolean.class);
+    }
+
+    public static boolean isManifestVerificationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(MANIFEST_VERIFICATION_ENABLED, Boolean.class);
     }
 }
