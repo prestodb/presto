@@ -35,6 +35,7 @@ import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.storage.TempStorageFactory;
+import com.facebook.presto.storage.TempStorageManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import io.airlift.resolver.ArtifactResolver;
@@ -95,6 +96,7 @@ public class PluginManager
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
+    private final TempStorageManager tempStorageManager;
     private final SessionPropertyDefaults sessionPropertyDefaults;
     private final ArtifactResolver resolver;
     private final File installedPluginsDir;
@@ -113,6 +115,7 @@ public class PluginManager
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
+            TempStorageManager tempStorageManager,
             SessionPropertyDefaults sessionPropertyDefaults)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
@@ -134,6 +137,7 @@ public class PluginManager
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
+        this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
     }
 
@@ -244,6 +248,7 @@ public class PluginManager
 
         for (TempStorageFactory tempStorageFactory : plugin.getTempStorageFactories()) {
             log.info("Registering temp storage %s", tempStorageFactory.getName());
+            tempStorageManager.addTempStorageFactory(tempStorageFactory);
         }
     }
 
