@@ -14,7 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.event.SplitMonitor;
