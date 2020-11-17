@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spark.execution;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.DriverContext;

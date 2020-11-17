@@ -15,8 +15,8 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;

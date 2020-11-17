@@ -14,8 +14,8 @@
 package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;

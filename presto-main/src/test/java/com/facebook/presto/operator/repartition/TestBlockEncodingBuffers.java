@@ -28,9 +28,9 @@
 package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.block.BlockAssertions.Encoding;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockFlattener;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.type.ArrayType;
