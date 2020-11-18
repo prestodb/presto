@@ -547,7 +547,7 @@ public final class SystemSessionProperties
                         value -> {
                             boolean spillEnabled = (Boolean) value;
                             if (spillEnabled
-                                    && featuresConfig.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.FILE
+                                    && featuresConfig.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.LOCAL_FILE
                                     && featuresConfig.getSpillerSpillPaths().isEmpty()) {
                                 throw new PrestoException(
                                         INVALID_SESSION_PROPERTY,

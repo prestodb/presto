@@ -80,7 +80,7 @@ public class FeaturesConfig
     private boolean spatialJoinsEnabled = true;
     private boolean fastInequalityJoins = true;
     private TaskSpillingStrategy taskSpillingStrategy = ORDER_BY_CREATE_TIME;
-    private SingleStreamSpillerChoice singleStreamSpillerChoice = SingleStreamSpillerChoice.FILE;
+    private SingleStreamSpillerChoice singleStreamSpillerChoice = SingleStreamSpillerChoice.LOCAL_FILE;
     private String spillerTempStorage = "local";
     private long maxRevocableMemoryPerTask = 500000L;
     private JoinReorderingStrategy joinReorderingStrategy = ELIMINATE_CROSS_JOINS;
@@ -239,7 +239,7 @@ public class FeaturesConfig
 
     public enum SingleStreamSpillerChoice
     {
-        FILE,
+        LOCAL_FILE,
         TEMP_STORAGE
     }
 
@@ -948,7 +948,7 @@ public class FeaturesConfig
     @AssertTrue(message = SPILLER_SPILL_PATH + " must be configured when " + SPILL_ENABLED + " is set to true and " + SINGLE_STREAM_SPILLER_CHOICE + " is set to file")
     public boolean isSpillerSpillPathsConfiguredIfSpillEnabled()
     {
-        return !isSpillEnabled() || !spillerSpillPaths.isEmpty() || singleStreamSpillerChoice != SingleStreamSpillerChoice.FILE;
+        return !isSpillEnabled() || !spillerSpillPaths.isEmpty() || singleStreamSpillerChoice != SingleStreamSpillerChoice.LOCAL_FILE;
     }
 
     @Min(1)
