@@ -544,7 +544,7 @@ public class ServerMainModule
 
         install(installModuleIf(
                 FeaturesConfig.class,
-                config -> config.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.FILE,
+                config -> config.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.LOCAL_FILE,
                 moduleBinder -> moduleBinder
                         .bind(SingleStreamSpillerFactory.class)
                         .to(FileSingleStreamSpillerFactory.class)
