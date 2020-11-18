@@ -448,6 +448,12 @@ class StatementClientV1
                                 .map(message -> ": " + message)
                                 .orElse(""));
             }
+            if (response.getStatusCode() == 429) {
+                return new ClientException("Request throttled " +
+                        Optional.ofNullable(response.getStatusMessage())
+                                .map(message -> ": " + message)
+                                .orElse(""), true);
+            }
             return new RuntimeException(
                     format("Error %s at %s returned an invalid response: %s [Error: %s]", task, request.url(), response, response.getResponseBody()),
                     response.getException());
