@@ -14,8 +14,10 @@
 package com.facebook.presto.server;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.resolver.ArtifactResolver;
 
 import javax.validation.constraints.NotNull;
@@ -30,6 +32,7 @@ public class PluginManagerConfig
     private File pluginConfigurationDir = new File("etc/");
     private String mavenLocalRepository = ArtifactResolver.USER_LOCAL_REPO;
     private List<String> mavenRemoteRepository = ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI);
+    private ImmutableSet<String> disabledConnectors = ImmutableSet.of();
 
     public File getInstalledPluginsDir()
     {
@@ -95,6 +98,20 @@ public class PluginManagerConfig
     public PluginManagerConfig setMavenRemoteRepository(String mavenRemoteRepository)
     {
         this.mavenRemoteRepository = ImmutableList.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(mavenRemoteRepository));
+        return this;
+    }
+
+    @NotNull
+    public ImmutableSet<String> getDisabledConnectors()
+    {
+        return this.disabledConnectors;
+    }
+
+    @Config("plugin.disabled-connectors")
+    @ConfigDescription("Disabled connectors are not registered by PluginManager")
+    public PluginManagerConfig setDisabledConnectors(String disabledConnectors)
+    {
+        this.disabledConnectors = ImmutableSet.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(disabledConnectors));
         return this;
     }
 }
