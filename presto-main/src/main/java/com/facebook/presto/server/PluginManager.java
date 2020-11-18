@@ -37,6 +37,7 @@ import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactor
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.storage.TempStorageManager;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import io.airlift.resolver.ArtifactResolver;
 import io.airlift.resolver.DefaultArtifact;
@@ -103,6 +104,7 @@ public class PluginManager
     private final List<String> plugins;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
+    private final ImmutableSet<String> disabledConnectors;
 
     @Inject
     public PluginManager(
@@ -139,6 +141,7 @@ public class PluginManager
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
         this.sessionPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
+        this.disabledConnectors = requireNonNull(config.getDisabledConnectors(), "disabledConnectors is null");
     }
 
     public void loadPlugins()
@@ -207,6 +210,10 @@ public class PluginManager
         }
 
         for (ConnectorFactory connectorFactory : plugin.getConnectorFactories()) {
+            if (disabledConnectors.contains(connectorFactory.getName())) {
+                log.info("Skipping disabled connector %s", connectorFactory.getName());
+                continue;
+            }
             log.info("Registering connector %s", connectorFactory.getName());
             connectorManager.addConnectorFactory(connectorFactory);
         }
