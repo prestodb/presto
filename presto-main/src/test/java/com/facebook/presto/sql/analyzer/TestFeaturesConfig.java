@@ -95,7 +95,7 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
                 .setTaskSpillingStrategy(ORDER_BY_CREATE_TIME)
-                .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.FILE)
+                .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.LOCAL_FILE)
                 .setSpillerTempStorage("local")
                 .setMaxRevocableMemoryPerTask(500000L)
                 .setOptimizeMixedDistinctAggregations(false)
