@@ -11,33 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.client;
+package com.facebook.presto.verifier.framework;
 
-public class ClientException
-        extends RuntimeException
+public class ThrottlingException
+        extends QueryException
 {
-    private final boolean retryable;
-
-    public ClientException(String message)
+    public ThrottlingException(Throwable cause, QueryStage queryStage)
     {
-        super(message);
-        this.retryable = false;
+        super(cause, true, queryStage);
     }
 
-    public ClientException(String message, boolean retryable)
+    @Override
+    public String getErrorCodeName()
     {
-        super(message);
-        this.retryable = retryable;
-    }
-
-    public ClientException(String message, Throwable cause)
-    {
-        super(message, cause);
-        this.retryable = false;
-    }
-
-    public boolean isRetryable()
-    {
-        return retryable;
+        return "REQUEST_THROTTLED";
     }
 }

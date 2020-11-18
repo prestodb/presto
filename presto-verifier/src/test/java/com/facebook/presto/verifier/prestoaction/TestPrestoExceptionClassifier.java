@@ -20,6 +20,7 @@ import com.facebook.presto.verifier.framework.ClusterConnectionException;
 import com.facebook.presto.verifier.framework.PrestoQueryException;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
+import com.facebook.presto.verifier.framework.ThrottlingException;
 import org.testng.annotations.Test;
 
 import java.io.EOFException;
@@ -74,6 +75,12 @@ public class TestPrestoExceptionClassifier
     }
 
     @Test
+    public void testThrottlingException()
+    {
+        testThrottlingException(new SQLException(new RuntimeException("Request throttled ")));
+    }
+
+    @Test
     public void testPrestoException()
     {
         testPrestoException(NO_NODES_AVAILABLE, true);
@@ -121,6 +128,11 @@ public class TestPrestoExceptionClassifier
         assertClusterConnectionException(classifier.createException(QUERY_STAGE, EMPTY_STATS, sqlException), QUERY_STAGE);
     }
 
+    private void testThrottlingException(SQLException sqlException)
+    {
+        assertThrottlingException(classifier.createException(QUERY_STAGE, EMPTY_STATS, sqlException), QUERY_STAGE);
+    }
+
     private void testPrestoException(ErrorCodeSupplier errorCode, boolean expectedRetryable)
     {
         testPrestoException(errorCode, QUERY_STAGE, expectedRetryable);
@@ -141,6 +153,15 @@ public class TestPrestoExceptionClassifier
         assertTrue(queryException instanceof ClusterConnectionException);
         assertEquals(queryException.getQueryStage(), queryStage);
         ClusterConnectionException exception = (ClusterConnectionException) queryException;
+
+        assertTrue(exception.isRetryable());
+    }
+
+    private void assertThrottlingException(QueryException queryException, QueryStage queryStage)
+    {
+        assertTrue(queryException instanceof ThrottlingException);
+        assertEquals(queryException.getQueryStage(), queryStage);
+        ThrottlingException exception = (ThrottlingException) queryException;
 
         assertTrue(exception.isRetryable());
     }
