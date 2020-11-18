@@ -111,6 +111,10 @@ public class TestEnums
                 "SELECT test.enum.testEnum.TEST, test.enum.testEnum.TEST2, test.enum.testEnum.TEST3, array[test.enum.testEnum.TEST4]",
                 singletonList(ImmutableList.of("\"}\"", "", " ", ImmutableList.of(")))\"\""))));
 
+        assertQueryResultUnordered(
+                "SELECT MAP(ARRAY[test.enum.mood.HAPPY], ARRAY[1])",
+                singletonList(ImmutableList.of(ImmutableMap.of(0L, 1))));
+
         assertQueryFails("SELECT test.enum.mood.hello", ".*No key 'HELLO' in enum 'test.enum.mood'");
     }
 
