@@ -75,6 +75,7 @@ import java.util.function.Function;
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
 import static com.facebook.presto.expressions.DynamicFilters.extractDynamicConjuncts;
 import static com.facebook.presto.expressions.DynamicFilters.extractStaticConjuncts;
+import static com.facebook.presto.expressions.DynamicFilters.removeNestedDynamicFilters;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
@@ -256,6 +257,7 @@ public class HiveFilterPushdown
         List<RowExpression> conjuncts = extractConjuncts(decomposedFilter.getRemainingExpression());
         RowExpression dynamicFilterExpression = extractDynamicConjuncts(conjuncts, logicalRowExpressions);
         RowExpression remainingExpression = extractStaticConjuncts(conjuncts, logicalRowExpressions);
+        remainingExpression = removeNestedDynamicFilters(remainingExpression);
 
         return new ConnectorPushdownFilterResult(
                 metadata.getTableLayout(
