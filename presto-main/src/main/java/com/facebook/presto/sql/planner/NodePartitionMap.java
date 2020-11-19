@@ -40,19 +40,22 @@ public class NodePartitionMap
     private final List<InternalNode> partitionToNode;
     private final int[] bucketToPartition;
     private final ToIntFunction<Split> splitToBucket;
+    private final boolean cacheable;
 
     public NodePartitionMap(List<InternalNode> partitionToNode, ToIntFunction<Split> splitToBucket)
     {
         this.partitionToNode = ImmutableList.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
         this.bucketToPartition = IntStream.range(0, partitionToNode.size()).toArray();
         this.splitToBucket = requireNonNull(splitToBucket, "splitToBucket is null");
+        this.cacheable = false;
     }
 
-    public NodePartitionMap(List<InternalNode> partitionToNode, int[] bucketToPartition, ToIntFunction<Split> splitToBucket)
+    public NodePartitionMap(List<InternalNode> partitionToNode, int[] bucketToPartition, ToIntFunction<Split> splitToBucket, boolean cacheable)
     {
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
         this.partitionToNode = ImmutableList.copyOf(requireNonNull(partitionToNode, "partitionToNode is null"));
         this.splitToBucket = requireNonNull(splitToBucket, "splitToBucket is null");
+        this.cacheable = cacheable;
     }
 
     public List<InternalNode> getPartitionToNode()
@@ -78,6 +81,6 @@ public class NodePartitionMap
         for (int partition : bucketToPartition) {
             bucketToNode.add(partitionToNode.get(partition));
         }
-        return new FixedBucketNodeMap(splitToBucket, bucketToNode.build(), false);
+        return new FixedBucketNodeMap(splitToBucket, bucketToNode.build(), cacheable);
     }
 }
