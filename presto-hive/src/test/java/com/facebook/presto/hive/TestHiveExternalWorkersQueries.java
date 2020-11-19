@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -29,6 +30,7 @@ import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.tpch.TpchTable.NATION;
 import static java.lang.String.format;
@@ -156,6 +158,29 @@ public class TestHiveExternalWorkersQueries
         assertQuery("SELECT rand() < 1, random() < 1 FROM nation", "SELECT true, true FROM nation");
         assertQuery("SELECT ceil(discount), ceiling(discount), floor(discount), abs(discount) FROM lineitem");
         assertQuery("SELECT substr(comment, 1, 10), length(comment) FROM orders");
+    }
+
+    @Test
+    public void testFilterPushdown()
+    {
+        Session filterPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty(HIVE_CATALOG, "pushdown_filter_enabled", "true")
+                .build();
+
+        assertQuery(filterPushdown, "SELECT * FROM nation WHERE nationkey = 4");
+        assertQuery(filterPushdown, "SELECT * FROM nation WHERE nationkey <> 4");
+        assertQuery(filterPushdown, "SELECT * FROM nation WHERE nationkey < 4");
+        assertQuery(filterPushdown, "SELECT * FROM nation WHERE nationkey <= 4");
+        assertQuery(filterPushdown, "SELECT * FROM nation WHERE nationkey > 4");
+        assertQuery(filterPushdown, "SELECT * FROM nation WHERE nationkey >= 4");
+        assertQuery(filterPushdown, "SELECT * FROM nation WHERE nationkey BETWEEN 3 AND 7");
+        assertQuery(filterPushdown, "SELECT * FROM nation WHERE nationkey IN (1, 3, 5)");
+
+        assertQuery(filterPushdown, "SELECT linenumber, orderkey, discount FROM lineitem WHERE discount > 0.02");
+        assertQuery(filterPushdown, "SELECT linenumber, orderkey, discount FROM lineitem WHERE discount BETWEEN 0.01 AND 0.02");
+
+        // no row passes the filter
+        assertQuery(filterPushdown, "SELECT linenumber, orderkey, discount FROM lineitem WHERE discount > 0.2");
     }
 
     @Test
