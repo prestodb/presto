@@ -108,7 +108,10 @@ public class PrestoConnection
         this.extraCredentials = uri.getExtraCredentials();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
 
-        timeZoneId.set(TimeZone.getDefault().getID());
+        // timeZoneId.set(TimeZone.getDefault().getID());
+        timeZoneId.set(uri.getTimeZoneID().isPresent() ?
+                TimeZone.getTimeZone(uri.getTimeZoneID().get()).getID() :
+                TimeZone.getDefault().getID());
         locale.set(Locale.getDefault());
     }
 
@@ -663,7 +666,7 @@ public class PrestoConnection
 
     StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
     {
-        String source = "presto-jdbc";
+        String source = "presto-jdbc-okera";
         String applicationName = clientInfo.get("ApplicationName");
         if (applicationNamePrefix.isPresent()) {
             source = applicationNamePrefix.get();
