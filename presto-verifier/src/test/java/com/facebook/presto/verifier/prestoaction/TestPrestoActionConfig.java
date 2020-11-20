@@ -39,6 +39,7 @@ public class TestPrestoActionConfig
                 .setHttpPort(null)
                 .setJdbcUrlParameters(null)
                 .setApplicationName("verifier-test")
+                .setRemoveMemoryRelatedSessionProperties(true)
                 .setQueryTimeout(new Duration(60, MINUTES)));
     }
 
@@ -52,6 +53,7 @@ public class TestPrestoActionConfig
                 .put("jdbc-url-parameters", "{\"SSL\": false}")
                 .put("query-timeout", "2h")
                 .put("application-name", "verifier")
+                .put("remove-memory-related-session-properties", "false")
                 .build();
         PrestoActionConfig expected = new PrestoActionConfig()
                 .setHosts("proxy.presto.fbinfra.net")
@@ -59,7 +61,8 @@ public class TestPrestoActionConfig
                 .setHttpPort(7777)
                 .setJdbcUrlParameters("{\"SSL\": false}")
                 .setQueryTimeout(new Duration(2, HOURS))
-                .setApplicationName("verifier");
+                .setApplicationName("verifier")
+                .setRemoveMemoryRelatedSessionProperties(false);
 
         assertFullMapping(properties, expected);
     }
