@@ -11,6 +11,7 @@ env:
   matrix:
     - MAVEN_CHECKS=true
     - WEBUI_CHECKS=true
+    - TEST_SPECIFIC_MODULES=presto-docs
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-execution-memory"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-general"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-distributed-non-hash-gen"
