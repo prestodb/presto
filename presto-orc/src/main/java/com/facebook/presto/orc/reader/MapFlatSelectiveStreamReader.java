@@ -637,9 +637,11 @@ public class MapFlatSelectiveStreamReader
         valueStreamReaders.clear();
 
         ColumnEncoding encoding = encodings.get(baseValueStreamDescriptor.getStreamId());
-        // encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
-        SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().orElse(Collections.emptySortedMap());
-
+        SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = Collections.emptySortedMap();
+        // encoding or encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
+        if (encoding != null && encoding.getAdditionalSequenceEncodings().isPresent()) {
+            additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().get();
+        }
         keyIndices = ensureCapacity(keyIndices, additionalSequenceEncodings.size());
         keyCount = 0;
 
