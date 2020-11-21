@@ -336,6 +336,17 @@ public class TestMapFlatBatchStreamReader
                 ExpectedValuesBuilder.get(Function.identity()).setEmptyMapsFrequency(ALL));
     }
 
+    // All maps are empty and encoding is not present
+    @Test
+    public void testWithAllEmptyMapsWithNoEncoding()
+            throws Exception
+    {
+        runTest(
+                "test_flat_map/flat_map_all_empty_maps_no_encoding.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setEmptyMapsFrequency(ALL));
+    }
+
     @Test
     public void testMixedEncodings()
             throws Exception
