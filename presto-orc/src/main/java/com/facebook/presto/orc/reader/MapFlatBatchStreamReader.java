@@ -249,8 +249,12 @@ public class MapFlatBatchStreamReader
         valueStreamReaders.clear();
 
         ColumnEncoding encoding = encodings.get(baseValueStreamDescriptor.getStreamId());
-        // encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
-        SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().orElse(Collections.emptySortedMap());
+        SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = Collections.emptySortedMap();
+        // encoding or encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
+        if (encoding != null && encoding.getAdditionalSequenceEncodings().isPresent()) {
+            additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().get();
+        }
+
         // The ColumnEncoding with sequence ID 0 doesn't have any data associated with it
         for (int sequence : additionalSequenceEncodings.keySet()) {
             inMapStreamSources.add(missingStreamSource(BooleanInputStream.class));
