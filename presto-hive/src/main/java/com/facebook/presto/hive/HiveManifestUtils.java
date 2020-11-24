@@ -25,7 +25,6 @@ import org.roaringbitmap.RoaringBitmap;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -41,6 +40,7 @@ import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 public class HiveManifestUtils
 {
@@ -167,7 +167,7 @@ public class HiveManifestUtils
 
         try {
             RoaringBitmap roaringBitmap = new RoaringBitmap();
-            ByteBuffer byteBuffer = ByteBuffer.wrap(compressedFileNames.getBytes(StandardCharsets.ISO_8859_1));
+            ByteBuffer byteBuffer = ByteBuffer.wrap(compressedFileNames.getBytes(ISO_8859_1));
             roaringBitmap.deserialize(byteBuffer);
             return Arrays.stream(roaringBitmap.toArray()).mapToObj(Integer::toString).collect(toImmutableList());
         }
@@ -188,14 +188,14 @@ public class HiveManifestUtils
         roaringBitmap.serialize(byteBuffer);
         byteBuffer.flip();
 
-        return new String(byteBuffer.array(), StandardCharsets.ISO_8859_1);
+        return new String(byteBuffer.array(), ISO_8859_1);
     }
 
     public static String compressFileSizes(List<Long> fileSizes)
     {
         String fileSizesString = Joiner.on(COMMA).join(fileSizes.stream().map(String::valueOf).collect(toImmutableList()));
         try {
-            return new String(Zstd.compress(fileSizesString.getBytes(StandardCharsets.ISO_8859_1), COMPRESSION_LEVEL), StandardCharsets.ISO_8859_1);
+            return new String(Zstd.compress(fileSizesString.getBytes(ISO_8859_1), COMPRESSION_LEVEL), ISO_8859_1);
         }
         catch (RuntimeException e) {
             throw new PrestoException(MALFORMED_HIVE_FILE_STATISTICS, "Failed compressing the file sizes for manifest");
@@ -205,9 +205,9 @@ public class HiveManifestUtils
     public static List<Long> decompressFileSizes(String compressedFileSizes)
     {
         try {
-            byte[] compressedBytes = compressedFileSizes.getBytes(StandardCharsets.ISO_8859_1);
+            byte[] compressedBytes = compressedFileSizes.getBytes(ISO_8859_1);
             long decompressedSize = Zstd.decompressedSize(compressedBytes);
-            String decompressedFileSizes = new String(Zstd.decompress(compressedBytes, (int) decompressedSize), StandardCharsets.ISO_8859_1);
+            String decompressedFileSizes = new String(Zstd.decompress(compressedBytes, (int) decompressedSize), ISO_8859_1);
             return Arrays.stream(decompressedFileSizes.split(COMMA)).map(Long::valueOf).collect(toImmutableList());
         }
         catch (RuntimeException e) {

@@ -1933,7 +1933,8 @@ public class HiveMetadata
                         .map(encryptionInfo -> encryptionInfo.getDwrfEncryptionMetadata().map(DwrfEncryptionMetadata::getExtraMetadata).orElseGet(ImmutableMap::of))
                         .orElseGet(ImmutableMap::of);
 
-                if (HiveSessionProperties.isFileRenamingEnabled(session)) {
+                if (HiveSessionProperties.isPreferManifestsToListFiles(session)) {
+                    // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files property is set
                     extraPartitionMetadata = updatePartitionMetadataWithFileNamesAndSizes(partitionUpdate, extraPartitionMetadata);
                 }
 
