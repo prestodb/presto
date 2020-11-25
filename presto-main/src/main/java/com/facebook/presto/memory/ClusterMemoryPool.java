@@ -14,6 +14,7 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.spi.memory.MemoryAllocation;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
@@ -79,6 +80,11 @@ public class ClusterMemoryPool
                 ImmutableMap.copyOf(queryMemoryReservations),
                 ImmutableMap.copyOf(queryMemoryAllocations),
                 ImmutableMap.copyOf(queryMemoryRevocableReservations));
+    }
+
+    public synchronized ClusterMemoryPoolInfo getClusterInfo()
+    {
+        return new ClusterMemoryPoolInfo(getInfo(), blockedNodes, assignedQueries);
     }
 
     public MemoryPoolId getId()
