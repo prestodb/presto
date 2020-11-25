@@ -33,9 +33,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -48,6 +47,7 @@ import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_PAGES;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.BROADCAST;
+import static com.facebook.presto.execution.buffer.SerializedPageReference.dereferencePages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -59,6 +59,7 @@ public class BroadcastOutputBuffer
     private final String taskInstanceId;
     private final StateMachine<BufferState> state;
     private final OutputBufferMemoryManager memoryManager;
+    private final LifespanSerializedPageTracker pageTracker;
 
     @GuardedBy("this")
     private OutputBuffers outputBuffers = OutputBuffers.createInitialEmptyOutputBuffers(BROADCAST);
@@ -73,10 +74,6 @@ public class BroadcastOutputBuffer
     private final AtomicLong totalRowsAdded = new AtomicLong();
     private final AtomicLong totalBufferedPages = new AtomicLong();
 
-    private final ConcurrentMap<Lifespan, AtomicLong> outstandingPageCountPerLifespan = new ConcurrentHashMap<>();
-    private final Set<Lifespan> noMorePagesForLifespan = ConcurrentHashMap.newKeySet();
-    private volatile Consumer<Lifespan> lifespanCompletionCallback;
-
     public BroadcastOutputBuffer(
             String taskInstanceId,
             StateMachine<BufferState> state,
@@ -90,6 +87,9 @@ public class BroadcastOutputBuffer
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
+        this.pageTracker = new LifespanSerializedPageTracker(memoryManager, Optional.of((lifespan, releasedPageCount, releasedSizeInBytes) -> {
+            checkState(totalBufferedPages.addAndGet(-releasedPageCount) >= 0);
+        }));
     }
 
     @Override
@@ -196,8 +196,7 @@ public class BroadcastOutputBuffer
     @Override
     public void registerLifespanCompletionCallback(Consumer<Lifespan> callback)
     {
-        checkState(lifespanCompletionCallback == null, "lifespanCompletionCallback is already set");
-        this.lifespanCompletionCallback = requireNonNull(callback, "callback is null");
+        pageTracker.registerLifespanCompletionCallback(callback);
     }
 
     @Override
@@ -205,11 +204,11 @@ public class BroadcastOutputBuffer
     {
         checkState(!Thread.holdsLock(this), "Can not enqueue pages while holding a lock on this");
         requireNonNull(pages, "pages is null");
-        checkState(lifespanCompletionCallback != null, "lifespanCompletionCallback must be set before enqueueing data");
+        checkState(pageTracker.isLifespanCompletionCallbackRegistered(), "lifespanCompletionCallback must be set before enqueueing data");
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
-        if (!state.get().canAddPages() || noMorePagesForLifespan.contains(lifespan)) {
+        if (!state.get().canAddPages() || pageTracker.isNoMorePagesForLifespan(lifespan)) {
             return;
         }
 
@@ -222,14 +221,14 @@ public class BroadcastOutputBuffer
         totalRowsAdded.addAndGet(rowCount);
         totalPagesAdded.addAndGet(pages.size());
         totalBufferedPages.addAndGet(pages.size());
-        outstandingPageCountPerLifespan.computeIfAbsent(lifespan, ignore -> new AtomicLong()).addAndGet(pages.size());
+        pageTracker.incrementLifespanPageCount(lifespan, pages.size());
 
         // create page reference counts with an initial single reference
         List<SerializedPageReference> serializedPageReferences = pages.stream()
                 .map(pageSplit -> new SerializedPageReference(
                         pageSplit,
                         1,
-                        () -> dereferencePage(pageSplit, lifespan)))
+                        lifespan))
                 .collect(toImmutableList());
 
         // if we can still add buffers, remember the pages for the future buffers
@@ -248,7 +247,7 @@ public class BroadcastOutputBuffer
         buffers.forEach(partition -> partition.enqueuePages(serializedPageReferences));
 
         // drop the initial reference
-        serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
+        dereferencePages(serializedPageReferences, pageTracker);
     }
 
     @Override
@@ -331,19 +330,13 @@ public class BroadcastOutputBuffer
     @Override
     public void setNoMorePagesForLifespan(Lifespan lifespan)
     {
-        requireNonNull(lifespan, "lifespan is null");
-        noMorePagesForLifespan.add(lifespan);
+        pageTracker.setNoMorePagesForLifespan(lifespan);
     }
 
     @Override
     public boolean isFinishedForLifespan(Lifespan lifespan)
     {
-        if (!noMorePagesForLifespan.contains(lifespan)) {
-            return false;
-        }
-
-        AtomicLong outstandingPageCount = outstandingPageCountPerLifespan.get(lifespan);
-        return outstandingPageCount == null || outstandingPageCount.get() == 0;
+        return pageTracker.isFinishedForLifespan(lifespan);
     }
 
     @Override
@@ -373,7 +366,7 @@ public class BroadcastOutputBuffer
 
         // NOTE: buffers are allowed to be created before they are explicitly declared by setOutputBuffers
         // When no-more-buffers is set, we verify that all created buffers have been declared
-        buffer = new ClientBuffer(taskInstanceId, id);
+        buffer = new ClientBuffer(taskInstanceId, id, pageTracker);
 
         // do not setup the new buffer if we are already failed
         if (state != FAILED) {
@@ -417,7 +410,7 @@ public class BroadcastOutputBuffer
         }
 
         // dereference outside of synchronized to avoid making a callback while holding a lock
-        pages.forEach(SerializedPageReference::dereferencePage);
+        dereferencePages(pages, pageTracker);
     }
 
     private void checkFlushComplete()
@@ -435,17 +428,5 @@ public class BroadcastOutputBuffer
     OutputBufferMemoryManager getMemoryManager()
     {
         return memoryManager;
-    }
-
-    private void dereferencePage(SerializedPage pageSplit, Lifespan lifespan)
-    {
-        long outstandingPageCount = outstandingPageCountPerLifespan.get(lifespan).decrementAndGet();
-        if (outstandingPageCount == 0 && noMorePagesForLifespan.contains(lifespan)) {
-            checkState(lifespanCompletionCallback != null, "lifespanCompletionCallback is not null");
-            lifespanCompletionCallback.accept(lifespan);
-        }
-
-        checkState(totalBufferedPages.decrementAndGet() >= 0);
-        memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes());
     }
 }
