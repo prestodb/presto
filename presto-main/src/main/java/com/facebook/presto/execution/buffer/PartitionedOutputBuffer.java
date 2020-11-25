@@ -25,9 +25,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -40,6 +37,7 @@ import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_BUFFERS;
 import static com.facebook.presto.execution.buffer.BufferState.NO_MORE_PAGES;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
+import static com.facebook.presto.execution.buffer.SerializedPageReference.dereferencePages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -50,15 +48,12 @@ public class PartitionedOutputBuffer
     private final StateMachine<BufferState> state;
     private final OutputBuffers outputBuffers;
     private final OutputBufferMemoryManager memoryManager;
+    private final LifespanSerializedPageTracker pageTracker;
 
     private final List<ClientBuffer> partitions;
 
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
-
-    private final ConcurrentMap<Lifespan, AtomicLong> outstandingPageCountPerLifespan = new ConcurrentHashMap<>();
-    private final Set<Lifespan> noMorePagesForLifespan = ConcurrentHashMap.newKeySet();
-    private volatile Consumer<Lifespan> lifespanCompletionCallback;
 
     public PartitionedOutputBuffer(
             String taskInstanceId,
@@ -79,10 +74,11 @@ public class PartitionedOutputBuffer
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
+        this.pageTracker = new LifespanSerializedPageTracker(memoryManager);
 
         ImmutableList.Builder<ClientBuffer> partitions = ImmutableList.builder();
         for (OutputBufferId bufferId : outputBuffers.getBuffers().keySet()) {
-            ClientBuffer partition = new ClientBuffer(taskInstanceId, bufferId);
+            ClientBuffer partition = new ClientBuffer(taskInstanceId, bufferId, pageTracker);
             partitions.add(partition);
         }
         this.partitions = partitions.build();
@@ -171,8 +167,7 @@ public class PartitionedOutputBuffer
     @Override
     public void registerLifespanCompletionCallback(Consumer<Lifespan> callback)
     {
-        checkState(lifespanCompletionCallback == null, "lifespanCompletionCallback is already set");
-        this.lifespanCompletionCallback = requireNonNull(callback, "callback is null");
+        pageTracker.registerLifespanCompletionCallback(callback);
     }
 
     @Override
@@ -187,11 +182,11 @@ public class PartitionedOutputBuffer
     {
         requireNonNull(lifespan, "lifespan is null");
         requireNonNull(pages, "pages is null");
-        checkState(lifespanCompletionCallback != null, "lifespanCompletionCallback must be set before enqueueing data");
+        checkState(pageTracker.isLifespanCompletionCallbackRegistered(), "lifespanCompletionCallback must be set before enqueueing data");
 
         // ignore pages after "no more pages" is set
         // this can happen with a limit query
-        if (!state.get().canAddPages() || noMorePagesForLifespan.contains(lifespan)) {
+        if (!state.get().canAddPages() || pageTracker.isNoMorePagesForLifespan(lifespan)) {
             return;
         }
 
@@ -203,7 +198,7 @@ public class PartitionedOutputBuffer
             bytesAdded += retainedSize;
             rowCount += page.getPositionCount();
             // create page reference counts with an initial single reference
-            references.add(new SerializedPageReference(page, 1, () -> dereferencePage(page, lifespan)));
+            references.add(new SerializedPageReference(page, 1, lifespan));
         }
         List<SerializedPageReference> serializedPageReferences = references.build();
 
@@ -213,31 +208,25 @@ public class PartitionedOutputBuffer
         // update stats
         totalRowsAdded.addAndGet(rowCount);
         totalPagesAdded.addAndGet(serializedPageReferences.size());
-        outstandingPageCountPerLifespan.computeIfAbsent(lifespan, ignore -> new AtomicLong()).addAndGet(serializedPageReferences.size());
+        pageTracker.incrementLifespanPageCount(lifespan, serializedPageReferences.size());
 
         // add pages to the buffer (this will increase the reference count by one)
         partitions.get(partitionNumber).enqueuePages(serializedPageReferences);
 
         // drop the initial reference
-        serializedPageReferences.forEach(SerializedPageReference::dereferencePage);
+        dereferencePages(serializedPageReferences, pageTracker);
     }
 
     @Override
     public void setNoMorePagesForLifespan(Lifespan lifespan)
     {
-        requireNonNull(lifespan, "lifespan is null");
-        noMorePagesForLifespan.add(lifespan);
+        pageTracker.setNoMorePagesForLifespan(lifespan);
     }
 
     @Override
     public boolean isFinishedForLifespan(Lifespan lifespan)
     {
-        if (!noMorePagesForLifespan.contains(lifespan)) {
-            return false;
-        }
-
-        AtomicLong outstandingPageCount = outstandingPageCountPerLifespan.get(lifespan);
-        return outstandingPageCount == null || outstandingPageCount.get() == 0;
+        return pageTracker.isFinishedForLifespan(lifespan);
     }
 
     @Override
@@ -328,16 +317,5 @@ public class PartitionedOutputBuffer
     OutputBufferMemoryManager getMemoryManager()
     {
         return memoryManager;
-    }
-
-    private void dereferencePage(SerializedPage pageSplit, Lifespan lifespan)
-    {
-        long outstandingPageCount = outstandingPageCountPerLifespan.get(lifespan).decrementAndGet();
-        if (outstandingPageCount == 0 && noMorePagesForLifespan.contains(lifespan)) {
-            checkState(lifespanCompletionCallback != null, "lifespanCompletionCallback is not null");
-            lifespanCompletionCallback.accept(lifespan);
-        }
-
-        memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes());
     }
 }
