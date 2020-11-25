@@ -180,6 +180,7 @@ import com.facebook.presto.util.GcStatusMonitor;
 import com.facebook.presto.version.EmbedVersion;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
@@ -196,7 +197,9 @@ import javax.servlet.Servlet;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.facebook.airlift.concurrent.ConcurrentScheduledExecutor.createConcurrentScheduledExecutor;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -215,6 +218,7 @@ import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.Networ
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -362,9 +366,24 @@ public class ServerMainModule
                     @Provides
                     @Singleton
                     @ForResourceManager
-                    public ScheduledExecutorService createResourceManagerExecutor(ResourceManagerConfig config)
+                    public ScheduledExecutorService createResourceManagerScheduledExecutor(ResourceManagerConfig config)
                     {
                         return createConcurrentScheduledExecutor("resource-manager-heartbeats", config.getHeartbeatConcurrency(), config.getHeartbeatThreads());
+                    }
+
+                    @Provides
+                    @Singleton
+                    @ForResourceManager
+                    public ListeningExecutorService createResourceManagerExecutor(ResourceManagerConfig config)
+                    {
+                        ExecutorService executor = new ThreadPoolExecutor(
+                                0,
+                                config.getResourceManagerExecutorThreads(),
+                                60,
+                                SECONDS,
+                                new LinkedBlockingQueue<>(),
+                                daemonThreadsNamed("resource-manager-executor-%s"));
+                        return listeningDecorator(executor);
                     }
                 },
                 moduleBinder -> moduleBinder.bind(ClusterStatusSender.class).toInstance(execution -> {})));
@@ -687,7 +706,10 @@ public class ServerMainModule
         private final List<ExecutorService> executors;
         @Inject(optional = true)
         @ForResourceManager
-        private ScheduledExecutorService resourceManagerExecutor;
+        private ScheduledExecutorService resourceManagerScheduledExecutor;
+        @Inject(optional = true)
+        @ForResourceManager
+        private ListeningExecutorService resourceManagerExecutor;
 
         @Inject
         public ExecutorCleanup(
@@ -705,6 +727,9 @@ public class ServerMainModule
         public void shutdown()
         {
             executors.forEach(ExecutorService::shutdownNow);
+            if (resourceManagerScheduledExecutor != null) {
+                resourceManagerScheduledExecutor.shutdownNow();
+            }
             if (resourceManagerExecutor != null) {
                 resourceManagerExecutor.shutdownNow();
             }
