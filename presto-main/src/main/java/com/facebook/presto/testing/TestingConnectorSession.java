@@ -32,6 +32,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -40,7 +41,7 @@ public class TestingConnectorSession
         implements ConnectorSession
 {
     private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
-    public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of());
+    public static final ConnectorSession SESSION = new TestingConnectorSession(ImmutableList.of(booleanProperty("compute_pushdown_enabled", "Mock pushdown", true, false)));
 
     private final String queryId;
     private final ConnectorIdentity identity;

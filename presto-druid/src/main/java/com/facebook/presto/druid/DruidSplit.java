@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
@@ -36,18 +37,21 @@ public class DruidSplit
     private final Optional<DruidQueryGenerator.GeneratedDql> brokerDql;
     private final Optional<DruidSegmentInfo> segmentInfo;
     private final Optional<HostAddress> address;
+    private final Map<String, List<Object>> dimFilters;
 
     @JsonCreator
     public DruidSplit(
             @JsonProperty("splitType") SplitType splitType,
             @JsonProperty("brokerDql") Optional<DruidQueryGenerator.GeneratedDql> brokerDql,
             @JsonProperty("segmentInfo") Optional<DruidSegmentInfo> segmentInfo,
-            @JsonProperty("address") Optional<HostAddress> address)
+            @JsonProperty("address") Optional<HostAddress> address,
+            @JsonProperty("dimFilters") Map<String, List<Object>> dimFilters)
     {
         this.splitType = requireNonNull(splitType, "splitType id is null");
         this.brokerDql = requireNonNull(brokerDql, "brokerDql is null");
         this.segmentInfo = requireNonNull(segmentInfo, "segment info is null");
         this.address = requireNonNull(address, "address info is null");
+        this.dimFilters = requireNonNull(dimFilters, "dimFilters is null");
         if (splitType == SplitType.SEGMENT) {
             checkArgument(segmentInfo.isPresent(), "SegmentInfo is missing from split");
             checkArgument(address.isPresent(), "Address is missing from split");
@@ -63,16 +67,18 @@ public class DruidSplit
                 SplitType.BROKER,
                 Optional.of(requireNonNull(brokerDql, "brokerDql is null")),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                null);
     }
 
-    public static DruidSplit createSegmentSplit(DruidSegmentInfo segmentInfo, HostAddress address)
+    public static DruidSplit createSegmentSplit(DruidSegmentInfo segmentInfo, HostAddress address, Map<String, List<Object>> dimFilters)
     {
         return new DruidSplit(
                 SplitType.SEGMENT,
                 Optional.empty(),
                 Optional.of(requireNonNull(segmentInfo, "segmentInfo are null")),
-                Optional.of(requireNonNull(address, "address is null")));
+                Optional.of(requireNonNull(address, "address is null")),
+                dimFilters);
     }
 
     @JsonProperty
@@ -91,6 +97,12 @@ public class DruidSplit
     public Optional<DruidSegmentInfo> getSegmentInfo()
     {
         return segmentInfo;
+    }
+
+    @JsonProperty
+    public Map<String, List<Object>> getDimFilters()
+    {
+        return dimFilters;
     }
 
     @JsonProperty
@@ -125,6 +137,7 @@ public class DruidSplit
                 .add("brokerDql", brokerDql)
                 .add("segmentInfo", segmentInfo)
                 .add("address", address)
+                .add("dimFilters", dimFilters)
                 .toString();
     }
 

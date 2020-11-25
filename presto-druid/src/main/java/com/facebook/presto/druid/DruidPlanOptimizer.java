@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_QUERY_GENERATOR_FAILURE;
+import static com.facebook.presto.druid.DruidSessionProperties.isComputePushdownEnabled;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -81,8 +82,13 @@ public class DruidPlanOptimizer
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator)
     {
-        Map<PlanNodeId, TableScanNode> scanNodes = maxSubplan.accept(new TableFindingVisitor(), null);
-        return maxSubplan.accept(new Visitor(scanNodes, session, idAllocator), null);
+        if (!isComputePushdownEnabled(session)) {
+            return maxSubplan;
+        }
+        else {
+            Map<PlanNodeId, TableScanNode> scanNodes = maxSubplan.accept(new TableFindingVisitor(), null);
+            return maxSubplan.accept(new Visitor(scanNodes, session, idAllocator), null);
+        }
     }
 
     private static Optional<DruidTableHandle> getDruidTableHandle(TableScanNode tableScanNode)

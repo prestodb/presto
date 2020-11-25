@@ -64,6 +64,7 @@ public class DruidClient
     private static final String LIST_TABLE_QUERY = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'druid'";
     private static final String GET_COLUMN_TEMPLATE = "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = 'druid' AND TABLE_NAME = '%s'";
     private static final String GET_SEGMENTS_ID_TEMPLATE = "SELECT segment_id FROM sys.segments WHERE datasource = '%s' AND is_published = 1";
+    private static final String GET_SEGMENTS_ID_TEMPLATE_WITH_FILTER = "SELECT segment_id FROM sys.segments WHERE datasource = '%s' AND is_published = 1 AND %s";
 
     private static final JsonCodec<List<DruidSegmentIdWrapper>> LIST_SEGMENT_ID_CODEC = listJsonCodec(DruidSegmentIdWrapper.class);
     private static final JsonCodec<List<DruidColumnInfo>> LIST_COLUMN_INFO_CODEC = listJsonCodec(DruidColumnInfo.class);
@@ -110,6 +111,13 @@ public class DruidClient
     public List<DruidColumnInfo> getColumnDataType(String tableName)
     {
         return httpClient.execute(prepareMetadataQuery(format(GET_COLUMN_TEMPLATE, tableName)), createJsonResponseHandler(LIST_COLUMN_INFO_CODEC));
+    }
+
+    public List<String> getDataSegmentId(String tableName, String segmentFilter)
+    {
+        return httpClient.execute(prepareMetadataQuery(format(GET_SEGMENTS_ID_TEMPLATE_WITH_FILTER, tableName, segmentFilter)), createJsonResponseHandler(LIST_SEGMENT_ID_CODEC)).stream()
+                .map(wrapper -> wrapper.getSegmentId())
+                .collect(toImmutableList());
     }
 
     public List<String> getDataSegmentId(String tableName)

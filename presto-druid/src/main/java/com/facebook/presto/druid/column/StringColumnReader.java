@@ -40,7 +40,7 @@ public class StringColumnReader
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
             String value = String.valueOf(valueSelector.getObject());
-            if (value != null) {
+            if (value != null && !value.equals("null")) {
                 type.writeSlice(builder, Slices.utf8Slice(value));
             }
             else {

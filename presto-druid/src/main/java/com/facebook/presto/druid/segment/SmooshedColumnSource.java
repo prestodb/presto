@@ -59,7 +59,7 @@ public class SmooshedColumnSource
     {
         SmooshFileMetadata metadata = columnSmoosh.get(name);
         if (metadata == null) {
-            throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, format("Internal file %s doesn't exist", name));
+            throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, format("Internal file \"%s\" doesn't exist", name));
         }
         String fileName = makeChunkFileName(metadata.getFileCount());
         int fileStart = metadata.getStartOffset();
