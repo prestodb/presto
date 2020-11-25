@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.Request;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StageId;
+import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableList;
@@ -26,14 +30,18 @@ import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.UriInfo;
 
-import java.util.List;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 
@@ -41,7 +49,10 @@ import static com.facebook.presto.connector.system.KillQueryProcedure.createKill
 import static com.facebook.presto.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
+import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 
 /**
  * Manage queries scheduled on this node
@@ -51,19 +62,32 @@ import static java.util.Objects.requireNonNull;
 public class QueryResource
 {
     // TODO There should be a combined interface for this
+    private final boolean resourceManagerEnabled;
     private final DispatchManager dispatchManager;
     private final QueryManager queryManager;
+    private final InternalNodeManager internalNodeManager;
+    private final HttpClient httpClient;
 
     @Inject
-    public QueryResource(DispatchManager dispatchManager, QueryManager queryManager)
+    public QueryResource(ServerConfig serverConfig, DispatchManager dispatchManager, QueryManager queryManager, InternalNodeManager internalNodeManager, @ForQueryInfo HttpClient httpClient)
     {
+        this.resourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
+        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
 
     @GET
-    public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter)
+    public Response getAllQueryInfo(
+            @QueryParam("state") String stateFilter,
+            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
+            @Context UriInfo uriInfo)
+            throws IOException
     {
+        if (resourceManagerEnabled) {
+            return proxyResponse(xForwardedProto, uriInfo, "GET");
+        }
         QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
         ImmutableList.Builder<BasicQueryInfo> builder = new ImmutableList.Builder<>();
         for (BasicQueryInfo queryInfo : dispatchManager.getQueries()) {
@@ -71,12 +95,16 @@ public class QueryResource
                 builder.add(queryInfo);
             }
         }
-        return builder.build();
+        return Response.ok(builder.build()).build();
     }
 
     @GET
     @Path("{queryId}")
-    public Response getQueryInfo(@PathParam("queryId") QueryId queryId)
+    public Response getQueryInfo(
+            @PathParam("queryId") QueryId queryId,
+            @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
+            @Context UriInfo uriInfo)
+            throws IOException
     {
         requireNonNull(queryId, "queryId is null");
 
@@ -90,6 +118,9 @@ public class QueryResource
                 return Response.ok(basicQueryInfo).build();
             }
             catch (NoSuchElementException ex) {
+                if (resourceManagerEnabled) {
+                    return proxyResponse(xForwardedProto, uriInfo, "GET");
+                }
                 return Response.status(Status.GONE).build();
             }
         }
@@ -149,5 +180,23 @@ public class QueryResource
     {
         requireNonNull(stageId, "stageId is null");
         queryManager.cancelStage(stageId);
+    }
+
+    private Response proxyResponse(String xForwardedProto, UriInfo uriInfo, String method)
+            throws IOException
+    {
+        InternalNode resourceManagerNode = internalNodeManager.getResourceManagers().iterator().next();
+        String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
+
+        Request request = new Request.Builder()
+                .setMethod(method)
+                .setUri(uriInfo.getRequestUriBuilder()
+                        .scheme(scheme)
+                        .host(resourceManagerNode.getHostAndPort().toInetAddress().getHostName())
+                        .port(resourceManagerNode.getInternalUri().getPort())
+                        .build())
+                .build();
+        InputStream responseStream = httpClient.execute(request, new StreamingJsonResponseHandler());
+        return Response.ok(responseStream, APPLICATION_JSON_TYPE).build();
     }
 }

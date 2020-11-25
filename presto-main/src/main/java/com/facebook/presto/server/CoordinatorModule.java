@@ -225,6 +225,7 @@ public class CoordinatorModule
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
+        httpClientBinder(binder).bindHttpClient("queryInfo", ForQueryInfo.class);
         jaxrsBinder(binder).bind(StageResource.class);
         jaxrsBinder(binder).bind(QueryStateInfoResource.class);
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
@@ -277,6 +278,7 @@ public class CoordinatorModule
 
         // cluster statistics
         jaxrsBinder(binder).bind(ClusterStatsResource.class);
+        httpClientBinder(binder).bindHttpClient("clusterStats", ForClusterStats.class);
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
