@@ -53,6 +53,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -65,6 +66,7 @@ import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -112,9 +114,7 @@ public class SqlTaskManager
     private final SqlTaskIoStats finishedTaskStats = new SqlTaskIoStats();
 
     @GuardedBy("this")
-    private long currentMemoryPoolAssignmentVersion;
-    @GuardedBy("this")
-    private String coordinatorId;
+    private final Map<String, Long> currentMemoryPoolAssignmentVersions = new Object2LongOpenHashMap<>();
 
     private final CounterStat failedTasks = new CounterStat();
 
@@ -215,14 +215,12 @@ public class SqlTaskManager
     @Override
     public synchronized void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments)
     {
-        if (coordinatorId != null && coordinatorId.equals(assignments.getCoordinatorId()) && assignments.getVersion() <= currentMemoryPoolAssignmentVersion) {
+        String assignmentCoordinatorId = assignments.getCoordinatorId();
+        long assignmentVersion = assignments.getVersion();
+        if (assignmentVersion <= currentMemoryPoolAssignmentVersions.getOrDefault(assignmentCoordinatorId, Long.MIN_VALUE)) {
             return;
         }
-        currentMemoryPoolAssignmentVersion = assignments.getVersion();
-        if (coordinatorId != null && !coordinatorId.equals(assignments.getCoordinatorId())) {
-            log.warn("Switching coordinator affinity from " + coordinatorId + " to " + assignments.getCoordinatorId());
-        }
-        coordinatorId = assignments.getCoordinatorId();
+        currentMemoryPoolAssignmentVersions.put(assignmentCoordinatorId, assignmentVersion);
 
         for (MemoryPoolAssignment assignment : assignments.getAssignments()) {
             if (assignment.getPoolId().equals(GENERAL_POOL)) {

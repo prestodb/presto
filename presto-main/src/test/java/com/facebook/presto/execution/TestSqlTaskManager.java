@@ -23,6 +23,8 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryPoolAssignment;
+import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.InternalNode;
@@ -56,6 +58,8 @@ import static com.facebook.presto.execution.TaskTestUtils.createTestSplitMonitor
 import static com.facebook.presto.execution.TaskTestUtils.createTestingPlanner;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.testng.Assert.assertEquals;
@@ -233,6 +237,43 @@ public class TestSqlTaskManager
             for (TaskInfo info : sqlTaskManager.getAllTaskInfo()) {
                 assertNotEquals(info.getTaskId(), taskId);
             }
+        }
+    }
+
+    @Test
+    public void testMultipleCoordinatorAssignments()
+    {
+        try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
+            TaskId taskId = TASK_ID;
+            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, createInitialEmptyOutputBuffers(PARTITIONED).withNoMoreBufferIds());
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+
+            sqlTaskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest(
+                    "coordinator1",
+                    1,
+                    ImmutableList.of(new MemoryPoolAssignment(taskId.getQueryId(), RESERVED_POOL))));
+            assertEquals(sqlTaskManager.getQueryContext(taskId.getQueryId()).getMemoryPool().getId(), RESERVED_POOL);
+
+            // Update to reserved pool
+            sqlTaskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest(
+                    "coordinator1",
+                    2,
+                    ImmutableList.of(new MemoryPoolAssignment(taskId.getQueryId(), GENERAL_POOL))));
+            assertEquals(sqlTaskManager.getQueryContext(taskId.getQueryId()).getMemoryPool().getId(), GENERAL_POOL);
+
+            // Prior versions are rejected
+            sqlTaskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest(
+                    "coordinator1",
+                    1,
+                    ImmutableList.of(new MemoryPoolAssignment(taskId.getQueryId(), RESERVED_POOL))));
+            assertEquals(sqlTaskManager.getQueryContext(taskId.getQueryId()).getMemoryPool().getId(), GENERAL_POOL);
+
+            // Different coordinators are not rejected
+            sqlTaskManager.updateMemoryPoolAssignments(new MemoryPoolAssignmentsRequest(
+                    "coordinator2",
+                    1,
+                    ImmutableList.of(new MemoryPoolAssignment(taskId.getQueryId(), RESERVED_POOL))));
+            assertEquals(sqlTaskManager.getQueryContext(taskId.getQueryId()).getMemoryPool().getId(), RESERVED_POOL);
         }
     }
 
