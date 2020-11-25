@@ -109,6 +109,8 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
@@ -174,7 +176,9 @@ import com.facebook.presto.version.EmbedVersion;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
+import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.slice.Slice;
@@ -182,7 +186,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.servlet.Servlet;
 
@@ -335,7 +338,25 @@ public class ServerMainModule
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
         binder.bind(SpoolingOutputBufferFactory.class).in(Scopes.SINGLETON);
 
-        install(new DefaultThriftCodecsModule());
+        install(installModuleIf(
+                ServerConfig.class,
+                ServerConfig::isResourceManagerEnabled,
+                new Module()
+                {
+                    @Override
+                    public void configure(Binder moduleBinder)
+                    {
+                        configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
+                    }
+
+                    @Provides
+                    @Singleton
+                    @ForResourceManager
+                    public ScheduledExecutorService createResourceManagerExecutor(ResourceManagerConfig config)
+                    {
+                        return createConcurrentScheduledExecutor("resource-manager-heartbeats", config.getHeartbeatConcurrency(), config.getHeartbeatThreads());
+                    }
+                }));
 
         // memory revoking scheduler
         install(installModuleIf(
@@ -647,6 +668,9 @@ public class ServerMainModule
     public static class ExecutorCleanup
     {
         private final List<ExecutorService> executors;
+        @Inject(optional = true)
+        @ForResourceManager
+        private ScheduledExecutorService resourceManagerExecutor;
 
         @Inject
         public ExecutorCleanup(
@@ -664,6 +688,9 @@ public class ServerMainModule
         public void shutdown()
         {
             executors.forEach(ExecutorService::shutdownNow);
+            if (resourceManagerExecutor != null) {
+                resourceManagerExecutor.shutdownNow();
+            }
         }
     }
 }
