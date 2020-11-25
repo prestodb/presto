@@ -71,7 +71,7 @@ public final class RedisQueryRunner
 
             installRedisPlugin(embeddedRedis, queryRunner, tableDescriptions);
 
-            TestingPrestoClient prestoClient = queryRunner.getClient();
+            TestingPrestoClient prestoClient = queryRunner.getRandomClient();
 
             log.info("Loading data...");
             long startTime = System.nanoTime();
