@@ -125,7 +125,7 @@ public class InMemoryNodeManager
     public Set<InternalNode> getCoordinators()
     {
         // always use localNode as coordinator
-        return ImmutableSet.of(localNode);
+        return getAllNodes().getActiveCoordinators();
     }
 
     @Override
