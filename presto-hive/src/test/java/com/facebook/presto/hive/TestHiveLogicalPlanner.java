@@ -1146,6 +1146,14 @@ public class TestHiveLogicalPlanner
                                         withColumnDomains(ImmutableMap.of(pushdownColumnNameForSubfield(nestedColumn("x.a")), create(ofRanges(greaterThan(BIGINT, 10L)), false))),
                                         ImmutableSet.of(pushdownColumnNameForSubfield(nestedColumn("x.a"))),
                                         TRUE_CONSTANT)))));
+
+        // Self-Join and Table scan assignments
+        assertPlan(withParquetDereferencePushDownEnabled(), "SELECT t1.x.a, t2.x.a FROM test_pushdown_nestedcolumn_parquet t1, test_pushdown_nestedcolumn_parquet t2 where t1.id = t2.id",
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(tableScanParquetDeferencePushDowns("test_pushdown_nestedcolumn_parquet", nestedColumnMap("x.a"))),
+                                anyTree(tableScanParquetDeferencePushDowns("test_pushdown_nestedcolumn_parquet", nestedColumnMap("x_1.a"))))));
+
         // Aggregation
         assertParquetDereferencePushDown("SELECT id, min(x.a) FROM test_pushdown_nestedcolumn_parquet GROUP BY 1",
                 "test_pushdown_nestedcolumn_parquet",
