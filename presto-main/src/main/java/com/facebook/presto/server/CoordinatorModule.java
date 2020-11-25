@@ -100,6 +100,8 @@ import com.facebook.presto.memory.TotalReservationOnBlockedNodesLowMemoryKiller;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.OperatorInfo;
+import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
 import com.facebook.presto.server.protocol.LocalQueryProvider;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
@@ -180,6 +182,7 @@ import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionF
 import static com.facebook.presto.util.StatementUtils.getAllQueryTypes;
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -369,6 +372,15 @@ public class CoordinatorModule
 
         configBinder(binder).bindConfig(NodeResourceStatusConfig.class);
         binder.bind(NodeResourceStatusProvider.class).to(NodeResourceStatus.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, ResourceManagerProxy.class);
+        install(installModuleIf(
+                ServerConfig.class,
+                ServerConfig::isResourceManagerEnabled,
+                rmBinder -> {
+                    httpClientBinder(rmBinder).bindHttpClient("resourceManager", ForResourceManager.class);
+                    rmBinder.bind(ResourceManagerProxy.class).in(Scopes.SINGLETON);
+                }));
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
