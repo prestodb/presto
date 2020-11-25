@@ -23,6 +23,9 @@ import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.failureDetector.FailureDetectorModule;
+import com.facebook.presto.resourcemanager.CorsResponseFilter;
+import com.facebook.presto.resourcemanager.DistributedClusterStatsResource;
+import com.facebook.presto.resourcemanager.DistributedQueryResource;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStateProvider;
 import com.facebook.presto.resourcemanager.ResourceManagerServer;
 import com.facebook.presto.transaction.NoOpTransactionManager;
@@ -85,6 +88,13 @@ public class ResourceManagerModule
 
         binder.bind(ResourceManagerClusterStateProvider.class).in(Scopes.SINGLETON);
         driftServerBinder(binder).bindService(ResourceManagerServer.class);
+
+        jaxrsBinder(binder).bind(CorsResponseFilter.class);
+
+        jaxrsBinder(binder).bind(DistributedQueryResource.class);
+        httpClientBinder(binder).bindHttpClient("queryInfo", ForQueryInfo.class);
+
+        jaxrsBinder(binder).bind(DistributedClusterStatsResource.class);
     }
 
     @Provides
