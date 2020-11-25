@@ -108,7 +108,11 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.RandomResourceManagerAddressSelector;
+import com.facebook.presto.resourcemanager.ResourceManagerClient;
+import com.facebook.presto.resourcemanager.ResourceManagerClusterStatusSender;
 import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
@@ -332,6 +336,11 @@ public class ServerMainModule
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
 
+        binder.bind(RandomResourceManagerAddressSelector.class).in(Scopes.SINGLETON);
+        driftClientBinder(binder)
+                .bindDriftClient(ResourceManagerClient.class, ForResourceManager.class)
+                .withAddressSelector((addressSelectorBinder, annotation, prefix) ->
+                        addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(RandomResourceManagerAddressSelector.class));
         install(installModuleIf(
                 ServerConfig.class,
                 ServerConfig::isResourceManagerEnabled,
@@ -341,6 +350,7 @@ public class ServerMainModule
                     public void configure(Binder moduleBinder)
                     {
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
+                        moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
                     }
 
                     @Provides
@@ -350,7 +360,8 @@ public class ServerMainModule
                     {
                         return createConcurrentScheduledExecutor("resource-manager-heartbeats", config.getHeartbeatConcurrency(), config.getHeartbeatThreads());
                     }
-                }));
+                },
+                moduleBinder -> moduleBinder.bind(ClusterStatusSender.class).toInstance(execution -> {})));
 
         // memory revoking scheduler
         install(installModuleIf(
@@ -658,14 +669,6 @@ public class ServerMainModule
         return new NoOpFragmentResultCacheManager();
     }
 
-    @Provides
-    @Singleton
-    @ForResourceManager
-    public static ScheduledExecutorService createResourceManagerExecutor(ResourceManagerConfig config)
-    {
-        return createConcurrentScheduledExecutor("resource-manager-heartbeats", config.getHeartbeatConcurrency(), config.getHeartbeatThreads());
-    }
-
     public static class ExecutorCleanup
     {
         private final List<ExecutorService> executors;
@@ -674,14 +677,12 @@ public class ServerMainModule
         public ExecutorCleanup(
                 @ForExchange ScheduledExecutorService exchangeExecutor,
                 @ForAsyncRpc ExecutorService httpResponseExecutor,
-                @ForAsyncRpc ScheduledExecutorService httpTimeoutExecutor,
-                @ForResourceManager ScheduledExecutorService resourceManagerExecutor)
+                @ForAsyncRpc ScheduledExecutorService httpTimeoutExecutor)
         {
             executors = ImmutableList.of(
                     exchangeExecutor,
                     httpResponseExecutor,
-                    httpTimeoutExecutor,
-                    resourceManagerExecutor);
+                    httpTimeoutExecutor);
         }
 
         @PreDestroy
