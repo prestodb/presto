@@ -30,6 +30,8 @@ public class ResourceManagerConfig
     private int maxCompletedQueries = 100;
     private Duration nodeStatusTimeout = new Duration(30, SECONDS);
     private Duration memoryPoolInfoRefreshDuration = new Duration(1, SECONDS);
+    private Duration queryHeartbeatInterval = new Duration(1, SECONDS);
+    private Duration nodeHeartbeatInterval = new Duration(1, SECONDS);
     private int heartbeatThreads = 3;
     private int heartbeatConcurrency = 3;
     private int resourceManagerExecutorThreads = 1000;
@@ -96,6 +98,32 @@ public class ResourceManagerConfig
     public ResourceManagerConfig setMemoryPoolInfoRefreshDuration(Duration memoryPoolInfoRefreshDuration)
     {
         this.memoryPoolInfoRefreshDuration = memoryPoolInfoRefreshDuration;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getQueryHeartbeatInterval()
+    {
+        return queryHeartbeatInterval;
+    }
+
+    @Config("resource-manager.query-heartbeat-interval")
+    public ResourceManagerConfig setQueryHeartbeatInterval(Duration queryHeartbeatInterval)
+    {
+        this.queryHeartbeatInterval = queryHeartbeatInterval;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getNodeHeartbeatInterval()
+    {
+        return nodeHeartbeatInterval;
+    }
+
+    @Config("resource-manager.node-heartbeat-interval")
+    public ResourceManagerConfig setNodeHeartbeatInterval(Duration nodeHeartbeatInterval)
+    {
+        this.nodeHeartbeatInterval = nodeHeartbeatInterval;
         return this;
     }
 
