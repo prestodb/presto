@@ -81,7 +81,7 @@ public final class KafkaQueryRunner
 
             installKafkaPlugin(embeddedKafka, queryRunner, topicDescriptions);
 
-            TestingPrestoClient prestoClient = queryRunner.getClient();
+            TestingPrestoClient prestoClient = queryRunner.getRandomClient();
 
             log.info("Loading data...");
             long startTime = System.nanoTime();

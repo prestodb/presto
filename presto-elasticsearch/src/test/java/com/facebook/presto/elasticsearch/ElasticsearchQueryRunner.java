@@ -60,7 +60,7 @@ public final class ElasticsearchQueryRunner
 
             installElasticsearchPlugin(queryRunner, testFactory);
 
-            TestingPrestoClient prestoClient = queryRunner.getClient();
+            TestingPrestoClient prestoClient = queryRunner.getRandomClient();
 
             LOG.info("Loading data...");
             long startTime = System.nanoTime();
