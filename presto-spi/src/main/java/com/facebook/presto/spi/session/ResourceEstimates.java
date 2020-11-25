@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.session;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.units.DataSize;
@@ -27,6 +30,7 @@ import static java.util.Objects.requireNonNull;
  * <p>
  * This class is under active development and should be considered beta.
  */
+@ThriftStruct
 public final class ResourceEstimates
 {
     public static final String EXECUTION_TIME = "EXECUTION_TIME";
@@ -39,6 +43,7 @@ public final class ResourceEstimates
     private final Optional<DataSize> peakMemory;
     private final Optional<DataSize> peakTaskMemory;
 
+    @ThriftConstructor
     @JsonCreator
     public ResourceEstimates(
             @JsonProperty("executionTime") Optional<Duration> executionTime,
@@ -52,24 +57,28 @@ public final class ResourceEstimates
         this.peakTaskMemory = requireNonNull(peakTaskMemory, "peakTaskMemory is null");
     }
 
+    @ThriftField(1)
     @JsonProperty
     public Optional<Duration> getExecutionTime()
     {
         return executionTime;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public Optional<Duration> getCpuTime()
     {
         return cpuTime;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public Optional<DataSize> getPeakMemory()
     {
         return peakMemory;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public Optional<DataSize> getPeakTaskMemory()
     {

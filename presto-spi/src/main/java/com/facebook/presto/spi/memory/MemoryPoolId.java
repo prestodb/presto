@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.memory;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -20,10 +23,12 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class MemoryPoolId
 {
     private final String id;
 
+    @ThriftConstructor
     @JsonCreator
     public MemoryPoolId(String id)
     {
@@ -34,6 +39,7 @@ public final class MemoryPoolId
         this.id = id;
     }
 
+    @ThriftField(1)
     @JsonValue
     public String getId()
     {

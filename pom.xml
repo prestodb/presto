@@ -819,6 +819,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.facebook.drift</groupId>
+                <artifactId>drift-codec-utils</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.airlift.tpch</groupId>
                 <artifactId>tpch</artifactId>
                 <version>0.10</version>
