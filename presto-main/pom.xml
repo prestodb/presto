@@ -222,6 +222,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-codec-utils</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.teradata</groupId>
             <artifactId>re2j-td</artifactId>
         </dependency>

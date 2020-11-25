@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.memory;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.QueryId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -24,6 +27,7 @@ import java.util.Map;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 
+@ThriftStruct
 public final class MemoryPoolInfo
 {
     private final long maxBytes;
@@ -33,6 +37,7 @@ public final class MemoryPoolInfo
     private final Map<QueryId, List<MemoryAllocation>> queryMemoryAllocations;
     private final Map<QueryId, Long> queryMemoryRevocableReservations;
 
+    @ThriftConstructor
     @JsonCreator
     public MemoryPoolInfo(
             @JsonProperty("maxBytes") long maxBytes,
@@ -50,42 +55,49 @@ public final class MemoryPoolInfo
         this.queryMemoryRevocableReservations = unmodifiableMap(new HashMap<>(queryMemoryRevocableReservations));
     }
 
+    @ThriftField(1)
     @JsonProperty
     public long getMaxBytes()
     {
         return maxBytes;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public long getFreeBytes()
     {
         return maxBytes - reservedBytes - reservedRevocableBytes;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public long getReservedBytes()
     {
         return reservedBytes;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public long getReservedRevocableBytes()
     {
         return reservedRevocableBytes;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public Map<QueryId, Long> getQueryMemoryReservations()
     {
         return queryMemoryReservations;
     }
 
+    @ThriftField(6)
     @JsonProperty
     public Map<QueryId, List<MemoryAllocation>> getQueryMemoryAllocations()
     {
         return queryMemoryAllocations;
     }
 
+    @ThriftField(7)
     @JsonProperty
     public Map<QueryId, Long> getQueryMemoryRevocableReservations()
     {

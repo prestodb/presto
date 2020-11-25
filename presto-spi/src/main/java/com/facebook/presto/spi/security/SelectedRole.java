@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.spi.security;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -23,11 +28,26 @@ import java.util.regex.Pattern;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class SelectedRole
 {
+    @ThriftEnum
     public enum Type
     {
-        ROLE, ALL, NONE
+        ROLE(1), ALL(2), NONE(3);
+
+        private final int value;
+
+        Type(int value)
+        {
+            this.value = value;
+        }
+
+        @ThriftEnumValue
+        public int getValue()
+        {
+            return value;
+        }
     }
 
     private static final Pattern PATTERN = Pattern.compile("(ROLE|ALL|NONE)(\\{(.+?)\\})?");
@@ -35,6 +55,7 @@ public class SelectedRole
     private final Type type;
     private final Optional<String> role;
 
+    @ThriftConstructor
     @JsonCreator
     public SelectedRole(@JsonProperty("type") Type type, @JsonProperty("role") Optional<String> role)
     {
@@ -45,12 +66,14 @@ public class SelectedRole
         }
     }
 
+    @ThriftField(1)
     @JsonProperty
     public Type getType()
     {
         return type;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public Optional<String> getRole()
     {
