@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.Session;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -46,6 +49,7 @@ import static java.util.Objects.requireNonNull;
  * Lightweight version of QueryInfo. Parts of the web UI depend on the fields
  * being named consistently across these classes.
  */
+@ThriftStruct
 @Immutable
 public class BasicQueryInfo
 {
@@ -64,6 +68,7 @@ public class BasicQueryInfo
     private final Optional<QueryType> queryType;
     private final List<PrestoWarning> warnings;
 
+    @ThriftConstructor
     @JsonCreator
     public BasicQueryInfo(
             @JsonProperty("queryId") QueryId queryId,
@@ -162,60 +167,70 @@ public class BasicQueryInfo
                 ImmutableList.of());
     }
 
+    @ThriftField(1)
     @JsonProperty
     public QueryId getQueryId()
     {
         return queryId;
     }
 
+    @ThriftField(2)
     @JsonProperty
     public SessionRepresentation getSession()
     {
         return session;
     }
 
+    @ThriftField(3)
     @JsonProperty
     public Optional<ResourceGroupId> getResourceGroupId()
     {
         return resourceGroupId;
     }
 
+    @ThriftField(4)
     @JsonProperty
     public QueryState getState()
     {
         return state;
     }
 
+    @ThriftField(5)
     @JsonProperty
     public MemoryPoolId getMemoryPool()
     {
         return memoryPool;
     }
 
+    @ThriftField(6)
     @JsonProperty
     public boolean isScheduled()
     {
         return scheduled;
     }
 
+    @ThriftField(7)
     @JsonProperty
     public URI getSelf()
     {
         return self;
     }
 
+    @ThriftField(8)
     @JsonProperty
     public String getQuery()
     {
         return query;
     }
 
+    @ThriftField(9)
     @JsonProperty
     public BasicQueryStats getQueryStats()
     {
         return queryStats;
     }
 
+    @ThriftField(10)
     @Nullable
     @JsonProperty
     public ErrorType getErrorType()
@@ -223,6 +238,7 @@ public class BasicQueryInfo
         return errorType;
     }
 
+    @ThriftField(11)
     @Nullable
     @JsonProperty
     public ErrorCode getErrorCode()
@@ -230,6 +246,7 @@ public class BasicQueryInfo
         return errorCode;
     }
 
+    @ThriftField(12)
     @Nullable
     @JsonProperty
     public ExecutionFailureInfo getFailureInfo()
@@ -237,12 +254,14 @@ public class BasicQueryInfo
         return failureInfo;
     }
 
+    @ThriftField(13)
     @JsonProperty
     public Optional<QueryType> getQueryType()
     {
         return queryType;
     }
 
+    @ThriftField(14)
     @JsonProperty
     public List<PrestoWarning> getWarnings()
     {

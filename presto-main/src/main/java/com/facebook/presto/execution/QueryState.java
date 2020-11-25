@@ -13,57 +13,63 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+@ThriftEnum
 public enum QueryState
 {
     /**
      * Query has been accepted and is awaiting execution.
      */
-    QUEUED(false),
+    QUEUED(false, 1),
     /**
      * Query is waiting for the required resources (beta).
      */
-    WAITING_FOR_RESOURCES(false),
+    WAITING_FOR_RESOURCES(false, 2),
     /**
      * Query is being dispatched to a coordinator.
      */
-    DISPATCHING(false),
+    DISPATCHING(false, 3),
     /**
      * Query is being planned.
      */
-    PLANNING(false),
+    PLANNING(false, 4),
     /**
      * Query execution is being started.
      */
-    STARTING(false),
+    STARTING(false, 5),
     /**
      * Query has at least one running task.
      */
-    RUNNING(false),
+    RUNNING(false, 6),
     /**
      * Query is finishing (e.g. commit for autocommit queries)
      */
-    FINISHING(false),
+    FINISHING(false, 7),
     /**
      * Query has finished executing and all output has been consumed.
      */
-    FINISHED(true),
+    FINISHED(true, 8),
     /**
      * Query execution failed.
      */
-    FAILED(true);
+    FAILED(true, 9);
 
     public static final Set<QueryState> TERMINAL_QUERY_STATES = Stream.of(QueryState.values()).filter(QueryState::isDone).collect(toImmutableSet());
 
     private final boolean doneState;
+    private final int value;
 
-    QueryState(boolean doneState)
+    QueryState(boolean doneState, int value)
     {
         this.doneState = doneState;
+        this.value = value;
     }
 
     /**
@@ -72,5 +78,11 @@ public enum QueryState
     public boolean isDone()
     {
         return doneState;
+    }
+
+    @ThriftEnumValue
+    public int getValue()
+    {
+        return value;
     }
 }
