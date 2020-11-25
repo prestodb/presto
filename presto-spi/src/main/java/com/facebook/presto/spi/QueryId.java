@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -25,6 +28,7 @@ import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class QueryId
 {
     @JsonCreator
@@ -36,11 +40,13 @@ public final class QueryId
 
     private final String id;
 
+    @ThriftConstructor
     public QueryId(String id)
     {
         this.id = validateId(id);
     }
 
+    @ThriftField(1)
     public String getId()
     {
         return id;
