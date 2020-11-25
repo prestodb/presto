@@ -206,7 +206,11 @@ public class ClusterSizeMonitor
             currentWorkerCount = allNodes.getActiveNodes().size();
         }
         else {
-            currentWorkerCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
+            currentWorkerCount = Sets.difference(
+                    Sets.difference(
+                            allNodes.getActiveNodes(),
+                            allNodes.getActiveCoordinators()),
+                    allNodes.getActiveResourceManagers()).size();
         }
         currentCoordinatorCount = allNodes.getActiveCoordinators().size();
         if (currentWorkerCount >= workerMinCount) {

@@ -110,7 +110,11 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.resourcemanager.ForResourceManager;
+import com.facebook.presto.resourcemanager.RandomResourceManagerAddressSelector;
+import com.facebook.presto.resourcemanager.ResourceManagerClient;
+import com.facebook.presto.resourcemanager.ResourceManagerClusterStatusSender;
 import com.facebook.presto.resourcemanager.ResourceManagerConfig;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
@@ -338,6 +342,11 @@ public class ServerMainModule
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
         binder.bind(SpoolingOutputBufferFactory.class).in(Scopes.SINGLETON);
 
+        binder.bind(RandomResourceManagerAddressSelector.class).in(Scopes.SINGLETON);
+        driftClientBinder(binder)
+                .bindDriftClient(ResourceManagerClient.class, ForResourceManager.class)
+                .withAddressSelector((addressSelectorBinder, annotation, prefix) ->
+                        addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(RandomResourceManagerAddressSelector.class));
         install(installModuleIf(
                 ServerConfig.class,
                 ServerConfig::isResourceManagerEnabled,
@@ -347,6 +356,7 @@ public class ServerMainModule
                     public void configure(Binder moduleBinder)
                     {
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
+                        moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
                     }
 
                     @Provides
@@ -356,7 +366,8 @@ public class ServerMainModule
                     {
                         return createConcurrentScheduledExecutor("resource-manager-heartbeats", config.getHeartbeatConcurrency(), config.getHeartbeatThreads());
                     }
-                }));
+                },
+                moduleBinder -> moduleBinder.bind(ClusterStatusSender.class).toInstance(execution -> {})));
 
         FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);
         FeaturesConfig.TaskSpillingStrategy taskSpillingStrategy = featuresConfig.getTaskSpillingStrategy();

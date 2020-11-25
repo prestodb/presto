@@ -112,7 +112,8 @@ public class InMemoryNodeManager
                 ImmutableSet.<InternalNode>builder().add(localNode).addAll(remoteNodes.values()).build(),
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                concat(Stream.of(localNode), remoteNodes.values().stream().filter(InternalNode::isCoordinator)).collect(toImmutableSet()));
+                concat(Stream.of(localNode), remoteNodes.values().stream().filter(InternalNode::isCoordinator)).collect(toImmutableSet()),
+                concat(Stream.of(localNode), remoteNodes.values().stream().filter(InternalNode::isResourceManager)).collect(toImmutableSet()));
     }
 
     @Override
@@ -131,8 +132,7 @@ public class InMemoryNodeManager
     @Override
     public Set<InternalNode> getResourceManagers()
     {
-        // always use localNode as resource manager
-        return ImmutableSet.of(localNode);
+        return getAllNodes().getActiveResourceManagers();
     }
 
     @Override
