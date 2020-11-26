@@ -39,7 +39,8 @@ public class TestResourceManagerConfig
                 .setHeartbeatThreads(3)
                 .setNodeHeartbeatInterval(new Duration(1, SECONDS))
                 .setQueryHeartbeatInterval(new Duration(1, SECONDS))
-                .setNodeStatusTimeout(new Duration(30, SECONDS)));
+                .setNodeStatusTimeout(new Duration(30, SECONDS))
+                .setMemoryPoolFetchInterval(new Duration(1, SECONDS)));
     }
 
     @Test
@@ -54,6 +55,7 @@ public class TestResourceManagerConfig
                 .put("resource-manager.query-heartbeat-interval", "3m")
                 .put("resource-manager.node-heartbeat-interval", "4m")
                 .put("resource-manager.node-status-timeout", "1h")
+                .put("resource-manager.memory-pool-fetch-interval", "6m")
                 .build();
 
         ResourceManagerConfig expected = new ResourceManagerConfig()
@@ -64,7 +66,8 @@ public class TestResourceManagerConfig
                 .setHeartbeatConcurrency(6)
                 .setQueryHeartbeatInterval(new Duration(3, MINUTES))
                 .setNodeHeartbeatInterval(new Duration(4, MINUTES))
-                .setNodeStatusTimeout(new Duration(1, HOURS));
+                .setNodeStatusTimeout(new Duration(1, HOURS))
+                .setMemoryPoolFetchInterval(new Duration(6, MINUTES));
 
         assertFullMapping(properties, expected);
     }
