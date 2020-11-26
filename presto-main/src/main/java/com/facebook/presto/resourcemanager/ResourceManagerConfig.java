@@ -33,6 +33,7 @@ public class ResourceManagerConfig
     private Duration nodeHeartbeatInterval = new Duration(1, SECONDS);
     private int heartbeatThreads = 3;
     private int heartbeatConcurrency = 3;
+    private Duration memoryPoolFetchInterval = new Duration(1, SECONDS);
 
     @MinDuration("1ms")
     public Duration getQueryExpirationTimeout()
@@ -137,6 +138,19 @@ public class ResourceManagerConfig
     public ResourceManagerConfig setHeartbeatConcurrency(int heartbeatConcurrency)
     {
         this.heartbeatConcurrency = heartbeatConcurrency;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getMemoryPoolFetchInterval()
+    {
+        return memoryPoolFetchInterval;
+    }
+
+    @Config("resource-manager.memory-pool-fetch-interval")
+    public ResourceManagerConfig setMemoryPoolFetchInterval(Duration memoryPoolFetchInterval)
+    {
+        this.memoryPoolFetchInterval = memoryPoolFetchInterval;
         return this;
     }
 }
