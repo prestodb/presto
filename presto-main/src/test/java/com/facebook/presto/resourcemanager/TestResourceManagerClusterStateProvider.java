@@ -213,10 +213,10 @@ public class TestResourceManagerClusterStateProvider
             throws Exception
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
-        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node2", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
-        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node3", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
-        nodeManager.addNode(new ConnectorId("x"), new InternalNode("node4", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("nodeId1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("nodeId2", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("nodeId3", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+        nodeManager.addNode(new ConnectorId("x"), new InternalNode("nodeId4", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
 
         ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
 

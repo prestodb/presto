@@ -18,6 +18,7 @@ import com.facebook.presto.execution.TaskManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.server.testing.TestingPrestoServer.TestShutdownAction;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.execution.QueryState.FINISHED;
-import static com.facebook.presto.memory.TestMemoryManager.createQueryRunner;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -135,6 +135,22 @@ public class TestGracefulShutdown
             TestShutdownAction shutdownAction = (TestShutdownAction) coordinator.getShutdownAction();
             shutdownAction.waitForShutdownComplete(SHUTDOWN_TIMEOUT_MILLIS);
             assertTrue(shutdownAction.isShutdown());
+        }
+    }
+
+    public static DistributedQueryRunner createQueryRunner(Session session, Map<String, String> properties)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(session, 2, properties);
+
+        try {
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
+            return queryRunner;
+        }
+        catch (Exception e) {
+            queryRunner.close();
+            throw e;
         }
     }
 }
