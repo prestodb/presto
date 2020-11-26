@@ -109,6 +109,7 @@ import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.RandomResourceManagerAddressSelector;
@@ -350,6 +351,7 @@ public class ServerMainModule
                 .bindDriftClient(ResourceManagerClient.class, ForResourceManager.class)
                 .withAddressSelector((addressSelectorBinder, annotation, prefix) ->
                         addressSelectorBinder.bind(AddressSelector.class).annotatedWith(annotation).to(RandomResourceManagerAddressSelector.class));
+        newOptionalBinder(binder, ClusterMemoryManagerService.class);
         install(installModuleIf(
                 ServerConfig.class,
                 ServerConfig::isResourceManagerEnabled,
@@ -360,6 +362,9 @@ public class ServerMainModule
                     {
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
                         moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
+                        if (serverConfig.isCoordinator()) {
+                            moduleBinder.bind(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
+                        }
                     }
 
                     @Provides
