@@ -36,6 +36,7 @@ public class ResourceManagerConfig
     private int heartbeatConcurrency = 3;
     private int resourceManagerExecutorThreads = 1000;
     private Duration proxyAsyncTimeout = new Duration(60, SECONDS);
+    private Duration memoryPoolFetchInterval = new Duration(1, SECONDS);
 
     @MinDuration("1ms")
     public Duration getQueryExpirationTimeout()
@@ -179,6 +180,19 @@ public class ResourceManagerConfig
     public ResourceManagerConfig setProxyAsyncTimeout(Duration proxyAsyncTimeout)
     {
         this.proxyAsyncTimeout = proxyAsyncTimeout;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getMemoryPoolFetchInterval()
+    {
+        return memoryPoolFetchInterval;
+    }
+
+    @Config("resource-manager.memory-pool-fetch-interval")
+    public ResourceManagerConfig setMemoryPoolFetchInterval(Duration memoryPoolFetchInterval)
+    {
+        this.memoryPoolFetchInterval = memoryPoolFetchInterval;
         return this;
     }
 }
