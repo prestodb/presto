@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.Unit.PETABYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TestQueryManagerConfig
 {
@@ -40,6 +41,8 @@ public class TestQueryManagerConfig
                 .setMaxTotalRunningTaskCountToKillQuery(Integer.MAX_VALUE)
                 .setMaxQueryRunningTaskCount(Integer.MAX_VALUE)
                 .setMaxTotalRunningTaskCountToNotExecuteNewQuery(Integer.MAX_VALUE)
+                .setConcurrencyThresholdToEnableResourceGroupRefresh(1)
+                .setResourceGroupRunTimeInfoRefreshInterval(new Duration(100, MILLISECONDS))
                 .setClientTimeout(new Duration(5, TimeUnit.MINUTES))
                 .setScheduleSplitBatchSize(1000)
                 .setMinScheduleSplitBatchSize(100)
@@ -79,6 +82,8 @@ public class TestQueryManagerConfig
                 .put("max-total-running-task-count-to-kill-query", "60000")
                 .put("max-query-running-task-count", "10000")
                 .put("experimental.max-total-running-task-count-to-not-execute-new-query", "50000")
+                .put("concurrency-threshold-to-enable-resource-group-refresh", "2")
+                .put("resource-group-runtimeinfo-refresh-interval", "10ms")
                 .put("query.schedule-split-batch-size", "99")
                 .put("query.min-schedule-split-batch-size", "9")
                 .put("query.max-concurrent-queries", "10")
@@ -113,6 +118,8 @@ public class TestQueryManagerConfig
                 .setMaxTotalRunningTaskCountToKillQuery(60000)
                 .setMaxQueryRunningTaskCount(10000)
                 .setMaxTotalRunningTaskCountToNotExecuteNewQuery(50000)
+                .setConcurrencyThresholdToEnableResourceGroupRefresh(2)
+                .setResourceGroupRunTimeInfoRefreshInterval(new Duration(10, MILLISECONDS))
                 .setClientTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setScheduleSplitBatchSize(99)
                 .setMinScheduleSplitBatchSize(9)
