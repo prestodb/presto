@@ -25,17 +25,21 @@ import static java.util.Objects.requireNonNull;
 public class ResourceGroupRuntimeInfo
 {
     private final ResourceGroupId resourceGroupId;
-    private final long userMemoryReservationBytes;
+    private final long memoryUsageBytes;
     private final int queuedQueries;
+    private final int descendantQueuedQueries;
     private final int runningQueries;
+    private final int descendantRunningQueries;
 
     @ThriftConstructor
-    public ResourceGroupRuntimeInfo(ResourceGroupId resourceGroupId, long userMemoryReservationBytes, int queuedQueries, int runningQueries)
+    public ResourceGroupRuntimeInfo(ResourceGroupId resourceGroupId, long memoryUsageBytes, int queuedQueries, int descendantQueuedQueries, int runningQueries, int descendantRunningQueries)
     {
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
-        this.userMemoryReservationBytes = userMemoryReservationBytes;
+        this.memoryUsageBytes = memoryUsageBytes;
         this.queuedQueries = queuedQueries;
+        this.descendantQueuedQueries = descendantQueuedQueries;
         this.runningQueries = runningQueries;
+        this.descendantRunningQueries = descendantRunningQueries;
     }
 
     public static Builder builder(ResourceGroupId resourceGroupId)
@@ -50,9 +54,9 @@ public class ResourceGroupRuntimeInfo
     }
 
     @ThriftField(2)
-    public long getUserMemoryReservationBytes()
+    public long getMemoryUsageBytes()
     {
-        return userMemoryReservationBytes;
+        return memoryUsageBytes;
     }
 
     @ThriftField(3)
@@ -62,9 +66,21 @@ public class ResourceGroupRuntimeInfo
     }
 
     @ThriftField(4)
+    public int getDescendantQueuedQueries()
+    {
+        return descendantQueuedQueries;
+    }
+
+    @ThriftField(5)
     public int getRunningQueries()
     {
         return runningQueries;
+    }
+
+    @ThriftField(6)
+    public int getDescendantRunningQueries()
+    {
+        return descendantRunningQueries;
     }
 
     public static class Builder
@@ -73,7 +89,9 @@ public class ResourceGroupRuntimeInfo
 
         private long userMemoryReservationBytes;
         private int queuedQueries;
+        private int descendantQueuedQueries;
         private int runningQueries;
+        private int descendantRunningQueries;
 
         private Builder(ResourceGroupId resourceGroupId)
         {
@@ -92,15 +110,27 @@ public class ResourceGroupRuntimeInfo
             return this;
         }
 
+        public Builder addDescendantQueuedQueries(int descendantQueuedQueries)
+        {
+            this.descendantQueuedQueries += descendantQueuedQueries;
+            return this;
+        }
+
         public Builder addRunningQueries(int runningQueries)
         {
             this.runningQueries = addExact(this.runningQueries, runningQueries);
             return this;
         }
 
+        public Builder addDescendantRunningQueries(int descendantRunningQueries)
+        {
+            this.descendantRunningQueries += descendantRunningQueries;
+            return this;
+        }
+
         public ResourceGroupRuntimeInfo build()
         {
-            return new ResourceGroupRuntimeInfo(resourceGroupId, userMemoryReservationBytes, queuedQueries, runningQueries);
+            return new ResourceGroupRuntimeInfo(resourceGroupId, userMemoryReservationBytes, queuedQueries, descendantQueuedQueries, runningQueries, descendantRunningQueries);
         }
     }
 }
