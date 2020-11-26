@@ -26,6 +26,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -106,6 +107,31 @@ public class TestQueuesDb
     }
 
     @Test(timeOut = 60_000)
+    public void testResourceGroupConcurrencyThreshold()
+            throws Exception
+    {
+        String dbConfigUrl1 = getDbConfigUrl();
+        H2ResourceGroupsDao dao = getDao(dbConfigUrl1);
+        DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl1, dao, ImmutableMap.of("concurrency-threshold-to-enable-resource-group-refresh", "0.1", "resource-group-runtimeinfo-refresh-interval", "10s"));
+
+        MILLISECONDS.sleep(500);
+        QueryId firstAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
+        // wait for the first "dashboard" query to start
+        waitForQueryState(queryRunner, firstAdhocQuery, RUNNING);
+        waitForRunningQueryCount(queryRunner, 1);
+
+        QueryId secondAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
+        // wait for the second "dashboard" query to be queued ("dashboard.${USER}" queue strategy only allows one "dashboard" query to be accepted for execution)
+        MILLISECONDS.sleep(100);
+        waitForQueryState(queryRunner, secondAdhocQuery, QUEUED);
+        MILLISECONDS.sleep(500);
+        waitForQueryState(queryRunner, secondAdhocQuery, RUNNING);
+        waitForRunningQueryCount(queryRunner, 2);
+
+        closeQuietly(queryRunner);
+    }
+
+    @Test(timeOut = 600_000)
     public void testBasic()
             throws Exception
     {
