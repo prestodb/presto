@@ -23,6 +23,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.memory.LowMemoryKiller.QueryMemoryInfo;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.resourcemanager.MemoryManagerService;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.ServerConfig;
@@ -30,6 +31,7 @@ import com.facebook.presto.server.codec.Codec;
 import com.facebook.presto.server.smile.SmileCodec;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.memory.MemoryPoolInfo;
@@ -102,6 +104,7 @@ public class ClusterMemoryManager
     private final ClusterMemoryLeakDetector memoryLeakDetector = new ClusterMemoryLeakDetector();
     private final InternalNodeManager nodeManager;
     private final LocationFactory locationFactory;
+    private final Optional<MemoryManagerService> memoryManagerService;
     private final HttpClient httpClient;
     private final MBeanExporter exporter;
     private final Codec<MemoryInfo> memoryInfoCodec;
@@ -140,6 +143,7 @@ public class ClusterMemoryManager
             @ForMemoryManager HttpClient httpClient,
             InternalNodeManager nodeManager,
             LocationFactory locationFactory,
+            Optional<MemoryManagerService> memoryManagerService,
             MBeanExporter exporter,
             JsonCodec<MemoryInfo> memoryInfoJsonCodec,
             SmileCodec<MemoryInfo> memoryInfoSmileCodec,
@@ -160,6 +164,7 @@ public class ClusterMemoryManager
         requireNonNull(communicationConfig, "communicationConfig is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
+        this.memoryManagerService = requireNonNull(memoryManagerService, "memoryManagerService is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.exporter = requireNonNull(exporter, "exporter is null");
         this.lowMemoryKiller = requireNonNull(lowMemoryKiller, "lowMemoryKiller is null");
@@ -413,8 +418,8 @@ public class ClusterMemoryManager
 
     private synchronized boolean isClusterOutOfMemory()
     {
-        ClusterMemoryPool reservedPool = pools.get(RESERVED_POOL);
-        ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
+        ClusterMemoryPoolInfo reservedPool = getClusterInfo(RESERVED_POOL);
+        ClusterMemoryPoolInfo generalPool = getClusterInfo(GENERAL_POOL);
         if (reservedPool == null) {
             return generalPool.getBlockedNodes() > 0;
         }
@@ -425,8 +430,8 @@ public class ClusterMemoryManager
     // RemoteNodeMemory as we don't need to POST anything.
     private synchronized MemoryPoolAssignmentsRequest updateAssignments(Iterable<QueryExecution> queries)
     {
-        ClusterMemoryPool reservedPool = pools.get(RESERVED_POOL);
-        ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
+        ClusterMemoryPoolInfo reservedPool = getClusterInfo(RESERVED_POOL);
+        ClusterMemoryPoolInfo generalPool = getClusterInfo(GENERAL_POOL);
         verify(generalPool != null, "generalPool is null");
         verify(reservedPool != null, "reservedPool is null");
         long version = memoryPoolAssignmentsVersion.incrementAndGet();
@@ -555,7 +560,7 @@ public class ClusterMemoryManager
         for (ClusterMemoryPool pool : pools.values()) {
             pool.update(nodeMemoryInfos, queryCounts.getOrDefault(pool.getId(), 0));
             if (changeListeners.containsKey(pool.getId())) {
-                MemoryPoolInfo info = pool.getInfo();
+                MemoryPoolInfo info = getClusterInfo(pool.getId()).getMemoryPoolInfo();
                 for (Consumer<MemoryPoolInfo> listener : changeListeners.get(pool.getId())) {
                     listenerExecutor.execute(() -> listener.accept(info));
                 }
@@ -572,6 +577,17 @@ public class ClusterMemoryManager
             memoryInfo.put(workerId, entry.getValue().getInfo());
         }
         return memoryInfo;
+    }
+
+    @VisibleForTesting
+    synchronized ClusterMemoryPoolInfo getClusterInfo(MemoryPoolId poolId)
+    {
+        return memoryManagerService
+                .map(service -> service.getMemoryPoolInfo().get(poolId))
+                .orElseGet(() -> {
+                    ClusterMemoryPool clusterMemoryPool = pools.get(poolId);
+                    return clusterMemoryPool != null ? clusterMemoryPool.getClusterInfo() : null;
+                });
     }
 
     @PreDestroy
