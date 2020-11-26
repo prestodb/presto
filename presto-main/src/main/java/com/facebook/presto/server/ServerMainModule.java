@@ -114,10 +114,13 @@ import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.MemoryManagerService;
+import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.RandomResourceManagerAddressSelector;
+import com.facebook.presto.resourcemanager.ResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceManagerClient;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStatusSender;
 import com.facebook.presto.resourcemanager.ResourceManagerConfig;
+import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
@@ -365,6 +368,7 @@ public class ServerMainModule
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
                         moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
                         moduleBinder.bind(MemoryManagerService.class).to(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
+                        moduleBinder.bind(ResourceGroupService.class).to(ResourceManagerResourceGroupService.class).in(Scopes.SINGLETON);
                     }
 
                     @Provides
@@ -390,7 +394,10 @@ public class ServerMainModule
                         return listeningDecorator(executor);
                     }
                 },
-                moduleBinder -> moduleBinder.bind(ClusterStatusSender.class).toInstance(execution -> {})));
+                moduleBinder -> {
+                    moduleBinder.bind(ClusterStatusSender.class).toInstance(execution -> {});
+                    moduleBinder.bind(ResourceGroupService.class).to(NoopResourceGroupService.class).in(Scopes.SINGLETON);
+                }));
 
         FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);
         FeaturesConfig.TaskSpillingStrategy taskSpillingStrategy = featuresConfig.getTaskSpillingStrategy();

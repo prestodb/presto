@@ -343,7 +343,7 @@ public class TestResourceManagerClusterStateProvider
         assertEquals(info.getQueuedQueries(), queuedQueries, format("Expected %s queued queries, found %s", queuedQueries, info.getQueuedQueries()));
         assertEquals(info.getRunningQueries(), runningQueries, format("Expected %s running queries, found %s", runningQueries, info.getRunningQueries()));
         assertEquals(info.getResourceGroupId(), new ResourceGroupId(resourceGroupId), format("Expected resource group id %s, found %s", resourceGroupId, info.getResourceGroupId()));
-        assertEquals(info.getUserMemoryReservationBytes(), userMemoryReservation.toBytes(), format("Expected %s user memory reservation found %s", userMemoryReservation, DataSize.succinctBytes(info.getUserMemoryReservationBytes())));
+        assertEquals(info.getMemoryUsageBytes(), userMemoryReservation.toBytes(), format("Expected %s user memory reservation found %s", userMemoryReservation, DataSize.succinctBytes(info.getMemoryUsageBytes())));
     }
 
     private void assertMemoryPoolMap(ResourceManagerClusterStateProvider provider, int memoryPoolSize, MemoryPoolId memoryPoolId, int assignedQueries, int blockedNodes, int maxBytes, int reservedBytes, int reservedRevocableBytes)

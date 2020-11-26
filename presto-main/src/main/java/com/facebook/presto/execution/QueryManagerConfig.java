@@ -59,6 +59,8 @@ public class QueryManagerConfig
     private int maxTotalRunningTaskCountToKillQuery = Integer.MAX_VALUE;
     private int maxQueryRunningTaskCount = Integer.MAX_VALUE;
     private int maxTotalRunningTaskCountToNotExecuteNewQuery = Integer.MAX_VALUE;
+    private double concurrencyThresholdToEnableResourceGroupRefresh = 1.0;
+    private Duration resourceGroupRunTimeInfoRefreshInterval = new Duration(100, TimeUnit.MILLISECONDS);
 
     private Duration clientTimeout = new Duration(5, TimeUnit.MINUTES);
 
@@ -306,6 +308,32 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxQueryRunningTaskCount(int maxQueryRunningTaskCount)
     {
         this.maxQueryRunningTaskCount = maxQueryRunningTaskCount;
+        return this;
+    }
+
+    @Config("concurrency-threshold-to-enable-resource-group-refresh")
+    @ConfigDescription("Resource group concurrency threshold precentage, once crossed new queries won't run till updated resource group info comes from resource manager")
+    public QueryManagerConfig setConcurrencyThresholdToEnableResourceGroupRefresh(double concurrencyThresholdToEnableResourceGroupRefresh)
+    {
+        this.concurrencyThresholdToEnableResourceGroupRefresh = concurrencyThresholdToEnableResourceGroupRefresh;
+        return this;
+    }
+
+    public Double getConcurrencyThresholdToEnableResourceGroupRefresh()
+    {
+        return concurrencyThresholdToEnableResourceGroupRefresh;
+    }
+
+    public Duration getResourceGroupRunTimeInfoRefreshInterval()
+    {
+        return resourceGroupRunTimeInfoRefreshInterval;
+    }
+
+    @Config("resource-group-runtimeinfo-refresh-interval")
+    @ConfigDescription("Resource Group Runtime Info Refresh Interval")
+    public QueryManagerConfig setResourceGroupRunTimeInfoRefreshInterval(Duration resourceGroupRunTimeInfoRefreshInterval)
+    {
+        this.resourceGroupRunTimeInfoRefreshInterval = resourceGroupRunTimeInfoRefreshInterval;
         return this;
     }
 
