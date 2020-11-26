@@ -67,6 +67,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.index.IndexManager;
+import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManagerExporter;
 import com.facebook.presto.memory.MemoryInfo;
@@ -113,10 +114,13 @@ import com.facebook.presto.resourcemanager.ClusterMemoryManagerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.MemoryManagerService;
+import com.facebook.presto.resourcemanager.NoopResourceGroupService;
 import com.facebook.presto.resourcemanager.RandomResourceManagerAddressSelector;
+import com.facebook.presto.resourcemanager.ResourceGroupService;
 import com.facebook.presto.resourcemanager.ResourceManagerClient;
 import com.facebook.presto.resourcemanager.ResourceManagerClusterStatusSender;
 import com.facebook.presto.resourcemanager.ResourceManagerConfig;
+import com.facebook.presto.resourcemanager.ResourceManagerResourceGroupService;
 import com.facebook.presto.server.remotetask.HttpLocationFactory;
 import com.facebook.presto.server.thrift.FixedAddressSelector;
 import com.facebook.presto.server.thrift.ThriftServerInfoClient;
@@ -127,6 +131,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -364,6 +369,8 @@ public class ServerMainModule
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
                         moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
                         moduleBinder.bind(MemoryManagerService.class).to(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
+                        moduleBinder.bind(ClusterMemoryPoolManager.class).to(ClusterMemoryManager.class).in(Scopes.SINGLETON);
+                        moduleBinder.bind(ResourceGroupService.class).to(ResourceManagerResourceGroupService.class).in(Scopes.SINGLETON);
                     }
 
                     @Provides
@@ -389,7 +396,10 @@ public class ServerMainModule
                         return listeningDecorator(executor);
                     }
                 },
-                moduleBinder -> moduleBinder.bind(ClusterStatusSender.class).toInstance(execution -> {})));
+                moduleBinder -> {
+                    moduleBinder.bind(ClusterStatusSender.class).toInstance(execution -> {});
+                    moduleBinder.bind(ResourceGroupService.class).to(NoopResourceGroupService.class).in(Scopes.SINGLETON);
+                }));
 
         FeaturesConfig featuresConfig = buildConfigObject(FeaturesConfig.class);
         FeaturesConfig.TaskSpillingStrategy taskSpillingStrategy = featuresConfig.getTaskSpillingStrategy();
