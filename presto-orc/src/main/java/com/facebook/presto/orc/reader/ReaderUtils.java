@@ -98,6 +98,86 @@ final class ReaderUtils
         }
     }
 
+    public static void unpackLongsWithNulls(long[] values, boolean[] isNull, int positionCount, int nonNullCount)
+    {
+        int position = nonNullCount - 1;
+        for (int i = positionCount - 1; i >= 0; i--) {
+            if (!isNull[i]) {
+                values[i] = values[position--];
+            }
+            else {
+                values[i] = 0;
+            }
+        }
+    }
+
+    public static void packBytes(byte[] values, int[] positions, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            values[i] = values[positions[i]];
+        }
+    }
+
+    public static void packBytesAndNulls(byte[] values, boolean[] nulls, int[] positions, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+
+            // Pack nulls
+            nulls[i] = nulls[position];
+            values[i] = values[position];
+        }
+    }
+
+    public static void packInts(int[] values, int[] positions, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            values[i] = values[positions[i]];
+        }
+    }
+
+    public static void packIntsAndNulls(int[] values, boolean[] nulls, int[] positions, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+
+            // Pack nulls
+            nulls[i] = nulls[position];
+            values[i] = values[position];
+        }
+    }
+
+    public static void packLongs(long[] values, int[] positions, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            values[i] = values[positions[i]];
+        }
+    }
+
+    public static void packLongsAndNulls(long[] values, boolean[] nulls, int[] positions, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+
+            // Pack nulls
+            nulls[i] = nulls[position];
+            values[i] = values[position];
+        }
+    }
+
+    public static void unpackIntsWithNulls(int[] values, boolean[] isNull, int positionCount, int nonNullCount)
+    {
+        int position = nonNullCount - 1;
+        for (int i = positionCount - 1; i >= 0; i--) {
+            if (!isNull[i]) {
+                values[i] = values[position--];
+            }
+            else {
+                values[i] = 0;
+            }
+        }
+    }
+
     public static short[] unpackShortNulls(short[] values, boolean[] isNull)
     {
         short[] result = new short[isNull.length];

@@ -66,4 +66,10 @@ public class FloatInputStream
             type.writeLong(builder, floatToRawIntBits(next()));
         }
     }
+
+    public void next(int[] values, int items)
+            throws IOException
+    {
+        input.readFloats(values, items);
+    }
 }

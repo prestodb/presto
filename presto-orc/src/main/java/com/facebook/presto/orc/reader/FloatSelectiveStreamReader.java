@@ -36,6 +36,9 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.packInts;
+import static com.facebook.presto.orc.reader.ReaderUtils.packIntsAndNulls;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackIntsWithNulls;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -43,6 +46,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.util.Objects.requireNonNull;
 
 public class FloatSelectiveStreamReader
@@ -136,7 +140,13 @@ public class FloatSelectiveStreamReader
 
         allNulls = false;
 
-        if (outputRequired) {
+        int totalPositionCount = positions[positionCount - 1] + 1;
+        if (useBatchMode()) {
+            // values need to be allocated for batch mode, because they need to be used for evaluating filters even when output
+            // is not required, nulls need to be allocated when presentStream != null, because values need to be unpacked with nulls
+            ensureValuesCapacity(totalPositionCount, presentStream != null);
+        }
+        else if (outputRequired) {
             ensureValuesCapacity(positionCount, nullsAllowed && presentStream != null);
         }
 
@@ -167,6 +177,57 @@ public class FloatSelectiveStreamReader
     private int readWithFilter(int[] positions, int positionCount)
             throws IOException
     {
+        int totalPositionCount = positions[positionCount - 1] + 1;
+        if (useBatchMode()) {
+            int readCount = 0;
+
+            final int filteredPositionCount;
+
+            if (presentStream == null) {
+                dataStream.next(values, totalPositionCount);
+
+                filteredPositionCount = evaluateFilter(positions, positionCount);
+
+                if (outputRequired && totalPositionCount > filteredPositionCount) {
+                    packInts(values, outputPositions, filteredPositionCount);
+                }
+            }
+            else {
+                int nullCount = presentStream.getUnsetBits(totalPositionCount, nulls);
+                if (nullCount == totalPositionCount) {
+                    // all nulls
+                    if ((nonDeterministicFilter && this.filter.testNull()) || nullsAllowed) {
+                        allNulls = true;
+                        filteredPositionCount = positionCount; // No positions were filtered out
+                    }
+                    else {
+                        filteredPositionCount = 0;
+                    }
+                }
+                else {
+                    // some nulls
+                    readCount = totalPositionCount - nullCount;
+                    dataStream.next(values, readCount);
+
+                    if (nullCount != 0) {
+                        unpackIntsWithNulls(values, nulls, totalPositionCount, readCount);
+                    }
+
+                    filteredPositionCount = evaluateFilterWithNulls(positions, positionCount);
+
+                    if (outputRequired && totalPositionCount > filteredPositionCount) {
+                        // both values and nulls need to be packed
+                        packIntsAndNulls(values, nulls, outputPositions, filteredPositionCount);
+                    }
+                }
+            }
+
+            outputPositionCount = filteredPositionCount;
+
+            // Should return totalPositionCount instead of readCount
+            return totalPositionCount;
+        }
+
         int streamPosition = 0;
         outputPositionCount = 0;
         for (int i = 0; i < positionCount; i++) {
@@ -177,7 +238,7 @@ public class FloatSelectiveStreamReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
+                if ((nonDeterministicFilter && this.filter.testNull()) || nullsAllowed) {
                     if (outputRequired) {
                         nulls[outputPositionCount] = true;
                     }
@@ -250,6 +311,41 @@ public class FloatSelectiveStreamReader
     private int readNoFilter(int[] positions, int positionCount)
             throws IOException
     {
+        int totalPositionCount = positions[positionCount - 1] + 1;
+        if (useBatchMode()) {
+            if (presentStream == null) {
+                dataStream.next(values, totalPositionCount);
+                if (totalPositionCount > positionCount) {
+                    packInts(values, positions, positionCount);
+                }
+            }
+            else {
+                int nullCount = presentStream.getUnsetBits(totalPositionCount, nulls);
+
+                if (nullCount == totalPositionCount) {
+                    // all nulls
+                    allNulls = true;
+                }
+                else {
+                    // some nulls
+                    dataStream.next(values, totalPositionCount - nullCount);
+
+                    if (outputRequired) {
+                        if (nullCount != 0) {
+                            unpackIntsWithNulls(values, nulls, totalPositionCount, totalPositionCount - nullCount);
+                        }
+
+                        if (totalPositionCount > positionCount) {
+                            // Need to pack both values and nulls
+                            packIntsAndNulls(values, nulls, positions, positionCount);
+                        }
+                    }
+                }
+            }
+            outputPositionCount = positionCount;
+            return totalPositionCount;
+        }
+
         if (positions[positionCount - 1] == positionCount - 1) {
             // no skipping
             if (presentStream != null) {
@@ -459,5 +555,61 @@ public class FloatSelectiveStreamReader
         return toStringHelper(this)
                 .addValue(streamDescriptor)
                 .toString();
+    }
+
+    private boolean useBatchMode()
+    {
+        // JMH benchmark shows that when there is no null or no filter, the batch read mode was always better than the skipping mode.
+        // When there is filter and partial nulls, the batch read mode was better than the skipping mode when the input filter rate is less than 0.4
+        if (presentStream == null || filter == null) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private int evaluateFilter(int[] positions, int positionCount)
+    {
+        int positionsIndex = 0;
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+
+            if (filter.testFloat(intBitsToFloat(values[position]))) {
+                outputPositions[positionsIndex++] = position;  // compact positions on the fly
+            }
+            else {
+                i += filter.getSucceedingPositionsToFail();
+                positionsIndex -= filter.getPrecedingPositionsToFail();
+            }
+        }
+        return positionsIndex;
+    }
+
+    private int evaluateFilterWithNulls(int[] positions, int positionCount)
+    {
+        int positionsIndex = 0;
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+
+            if (nulls[position]) {
+                if ((nonDeterministicFilter && this.filter.testNull()) || nullsAllowed) {
+                    outputPositions[positionsIndex++] = position;
+                }
+                else {
+                    i += filter.getSucceedingPositionsToFail();
+                    positionsIndex -= filter.getPrecedingPositionsToFail();
+                }
+            }
+            else {
+                if (filter.testFloat(intBitsToFloat(values[position]))) {
+                    outputPositions[positionsIndex++] = position;
+                }
+                else {
+                    i += filter.getSucceedingPositionsToFail();
+                    positionsIndex -= filter.getPrecedingPositionsToFail();
+                }
+            }
+        }
+        return positionsIndex;
     }
 }

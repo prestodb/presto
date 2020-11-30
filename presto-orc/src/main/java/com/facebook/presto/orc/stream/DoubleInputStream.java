@@ -65,4 +65,10 @@ public class DoubleInputStream
             type.writeDouble(builder, next());
         }
     }
+
+    public void next(long[] values, int items)
+            throws IOException
+    {
+        input.readDoubles(values, items);
+    }
 }

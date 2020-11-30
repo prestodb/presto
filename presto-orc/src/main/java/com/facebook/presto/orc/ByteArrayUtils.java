@@ -17,8 +17,13 @@ import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
+import static io.airlift.slice.SizeOf.SIZE_OF_FLOAT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.lang.Double.doubleToLongBits;
+import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public class ByteArrayUtils
@@ -108,5 +113,32 @@ public class ByteArrayUtils
             lastWord = bytes[offset + i] | (lastWord << 8);
         }
         return (seed * M * lastWord) ^ (seed << 27);
+    }
+
+    public static void getDoubles(byte[] bytes, int bytesIndex, long[] values, int valuesIndex, int numOfDoubles)
+    {
+        checkValidRange(bytesIndex, SIZE_OF_DOUBLE * numOfDoubles, bytes.length);
+
+        for (int i = 0; i < numOfDoubles; i++) {
+            double readDouble = unsafe.getDouble(bytes, (long) bytesIndex + i * SIZE_OF_DOUBLE + ARRAY_BYTE_BASE_OFFSET);
+            values[valuesIndex++] = doubleToLongBits(readDouble);
+        }
+    }
+
+    public static void getFloats(byte[] bytes, int bytesIndex, int[] values, int valuesIndex, int numOfFloats)
+    {
+        checkValidRange(bytesIndex, SIZE_OF_FLOAT * numOfFloats, bytes.length);
+
+        for (int i = 0; i < numOfFloats; i++) {
+            float readFloat = unsafe.getFloat(bytes, (long) bytesIndex + i * SIZE_OF_FLOAT + ARRAY_BYTE_BASE_OFFSET);
+            values[valuesIndex++] = floatToRawIntBits(readFloat);
+        }
+    }
+
+    public static void checkValidRange(int start, int length, int size)
+    {
+        if (start < 0 || length < 0 || start + length > size) {
+            throw new IndexOutOfBoundsException(format("Invalid start %s and length %s with array size %s", start, length, size));
+        }
     }
 }
