@@ -88,6 +88,7 @@ public class PrestoSparkSettingsRequirements
         config.setScaleWriters(false);
         config.setPreferDistributedUnion(true);
         config.setForceSingleNodeOutput(false);
+        config.setInlineSqlFunctions(true);
     }
 
     public static void setDefaults(QueryManagerConfig config)
