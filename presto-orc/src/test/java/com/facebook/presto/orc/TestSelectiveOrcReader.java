@@ -83,6 +83,7 @@ import static com.facebook.presto.orc.OrcTester.quickSelectiveOrcTester;
 import static com.facebook.presto.orc.OrcTester.rowType;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnsPresto;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
+import static com.facebook.presto.orc.TupleDomainFilter.ALWAYS_FALSE;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.TupleDomainFilterUtils.toBigintValues;
@@ -415,6 +416,12 @@ public class TestSelectiveOrcReader
                 ImmutableList.of(
                         ImmutableMap.of(new Subfield("c[2]"), IS_NULL),
                         ImmutableMap.of(new Subfield("c[2]"), nonNegative)));
+
+        tester.testRoundTrip(arrayType(BOOLEAN),
+                createList(NUM_ROWS, i -> randomBooleans(8, random)),
+                ImmutableList.of(
+                        ImmutableMap.of(new Subfield("c[2]"), IS_NULL),
+                        ImmutableMap.of(new Subfield("c[2]"), ALWAYS_FALSE)));
 
         // non-empty non-null arrays of varying sizes
         tester.testRoundTrip(arrayType(INTEGER),
@@ -1226,6 +1233,11 @@ public class TestSelectiveOrcReader
     private static List<Byte> randomBytes(int size, Random random)
     {
         return createList(size, i -> (byte) random.nextInt(128));
+    }
+
+    private static List<Boolean> randomBooleans(int size, Random random)
+    {
+        return createList(size, i -> random.nextBoolean());
     }
 
     private static List<SqlDecimal> decimalSequence(String start, String step, int items, int precision, int scale)

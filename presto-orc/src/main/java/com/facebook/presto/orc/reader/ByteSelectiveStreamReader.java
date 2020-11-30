@@ -566,8 +566,6 @@ public class ByteSelectiveStreamReader
 
     private int evaluateFilterWithNulls(int[] positions, int positionCount)
     {
-
-
         int positionsIndex = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
