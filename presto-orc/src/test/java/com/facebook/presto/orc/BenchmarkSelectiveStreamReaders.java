@@ -81,9 +81,8 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
-import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static com.facebook.presto.orc.OrcTester.Format.ORC_12;
+import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnsPresto;
 import static com.facebook.presto.orc.TupleDomainFilter.LongDecimalRange;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
@@ -132,6 +131,8 @@ public class BenchmarkSelectiveStreamReaders
             }
         }
 
+        data.dataSource.close();
+
         return blocks;
     }
 
@@ -152,6 +153,7 @@ public class BenchmarkSelectiveStreamReaders
 
         private final Random random = new Random(0);
 
+        private OrcDataSource dataSource;
         private File temporaryDirectory;
         private File orcFile;
         private Type type;
@@ -253,7 +255,7 @@ public class BenchmarkSelectiveStreamReaders
             }
 
             // Use writeOrcColumnsPresto so that orcType and varchar length can be written in file footer
-            writeOrcColumnsPresto(orcFile, ORC_12, NONE, Optional.empty(), Collections.nCopies(channelCount, type), values, new OrcWriterStats());
+            writeOrcColumnsPresto(orcFile, DWRF, NONE, Optional.empty(), Collections.nCopies(channelCount, type), values, new OrcWriterStats());
         }
 
         @TearDown
@@ -266,10 +268,10 @@ public class BenchmarkSelectiveStreamReaders
         public OrcSelectiveRecordReader createRecordReader()
                 throws IOException
         {
-            OrcDataSource dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+            dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
             OrcReader orcReader = new OrcReader(
                     dataSource,
-                    ORC,
+                    OrcEncoding.DWRF,
                     new StorageOrcFileTailSource(),
                     new StorageStripeMetadataSource(),
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,

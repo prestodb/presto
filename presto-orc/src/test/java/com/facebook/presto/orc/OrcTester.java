@@ -1518,8 +1518,9 @@ public class OrcTester
         metadata.put("columns", String.join(", ", columnNames));
         metadata.put("columns.types", createSettableStructObjectInspector(types).getTypeName());
 
+        FileOutputStream fileOutputStream = new FileOutputStream(outputFile);
         OrcWriter writer = new OrcWriter(
-                new OutputStreamDataSink(new FileOutputStream(outputFile)),
+                new OutputStreamDataSink(fileOutputStream),
                 columnNames,
                 types,
                 format.getOrcEncoding(),
@@ -1551,6 +1552,8 @@ public class OrcTester
                 new DataSize(1, MEGABYTE),
                 new DataSize(1, MEGABYTE),
                 true));
+
+        fileOutputStream.close();
     }
 
     private static DwrfWriterEncryption generateWriterEncryption()
