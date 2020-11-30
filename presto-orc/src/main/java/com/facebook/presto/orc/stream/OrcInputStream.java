@@ -28,6 +28,8 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.ByteArrayUtils.getDoubles;
+import static com.facebook.presto.orc.ByteArrayUtils.getFloats;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
 import static com.facebook.presto.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
@@ -40,6 +42,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -414,6 +417,28 @@ public final class OrcInputStream
         return ByteArrays.getDouble(buffer, readPosition);
     }
 
+    public void readDoubles(long[] values, int items)
+            throws IOException
+    {
+        int valuesIndex = 0;
+        while (items > 0) {
+            if (available() == 0) {
+                advance();
+                if (buffer == null) {
+                    return;
+                }
+            }
+
+            // Can available be not multiple of SIZE_OF_FLOAT?
+            int doubleCount = min(items, available() / SIZE_OF_DOUBLE);
+            getDoubles(buffer, position, values, valuesIndex, doubleCount);
+            position += doubleCount * SIZE_OF_DOUBLE;
+
+            items -= doubleCount;
+            valuesIndex += doubleCount;
+        }
+    }
+
     public float readFloat()
             throws IOException
     {
@@ -422,6 +447,28 @@ public final class OrcInputStream
             return ByteArrays.getFloat(temporaryBuffer, 0);
         }
         return ByteArrays.getFloat(buffer, readPosition);
+    }
+
+    public void readFloats(int[] values, int items)
+            throws IOException
+    {
+        int valuesIndex = 0;
+        while (items > 0) {
+            if (available() == 0) {
+                advance();
+                if (buffer == null) {
+                    return;
+                }
+            }
+
+            // Can available be not multiple of SIZE_OF_FLOAT?
+            int floatCount = min(items, available() / SIZE_OF_FLOAT);
+            getFloats(buffer, position, values, valuesIndex, floatCount);
+            position += floatCount * SIZE_OF_FLOAT;
+
+            items -= floatCount;
+            valuesIndex += floatCount;
+        }
     }
 
     private int ensureContiguousBytesAndAdvance(int bytes)
