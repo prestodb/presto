@@ -132,6 +132,8 @@ public class BenchmarkSelectiveStreamReaders
             }
         }
 
+        data.dataSource.close();
+
         return blocks;
     }
 
@@ -152,6 +154,7 @@ public class BenchmarkSelectiveStreamReaders
 
         private final Random random = new Random(0);
 
+        private OrcDataSource dataSource;
         private File temporaryDirectory;
         private File orcFile;
         private Type type;
@@ -279,7 +282,7 @@ public class BenchmarkSelectiveStreamReaders
         public OrcSelectiveRecordReader createRecordReader()
                 throws IOException
         {
-            OrcDataSource dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
+            dataSource = new FileOrcDataSource(orcFile, new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, MEGABYTE), true);
             OrcReader orcReader = new OrcReader(
                     dataSource,
                     ORC,

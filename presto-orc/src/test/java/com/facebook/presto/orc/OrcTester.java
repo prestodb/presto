@@ -1518,39 +1518,41 @@ public class OrcTester
         metadata.put("columns", String.join(", ", columnNames));
         metadata.put("columns.types", createSettableStructObjectInspector(types).getTypeName());
 
-        OrcWriter writer = new OrcWriter(
-                new OutputStreamDataSink(new FileOutputStream(outputFile)),
-                columnNames,
-                types,
-                format.getOrcEncoding(),
-                compression,
-                dwrfWriterEncryption,
-                new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
-                new OrcWriterOptions(),
-                ImmutableMap.of(),
-                HIVE_STORAGE_TIME_ZONE,
-                true,
-                BOTH,
-                stats);
+        try (FileOutputStream fileOutputStream = new FileOutputStream(outputFile)) {
+            OrcWriter writer = new OrcWriter(
+                    new OutputStreamDataSink(fileOutputStream),
+                    columnNames,
+                    types,
+                    format.getOrcEncoding(),
+                    compression,
+                    dwrfWriterEncryption,
+                    new DwrfEncryptionProvider(new UnsupportedEncryptionLibrary(), new TestingEncryptionLibrary()),
+                    new OrcWriterOptions(),
+                    ImmutableMap.of(),
+                    HIVE_STORAGE_TIME_ZONE,
+                    true,
+                    BOTH,
+                    stats);
 
-        Block[] blocks = new Block[types.size()];
-        for (int i = 0; i < types.size(); i++) {
-            Type type = types.get(i);
-            BlockBuilder blockBuilder = type.createBlockBuilder(null, 1024);
-            for (Object value : values.get(i)) {
-                writeValue(type, blockBuilder, value);
+            Block[] blocks = new Block[types.size()];
+            for (int i = 0; i < types.size(); i++) {
+                Type type = types.get(i);
+                BlockBuilder blockBuilder = type.createBlockBuilder(null, 1024);
+                for (Object value : values.get(i)) {
+                    writeValue(type, blockBuilder, value);
+                }
+                blocks[i] = blockBuilder.build();
             }
-            blocks[i] = blockBuilder.build();
-        }
 
-        writer.write(new Page(blocks));
-        writer.close();
-        writer.validate(new FileOrcDataSource(
-                outputFile,
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                true));
+            writer.write(new Page(blocks));
+            writer.close();
+            writer.validate(new FileOrcDataSource(
+                    outputFile,
+                    new DataSize(1, MEGABYTE),
+                    new DataSize(1, MEGABYTE),
+                    new DataSize(1, MEGABYTE),
+                    true));
+        }
     }
 
     private static DwrfWriterEncryption generateWriterEncryption()
