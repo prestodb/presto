@@ -22,6 +22,8 @@ import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_BROADCAST_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_RUN_TIME;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
@@ -54,7 +56,11 @@ public class QueryActionUtil
             // Allow verifier clusters to provide their own memory limits to reduce noise from
             // CBO making different decisions based on cluster size
             sessionProperties.remove(QUERY_MAX_BROADCAST_MEMORY);
+
+            sessionProperties.remove(QUERY_MAX_MEMORY_PER_NODE);
             sessionProperties.remove(QUERY_MAX_TOTAL_MEMORY_PER_NODE);
+
+            sessionProperties.remove(QUERY_MAX_MEMORY);
             sessionProperties.remove(QUERY_MAX_TOTAL_MEMORY);
         }
 
