@@ -409,6 +409,13 @@ public class TestSelectiveOrcReader
         BigintRange negative = BigintRange.of(Integer.MIN_VALUE, 0, false);
         BigintRange nonNegative = BigintRange.of(0, Integer.MAX_VALUE, false);
 
+        // non-null arrays of TINYINT
+        tester.testRoundTrip(arrayType(TINYINT),
+                createList(NUM_ROWS, i -> randomBytes(8, random)),
+                ImmutableList.of(
+                        ImmutableMap.of(new Subfield("c[2]"), IS_NULL),
+                        ImmutableMap.of(new Subfield("c[2]"), nonNegative)));
+
         // non-empty non-null arrays of varying sizes
         tester.testRoundTrip(arrayType(INTEGER),
                 createList(NUM_ROWS, i -> randomIntegers(5 + random.nextInt(5), random)),
@@ -1214,6 +1221,11 @@ public class TestSelectiveOrcReader
     private static List<Integer> randomIntegers(int size, Random random)
     {
         return createList(size, i -> random.nextInt());
+    }
+
+    private static List<Byte> randomBytes(int size, Random random)
+    {
+        return createList(size, i -> (byte) random.nextInt(128));
     }
 
     private static List<SqlDecimal> decimalSequence(String start, String step, int items, int precision, int scale)

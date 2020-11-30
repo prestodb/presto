@@ -98,6 +98,24 @@ final class ReaderUtils
         }
     }
 
+    public static void packBytes(byte[] values, int[] positions, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            values[i] = values[positions[i]];
+        }
+    }
+
+    public static void packBytesAndNulls(byte[] values, boolean[] nulls, int[] positions, int positionCount)
+    {
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+
+            // Pack nulls
+            nulls[i] = nulls[position];
+            values[i] = values[position];
+        }
+    }
+
     public static short[] unpackShortNulls(short[] values, boolean[] isNull)
     {
         short[] result = new short[isNull.length];
