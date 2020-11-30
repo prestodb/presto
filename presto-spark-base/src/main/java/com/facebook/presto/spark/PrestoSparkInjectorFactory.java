@@ -28,6 +28,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.storage.TempStorageModule;
@@ -160,12 +161,6 @@ public class PrestoSparkInjectorFactory
         try {
             injector.getInstance(PluginManager.class).loadPlugins();
             injector.getInstance(StaticCatalogStore.class).loadCatalogs(catalogProperties);
-            if (functionNamespaceProperties.isPresent()) {
-                injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(functionNamespaceProperties.get());
-            }
-            else {
-                injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
-            }
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             eventListenerProperties.ifPresent(properties -> injector.getInstance(EventListenerManager.class).loadConfiguredEventListener(properties));
@@ -187,6 +182,16 @@ public class PrestoSparkInjectorFactory
                 }
                 else {
                     injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
+                }
+            }
+
+            if (sparkProcessType.equals(DRIVER) ||
+                    !injector.getInstance(FeaturesConfig.class).isInlineSqlFunctions()) {
+                if (functionNamespaceProperties.isPresent()) {
+                    injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers(functionNamespaceProperties.get());
+                }
+                else {
+                    injector.getInstance(StaticFunctionNamespaceStore.class).loadFunctionNamespaceManagers();
                 }
             }
         }
