@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.common.NotSupportedException;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.Arrays;
@@ -51,7 +52,7 @@ public interface TupleDomainFilter
     /**
      * Used to apply is [not] null filters to complex types, e.g.
      * a[1] is null AND a[3] is not null, where a is an array(array(T)).
-     *
+     * <p>
      * In these case, the exact values are not known, but it is known whether they are
      * null or not. Furthermore, for some positions only nulls are allowed (a[1] is null),
      * for others only non-nulls (a[3] is not null), and for the rest both are allowed
@@ -69,6 +70,11 @@ public interface TupleDomainFilter
 
     boolean testBoolean(boolean value);
 
+    default boolean testBoolean(byte value)
+    {
+        throw new NotSupportedException("testBoolean(value) is not supported");
+    }
+
     boolean testBytes(byte[] buffer, int offset, int length);
 
     /**
@@ -83,6 +89,7 @@ public interface TupleDomainFilter
      * fail. To enable this functionality, the filter keeps track of the boundaries of
      * top-level positions and allows the caller to find out where the current top-level
      * position started and how far it continues.
+     *
      * @return number of positions from the start of the current top-level position up to
      * the current position (excluding current position)
      */
@@ -235,6 +242,12 @@ public interface TupleDomainFilter
         }
 
         @Override
+        public boolean testBoolean(byte value)
+        {
+            return false;
+        }
+
+        @Override
         public boolean testBytes(byte[] buffer, int offset, int length)
         {
             return false;
@@ -293,6 +306,12 @@ public interface TupleDomainFilter
 
         @Override
         public boolean testBoolean(boolean value)
+        {
+            return false;
+        }
+
+        @Override
+        public boolean testBoolean(byte value)
         {
             return false;
         }
@@ -361,6 +380,12 @@ public interface TupleDomainFilter
         }
 
         @Override
+        public boolean testBoolean(byte value)
+        {
+            return true;
+        }
+
+        @Override
         public boolean testBytes(byte[] buffer, int offset, int length)
         {
             return true;
@@ -383,11 +408,13 @@ public interface TupleDomainFilter
             extends AbstractTupleDomainFilter
     {
         private final boolean value;
+        private final byte byteValue;
 
         private BooleanValue(boolean value, boolean nullAllowed)
         {
             super(true, nullAllowed);
             this.value = value;
+            this.byteValue = (byte) (value ? 1 : 0);
         }
 
         public static BooleanValue of(boolean value, boolean nullAllowed)
@@ -399,6 +426,12 @@ public interface TupleDomainFilter
         public boolean testBoolean(boolean value)
         {
             return this.value == value;
+        }
+
+        @Override
+        public boolean testBoolean(byte value)
+        {
+            return this.byteValue == value;
         }
 
         @Override

@@ -37,6 +37,9 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
+import static com.facebook.presto.orc.reader.ReaderUtils.packBytes;
+import static com.facebook.presto.orc.reader.ReaderUtils.packBytesAndNulls;
+import static com.facebook.presto.orc.reader.ReaderUtils.unpackByteNulls;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -160,7 +163,13 @@ public class BooleanSelectiveStreamReader
 
         allNulls = false;
 
-        if (outputRequired) {
+        if (useBatchMode()) {
+            // values need to be totalPositionCount,
+            // and nulls need to be allocated even nullsAllowed == false, and whether there is filter or not, or outputRequired == true or not,
+            // because values need to be unpacked with nulls
+            ensureValuesCapacity(positions[positionCount - 1] + 1, presentStream != null);
+        }
+        else if (outputRequired) {
             ensureValuesCapacity(positionCount, nullsAllowed && presentStream != null);
         }
 
@@ -181,6 +190,54 @@ public class BooleanSelectiveStreamReader
             streamPosition = readNoFilter(positions, positionCount);
         }
         else {
+            if (useBatchMode()) {
+                int totalPositionCount = positions[positionCount - 1] + 1;
+                int readCount = 0;
+
+                final int filteredPositionCount;
+
+                if (presentStream == null) {
+                    dataStream.getSetBits(totalPositionCount, values);
+
+                    filteredPositionCount = evaluateFilter(positions, positionCount);
+
+                    if (outputRequired && totalPositionCount > filteredPositionCount) {
+                        packBytes(values, outputPositions, filteredPositionCount);
+                    }
+                }
+                else {
+                    int nullCount = presentStream.getUnsetBits(totalPositionCount, nulls);
+
+                    if (nullCount == totalPositionCount) {
+                        // all nulls
+                        allNulls = true;
+                        filteredPositionCount = positionCount; // No positions were filtered out
+                    }
+                    else {
+                        // some nulls
+                        readCount = totalPositionCount - nullCount;
+                        dataStream.getSetBits(readCount, values);
+
+                        if (nullCount != 0) {
+                            // Note it should be totalPositionCount instead of positionCound
+                            unpackByteNulls(values, nulls, totalPositionCount, readCount);
+                        }
+
+                        filteredPositionCount = evaluateFilterWithNulls(positions, positionCount);
+
+                        if (outputRequired && totalPositionCount > filteredPositionCount) {
+                            // both values and nulls need to be packed
+                            packBytesAndNulls(values, nulls, outputPositions, filteredPositionCount);
+                        }
+                    }
+                }
+                outputPositionCount = filteredPositionCount;
+
+                // For this reader, should return filteredPositionCount instead of totalPositionCount
+                readOffset = offset + totalPositionCount;
+                return filteredPositionCount;
+            }
+
             // This branch is inlined because extracting this code into a helper method (readWithFilter)
             // results in performance regressions on BenchmarkSelectiveStreamReaders.readBooleanNoNull[withFilter]
             // benchmarks.
@@ -272,11 +329,41 @@ public class BooleanSelectiveStreamReader
             throws IOException
     {
         // filter == null implies outputRequired == true
-        if (presentStream == null && positions[positionCount - 1] == positionCount - 1) {
-            // contiguous chunk of rows, no nulls
-            dataStream.getSetBits(positionCount, values);
+
+        if (useBatchMode()) {
+            int totalPositionCount = positions[positionCount - 1] + 1;
+            if (presentStream == null) {
+                dataStream.getSetBits(totalPositionCount, values);
+
+                if (totalPositionCount > positionCount) {
+                    packBytes(values, positions, positionCount);
+                }
+            }
+            else {
+                int nullCount = presentStream.getUnsetBits(totalPositionCount, nulls);
+
+                if (nullCount == totalPositionCount) {
+                    // all nulls
+                    allNulls = true;
+                }
+                else {
+                    // some nulls
+                    dataStream.getSetBits(totalPositionCount - nullCount, values);
+
+                    if (outputRequired) {
+                        if (nullCount != 0) {
+                            unpackByteNulls(values, nulls, totalPositionCount, totalPositionCount - nullCount);
+                        }
+
+                        if (totalPositionCount > positionCount) {
+                            // Need to pack both values and nulls
+                            packBytesAndNulls(values, nulls, positions, positionCount);
+                        }
+                    }
+                }
+            }
             outputPositionCount = positionCount;
-            return positionCount;
+            return totalPositionCount;
         }
 
         int streamPosition = 0;
@@ -454,5 +541,58 @@ public class BooleanSelectiveStreamReader
         dataStreamSource = null;
 
         systemMemoryContext.close();
+    }
+
+    private boolean useBatchMode()
+    {
+        // JMH benchmark shows that batch read mode is better than skipping mode for all cases.
+        return true;
+    }
+
+    private int evaluateFilter(int[] positions, int positionCount)
+    {
+        int positionsIndex = 0;
+        int i = 0;
+        while (i < positionCount) {
+            int position = positions[i];
+            if (filter.testBoolean(values[position])) {
+                outputPositions[positionsIndex++] = position;  // compact positions on the fly
+                i++;
+            }
+            else {
+                i += filter.getSucceedingPositionsToFail() + 1;
+                positionsIndex -= filter.getPrecedingPositionsToFail();
+            }
+        }
+        return positionsIndex;
+    }
+
+    private int evaluateFilterWithNulls(int[] positions, int positionCount)
+    {
+        boolean testNull = (nonDeterministicFilter && filter.testNull()) || nullsAllowed;
+
+        int positionsIndex = 0;
+        int i = 0;
+        while (i < positionCount) {
+            int position = positions[i];
+
+            // Note it should not be nulls[position] && testNull
+            if (nulls[position]) {
+                if (testNull) {
+                    outputPositions[positionsIndex++] = position;
+                }
+            }
+            else {
+                if (filter.testBoolean(values[position])) {
+                    outputPositions[positionsIndex++] = position;  // compact positions on the fly
+                }
+                else {
+                    i += filter.getSucceedingPositionsToFail();
+                    positionsIndex -= filter.getPrecedingPositionsToFail();
+                }
+            }
+            i++;
+        }
+        return positionsIndex;
     }
 }
