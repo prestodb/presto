@@ -171,6 +171,7 @@ public final class SystemSessionProperties
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
+    public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -890,12 +891,22 @@ public final class SystemSessionProperties
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
                         "Apply access control rules on only those columns that are required to produce the query output",
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
+                        false),
+                booleanProperty(
+                        ALLOW_WINDOW_ORDER_BY_LITERALS,
+                        "Allow ORDER BY literals in window functions",
+                        featuresConfig.isAllowWindowOrderByLiterals(),
                         false));
     }
 
     public static boolean isSkipRedundantSort(Session session)
     {
         return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
+    }
+
+    public static boolean isAllowWindowOrderByLiterals(Session session)
+    {
+        return session.getSystemProperty(ALLOW_WINDOW_ORDER_BY_LITERALS, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
