@@ -6,6 +6,7 @@ Release Notes
     :maxdepth: 1
 
     release/release-0.244
+    release/release-0.243.4
     release/release-0.243.3
     release/release-0.243.2
     release/release-0.243.1
