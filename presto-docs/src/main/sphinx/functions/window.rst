@@ -26,6 +26,8 @@ For example, the following query ranks orders for each clerk by price::
     FROM orders
     ORDER BY clerk, rnk
 
+**Note that ORDER BY clause within window functions does not support ordinals. You need to use the actual expressions**
+
 Aggregate Functions
 -------------------
 
