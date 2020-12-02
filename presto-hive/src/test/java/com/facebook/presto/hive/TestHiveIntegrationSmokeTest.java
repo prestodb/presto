@@ -2388,6 +2388,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
                             .setSystemProperty("scale_writers", "false")
                             .setSystemProperty("writer_min_size", "1MB")
                             .setSystemProperty("task_writer_count", "1")
@@ -2442,6 +2443,7 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate(
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, FILE_RENAMING_ENABLED, "true")
+                            .setCatalogSessionProperty(catalog, PREFER_MANIFESTS_TO_LIST_FILES, "true")
                             .setSystemProperty("scale_writers", "false")
                             .setSystemProperty("writer_min_size", "1MB")
                             .setSystemProperty("task_writer_count", "1")
