@@ -86,6 +86,12 @@ public final class TestingSession
         {
             throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
         }
+
+        @Override
+        public Optional<String> getSchema()
+        {
+            return Optional.empty();
+        }
     };
 
     private TestingSession() {}

@@ -87,6 +87,7 @@ public class TestCassandraConnector
             new CassandraSessionProperties(new CassandraClientConfig()).getSessionProperties(),
             ImmutableMap.of(),
             true,
+            Optional.empty(),
             Optional.empty());
     protected String database;
     protected SchemaTableName table;
