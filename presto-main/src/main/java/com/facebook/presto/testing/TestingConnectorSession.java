@@ -52,10 +52,16 @@ public class TestingConnectorSession
     private final Map<String, Object> propertyValues;
     private final Optional<String> clientInfo;
     private final SqlFunctionProperties sqlFunctionProperties;
+    private final Optional<String> schema;
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty());
+        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), Optional.empty());
+    }
+
+    public TestingConnectorSession(List<PropertyMetadata<?>> properties, Optional<String> schema)
+    {
+        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), schema);
     }
 
     public TestingConnectorSession(
@@ -68,7 +74,8 @@ public class TestingConnectorSession
             List<PropertyMetadata<?>> propertyMetadatas,
             Map<String, Object> propertyValues,
             boolean isLegacyTimestamp,
-            Optional<String> clientInfo)
+            Optional<String> clientInfo,
+            Optional<String> schema)
     {
         this.queryId = queryIdGenerator.createNextQueryId().toString();
         this.identity = new ConnectorIdentity(requireNonNull(user, "user is null"), Optional.empty(), Optional.empty());
@@ -86,6 +93,7 @@ public class TestingConnectorSession
                 .setSessionLocale(locale)
                 .setSessionUser(user)
                 .build();
+        this.schema = requireNonNull(schema, "schema is null");
     }
 
     @Override
@@ -148,6 +156,12 @@ public class TestingConnectorSession
             return type.cast(metadata.getDefaultValue());
         }
         return type.cast(metadata.decode(value));
+    }
+
+    @Override
+    public Optional<String> getSchema()
+    {
+        return schema;
     }
 
     @Override

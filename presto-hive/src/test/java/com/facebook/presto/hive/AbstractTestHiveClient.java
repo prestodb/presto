@@ -1095,6 +1095,12 @@ public abstract class AbstractTestHiveClient
 
                 return session.getProperty(name, type);
             }
+
+            @Override
+            public Optional<String> getSchema()
+            {
+                return Optional.empty();
+            }
         };
     }
 
