@@ -158,13 +158,7 @@ public class MapFlatBatchStreamReader
         else {
             nullVector = new boolean[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
-            if (nullValues == nextBatchSize) {
-                for (int i = 0; i < inMapStreams.size(); i++) {
-                    inMapVectors[i] = null;
-                    totalMapEntries += nextBatchSize;
-                }
-            }
-            else {
+            if (nullValues != nextBatchSize) {
                 for (int i = 0; i < inMapStreams.size(); i++) {
                     inMapVectors[i] = new boolean[nextBatchSize];
                     totalMapEntries += inMapStreams.get(i).getSetBits(nextBatchSize, inMapVectors[i], nullVector);
@@ -177,22 +171,24 @@ public class MapFlatBatchStreamReader
 
         Block[] valueBlocks = new Block[valueStreamReaders.size()];
 
-        for (int keyIndex = 0; keyIndex < valueStreamReaders.size(); keyIndex++) {
-            int mapsContainingKey = 0;
+        if (totalMapEntries > 0) {
+            for (int keyIndex = 0; keyIndex < valueStreamReaders.size(); keyIndex++) {
+                int mapsContainingKey = 0;
 
-            for (int mapIndex = 0; mapIndex < nextBatchSize; mapIndex++) {
-                if (inMapVectors[keyIndex] == null || inMapVectors[keyIndex][mapIndex]) {
-                    mapsContainingKey++;
+                for (int mapIndex = 0; mapIndex < nextBatchSize; mapIndex++) {
+                    if (inMapVectors[keyIndex][mapIndex]) {
+                        mapsContainingKey++;
+                    }
                 }
-            }
 
-            if (mapsContainingKey > 0) {
-                BatchStreamReader streamReader = valueStreamReaders.get(keyIndex);
-                streamReader.prepareNextRead(mapsContainingKey);
-                valueBlocks[keyIndex] = streamReader.readBlock();
-            }
-            else {
-                valueBlocks[keyIndex] = valueType.createBlockBuilder(null, 0).build();
+                if (mapsContainingKey > 0) {
+                    BatchStreamReader streamReader = valueStreamReaders.get(keyIndex);
+                    streamReader.prepareNextRead(mapsContainingKey);
+                    valueBlocks[keyIndex] = streamReader.readBlock();
+                }
+                else {
+                    valueBlocks[keyIndex] = valueType.createBlockBuilder(null, 0).build();
+                }
             }
         }
 
@@ -205,12 +201,14 @@ public class MapFlatBatchStreamReader
 
         for (int mapIndex = 0; mapIndex < nextBatchSize; mapIndex++) {
             int mapLength = 0;
-            for (int keyIndex = 0; keyIndex < inMapVectors.length; keyIndex++) {
-                if (inMapVectors[keyIndex] == null || inMapVectors[keyIndex][mapIndex]) {
-                    mapLength++;
-                    valueType.appendTo(valueBlocks[keyIndex], valueBlockPositions[keyIndex], valueBlockBuilder);
-                    keyIds[keyIdsIndex++] = keyIndex;
-                    valueBlockPositions[keyIndex]++;
+            if (totalMapEntries > 0) {
+                for (int keyIndex = 0; keyIndex < inMapVectors.length; keyIndex++) {
+                    if (inMapVectors[keyIndex][mapIndex]) {
+                        mapLength++;
+                        valueType.appendTo(valueBlocks[keyIndex], valueBlockPositions[keyIndex], valueBlockBuilder);
+                        keyIds[keyIdsIndex++] = keyIndex;
+                        valueBlockPositions[keyIndex]++;
+                    }
                 }
             }
 
