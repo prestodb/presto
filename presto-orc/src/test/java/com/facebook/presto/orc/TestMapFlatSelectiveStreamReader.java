@@ -59,6 +59,7 @@ import static com.facebook.presto.orc.OrcTester.assertFileContentsPresto;
 import static com.facebook.presto.orc.OrcTester.filterRows;
 import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.ALL;
+import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.ALL_EXCEPT_FIRST;
 import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.NONE;
 import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.SOME;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
@@ -313,6 +314,17 @@ public class TestMapFlatSelectiveStreamReader
                 ExpectedValuesBuilder.get(Function.identity()).setNullRowsFrequency(ALL));
     }
 
+    @Test
+    public void testWithAllNullsExceptFirst()
+            throws Exception
+    {
+        // A test case where every flat map is null except the first one
+        runTest(
+                "test_flat_map/flat_map_all_null_maps_except_first.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setNullRowsFrequency(ALL_EXCEPT_FIRST));
+    }
+
     // Some maps are empty
     @Test
     public void testWithEmptyMaps()
@@ -407,7 +419,8 @@ public class TestMapFlatSelectiveStreamReader
                 List<K> requiredKeys = ImmutableList.of(keys.get(0));
                 runTest(testOrcFileName, mapType, pruneMaps(expectedValues, requiredKeys), orcPredicate, Optional.empty(), toSubfields(keyType, requiredKeys));
 
-                requiredKeys = ImmutableList.of(keys.get(1), keys.get(3), keys.get(7), keys.get(11));
+                List<Integer> keyIndices = ImmutableList.of(1, 3, 7, 11);
+                requiredKeys = keyIndices.stream().filter(k -> k < keys.size()).map(keys::get).collect(toList());
                 runTest(testOrcFileName, mapType, pruneMaps(expectedValues, requiredKeys), orcPredicate, Optional.empty(), toSubfields(keyType, requiredKeys));
             }
         }
@@ -515,7 +528,8 @@ public class TestMapFlatSelectiveStreamReader
         {
             NONE,
             SOME,
-            ALL
+            ALL,
+            ALL_EXCEPT_FIRST
         }
 
         private final Function<Integer, K> keyConverter;
@@ -629,6 +643,8 @@ public class TestMapFlatSelectiveStreamReader
                     return true;
                 case SOME:
                     return i % 5 == 0;
+                case ALL_EXCEPT_FIRST:
+                    return i != 0;
                 default:
                     throw new IllegalArgumentException("Got unexpected Frequency: " + frequency);
             }
