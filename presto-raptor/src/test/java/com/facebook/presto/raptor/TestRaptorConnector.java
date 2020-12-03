@@ -228,6 +228,7 @@ public class TestRaptorConnector
                 new RaptorSessionProperties(new StorageManagerConfig()).getSessionProperties(),
                 ImmutableMap.of(),
                 true,
+                Optional.empty(),
                 Optional.empty());
 
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_COMMITTED, false);

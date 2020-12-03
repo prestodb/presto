@@ -159,7 +159,19 @@ public abstract class TestDateTimeFunctionsBase
     private void assertCurrentDateAtInstant(TimeZoneKey timeZoneKey, long instant)
     {
         long expectedDays = epochDaysInZone(timeZoneKey, instant);
-        long dateTimeCalculation = currentDate(new TestingConnectorSession("test", Optional.empty(), Optional.empty(), timeZoneKey, US, instant, ImmutableList.of(), ImmutableMap.of(), isLegacyTimestamp(session), Optional.empty()).getSqlFunctionProperties());
+        long dateTimeCalculation = currentDate(
+                new TestingConnectorSession(
+                        "test",
+                        Optional.empty(),
+                        Optional.empty(),
+                        timeZoneKey,
+                        US,
+                        instant,
+                        ImmutableList.of(),
+                        ImmutableMap.of(),
+                        isLegacyTimestamp(session),
+                        Optional.empty(),
+                        Optional.empty()).getSqlFunctionProperties());
         assertEquals(dateTimeCalculation, expectedDays);
     }
 

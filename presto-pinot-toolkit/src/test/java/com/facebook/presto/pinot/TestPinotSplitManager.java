@@ -156,6 +156,7 @@ public class TestPinotSplitManager
                         PinotSessionProperties.FORBID_SEGMENT_QUERIES,
                         forbidSegmentQueries),
                 new FeaturesConfig().isLegacyTimestamp(),
+                Optional.empty(),
                 Optional.empty());
     }
 
