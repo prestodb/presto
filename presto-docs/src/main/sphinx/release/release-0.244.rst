@@ -5,6 +5,9 @@ Release 0.244
 .. warning::
     There is a bug that causes a failure in reading ORC files having MAP columns with MAP_FLAT encoding where all the entries in the column are empty maps (:pr:`15468`).
 
+.. warning::
+    There is a bug causing failure at startup if function namespace manager is enabled and Thrift is not configured (:pr:`15501`).
+
 **Highlights**
 ==============
 * Improve performance of cross joins.
