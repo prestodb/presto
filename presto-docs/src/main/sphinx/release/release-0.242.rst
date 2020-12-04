@@ -5,6 +5,9 @@ Release 0.242
 .. warning::
     There is a bug in LambdaDefinitionExpression canonicalization introduced since 0.238. For more details, go to :issue:`15424`.
 
+.. warning::
+    There is a bug causing failure at startup if function namespace manager is enabled and Thrift is not configured. Fixed in :pr:`15501`.
+
 **Highlights**
 ==============
 * Add configuration property ``experimental.spiller.task-spilling-strategy`` for choosing different spilling strategy to use.
