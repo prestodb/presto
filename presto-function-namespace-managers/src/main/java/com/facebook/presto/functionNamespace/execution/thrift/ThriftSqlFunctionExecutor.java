@@ -39,6 +39,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.thriftPage;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.Objects.requireNonNull;
 
 public class ThriftSqlFunctionExecutor
 {
@@ -47,14 +48,11 @@ public class ThriftSqlFunctionExecutor
     @Inject
     public ThriftSqlFunctionExecutor(DriftClient<ThriftUdfService> thriftUdfClient)
     {
-        this.thriftUdfClient = thriftUdfClient;
+        this.thriftUdfClient = requireNonNull(thriftUdfClient, "thriftUdfClient is null");
     }
 
     public CompletableFuture<Block> executeFunction(ThriftScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes, Type returnType)
     {
-        if (thriftUdfClient == null) {
-            throw new UnsupportedOperationException("Thrift function execution is not supported");
-        }
         ImmutableList.Builder<PrestoThriftBlock> blocks = ImmutableList.builder();
         for (int i = 0; i < channels.size(); i++) {
             Block block = input.getBlock(channels.get(i));

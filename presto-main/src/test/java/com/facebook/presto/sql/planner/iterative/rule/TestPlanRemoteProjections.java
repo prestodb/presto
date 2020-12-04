@@ -18,7 +18,6 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
-import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -113,7 +112,7 @@ public class TestPlanRemoteProjections
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
-                                new ThriftSqlFunctionExecutor(null)),
+                                null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_0, true);
         functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_1, true);
@@ -280,7 +279,7 @@ public class TestPlanRemoteProjections
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
-                                new ThriftSqlFunctionExecutor(null)),
+                                null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(FUNCTION_REMOTE_FOO_1, true);
         tester.assertThat(new PlanRemotePojections(functionAndTypeManager))

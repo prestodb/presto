@@ -18,6 +18,7 @@ import com.facebook.presto.spi.function.RoutineCharacteristics.Language;
 import com.facebook.presto.thrift.api.udf.ThriftUdfService;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.util.Providers;
 
 import java.util.Map;
 
@@ -40,6 +41,10 @@ public class SimpleAddressThriftSqlFunctionExecutionModule
     @Override
     public void configure(Binder binder)
     {
+        if (supportedLanguages.isEmpty()) {
+            binder.bind(ThriftSqlFunctionExecutor.class).toProvider(Providers.of(null));
+            return;
+        }
         binder.bind(ThriftSqlFunctionExecutor.class).in(SINGLETON);
 
         driftClientBinder(binder)

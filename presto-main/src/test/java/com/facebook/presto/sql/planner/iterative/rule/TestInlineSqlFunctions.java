@@ -22,7 +22,6 @@ import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
-import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -128,7 +127,7 @@ public class TestInlineSqlFunctions
                                 ImmutableMap.of(
                                         SQL, FunctionImplementationType.SQL,
                                         JAVA, THRIFT),
-                                new ThriftSqlFunctionExecutor(null)),
+                                null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql,java")));
         functionAndTypeManager.createFunction(SQL_FUNCTION_SQUARE, true);
         functionAndTypeManager.createFunction(THRIFT_FUNCTION_FOO, true);
