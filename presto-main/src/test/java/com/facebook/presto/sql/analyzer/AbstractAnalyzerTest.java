@@ -24,7 +24,6 @@ import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
-import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -138,7 +137,7 @@ public class AbstractAnalyzerTest
                         "unittest",
                         new SqlFunctionExecutors(
                                 ImmutableMap.of(SQL, FunctionImplementationType.SQL),
-                                new ThriftSqlFunctionExecutor(null)),
+                                null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         metadata.getFunctionAndTypeManager().createFunction(SQL_FUNCTION_SQUARE, true);

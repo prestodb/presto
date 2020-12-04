@@ -23,25 +23,29 @@ import com.facebook.presto.spi.function.ScalarFunctionImplementation;
 import com.facebook.presto.spi.function.ThriftScalarFunctionImplementation;
 import com.google.inject.Inject;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SqlFunctionExecutors
 {
     private final Map<Language, FunctionImplementationType> supportedLanguages;
-    private final ThriftSqlFunctionExecutor thriftSqlFunctionExecutor;
+    private final Optional<ThriftSqlFunctionExecutor> thriftSqlFunctionExecutor;
 
     @Inject
-    public SqlFunctionExecutors(Map<Language, FunctionImplementationType> supportedLanguages, ThriftSqlFunctionExecutor thriftSqlFunctionExecutor)
+    public SqlFunctionExecutors(Map<Language, FunctionImplementationType> supportedLanguages, @Nullable ThriftSqlFunctionExecutor thriftSqlFunctionExecutor)
     {
         this.supportedLanguages = requireNonNull(supportedLanguages, "supportedLanguages is null");
-        this.thriftSqlFunctionExecutor = requireNonNull(thriftSqlFunctionExecutor, "thriftSqlFunctionExecutor is null");
+        this.thriftSqlFunctionExecutor = Optional.ofNullable(thriftSqlFunctionExecutor);
     }
 
     public Set<Language> getSupportedLanguages()
@@ -57,6 +61,7 @@ public class SqlFunctionExecutors
     public CompletableFuture<Block> executeFunction(ScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes, Type returnType)
     {
         checkArgument(functionImplementation instanceof ThriftScalarFunctionImplementation, format("Only support ThriftScalarFunctionImplementation, got %s", functionImplementation.getClass()));
-        return thriftSqlFunctionExecutor.executeFunction((ThriftScalarFunctionImplementation) functionImplementation, input, channels, argumentTypes, returnType);
+        checkState(thriftSqlFunctionExecutor.isPresent(), "Thrift SQL function executor is not setup");
+        return thriftSqlFunctionExecutor.get().executeFunction((ThriftScalarFunctionImplementation) functionImplementation, input, channels, argumentTypes, returnType);
     }
 }
