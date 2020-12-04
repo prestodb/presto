@@ -5,7 +5,6 @@
 PYTHON3       = python3
 SPHINXOPTS    = -j auto
 SPHINXBUILD   = $(PYTHON3) -m sphinx
-PAPER         =
 BUILDDIR      = target
 SOURCEDIR     = src/main/sphinx
 
