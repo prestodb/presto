@@ -34,9 +34,7 @@ public class ParameterRewriter
 
     public ParameterRewriter(List<Expression> parameterValues)
     {
-        requireNonNull(parameterValues, "parameterValues is null");
-        this.parameterValues = parameterValues;
-        this.analysis = null;
+        this(parameterValues, null);
     }
 
     public ParameterRewriter(List<Expression> parameterValues, Analysis analysis)
