@@ -232,7 +232,7 @@ class QueryPlanner
         TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
         translations.setFieldMappings(relationPlan.getFieldMappings());
 
-        PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
+        PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot());
 
         if (node.getWhere().isPresent()) {
             builder = filter(builder, node.getWhere().get(), node);
@@ -303,7 +303,7 @@ class QueryPlanner
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
         translations.setFieldMappings(relationPlan.getFieldMappings());
 
-        return new PlanBuilder(translations, relationPlan.getRoot(), analysis.getParameters());
+        return new PlanBuilder(translations, relationPlan.getRoot());
     }
 
     private RelationPlan planImplicitTable()
@@ -355,8 +355,7 @@ class QueryPlanner
         return new PlanBuilder(outputTranslations, new ProjectNode(
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
-                projections.build()),
-                analysis.getParameters());
+                projections.build()));
     }
 
     private Map<VariableReferenceExpression, RowExpression> coerce(Iterable<? extends Expression> expressions, PlanBuilder subPlan, TranslationMap translations)
@@ -408,8 +407,7 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 projections.build(),
-                LOCAL),
-                analysis.getParameters());
+                LOCAL));
     }
 
     private PlanBuilder explicitCoercionVariables(PlanBuilder subPlan, List<VariableReferenceExpression> alreadyCoerced, Iterable<? extends Expression> uncoerced)
@@ -425,8 +423,7 @@ class QueryPlanner
                 idAllocator.getNextId(),
                 subPlan.getRoot(),
                 assignments,
-                LOCAL),
-                analysis.getParameters());
+                LOCAL));
     }
 
     private PlanBuilder aggregate(PlanBuilder subPlan, QuerySpecification node)
@@ -537,7 +534,7 @@ class QueryPlanner
         if (groupingSets.size() > 1) {
             groupIdVariable = Optional.of(variableAllocator.newVariable("groupId", BIGINT));
             GroupIdNode groupId = new GroupIdNode(idAllocator.getNextId(), subPlan.getRoot(), groupingSets, groupingSetMappings, aggregationArguments, groupIdVariable.get());
-            subPlan = new PlanBuilder(groupingTranslations, groupId, analysis.getParameters());
+            subPlan = new PlanBuilder(groupingTranslations, groupId);
         }
         else {
             Assignments.Builder assignments = Assignments.builder();
@@ -545,7 +542,7 @@ class QueryPlanner
             groupingSetMappings.forEach((key, value) -> assignments.put(key, castToRowExpression(asSymbolReference(value))));
 
             ProjectNode project = new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build(), LOCAL);
-            subPlan = new PlanBuilder(groupingTranslations, project, analysis.getParameters());
+            subPlan = new PlanBuilder(groupingTranslations, project);
         }
 
         TranslationMap aggregationTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
@@ -608,7 +605,7 @@ class QueryPlanner
                 Optional.empty(),
                 groupIdVariable);
 
-        subPlan = new PlanBuilder(aggregationTranslations, aggregationNode, analysis.getParameters());
+        subPlan = new PlanBuilder(aggregationTranslations, aggregationNode);
 
         // 3. Post-projection
         // Add back the implicit casts that we removed in 2.a
@@ -704,7 +701,7 @@ class QueryPlanner
             newTranslations.put(groupingOperation, variable);
         }
 
-        return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build(), LOCAL), analysis.getParameters());
+        return new PlanBuilder(newTranslations, new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), projections.build(), LOCAL));
     }
 
     private PlanBuilder window(PlanBuilder subPlan, OrderBy node)
@@ -850,8 +847,7 @@ class QueryPlanner
                             ImmutableMap.of(newVariable, function),
                             Optional.empty(),
                             ImmutableSet.of(),
-                            0),
-                    analysis.getParameters());
+                            0));
 
             if (needCoercion) {
                 subPlan = explicitCoercionVariables(subPlan, subPlan.getRoot().getOutputVariables(), ImmutableList.of(windowFunction));
