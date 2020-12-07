@@ -41,6 +41,7 @@ import com.facebook.presto.testing.TestingSession;
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.units.DataSize;
@@ -338,8 +339,9 @@ public class TestMemoryRevokingScheduler
 
         allOperatorContexts = ImmutableSet.of(operatorContext11, operatorContext12, operatorContext2);
         List<SqlTask> tasks = ImmutableList.of(sqlTask1, sqlTask2);
+        ImmutableMap<TaskId, SqlTask> taskMap = ImmutableMap.of(sqlTask1.getTaskId(), sqlTask1, sqlTask2.getTaskId(), sqlTask2);
         TaskThresholdMemoryRevokingScheduler scheduler = new TaskThresholdMemoryRevokingScheduler(
-                () -> tasks, executor, 5L);
+                singletonList(memoryPool), () -> tasks, taskMap::get, executor, 5L);
 
         assertMemoryRevokingNotRequested();
 
@@ -383,6 +385,70 @@ public class TestMemoryRevokingScheduler
         operatorContext2.localRevocableMemoryContext().setBytes(6);
         // at this point, Task1 = 4 total bytes, Task2 = 6 total bytes, operators in Task2 must be revoked
         requestMemoryRevoking(scheduler);
+        assertMemoryRevokingRequestedFor(operatorContext2);
+    }
+
+    @Test
+    public void testTaskThresholdRevokingSchedulerImmediate()
+            throws Exception
+    {
+        SqlTask sqlTask1 = newSqlTask();
+        TestOperatorContext operatorContext11 = createTestingOperatorContexts(sqlTask1, "operator11");
+        TestOperatorContext operatorContext12 = createTestingOperatorContexts(sqlTask1, "operator12");
+
+        SqlTask sqlTask2 = newSqlTask();
+        TestOperatorContext operatorContext2 = createTestingOperatorContexts(sqlTask2, "operator2");
+
+        allOperatorContexts = ImmutableSet.of(operatorContext11, operatorContext12, operatorContext2);
+        List<SqlTask> tasks = ImmutableList.of(sqlTask1, sqlTask2);
+        ImmutableMap<TaskId, SqlTask> taskMap = ImmutableMap.of(sqlTask1.getTaskId(), sqlTask1, sqlTask2.getTaskId(), sqlTask2);
+        TaskThresholdMemoryRevokingScheduler scheduler = new TaskThresholdMemoryRevokingScheduler(
+                singletonList(memoryPool), () -> tasks, taskMap::get, executor, 5L);
+        scheduler.registerPoolListeners(); // no periodic check initiated
+
+        assertMemoryRevokingNotRequested();
+
+        operatorContext11.localRevocableMemoryContext().setBytes(3);
+        operatorContext2.localRevocableMemoryContext().setBytes(2);
+        // at this point, Task1 = 3 total bytes, Task2 = 2 total bytes
+
+        // this ensures that we are waiting for the memory revocation listener and not using polling-based revoking
+        awaitAsynchronousCallbacksRun();
+        assertMemoryRevokingNotRequested();
+
+        operatorContext12.localRevocableMemoryContext().setBytes(3);
+        // at this point, Task1 = 6 total bytes, Task2 = 2 total bytes
+
+        awaitAsynchronousCallbacksRun();
+        // only operator11 should revoke since we need to revoke only 1 byte
+        // threshold - (operator11 + operator12) => 5 - (3 + 3) = 1 bytes to revoke
+        assertMemoryRevokingRequestedFor(operatorContext11);
+
+        // revoke 2 bytes in operator11
+        operatorContext11.localRevocableMemoryContext().setBytes(1);
+        // at this point, Task1 = 3 total bytes, Task2 = 2 total bytes
+        operatorContext11.resetMemoryRevokingRequested();
+        awaitAsynchronousCallbacksRun();
+        assertMemoryRevokingNotRequested();
+
+        operatorContext12.localRevocableMemoryContext().setBytes(6); // operator12 fills up
+        // at this point, Task1 = 7 total bytes, Task2 = 2 total bytes
+        awaitAsynchronousCallbacksRun();
+        // both operator11 and operator 12 are revoking since we revoke in order of operator creation within the task until we are below the memory revoking threshold
+        assertMemoryRevokingRequestedFor(operatorContext11, operatorContext12);
+
+        operatorContext11.localRevocableMemoryContext().setBytes(2);
+        operatorContext11.resetMemoryRevokingRequested();
+        operatorContext12.localRevocableMemoryContext().setBytes(2);
+        operatorContext12.resetMemoryRevokingRequested();
+        // at this point, Task1 = 4 total bytes, Task2 = 2 total bytes
+
+        awaitAsynchronousCallbacksRun();
+        assertMemoryRevokingNotRequested(); // no need to revoke
+
+        operatorContext2.localRevocableMemoryContext().setBytes(6);
+        // at this point, Task1 = 4 total bytes, Task2 = 6 total bytes, operators in Task2 must be revoked
+        awaitAsynchronousCallbacksRun();
         assertMemoryRevokingRequestedFor(operatorContext2);
     }
 
