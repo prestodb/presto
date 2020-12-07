@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.execution.MemoryRevokingUtils.getMemoryPools;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.PER_TASK_MEMORY_THRESHOLD;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -109,15 +110,6 @@ public class MemoryRevokingScheduler
         requireNonNull(valueName, "valueName is null");
         checkArgument(0 <= value && value <= 1, "%s should be within [0, 1] range, got %s", valueName, value);
         return value;
-    }
-
-    private static List<MemoryPool> getMemoryPools(LocalMemoryManager localMemoryManager)
-    {
-        requireNonNull(localMemoryManager, "localMemoryManager can not be null");
-        ImmutableList.Builder<MemoryPool> builder = new ImmutableList.Builder<>();
-        builder.add(localMemoryManager.getGeneralPool());
-        localMemoryManager.getReservedPool().ifPresent(builder::add);
-        return builder.build();
     }
 
     @PostConstruct
