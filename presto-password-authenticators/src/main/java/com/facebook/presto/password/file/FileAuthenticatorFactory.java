@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.password;
+package com.facebook.presto.password.file;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.spi.security.PasswordAuthenticator;
@@ -24,13 +24,13 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 
-public class LdapAuthenticatorFactory
+public class FileAuthenticatorFactory
         implements PasswordAuthenticatorFactory
 {
     @Override
     public String getName()
     {
-        return "ldap";
+        return "file";
     }
 
     @Override
@@ -39,8 +39,8 @@ public class LdapAuthenticatorFactory
         try {
             Bootstrap app = new Bootstrap(
                     binder -> {
-                        configBinder(binder).bindConfig(LdapConfig.class);
-                        binder.bind(LdapAuthenticator.class).in(Scopes.SINGLETON);
+                        configBinder(binder).bindConfig(FileConfig.class);
+                        binder.bind(FileAuthenticator.class).in(Scopes.SINGLETON);
                     });
 
             Injector injector = app
@@ -48,7 +48,7 @@ public class LdapAuthenticatorFactory
                     .setRequiredConfigurationProperties(config)
                     .initialize();
 
-            return injector.getInstance(LdapAuthenticator.class);
+            return injector.getInstance(FileAuthenticator.class);
         }
         catch (Exception e) {
             throwIfUnchecked(e);
