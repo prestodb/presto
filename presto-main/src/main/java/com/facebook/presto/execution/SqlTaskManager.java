@@ -316,6 +316,11 @@ public class SqlTaskManager
         return ImmutableList.copyOf(tasks.asMap().values());
     }
 
+    public SqlTask getTask(TaskId taskId)
+    {
+        return tasks.getUnchecked(taskId);
+    }
+
     @Override
     public List<TaskInfo> getAllTaskInfo()
     {
