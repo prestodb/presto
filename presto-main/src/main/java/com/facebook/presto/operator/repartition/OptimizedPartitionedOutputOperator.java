@@ -90,6 +90,7 @@ public class OptimizedPartitionedOutputOperator
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitioner pagePartitioner;
     private final LocalMemoryContext systemMemoryContext;
+    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
     private boolean finished;
 
     public OptimizedPartitionedOutputOperator(
@@ -151,8 +152,14 @@ public class OptimizedPartitionedOutputOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ListenableFuture<?> blocked = pagePartitioner.isFull();
-        return blocked.isDone() ? NOT_BLOCKED : blocked;
+        // Avoid re-synchronizing on the output buffer when operator is already blocked
+        if (isBlocked.isDone()) {
+            isBlocked = pagePartitioner.isFull();
+            if (isBlocked.isDone()) {
+                isBlocked = NOT_BLOCKED;
+            }
+        }
+        return isBlocked;
     }
 
     @Override
