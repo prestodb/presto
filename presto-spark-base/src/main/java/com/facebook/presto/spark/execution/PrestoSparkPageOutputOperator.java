@@ -130,6 +130,8 @@ public class PrestoSparkPageOutputOperator
     private final Function<Page, Page> pagePreprocessor;
     private final PagesSerde pagesSerde;
 
+    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
+
     private boolean finished;
 
     public PrestoSparkPageOutputOperator(
@@ -153,7 +155,13 @@ public class PrestoSparkPageOutputOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return outputBuffer.isFull();
+        if (isBlocked.isDone()) {
+            isBlocked = outputBuffer.isFull();
+            if (isBlocked.isDone()) {
+                isBlocked = NOT_BLOCKED;
+            }
+        }
+        return isBlocked;
     }
 
     @Override

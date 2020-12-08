@@ -231,6 +231,7 @@ public class PrestoSparkRowOutputOperator
 
     private PrestoSparkRowBatchBuilder rowBatchBuilder;
 
+    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
     private boolean finished;
     private boolean hasAnyRowBeenReplicated;
 
@@ -267,7 +268,13 @@ public class PrestoSparkRowOutputOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return outputBuffer.isFull();
+        if (isBlocked.isDone()) {
+            isBlocked = outputBuffer.isFull();
+            if (isBlocked.isDone()) {
+                isBlocked = NOT_BLOCKED;
+            }
+        }
+        return isBlocked;
     }
 
     @Override
