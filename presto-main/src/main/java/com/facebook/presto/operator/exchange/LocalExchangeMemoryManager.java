@@ -16,28 +16,26 @@ package com.facebook.presto.operator.exchange;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 @ThreadSafe
 public class LocalExchangeMemoryManager
 {
-    private static final SettableFuture<?> NOT_FULL;
-
-    static {
-        NOT_FULL = SettableFuture.create();
-        NOT_FULL.set(null);
-    }
+    private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
     private final long maxBufferedBytes;
     private final AtomicLong bufferedBytes = new AtomicLong();
 
+    @Nullable
     @GuardedBy("this")
-    private SettableFuture<?> notFullFuture = NOT_FULL;
+    private SettableFuture<?> notFullFuture;  // null represents "no callback registered"
 
     public LocalExchangeMemoryManager(long maxBufferedBytes)
     {
@@ -47,31 +45,39 @@ public class LocalExchangeMemoryManager
 
     public void updateMemoryUsage(long bytesAdded)
     {
-        SettableFuture<?> future;
-        synchronized (this) {
-            bufferedBytes.addAndGet(bytesAdded);
-
-            // if we are full, then breakout
-            if (bufferedBytes.get() > maxBufferedBytes || notFullFuture.isDone()) {
-                return;
+        long bufferedBytes = this.bufferedBytes.addAndGet(bytesAdded);
+        // detect the transition from above to below the full boundary
+        if (bufferedBytes <= maxBufferedBytes && (bufferedBytes - bytesAdded) > maxBufferedBytes) {
+            SettableFuture<?> future;
+            synchronized (this) {
+                // if we have no callback waiting, return early
+                if (notFullFuture == null) {
+                    return;
+                }
+                future = notFullFuture;
+                notFullFuture = null;
             }
-
-            // otherwise, we are not full, so complete the future
-            future = notFullFuture;
-            notFullFuture = NOT_FULL;
+            // complete future outside of lock since this can invoke callbacks
+            future.set(null);
         }
-
-        // complete future outside of lock since this can invoke callbacks
-        future.set(null);
     }
 
-    public synchronized ListenableFuture<?> getNotFullFuture()
+    public ListenableFuture<?> getNotFullFuture()
     {
-        // if we are full and the current not full future is already complete, create a new one
-        if (bufferedBytes.get() > maxBufferedBytes && notFullFuture.isDone()) {
-            notFullFuture = SettableFuture.create();
+        if (bufferedBytes.get() <= maxBufferedBytes) {
+            return NOT_BLOCKED;
         }
-        return notFullFuture;
+        synchronized (this) {
+            // Recheck after synchronizing but before creating a real listener
+            if (bufferedBytes.get() <= maxBufferedBytes) {
+                return NOT_BLOCKED;
+            }
+            // if we are full and no current listener is registered, create one
+            if (notFullFuture == null) {
+                notFullFuture = SettableFuture.create();
+            }
+            return notFullFuture;
+        }
     }
 
     public long getBufferedBytes()
