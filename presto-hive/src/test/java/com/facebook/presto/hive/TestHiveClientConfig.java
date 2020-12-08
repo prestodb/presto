@@ -149,7 +149,9 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false)
                 .setFileRenamingEnabled(false)
                 .setPreferManifestsToListFiles(false)
-                .setManifestVerificationEnabled(false));
+                .setManifestVerificationEnabled(false)
+                .setPreferMetadataToListHudiFiles(false)
+                .setHudiMetadataVerificationEnabled(false));
     }
 
     @Test
@@ -260,6 +262,8 @@ public class TestHiveClientConfig
                 .put("hive.file_renaming_enabled", "true")
                 .put("hive.prefer-manifests-to-list-files", "true")
                 .put("hive.manifest-verification-enabled", "true")
+                .put("hive.prefer-metadata-to-list-hudi-files", "true")
+                .put("hive.hudi-metadata-verification-enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -366,7 +370,9 @@ public class TestHiveClientConfig
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true)
                 .setFileRenamingEnabled(true)
                 .setPreferManifestsToListFiles(true)
-                .setManifestVerificationEnabled(true);
+                .setManifestVerificationEnabled(true)
+                .setPreferMetadataToListHudiFiles(true)
+                .setHudiMetadataVerificationEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

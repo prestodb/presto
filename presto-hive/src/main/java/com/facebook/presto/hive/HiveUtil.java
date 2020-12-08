@@ -32,9 +32,9 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.pagefile.PageInputFormat;
 import com.facebook.presto.hive.util.FooterAwareRecordReader;
-import com.facebook.presto.hive.util.HudiRealtimeSplitConverter;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
@@ -75,6 +75,10 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hudi.common.config.HoodieMetadataConfig;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.hadoop.HoodieParquetInputFormat;
+import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
 import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
@@ -135,6 +139,8 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_SERDE_NOT_FOUND;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TABLE_BUCKETING_IS_IGNORED;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static com.facebook.presto.hive.HiveSessionProperties.isHudiMetadataVerificationEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isPreferMetadataToListHudiFiles;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
 import static com.facebook.presto.hive.util.ConfigurationUtils.copy;
@@ -187,6 +193,8 @@ public final class HiveUtil
     private static final int DECIMAL_SCALE_GROUP = 2;
 
     private static final String BIG_DECIMAL_POSTFIX = "BD";
+
+    public static final String CUSTOM_FILE_SPLIT_CLASS_KEY = "custom_split_class";
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -286,7 +294,7 @@ public final class HiveUtil
 
     private static boolean isHudiRealtimeSplit(Map<String, String> customSplitInfo)
     {
-        String customSplitClass = customSplitInfo.get(HudiRealtimeSplitConverter.CUSTOM_SPLIT_CLASS_KEY);
+        String customSplitClass = customSplitInfo.get(CUSTOM_FILE_SPLIT_CLASS_KEY);
         return HoodieRealtimeFileSplit.class.getName().equals(customSplitClass);
     }
 
@@ -357,13 +365,85 @@ public final class HiveUtil
         return name;
     }
 
-    public static boolean shouldUseRecordReaderFromInputFormat(Configuration configuration, Storage storage)
+    /**
+     * Checks whether to use RecordReader from configured InputFormat for reading or not. It will be used only if
+     * the InputFormat is using a custom FileSplit implementation, and has an annotation named
+     * UseRecordReaderFromInputFormat to specifically indicate using RecordReader.
+     *
+     * @param configuration Hadoop configuration
+     * @param storage Hive storage information
+     * @param customSplitInfo Custom split information
+     * @return Boolean indicating whether to use RecordReader or not.
+     */
+    public static boolean shouldUseRecordReaderFromInputFormat(Configuration configuration, Storage storage,
+                                                               Map<String, String> customSplitInfo)
     {
-        InputFormat<?, ?> inputFormat = HiveUtil.getInputFormat(configuration, storage.getStorageFormat().getInputFormat(), false);
-        return Arrays.stream(inputFormat.getClass().getAnnotations())
-            .map(Annotation::annotationType)
-            .map(Class::getSimpleName)
-            .anyMatch(name -> name.equals("UseRecordReaderFromInputFormat"));
+        if (customSplitInfo != null && customSplitInfo.containsKey(HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY)) {
+            InputFormat<?, ?> inputFormat = HiveUtil.getInputFormat(configuration,
+                    storage.getStorageFormat().getInputFormat(), false);
+            return Arrays.stream(inputFormat.getClass().getAnnotations())
+                    .map(Annotation::annotationType)
+                    .map(Class::getSimpleName)
+                    .anyMatch(name -> name.equals("UseRecordReaderFromInputFormat"));
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks whether to use File Splitting logic from configured InputFormat or not. It checks for the presence of an
+     * annotation named UseFileSplitsFromInputFormat on the InputFormat class. In addition, there are some additional
+     * checks for Apache Hudi tables.
+     * @param inputFormat InputFormat configured for the table
+     * @param conf Hadoop Configuration
+     * @param tablePath  Base path for the table
+     * @return Boolean indicating whether to use File Splitting logic from Input Format or not.
+     */
+    static boolean shouldUseFileSplitsFromInputFormat(ConnectorSession session, InputFormat<?, ?> inputFormat,
+                                                      Configuration conf, String tablePath)
+    {
+        boolean hasUseSplitsAnnotation = Arrays.stream(inputFormat.getClass().getAnnotations())
+                .map(Annotation::annotationType)
+                .map(Class::getSimpleName)
+                .anyMatch(name -> name.equals("UseFileSplitsFromInputFormat"));
+        return hasUseSplitsAnnotation && (!isHudiTable(inputFormat) ||
+                shouldUseFileSplitsForHudi(session, inputFormat, conf, tablePath));
+    }
+
+    /**
+     * This function does additional checks for Apache Hudi tables, to check if File Splitting logic should be used from
+     * Hudi's input format. For Hudi, we need to use file splits logic in the following scenarios:
+     * 1. If the table type is Merge on Read, which means the InputFormat should extend from HoodieRealtimeInputFormat
+     * 2. If the table is created through Hudi BOOTSTRAP operation.
+     *
+     * @param inputFormat InputFormat configured for the table
+     * @param conf Hadoop Configuration
+     * @param tablePath Base path for the table
+     * @return Boolean indicating whether to use File Splitting logic from Input Format or not.
+     */
+    static boolean shouldUseFileSplitsForHudi(ConnectorSession session, InputFormat<?, ?> inputFormat, Configuration conf,
+                                              String tablePath)
+    {
+        // Set Hudi metadata based listing configurations to be used through input format
+        conf.set(HoodieMetadataConfig.METADATA_ENABLE_PROP, String.valueOf(isPreferMetadataToListHudiFiles(session)));
+        conf.set(HoodieMetadataConfig.METADATA_VALIDATE_PROP, String.valueOf(isHudiMetadataVerificationEnabled(session)));
+
+        if (inputFormat instanceof HoodieParquetRealtimeInputFormat) {
+            return true;
+        }
+
+        HoodieTableMetaClient hoodieTableMetaClient = new HoodieTableMetaClient(conf, tablePath);
+        return hoodieTableMetaClient.getTableConfig().getBootstrapBasePath().isPresent();
+    }
+
+    /**
+     * Checks whether a table is a Hudi table based on configured InputFormat.
+     * @param inputFormat InputFormat configured for the table
+     * @return Boolean indicating whether the table is a Hudi table or not.
+     */
+    static boolean isHudiTable(InputFormat<?, ?> inputFormat)
+    {
+        return inputFormat instanceof HoodieParquetInputFormat;
     }
 
     public static long parseHiveDate(String value)

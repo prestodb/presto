@@ -49,8 +49,12 @@
 
         <dependency>
             <groupId>org.apache.hudi</groupId>
+            <artifactId>hudi-common</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.hudi</groupId>
             <artifactId>hudi-hadoop-mr</artifactId>
-            <version>${dep.hudi.version}</version>
         </dependency>
 
         <dependency>

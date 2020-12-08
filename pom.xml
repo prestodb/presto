@@ -69,7 +69,7 @@
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.19.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
-        <dep.hudi.version>0.5.3</dep.hudi.version>
+        <dep.hudi.version>0.7.0</dep.hudi.version>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -1036,9 +1036,49 @@
 
             <dependency>
                 <groupId>org.apache.hudi</groupId>
+                <artifactId>hudi-common</artifactId>
+                <version>${dep.hudi.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.hbase</groupId>
+                        <artifactId>hbase-server</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpclient</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>fluent-hc</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.rocksdb</groupId>
+                        <artifactId>rocksdbjni</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.esotericsoftware</groupId>
+                        <artifactId>kryo-shaded</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hudi</groupId>
                 <artifactId>hudi-hadoop-mr</artifactId>
                 <version>${dep.hudi.version}</version>
                 <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.hbase</groupId>
+                        <artifactId>hbase-server</artifactId>
+                    </exclusion>
                     <exclusion>
                         <groupId>org.objenesis</groupId>
                         <artifactId>objenesis</artifactId>

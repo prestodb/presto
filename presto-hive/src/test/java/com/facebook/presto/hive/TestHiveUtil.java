@@ -17,13 +17,18 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
+import com.facebook.presto.hive.util.HudiRealtimeSplitConverter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.thrift.ThriftDeserializer;
 import org.apache.hadoop.hive.serde2.thrift.test.IntString;
+import org.apache.hudi.hadoop.HoodieParquetInputFormat;
+import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -33,7 +38,9 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -97,11 +104,22 @@ public class TestHiveUtil
     @Test
     public void testShouldUseRecordReaderFromInputFormat()
     {
-        StorageFormat hudiStorageFormat = StorageFormat.create("parquet.hive.serde.ParquetHiveSerDe", "org.apache.hudi.hadoop.HoodieParquetInputFormat", "");
-        assertFalse(shouldUseRecordReaderFromInputFormat(new Configuration(), new Storage(hudiStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(), ImmutableMap.of())));
+        StorageFormat hudiStorageFormat = StorageFormat.create(ParquetHiveSerDe.class.getName(),
+                HoodieParquetInputFormat.class.getName(), "");
+        assertFalse(shouldUseRecordReaderFromInputFormat(new Configuration(),
+                new Storage(hudiStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(),
+                        ImmutableMap.of()), Collections.emptyMap()));
 
-        StorageFormat hudiRealtimeStorageFormat = StorageFormat.create("parquet.hive.serde.ParquetHiveSerDe", "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat", "");
-        assertTrue(shouldUseRecordReaderFromInputFormat(new Configuration(), new Storage(hudiRealtimeStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(), ImmutableMap.of())));
+        StorageFormat hudiRealtimeStorageFormat = StorageFormat.create(ParquetHiveSerDe.class.getName(),
+                HoodieRealtimeInputFormat.class.getName(), "");
+        Map<String, String> customSplitInfo = ImmutableMap.of(
+                HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY, HoodieRealtimeFileSplit.class.getName(),
+                HudiRealtimeSplitConverter.HUDI_BASEPATH_KEY, "/test/file.parquet",
+                HudiRealtimeSplitConverter.HUDI_DELTA_FILEPATHS_KEY, "/test/.file_100.log",
+                HudiRealtimeSplitConverter.HUDI_MAX_COMMIT_TIME_KEY, "100");
+        assertTrue(shouldUseRecordReaderFromInputFormat(new Configuration(),
+                new Storage(hudiRealtimeStorageFormat, "test", Optional.empty(), true, ImmutableMap.of(),
+                        ImmutableMap.of()), customSplitInfo));
     }
 
     private static void assertToPartitionValues(String partitionName)

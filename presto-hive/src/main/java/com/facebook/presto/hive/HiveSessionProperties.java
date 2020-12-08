@@ -117,6 +117,8 @@ public final class HiveSessionProperties
     public static final String PREFER_MANIFESTS_TO_LIST_FILES = "prefer_manifests_to_list_files";
     public static final String MANIFEST_VERIFICATION_ENABLED = "manifest_verification_enabled";
     public static final String NEW_PARTITION_USER_SUPPLIED_PARAMETER = "new_partition_user_supplied_parameter";
+    public static final String PREFER_METADATA_TO_LIST_HUDI_FILES = "prefer_metadata_to_list_hudi_files";
+    public static final String HUDI_METADATA_VERIFICATION_ENABLED = "hudi_metadata_verification_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -551,7 +553,17 @@ public final class HiveSessionProperties
                         NEW_PARTITION_USER_SUPPLIED_PARAMETER,
                         "\"user_supplied\" parameter added to all newly created partitions",
                         null,
-                        true));
+                        true),
+                booleanProperty(
+                        PREFER_METADATA_TO_LIST_HUDI_FILES,
+                        "For Hudi tables prefer to fetch the list of files from its metadata",
+                        hiveClientConfig.isPreferMetadataToListHudiFiles(),
+                        false),
+                booleanProperty(
+                        HUDI_METADATA_VERIFICATION_ENABLED,
+                        "Verify file listing maintained in Hudi table metadata against the file system",
+                        hiveClientConfig.isHudiMetadataVerificationEnabled(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -965,5 +977,15 @@ public final class HiveSessionProperties
     public static Optional<String> getNewPartitionUserSuppliedParameter(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(NEW_PARTITION_USER_SUPPLIED_PARAMETER, String.class));
+    }
+
+    public static boolean isPreferMetadataToListHudiFiles(ConnectorSession session)
+    {
+        return session.getProperty(PREFER_METADATA_TO_LIST_HUDI_FILES, Boolean.class);
+    }
+
+    public static boolean isHudiMetadataVerificationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(HUDI_METADATA_VERIFICATION_ENABLED, Boolean.class);
     }
 }

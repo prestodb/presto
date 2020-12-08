@@ -186,6 +186,8 @@ public class HiveClientConfig
     private boolean fileRenamingEnabled;
     private boolean preferManifestToListFiles;
     private boolean manifestVerificationEnabled;
+    private boolean preferMetadataToListHudiFiles;
+    private boolean hudiMetadataVerificationEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -1579,5 +1581,31 @@ public class HiveClientConfig
     public boolean isManifestVerificationEnabled()
     {
         return this.manifestVerificationEnabled;
+    }
+
+    @Config("hive.prefer-metadata-to-list-hudi-files")
+    @ConfigDescription("For Hudi tables prefer to fetch the list of file names and sizes from metadata rather than storage")
+    public HiveClientConfig setPreferMetadataToListHudiFiles(boolean preferMetadataToListHudiFiles)
+    {
+        this.preferMetadataToListHudiFiles = preferMetadataToListHudiFiles;
+        return this;
+    }
+
+    public boolean isPreferMetadataToListHudiFiles()
+    {
+        return this.preferMetadataToListHudiFiles;
+    }
+
+    @Config("hive.hudi-metadata-verification-enabled")
+    @ConfigDescription("Enable verification of file names and sizes in Hudi metadata")
+    public HiveClientConfig setHudiMetadataVerificationEnabled(boolean hudiMetadataVerificationEnabled)
+    {
+        this.hudiMetadataVerificationEnabled = hudiMetadataVerificationEnabled;
+        return this;
+    }
+
+    public boolean isHudiMetadataVerificationEnabled()
+    {
+        return this.hudiMetadataVerificationEnabled;
     }
 }
