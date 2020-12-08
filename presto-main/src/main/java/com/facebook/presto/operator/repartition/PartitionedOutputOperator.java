@@ -184,6 +184,7 @@ public class PartitionedOutputOperator
     private final OperatorContext operatorContext;
     private final Function<Page, Page> pagePreprocessor;
     private final PagePartitioner partitionFunction;
+    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
     private boolean finished;
 
     public PartitionedOutputOperator(
@@ -243,8 +244,14 @@ public class PartitionedOutputOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ListenableFuture<?> blocked = partitionFunction.isFull();
-        return blocked.isDone() ? NOT_BLOCKED : blocked;
+        // Avoid re-synchronizing on the output buffer when operator is already blocked
+        if (isBlocked.isDone()) {
+            isBlocked = partitionFunction.isFull();
+            if (isBlocked.isDone()) {
+                isBlocked = NOT_BLOCKED;
+            }
+        }
+        return isBlocked;
     }
 
     @Override
