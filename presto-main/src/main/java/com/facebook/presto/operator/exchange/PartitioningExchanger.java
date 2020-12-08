@@ -15,6 +15,7 @@ package com.facebook.presto.operator.exchange;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.operator.PartitionFunction;
+import com.facebook.presto.operator.exchange.PageReference.PageReleasedListener;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -36,6 +37,7 @@ class PartitioningExchanger
     private final int[] partitioningChannels;
     private final Optional<Integer> hashChannel;
     private final IntArrayList[] partitionAssignments;
+    private final PageReleasedListener onPageReleased;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
@@ -49,6 +51,7 @@ class PartitioningExchanger
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitioningChannels = Ints.toArray(requireNonNull(partitioningChannels, "partitioningChannels is null"));
         this.hashChannel = requireNonNull(hashChannel, "hashChannel is null");
+        this.onPageReleased = PageReleasedListener.forLocalExchangeMemoryManager(memoryManager);
 
         partitionAssignments = new IntArrayList[partitions.size()];
         for (int i = 0; i < partitionAssignments.length; i++) {
@@ -77,7 +80,7 @@ class PartitioningExchanger
             if (!positions.isEmpty()) {
                 Page pageSplit = page.copyPositions(positions.elements(), 0, positions.size());
                 memoryManager.updateMemoryUsage(pageSplit.getRetainedSizeInBytes());
-                buffers.get(partition).accept(new PageReference(pageSplit, 1, () -> memoryManager.updateMemoryUsage(-pageSplit.getRetainedSizeInBytes())));
+                buffers.get(partition).accept(new PageReference(pageSplit, 1, onPageReleased));
             }
         }
     }
