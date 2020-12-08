@@ -17,24 +17,27 @@ import com.facebook.presto.common.Page;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-class PageReference
+final class PageReference
 {
-    private final Page page;
-    private final Runnable onFree;
-    private final AtomicInteger referenceCount;
+    private static final AtomicIntegerFieldUpdater<PageReference> REFERENCE_COUNT_UPDATER = AtomicIntegerFieldUpdater.newUpdater(PageReference.class, "referenceCount");
 
-    public PageReference(Page page, int referenceCount, Runnable onFree)
+    private volatile int referenceCount;
+    private final Page page;
+    private final PageReleasedListener onPageReleased;
+
+    public PageReference(Page page, int referenceCount, PageReleasedListener onPageReleased)
     {
         this.page = requireNonNull(page, "page is null");
-        this.onFree = requireNonNull(onFree, "onFree is null");
+        this.onPageReleased = requireNonNull(onPageReleased, "onPageReleased is null");
         checkArgument(referenceCount >= 1, "referenceCount must be at least 1");
-        this.referenceCount = new AtomicInteger(referenceCount);
+        this.referenceCount = referenceCount;
     }
 
     public long getRetainedSizeInBytes()
@@ -44,11 +47,31 @@ class PageReference
 
     public Page removePage()
     {
-        int referenceCount = this.referenceCount.decrementAndGet();
+        int referenceCount = REFERENCE_COUNT_UPDATER.decrementAndGet(this);
         checkArgument(referenceCount >= 0, "Page reference count is negative");
         if (referenceCount == 0) {
-            onFree.run();
+            onPageReleased.onPageReleased(page.getRetainedSizeInBytes());
         }
         return page;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("size", getRetainedSizeInBytes())
+                .add("referenceCount", referenceCount)
+                .toString();
+    }
+
+    interface PageReleasedListener
+    {
+        void onPageReleased(long releasedSizeInBytes);
+
+        static PageReleasedListener forLocalExchangeMemoryManager(LocalExchangeMemoryManager memoryManager)
+        {
+            requireNonNull(memoryManager, "memoryManager is null");
+            return (releasedSizeInBytes) -> memoryManager.updateMemoryUsage(-releasedSizeInBytes);
+        }
     }
 }
