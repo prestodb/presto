@@ -154,7 +154,9 @@ public class TestHiveClientConfig
                 .setUndoMetastoreOperationsEnabled(true)
                 .setOptimizedPartitionUpdateSerializationEnabled(false)
                 .setPartitionLeaseDuration(new Duration(0, TimeUnit.SECONDS))
-                .setLooseMemoryAccountingEnabled(false));
+                .setLooseMemoryAccountingEnabled(false)
+                .setPreferMetadataToListHudiFiles(false)
+                .setHudiMetadataVerificationEnabled(false));
     }
 
     @Test
@@ -270,6 +272,8 @@ public class TestHiveClientConfig
                 .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
                 .put("hive.partition-lease-duration", "4h")
                 .put("hive.loose-memory-accounting-enabled", "true")
+                .put("hive.prefer-metadata-to-list-hudi-files", "true")
+                .put("hive.hudi-metadata-verification-enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -381,7 +385,9 @@ public class TestHiveClientConfig
                 .setUndoMetastoreOperationsEnabled(false)
                 .setOptimizedPartitionUpdateSerializationEnabled(true)
                 .setPartitionLeaseDuration(new Duration(4, TimeUnit.HOURS))
-                .setLooseMemoryAccountingEnabled(true);
+                .setLooseMemoryAccountingEnabled(true)
+                .setPreferMetadataToListHudiFiles(true)
+                .setHudiMetadataVerificationEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
