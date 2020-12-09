@@ -177,11 +177,6 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>security</artifactId>
         </dependency>
-
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
     </dependencies>
 
     <build>
