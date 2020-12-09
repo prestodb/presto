@@ -24,10 +24,11 @@ import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -60,7 +61,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class CassandraPageSink
         implements ConnectorPageSink
 {
-    private static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date().withZoneUTC();
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneId.of("UTC"));
 
     private final CassandraSession cassandraSession;
     private final PreparedStatement insert;
@@ -85,7 +86,7 @@ public class CassandraPageSink
         this.generateUUID = generateUUID;
 
         if (protocolVersion.toInt() <= ProtocolVersion.V3.toInt()) {
-            toCassandraDate = value -> DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(value));
+            toCassandraDate = value -> DATE_FORMATTER.format(Instant.ofEpochMilli(TimeUnit.DAYS.toMillis(value)));
         }
         else {
             toCassandraDate = value -> LocalDate.fromDaysSinceEpoch(toIntExact(value));
