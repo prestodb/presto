@@ -2636,19 +2636,27 @@ public abstract class AbstractTestHiveClient
                 // read table with empty directory
                 readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(0), Optional.of(ORC));
 
-                // create empty file
-                FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, location);
-                assertTrue(fileSystem.createNewFile(new Path(location, "empty-file")));
-                assertEquals(listDirectory(context, location), ImmutableList.of("empty-file"));
+                int num = createEmptyFile(context, location);
 
                 // read table with empty file
-                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(1), Optional.empty());
+                MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(num), Optional.empty());
                 assertEquals(result.getRowCount(), 0);
             }
         }
         finally {
             dropTable(tableName);
         }
+    }
+
+    protected int createEmptyFile(HdfsContext context, Path location)
+            throws IOException
+    {
+        // create empty file
+        FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, location);
+        assertTrue(fileSystem.createNewFile(new Path(location, "empty-file")));
+        List<String> files = listDirectory(context, location);
+        assertEquals(files, ImmutableList.of("empty-file"));
+        return files.size();
     }
 
     @Test
