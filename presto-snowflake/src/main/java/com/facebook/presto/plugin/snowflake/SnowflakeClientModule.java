@@ -14,19 +14,10 @@
 package com.facebook.presto.plugin.snowflake;
 
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
-import com.facebook.presto.plugin.jdbc.ConnectionFactory;
-import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
-import net.snowflake.client.jdbc.SnowflakeConnection;
-import net.snowflake.client.jdbc.SnowflakeDriver;
-
-import java.sql.SQLException;
-import java.util.Properties;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 

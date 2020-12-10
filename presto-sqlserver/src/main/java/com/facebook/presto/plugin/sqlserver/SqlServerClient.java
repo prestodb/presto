@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.sqlserver;
 
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
@@ -20,10 +23,8 @@ import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
-import com.facebook.presto.common.type.Decimals;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.plugin.jdbc.*;
+import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
+import com.facebook.presto.plugin.jdbc.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -35,26 +36,24 @@ import javax.inject.Inject;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
-import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static com.facebook.presto.plugin.jdbc.StandardReadMappings.*;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.bigintReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.decimalReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.doubleReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.realReadMapping;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.smallintReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varcharReadMapping;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.joining;
-import static io.airlift.slice.Slices.wrappedBuffer;
 
 public class SqlServerClient
         extends BaseJdbcClient
@@ -104,7 +103,7 @@ public class SqlServerClient
 
     private static String singleQuote(String literal)
     {
-        return "\'" + literal + "\'";
+        return "'" + literal + "'";
     }
 
     @Override

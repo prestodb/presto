@@ -15,10 +15,15 @@ package com.facebook.presto.plugin.snowflake;
 
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.plugin.jdbc.*;
+import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
+import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
+import com.facebook.presto.plugin.jdbc.DriverConnectionFactory;
+import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+import com.facebook.presto.plugin.jdbc.JdbcSplit;
+import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
+import com.facebook.presto.plugin.jdbc.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
 import javax.inject.Inject;
@@ -34,17 +39,12 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.bigintReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.decimalReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.doubleReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.realReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.smallintReadMapping;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varcharReadMapping;
-import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 public class SnowflakeClient
         extends BaseJdbcClient
@@ -58,7 +58,9 @@ public class SnowflakeClient
     }
 
     @Override
-    public Connection getConnection(JdbcIdentity identity, JdbcSplit split) throws SQLException {
+    public Connection getConnection(JdbcIdentity identity, JdbcSplit split)
+            throws SQLException
+    {
         Connection connection = connectionFactory.openConnection(identity);
         try {
             connection.setReadOnly(false);
@@ -87,6 +89,7 @@ public class SnowflakeClient
                 escapeNamePattern(tableName, Optional.of(escape)).orElse(null),
                 getTableTypes());
     }
+
     @Override
     public PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException

@@ -23,7 +23,7 @@ import java.math.RoundingMode;
 
 public class OracleConfig
 {
-    private boolean synonymsEnabled = false;
+    private boolean synonymsEnabled;
     private int varcharMaxSize = 4000;
     private int timestampDefaultPrecision = 6;
     private int numberDefaultScale = 10;
