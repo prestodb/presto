@@ -20,6 +20,11 @@ import com.facebook.presto.plugin.jdbc.JdbcColumnHandle;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcIdentity;
 import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
+import com.facebook.presto.common.type.Decimals;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.plugin.jdbc.*;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Joiner;
@@ -29,9 +34,27 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Types;
+import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.common.type.DecimalType.createDecimalType;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.*;
+import static com.facebook.presto.plugin.jdbc.StandardReadMappings.varcharReadMapping;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+import static io.airlift.slice.Slices.wrappedBuffer;
 
 public class SqlServerClient
         extends BaseJdbcClient
@@ -82,5 +105,65 @@ public class SqlServerClient
     private static String singleQuote(String literal)
     {
         return "\'" + literal + "\'";
+    }
+
+    @Override
+    public Optional<ReadMapping> toPrestoType(ConnectorSession session, JdbcTypeHandle typeHandle)
+    {
+        int columnSize = typeHandle.getColumnSize();
+
+        switch (typeHandle.getJdbcType()) {
+            case Types.CLOB:
+                return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
+            case Types.SMALLINT:
+                return Optional.of(smallintReadMapping());
+            case Types.FLOAT:
+            case Types.DOUBLE:
+                return Optional.of(doubleReadMapping());
+            case Types.REAL:
+                return Optional.of(realReadMapping());
+            case Types.NUMERIC:
+                int precision = columnSize == 0 ? Decimals.MAX_PRECISION : columnSize;
+                int scale = typeHandle.getDecimalDigits();
+
+                if (scale == 0) {
+                    return Optional.of(bigintReadMapping());
+                }
+
+                return Optional.of(decimalReadMapping(createDecimalType(precision, scale)));
+            case Types.LONGVARCHAR:
+                if (columnSize > VarcharType.MAX_LENGTH || columnSize == 0) {
+                    return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
+                }
+                return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
+            case Types.VARCHAR:
+                return Optional.of(varcharReadMapping(createVarcharType(columnSize)));
+        }
+        return super.toPrestoType(session, typeHandle);
+    }
+
+    @Override
+    protected String toSqlType(Type type)
+    {
+        if (BOOLEAN.equals(type)) {
+            return "bit";
+        }
+        if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            return "datetimeoffset";
+        }
+        if (TIMESTAMP.equals(type)) {
+            return "datetime";
+        }
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            if (varcharType.isUnbounded() || varcharType.getLengthSafe() > 4000) {
+                return "nvarchar(max)";
+            }
+            else {
+                return "nvarchar(" + varcharType.getLengthSafe() + ")";
+            }
+        }
+
+        return super.toSqlType(type);
     }
 }
