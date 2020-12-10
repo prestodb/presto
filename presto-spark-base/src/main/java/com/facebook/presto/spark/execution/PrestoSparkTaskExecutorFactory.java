@@ -149,6 +149,7 @@ public class PrestoSparkTaskExecutorFactory
 
     private final DataSize maxUserMemory;
     private final DataSize maxTotalMemory;
+    private final DataSize maxBroadcastMemory;
     private final DataSize maxRevocableMemory;
     private final DataSize maxSpillMemory;
     private final DataSize sinkMaxBufferSize;
@@ -200,6 +201,7 @@ public class PrestoSparkTaskExecutorFactory
                 objectMapper,
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryMemoryPerNode(),
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryTotalMemoryPerNode(),
+                requireNonNull(nodeMemoryConfig, "nodeSpillConfig is null").getMaxQueryBroadcastMemory(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxRevocableMemoryPerNode(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
@@ -228,6 +230,7 @@ public class PrestoSparkTaskExecutorFactory
             ObjectMapper objectMapper,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
+            DataSize maxBroadcastMemory,
             DataSize maxRevocableMemory,
             DataSize maxSpillMemory,
             DataSize sinkMaxBufferSize,
@@ -255,6 +258,7 @@ public class PrestoSparkTaskExecutorFactory
         this.objectMapper = objectMapper.copy().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null");
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null");
+        this.maxBroadcastMemory = requireNonNull(maxBroadcastMemory, "maxBroadcastMemory is null");
         this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null");
         this.maxSpillMemory = requireNonNull(maxSpillMemory, "maxSpillMemory is null");
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
@@ -338,7 +342,7 @@ public class PrestoSparkTaskExecutorFactory
                 session.getQueryId(),
                 maxUserMemory,
                 maxTotalMemory,
-                maxUserMemory,
+                maxBroadcastMemory,
                 maxRevocableMemory,
                 memoryPool,
                 new TestingGcMonitor(),
