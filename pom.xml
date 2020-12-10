@@ -36,9 +36,6 @@
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
-        <air.check.fail-checkstyle>false</air.check.fail-checkstyle>
-        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
-
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
