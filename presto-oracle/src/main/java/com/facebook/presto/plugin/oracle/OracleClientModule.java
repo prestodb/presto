@@ -49,6 +49,7 @@ public class OracleClientModule
     {
         Properties connectionProperties = new Properties();
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
+        connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_DEFAULT_ROW_PREFETCH, String.valueOf(oracleConfig.getDefaultRowPrefetch()));
 
         return new DriverConnectionFactory(
                 new OracleDriver(),

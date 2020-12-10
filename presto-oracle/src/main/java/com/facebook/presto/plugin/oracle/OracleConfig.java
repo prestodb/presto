@@ -23,10 +23,11 @@ import java.math.RoundingMode;
 
 public class OracleConfig
 {
-    private boolean synonymsEnabled;
+    private boolean synonymsEnabled = false;
     private int varcharMaxSize = 4000;
     private int timestampDefaultPrecision = 6;
     private int numberDefaultScale = 10;
+    private int defaultRowPrefetch = 10;
     private RoundingMode numberRoundingMode = RoundingMode.HALF_UP;
 
     @NotNull
@@ -93,6 +94,18 @@ public class OracleConfig
     public OracleConfig setTimestampDefaultPrecision(int timestampDefaultPrecision)
     {
         this.timestampDefaultPrecision = timestampDefaultPrecision;
+        return this;
+    }
+
+    public int getDefaultRowPrefetch()
+    {
+        return defaultRowPrefetch;
+    }
+
+    @Config("oracle.default-row-prefetch")
+    public OracleConfig setDefaultRowPrefetch(int defaultRowPrefetch)
+    {
+        this.defaultRowPrefetch = defaultRowPrefetch;
         return this;
     }
 }
