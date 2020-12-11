@@ -20,27 +20,21 @@ import com.facebook.presto.thrift.api.udf.ThriftUdfService;
 import com.facebook.presto.thrift.api.udf.ThriftUdfStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
 
-import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPageFormat.PRESTO_THRIFT;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
-import static java.util.concurrent.Executors.newFixedThreadPool;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class EchoFirstInputThriftUdfService
         implements ThriftUdfService
 {
-    private final ListeningExecutorService executor = listeningDecorator(
-            newFixedThreadPool(Runtime.getRuntime().availableProcessors(), threadsNamed("udf-thrift-%s")));
-
     @Override
     public ListenableFuture<ThriftUdfResult> invokeUdf(
             ThriftFunctionHandle functionHandle,
             ThriftUdfPage inputs)
     {
         checkArgument(inputs.getPageFormat().equals(PRESTO_THRIFT));
-        return executor.submit(() -> new ThriftUdfResult(
+        return immediateFuture(new ThriftUdfResult(
                 new ThriftUdfPage(PRESTO_THRIFT, ImmutableList.of(inputs.getThriftBlocks().get(0))),
                 new ThriftUdfStats(0)));
     }
