@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
+import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
@@ -27,7 +28,6 @@ import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.airlift.slice.Slice;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -51,7 +51,7 @@ public class PagesRTreeIndex
 {
     private static final int[] EMPTY_ADDRESSES = new int[0];
 
-    private final LongArrayList addresses;
+    private final AdaptiveLongBigArray addresses;
     private final List<Type> types;
     private final List<Integer> outputChannels;
     private final List<List<Block>> channels;
@@ -114,7 +114,7 @@ public class PagesRTreeIndex
 
     public PagesRTreeIndex(
             Session session,
-            LongArrayList addresses,
+            AdaptiveLongBigArray addresses,
             List<Type> types,
             List<Integer> outputChannels,
             List<List<Block>> channels,
@@ -195,7 +195,7 @@ public class PagesRTreeIndex
 
     private double getRadius(int joinPosition)
     {
-        long joinAddress = addresses.getLong(joinPosition);
+        long joinAddress = addresses.get(joinPosition);
         int blockIndex = decodeSliceIndex(joinAddress);
         int blockPosition = decodePosition(joinAddress);
 
@@ -211,7 +211,7 @@ public class PagesRTreeIndex
     @Override
     public void appendTo(int joinPosition, PageBuilder pageBuilder, int outputChannelOffset)
     {
-        long joinAddress = addresses.getLong(joinPosition);
+        long joinAddress = addresses.get(joinPosition);
         int blockIndex = decodeSliceIndex(joinAddress);
         int blockPosition = decodePosition(joinAddress);
 
