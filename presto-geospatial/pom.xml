@@ -88,11 +88,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <dependency>
-            <groupId>it.unimi.dsi</groupId>
-            <artifactId>fastutil</artifactId>
-        </dependency>
-
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto.hadoop</groupId>
