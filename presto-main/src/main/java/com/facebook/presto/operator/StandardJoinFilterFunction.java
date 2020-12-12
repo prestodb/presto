@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.Page;
 import com.google.common.collect.ImmutableList;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 
@@ -29,10 +29,10 @@ public class StandardJoinFilterFunction
     private static final Page EMPTY_PAGE = new Page(0);
 
     private final InternalJoinFilterFunction filterFunction;
-    private final LongArrayList addresses;
+    private final AdaptiveLongBigArray addresses;
     private final List<Page> pages;
 
-    public StandardJoinFilterFunction(InternalJoinFilterFunction filterFunction, LongArrayList addresses, List<Page> pages)
+    public StandardJoinFilterFunction(InternalJoinFilterFunction filterFunction, AdaptiveLongBigArray addresses, List<Page> pages)
     {
         this.filterFunction = requireNonNull(filterFunction, "filterFunction can not be null");
         this.addresses = requireNonNull(addresses, "addresses is null");
@@ -42,7 +42,7 @@ public class StandardJoinFilterFunction
     @Override
     public boolean filter(int leftPosition, int rightPosition, Page rightPage)
     {
-        long pageAddress = addresses.getLong(leftPosition);
+        long pageAddress = addresses.get(leftPosition);
         int pageIndex = decodeSliceIndex(pageAddress);
         int pagePosition = decodePosition(pageAddress);
 

@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.Page;
 import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntComparator;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -48,9 +48,9 @@ public final class SortedPositionLinks
         private final int size;
         private final IntComparator comparator;
         private final PagesHashStrategy pagesHashStrategy;
-        private final LongArrayList addresses;
+        private final AdaptiveLongBigArray addresses;
 
-        public FactoryBuilder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+        public FactoryBuilder(int size, PagesHashStrategy pagesHashStrategy, AdaptiveLongBigArray addresses)
         {
             this.size = size;
             this.comparator = new PositionComparator(pagesHashStrategy, addresses);
@@ -96,7 +96,7 @@ public final class SortedPositionLinks
 
         private boolean isNull(int position)
         {
-            long pageAddress = addresses.getLong(position);
+            long pageAddress = addresses.get(position);
             int blockIndex = decodeSliceIndex(pageAddress);
             int blockPosition = decodePosition(pageAddress);
             return pagesHashStrategy.isSortChannelPositionNull(blockIndex, blockPosition);
@@ -184,7 +184,7 @@ public final class SortedPositionLinks
         return retainedSize;
     }
 
-    public static FactoryBuilder builder(int size, PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+    public static FactoryBuilder builder(int size, PagesHashStrategy pagesHashStrategy, AdaptiveLongBigArray addresses)
     {
         return new FactoryBuilder(size, pagesHashStrategy, addresses);
     }
@@ -295,9 +295,9 @@ public final class SortedPositionLinks
             implements IntComparator
     {
         private final PagesHashStrategy pagesHashStrategy;
-        private final LongArrayList addresses;
+        private final AdaptiveLongBigArray addresses;
 
-        PositionComparator(PagesHashStrategy pagesHashStrategy, LongArrayList addresses)
+        PositionComparator(PagesHashStrategy pagesHashStrategy, AdaptiveLongBigArray addresses)
         {
             this.pagesHashStrategy = pagesHashStrategy;
             this.addresses = addresses;
@@ -306,11 +306,11 @@ public final class SortedPositionLinks
         @Override
         public int compare(int leftPosition, int rightPosition)
         {
-            long leftPageAddress = addresses.getLong(leftPosition);
+            long leftPageAddress = addresses.get(leftPosition);
             int leftBlockIndex = decodeSliceIndex(leftPageAddress);
             int leftBlockPosition = decodePosition(leftPageAddress);
 
-            long rightPageAddress = addresses.getLong(rightPosition);
+            long rightPageAddress = addresses.get(rightPosition);
             int rightBlockIndex = decodeSliceIndex(rightPageAddress);
             int rightBlockPosition = decodePosition(rightPageAddress);
 

@@ -44,11 +44,11 @@ public class SimplePagesIndexComparator
     @Override
     public int compareTo(PagesIndex pagesIndex, int leftPosition, int rightPosition)
     {
-        long leftPageAddress = pagesIndex.getValueAddresses().getLong(leftPosition);
+        long leftPageAddress = pagesIndex.getValueAddresses().get(leftPosition);
         int leftBlockIndex = decodeSliceIndex(leftPageAddress);
         int leftBlockPosition = decodePosition(leftPageAddress);
 
-        long rightPageAddress = pagesIndex.getValueAddresses().getLong(rightPosition);
+        long rightPageAddress = pagesIndex.getValueAddresses().get(rightPosition);
         int rightBlockIndex = decodeSliceIndex(rightPageAddress);
         int rightBlockPosition = decodePosition(rightPageAddress);
 
