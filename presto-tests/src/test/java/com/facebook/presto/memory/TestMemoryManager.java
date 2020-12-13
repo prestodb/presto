@@ -456,7 +456,6 @@ public class TestMemoryManager
             List<Future<?>> queryFutures = new ArrayList<>();
             for (int i = 0; i < 2; i++) {
                 int coordinator = i;
-                Thread.sleep(500);
                 queryFutures.add(executor.submit(() -> queryRunner.execute(coordinator, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
             }
 
