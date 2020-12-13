@@ -17,6 +17,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupRuntimeInfo;
 import com.facebook.presto.memory.MemoryInfo;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.server.NodeStatus;
@@ -66,7 +67,7 @@ public class TestResourceManagerClusterStateProvider
     public void testQueryInfo()
             throws Exception
     {
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), true, newSingleThreadScheduledExecutor());
 
         assertEquals(provider.getQueryInfos(), ImmutableList.of());
 
@@ -110,7 +111,7 @@ public class TestResourceManagerClusterStateProvider
     public void testResourceGroups()
             throws Exception
     {
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), true, newSingleThreadScheduledExecutor());
 
         assertEquals(provider.getQueryInfos(), ImmutableList.of());
 
@@ -139,7 +140,7 @@ public class TestResourceManagerClusterStateProvider
     public void testResourceGroupsMerged()
             throws Exception
     {
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), true, newSingleThreadScheduledExecutor());
 
         assertEquals(provider.getQueryInfos(), ImmutableList.of());
 
@@ -192,54 +193,60 @@ public class TestResourceManagerClusterStateProvider
     public void testClusterMemoryPoolInfo()
             throws Exception
     {
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
         // Memory pool starts off empty
-        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 0, 0, 0, 0, 0);
-        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0);
+        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 0, 0, 0, 0, 0, Optional.empty());
+        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0, Optional.empty());
 
         // Create a node and heartbeat to the resource manager
         provider.registerHeartbeat(createNodeStatus("nodeId", GENERAL_POOL, createMemoryPoolInfo(100, 2, 1)));
-        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 0, 0, 100, 2, 1);
-        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0);
+        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 0, 0, 100, 2, 1, Optional.empty());
+        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0, Optional.empty());
 
         // Register a query and heartbeat that to the resource manager
-        provider.registerHeartbeat("node1", createQueryInfo("1", QUEUED, "rg4", GENERAL_POOL));
-        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 1, 0, 100, 2, 1);
-        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0);
+        provider.registerHeartbeat("nodeId1", createQueryInfo("1", QUEUED, "rg4", GENERAL_POOL));
+        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 1, 0, 100, 2, 1, Optional.of("1"));
+        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0, Optional.empty());
 
         // Create another node and heartbeat to the resource manager
         provider.registerHeartbeat(createNodeStatus("nodeId2", GENERAL_POOL, createMemoryPoolInfo(1000, 20, 10)));
-        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 1, 0, 1100, 22, 11);
-        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0);
+        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 1, 0, 1100, 22, 11, Optional.of("1"));
+        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0, Optional.empty());
 
         // Create a blocked node and heartbeat to the resource manager
         provider.registerHeartbeat(createNodeStatus("nodeId3", GENERAL_POOL, createMemoryPoolInfo(1, 2, 3)));
-        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 1, 1, 1101, 24, 14);
-        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0);
+        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 1, 1, 1101, 24, 14, Optional.of("1"));
+        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0, Optional.empty());
 
         // Create a node that has only reserved pool allocations
         provider.registerHeartbeat(createNodeStatus("nodeId4", RESERVED_POOL, createMemoryPoolInfo(5, 3, 2)));
-        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 1, 1, 1101, 24, 14);
-        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 5, 3, 2);
+        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 1, 1, 1101, 24, 14, Optional.of("1"));
+        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 5, 3, 2, Optional.empty());
 
-        provider.registerHeartbeat("node1", createQueryInfo("2", QUEUED, "rg4", RESERVED_POOL));
-        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 1, 1, 1101, 24, 14);
-        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 1, 0, 5, 3, 2);
+        // Add a larger query and verify that the largest query is updated
+        provider.registerHeartbeat("nodeId2", createQueryInfo("2", RUNNING, "rg4", GENERAL_POOL, DataSize.valueOf("25GB")));
+        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 2, 1, 1101, 24, 14, Optional.of("2"));
+        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 5, 3, 2, Optional.empty());
+
+        // Adding a larger reserved pool query does not affect largest query in general pool
+        provider.registerHeartbeat("nodeId1", createQueryInfo("3", RUNNING, "rg4", RESERVED_POOL, DataSize.valueOf("50GB")));
+        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 2, 1, 1101, 24, 14, Optional.of("2"));
+        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 1, 0, 5, 3, 2, Optional.empty());
 
         // Expire nodes
         Thread.sleep(SECONDS.toMillis(5));
 
         // All nodes expired, memory pools emptied
-        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 0, 0, 0, 0, 0);
-        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0);
+        assertMemoryPoolMap(provider, 2, GENERAL_POOL, 0, 0, 0, 0, 0, Optional.empty());
+        assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 0, 0, 0, Optional.empty());
     }
 
     @Test(timeOut = 15_000)
     public void testWorkerMemoryInfo()
             throws Exception
     {
-        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("4s"), true, newSingleThreadScheduledExecutor());
 
         assertWorkerMemoryInfo(provider, 0);
 
@@ -320,7 +327,7 @@ public class TestResourceManagerClusterStateProvider
         assertEquals(info.getUserMemoryReservationBytes(), userMemoryReservation.toBytes(), format("Expected %s user memory reservation found %s", userMemoryReservation, DataSize.succinctBytes(info.getUserMemoryReservationBytes())));
     }
 
-    private void assertMemoryPoolMap(ResourceManagerClusterStateProvider provider, int memoryPoolSize, MemoryPoolId memoryPoolId, int assignedQueries, int blockedNodes, int maxBytes, int reservedBytes, int reservedRevocableBytes)
+    private void assertMemoryPoolMap(ResourceManagerClusterStateProvider provider, int memoryPoolSize, MemoryPoolId memoryPoolId, int assignedQueries, int blockedNodes, int maxBytes, int reservedBytes, int reservedRevocableBytes, Optional<String> largestMemoryQuery)
     {
         Map<MemoryPoolId, ClusterMemoryPoolInfo> memoryPoolMap = provider.getClusterMemoryPoolInfos();
         assertNotNull(memoryPoolMap);
@@ -333,6 +340,7 @@ public class TestResourceManagerClusterStateProvider
         assertEquals(clusterMemoryPoolInfo.getMemoryPoolInfo().getMaxBytes(), maxBytes);
         assertEquals(clusterMemoryPoolInfo.getMemoryPoolInfo().getReservedBytes(), reservedBytes);
         assertEquals(clusterMemoryPoolInfo.getMemoryPoolInfo().getReservedRevocableBytes(), reservedRevocableBytes);
+        assertEquals(clusterMemoryPoolInfo.getLargestMemoryQuery().map(QueryId::getId), largestMemoryQuery);
     }
 
     private static BasicQueryInfo createQueryInfo(String queryId, QueryState state)
@@ -341,6 +349,11 @@ public class TestResourceManagerClusterStateProvider
     }
 
     private static BasicQueryInfo createQueryInfo(String queryId, QueryState state, String resourceGroupId, MemoryPoolId memoryPool)
+    {
+        return createQueryInfo(queryId, state, resourceGroupId, memoryPool, DataSize.valueOf("24GB"));
+    }
+
+    private static BasicQueryInfo createQueryInfo(String queryId, QueryState state, String resourceGroupId, MemoryPoolId memoryPool, DataSize totalMemoryReservation)
     {
         return new BasicQueryInfo(
                 new QueryId(queryId),
@@ -366,7 +379,7 @@ public class TestResourceManagerClusterStateProvider
                         22,
                         23,
                         DataSize.valueOf("1MB"),
-                        DataSize.valueOf("24GB"),
+                        totalMemoryReservation,
                         DataSize.valueOf("25GB"),
                         DataSize.valueOf("26GB"),
                         DataSize.valueOf("27GB"),

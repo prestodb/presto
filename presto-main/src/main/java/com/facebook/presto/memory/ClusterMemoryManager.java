@@ -439,21 +439,7 @@ public class ClusterMemoryManager
         // and is more of a safety check than a guarantee
         if (allAssignmentsHavePropagated(queries)) {
             if (reservedPool.getAssignedQueries() == 0 && generalPool.getBlockedNodes() > 0) {
-                QueryExecution biggestQuery = null;
-                long maxMemory = -1;
-                for (QueryExecution queryExecution : queries) {
-                    if (resourceOvercommit(queryExecution.getSession())) {
-                        // Don't promote queries that requested resource overcommit to the reserved pool,
-                        // since their memory usage is unbounded.
-                        continue;
-                    }
-
-                    long bytesUsed = getQueryMemoryReservation(queryExecution);
-                    if (bytesUsed > maxMemory) {
-                        biggestQuery = queryExecution;
-                        maxMemory = bytesUsed;
-                    }
-                }
+                QueryExecution biggestQuery = findLargestMemoryQuery(generalPool, queries);
                 if (biggestQuery != null) {
                     log.info("Moving query %s to the reserved pool", biggestQuery.getQueryId());
                     biggestQuery.setMemoryPool(new VersionedMemoryPoolId(RESERVED_POOL, version));
@@ -466,6 +452,31 @@ public class ClusterMemoryManager
             assignments.add(new MemoryPoolAssignment(queryExecution.getQueryId(), queryExecution.getMemoryPool().getId()));
         }
         return new MemoryPoolAssignmentsRequest(coordinatorId, version, assignments.build());
+    }
+
+    private QueryExecution findLargestMemoryQuery(ClusterMemoryPoolInfo generalPool, Iterable<QueryExecution> queries)
+    {
+        QueryExecution biggestQuery = null;
+        long maxMemory = -1;
+        Optional<QueryId> largestMemoryQuery = generalPool.getLargestMemoryQuery();
+        for (QueryExecution queryExecution : queries) {
+            QueryId queryId = queryExecution.getQueryId();
+            if (largestMemoryQuery.map(queryId::equals).orElse(false)) {
+                return queryExecution;
+            }
+            if (resourceOvercommit(queryExecution.getSession())) {
+                // Don't promote queries that requested resource overcommit to the reserved pool,
+                // since their memory usage is unbounded.
+                continue;
+            }
+
+            long bytesUsed = getQueryMemoryReservation(queryExecution);
+            if (bytesUsed > maxMemory) {
+                biggestQuery = queryExecution;
+                maxMemory = bytesUsed;
+            }
+        }
+        return biggestQuery;
     }
 
     private QueryMemoryInfo createQueryMemoryInfo(QueryExecution query)
