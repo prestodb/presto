@@ -337,7 +337,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
+    @Test(timeOut = 300_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
     public void testOutOfMemoryKillerMultiCoordinator()
             throws Exception
     {
@@ -433,7 +433,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 300_000)
     public void testClusterPoolsMultiCoordinator()
             throws Exception
     {
@@ -456,7 +456,6 @@ public class TestMemoryManager
             List<Future<?>> queryFutures = new ArrayList<>();
             for (int i = 0; i < 2; i++) {
                 int coordinator = i;
-                Thread.sleep(500);
                 queryFutures.add(executor.submit(() -> queryRunner.execute(coordinator, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
             }
 
