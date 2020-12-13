@@ -18,6 +18,7 @@ import com.facebook.presto.memory.ClusterMemoryPool;
 import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.QueryId;
@@ -26,10 +27,13 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
+import javax.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.Collection;
@@ -38,22 +42,21 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.counting;
-import static java.util.stream.Collectors.groupingBy;
 
 public class ResourceManagerClusterStateProvider
 {
@@ -61,6 +64,7 @@ public class ResourceManagerClusterStateProvider
     private final Map<String, InternalNodeState> nodeStatuses = new ConcurrentHashMap<>();
 
     private final InternalNodeManager internalNodeManager;
+    private final SessionPropertyManager sessionPropertyManager;
     private final int maxCompletedQueries;
     private final Duration queryExpirationTimeout;
     private final Duration completedQueryExpirationTimeout;
@@ -70,12 +74,14 @@ public class ResourceManagerClusterStateProvider
     @Inject
     public ResourceManagerClusterStateProvider(
             InternalNodeManager internalNodeManager,
+            SessionPropertyManager sessionPropertyManager,
             ResourceManagerConfig resourceManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
             @ForResourceManager ScheduledExecutorService scheduledExecutorService)
     {
         this(
                 requireNonNull(internalNodeManager, "internalNodeManager is null"),
+                requireNonNull(sessionPropertyManager, "sessionPropertyManager is null"),
                 requireNonNull(resourceManagerConfig, "resourceManagerConfig is null").getMaxCompletedQueries(),
                 resourceManagerConfig.getQueryExpirationTimeout(),
                 resourceManagerConfig.getCompletedQueryExpirationTimeout(),
@@ -87,6 +93,7 @@ public class ResourceManagerClusterStateProvider
 
     public ResourceManagerClusterStateProvider(
             InternalNodeManager internalNodeManager,
+            SessionPropertyManager sessionPropertyManager,
             int maxCompletedQueries,
             Duration queryExpirationTimeout,
             Duration completedQueryExpirationTimeout,
@@ -97,6 +104,7 @@ public class ResourceManagerClusterStateProvider
     {
         this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
         checkArgument(maxCompletedQueries > 0, "maxCompletedQueries must be > 0, was %s", maxCompletedQueries);
+        this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.maxCompletedQueries = maxCompletedQueries;
         this.queryExpirationTimeout = requireNonNull(queryExpirationTimeout, "queryExpirationTimeout is null");
         this.completedQueryExpirationTimeout = requireNonNull(completedQueryExpirationTimeout, "completedQueryExpirationTimeout is null");
@@ -198,21 +206,52 @@ public class ResourceManagerClusterStateProvider
                 .map(nodeStatus -> nodeStatus.getNodeStatus().getMemoryInfo())
                 .collect(toImmutableList());
 
-        Map<MemoryPoolId, Long> counts = nodeQueryStates.values().stream()
-                .map(CoordinatorQueriesState::getActiveQueries)
-                .flatMap(Collection::stream)
-                .collect(groupingBy(query -> query.getBasicQueryInfo().getMemoryPool(), counting()));
-        // Add defaults when queries are not running
-        counts.putIfAbsent(GENERAL_POOL, 0L);
-        if (isReservedPoolEnabled) {
-            counts.putIfAbsent(RESERVED_POOL, 0L);
+        int generalPoolCounts = 0;
+        int reservedPoolCounts = 0;
+        Query largestGeneralPoolQuery = null;
+        for (CoordinatorQueriesState nodeQueryState : nodeQueryStates.values()) {
+            for (Query query : nodeQueryState.getActiveQueries()) {
+                MemoryPoolId memoryPool = query.getBasicQueryInfo().getMemoryPool();
+                if (GENERAL_POOL.equals(memoryPool)) {
+                    generalPoolCounts = Math.incrementExact(generalPoolCounts);
+                    if (!resourceOvercommit(query.getBasicQueryInfo().getSession().toSession(sessionPropertyManager))) {
+                        largestGeneralPoolQuery = getLargestMemoryQuery(largestGeneralPoolQuery, query);
+                    }
+                }
+                else if (RESERVED_POOL.equals(memoryPool)) {
+                    reservedPoolCounts = Math.incrementExact(reservedPoolCounts);
+                }
+                else {
+                    throw new IllegalArgumentException("Unrecognized memory pool: " + memoryPool);
+                }
+            }
         }
 
-        return counts.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> {
-            ClusterMemoryPool pool = new ClusterMemoryPool(entry.getKey());
-            pool.update(memoryInfos, toIntExact(entry.getValue()));
-            return pool.getClusterInfo();
-        }));
+        ImmutableMap.Builder<MemoryPoolId, ClusterMemoryPoolInfo> memoryPoolInfos = ImmutableMap.builder();
+        ClusterMemoryPool pool = new ClusterMemoryPool(GENERAL_POOL);
+        pool.update(memoryInfos, generalPoolCounts);
+        ClusterMemoryPoolInfo clusterInfo = pool.getClusterInfo(Optional.ofNullable(largestGeneralPoolQuery).map(Query::getQueryId));
+        memoryPoolInfos.put(GENERAL_POOL, clusterInfo);
+        if (isReservedPoolEnabled) {
+            pool = new ClusterMemoryPool(RESERVED_POOL);
+            pool.update(memoryInfos, reservedPoolCounts);
+            memoryPoolInfos.put(RESERVED_POOL, pool.getClusterInfo());
+        }
+        return memoryPoolInfos.build();
+    }
+
+    private Query getLargestMemoryQuery(@Nullable Query existingLargeQuery, @NotNull Query newQuery)
+    {
+        requireNonNull(newQuery, "newQuery must not be null");
+        if (existingLargeQuery == null) {
+            return newQuery;
+        }
+        long largestGeneralBytes = existingLargeQuery.getBasicQueryInfo().getQueryStats().getTotalMemoryReservation().toBytes();
+        long currentGeneralBytes = newQuery.getBasicQueryInfo().getQueryStats().getTotalMemoryReservation().toBytes();
+        if (currentGeneralBytes > largestGeneralBytes) {
+            return newQuery;
+        }
+        return existingLargeQuery;
     }
 
     public Map<String, MemoryInfo> getWorkerMemoryInfo()
