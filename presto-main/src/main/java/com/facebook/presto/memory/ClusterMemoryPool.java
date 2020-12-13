@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -84,7 +85,12 @@ public class ClusterMemoryPool
 
     public synchronized ClusterMemoryPoolInfo getClusterInfo()
     {
-        return new ClusterMemoryPoolInfo(getInfo(), blockedNodes, assignedQueries);
+        return getClusterInfo(Optional.empty());
+    }
+
+    public synchronized ClusterMemoryPoolInfo getClusterInfo(Optional<QueryId> largestMemoryQuery)
+    {
+        return new ClusterMemoryPoolInfo(getInfo(), blockedNodes, assignedQueries, largestMemoryQuery);
     }
 
     public MemoryPoolId getId()
