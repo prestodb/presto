@@ -15,9 +15,9 @@ package com.facebook.presto.plugin.prometheus;
 
 import org.testng.annotations.Test;
 
-import java.sql.Timestamp;
-import java.time.ZonedDateTime;
+import java.time.Instant;
 
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static org.testng.Assert.assertEquals;
 
 public class TestPrometheusTimestampDeserializer
@@ -25,10 +25,10 @@ public class TestPrometheusTimestampDeserializer
     @Test
     public void testDeserializeTimestamp()
     {
-        ZonedDateTime now = ZonedDateTime.now();
-        long nowEpochMillis = now.toInstant().toEpochMilli();
+        Instant now = Instant.now();
+        long nowEpochMillis = now.toEpochMilli();
         String nowTimeStr = PrometheusSplitManager.decimalSecondString(nowEpochMillis);
-        Timestamp nowTimestampActual = PrometheusTimestampDeserializer.decimalEpochTimestampToSQLTimestamp(nowTimeStr);
-        assertEquals(nowTimestampActual, new Timestamp(now.toInstant().toEpochMilli()));
+        Instant nowTimestampActual = PrometheusTimestampDeserializer.decimalEpochTimestampToSQLTimestamp(nowTimeStr);
+        assertEquals(nowTimestampActual, now.truncatedTo(MILLIS));
     }
 }

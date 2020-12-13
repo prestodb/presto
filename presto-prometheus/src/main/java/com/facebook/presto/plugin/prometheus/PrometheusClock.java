@@ -16,12 +16,14 @@ package com.facebook.presto.plugin.prometheus;
 import javax.inject.Inject;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
-/**
- * allow for settable Clock for testing
- */
+import static java.time.ZoneOffset.UTC;
+
+// settable Clock for testing
+
 public class PrometheusClock
 {
     private final Clock clock;
@@ -29,7 +31,7 @@ public class PrometheusClock
     @Inject
     public PrometheusClock()
     {
-        this(Clock.systemDefaultZone());
+        this(Clock.systemUTC());
     }
 
     private PrometheusClock(Clock clock)
@@ -42,8 +44,13 @@ public class PrometheusClock
         return new PrometheusClock(Clock.fixed(date.atZone(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault()));
     }
 
-    public LocalDateTime now()
+    public Instant now()
     {
-        return LocalDateTime.now(clock);
+        return clock.instant();
+    }
+
+    public static PrometheusClock fixedClockAt(Instant fixedInstant)
+    {
+        return new PrometheusClock(Clock.fixed(fixedInstant, UTC));
     }
 }

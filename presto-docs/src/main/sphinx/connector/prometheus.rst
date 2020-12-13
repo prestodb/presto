@@ -2,9 +2,7 @@
 Prometheus Connector
 ====================
 
-The Prometheus connector allows reading
-`Prometheus <https://prometheus.io/>`_.
-metrics as tables in Presto.
+The Prometheus connector allows reading `Prometheus <https://prometheus.io/>`_.metrics as tables in Presto.
 
 The mechanism for querying Prometheus is to use the Prometheus HTTP API. Specifically, all queries are resolved to Prometheus Instant queries
 with a form like: http://localhost:9090/api/v1/query?query=up[21d]&time=1568229904.000"
@@ -23,8 +21,8 @@ replacing the properties as appropriate:
 
     connector.name=prometheus
     prometheus.uri=http://localhost:9090
-    prometheus.query-chunk-size-duration=1d
-    prometheus.max-query-range-duration=21d
+    prometheus.query-chunk-duration=1d
+    prometheus.max-query-duration=1h
     prometheus.cache-ttl=30s
     prometheus.bearer-token-file=/path/to/bearer/token/file
 
@@ -36,23 +34,23 @@ The following configuration properties are available:
 ======================================== ============================================================================================
 Property Name                                   Description
 ======================================== ============================================================================================
-``prometheus.uri``                       Where to find Prometheus coordinator host
-``prometheus.query-chunk-size-duration`` The duration of each query to Prometheus
-``prometheus.max-query-range-duration``  Width of overall query to Prometheus, will be divided into query-chunk-size-duration queries
-``prometheus.cache-ttl``                 How long values from this config file are cached
-``prometheus.bearer-token-file``         File holding bearer token if needed for access to Prometheus
+``prometheus.uri``                       Prometheus coordinator host address
+``prometheus.query-chunk-duration``      The duration of each query to Prometheus
+``prometheus.max-query-duration``        Width of overall query to Prometheus, will be divided into query-chunk-duration queries
+``prometheus.cache-ttl``                 How long the config values are cached
+``prometheus.bearer-token-file``         File holding bearer token for access to Prometheus
 ======================================== ============================================================================================
 
 Not Exhausting Your Presto Available Heap
 -----------------------------------------
 
-The ``prometheus.query-chunk-size-duration`` and ``prometheus.max-query-range-duration`` are values to protect Presto from
-too much data coming back from Prometheus. The ``prometheus.max-query-range-duration`` is the item of
+The ``prometheus.query-chunk-duration`` and ``prometheus.max-query-duration`` are values to protect Presto from
+fetching too much data from Prometheus. The ``prometheus.max-query-duration`` is the item of
 particular interest.
 
 On a Prometheus instance that has been running for awhile and depending
 on data retention settings, ``21d`` might be far too much. Perhaps ``1h`` might be a more reasonable setting.
-In the case of ``1h`` it might be then useful to set ``prometheus.query-chunk-size-duration`` to ``10m``, dividing the
+In the case of ``1h`` it might be then useful to set ``prometheus.query-chunk-duration`` to ``10m``, dividing the
 query window into 6 queries each of which can be handled in a Presto split.
 
 Primarily query issuers can limit the amount of data returned by Prometheus by taking

@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.plugin.prometheus;
 
-import java.time.ZonedDateTime;
+import java.time.Instant;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusPredicateTimeInfo
 {
-    private final Optional<ZonedDateTime> predicateLowerTimeBound;
-    private final Optional<ZonedDateTime> predicateUpperTimeBound;
+    private final Optional<Instant> predicateLowerTimeBound;
+    private final Optional<Instant> predicateUpperTimeBound;
 
-    private PrometheusPredicateTimeInfo(Optional<ZonedDateTime> predicateLowerTimeBound, Optional<ZonedDateTime> predicateUpperTimeBound)
+    private PrometheusPredicateTimeInfo(Optional<Instant> predicateLowerTimeBound, Optional<Instant> predicateUpperTimeBound)
     {
         this.predicateLowerTimeBound = requireNonNull(predicateLowerTimeBound, "predicateLowerTimeBound is null");
         this.predicateUpperTimeBound = requireNonNull(predicateUpperTimeBound, "predicateUpperTimeBound is null");
@@ -34,29 +34,29 @@ public class PrometheusPredicateTimeInfo
         return new Builder();
     }
 
-    public Optional<ZonedDateTime> getPredicateLowerTimeBound()
+    public Optional<Instant> getPredicateLowerTimeBound()
     {
         return predicateLowerTimeBound;
     }
 
-    public Optional<ZonedDateTime> getPredicateUpperTimeBound()
+    public Optional<Instant> getPredicateUpperTimeBound()
     {
         return predicateUpperTimeBound;
     }
 
     public static final class Builder
     {
-        private Optional<ZonedDateTime> predicateLowerTimeBound = Optional.empty();
-        private Optional<ZonedDateTime> predicateUpperTimeBound = Optional.empty();
+        private Optional<Instant> predicateLowerTimeBound = Optional.empty();
+        private Optional<Instant> predicateUpperTimeBound = Optional.empty();
 
         private Builder() {}
 
-        public void setPredicateLowerTimeBound(Optional<ZonedDateTime> predicateLowerTimeBound)
+        public void setPredicateLowerTimeBound(Optional<Instant> predicateLowerTimeBound)
         {
             this.predicateLowerTimeBound = predicateLowerTimeBound;
         }
 
-        public void setPredicateUpperTimeBound(Optional<ZonedDateTime> predicateUpperTimeBound)
+        public void setPredicateUpperTimeBound(Optional<Instant> predicateUpperTimeBound)
         {
             this.predicateUpperTimeBound = predicateUpperTimeBound;
         }

@@ -24,7 +24,6 @@ import com.google.inject.Scopes;
 import javax.inject.Inject;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
-import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -53,7 +52,6 @@ public class PrometheusModule
         binder.bind(PrometheusRecordSetProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PrometheusConnectorConfig.class);
 
-        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonCodecBinder(binder).bindMapJsonCodec(String.class, listJsonCodec(PrometheusTable.class));
         jsonCodecBinder(binder).bindMapJsonCodec(String.class, Object.class);
     }
