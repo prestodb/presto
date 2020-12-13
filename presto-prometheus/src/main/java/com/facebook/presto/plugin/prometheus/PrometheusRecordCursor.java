@@ -30,22 +30,24 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
+import static com.facebook.presto.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_OUTPUT_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -56,7 +58,6 @@ public class PrometheusRecordCursor
 {
     private final List<PrometheusColumnHandle> columnHandles;
     private final int[] fieldToColumnIndex;
-
     private final Iterator<PrometheusStandardizedRow> metricsItr;
     private final long totalBytes;
 
@@ -76,8 +77,11 @@ public class PrometheusRecordCursor
             metricsItr = prometheusResultsInStandardizedForm(new PrometheusQueryResponse(input).getResults()).iterator();
             totalBytes = input.getCount();
         }
+        catch (PrestoException ex) {
+            throw ex;
+        }
         catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw new PrestoException(PROMETHEUS_OUTPUT_ERROR, "Unable to handle Prometheus result: " + e.toString());
         }
     }
 
@@ -218,9 +222,11 @@ public class PrometheusRecordCursor
     public long getLong(int field)
     {
         Type type = getType(field);
-        if (type.equals(TIMESTAMP_COLUMN_TYPE)) {
-            Timestamp timestamp = (Timestamp) requireNonNull(getFieldValue(field));
-            return timestamp.toInstant().toEpochMilli();
+        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            Instant dateTime = (Instant) requireNonNull(getFieldValue(field));
+            // render with the fixed offset of the Presto server
+            int offsetMinutes = dateTime.atZone(ZoneId.systemDefault()).getOffset().getTotalSeconds() / 60;
+            return packDateTimeWithZone(dateTime.toEpochMilli(), offsetMinutes);
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
@@ -231,7 +237,7 @@ public class PrometheusRecordCursor
     public double getDouble(int field)
     {
         checkFieldType(field, DOUBLE);
-        return (double) requireNonNull(getFieldValue(field));
+        return (double) getFieldValue(field);
     }
 
     @Override
@@ -270,7 +276,7 @@ public class PrometheusRecordCursor
             case 2:
                 return fields.getValue();
         }
-        return null;
+        return new NullPointerException();
     }
 
     private void checkFieldType(int field, Type expected)

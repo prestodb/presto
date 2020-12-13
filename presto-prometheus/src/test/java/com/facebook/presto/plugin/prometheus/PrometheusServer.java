@@ -26,7 +26,7 @@ public class PrometheusServer
         implements Closeable
 {
     private static final int PROMETHEUS_PORT = 9090;
-    private static final String PROMETHEUS_DOCKER_IMAGE = "prom/prometheus:v2.21.0";
+    private static final String PROMETHEUS_DOCKER_IMAGE = "prom/prometheus:v2.15.1";
     private static final Integer MAX_TRIES = 120;
     private static final Integer TIME_BETWEEN_TRIES_MILLIS = 1000;
 

@@ -15,17 +15,17 @@ package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.presto.common.block.Block;
 
-import java.sql.Timestamp;
+import java.time.Instant;
 
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusStandardizedRow
 {
     private final Block labels;
-    private final Timestamp timestamp;
+    private final Instant timestamp;
     private final Double value;
 
-    public PrometheusStandardizedRow(Block labels, Timestamp timestamp, Double value)
+    public PrometheusStandardizedRow(Block labels, Instant timestamp, Double value)
     {
         this.labels = requireNonNull(labels, "labels is null");
         this.timestamp = requireNonNull(timestamp, "timestamp is null");
@@ -37,7 +37,7 @@ public class PrometheusStandardizedRow
         return labels;
     }
 
-    public Timestamp getTimestamp()
+    public Instant getTimestamp()
     {
         return timestamp;
     }

@@ -37,7 +37,7 @@ public class TestPrometheusConnectorConfig
         assertRecordedDefaults(recordDefaults(PrometheusConnectorConfig.class)
                 .setPrometheusURI(new URI("http://localhost:9090"))
                 .setQueryChunkSizeDuration(Duration.valueOf("1d"))
-                .setMaxQueryRangeDuration(Duration.valueOf("21d"))
+                .setMaxQueryRangeDuration(Duration.valueOf("1h"))
                 .setCacheDuration(Duration.valueOf("30s"))
                 .setBearerTokenFile(null));
     }
@@ -47,8 +47,8 @@ public class TestPrometheusConnectorConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("prometheus.uri", "file://test.json")
-                .put("prometheus.query-chunk-size-duration", "365d")
-                .put("prometheus.max-query-range-duration", "1095d")
+                .put("prometheus.query-chunk-duration", "365d")
+                .put("prometheus.max-query-duration", "1095d")
                 .put("prometheus.cache-ttl", "60s")
                 .put("prometheus.bearer-token-file", "/tmp/bearer_token.txt")
                 .build();
@@ -75,6 +75,6 @@ public class TestPrometheusConnectorConfig
         config.setCacheDuration(Duration.valueOf("30s"));
         assertThatThrownBy(config::checkConfig)
                 .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("prometheus.max-query-range-duration must be greater than prometheus.query-chunk-size-duration");
+                .hasMessageContaining("prometheus.max-query-duration must be greater than prometheus.query-chunk-duration");
     }
 }

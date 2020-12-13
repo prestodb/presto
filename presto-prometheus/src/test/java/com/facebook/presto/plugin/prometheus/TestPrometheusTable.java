@@ -14,13 +14,13 @@
 package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.presto.common.type.DoubleType;
-import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.plugin.prometheus.MetadataUtil.TABLE_CODEC;
 import static com.facebook.presto.plugin.prometheus.MetadataUtil.varcharMapType;
@@ -33,7 +33,7 @@ public class TestPrometheusTable
     private final PrometheusTable prometheusTable = new PrometheusTable("tableName",
             ImmutableList.of(
                     new PrometheusColumn("labels", varcharMapType),
-                    new PrometheusColumn("timestamp", TimestampType.TIMESTAMP),
+                    new PrometheusColumn("timestamp", TIMESTAMP_WITH_TIME_ZONE),
                     new PrometheusColumn("value", DoubleType.DOUBLE)));
 
     @Test
@@ -41,7 +41,7 @@ public class TestPrometheusTable
     {
         assertEquals(prometheusTable.getColumnsMetadata(), ImmutableList.of(
                 new ColumnMetadata("labels", varcharMapType),
-                new ColumnMetadata("timestamp", TimestampType.TIMESTAMP),
+                new ColumnMetadata("timestamp", TIMESTAMP_WITH_TIME_ZONE),
                 new ColumnMetadata("value", DoubleType.DOUBLE)));
     }
 

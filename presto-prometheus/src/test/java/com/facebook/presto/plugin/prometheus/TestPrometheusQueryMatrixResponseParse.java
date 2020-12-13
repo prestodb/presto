@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.prometheus;
 
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.io.Resources;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
@@ -22,14 +23,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URL;
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.List;
 
+import static java.time.Instant.ofEpochMilli;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestPrometheusQueryMatrixResponseParse
 {
     private InputStream promMatrixResponse;
@@ -55,7 +57,7 @@ public class TestPrometheusQueryMatrixResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponse(promMatrixResponse).getResults();
-        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), Timestamp.from(Instant.ofEpochSecond(1565962969, 44 * 1000000)));
+        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), ofEpochMilli(1565962969044L));
     }
 
     @Test
@@ -64,6 +66,12 @@ public class TestPrometheusQueryMatrixResponseParse
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponse(promMatrixResponse).getResults();
         assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getValue(), "1");
+    }
+
+    @Test
+    public void verifyErrorMetricValueResponse()
+    {
+        assertThrows(PrestoException.class, () -> new PrometheusQueryResponse(promErrorResponse).getResults());
     }
 
     @BeforeMethod

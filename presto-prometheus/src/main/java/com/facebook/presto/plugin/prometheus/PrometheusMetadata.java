@@ -48,8 +48,8 @@ public class PrometheusMetadata
     @Inject
     public PrometheusMetadata(PrometheusClient prometheusClient)
     {
+        requireNonNull(prometheusClient, "client is null");
         this.prometheusClient = prometheusClient;
-        requireNonNull(this.prometheusClient, "client is null");
     }
 
     private static List<String> listSchemaNames()

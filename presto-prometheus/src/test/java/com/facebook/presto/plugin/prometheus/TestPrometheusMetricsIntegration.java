@@ -43,17 +43,6 @@ public class TestPrometheusMetricsIntegration
     private Session session;
     private QueryRunner runner;
 
-    public TestPrometheusMetricsIntegration()
-    {
-        this(new PrometheusServer());
-    }
-
-    protected TestPrometheusMetricsIntegration(PrometheusServer prometheusServer)
-    {
-        super(() -> createPrometheusQueryRunner(new PrometheusServer()));
-        this.server = prometheusServer;
-    }
-
     protected QueryRunner createQueryRunner()
             throws Exception
     {

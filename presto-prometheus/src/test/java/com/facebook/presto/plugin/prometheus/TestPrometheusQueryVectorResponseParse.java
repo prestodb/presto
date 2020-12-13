@@ -22,14 +22,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URL;
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.List;
 
+import static java.time.Instant.ofEpochMilli;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestPrometheusQueryVectorResponseParse
 {
     private InputStream promVectorResponse;
@@ -54,7 +54,7 @@ public class TestPrometheusQueryVectorResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponse(promVectorResponse).getResults();
-        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), Timestamp.from(Instant.ofEpochSecond(1565889995, 668 * 1000000)));
+        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), ofEpochMilli(1565889995668L));
     }
 
     @Test
