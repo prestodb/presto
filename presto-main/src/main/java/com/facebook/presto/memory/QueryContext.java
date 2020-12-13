@@ -15,6 +15,7 @@ package com.facebook.presto.memory;
 
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.context.MemoryReservationHandler;
@@ -33,6 +34,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -42,6 +44,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalRevocableMemoryLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalTotalMemoryLimit;
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
 import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
@@ -76,6 +79,12 @@ public class QueryContext
     private long maxUserMemory;
     @GuardedBy("this")
     private long maxTotalMemory;
+    @GuardedBy("this")
+    private long peakNodeTotalMemory;
+
+    // TODO: Make max revocable memory be configurable by session property.
+    @GuardedBy("this")
+    private final long maxRevocableMemory;
 
     @GuardedBy("this")
     private long broadcastUsed;
@@ -95,6 +104,7 @@ public class QueryContext
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
             DataSize maxBroadcastUsedMemory,
+            DataSize maxRevocableMemory,
             MemoryPool memoryPool,
             GcMonitor gcMonitor,
             Executor notificationExecutor,
@@ -106,6 +116,7 @@ public class QueryContext
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null").toBytes();
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null").toBytes();
         this.maxBroadcastUsedMemory = requireNonNull(maxBroadcastUsedMemory, "maxBroadcastUsedMemory is null").toBytes();
+        this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null").toBytes();
         this.memoryPool = requireNonNull(memoryPool, "memoryPool is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
@@ -160,7 +171,9 @@ public class QueryContext
     //TODO Add tagging support for revocable memory reservations if needed
     private synchronized ListenableFuture<?> updateRevocableMemory(String allocationTag, long delta)
     {
+        long totalRevocableMemory = memoryPool.getQueryRevocableMemoryReservation(queryId);
         if (delta >= 0) {
+            enforceRevocableMemoryLimit(totalRevocableMemory, delta, maxRevocableMemory);
             return memoryPool.reserveRevocable(queryId, delta);
         }
         memoryPool.freeRevocable(queryId, -delta);
@@ -186,8 +199,8 @@ public class QueryContext
         // the same RootAggregatedMemoryContext instance, and one of the threads will be blocked on the monitor of that
         // RootAggregatedMemoryContext instance even before calling the QueryContext methods (the monitors of
         // RootAggregatedMemoryContext instance and this will be acquired in the same order).
-        long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
         if (delta >= 0) {
+            long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
             enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
@@ -293,7 +306,8 @@ public class QueryContext
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
             boolean allocationTrackingEnabled,
-            boolean legacyLifespanCompletionCondition)
+            boolean legacyLifespanCompletionCondition,
+            Optional<FragmentResultCacheContext> fragmentResultCacheContext)
     {
         TaskContext taskContext = TaskContext.createTaskContext(
                 this,
@@ -307,7 +321,8 @@ public class QueryContext
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
                 allocationTrackingEnabled,
-                legacyLifespanCompletionCondition);
+                legacyLifespanCompletionCondition,
+                fragmentResultCacheContext);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);
         return taskContext;
     }
@@ -343,6 +358,11 @@ public class QueryContext
         maxUserMemory = Math.min(maxUserMemory, queryMaxTaskMemory.toBytes());
         maxTotalMemory = Math.min(maxTotalMemory, queryMaxTotalTaskMemory.toBytes());
         maxBroadcastUsedMemory = Math.min(maxBroadcastUsedMemory, queryMaxBroadcastMemory.toBytes());
+    }
+
+    public synchronized long getPeakNodeTotalMemory()
+    {
+        return peakNodeTotalMemory;
     }
 
     private static class QueryMemoryReservationHandler
@@ -409,8 +429,18 @@ public class QueryContext
     @GuardedBy("this")
     private void enforceTotalMemoryLimit(long allocated, long delta, long maxMemory)
     {
-        if (allocated + delta > maxMemory) {
+        long totalMemory = allocated + delta;
+        peakNodeTotalMemory = Math.max(totalMemory, peakNodeTotalMemory);
+        if (totalMemory > maxMemory) {
             throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
+        }
+    }
+
+    @GuardedBy("this")
+    private void enforceRevocableMemoryLimit(long allocated, long delta, long maxMemory)
+    {
+        if (allocated + delta > maxMemory) {
+            throw exceededLocalRevocableMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta));
         }
     }
 

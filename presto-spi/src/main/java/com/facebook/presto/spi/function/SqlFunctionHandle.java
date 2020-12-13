@@ -27,12 +27,12 @@ public class SqlFunctionHandle
         implements FunctionHandle
 {
     private final SqlFunctionId functionId;
-    private final long version;
+    private final String version;
 
     @JsonCreator
     public SqlFunctionHandle(
             @JsonProperty("functionId") SqlFunctionId functionId,
-            @JsonProperty("version") long version)
+            @JsonProperty("version") String version)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.version = version;
@@ -45,15 +45,15 @@ public class SqlFunctionHandle
     }
 
     @JsonProperty
-    public long getVersion()
+    public String getVersion()
     {
         return version;
     }
 
     @Override
-    public CatalogSchemaName getFunctionNamespace()
+    public CatalogSchemaName getCatalogSchemaName()
     {
-        return functionId.getFunctionName().getFunctionNamespace();
+        return functionId.getFunctionName().getCatalogSchemaName();
     }
 
     @Override

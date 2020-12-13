@@ -23,6 +23,7 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
@@ -90,6 +91,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.amazonaws.regions.Regions.US_EAST_1;
@@ -103,6 +105,7 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CONNECT_TIME
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_CREDENTIALS_PROVIDER;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_ENDPOINT;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_IAM_ROLE;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_KMS_KEY_ID;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_BACKOFF_TIME;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_MAX_CLIENT_RETRIES;
@@ -172,6 +175,7 @@ public class PrestoS3FileSystem
     private Duration maxBackoffTime;
     private Duration maxRetryTime;
     private boolean useInstanceCredentials;
+    private String s3IamRole;
     private boolean pinS3ClientToCurrentRegion;
     private boolean sseEnabled;
     private PrestoS3SseType sseType;
@@ -209,6 +213,9 @@ public class PrestoS3FileSystem
         this.isPathStyleAccess = conf.getBoolean(S3_PATH_STYLE_ACCESS, defaults.isS3PathStyleAccess());
         this.useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());
         this.pinS3ClientToCurrentRegion = conf.getBoolean(S3_PIN_CLIENT_TO_CURRENT_REGION, defaults.isPinS3ClientToCurrentRegion());
+        this.s3IamRole = conf.get(S3_IAM_ROLE, defaults.getS3IamRole());
+        verify(!(useInstanceCredentials && conf.get(S3_IAM_ROLE) != null),
+                "Invalid configuration: either use instance credentials or specify an iam role");
         verify((pinS3ClientToCurrentRegion && conf.get(S3_ENDPOINT) == null) || !pinS3ClientToCurrentRegion,
                 "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
@@ -276,37 +283,52 @@ public class PrestoS3FileSystem
     }
 
     @Override
+    public RemoteIterator<LocatedFileStatus> listFiles(Path path, boolean recursive)
+    {
+        // Either a single level or full listing, depending on the recursive flag, no "directories" are included
+        return new S3ObjectsRemoteIterator(listPrefix(path, OptionalInt.empty(), recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
+    }
+
+    @Override
     public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path path)
     {
         STATS.newListLocatedStatusCall();
-        return new RemoteIterator<LocatedFileStatus>()
+        return new S3ObjectsRemoteIterator(listPrefix(path, OptionalInt.empty(), ListingMode.SHALLOW_ALL));
+    }
+
+    private static final class S3ObjectsRemoteIterator
+            implements RemoteIterator<LocatedFileStatus>
+    {
+        private final Iterator<LocatedFileStatus> iterator;
+
+        public S3ObjectsRemoteIterator(Iterator<LocatedFileStatus> iterator)
         {
-            private final Iterator<LocatedFileStatus> iterator = listPrefix(path);
+            this.iterator = requireNonNull(iterator, "iterator is null");
+        }
 
-            @Override
-            public boolean hasNext()
-                    throws IOException
-            {
-                try {
-                    return iterator.hasNext();
-                }
-                catch (AmazonClientException e) {
-                    throw new IOException(e);
-                }
+        @Override
+        public boolean hasNext()
+                throws IOException
+        {
+            try {
+                return iterator.hasNext();
             }
+            catch (AmazonClientException e) {
+                throw new IOException(e);
+            }
+        }
 
-            @Override
-            public LocatedFileStatus next()
-                    throws IOException
-            {
-                try {
-                    return iterator.next();
-                }
-                catch (AmazonClientException e) {
-                    throw new IOException(e);
-                }
+        @Override
+        public LocatedFileStatus next()
+                throws IOException
+        {
+            try {
+                return iterator.next();
             }
-        };
+            catch (AmazonClientException e) {
+                throw new IOException(e);
+            }
+        }
     }
 
     @Override
@@ -325,7 +347,7 @@ public class PrestoS3FileSystem
 
         if (metadata == null) {
             // check if this path is a directory
-            Iterator<LocatedFileStatus> iterator = listPrefix(path);
+            Iterator<LocatedFileStatus> iterator = listPrefix(path, OptionalInt.of(1), ListingMode.SHALLOW_ALL);
             if (iterator.hasNext()) {
                 return new FileStatus(0, true, 1, 0, 0, qualifiedPath(path));
             }
@@ -480,7 +502,18 @@ public class PrestoS3FileSystem
         return true;
     }
 
-    private Iterator<LocatedFileStatus> listPrefix(Path path)
+    private enum ListingMode {
+        SHALLOW_ALL, // Shallow listing of files AND directories
+        SHALLOW_FILES_ONLY,
+        RECURSIVE_FILES_ONLY;
+
+        public boolean isFilesOnly()
+        {
+            return (this == SHALLOW_FILES_ONLY || this == RECURSIVE_FILES_ONLY);
+        }
+    }
+
+    private Iterator<LocatedFileStatus> listPrefix(Path path, OptionalInt initialMaxKeys, ListingMode mode)
     {
         String key = keyFromPath(path);
         if (!key.isEmpty()) {
@@ -490,7 +523,8 @@ public class PrestoS3FileSystem
         ListObjectsRequest request = new ListObjectsRequest()
                 .withBucketName(getBucketName(uri))
                 .withPrefix(key)
-                .withDelimiter(PATH_SEPARATOR);
+                .withDelimiter(mode == ListingMode.RECURSIVE_FILES_ONLY ? null : PATH_SEPARATOR)
+                .withMaxKeys(initialMaxKeys.isPresent() ? initialMaxKeys.getAsInt() : null);
 
         STATS.newListObjectsCall();
         Iterator<ObjectListing> listings = new AbstractSequentialIterator<ObjectListing>(s3.listObjects(request))
@@ -501,23 +535,39 @@ public class PrestoS3FileSystem
                 if (!previous.isTruncated()) {
                     return null;
                 }
+                // Clear any max keys set for the initial request before submitting subsequent requests. Values < 0
+                // are not sent in the request and the default limit is used
+                previous.setMaxKeys(-1);
                 return s3.listNextBatchOfObjects(previous);
             }
         };
 
-        return Iterators.concat(Iterators.transform(listings, this::statusFromListing));
+        Iterator<LocatedFileStatus> result = Iterators.concat(Iterators.transform(listings, this::statusFromListing));
+        if (mode.isFilesOnly()) {
+            //  Even recursive listing can still contain empty "directory" objects, must filter them out
+            result = Iterators.filter(result, LocatedFileStatus::isFile);
+        }
+        return result;
     }
 
     private Iterator<LocatedFileStatus> statusFromListing(ObjectListing listing)
     {
+        List<String> prefixes = listing.getCommonPrefixes();
+        List<S3ObjectSummary> objects = listing.getObjectSummaries();
+        if (prefixes.isEmpty()) {
+            return statusFromObjects(objects);
+        }
+        if (objects.isEmpty()) {
+            return statusFromPrefixes(prefixes);
+        }
         return Iterators.concat(
-                statusFromPrefixes(listing.getCommonPrefixes()),
-                statusFromObjects(listing.getObjectSummaries()));
+                statusFromPrefixes(prefixes),
+                statusFromObjects(objects));
     }
 
     private Iterator<LocatedFileStatus> statusFromPrefixes(List<String> prefixes)
     {
-        List<LocatedFileStatus> list = new ArrayList<>();
+        List<LocatedFileStatus> list = new ArrayList<>(prefixes.size());
         for (String prefix : prefixes) {
             Path path = qualifiedPath(new Path(PATH_SEPARATOR + prefix));
             FileStatus status = new FileStatus(0, true, 1, 0, 0, path);
@@ -748,6 +798,10 @@ public class PrestoS3FileSystem
 
         if (useInstanceCredentials) {
             return InstanceProfileCredentialsProvider.getInstance();
+        }
+
+        if (s3IamRole != null) {
+            return new STSAssumeRoleSessionCredentialsProvider.Builder(s3IamRole, "presto-" + uri).build();
         }
 
         String providerClass = conf.get(S3_CREDENTIALS_PROVIDER);

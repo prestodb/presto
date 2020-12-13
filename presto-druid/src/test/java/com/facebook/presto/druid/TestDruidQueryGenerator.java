@@ -49,7 +49,7 @@ public class TestDruidQueryGenerator
             SessionHolder sessionHolder,
             Map<String, String> outputVariables)
     {
-        DruidQueryGenerator.DruidQueryGeneratorResult druidQueryGeneratorResult = new DruidQueryGenerator(typeManager, functionMetadataManager, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).get();
+        DruidQueryGenerator.DruidQueryGeneratorResult druidQueryGeneratorResult = new DruidQueryGenerator(functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).get();
         if (expectedDQL.contains("__expressions__")) {
             String expressions = planNode.getOutputVariables().stream().map(v -> outputVariables.get(v.getName())).filter(v -> v != null).collect(Collectors.joining(", "));
             expectedDQL = expectedDQL.replace("__expressions__", expressions);
@@ -160,6 +160,17 @@ public class TestDruidQueryGenerator
     }
 
     @Test
+    public void testGroupByPushdown()
+    {
+        PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
+        testDQL(
+                planBuilder -> planBuilder.aggregation(
+                        aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city"), variable("region.id"), variable("secondssinceepoch"))
+                                .addAggregation(variable("totalfare"), getRowExpression("sum(\"fare\")", defaultSessionHolder))),
+                "SELECT \"city\", \"region.Id\", \"secondsSinceEpoch\", sum(fare) FROM \"realtimeOnly\" GROUP BY \"city\", \"region.Id\", \"secondsSinceEpoch\"");
+    }
+
+    @Test
     public void testDistinctCountGroupByPushdown()
     {
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, druidTable, regionId, secondsSinceEpoch, city, fare));
@@ -170,5 +181,32 @@ public class TestDruidQueryGenerator
                         aggBuilder -> aggBuilder.source(distinctAggregation).singleGroupingSet(variable("city"))
                                 .addAggregation(variable("region.id"), getRowExpression("count(\"region.id\")", defaultSessionHolder))),
                 "SELECT \"city\", count ( distinct \"region.Id\") FROM \"realtimeOnly\" GROUP BY \"city\"");
+    }
+
+    @Test
+    public void testTimestampLiteralPushdown()
+    {
+        //the timezone of the session is Pacific/Apia UTC+13
+        //the timezone of the connector session is UTC
+        //so the time needs to be adjust for 13 hours if the timezone not specified
+        testDQL(
+                planBuilder -> project(
+                        planBuilder,
+                        filter(
+                                planBuilder,
+                                tableScan(planBuilder, druidTable, regionId, city, fare, datetime),
+                                getRowExpression("datetime = timestamp '2016-06-26 19:00:00.000'", defaultSessionHolder)),
+                        ImmutableList.of("city", "datetime")),
+                "SELECT \"city\", \"datetime\" FROM \"realtimeOnly\" WHERE (\"datetime\" = TIMESTAMP '2016-06-26 06:00:00.000')");
+        //test timestamp with timezone
+        testDQL(
+                planBuilder -> project(
+                        planBuilder,
+                        filter(
+                                planBuilder,
+                                tableScan(planBuilder, druidTable, regionId, city, fare, datetime),
+                                getRowExpression("datetime > timestamp '2016-06-26 19:00:00.000 UTC'", defaultSessionHolder)),
+                        ImmutableList.of("city", "datetime")),
+                "SELECT \"city\", \"datetime\" FROM \"realtimeOnly\" WHERE (\"datetime\" > TIMESTAMP '2016-06-26 19:00:00.000')");
     }
 }

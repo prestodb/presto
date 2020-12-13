@@ -386,8 +386,6 @@ public class LongDictionarySelectiveStreamReader
         return INSTANCE_SIZE +
                 sizeOf(dictionary) +
                 sizeOf(dictionaryFilterStatus) +
-                sizeOf(values) +
-                sizeOf(nulls) +
-                sizeOf(outputPositions);
+                super.getRetainedSizeInBytes();
     }
 }

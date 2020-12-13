@@ -29,7 +29,9 @@ import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.hive.HiveStorageFormat;
@@ -40,6 +42,7 @@ import com.facebook.presto.hive.parquet.write.MapKeyValuesSchemaConverter;
 import com.facebook.presto.hive.parquet.write.SingleLevelArrayMapKeyValuesSchemaConverter;
 import com.facebook.presto.hive.parquet.write.SingleLevelArraySchemaConverter;
 import com.facebook.presto.hive.parquet.write.TestMapredParquetOutputFormat;
+import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.writer.ParquetWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -69,6 +72,10 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.parquet.example.data.Group;
+import org.apache.parquet.example.data.simple.SimpleGroupFactory;
+import org.apache.parquet.hadoop.example.ExampleParquetWriter;
+import org.apache.parquet.hadoop.example.GroupWriteSupport;
 import org.joda.time.DateTimeZone;
 import parquet.column.ParquetProperties.WriterVersion;
 import parquet.hadoop.metadata.CompressionCodecName;
@@ -107,9 +114,12 @@ import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.common.type.Varchars.truncateToLength;
 import static com.facebook.presto.hive.AbstractTestHiveFileFormats.getFieldFromCursor;
 import static com.facebook.presto.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.METASTORE_CLIENT_CONFIG;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.HiveUtil.isStructuralType;
+import static com.facebook.presto.hive.benchmark.FileFormat.createPageSource;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
@@ -226,6 +236,26 @@ public class ParquetTester
             throws Exception
     {
         testRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {readValues}, TEST_COLUMN, singletonList(type), parquetSchema, false);
+    }
+
+    public void testRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, org.apache.parquet.schema.MessageType parquetSchema)
+            throws Exception
+    {
+        // forward order
+        assertNonHiveWriterRoundTrip(singletonList(objectInspector), new Iterable<?>[] {writeValues}, new Iterable<?>[] {
+                readValues}, TEST_COLUMN, singletonList(type), parquetSchema);
+
+        // reverse order
+        assertNonHiveWriterRoundTrip(singletonList(objectInspector), reverse(new Iterable<?>[] {writeValues}), reverse(new Iterable<?>[] {
+                readValues}), TEST_COLUMN, singletonList(type), parquetSchema);
+
+        // forward order with nulls
+        assertNonHiveWriterRoundTrip(singletonList(objectInspector), insertNullEvery(5, new Iterable<?>[] {writeValues}), insertNullEvery(5, new Iterable<?>[] {
+                readValues}), TEST_COLUMN, singletonList(type), parquetSchema);
+
+        // reverse order with nulls
+        assertNonHiveWriterRoundTrip(singletonList(objectInspector), insertNullEvery(5, reverse(new Iterable<?>[] {writeValues})), insertNullEvery(5, reverse(new Iterable<?>[] {
+                readValues})), TEST_COLUMN, singletonList(type), parquetSchema);
     }
 
     public void testSingleLevelArrayRoundTrip(ObjectInspector objectInspector, Iterable<?> writeValues, Iterable<?> readValues, Type type, Optional<MessageType> parquetSchema)
@@ -356,6 +386,43 @@ public class ParquetTester
                             getIterators(readValues),
                             columnNames,
                             columnTypes);
+                }
+            }
+        }
+    }
+
+    void assertNonHiveWriterRoundTrip(
+            List<ObjectInspector> objectInspectors,
+            Iterable<?>[] writeValues,
+            Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            org.apache.parquet.schema.MessageType parquetSchema)
+            throws Exception
+    {
+        for (WriterVersion version : versions) {
+            for (CompressionCodecName compression : compressions) {
+                org.apache.parquet.hadoop.metadata.CompressionCodecName compressionCodecName = org.apache.parquet.hadoop.metadata.CompressionCodecName.valueOf(compression.name());
+                for (ConnectorSession session : sessions) {
+                    try (TempFile tempFile = new TempFile("test", "parquet")) {
+                        JobConf jobConf = new JobConf();
+                        jobConf.setEnum(COMPRESSION, compressionCodecName);
+                        jobConf.setBoolean(ENABLE_DICTIONARY, true);
+                        jobConf.setEnum(WRITER_VERSION, version);
+                        nonHiveParquetWriter(
+                                jobConf,
+                                tempFile.getFile(),
+                                compressionCodecName,
+                                getStandardStructObjectInspector(columnNames, objectInspectors),
+                                getIterators(writeValues),
+                                parquetSchema);
+                        assertFileContents(
+                                session,
+                                tempFile.getFile(),
+                                getIterators(readValues),
+                                columnNames,
+                                columnTypes);
+                    }
                 }
             }
         }
@@ -565,6 +632,48 @@ public class ParquetTester
         return OPTIMIZED ? FileFormat.PRESTO_PARQUET : FileFormat.HIVE_PARQUET;
     }
 
+    private static void nonHiveParquetWriter(
+            JobConf jobConf,
+            File outputFile,
+            org.apache.parquet.hadoop.metadata.CompressionCodecName compressionCodecName,
+            SettableStructObjectInspector objectInspector,
+            Iterator<?>[] valuesByField,
+            org.apache.parquet.schema.MessageType parquetSchema)
+            throws Exception
+    {
+        GroupWriteSupport.setSchema(parquetSchema, jobConf);
+        org.apache.parquet.hadoop.ParquetWriter writer = ExampleParquetWriter
+                .builder(new Path(outputFile.toURI()))
+                .withType(parquetSchema)
+                .withCompressionCodec(compressionCodecName)
+                .withConf(jobConf)
+                .withDictionaryEncoding(true)
+                .build();
+        List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
+        SimpleGroupFactory groupFactory = new SimpleGroupFactory(parquetSchema);
+        while (stream(valuesByField).allMatch(Iterator::hasNext)) {
+            Group group = groupFactory.newGroup();
+            for (int field = 0; field < fields.size(); field++) {
+                Object value = valuesByField[field].next();
+                if (value == null) {
+                    continue;
+                }
+                String fieldName = fields.get(field).getFieldName();
+                String typeName = fields.get(field).getFieldObjectInspector().getTypeName();
+                switch (typeName) {
+                    case "timestamp":
+                    case "bigint":
+                        group.add(fieldName, (long) value);
+                        break;
+                    default:
+                        throw new RuntimeException(String.format("unhandled type for column %s type %s", fieldName, typeName));
+                }
+            }
+            writer.write(group);
+        }
+        writer.close();
+    }
+
     private static DataSize writeParquetColumn(
             JobConf jobConf,
             File outputFile,
@@ -697,7 +806,7 @@ public class ParquetTester
         return type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position);
     }
 
-    private static void writeParquetColumnPresto(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)
+    public static void writeParquetColumnPresto(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);
@@ -726,6 +835,31 @@ public class ParquetTester
         pageBuilder.declarePositions(size);
         writer.write(pageBuilder.build());
         writer.close();
+    }
+
+    public static void testSingleRead(Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            ParquetMetadataSource parquetMetadataSource,
+            File dataFile)
+    {
+        HiveClientConfig config = new HiveClientConfig()
+                .setHiveStorageFormat(HiveStorageFormat.PARQUET)
+                .setUseParquetColumnNames(false)
+                .setParquetMaxReadBlockSize(new DataSize(1_000, DataSize.Unit.BYTE));
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties());
+
+        HiveBatchPageSourceFactory pageSourceFactory = new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, new FileFormatDataSourceStats(), parquetMetadataSource);
+        ConnectorPageSource connectorPageSource = createPageSource(pageSourceFactory, session, dataFile, columnNames, columnTypes, HiveStorageFormat.PARQUET);
+
+        Iterator<?>[] expectedValues = stream(readValues).map(Iterable::iterator).toArray(size -> new Iterator<?>[size]);
+        if (connectorPageSource instanceof RecordPageSource) {
+            assertRecordCursor(columnTypes, expectedValues, ((RecordPageSource) connectorPageSource).getCursor());
+        }
+        else {
+            assertPageSource(columnTypes, expectedValues, connectorPageSource);
+        }
+        assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
     }
 
     private static void writeValue(Type type, BlockBuilder blockBuilder, Object value)

@@ -72,6 +72,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
@@ -107,6 +108,7 @@ class StatementClientV1
     private final TimeZoneKey timeZone;
     private final Duration requestTimeoutNanos;
     private final String user;
+    private final boolean compressionDisabled;
 
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
 
@@ -121,6 +123,7 @@ class StatementClientV1
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = session.getUser();
+        this.compressionDisabled = session.isCompressionDisabled();
 
         Request request = buildQueryRequest(session, query);
 
@@ -169,7 +172,7 @@ class StatementClientV1
 
         Map<String, String> property = session.getProperties();
         for (Entry<String, String> entry : property.entrySet()) {
-            builder.addHeader(PRESTO_SESSION, entry.getKey() + "=" + entry.getValue());
+            builder.addHeader(PRESTO_SESSION, entry.getKey() + "=" + urlEncode(entry.getValue()));
         }
 
         Map<String, String> resourceEstimates = session.getResourceEstimates();
@@ -313,10 +316,14 @@ class StatementClientV1
 
     private Request.Builder prepareRequest(HttpUrl url)
     {
-        return new Request.Builder()
+        Request.Builder builder = new Request.Builder()
                 .addHeader(PRESTO_USER, user)
                 .addHeader(USER_AGENT, USER_AGENT_VALUE)
                 .url(url);
+        if (compressionDisabled) {
+            builder.header(ACCEPT_ENCODING, "identity");
+        }
+        return builder;
     }
 
     @Override
@@ -398,7 +405,7 @@ class StatementClientV1
             if (keyValue.size() != 2) {
                 continue;
             }
-            setSessionProperties.put(keyValue.get(0), keyValue.get(1));
+            setSessionProperties.put(keyValue.get(0), urlDecode(keyValue.get(1)));
         }
         resetSessionProperties.addAll(headers.values(PRESTO_CLEAR_SESSION));
 

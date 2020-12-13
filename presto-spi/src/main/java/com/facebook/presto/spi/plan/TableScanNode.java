@@ -20,6 +20,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
 import java.util.HashMap;
@@ -109,11 +110,12 @@ public final class TableScanNode
      * <p>
      * This guarantee can have different origins.
      * For example, it may be successful predicate push down, or inherent guarantee provided by the underlying data.
+     *
+     * currentConstraint will only be used in planner. It is not transported to worker thus will be null on worker.
      */
+    @Nullable
     public TupleDomain<ColumnHandle> getCurrentConstraint()
     {
-        // currentConstraint can be pretty complex. As a result, it may incur a significant cost to serialize, store, and transport.
-        checkState(currentConstraint != null, "currentConstraint should only be used in planner. It is not transported to workers.");
         return currentConstraint;
     }
 

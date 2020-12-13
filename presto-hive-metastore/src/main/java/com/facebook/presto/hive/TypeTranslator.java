@@ -26,9 +26,10 @@ public interface TypeTranslator
     }
 
     /**
-     * When there is no mapping type in hive to translate {@code type},
-     * use provided {@code }defaultHiveType} when necessary. For example,
-     * explicit type is not needed for PageFile format.
+     * @param type            source type to be translated
+     * @param defaultHiveType When there is no mapping type to translate a type to,
+     *                        use provided default hive type when necessary. For example,
+     *                        explicit type is not needed for PageFile format.
      */
     TypeInfo translate(Type type, Optional<HiveType> defaultHiveType);
 }

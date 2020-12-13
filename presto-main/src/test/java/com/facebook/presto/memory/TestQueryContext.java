@@ -31,6 +31,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
@@ -38,6 +39,7 @@ import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -78,6 +80,7 @@ public class TestQueryContext
                     new DataSize(10, BYTE),
                     new DataSize(20, BYTE),
                     new DataSize(10, BYTE),
+                    new DataSize(1, GIGABYTE),
                     new MemoryPool(GENERAL_POOL, new DataSize(10, BYTE)),
                     new TestingGcMonitor(),
                     localQueryRunner.getExecutor(),
@@ -112,7 +115,7 @@ public class TestQueryContext
         QueryId queryId = new QueryId("query");
         QueryContext queryContext = createQueryContext(queryId, generalPool);
         TaskStateMachine taskStateMachine = new TaskStateMachine(TaskId.valueOf("queryid.0.0.0"), TEST_EXECUTOR);
-        TaskContext taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false, false, false);
+        TaskContext taskContext = queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false, false, false, Optional.empty());
         DriverContext driverContext = taskContext.addPipelineContext(0, false, false, false).addDriverContext();
         OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("test"), "test");
 
@@ -144,6 +147,7 @@ public class TestQueryContext
                 new DataSize(10_000, BYTE),
                 new DataSize(10_000, BYTE),
                 new DataSize(10_000, BYTE),
+                new DataSize(1, GIGABYTE),
                 generalPool,
                 new TestingGcMonitor(),
                 TEST_EXECUTOR,

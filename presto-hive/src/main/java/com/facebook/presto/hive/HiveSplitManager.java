@@ -15,7 +15,6 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.stats.CounterStat;
-import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -29,13 +28,17 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -45,16 +48,20 @@ import org.weakref.jmx.Nested;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.stream.Stream;
 
-import static com.facebook.presto.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -62,6 +69,9 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TRANSACTION_NOT_FOUND;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreUnreadablePartition;
+import static com.facebook.presto.hive.HiveWarningCode.PARTITION_NOT_READABLE;
+import static com.facebook.presto.hive.StoragePartitionLoader.BucketSplitInfo.createBucketSplitInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
@@ -71,12 +81,15 @@ import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSched
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.reducing;
 
 public class HiveSplitManager
         implements ConnectorSplitManager
@@ -97,14 +110,13 @@ public class HiveSplitManager
     private final int splitLoaderConcurrency;
     private final boolean recursiveDfsWalkerEnabled;
     private final CounterStat highMemorySplitSourceCounter;
-    private final CacheQuotaScope cacheQuotaScope;
-    private final Optional<DataSize> configuredCacheQuota;
+    private final CacheQuotaRequirementProvider cacheQuotaRequirementProvider;
     private final HiveEncryptionInformationProvider encryptionInformationProvider;
 
     @Inject
     public HiveSplitManager(
             HiveClientConfig hiveClientConfig,
-            CacheConfig cacheConfig,
+            CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
             HiveTransactionManager hiveTransactionManager,
             NamenodeStats namenodeStats,
             HdfsEnvironment hdfsEnvironment,
@@ -128,8 +140,7 @@ public class HiveSplitManager
                 hiveClientConfig.getMaxInitialSplits(),
                 hiveClientConfig.getSplitLoaderConcurrency(),
                 hiveClientConfig.getRecursiveDirWalkerEnabled(),
-                cacheConfig.getCacheQuotaScope(),
-                cacheConfig.getDefaultCacheQuota(),
+                cacheQuotaRequirementProvider,
                 encryptionInformationProvider);
     }
 
@@ -148,8 +159,7 @@ public class HiveSplitManager
             int maxInitialSplits,
             int splitLoaderConcurrency,
             boolean recursiveDfsWalkerEnabled,
-            CacheQuotaScope cacheQuotaScope,
-            Optional<DataSize> configuredCacheQuota,
+            CacheQuotaRequirementProvider cacheQuotaRequirementProvider,
             HiveEncryptionInformationProvider encryptionInformationProvider)
     {
         this.hiveTransactionManager = requireNonNull(hiveTransactionManager, "hiveTransactionManager is null");
@@ -167,8 +177,7 @@ public class HiveSplitManager
         this.maxInitialSplits = maxInitialSplits;
         this.splitLoaderConcurrency = splitLoaderConcurrency;
         this.recursiveDfsWalkerEnabled = recursiveDfsWalkerEnabled;
-        this.cacheQuotaScope = requireNonNull(cacheQuotaScope, "cacheScope is null");
-        this.configuredCacheQuota = requireNonNull(configuredCacheQuota, "defaultCacheQuota is null");
+        this.cacheQuotaRequirementProvider = requireNonNull(cacheQuotaRequirementProvider, "cacheQuotaRequirementProvider is null");
         this.encryptionInformationProvider = requireNonNull(encryptionInformationProvider, "encryptionInformationProvider is null");
     }
 
@@ -228,7 +237,16 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
 
-        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(metastore, table, tableName, partitions, bucketHandle, session, layout.getRequestedColumns());
+        Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(
+                metastore,
+                table,
+                tableName,
+                partitions,
+                bucketHandle,
+                session,
+                splitSchedulingContext.getWarningCollector(),
+                layout.getRequestedColumns(),
+                ImmutableSet.copyOf(layout.getPredicateColumns().values()));
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
@@ -240,19 +258,20 @@ public class HiveSplitManager
                 namenodeStats,
                 directoryLister,
                 executor,
-                splitLoaderConcurrency,
+                min(splitLoaderConcurrency, partitions.size()), // Avoid over-committing split loader concurrency
                 recursiveDfsWalkerEnabled,
-                splitSchedulingContext.schedulerUsesHostAddresses());
+                splitSchedulingContext.schedulerUsesHostAddresses(),
+                layout.isPartialAggregationsPushedDown());
 
         HiveSplitSource splitSource;
+        CacheQuotaRequirement cacheQuotaRequirement = cacheQuotaRequirementProvider.getCacheQuotaRequirement(table.getDatabaseName(), table.getTableName());
         switch (splitSchedulingContext.getSplitSchedulingStrategy()) {
             case UNGROUPED_SCHEDULING:
                 splitSource = HiveSplitSource.allAtOnce(
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        cacheQuotaScope,
-                        configuredCacheQuota,
+                        cacheQuotaRequirement,
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -265,8 +284,7 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        cacheQuotaScope,
-                        configuredCacheQuota,
+                        cacheQuotaRequirement,
                         maxInitialSplits,
                         maxOutstandingSplits,
                         maxOutstandingSplitsSize,
@@ -279,8 +297,7 @@ public class HiveSplitManager
                         session,
                         table.getDatabaseName(),
                         table.getTableName(),
-                        cacheQuotaScope,
-                        configuredCacheQuota,
+                        cacheQuotaRequirement,
                         maxInitialSplits,
                         maxOutstandingSplitsSize,
                         hiveSplitLoader,
@@ -319,11 +336,15 @@ public class HiveSplitManager
             List<HivePartition> hivePartitions,
             Optional<HiveBucketHandle> hiveBucketHandle,
             ConnectorSession session,
-            Optional<Set<HiveColumnHandle>> requestedColumns)
+            WarningCollector warningCollector,
+            Optional<Set<HiveColumnHandle>> requestedColumns,
+            Set<HiveColumnHandle> predicateColumns)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
         }
+
+        Optional<Set<HiveColumnHandle>> allRequestedColumns = mergeRequestedAndPredicateColumns(requestedColumns, predicateColumns);
 
         if (hivePartitions.size() == 1) {
             HivePartition firstPartition = getOnlyElement(hivePartitions);
@@ -332,7 +353,7 @@ public class HiveSplitManager
                         firstPartition,
                         Optional.empty(),
                         ImmutableMap.of(),
-                        encryptionInformationProvider.getEncryptionInformation(session, table, requestedColumns)));
+                        encryptionInformationProvider.getReadEncryptionInformation(session, table, allRequestedColumns)));
             }
         }
 
@@ -354,29 +375,41 @@ public class HiveSplitManager
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
             }
 
-            Optional<Map<String, EncryptionInformation>> encryptionInformationForPartitions = encryptionInformationProvider.getEncryptionInformation(
+            Optional<Map<String, EncryptionInformation>> encryptionInformationForPartitions = encryptionInformationProvider.getReadEncryptionInformation(
                     session,
                     table,
-                    requestedColumns,
+                    allRequestedColumns,
                     partitions);
 
             ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
+            Map<String, Set<String>> partitionsNotReadable = new HashMap<>();
+            int unreadablePartitionsSkipped = 0;
             for (HivePartition hivePartition : partitionBatch) {
                 Partition partition = partitions.get(hivePartition.getPartitionId());
                 if (partition == null) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
                 }
-                String partName = makePartName(table.getPartitionColumns(), partition.getValues());
+                String partitionName = makePartName(table.getPartitionColumns(), partition.getValues());
                 Optional<EncryptionInformation> encryptionInformation = encryptionInformationForPartitions.map(metadata -> metadata.get(hivePartition.getPartitionId()));
 
                 if (!isOfflineDataDebugModeEnabled(session)) {
                     // verify partition is online
-                    verifyOnline(tableName, Optional.of(partName), getProtectMode(partition), partition.getParameters());
+                    verifyOnline(tableName, Optional.of(partitionName), getProtectMode(partition), partition.getParameters());
 
                     // verify partition is not marked as non-readable
-                    String partitionNotReadable = partition.getParameters().get(OBJECT_NOT_READABLE);
-                    if (!isNullOrEmpty(partitionNotReadable)) {
-                        throw new HiveNotReadableException(tableName, Optional.of(partName), partitionNotReadable);
+                    String reason = partition.getParameters().get(OBJECT_NOT_READABLE);
+                    if (!isNullOrEmpty(reason)) {
+                        if (!shouldIgnoreUnreadablePartition(session) || !partition.isEligibleToIgnore()) {
+                            throw new HiveNotReadableException(tableName, Optional.of(partitionName), reason);
+                        }
+                        unreadablePartitionsSkipped++;
+                        if (partitionsNotReadable.size() <= 3) {
+                            partitionsNotReadable.putIfAbsent(reason, new HashSet<>(ImmutableSet.of(partitionName)));
+                            if (partitionsNotReadable.get(reason).size() <= 3) {
+                                partitionsNotReadable.get(reason).add(partitionName);
+                            }
+                        }
+                        continue;
                     }
                 }
 
@@ -388,7 +421,7 @@ public class HiveSplitManager
                 List<Column> tableColumns = table.getDataColumns();
                 List<Column> partitionColumns = partition.getColumns();
                 if ((tableColumns == null) || (partitionColumns == null)) {
-                    throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
+                    throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partitionName));
                 }
                 ImmutableMap.Builder<Integer, Column> partitionSchemaDifference = ImmutableMap.builder();
                 for (int i = 0; i < partitionColumns.size(); i++) {
@@ -410,7 +443,7 @@ public class HiveSplitManager
                                     tableColumns.get(i).getName(),
                                     tableName,
                                     tableType,
-                                    partName,
+                                    partitionName,
                                     partitionColumns.get(i).getName(),
                                     partitionColumn.getType()));
                         }
@@ -451,10 +484,47 @@ public class HiveSplitManager
 
                 results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), partitionSchemaDifference.build(), encryptionInformation));
             }
-
+            if (unreadablePartitionsSkipped > 0) {
+                StringBuilder warningMessage = new StringBuilder(format("Table '%s' has %s out of %s partitions unreadable: ", tableName, unreadablePartitionsSkipped, partitionBatch.size()));
+                for (Entry<String, Set<String>> entry : partitionsNotReadable.entrySet()) {
+                    warningMessage.append(String.join(", ", entry.getValue())).append("... are due to ").append(entry.getKey()).append(". ");
+                }
+                warningCollector.add(new PrestoWarning(PARTITION_NOT_READABLE, warningMessage.toString()));
+            }
             return results.build();
         });
         return concat(partitionBatches);
+    }
+
+    @VisibleForTesting
+    static Optional<Set<HiveColumnHandle>> mergeRequestedAndPredicateColumns(Optional<Set<HiveColumnHandle>> requestedColumns, Set<HiveColumnHandle> predicateColumns)
+    {
+        if (!requestedColumns.isPresent() || predicateColumns.isEmpty()) {
+            return requestedColumns;
+        }
+
+        return Optional.of(
+                Stream.concat(requestedColumns.get().stream(), predicateColumns.stream())
+                        .filter(column -> column.getColumnType() == REGULAR)
+                        .collect(groupingBy(
+                                HiveColumnHandle::getName,
+                                reducing((handle1, handle2) -> {
+                                    if (handle1.getRequiredSubfields().isEmpty()) {
+                                        return handle1;
+                                    }
+
+                                    if (handle2.getRequiredSubfields().isEmpty()) {
+                                        return handle2;
+                                    }
+
+                                    return (HiveColumnHandle) handle1.withRequiredSubfields(ImmutableList.copyOf(ImmutableSet.copyOf(
+                                            ImmutableList.<Subfield>builder().addAll(handle1.getRequiredSubfields()).addAll(handle2.getRequiredSubfields()).build())));
+                                })))
+                        .values()
+                        .stream()
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .collect(toImmutableSet()));
     }
 
     static boolean isBucketCountCompatible(int tableBucketCount, int partitionBucketCount)

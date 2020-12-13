@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -20,6 +23,7 @@ import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public final class ErrorCode
 {
     private final int code;
@@ -27,6 +31,7 @@ public final class ErrorCode
     private final ErrorType type;
 
     @JsonCreator
+    @ThriftConstructor
     public ErrorCode(
             @JsonProperty("code") int code,
             @JsonProperty("name") String name,
@@ -41,18 +46,21 @@ public final class ErrorCode
     }
 
     @JsonProperty
+    @ThriftField(1)
     public int getCode()
     {
         return code;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public String getName()
     {
         return name;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public ErrorType getType()
     {
         return type;

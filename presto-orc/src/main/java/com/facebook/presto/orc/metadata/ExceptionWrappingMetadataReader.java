@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import com.facebook.presto.orc.DwrfEncryptionProvider;
+import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
+import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -63,11 +68,16 @@ public class ExceptionWrappingMetadataReader
     }
 
     @Override
-    public Footer readFooter(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
+    public Footer readFooter(HiveWriterVersion hiveWriterVersion,
+            InputStream inputStream,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            DwrfKeyProvider dwrfKeyProvider,
+            OrcDataSource orcDataSource,
+            Optional<OrcDecompressor> decompressor)
             throws OrcCorruptionException
     {
         try {
-            return delegate.readFooter(hiveWriterVersion, inputStream);
+            return delegate.readFooter(hiveWriterVersion, inputStream, dwrfEncryptionProvider, dwrfKeyProvider, orcDataSource, decompressor);
         }
         catch (IOException | RuntimeException e) {
             throw propagate(e, "Invalid file footer");
@@ -112,6 +122,9 @@ public class ExceptionWrappingMetadataReader
 
     private OrcCorruptionException propagate(Throwable throwable, String message)
     {
+        if (throwable.getClass().getSimpleName().equals("PrestoException")) {
+            throw (RuntimeException) throwable;
+        }
         return new OrcCorruptionException(throwable, orcDataSourceId, message);
     }
 }

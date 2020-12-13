@@ -56,6 +56,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -213,11 +214,11 @@ public abstract class AbstractTestOrcReader
         StripeMetadataSource stripeMetadataSource = new CachingStripeMetadataSource(new StorageStripeMetadataSource(), stripeFootercache, stripeStreamCache);
 
         try (TempFile tempFile = createTempFile()) {
-            OrcBatchRecordReader storageReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource, true, ImmutableMap.of());
+            OrcBatchRecordReader storageReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource, true, ImmutableMap.of(), false);
             assertEquals(orcFileTailCache.stats().missCount(), 1);
             assertEquals(orcFileTailCache.stats().hitCount(), 0);
 
-            OrcBatchRecordReader cacheReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource, true, ImmutableMap.of());
+            OrcBatchRecordReader cacheReader = createCustomOrcRecordReader(tempFile, ORC, OrcPredicate.TRUE, ImmutableList.of(BIGINT), INITIAL_BATCH_SIZE, orcFileTailSource, stripeMetadataSource, true, ImmutableMap.of(), false);
             assertEquals(orcFileTailCache.stats().missCount(), 1);
             assertEquals(orcFileTailCache.stats().hitCount(), 1);
 
@@ -491,6 +492,17 @@ public abstract class AbstractTestOrcReader
                 newArrayList(limit(cycle(ImmutableList.of(1, 3, 5, 7, 11, 13, 17)), 200_000)).stream()
                         .map(Object::toString)
                         .collect(toList()));
+    }
+
+    @Test
+    public void testExtraLargeColumnValue()
+            throws Exception
+    {
+        Random rnd = new Random(0);
+        String val = rnd.doubles(50_000).mapToObj(Double::toString).collect(Collectors.joining(","));
+        tester.assertRoundTrip(
+                VARCHAR,
+                ImmutableList.of(val));
     }
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)

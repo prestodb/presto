@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
+import java.util.OptionalLong;
 
 public interface ConnectorSplit
 {
@@ -37,4 +38,14 @@ public interface ConnectorSplit
     List<HostAddress> getPreferredNodes(List<HostAddress> sortedCandidates);
 
     Object getInfo();
+
+    default Object getSplitIdentifier()
+    {
+        return this;
+    }
+
+    default OptionalLong getSplitSizeInBytes()
+    {
+        return OptionalLong.empty();
+    }
 }

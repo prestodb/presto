@@ -14,6 +14,10 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.Subfield.NestedField;
+import com.facebook.presto.common.Subfield.PathElement;
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -56,13 +60,17 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveCoercer.createCoercer;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.AGGREGATED;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static com.facebook.presto.hive.HiveUtil.getPrefilledColumnValue;
+import static com.facebook.presto.hive.HiveUtil.parsePartitionValue;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.reconstructPartitionSchema;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
@@ -71,6 +79,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
 import static java.lang.System.identityHashCode;
@@ -152,6 +161,18 @@ public class HivePageSourceProvider
             }
         }
 
+        TupleDomain<HiveColumnHandle> effectivePredicate = hiveLayout.getDomainPredicate()
+                .transform(Subfield::getRootName)
+                .transform(hiveLayout.getPredicateColumns()::get);
+
+        if (shouldSkipBucket(hiveLayout, hiveSplit, splitContext)) {
+            return new HiveEmptySplitPageSource();
+        }
+
+        if (shouldSkipPartition(typeManager, hiveLayout, hiveStorageTimeZone, hiveSplit, splitContext)) {
+            return new HiveEmptySplitPageSource();
+        }
+
         CacheQuota cacheQuota = generateCacheQuota(hiveSplit);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 cursorProviders,
@@ -164,9 +185,7 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getFileSize(),
                 hiveSplit.getStorage(),
-                hiveLayout.getDomainPredicate()
-                        .transform(Subfield::getRootName)
-                        .transform(hiveLayout.getPredicateColumns()::get),
+                splitContext.getDynamicFilterPredicate().map(filter -> filter.transform(handle -> (HiveColumnHandle) handle).intersect(effectivePredicate)).orElse(effectivePredicate),
                 selectedColumns,
                 hiveLayout.getPredicateColumns(),
                 hiveSplit.getPartitionKeys(),
@@ -180,11 +199,12 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionSchemaDifference(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.isS3SelectPushdownEnabled(),
-                new HiveFileContext(splitContext.isCacheable(), cacheQuota, hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
+                new HiveFileContext(splitContext.isCacheable(), cacheQuota, hiveSplit.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new), Optional.of(hiveSplit.getFileSize())),
                 hiveLayout.getRemainingPredicate(),
                 hiveLayout.isPushdownFilterEnabled(),
                 rowExpressionService,
-                encryptionInformation);
+                encryptionInformation,
+                hiveSplit.getCustomSplitInfo());
         if (pageSource.isPresent()) {
             return pageSource.get();
         }
@@ -261,6 +281,14 @@ public class HivePageSourceProvider
 
         RowExpression optimizedRemainingPredicate = rowExpressionCache.getUnchecked(new RowExpressionCacheKey(layout.getRemainingPredicate(), session));
 
+        if (shouldSkipBucket(layout, split, splitContext)) {
+            return Optional.of(new HiveEmptySplitPageSource());
+        }
+
+        if (shouldSkipPartition(typeManager, layout, hiveStorageTimeZone, split, splitContext)) {
+            return Optional.of(new HiveEmptySplitPageSource());
+        }
+
         CacheQuota cacheQuota = generateCacheQuota(split);
         for (HiveSelectivePageSourceFactory pageSourceFactory : selectivePageSourceFactories) {
             Optional<? extends ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
@@ -276,10 +304,11 @@ public class HivePageSourceProvider
                     coercers,
                     bucketAdaptation,
                     outputColumns,
-                    layout.getDomainPredicate(),
+                    splitContext.getDynamicFilterPredicate().map(filter -> filter.transform(
+                            handle -> new Subfield(((HiveColumnHandle) handle).getName())).intersect(layout.getDomainPredicate())).orElse(layout.getDomainPredicate()),
                     optimizedRemainingPredicate,
                     hiveStorageTimeZone,
-                    new HiveFileContext(splitContext.isCacheable(), cacheQuota, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new)),
+                    new HiveFileContext(splitContext.isCacheable(), cacheQuota, split.getExtraFileInfo().map(BinaryExtraHiveFileInfo::new), Optional.of(split.getFileSize())),
                     encryptionInformation);
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
@@ -318,7 +347,8 @@ public class HivePageSourceProvider
             RowExpression remainingPredicate,
             boolean isPushdownFilterEnabled,
             RowExpressionService rowExpressionService,
-            Optional<EncryptionInformation> encryptionInformation)
+            Optional<EncryptionInformation> encryptionInformation,
+            Map<String, String> customSplitInfo)
     {
         List<HiveColumnHandle> allColumns;
 
@@ -392,6 +422,12 @@ public class HivePageSourceProvider
             }
         }
 
+        if (!hiveColumns.isEmpty() && hiveColumns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
+            throw new UnsupportedOperationException("Partial aggregation pushdown only supported for ORC/Parquet files. " +
+                    "Table " + tableName.toString() + " has file (" + path.toString() + ") of format " + storage.getStorageFormat().getOutputFormat() +
+                    ". Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
+        }
+
         for (HiveRecordCursorProvider provider : cursorProviders) {
             // GenericHiveRecordCursor will automatically do the coercion without HiveCoercionRecordCursor
             boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
@@ -422,7 +458,8 @@ public class HivePageSourceProvider
                     effectivePredicate,
                     hiveStorageTimeZone,
                     typeManager,
-                    s3SelectPushdownEnabled);
+                    s3SelectPushdownEnabled,
+                    customSplitInfo);
 
             if (cursor.isPresent()) {
                 RecordCursor delegate = cursor.get();
@@ -471,6 +508,50 @@ public class HivePageSourceProvider
         return Optional.empty();
     }
 
+    private static boolean shouldSkipBucket(HiveTableLayoutHandle hiveLayout, HiveSplit hiveSplit, SplitContext splitContext)
+    {
+        if (!splitContext.getDynamicFilterPredicate().isPresent()
+                || !hiveSplit.getReadBucketNumber().isPresent()
+                || !hiveSplit.getStorage().getBucketProperty().isPresent()) {
+            return false;
+        }
+
+        TupleDomain<ColumnHandle> dynamicFilter = splitContext.getDynamicFilterPredicate().get();
+        Optional<HiveBucketing.HiveBucketFilter> hiveBucketFilter = getHiveBucketFilter(hiveSplit.getStorage().getBucketProperty(), hiveLayout.getDataColumns(), dynamicFilter);
+
+        return hiveBucketFilter.map(filter -> !filter.getBucketsToKeep().contains(hiveSplit.getReadBucketNumber().getAsInt())).orElse(false);
+    }
+
+    private static boolean shouldSkipPartition(TypeManager typeManager, HiveTableLayoutHandle hiveLayout, DateTimeZone hiveStorageTimeZone, HiveSplit hiveSplit, SplitContext splitContext)
+    {
+        List<HiveColumnHandle> partitionColumns = hiveLayout.getPartitionColumns();
+        List<Type> partitionTypes = partitionColumns.stream()
+                .map(column -> typeManager.getType(column.getTypeSignature()))
+                .collect(toList());
+        List<HivePartitionKey> partitionKeys = hiveSplit.getPartitionKeys();
+
+        if (!splitContext.getDynamicFilterPredicate().isPresent()
+                || hiveSplit.getPartitionKeys().isEmpty()
+                || partitionColumns.isEmpty()
+                || partitionColumns.size() != partitionKeys.size()) {
+            return false;
+        }
+
+        TupleDomain<ColumnHandle> dynamicFilter = splitContext.getDynamicFilterPredicate().get();
+        Map<ColumnHandle, Domain> domains = dynamicFilter.getDomains().get();
+        for (int i = 0; i < partitionKeys.size(); i++) {
+            Type type = partitionTypes.get(i);
+            HivePartitionKey hivePartitionKey = partitionKeys.get(i);
+            HiveColumnHandle hiveColumnHandle = partitionColumns.get(i);
+            Domain allowedDomain = domains.get(hiveColumnHandle);
+            NullableValue value = parsePartitionValue(hivePartitionKey.getName(), hivePartitionKey.getValue(), type, hiveStorageTimeZone);
+            if (allowedDomain != null && !allowedDomain.includesNullableValue(value.getValue())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static BucketAdaptation toBucketAdaptation(BucketConversion conversion, List<ColumnMapping> columnMappings, OptionalInt tableBucketNumber, Function<ColumnMapping, Integer> bucketColumnIndexProducer)
     {
         Map<Integer, ColumnMapping> hiveIndexToBlockIndex = uniqueIndex(columnMappings, columnMapping -> columnMapping.getHiveColumnHandle().getHiveColumnIndex());
@@ -504,6 +585,13 @@ public class HivePageSourceProvider
         {
             checkArgument(hiveColumnHandle.getColumnType() == REGULAR);
             return new ColumnMapping(ColumnMappingKind.REGULAR, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), coerceFrom);
+        }
+
+        public static ColumnMapping aggregated(HiveColumnHandle hiveColumnHandle, int index)
+        {
+            checkArgument(hiveColumnHandle.getColumnType() == AGGREGATED);
+            // Pretend that it is a regular column so that the split manager can process it as normal
+            return new ColumnMapping(ColumnMappingKind.REGULAR, hiveColumnHandle, Optional.empty(), OptionalInt.of(index), Optional.empty());
         }
 
         public static ColumnMapping prefilled(HiveColumnHandle hiveColumnHandle, String prefilledValue, Optional<HiveType> coerceFrom)
@@ -586,6 +674,21 @@ public class HivePageSourceProvider
                     columnMappings.add(regular(column, regularIndex, coercionFrom));
                     regularIndex++;
                 }
+                else if (column.getColumnType() == AGGREGATED) {
+                    columnMappings.add(aggregated(column, regularIndex));
+                    regularIndex++;
+                }
+                else if (isPushedDownSubfield(column)) {
+                    Optional<HiveType> coercionFromType = getHiveType(coercionFrom, getOnlyElement(column.getRequiredSubfields()));
+                    HiveType coercionToType = column.getHiveType();
+                    if (coercionFromType.isPresent() && coercionFromType.get().equals(coercionToType)) {
+                        // In nested columns, if the resolved type is same as requested type don't add the coercion mapping
+                        coercionFromType = Optional.empty();
+                    }
+                    ColumnMapping columnMapping = new ColumnMapping(ColumnMappingKind.REGULAR, column, Optional.empty(), OptionalInt.of(regularIndex), coercionFromType);
+                    columnMappings.add(columnMapping);
+                    regularIndex++;
+                }
                 else {
                     columnMappings.add(prefilled(
                             column,
@@ -605,6 +708,17 @@ public class HivePageSourceProvider
                 regularIndex++;
             }
             return columnMappings.build();
+        }
+
+        private static Optional<HiveType> getHiveType(Optional<HiveType> baseType, Subfield subfield)
+        {
+            List<PathElement> pathElements = subfield.getPath();
+            ImmutableList.Builder<String> nestedColumnPathBuilder = ImmutableList.builder();
+            for (PathElement pathElement : pathElements) {
+                checkArgument(pathElement instanceof NestedField, "Unsupported subfield. Expected only nested path elements. " + subfield);
+                nestedColumnPathBuilder.add(((NestedField) pathElement).getName());
+            }
+            return baseType.flatMap(type -> type.findChildType(nestedColumnPathBuilder.build()));
         }
 
         public static List<ColumnMapping> extractRegularAndInterimColumnMappings(List<ColumnMapping> columnMappings)
@@ -629,7 +743,8 @@ public class HivePageSourceProvider
                                 columnHandle.getHiveColumnIndex(),
                                 columnHandle.getColumnType(),
                                 Optional.empty(),
-                                columnHandle.getRequiredSubfields());
+                                columnHandle.getRequiredSubfields(),
+                                columnHandle.getPartialAggregation());
                     })
                     .collect(toList());
         }
@@ -640,6 +755,7 @@ public class HivePageSourceProvider
         REGULAR,
         PREFILLED,
         INTERIM,
+        AGGREGATED
     }
 
     private static final class RowExpressionCacheKey

@@ -20,11 +20,14 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.prestoaction.JdbcPrestoAction;
+import com.facebook.presto.verifier.prestoaction.JdbcUrlSelector;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
-import com.facebook.presto.verifier.prestoaction.PrestoClusterConfig;
+import com.facebook.presto.verifier.prestoaction.PrestoActionConfig;
 import com.facebook.presto.verifier.prestoaction.PrestoExceptionClassifier;
+import com.facebook.presto.verifier.prestoaction.QueryActionsConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.facebook.presto.verifier.rewrite.QueryRewriter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -43,6 +46,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestDeterminismAnalyzer
 {
+    private static final String SUITE = "test-suite";
+    private static final String NAME = "test-query";
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
 
     @Test
@@ -61,17 +66,22 @@ public class TestDeterminismAnalyzer
     private static DeterminismAnalyzer createDeterminismAnalyzer(String mutableCatalogPattern)
     {
         QueryConfiguration configuration = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
-        VerificationContext verificationContext = VerificationContext.create();
+        VerificationContext verificationContext = VerificationContext.create(SUITE, NAME);
         VerifierConfig verifierConfig = new VerifierConfig().setTestId("test-id");
         RetryConfig retryConfig = new RetryConfig();
+        QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
         TypeManager typeManager = createTypeManager();
         PrestoAction prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 configuration,
                 verificationContext,
-                new PrestoClusterConfig(),
+                new JdbcUrlSelector(ImmutableList.of()),
+                new PrestoActionConfig(),
+                queryActionsConfig.getMetadataTimeout(),
+                queryActionsConfig.getChecksumTimeout(),
                 retryConfig,
-                retryConfig);
+                retryConfig,
+                verifierConfig);
         QueryRewriter queryRewriter = new QueryRewriter(
                 sqlParser,
                 typeManager,
@@ -87,7 +97,6 @@ public class TestDeterminismAnalyzer
                 queryRewriter,
                 checksumValidator,
                 typeManager,
-                verificationContext,
                 new DeterminismAnalyzerConfig().setNonDeterministicCatalogs(mutableCatalogPattern));
     }
 }

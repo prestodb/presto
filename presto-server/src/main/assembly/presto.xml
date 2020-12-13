@@ -121,6 +121,10 @@
             <outputDirectory>plugin/mysql</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-oracle-${project.version}</directory>
+            <outputDirectory>plugin/oracle</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-postgresql-${project.version}</directory>
             <outputDirectory>plugin/postgresql</outputDirectory>
         </fileSet>

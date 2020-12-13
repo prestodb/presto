@@ -14,31 +14,28 @@
 package com.facebook.presto.raptor.storage;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcWriterStats;
-import com.facebook.presto.orc.OutputStreamDataSink;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
 import com.facebook.presto.raptor.filesystem.LocalOrcDataEnvironment;
 import com.facebook.presto.raptor.metadata.TableColumn;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
@@ -74,6 +71,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
@@ -123,13 +121,11 @@ public class TestOrcFileRewriter
     public void testRewrite()
             throws Exception
     {
-        TypeManager typeManager = new TypeRegistry();
-        // associate typeManager with a function manager
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
         ArrayType arrayType = new ArrayType(BIGINT);
         ArrayType arrayOfArrayType = new ArrayType(arrayType);
-        Type mapType = typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+        Type mapType = functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(createVarcharType(5).getTypeSignature()),
                 TypeSignatureParameter.of(BOOLEAN.getTypeSignature())));
         List<Long> columnIds = ImmutableList.of(3L, 7L, 9L, 10L, 11L, 12L);
@@ -454,9 +450,9 @@ public class TestOrcFileRewriter
     public void testRewriterDropThenAddDifferentColumns()
             throws Exception
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
-        dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
+        dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         Handle dummyHandle = dbi.open();
         File dataDir = Files.createTempDir();
 
@@ -507,7 +503,8 @@ public class TestOrcFileRewriter
                 new RaptorOrcAggregatedMemoryContext(),
                 OrcTestingUtil.createDefaultTestConfig(),
                 false,
-                NO_ENCRYPTION);
+                NO_ENCRYPTION,
+                DwrfKeyProvider.EMPTY);
         orcReader.getColumnNames().equals(ImmutableList.of("7"));
 
         // Add a column with the different ID with different type
@@ -597,9 +594,9 @@ public class TestOrcFileRewriter
     public void testRewriterDropThenAddSameColumns()
             throws Exception
     {
-        TypeRegistry typeRegistry = new TypeRegistry();
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime());
-        dbi.registerMapper(new TableColumn.Mapper(typeRegistry));
+        dbi.registerMapper(new TableColumn.Mapper(functionAndTypeManager));
         Handle dummyHandle = dbi.open();
         File dataDir = Files.createTempDir();
 
@@ -714,19 +711,17 @@ public class TestOrcFileRewriter
                 writeMetadata,
                 true,
                 new OrcWriterStats(),
-                new TypeRegistry(),
+                createTestFunctionAndTypeManager(),
                 ZSTD);
     }
 
     private static OrcFileRewriter createFileRewriter()
     {
-        TypeRegistry typeManager = new TypeRegistry();
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
         return new OrcFileRewriter(
                 READER_ATTRIBUTES,
                 true,
                 new OrcWriterStats(),
-                typeManager,
+                createTestFunctionAndTypeManager(),
                 new LocalOrcDataEnvironment(),
                 ZSTD,
                 new StorageOrcFileTailSource(),

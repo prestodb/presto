@@ -71,7 +71,7 @@ public class BenchmarkQueryEvent
         this.cpuTimeSecs = millisToSeconds(queryStats.map(QueryStats::getCpuTimeMillis)).orElse(null);
         this.wallTimeSecs = millisToSeconds(queryStats.map(QueryStats::getWallTimeMillis)).orElse(null);
         this.errorCode = requireNonNull(errorCode, "errorCode is null").orElse(null);
-        this.errorMessage = requireNonNull(errorMessage, "errorMessage is null").orElse("");
+        this.errorMessage = requireNonNull(errorMessage, "errorMessage is null").orElse(null);
         this.stackTrace = requireNonNull(stackTrace, "stackTrace is null").orElse(null);
     }
 

@@ -281,20 +281,22 @@ public class JoinFilterFunctionCompiler
                 return false;
             }
             JoinFilterCacheKey that = (JoinFilterCacheKey) o;
-            return leftBlocksSize == that.leftBlocksSize &&
+            return Objects.equals(sqlFunctionProperties, that.sqlFunctionProperties) &&
+                    leftBlocksSize == that.leftBlocksSize &&
                     Objects.equals(filter, that.filter);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(leftBlocksSize, filter);
+            return Objects.hash(sqlFunctionProperties, leftBlocksSize, filter);
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
+                    .add("sqlFunctionProperties", sqlFunctionProperties)
                     .add("filter", filter)
                     .add("leftBlocksSize", leftBlocksSize)
                     .toString();

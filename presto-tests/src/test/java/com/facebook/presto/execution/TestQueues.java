@@ -20,6 +20,7 @@ import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.resourceGroups.ResourceGroupManagerPlugin;
+import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
-import com.facebook.presto.type.TypeRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
@@ -58,6 +58,7 @@ import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_REJECTED;
@@ -89,7 +90,7 @@ public class TestQueues
         objectMapper = new ObjectMapperProvider().get();
         objectMapper.registerModule(new SimpleModule() {
             {
-                addKeyDeserializer(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(new TypeRegistry()));
+                addKeyDeserializer(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(createTestFunctionAndTypeManager()));
             }
         });
     }
@@ -347,14 +348,14 @@ public class TestQueues
         waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
         // Retrieve information for the queued query
-        QueryInfo queryInfo = getQueryInfo("/v1/query/" + secondDashboardQuery.getId());
+        BasicQueryInfo queryInfo = getBasicQueryInfo("/v1/query/" + secondDashboardQuery.getId());
         assertNotNull(queryInfo);
         assertEquals(queryInfo.getState(), QUEUED);
         assertEquals(queryInfo.getQuery(), LONG_LASTING_QUERY);
         assertNotNull(queryInfo.getQueryStats());
 
         killQuery(format("/v1/query/%s/killed", secondDashboardQuery.getId()));
-        queryInfo = getQueryInfo("/v1/query/" + secondDashboardQuery.getId());
+        queryInfo = getBasicQueryInfo("/v1/query/" + secondDashboardQuery.getId());
         assertNotNull(queryInfo);
         assertEquals(queryInfo.getErrorCode(), ADMINISTRATIVELY_KILLED.toErrorCode());
 
@@ -363,7 +364,7 @@ public class TestQueues
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
 
         killQuery(format("/v1/query/%s/preempted", thirdDashboardQuery.getId()));
-        queryInfo = getQueryInfo("/v1/query/" + thirdDashboardQuery.getId());
+        queryInfo = getBasicQueryInfo("/v1/query/" + thirdDashboardQuery.getId());
         assertNotNull(queryInfo);
         assertEquals(queryInfo.getErrorCode(), ADMINISTRATIVELY_PREEMPTED.toErrorCode());
     }
@@ -446,13 +447,13 @@ public class TestQueues
                 .build());
     }
 
-    private QueryInfo getQueryInfo(String path)
+    private BasicQueryInfo getBasicQueryInfo(String path)
             throws IOException
     {
         requireNonNull(path, "path is null");
         Request request = prepareGet().setUri(queryRunner.getCoordinator().resolve(path)).build();
         String body = client.execute(request, createStringResponseHandler()).getBody();
-        return objectMapper.readValue(body, QueryInfo.class);
+        return objectMapper.readValue(body, BasicQueryInfo.class);
     }
 
     private void killQuery(String path)

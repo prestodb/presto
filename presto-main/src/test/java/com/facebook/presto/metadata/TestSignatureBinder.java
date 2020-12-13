@@ -13,18 +13,14 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -42,6 +38,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
 import static com.facebook.presto.spi.function.Signature.orderableTypeParameter;
@@ -59,13 +56,7 @@ import static org.testng.Assert.fail;
 
 public class TestSignatureBinder
 {
-    private final TypeManager typeRegistry = new TypeRegistry();
-
-    TestSignatureBinder()
-    {
-        // associate typeRegistry with a function manager
-        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-    }
+    private final FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
 
     @Test
     public void testBindLiteralForDecimal()
@@ -1119,7 +1110,7 @@ public class TestSignatureBinder
     private Type type(String signature)
     {
         TypeSignature typeSignature = TypeSignature.parseTypeSignature(signature);
-        return requireNonNull(typeRegistry.getType(typeSignature));
+        return requireNonNull(functionAndTypeManager.getType(typeSignature));
     }
 
     private List<Type> types(String... signatures)
@@ -1201,7 +1192,7 @@ public class TestSignatureBinder
         private Optional<BoundVariables> bindVariables()
         {
             assertNotNull(argumentTypes);
-            SignatureBinder signatureBinder = new SignatureBinder(typeRegistry, function, allowCoercion);
+            SignatureBinder signatureBinder = new SignatureBinder(functionAndTypeManager, function, allowCoercion);
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);
             }

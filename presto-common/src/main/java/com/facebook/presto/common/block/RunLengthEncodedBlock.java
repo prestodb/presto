@@ -148,6 +148,18 @@ public class RunLengthEncodedBlock
     }
 
     @Override
+    public long getRegionLogicalSizeInBytes(int position, int length)
+    {
+        return length * value.getLogicalSizeInBytes();
+    }
+
+    @Override
+    public long getApproximateRegionLogicalSizeInBytes(int position, int length)
+    {
+        return positionCount * value.getApproximateRegionLogicalSizeInBytes(0, 1);
+    }
+
+    @Override
     public long getPositionsSizeInBytes(boolean[] positions)
     {
         return value.getSizeInBytes();
@@ -289,11 +301,7 @@ public class RunLengthEncodedBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder(getClass().getSimpleName());
-        sb.append("{positionCount=").append(positionCount);
-        sb.append(", value=").append(value);
-        sb.append('}');
-        return sb.toString();
+        return format("RunLengthEncodedBlock(%d){positionCount=%d,value=%s}", hashCode(), getPositionCount(), value);
     }
 
     @Override

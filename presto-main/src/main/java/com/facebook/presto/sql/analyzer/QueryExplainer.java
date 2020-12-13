@@ -17,10 +17,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.DataDefinitionTask;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -31,6 +31,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.tree.ExplainType.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
@@ -61,6 +62,7 @@ public class QueryExplainer
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
+    private final PlanChecker planChecker;
 
     @Inject
     public QueryExplainer(
@@ -71,17 +73,19 @@ public class QueryExplainer
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
+            PlanChecker planChecker)
     {
         this(
-                planOptimizers.get(),
+                planOptimizers.getPlanningTimeOptimizers(),
                 planFragmenter,
                 metadata,
                 accessControl,
                 sqlParser,
                 statsCalculator,
                 costCalculator,
-                dataDefinitionTask);
+                dataDefinitionTask,
+                planChecker);
     }
 
     public QueryExplainer(
@@ -92,7 +96,8 @@ public class QueryExplainer
             SqlParser sqlParser,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask,
+            PlanChecker planChecker)
     {
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
@@ -102,6 +107,7 @@ public class QueryExplainer
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
+        this.planChecker = requireNonNull(planChecker, "planChecker is null");
     }
 
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
@@ -120,10 +126,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), plan.getStatsAndCosts(), session, 0, verbose);
+                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionAndTypeManager(), plan.getStatsAndCosts(), session, 0, verbose);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionManager(), session, verbose);
+                return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionAndTypeManager(), session, verbose);
             case IO:
                 return IOPlanPrinter.textIOPlan(getLogicalPlan(session, statement, parameters, warningCollector).getRoot(), metadata, session);
         }
@@ -146,10 +152,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), session, metadata.getFunctionManager());
+                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), session, metadata.getFunctionAndTypeManager());
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return graphvizDistributedPlan(subPlan, session, metadata.getFunctionManager());
+                return graphvizDistributedPlan(subPlan, session, metadata.getFunctionAndTypeManager());
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -169,7 +175,7 @@ public class QueryExplainer
                 return textIOPlan(plan.getRoot(), metadata, session);
             case LOGICAL:
                 plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return jsonLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionManager(), plan.getStatsAndCosts(), session);
+                return jsonLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionAndTypeManager(), plan.getStatsAndCosts(), session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return jsonDistributedPlan(subPlan);
@@ -188,11 +194,21 @@ public class QueryExplainer
         // analyze statement
         Analysis analysis = analyze(session, statement, parameters, warningCollector);
         // plan statement
-        LogicalPlanner logicalPlanner = new LogicalPlanner(true, session, planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(
+                true,
+                session,
+                planOptimizers,
+                idAllocator,
+                metadata,
+                sqlParser,
+                statsCalculator,
+                costCalculator,
+                warningCollector,
+                planChecker);
         return logicalPlanner.plan(analysis);
     }
 
-    private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+    public SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, idAllocator);

@@ -14,8 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TableHandle;
@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
@@ -50,8 +51,14 @@ public class RenameColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
-        TableHandle tableHandle = metadata.getTableHandle(session, tableName)
-                .orElseThrow(() -> new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName));
+        Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
+        if (!tableHandleOptional.isPresent()) {
+            if (!statement.isTableExists()) {
+                throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+            }
+            return immediateFuture(null);
+        }
+        TableHandle tableHandle = tableHandleOptional.get();
 
         String source = statement.getSource().getValue().toLowerCase(ENGLISH);
         String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
@@ -61,7 +68,10 @@ public class RenameColumnTask
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         ColumnHandle columnHandle = columnHandles.get(source);
         if (columnHandle == null) {
-            throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", source);
+            if (!statement.isColumnExists()) {
+                throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", source);
+            }
+            return immediateFuture(null);
         }
 
         if (columnHandles.containsKey(target)) {

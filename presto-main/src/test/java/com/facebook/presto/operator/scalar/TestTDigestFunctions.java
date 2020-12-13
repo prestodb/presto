@@ -14,9 +14,13 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.type.SqlVarbinary;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.tdigest.TDigest;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.math3.distribution.BinomialDistribution;
 import org.apache.commons.math3.distribution.GeometricDistribution;
 import org.apache.commons.math3.distribution.NormalDistribution;
@@ -30,11 +34,16 @@ import java.util.List;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static java.util.Collections.sort;
+import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
 
 public class TestTDigestFunctions
         extends AbstractTestFunctions
@@ -44,6 +53,7 @@ public class TestTDigestFunctions
     private static final double STANDARD_ERROR = 0.01;
     private static final double[] quantiles = {0.0001, 0.0200, 0.0300, 0.04000, 0.0500, 0.1000, 0.2000, 0.3000, 0.4000, 0.5000, 0.6000, 0.7000, 0.8000,
             0.9000, 0.9500, 0.9600, 0.9700, 0.9800, 0.9999};
+    private static final Type TDIGEST_DOUBLE = TDIGEST.createType(ImmutableList.of(TypeParameter.of(DOUBLE)));
 
     private static final Joiner ARRAY_JOINER = Joiner.on(",");
     private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
@@ -470,6 +480,66 @@ public class TestTDigestFunctions
         }
     }
 
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Scale factor should be positive\\.")
+    public void testScaleNegative()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        addAll(tDigest, 0.0d, 1.0d, 2.0d, 3.0d, 4.0d, 5.0d, 6.0d, 7.0d, 8.0d, 9.0d);
+
+        functionAssertions.selectSingleValue(
+                format(
+                        "scale_tdigest(CAST(X'%s' AS tdigest(double)), -1)",
+                        new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " ")),
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+    }
+
+    @Test
+    public void testScale()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        addAll(tDigest, 0.0d, 1.0d, 2.0d, 3.0d, 4.0d, 5.0d, 6.0d, 7.0d, 8.0d, 9.0d);
+
+        // Before scaling.
+        List<Double> unscaledFrequencies = getFrequencies(tDigest, asList(2.0d, 4.0d, 6.0d, 8.0d));
+
+        // Scale up.
+        SqlVarbinary sqlVarbinary = functionAssertions.selectSingleValue(
+                format(
+                        "scale_tdigest(CAST(X'%s' AS tdigest(double)), 2)",
+                        new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " ")),
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+
+        TDigest scaledTdigest = createTDigest(wrappedBuffer(sqlVarbinary.getBytes()));
+        List<Double> scaledDigestFrequencies = getFrequencies(scaledTdigest, asList(2.0d, 4.0d, 6.0d, 8.0d));
+        List<Double> scaledUpFrequencies = new ArrayList<Double>();
+        unscaledFrequencies.forEach(frequency -> scaledUpFrequencies.add(frequency * 2));
+        assertEquals(scaledDigestFrequencies, scaledUpFrequencies);
+
+        // Scale down.
+        sqlVarbinary = functionAssertions.selectSingleValue(
+                format(
+                        "scale_tdigest(CAST(X'%s' AS tdigest(double)), 0.5)",
+                        new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " ")),
+                TDIGEST_DOUBLE,
+                SqlVarbinary.class);
+
+        scaledTdigest = createTDigest(wrappedBuffer(sqlVarbinary.getBytes()));
+        scaledDigestFrequencies = getFrequencies(scaledTdigest, asList(2.0d, 4.0d, 6.0d, 8.0d));
+        List<Double> scaledDownFrequencies = new ArrayList<Double>();
+        unscaledFrequencies.forEach(frequency -> scaledDownFrequencies.add(frequency * 0.5));
+        assertEquals(scaledDigestFrequencies, scaledDownFrequencies);
+    }
+
+    private static void addAll(TDigest digest, double... values)
+    {
+        requireNonNull(values, "values is null");
+        for (double value : values) {
+            digest.add(value);
+        }
+    }
+
     private void assertValueWithinBound(double quantile, double error, List<Double> list, TDigest tDigest)
     {
         functionAssertions.assertFunction(
@@ -528,6 +598,15 @@ public class TestTDigestFunctions
                         getLowerBoundValue(quantile, error, list)),
                 BOOLEAN,
                 true);
+    }
+
+    private List<Double> getFrequencies(TDigest tdigest, List<Double> buckets)
+    {
+        List<Double> histogram = new ArrayList<Double>();
+        for (Double bin : buckets) {
+            histogram.add(tdigest.getCdf(bin) * tdigest.getSize());
+        }
+        return histogram;
     }
 
     private double getLowerBoundValue(double quantile, double error, List<? extends Number> values)

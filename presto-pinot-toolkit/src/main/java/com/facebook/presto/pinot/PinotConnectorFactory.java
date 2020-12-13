@@ -83,7 +83,7 @@ public class PinotConnectorFactory
                 binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
             });
 
-            Injector injector = app.strictConfig()
+            Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

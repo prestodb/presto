@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.hive.HiveManifestUtils.getFileSize;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -34,9 +35,11 @@ public class HiveWriter
     private final String targetPath;
     private final Consumer<HiveWriter> onCommit;
     private final HiveWriterStats hiveWriterStats;
+    private final boolean writeTempData;
 
     private long rowCount;
     private long inputSizeInBytes;
+    private Optional<Page> fileStatistics = Optional.empty();
 
     public HiveWriter(
             HiveFileWriter fileWriter,
@@ -46,7 +49,8 @@ public class HiveWriter
             String writePath,
             String targetPath,
             Consumer<HiveWriter> onCommit,
-            HiveWriterStats hiveWriterStats)
+            HiveWriterStats hiveWriterStats,
+            boolean writeTempData)
     {
         this.fileWriter = requireNonNull(fileWriter, "fileWriter is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -56,6 +60,7 @@ public class HiveWriter
         this.targetPath = requireNonNull(targetPath, "targetPath is null");
         this.onCommit = requireNonNull(onCommit, "onCommit is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
+        this.writeTempData = writeTempData;
     }
 
     public long getWrittenBytes()
@@ -73,6 +78,16 @@ public class HiveWriter
         return rowCount;
     }
 
+    public Optional<String> getPartitionName()
+    {
+        return partitionName;
+    }
+
+    public boolean isWriteTempData()
+    {
+        return writeTempData;
+    }
+
     public void append(Page dataPage)
     {
         // getRegionSizeInBytes for each row can be expensive; use getRetainedSizeInBytes for estimation
@@ -84,7 +99,7 @@ public class HiveWriter
 
     public void commit()
     {
-        fileWriter.commit();
+        fileStatistics = fileWriter.commit();
         onCommit.accept(this);
     }
 
@@ -110,7 +125,7 @@ public class HiveWriter
                 updateMode,
                 writePath,
                 targetPath,
-                ImmutableList.of(fileWriteInfo),
+                ImmutableList.of(new FileWriteInfo(fileWriteInfo.getWriteFileName(), fileWriteInfo.getTargetFileName(), fileStatistics.map(statisticsPage -> getFileSize(statisticsPage, 0)))),
                 rowCount,
                 inputSizeInBytes,
                 fileWriter.getWrittenBytes());

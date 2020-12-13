@@ -13,15 +13,19 @@
  */
 package com.facebook.presto.type;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
@@ -42,6 +46,7 @@ import static com.facebook.presto.common.block.SortOrder.DESC_NULLS_FIRST;
 import static com.facebook.presto.common.block.SortOrder.DESC_NULLS_LAST;
 import static com.facebook.presto.operator.OperatorAssertion.toRow;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.type.TypeUtils.hashPosition;
 import static com.facebook.presto.type.TypeUtils.positionEqualsPosition;
 import static com.facebook.presto.util.StructuralTestUtil.arrayBlockOf;
@@ -55,7 +60,8 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestType
 {
-    private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager(new TypeRegistry());
+    private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
+    protected static final FunctionAndTypeManager functionAndTypeManager = new FunctionAndTypeManager(createTestTransactionManager(), blockEncodingSerde, new FeaturesConfig(), new HandleResolver(), ImmutableSet.of());
 
     private final Class<?> objectValueType;
     private final Block testBlock;

@@ -112,10 +112,11 @@ public class ParquetFileWriter
     }
 
     @Override
-    public void commit()
+    public Optional<Page> commit()
     {
         try {
             parquetWriter.close();
+            return Optional.empty();
         }
         catch (IOException | UncheckedIOException e) {
             try {
@@ -153,5 +154,11 @@ public class ParquetFileWriter
     public Optional<Runnable> getVerificationTask()
     {
         return Optional.empty();
+    }
+
+    @Override
+    public long getFileSizeInBytes()
+    {
+        return getWrittenBytes();
     }
 }

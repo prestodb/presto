@@ -29,6 +29,7 @@ import java.util.Set;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQueryRunner;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
+import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
@@ -64,7 +65,7 @@ public class TestWarnings
                     .append(stageIndex);
         }
         String query = queryBuilder.toString();
-        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(TOO_MANY_STAGES.toWarningCode()));
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(TOO_MANY_STAGES.toWarningCode(), PERFORMANCE_WARNING.toWarningCode()));
         assertWarnings(queryRunner, TEST_SESSION, noWarningsQuery, ImmutableSet.of());
     }
 
@@ -98,6 +99,46 @@ public class TestWarnings
     {
         String query = "SELECT \"CALLED\" FROM (VALUES (3)) t(\"called\")";
         assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+    }
+
+    @Test
+    public void testMixAndOrWarnings()
+    {
+        String query = "select true or false";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select true or false and false";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        query = "select true or (false and false)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select true or false or false";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select true and false and false";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select (true or false) and false";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select true and false or false and true";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        query = "select true or false and false or true";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        query = "select (true or false) and false or true";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        query = "select true or false and (false or true)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
+
+        query = "select (true or false) and (false or true)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of());
+
+        query = "select (true and true) or (true and false or false and true)";
+        assertWarnings(queryRunner, TEST_SESSION, query, ImmutableSet.of(PARSER_WARNING.toWarningCode()));
     }
 
     private static void assertWarnings(QueryRunner queryRunner, Session session, @Language("SQL") String sql, Set<WarningCode> expectedWarnings)

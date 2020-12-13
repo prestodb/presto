@@ -49,7 +49,7 @@ public final class PrestoProxy
 
         Logger log = Logger.get(PrestoProxy.class);
         try {
-            app.strictConfig().initialize();
+            app.initialize();
             log.info("======== SERVER STARTED ========");
         }
         catch (Throwable t) {

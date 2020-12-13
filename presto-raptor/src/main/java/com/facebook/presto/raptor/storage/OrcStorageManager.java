@@ -16,6 +16,7 @@ package com.facebook.presto.raptor.storage;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
@@ -31,7 +32,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HiveFileContext;
-import com.facebook.presto.orc.DataSink;
+import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcBatchRecordReader;
 import com.facebook.presto.orc.OrcDataSource;
@@ -296,7 +297,8 @@ public class OrcStorageManager
                     new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(readerAttributes.getMaxMergeDistance(), readerAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, readerAttributes.isZstdJniDecompressionEnabled()),
                     hiveFileContext.isCacheable(),
-                    NO_ENCRYPTION);
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY);
 
             Map<Long, Integer> indexMap = columnIdIndex(reader.getColumnNames());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -327,8 +329,7 @@ public class OrcStorageManager
                     predicate,
                     DEFAULT_STORAGE_TIMEZONE,
                     systemMemoryUsage,
-                    INITIAL_BATCH_SIZE,
-                    ImmutableMap.of());
+                    INITIAL_BATCH_SIZE);
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
@@ -391,7 +392,8 @@ public class OrcStorageManager
                             HUGE_MAX_READ_BLOCK_SIZE,
                             defaultReaderAttributes.isZstdJniDecompressionEnabled()),
                     false,
-                    NO_ENCRYPTION);
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY);
 
             if (reader.getFooter().getNumberOfRows() >= Integer.MAX_VALUE) {
                 throw new IOException("File has too many rows");
@@ -402,8 +404,7 @@ public class OrcStorageManager
                     OrcPredicate.TRUE,
                     DEFAULT_STORAGE_TIMEZONE,
                     systemMemoryUsage,
-                    INITIAL_BATCH_SIZE,
-                    ImmutableMap.of())) {
+                    INITIAL_BATCH_SIZE)) {
                 BitSet bitSet = new BitSet();
                 while (recordReader.nextBatch() > 0) {
                     Block block = recordReader.readBlock(0);
@@ -556,7 +557,8 @@ public class OrcStorageManager
                     new RaptorOrcAggregatedMemoryContext(),
                     new OrcReaderOptions(defaultReaderAttributes.getMaxMergeDistance(), defaultReaderAttributes.getTinyStripeThreshold(), HUGE_MAX_READ_BLOCK_SIZE, defaultReaderAttributes.isZstdJniDecompressionEnabled()),
                     false,
-                    NO_ENCRYPTION);
+                    NO_ENCRYPTION,
+                    DwrfKeyProvider.EMPTY);
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {

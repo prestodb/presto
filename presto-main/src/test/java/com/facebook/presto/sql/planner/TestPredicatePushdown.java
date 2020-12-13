@@ -19,8 +19,6 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
-import com.facebook.presto.sql.planner.optimizations.RowExpressionPredicatePushDown;
-import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode.EquiJoinClause;
 import com.facebook.presto.sql.planner.plan.WindowNode;
@@ -29,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -55,6 +54,15 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 public class TestPredicatePushdown
         extends BasePlanTest
 {
+    public TestPredicatePushdown()
+    {
+    }
+
+    public TestPredicatePushdown(Map<String, String> sessionProperties)
+    {
+        super(sessionProperties);
+    }
+
     @Test
     public void testNonStraddlingJoinExpression()
     {
@@ -424,23 +432,11 @@ public class TestPredicatePushdown
                                                                 ImmutableMap.of("CUST_KEY", "custkey"))))))));
     }
 
-    @Override
-    protected void assertPlan(String sql, PlanMatchPattern pattern)
-    {
-        // TODO remove tests with filtered optimizer once we only have RowExpressionPredicatePushDown
-        // Currently we have mixture of Expression/RowExpression based push down, so we disable one of them to make sure test covers both code path.
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, planOptimizer -> !(planOptimizer instanceof StatsRecordingPlanOptimizer) ||
-                !(((StatsRecordingPlanOptimizer) planOptimizer).getDelegate() instanceof PredicatePushDown));
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern, planOptimizer -> !(planOptimizer instanceof StatsRecordingPlanOptimizer) ||
-                !(((StatsRecordingPlanOptimizer) planOptimizer).getDelegate() instanceof RowExpressionPredicatePushDown));
-        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
-    }
-
     @Test
     public void testPredicatePushDownCreatesValidJoin()
     {
         RuleTester tester = new RuleTester();
-        tester.assertThat(new RowExpressionPredicatePushDown(tester.getMetadata(), tester.getSqlParser()))
+        tester.assertThat(new PredicatePushDown(tester.getMetadata(), tester.getSqlParser()))
                 .on(p ->
                         p.join(INNER,
                                 p.filter(p.comparison(OperatorType.EQUAL, p.variable("a1"), constant(1L, INTEGER)),
@@ -451,7 +447,8 @@ public class TestPredicatePushdown
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.of(PARTITIONED)))
+                                Optional.of(PARTITIONED),
+                                ImmutableMap.of()))
                 .matches(
                         project(
                                 join(

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -23,6 +24,7 @@ import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
 import com.facebook.presto.verifier.framework.VerificationContext;
+import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.retry.RetryConfig;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.BeforeClass;
@@ -51,6 +53,8 @@ import static org.testng.Assert.fail;
 @Test(singleThreaded = true)
 public class TestJdbcPrestoAction
 {
+    private static final String SUITE = "test-suite";
+    private static final String NAME = "test-query";
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
     private static final QueryConfiguration CONFIGURATION = new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(), Optional.empty());
     private static final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
@@ -71,16 +75,22 @@ public class TestJdbcPrestoAction
     @BeforeMethod
     public void setup()
     {
-        verificationContext = VerificationContext.create();
+        QueryActionsConfig queryActionsConfig = new QueryActionsConfig();
+        verificationContext = VerificationContext.create(SUITE, NAME);
+        PrestoActionConfig prestoActionConfig = new PrestoActionConfig()
+                .setHosts(queryRunner.getServer().getAddress().getHost())
+                .setJdbcPort(queryRunner.getServer().getAddress().getPort());
         prestoAction = new JdbcPrestoAction(
                 PrestoExceptionClassifier.defaultBuilder().build(),
                 CONFIGURATION,
                 verificationContext,
-                new PrestoClusterConfig()
-                        .setHost(queryRunner.getServer().getAddress().getHost())
-                        .setJdbcPort(queryRunner.getServer().getAddress().getPort()),
+                new JdbcUrlSelector(prestoActionConfig.getJdbcUrls()),
+                prestoActionConfig,
+                queryActionsConfig.getMetadataTimeout(),
+                queryActionsConfig.getChecksumTimeout(),
                 new RetryConfig(),
-                new RetryConfig());
+                new RetryConfig(),
+                new VerifierConfig().setTestId("test"));
     }
 
     @Test
@@ -89,13 +99,13 @@ public class TestJdbcPrestoAction
         assertEquals(
                 prestoAction.execute(
                         sqlParser.createStatement("SELECT 1", PARSING_OPTIONS),
-                        QUERY_STAGE).getState(),
+                        QUERY_STAGE).getQueryStats().map(QueryStats::getState).orElse(null),
                 FINISHED.name());
 
         assertEquals(
                 prestoAction.execute(
                         sqlParser.createStatement("CREATE TABLE test_table (x int)", PARSING_OPTIONS),
-                        QUERY_STAGE).getState(),
+                        QUERY_STAGE).getQueryStats().map(QueryStats::getState).orElse(null),
                 FINISHED.name());
     }
 
@@ -106,7 +116,7 @@ public class TestJdbcPrestoAction
                 sqlParser.createStatement("SELECT x FROM (VALUES (1), (2), (3)) t(x)", PARSING_OPTIONS),
                 QUERY_STAGE,
                 resultSet -> Optional.of(resultSet.getInt("x") * resultSet.getInt("x")));
-        assertEquals(result.getQueryStats().getState(), FINISHED.name());
+        assertEquals(result.getQueryActionStats().getQueryStats().map(QueryStats::getState).orElse(null), FINISHED.name());
         assertEquals(result.getResults(), ImmutableList.of(1, 4, 9));
     }
 
@@ -122,8 +132,8 @@ public class TestJdbcPrestoAction
         catch (PrestoQueryException e) {
             assertFalse(e.isRetryable());
             assertEquals(e.getErrorCodeName(), "PRESTO(SYNTAX_ERROR)");
-            assertTrue(e.getQueryStats().isPresent());
-            assertEquals(e.getQueryStats().get().getState(), FAILED.name());
+            assertTrue(e.getQueryActionStats().getQueryStats().isPresent());
+            assertEquals(e.getQueryActionStats().getQueryStats().map(QueryStats::getState).orElse(null), FAILED.name());
 
             QueryFailure queryFailure = getOnlyElement(verificationContext.getQueryFailures());
             assertEquals(queryFailure.getClusterType(), CONTROL.name());

@@ -13,18 +13,25 @@
  */
 package com.facebook.presto.operator.aggregation.minmaxby;
 
+import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.SqlDecimal;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
+import com.facebook.presto.spi.function.AccumulatorStateFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.block.BlockAssertions.createArrayBigintBlock;
@@ -44,14 +51,16 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Arrays.asList;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 public class TestMinMaxByAggregation
 {
     private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
-    private static final FunctionManager functionManager = metadata.getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = metadata.getFunctionAndTypeManager();
 
     @Test
     public void testAllRegistered()
@@ -72,7 +81,7 @@ public class TestMinMaxByAggregation
 
     private static List<Type> getTypes()
     {
-        List<Type> simpleTypes = metadata.getTypeManager().getTypes();
+        List<Type> simpleTypes = metadata.getFunctionAndTypeManager().getTypes();
         return new ImmutableList.Builder<Type>()
                 .addAll(simpleTypes)
                 .add(VARCHAR)
@@ -575,13 +584,37 @@ public class TestMinMaxByAggregation
                 createArrayBigintBlock(asList(null, null, null)));
     }
 
+    @Test
+    public void testLongAndBlockPositionValueStateSerialization()
+    {
+        Type mapType = mapType(VARCHAR, BOOLEAN);
+        Map<String, Type> fieldMap = ImmutableMap.of("Key", BIGINT, "Value", mapType);
+        AccumulatorStateFactory<LongAndBlockPositionValueState> factory = StateCompiler.generateStateFactory(LongAndBlockPositionValueState.class, fieldMap, new DynamicClassLoader(LongAndBlockPositionValueState.class.getClassLoader()));
+        KeyAndBlockPositionValueStateSerializer<LongAndBlockPositionValueState> serializer = new LongAndBlockPositionStateSerializer(BIGINT, mapType);
+        LongAndBlockPositionValueState singleState = factory.createSingleState();
+        LongAndBlockPositionValueState deserializedState = factory.createSingleState();
+        singleState.setFirst(2020);
+        singleState.setFirstNull(false);
+
+        BlockBuilder builder = RowType.anonymous(ImmutableList.of(BOOLEAN, BOOLEAN, BIGINT, mapType))
+                .createBlockBuilder(null, 1);
+        serializer.serialize(singleState, builder);
+
+        Block rowBlock = builder.build();
+        DictionaryBlock dictionaryBlock = (DictionaryBlock) rowBlock.getPositions(new int[]{0}, 0, 1);
+        serializer.deserialize(dictionaryBlock, 0, deserializedState);
+
+        assertEquals(deserializedState.isFirstNull(), singleState.isFirstNull());
+        assertEquals(deserializedState.getFirst(), singleState.getFirst());
+    }
+
     private InternalAggregationFunction getMinByAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction("min_by", fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("min_by", fromTypes(arguments)));
     }
 
     private InternalAggregationFunction getMaxByAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction("max_by", fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("max_by", fromTypes(arguments)));
     }
 }

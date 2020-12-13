@@ -19,13 +19,18 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
+import static com.facebook.presto.common.block.ArrayBlock.fromElementBlock;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
@@ -80,6 +85,54 @@ public class TestBlockBuilder
             assertEquals(newPageBuilder.getBlockBuilder(i).getPositionCount(), 0);
             assertTrue(newPageBuilder.getBlockBuilder(i).getRetainedSizeInBytes() < pageBuilder.getBlockBuilder(i).getRetainedSizeInBytes());
         }
+
+        // Test newBlockBuilderLike with expectedEntries
+
+        BlockBuilder newBigintBlockBuilder = bigintBlockBuilder.newBlockBuilderLike(null, 200);
+        assertEquals(newBigintBlockBuilder.getPositionCount(), 0);
+        assertEquals(newBigintBlockBuilder.getRetainedSizeInBytes(), 80);
+        newBigintBlockBuilder.writeLong(0);
+        assertEquals(newBigintBlockBuilder.getPositionCount(), 1);
+        // Reserved 200 longs and booleans for nulls array
+        assertEquals(newBigintBlockBuilder.getRetainedSizeInBytes(), 1880);
+
+        BlockBuilder newVarcharBlockBuilder = varcharBlockBuilder.newBlockBuilderLike(null, 200);
+        assertEquals(newVarcharBlockBuilder.getPositionCount(), 0);
+        assertEquals(newVarcharBlockBuilder.getRetainedSizeInBytes(), 164);
+        newVarcharBlockBuilder.writeLong(0);
+        newVarcharBlockBuilder.closeEntry();
+        assertEquals(newVarcharBlockBuilder.getPositionCount(), 1);
+        // Reserved 200 varchars of average length 5.9, and 201 ints for offsets and 200 booleans for nulls
+        assertEquals(newVarcharBlockBuilder.getRetainedSizeInBytes(), 2360);
+
+        BlockBuilder newArrayBlockBuilder = arrayBlockBuilder.newBlockBuilderLike(null, 200);
+        assertEquals(newArrayBlockBuilder.getPositionCount(), 0);
+        assertEquals(newArrayBlockBuilder.getRetainedSizeInBytes(), 248);
+        newArrayBlockBuilder.appendStructure(fromElementBlock(1, Optional.empty(), IntStream.range(0, 2).toArray(), newBigintBlockBuilder.build()));
+        assertEquals(newArrayBlockBuilder.getPositionCount(), 1);
+        // Reserved 200 ARRAY(ARRAY(BIGINT)), and 201 ints for offsets and 200 booleans for nulls
+        assertEquals(newArrayBlockBuilder.getRetainedSizeInBytes(), 5848);
+    }
+
+    @Test
+    public void testNewBlockBuilderLikeForLargeBlockBuilder()
+    {
+        List<Type> channels = ImmutableList.of(VARCHAR);
+        PageBuilder pageBuilder = new PageBuilder(channels);
+        BlockBuilder largeVarcharBlockBuilder = pageBuilder.getBlockBuilder(0);
+
+        // Construct a string of 64 * 16 = 2^11 bytes
+        Slice largeSlice = Slices.utf8Slice(String.join("", Collections.nCopies(64, "CowMonsterKing:)")));
+        // Write the string to the largeVarcharBlockBuilder for 2^20 times
+        for (int i = 0; i < 1_048_576; i++) {
+            VARCHAR.writeSlice(largeVarcharBlockBuilder, largeSlice);
+            pageBuilder.declarePosition();
+        }
+        BlockBuilder newVarcharBlockBuilder = largeVarcharBlockBuilder.newBlockBuilderLike(null, 1_048_576 * 8);
+        assertEquals(newVarcharBlockBuilder.getPositionCount(), 0);
+        assertEquals(newVarcharBlockBuilder.getRetainedSizeInBytes(), 164);
+
+        // We are not going to test real reservation here because allocating large amount of memory fails the Travis.
     }
 
     @Test

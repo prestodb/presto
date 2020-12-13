@@ -31,8 +31,8 @@ import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import com.facebook.presto.sql.planner.EqualityInference;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
-import com.facebook.presto.sql.planner.RowExpressionEqualityInference;
 import com.facebook.presto.sql.planner.VariablesExtractor;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -44,6 +44,7 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 
@@ -67,7 +68,7 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTAN
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.AUTOMATIC;
-import static com.facebook.presto.sql.planner.RowExpressionEqualityInference.createEqualityInference;
+import static com.facebook.presto.sql.planner.EqualityInference.createEqualityInference;
 import static com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionType.isBelowMaxBroadcastSize;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.INFINITE_COST_RESULT;
 import static com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult.UNKNOWN_COST_RESULT;
@@ -107,8 +108,8 @@ public class ReorderJoins
     {
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
-        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionManager());
+        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
+        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager());
 
         this.joinNodePattern = join().matching(
                 joinNode -> !joinNode.getDistributionType().isPresent()
@@ -156,7 +157,7 @@ public class ReorderJoins
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
         private final RowExpression allFilter;
-        private final RowExpressionEqualityInference allFilterInference;
+        private final EqualityInference allFilterInference;
         private final LogicalRowExpressions logicalRowExpressions;
         private final Lookup lookup;
         private final Context context;
@@ -176,7 +177,7 @@ public class ReorderJoins
 
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.allFilterInference = createEqualityInference(metadata, filter);
-            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, functionResolution, metadata.getFunctionManager());
+            this.logicalRowExpressions = new LogicalRowExpressions(determinismEvaluator, functionResolution, metadata.getFunctionAndTypeManager());
         }
 
         private JoinEnumerationResult chooseJoinOrder(LinkedHashSet<PlanNode> sources, List<VariableReferenceExpression> outputVariables)
@@ -318,7 +319,8 @@ public class ReorderJoins
                     joinFilters.isEmpty() ? Optional.empty() : Optional.of(and(joinFilters)),
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty()));
+                    Optional.empty(),
+                    ImmutableMap.of()));
         }
 
         private List<RowExpression> getJoinPredicates(Set<VariableReferenceExpression> leftVariables, Set<VariableReferenceExpression> rightVariables)
@@ -327,7 +329,7 @@ public class ReorderJoins
             // This takes all conjuncts that were part of allFilters that
             // could not be used for equality inference.
             // If they use both the left and right variables, we add them to the list of joinPredicates
-            RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(metadata);
+            EqualityInference.Builder builder = new EqualityInference.Builder(metadata);
             StreamSupport.stream(builder.nonInferrableConjuncts(allFilter).spliterator(), false)
                     .map(conjunct -> allFilterInference.rewriteExpression(
                             conjunct,
@@ -342,7 +344,7 @@ public class ReorderJoins
             // TODO: make generateEqualitiesPartitionedBy take left and right scope
             List<RowExpression> joinEqualities = allFilterInference.generateEqualitiesPartitionedBy(
                     variable -> leftVariables.contains(variable) || rightVariables.contains(variable)).getScopeEqualities();
-            RowExpressionEqualityInference joinInference = createEqualityInference(metadata, joinEqualities.toArray(new RowExpression[0]));
+            EqualityInference joinInference = createEqualityInference(metadata, joinEqualities.toArray(new RowExpression[0]));
             joinPredicatesBuilder.addAll(joinInference.generateEqualitiesPartitionedBy(in(leftVariables)).getScopeStraddlingEqualities());
 
             return joinPredicatesBuilder.build();
@@ -354,7 +356,7 @@ public class ReorderJoins
                 PlanNode planNode = getOnlyElement(nodes);
                 ImmutableList.Builder<RowExpression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputVariables::contains).getScopeEqualities());
-                RowExpressionEqualityInference.Builder builder = new RowExpressionEqualityInference.Builder(metadata);
+                EqualityInference.Builder builder = new EqualityInference.Builder(metadata);
                 StreamSupport.stream(builder.nonInferrableConjuncts(allFilter).spliterator(), false)
                         .map(conjunct -> allFilterInference.rewriteExpression(conjunct, outputVariables::contains))
                         .filter(Objects::nonNull)
@@ -371,7 +373,7 @@ public class ReorderJoins
         private static boolean isJoinEqualityCondition(RowExpression expression)
         {
             return expression instanceof CallExpression
-                    && ((CallExpression) expression).getDisplayName().equals(EQUAL.getFunctionName().getFunctionName())
+                    && ((CallExpression) expression).getDisplayName().equals(EQUAL.getFunctionName().getObjectName())
                     && ((CallExpression) expression).getArguments().size() == 2
                     && ((CallExpression) expression).getArguments().get(0) instanceof VariableReferenceExpression
                     && ((CallExpression) expression).getArguments().get(1) instanceof VariableReferenceExpression;

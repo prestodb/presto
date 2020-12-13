@@ -40,7 +40,6 @@ import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOu
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class LongDirectSelectiveStreamReader
@@ -384,6 +383,6 @@ public class LongDirectSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(values) + sizeOf(nulls) + sizeOf(outputPositions);
+        return INSTANCE_SIZE + super.getRetainedSizeInBytes();
     }
 }

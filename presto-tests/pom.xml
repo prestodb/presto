@@ -5,7 +5,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.239-SNAPSHOT</version>
+        <version>0.246-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-tests</artifactId>
@@ -209,6 +209,11 @@
             <artifactId>javax.ws.rs-api</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.drift</groupId>
+            <artifactId>drift-transport-netty</artifactId>
+        </dependency>
+
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>com.facebook.airlift</groupId>
@@ -227,6 +232,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-resource-group-managers</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-thrift-testing-udf-server</artifactId>
             <scope>test</scope>
         </dependency>
 

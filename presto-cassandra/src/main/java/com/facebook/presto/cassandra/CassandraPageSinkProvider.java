@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.cassandra;
 
+import com.datastax.driver.core.ProtocolVersion;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PageSinkProperties;
+import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
@@ -30,23 +31,26 @@ public class CassandraPageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final CassandraSession cassandraSession;
+    private final ProtocolVersion protocolVersion;
 
     @Inject
-    public CassandraPageSinkProvider(CassandraSession cassandraSession)
+    public CassandraPageSinkProvider(CassandraSession cassandraSession, CassandraClientConfig cassandraClientConfig)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
+        this.protocolVersion = requireNonNull(cassandraClientConfig, "cassandraClientConfig is null").getProtocolVersion();
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkProperties pageSinkProperties)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
-        checkArgument(!pageSinkProperties.isCommitRequired(), "Cassandra connector does not support page sink commit");
+        checkArgument(!pageSinkContext.isCommitRequired(), "Cassandra connector does not support page sink commit");
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof CassandraOutputTableHandle, "tableHandle is not an instance of CassandraOutputTableHandle");
         CassandraOutputTableHandle handle = (CassandraOutputTableHandle) tableHandle;
 
         return new CassandraPageSink(
                 cassandraSession,
+                protocolVersion,
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getColumnNames(),
@@ -55,15 +59,16 @@ public class CassandraPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkProperties pageSinkProperties)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
-        checkArgument(!pageSinkProperties.isCommitRequired(), "Cassandra connector does not support page sink commit");
+        checkArgument(!pageSinkContext.isCommitRequired(), "Cassandra connector does not support page sink commit");
         requireNonNull(tableHandle, "tableHandle is null");
         checkArgument(tableHandle instanceof CassandraInsertTableHandle, "tableHandle is not an instance of ConnectorInsertTableHandle");
         CassandraInsertTableHandle handle = (CassandraInsertTableHandle) tableHandle;
 
         return new CassandraPageSink(
                 cassandraSession,
+                protocolVersion,
                 handle.getSchemaName(),
                 handle.getTableName(),
                 handle.getColumnNames(),

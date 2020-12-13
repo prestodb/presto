@@ -20,7 +20,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.PageSinkProperties;
+import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import org.apache.accumulo.core.client.Connector;
@@ -54,16 +54,16 @@ public class AccumuloPageSinkProvider
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkProperties pageSinkProperties)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, PageSinkContext pageSinkContext)
     {
-        checkArgument(!pageSinkProperties.isCommitRequired(), "Accumulo connector does not support page sink commit");
+        checkArgument(!pageSinkContext.isCommitRequired(), "Accumulo connector does not support page sink commit");
         AccumuloTableHandle tableHandle = (AccumuloTableHandle) outputTableHandle;
         return new AccumuloPageSink(connector, client.getTable(tableHandle.toSchemaTableName()), username);
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkProperties pageSinkProperties)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, PageSinkContext pageSinkContext)
     {
-        return createPageSink(transactionHandle, session, (ConnectorOutputTableHandle) insertTableHandle, pageSinkProperties);
+        return createPageSink(transactionHandle, session, (ConnectorOutputTableHandle) insertTableHandle, pageSinkContext);
     }
 }

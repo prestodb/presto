@@ -15,7 +15,7 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
@@ -42,10 +42,10 @@ public final class RowExpressionFormatter
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution standardFunctionResolution;
 
-    public RowExpressionFormatter(FunctionManager functionManager)
+    public RowExpressionFormatter(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionMetadataManager = requireNonNull(functionManager, "function manager is null");
-        this.standardFunctionResolution = new FunctionResolution(functionManager);
+        this.functionMetadataManager = requireNonNull(functionAndTypeManager, "function manager is null");
+        this.standardFunctionResolution = new FunctionResolution(functionAndTypeManager);
     }
 
     public String formatRowExpression(ConnectorSession session, RowExpression expression)

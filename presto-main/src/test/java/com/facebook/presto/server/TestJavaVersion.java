@@ -40,5 +40,6 @@ public class TestJavaVersion
         assertEquals(JavaVersion.parse("9+100"), new JavaVersion(9, 0));
         assertEquals(JavaVersion.parse("9.0.1+20"), new JavaVersion(9, 0));
         assertEquals(JavaVersion.parse("9.1.1+20"), new JavaVersion(9, 1));
+        assertEquals(JavaVersion.parse("11.0.7.0.4"), new JavaVersion(11, 0));
     }
 }

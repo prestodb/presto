@@ -44,6 +44,13 @@ public class ZstdJniCompressor
     @Override
     public void compress(ByteBuffer input, ByteBuffer output)
     {
-        throw new UnsupportedOperationException();
+        if (input.isDirect() || output.isDirect() || !input.hasArray() || !output.hasArray()) {
+            throw new IllegalArgumentException("Non-direct byte buffer backed by byte array required");
+        }
+        int inputOffset = input.arrayOffset() + input.position();
+        int outputOffset = output.arrayOffset() + output.position();
+
+        int written = compress(input.array(), inputOffset, input.remaining(), output.array(), outputOffset, output.remaining());
+        output.position(output.position() + written);
     }
 }

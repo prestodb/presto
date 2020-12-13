@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.hive.MockHiveMetastore;
+import com.facebook.presto.hive.PartitionMutator;
+import com.facebook.presto.hive.metastore.CachingHiveMetastore.MetastoreCacheScope;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.HiveCluster;
 import com.facebook.presto.hive.metastore.thrift.HiveMetastoreClient;
@@ -59,12 +62,15 @@ public class TestCachingHiveMetastore
         MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
         ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("test-%s")));
         ThriftHiveMetastore thriftHiveMetastore = new ThriftHiveMetastore(mockHiveCluster);
+        PartitionMutator hivePartitionMutator = new HivePartitionMutator();
         metastore = new CachingHiveMetastore(
-                new BridgingHiveMetastore(thriftHiveMetastore),
+                new BridgingHiveMetastore(thriftHiveMetastore, hivePartitionMutator),
                 executor,
                 new Duration(5, TimeUnit.MINUTES),
                 new Duration(1, TimeUnit.MINUTES),
-                1000);
+                1000,
+                false,
+                MetastoreCacheScope.ALL);
         stats = thriftHiveMetastore.getStats();
     }
 
@@ -165,6 +171,58 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
+    @Test
+    public void testCachingWithPartitionVersioning()
+    {
+        MockHiveMetastoreClient mockClient = new MockHiveMetastoreClient();
+        MockHiveCluster mockHiveCluster = new MockHiveCluster(mockClient);
+        ListeningExecutorService executor = listeningDecorator(newCachedThreadPool(daemonThreadsNamed("partition-versioning-test-%s")));
+        MockHiveMetastore mockHiveMetastore = new MockHiveMetastore(mockHiveCluster);
+        PartitionMutator hivePartitionMutator = new HivePartitionMutator();
+        boolean partitionVersioningEnabled = true;
+        CachingHiveMetastore partitionCachingEnabledmetastore = new CachingHiveMetastore(
+                new BridgingHiveMetastore(mockHiveMetastore, hivePartitionMutator),
+                executor,
+                new Duration(5, TimeUnit.MINUTES),
+                new Duration(1, TimeUnit.MINUTES),
+                1000,
+                partitionVersioningEnabled,
+                MetastoreCacheScope.PARTITION);
+
+        ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
+
+        assertEquals(mockClient.getAccessCount(), 0);
+        assertEquals(partitionCachingEnabledmetastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
+        assertEquals(mockClient.getAccessCount(), 1);
+        assertEquals(partitionCachingEnabledmetastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
+        // Assert that we did not hit cache
+        assertEquals(mockClient.getAccessCount(), 2);
+
+        // Select all of the available partitions and load them into the cache
+        assertEquals(partitionCachingEnabledmetastore.getPartitionsByNames(TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
+        assertEquals(mockClient.getAccessCount(), 3);
+
+        // Now if we fetch any or both of them, they should hit the cache
+        assertEquals(partitionCachingEnabledmetastore.getPartitionsByNames(TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1)).size(), 1);
+        assertEquals(partitionCachingEnabledmetastore.getPartitionsByNames(TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION2)).size(), 1);
+        assertEquals(partitionCachingEnabledmetastore.getPartitionsByNames(TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
+        assertEquals(mockClient.getAccessCount(), 3);
+
+        // This call should invalidate the partition cache because when partition versioning is enabled
+        // partitions with older or empty version will be deleted from cache. And the hivePartitionVersionFetcher used in creating
+        // partitionCachingEnabledmetastore will set the version as Optional.empty() for all the partitions fetched.
+        assertEquals(partitionCachingEnabledmetastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, ImmutableMap.of()), expectedPartitions);
+        assertEquals(mockClient.getAccessCount(), 4);
+
+        assertEquals(partitionCachingEnabledmetastore.getPartitionsByNames(TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
+        // Assert that the previous cache entry is invalidated and that we did not hit the cache
+        assertEquals(mockClient.getAccessCount(), 5);
+
+        // Assert we hit the partition cache
+        assertEquals(partitionCachingEnabledmetastore.getPartitionsByNames(TEST_DATABASE, TEST_TABLE, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
+        assertEquals(mockClient.getAccessCount(), 5);
+    }
+
     public void testInvalidGetPartitionNamesByParts()
     {
         assertTrue(metastore.getPartitionNamesByFilter(BAD_DATABASE, TEST_TABLE, ImmutableMap.of()).isEmpty());
@@ -256,18 +314,23 @@ public class TestCachingHiveMetastore
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
-    private static class MockHiveCluster
+    public static class MockHiveCluster
             implements HiveCluster
     {
-        private final HiveMetastoreClient client;
+        private final MockHiveMetastoreClient client;
 
-        private MockHiveCluster(HiveMetastoreClient client)
+        private MockHiveCluster(MockHiveMetastoreClient client)
         {
             this.client = client;
         }
 
         @Override
         public HiveMetastoreClient createMetastoreClient()
+        {
+            return client;
+        }
+
+        public MockHiveMetastoreClient createPartitionVersionSupportedMetastoreClient()
         {
             return client;
         }

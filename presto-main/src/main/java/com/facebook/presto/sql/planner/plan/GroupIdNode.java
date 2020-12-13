@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -152,5 +153,28 @@ public class GroupIdNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new GroupIdNode(getId(), Iterables.getOnlyElement(newChildren), groupingSets, groupingColumns, aggregationArguments, groupIdVariable);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        GroupIdNode that = (GroupIdNode) o;
+        return Objects.equals(source, that.source) &&
+                Objects.equals(groupingSets, that.groupingSets) &&
+                Objects.equals(groupingColumns, that.groupingColumns) &&
+                Objects.equals(aggregationArguments, that.aggregationArguments) &&
+                Objects.equals(groupIdVariable, that.groupIdVariable);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(source, groupingSets, groupingColumns, aggregationArguments, groupIdVariable);
     }
 }

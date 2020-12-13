@@ -14,13 +14,13 @@
 package com.facebook.presto.druid;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.druid.DruidErrorCode.DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_QUERY_GENERATOR_FAILURE;
 import static com.facebook.presto.druid.DruidPushdownUtils.DRUID_COUNT_DISTINCT_FUNCTION_NAME;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -39,13 +40,14 @@ import static java.util.Objects.requireNonNull;
 public class DruidQueryGeneratorContext
 {
     private final Map<VariableReferenceExpression, Selection> selections;
-    private final Set<VariableReferenceExpression> groupByColumns;
+    private final Map<VariableReferenceExpression, Selection> groupByColumns;
     private final Set<VariableReferenceExpression> hiddenColumnSet;
     private final Set<VariableReferenceExpression> variablesInAggregation;
     private final Optional<String> from;
     private final Optional<String> filter;
     private final OptionalLong limit;
     private final int aggregations;
+    private final Optional<PlanNodeId> tableScanNodeId;
 
     @Override
     public String toString()
@@ -59,17 +61,19 @@ public class DruidQueryGeneratorContext
                 .add("filter", filter)
                 .add("limit", limit)
                 .add("aggregations", aggregations)
+                .add("tableScanNodeId", tableScanNodeId)
                 .toString();
     }
 
     DruidQueryGeneratorContext()
     {
-        this(new LinkedHashMap<>(), null);
+        this(new LinkedHashMap<>(), null, null);
     }
 
     DruidQueryGeneratorContext(
             Map<VariableReferenceExpression, Selection> selections,
-            String from)
+            String from,
+            PlanNodeId planNodeId)
     {
         this(
                 selections,
@@ -77,9 +81,10 @@ public class DruidQueryGeneratorContext
                 Optional.empty(),
                 OptionalLong.empty(),
                 0,
+                new LinkedHashMap<>(),
                 new HashSet<>(),
                 new HashSet<>(),
-                new HashSet<>());
+                Optional.ofNullable(planNodeId));
     }
 
     private DruidQueryGeneratorContext(
@@ -88,23 +93,28 @@ public class DruidQueryGeneratorContext
             Optional<String> filter,
             OptionalLong limit,
             int aggregations,
-            Set<VariableReferenceExpression> groupByColumns,
+            Map<VariableReferenceExpression, Selection> groupByColumns,
             Set<VariableReferenceExpression> variablesInAggregation,
-            Set<VariableReferenceExpression> hiddenColumnSet)
+            Set<VariableReferenceExpression> hiddenColumnSet,
+            Optional<PlanNodeId> tableScanNodeId)
     {
         this.selections = new LinkedHashMap<>(requireNonNull(selections, "selections can't be null"));
         this.from = requireNonNull(from, "source can't be null");
         this.filter = requireNonNull(filter, "filter is null");
         this.limit = requireNonNull(limit, "limit is null");
         this.aggregations = aggregations;
-        this.groupByColumns = new LinkedHashSet<>(requireNonNull(groupByColumns, "groupByColumns can't be null. It could be empty if not available"));
+        this.groupByColumns = new LinkedHashMap<>(requireNonNull(groupByColumns, "groupByColumns can't be null. It could be empty if not available"));
         this.hiddenColumnSet = requireNonNull(hiddenColumnSet, "hidden column set is null");
         this.variablesInAggregation = requireNonNull(variablesInAggregation, "variables in aggregation is null");
+        this.tableScanNodeId = requireNonNull(tableScanNodeId, "tableScanNodeId can't be null");
     }
 
     public DruidQueryGeneratorContext withFilter(String filter)
     {
-        checkState(!hasFilter(), "Druid doesn't support filters at multiple levels");
+        if (hasAggregation()) {
+            throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Druid does not support filter on top of AggregationNode.");
+        }
+        checkState(!hasFilter(), "Druid doesn't support filters at multiple levels under AggregationNode");
         return new DruidQueryGeneratorContext(
                 selections,
                 from,
@@ -113,7 +123,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                tableScanNodeId);
     }
 
     public DruidQueryGeneratorContext withProject(Map<VariableReferenceExpression, Selection> newSelections)
@@ -126,7 +137,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                tableScanNodeId);
     }
 
     public DruidQueryGeneratorContext withLimit(long limit)
@@ -143,12 +155,13 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                tableScanNodeId);
     }
 
     public DruidQueryGeneratorContext withAggregation(
             Map<VariableReferenceExpression, Selection> newSelections,
-            Set<VariableReferenceExpression> newGroupByColumns,
+            Map<VariableReferenceExpression, Selection> newGroupByColumns,
             int newAggregations,
             Set<VariableReferenceExpression> newHiddenColumnSet)
     {
@@ -191,7 +204,8 @@ public class DruidQueryGeneratorContext
                 newAggregations,
                 newGroupByColumns,
                 variablesInAggregation,
-                newHiddenColumnSet);
+                newHiddenColumnSet,
+                tableScanNodeId);
     }
 
     private static String escapeSqlIdentifier(String identifier)
@@ -209,7 +223,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 newVariablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                tableScanNodeId);
     }
 
     private boolean hasLimit()
@@ -242,6 +257,11 @@ public class DruidQueryGeneratorContext
         return variablesInAggregation;
     }
 
+    public Optional<PlanNodeId> getTableScanNodeId()
+    {
+        return tableScanNodeId;
+    }
+
     public DruidQueryGenerator.GeneratedDql toQuery()
     {
         if (hasLimit() && aggregations > 1 && !groupByColumns.isEmpty()) {
@@ -266,9 +286,7 @@ public class DruidQueryGeneratorContext
         }
 
         if (!groupByColumns.isEmpty()) {
-            String groupByExpression = groupByColumns.stream()
-                    .map(expression -> selections.containsKey(expression) ? selections.get(expression).getEscapedDefinition() : expression.getName())
-                    .collect(Collectors.joining(", "));
+            String groupByExpression = groupByColumns.entrySet().stream().map(v -> v.getValue().getEscapedDefinition()).collect(Collectors.joining(", "));
             query = query + " GROUP BY " + groupByExpression;
             pushdown = true;
         }
@@ -312,7 +330,8 @@ public class DruidQueryGeneratorContext
                 aggregations,
                 groupByColumns,
                 variablesInAggregation,
-                hiddenColumnSet);
+                hiddenColumnSet,
+                tableScanNodeId);
     }
 
     public enum Origin

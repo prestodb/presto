@@ -17,10 +17,10 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.function.OperatorType;
@@ -29,10 +29,11 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -46,7 +47,6 @@ import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
@@ -75,6 +75,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -230,12 +231,12 @@ public class TestRowExpressionSerde
 
     private FunctionHandle operator(OperatorType operatorType, Type... types)
     {
-        return metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(types));
+        return metadata.getFunctionAndTypeManager().resolveOperator(operatorType, fromTypes(types));
     }
 
     private FunctionHandle function(String name, Type... types)
     {
-        return metadata.getFunctionManager().lookupFunction(name, fromTypes(types));
+        return metadata.getFunctionAndTypeManager().lookupFunction(name, fromTypes(types));
     }
 
     private JsonCodec<RowExpression> getJsonCodec()
@@ -246,7 +247,8 @@ public class TestRowExpressionSerde
             binder.install(new HandleJsonModule());
             configBinder(binder).bindConfig(FeaturesConfig.class);
 
-            binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+            FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             newSetBinder(binder, Type.class);
 
@@ -258,7 +260,6 @@ public class TestRowExpressionSerde
         };
         Bootstrap app = new Bootstrap(ImmutableList.of(module));
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();
@@ -267,7 +268,7 @@ public class TestRowExpressionSerde
 
     private RowExpression translate(Expression expression, boolean optimize)
     {
-        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionManager(), metadata.getTypeManager(), TEST_SESSION);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, getExpressionTypes(expression), ImmutableMap.of(), metadata.getFunctionAndTypeManager(), TEST_SESSION);
         if (optimize) {
             RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
             return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
@@ -278,8 +279,7 @@ public class TestRowExpressionSerde
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                metadata.getFunctionManager(),
-                metadata.getTypeManager(),
+                metadata.getFunctionAndTypeManager(),
                 TEST_SESSION,
                 TypeProvider.empty(),
                 emptyList(),

@@ -15,9 +15,10 @@ package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
-import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.drift.transport.netty.client.DriftNettyClientModule;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.functionNamespace.execution.SimpleAddressSqlFunctionExecutorsModule;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
@@ -96,6 +97,8 @@ public class TestMySqlFunctionNamespaceManager
         this.mySqlServer = new TestingMySqlServer("testuser", "testpass", DB);
         Bootstrap app = new Bootstrap(
                 new MySqlFunctionNamespaceManagerModule(TEST_CATALOG),
+                new SimpleAddressSqlFunctionExecutorsModule(),
+                new DriftNettyClientModule(),
                 new MySqlConnectionModule());
 
         Map<String, String> config = ImmutableMap.<String, String>builder()
@@ -105,7 +108,7 @@ public class TestMySqlFunctionNamespaceManager
                 .build();
 
         try {
-            this.injector = app.strictConfig()
+            this.injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();
@@ -147,12 +150,12 @@ public class TestMySqlFunctionNamespaceManager
     {
         createFunctionNamespace(TEST_CATALOG, "schema1");
         createFunctionNamespace(TEST_CATALOG, "schema2");
-        SqlInvokedFunction function1 = constructTestFunction(QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, "schema1"), "power_tower"));
-        SqlInvokedFunction function2 = constructTestFunction(QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, "schema2"), "power_tower"));
+        SqlInvokedFunction function1 = constructTestFunction(QualifiedObjectName.valueOf(TEST_CATALOG, "schema1", "power_tower"));
+        SqlInvokedFunction function2 = constructTestFunction(QualifiedObjectName.valueOf(TEST_CATALOG, "schema2", "power_tower"));
 
         createFunction(function1, false);
         createFunction(function2, false);
-        assertListFunctions(function1.withVersion(1), function2.withVersion(1));
+        assertListFunctions(function1.withVersion("1"), function2.withVersion("1"));
     }
 
     @Test
@@ -161,20 +164,20 @@ public class TestMySqlFunctionNamespaceManager
         assertListFunctions();
 
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
 
         createFunction(FUNCTION_POWER_TOWER_DOUBLE_UPDATED, true);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2));
-        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"));
 
         createFunction(FUNCTION_POWER_TOWER_INT, true);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1));
-        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"), FUNCTION_POWER_TOWER_INT.withVersion("1"));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"), FUNCTION_POWER_TOWER_INT.withVersion("1"));
 
         createFunction(FUNCTION_TANGENT, true);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1), FUNCTION_TANGENT.withVersion(1));
-        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion(2), FUNCTION_POWER_TOWER_INT.withVersion(1));
-        assertGetFunctions(TANGENT, FUNCTION_TANGENT.withVersion(1));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"), FUNCTION_POWER_TOWER_INT.withVersion("1"), FUNCTION_TANGENT.withVersion("1"));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_DOUBLE_UPDATED.withVersion("2"), FUNCTION_POWER_TOWER_INT.withVersion("1"));
+        assertGetFunctions(TANGENT, FUNCTION_TANGENT.withVersion("1"));
     }
 
     @Test
@@ -188,29 +191,29 @@ public class TestMySqlFunctionNamespaceManager
     public void testCreateFunctionRepeatedly()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
 
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, true);
-        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1));
+        assertListFunctions(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"));
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = ".*function 'unittest\\.memory\\.power_tower\\(x double\\):double:1 \\{RETURN pow\\(x, x\\)\\} \\(SQL, DETERMINISTIC, CALLED_ON_NULL_INPUT\\)' is already versioned")
     public void testCreateFunctionFailedVersioned()
     {
-        createFunction(FUNCTION_POWER_TOWER_DOUBLE.withVersion(1), true);
+        createFunction(FUNCTION_POWER_TOWER_DOUBLE.withVersion("1"), true);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Schema name exceeds max length of 128.*")
     public void testSchemaNameTooLong()
     {
-        QualifiedFunctionName functionName = QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, dummyString(129)), "tangent");
+        QualifiedObjectName functionName = QualifiedObjectName.valueOf(TEST_CATALOG, dummyString(129), "tangent");
         createFunction(createFunctionTangent(functionName), false);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function name exceeds max length of 256.*")
     public void testFunctionNameTooLong()
     {
-        QualifiedFunctionName functionName = QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, TEST_SCHEMA), dummyString(257));
+        QualifiedObjectName functionName = QualifiedObjectName.valueOf(TEST_CATALOG, TEST_SCHEMA, dummyString(257));
         createFunction(createFunctionTangent(functionName), false);
     }
 
@@ -277,7 +280,7 @@ public class TestMySqlFunctionNamespaceManager
         alterFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), new AlterRoutineCharacteristics(Optional.of(RETURNS_NULL_ON_NULL_INPUT)));
         assertGetFunctions(
                 POWER_TOWER,
-                FUNCTION_POWER_TOWER_INT.withVersion(1L),
+                FUNCTION_POWER_TOWER_INT.withVersion("1"),
                 new SqlInvokedFunction(
                         POWER_TOWER,
                         ImmutableList.of(new Parameter("x", parseTypeSignature(DOUBLE))),
@@ -285,7 +288,7 @@ public class TestMySqlFunctionNamespaceManager
                         "power tower",
                         RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setNullCallClause(RETURNS_NULL_ON_NULL_INPUT).build(),
                         "RETURN pow(x, x)",
-                        Optional.of(2L)));
+                        Optional.of("2")));
 
         // Drop function and alter function by name
         dropFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), false);
@@ -300,7 +303,7 @@ public class TestMySqlFunctionNamespaceManager
                 FUNCTION_TANGENT.getDescription(),
                 RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).build(),
                 FUNCTION_TANGENT.getBody(),
-                Optional.of(2L));
+                Optional.of("2"));
         assertGetFunctions(TANGENT, tangentV2);
 
         // Alter function with no change
@@ -308,7 +311,7 @@ public class TestMySqlFunctionNamespaceManager
         assertGetFunctions(TANGENT, tangentV2);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower\\(double\\):double; unittest\\.memory\\.power_tower\\(integer\\):integer\\. Please specify parameter types\\.")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower(\\(integer\\):integer|\\(double\\):double); unittest\\.memory\\.power_tower(\\(double\\):double|\\(integer\\):integer)\\. Please specify parameter types\\.")
     public void testAlterFunctionAmbiguous()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
@@ -341,10 +344,10 @@ public class TestMySqlFunctionNamespaceManager
 
         // Drop a specific function by name and parameter types
         dropFunction(POWER_TOWER, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), true);
-        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_INT.withVersion(1));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_INT.withVersion("1"));
 
         dropFunction(TANGENT, Optional.of(ImmutableList.of(parseTypeSignature(DOUBLE))), true);
-        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_INT.withVersion(1));
+        assertGetFunctions(POWER_TOWER, FUNCTION_POWER_TOWER_INT.withVersion("1"));
         assertGetFunctions(TANGENT);
 
         // Recreate functions, power_double(double) is created with a different definition
@@ -356,7 +359,7 @@ public class TestMySqlFunctionNamespaceManager
         dropFunction(POWER_TOWER, Optional.empty(), false);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower\\(double\\):double; unittest\\.memory\\.power_tower\\(integer\\):integer\\. Please specify parameter types\\.")
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower(\\(integer\\):integer|\\(double\\):double); unittest\\.memory\\.power_tower(\\(double\\):double|\\(integer\\):integer)\\. Please specify parameter types\\.")
     public void testDropFunctionAmbiguous()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
@@ -381,7 +384,7 @@ public class TestMySqlFunctionNamespaceManager
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function not found: unittest\\.memory\\.invalid")
     public void testDropFunctionsFailed()
     {
-        dropFunction(QualifiedFunctionName.of(new CatalogSchemaName(TEST_CATALOG, TEST_SCHEMA), "invalid"), Optional.empty(), false);
+        dropFunction(QualifiedObjectName.valueOf(TEST_CATALOG, TEST_SCHEMA, "invalid"), Optional.empty(), false);
     }
 
     @Test
@@ -401,7 +404,7 @@ public class TestMySqlFunctionNamespaceManager
     public void testInvalidFunctionHandle()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, true);
-        SqlFunctionHandle functionHandle = new SqlFunctionHandle(FUNCTION_POWER_TOWER_DOUBLE.getFunctionId(), 2);
+        SqlFunctionHandle functionHandle = new SqlFunctionHandle(FUNCTION_POWER_TOWER_DOUBLE.getFunctionId(), "2");
         functionNamespaceManager.getFunctionMetadata(functionHandle);
     }
 
@@ -417,12 +420,12 @@ public class TestMySqlFunctionNamespaceManager
         functionNamespaceManager.createFunction(function, replace);
     }
 
-    private void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics characteristics)
+    private void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics characteristics)
     {
         functionNamespaceManager.alterFunction(functionName, parameterTypes, characteristics);
     }
 
-    private void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
+    private void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists)
     {
         functionNamespaceManager.dropFunction(functionName, parameterTypes, exists);
     }
@@ -443,7 +446,7 @@ public class TestMySqlFunctionNamespaceManager
         assertEquals(ImmutableSet.copyOf(functionNamespaceManager.listFunctions()), ImmutableSet.copyOf(Arrays.asList(functions)));
     }
 
-    private void assertGetFunctions(QualifiedFunctionName functionName, SqlInvokedFunction... functions)
+    private void assertGetFunctions(QualifiedObjectName functionName, SqlInvokedFunction... functions)
     {
         FunctionNamespaceTransactionHandle transactionHandle = functionNamespaceManager.beginTransaction();
         assertEquals(ImmutableSet.copyOf(functionNamespaceManager.getFunctions(Optional.of(transactionHandle), functionName)), ImmutableSet.copyOf(Arrays.asList(functions)));
@@ -480,7 +483,7 @@ public class TestMySqlFunctionNamespaceManager
         return Joiner.on("").join(nCopies(length, "x"));
     }
 
-    private static SqlInvokedFunction constructTestFunction(QualifiedFunctionName functionName)
+    private static SqlInvokedFunction constructTestFunction(QualifiedObjectName functionName)
     {
         return new SqlInvokedFunction(
                 functionName,
@@ -492,7 +495,7 @@ public class TestMySqlFunctionNamespaceManager
                 Optional.empty());
     }
 
-    private static SqlInvokedFunction createFunctionTangent(QualifiedFunctionName functionName)
+    private static SqlInvokedFunction createFunctionTangent(QualifiedObjectName functionName)
     {
         return new SqlInvokedFunction(
                 functionName,

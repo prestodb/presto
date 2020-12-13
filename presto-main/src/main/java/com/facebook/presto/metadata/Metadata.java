@@ -15,11 +15,12 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -27,8 +28,10 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableLayoutFilterCoverage;
 import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
@@ -51,6 +54,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+
+import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 
 public interface Metadata
 {
@@ -431,11 +436,11 @@ public interface Metadata
     @Experimental
     ListenableFuture<Void> commitPageSinkAsync(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments);
 
-    FunctionManager getFunctionManager();
+    MetadataUpdates getMetadataUpdateResults(Session session, QueryManager queryManager, MetadataUpdates metadataUpdates, QueryId queryId);
+
+    FunctionAndTypeManager getFunctionAndTypeManager();
 
     ProcedureRegistry getProcedureRegistry();
-
-    TypeManager getTypeManager();
 
     BlockEncodingSerde getBlockEncodingSerde();
 
@@ -450,4 +455,14 @@ public interface Metadata
     AnalyzePropertyManager getAnalyzePropertyManager();
 
     Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName);
+
+    /**
+     * Check if there is filter coverage of the specified partitioning keys
+     *
+     * @return NOT_APPLICABLE if partitioning is unsupported, not applicable, or the partitioning key is not relevant, NONE or COVERED otherwise
+     */
+    default TableLayoutFilterCoverage getTableLayoutFilterCoverage(Session session, TableHandle tableHandle, Set<String> relevantPartitionColumn)
+    {
+        return NOT_APPLICABLE;
+    }
 }

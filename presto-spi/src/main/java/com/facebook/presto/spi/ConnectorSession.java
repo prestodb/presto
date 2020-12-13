@@ -43,4 +43,6 @@ public interface ConnectorSession
     SqlFunctionProperties getSqlFunctionProperties();
 
     <T> T getProperty(String name, Class<T> type);
+
+    Optional<String> getSchema();
 }

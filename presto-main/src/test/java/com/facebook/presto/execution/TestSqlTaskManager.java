@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.TestingGcMonitor;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -28,11 +28,12 @@ import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
-import com.facebook.presto.type.TypeRegistry;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -251,8 +252,10 @@ public class TestSqlTaskManager
                 new MockExchangeClientSupplier(),
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
-                new BlockEncodingManager(new TypeRegistry()),
-                new OrderingCompiler());
+                new BlockEncodingManager(),
+                new OrderingCompiler(),
+                new NoOpFragmentResultCacheManager(),
+                new ObjectMapper());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
@@ -275,7 +278,8 @@ public class TestSqlTaskManager
                         false,
                         false,
                         false,
-                        false);
+                        false,
+                        Optional.empty());
         return sqlTaskManager.updateTask(
                 TEST_SESSION,
                 taskId,

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.operator.spiller;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
@@ -23,7 +23,7 @@ import com.facebook.presto.spiller.GenericSpillerFactory;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
 import com.facebook.presto.spiller.SpillerStats;
-import com.facebook.presto.type.TypeRegistry;
+import com.facebook.presto.spiller.TestingSpillContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.tpch.LineItem;
@@ -61,7 +61,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class BenchmarkBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, BIGINT, DOUBLE, createUnboundedVarcharType(), DOUBLE);
-    private static final BlockEncodingSerde BLOCK_ENCODING_MANAGER = new BlockEncodingManager(new TypeRegistry());
+    private static final BlockEncodingSerde BLOCK_ENCODING_MANAGER = new BlockEncodingManager();
     private static final Path SPILL_PATH = Paths.get(System.getProperty("java.io.tmpdir"), "spills");
 
     @Benchmark
@@ -122,7 +122,7 @@ public class BenchmarkBinaryFileSpiller
                     encryptionEnabled);
             spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
             pages = createInputPages();
-            readSpiller = spillerFactory.create(TYPES, bytes -> {}, newSimpleAggregatedMemoryContext());
+            readSpiller = spillerFactory.create(TYPES, new TestingSpillContext(), newSimpleAggregatedMemoryContext());
             readSpiller.spill(pages.iterator()).get();
         }
 
@@ -170,7 +170,7 @@ public class BenchmarkBinaryFileSpiller
 
         public Spiller createSpiller()
         {
-            return spillerFactory.create(TYPES, bytes -> {}, newSimpleAggregatedMemoryContext());
+            return spillerFactory.create(TYPES, new TestingSpillContext(), newSimpleAggregatedMemoryContext());
         }
     }
 }

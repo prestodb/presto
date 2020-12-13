@@ -13,39 +13,54 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.common.type.EnumType;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultExpressionTraversalVisitor;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
-import com.facebook.presto.sql.tree.InListExpression;
-import com.facebook.presto.sql.tree.InPredicate;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ExpressionTreeUtils
 {
     private ExpressionTreeUtils() {}
 
-    static List<FunctionCall> extractAggregateFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionManager functionManager)
+    static List<FunctionCall> extractAggregateFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionAndTypeManager functionAndTypeManager)
     {
-        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionHandles, functionManager));
+        return extractExpressions(nodes, FunctionCall.class, isAggregationPredicate(functionHandles, functionAndTypeManager));
     }
 
     static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes)
     {
         return extractExpressions(nodes, FunctionCall.class, ExpressionTreeUtils::isWindowFunction);
+    }
+
+    static List<FunctionCall> extractExternalFunctions(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, Iterable<? extends Node> nodes, FunctionAndTypeManager functionAndTypeManager)
+    {
+        return extractExpressions(nodes, FunctionCall.class, isExternalFunctionPredicate(functionHandles, functionAndTypeManager));
     }
 
     public static <T extends Expression> List<T> extractExpressions(
@@ -55,16 +70,21 @@ public final class ExpressionTreeUtils
         return extractExpressions(nodes, clazz, alwaysTrue());
     }
 
-    private static Predicate<FunctionCall> isAggregationPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionManager functionManager)
+    private static Predicate<FunctionCall> isAggregationPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager)
     {
-        return ((functionCall) -> (functionManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getFunctionKind() == AGGREGATE || functionCall.getFilter().isPresent())
+        return functionCall -> (functionAndTypeManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getFunctionKind() == AGGREGATE || functionCall.getFilter().isPresent())
                 && !functionCall.getWindow().isPresent()
-                || functionCall.getOrderBy().isPresent());
+                || functionCall.getOrderBy().isPresent();
     }
 
     private static boolean isWindowFunction(FunctionCall functionCall)
     {
         return functionCall.getWindow().isPresent();
+    }
+
+    private static Predicate<FunctionCall> isExternalFunctionPredicate(Map<NodeRef<FunctionCall>, FunctionHandle> functionHandles, FunctionAndTypeManager functionAndTypeManager)
+    {
+        return functionCall -> functionAndTypeManager.getFunctionMetadata(functionHandles.get(NodeRef.of(functionCall))).getImplementationType().isExternal();
     }
 
     private static <T extends Expression> List<T> extractExpressions(
@@ -105,8 +125,57 @@ public final class ExpressionTreeUtils
         return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
-    public static boolean isInValuesComparisonExpression(Expression expression)
+    static Optional<EnumType> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
     {
-        return expression instanceof InPredicate && ((InPredicate) expression).getValueList() instanceof InListExpression;
+        Optional<QualifiedName> prefix = qualifiedName.getPrefix();
+        if (!prefix.isPresent()) {
+            // an enum literal should be of the form `MyEnum.my_key`
+            return Optional.empty();
+        }
+        try {
+            Type baseType = functionAndTypeManager.getType(parseTypeSignature(prefix.get().toString()));
+            if (baseType instanceof EnumType) {
+                return Optional.of((EnumType) baseType);
+            }
+        }
+        catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isEnumLiteral(DereferenceExpression node, Type nodeType)
+    {
+        if (!(nodeType instanceof EnumType)) {
+            return false;
+        }
+        QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
+        if (qualifiedName == null) {
+            return false;
+        }
+        Optional<QualifiedName> prefix = qualifiedName.getPrefix();
+        return prefix.isPresent()
+                && prefix.get().toString().equalsIgnoreCase(nodeType.getTypeSignature().getBase());
+    }
+
+    public static Optional<Object> tryResolveEnumLiteral(DereferenceExpression node, Type nodeType)
+    {
+        QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
+        if (!isEnumLiteral(node, nodeType)) {
+            return Optional.empty();
+        }
+        EnumType enumType = (EnumType) nodeType;
+        String enumKey = qualifiedName.getSuffix().toUpperCase(ENGLISH);
+        checkArgument(enumType.getEnumMap().containsKey(enumKey), format("No key '%s' in enum '%s'", enumKey, nodeType.getDisplayName()));
+        Object enumValue = enumType.getEnumMap().get(enumKey);
+        return enumValue instanceof String ? Optional.of(utf8Slice((String) enumValue)) : Optional.of(enumValue);
+    }
+
+    public static FieldId checkAndGetColumnReferenceField(Expression expression, Multimap<NodeRef<Expression>, FieldId> columnReferences)
+    {
+        checkState(columnReferences.containsKey(NodeRef.of(expression)), "Missing field reference for expression");
+        checkState(columnReferences.get(NodeRef.of(expression)).size() == 1, "Multiple field references for expression");
+
+        return columnReferences.get(NodeRef.of(expression)).iterator().next();
     }
 }

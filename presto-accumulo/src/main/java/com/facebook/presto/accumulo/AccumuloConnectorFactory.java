@@ -49,7 +49,6 @@ public class AccumuloConnectorFactory
             // Unless you don't really know how to Guice, then it is less convenient
             Bootstrap app = new Bootstrap(new JsonModule(), new AccumuloModule(catalogName, context.getTypeManager()));
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

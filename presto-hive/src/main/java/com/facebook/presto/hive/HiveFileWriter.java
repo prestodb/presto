@@ -25,7 +25,8 @@ public interface HiveFileWriter
 
     void appendRows(Page dataPage);
 
-    void commit();
+    // Page returned by commit should have fileSize as first channel
+    Optional<Page> commit();
 
     void rollback();
 
@@ -35,4 +36,6 @@ public interface HiveFileWriter
     {
         return Optional.empty();
     }
+
+    long getFileSizeInBytes();
 }

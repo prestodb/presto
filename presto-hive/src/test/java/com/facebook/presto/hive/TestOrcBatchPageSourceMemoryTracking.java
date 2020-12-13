@@ -103,10 +103,11 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveFileContext.DEFAULT_HIVE_FILE_CONTEXT;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.ROW_EXPRESSION_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
-import static com.facebook.presto.hive.HiveTestUtils.TYPE_MANAGER;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.orc.OrcReader.MAX_BATCH_SIZE;
 import static com.facebook.presto.sql.relational.Expressions.field;
@@ -453,9 +454,9 @@ public class TestOrcBatchPageSourceMemoryTracking
 
                 ObjectInspector inspector = testColumn.getObjectInspector();
                 HiveType hiveType = HiveType.valueOf(inspector.getTypeName());
-                Type type = hiveType.getType(TYPE_MANAGER);
+                Type type = hiveType.getType(FUNCTION_AND_TYPE_MANAGER);
 
-                columnsBuilder.add(new HiveColumnHandle(testColumn.getName(), hiveType, type.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
+                columnsBuilder.add(new HiveColumnHandle(testColumn.getName(), hiveType, type.getTypeSignature(), columnIndex, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty(), Optional.empty()));
                 typesBuilder.add(type);
             }
             columns = columnsBuilder.build();
@@ -477,7 +478,8 @@ public class TestOrcBatchPageSourceMemoryTracking
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
             OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(
-                    TYPE_MANAGER,
+                    FUNCTION_AND_TYPE_MANAGER,
+                    FUNCTION_RESOLUTION,
                     false,
                     HDFS_ENVIRONMENT,
                     stats,
@@ -500,7 +502,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     ImmutableMap.of(),
                     partitionKeys,
                     DateTimeZone.UTC,
-                    TYPE_MANAGER,
+                    FUNCTION_AND_TYPE_MANAGER,
                     new SchemaTableName("schema", "table"),
                     ImmutableList.of(),
                     ImmutableList.of(),
@@ -513,7 +515,8 @@ public class TestOrcBatchPageSourceMemoryTracking
                     null,
                     false,
                     ROW_EXPRESSION_SERVICE,
-                    Optional.empty())
+                    Optional.empty(),
+                    ImmutableMap.of())
                     .get();
         }
 
@@ -550,6 +553,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     table,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
                     types,
+                    Optional.empty(),
                     new DataSize(0, BYTE),
                     0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);

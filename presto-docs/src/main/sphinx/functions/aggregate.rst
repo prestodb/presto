@@ -147,6 +147,21 @@ General Aggregate Functions
 
         Returns an array created from the distinct input ``x`` elements.
 
+.. function:: set_union(array(T)) -> array(T)
+
+    Returns an array of all the distinct values contained in each array of the input
+
+    Example::
+
+        SELECT set_union(elements)
+        FROM (
+            VALUES
+                ARRAY[1, 2, 3],
+                ARRAY[2, 3, 4]
+        ) AS t(elements);
+
+    Returns ARRAY[1, 2, 3, 4]
+
 .. function:: sum(x) -> [same as input]
 
     Returns the sum of all input values.
@@ -716,6 +731,25 @@ where :math:`f(x)` is the partial density function of :math:`x`.
         is better than maximum likelihood estimation. However, if the number of distinct weights is high,
         consider using the version taking ``(bucket_count, x, weight, "fixed_histogram_mle", min, max)``,
         as this will reduce memory and running time.
+
+.. function:: approx_most_frequent(buckets, value, capacity) -> map<[same as value], bigint>
+
+    Computes the top frequent values up to ``buckets`` elements approximately.
+    Approximate estimation of the function enables us to pick up the frequent
+    values with less memory. Larger ``capacity`` improves the accuracy of
+    underlying algorithm with sacrificing the memory capacity. The returned
+    value is a map containing the top elements with corresponding estimated
+    frequency.
+
+    The error of the function depends on the permutation of the values and its
+    cardinality. We can set the capacity same as the cardinality of the
+    underlying data to achieve the least error.
+
+    ``buckets`` and ``capacity`` must be ``bigint``. ``value`` can be numeric
+    or string type.
+
+    The function uses the stream summary data structure proposed in the paper
+    `Efficient computation of frequent and top-k elements in data streams <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_ by A.Metwalley, D.Agrawl and A.Abbadi.
 
 
 ---------------------------

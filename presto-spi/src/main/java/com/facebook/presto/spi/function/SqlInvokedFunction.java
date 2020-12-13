@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.function;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
 
@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -45,13 +44,13 @@ public class SqlInvokedFunction
     private final Optional<SqlFunctionHandle> functionHandle;
 
     public SqlInvokedFunction(
-            QualifiedFunctionName functionName,
+            QualifiedObjectName functionName,
             List<Parameter> parameters,
             TypeSignature returnType,
             String description,
             RoutineCharacteristics routineCharacteristics,
             String body,
-            Optional<Long> version)
+            Optional<String> version)
     {
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.description = requireNonNull(description, "description is null");
@@ -66,7 +65,7 @@ public class SqlInvokedFunction
         this.functionHandle = version.map(v -> new SqlFunctionHandle(this.functionId, v));
     }
 
-    public SqlInvokedFunction withVersion(long version)
+    public SqlInvokedFunction withVersion(String version)
     {
         if (getVersion().isPresent()) {
             throw new IllegalArgumentException(format("function %s is already with version %s", signature.getName(), getVersion().get()));
@@ -136,17 +135,9 @@ public class SqlInvokedFunction
         return functionHandle;
     }
 
-    public Optional<Long> getVersion()
+    public Optional<String> getVersion()
     {
         return functionHandle.map(SqlFunctionHandle::getVersion);
-    }
-
-    public FunctionImplementationType getFunctionImplementationType()
-    {
-        if (routineCharacteristics.getLanguage().equals(SQL)) {
-            return FunctionImplementationType.SQL;
-        }
-        return FunctionImplementationType.THRIFT;
     }
 
     public SqlFunctionHandle getRequiredFunctionHandle()
@@ -158,9 +149,9 @@ public class SqlInvokedFunction
         return functionHandle.get();
     }
 
-    public long getRequiredVersion()
+    public String getRequiredVersion()
     {
-        Optional<Long> version = getVersion();
+        Optional<String> version = getVersion();
         if (!version.isPresent()) {
             throw new IllegalStateException("missing version");
         }

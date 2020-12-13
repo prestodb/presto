@@ -15,7 +15,6 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.ExecutionFailureInfo;
-import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -31,8 +30,8 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
-import static com.facebook.presto.execution.QueryInfo.immediateFailureQueryInfo;
 import static com.facebook.presto.execution.QueryState.FAILED;
+import static com.facebook.presto.server.BasicQueryInfo.immediateFailureQueryInfo;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
@@ -41,7 +40,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class FailedDispatchQuery
         implements DispatchQuery
 {
-    private final QueryInfo queryInfo;
     private final BasicQueryInfo basicQueryInfo;
     private final Session session;
     private final Executor executor;
@@ -62,27 +60,20 @@ public class FailedDispatchQuery
         requireNonNull(failure, "failure is null");
         requireNonNull(executor, "executor is null");
 
-        this.queryInfo = immediateFailureQueryInfo(session, query, self, resourceGroup, failure);
-        this.basicQueryInfo = new BasicQueryInfo(queryInfo);
+        this.basicQueryInfo = immediateFailureQueryInfo(session, query, self, resourceGroup, failure);
         this.session = requireNonNull(session, "session is null");
         this.executor = requireNonNull(executor, "executor is null");
 
         this.dispatchInfo = DispatchInfo.failed(
                 failure,
-                queryInfo.getQueryStats().getElapsedTime(),
-                queryInfo.getQueryStats().getQueuedTime());
+                basicQueryInfo.getQueryStats().getElapsedTime(),
+                basicQueryInfo.getQueryStats().getQueuedTime());
     }
 
     @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
         return basicQueryInfo;
-    }
-
-    @Override
-    public QueryInfo getQueryInfo()
-    {
-        return queryInfo;
     }
 
     @Override
@@ -124,7 +115,7 @@ public class FailedDispatchQuery
     @Override
     public QueryId getQueryId()
     {
-        return queryInfo.getQueryId();
+        return basicQueryInfo.getQueryId();
     }
 
     @Override
@@ -136,28 +127,22 @@ public class FailedDispatchQuery
     @Override
     public Optional<ErrorCode> getErrorCode()
     {
-        return Optional.ofNullable(queryInfo.getErrorCode());
+        return Optional.ofNullable(basicQueryInfo.getErrorCode());
     }
 
     @Override
     public void recordHeartbeat() {}
 
     @Override
-    public int getRunningTaskCount()
-    {
-        return 0;
-    }
-
-    @Override
     public DateTime getLastHeartbeat()
     {
-        return queryInfo.getQueryStats().getEndTime();
+        return basicQueryInfo.getQueryStats().getEndTime();
     }
 
     @Override
     public DateTime getCreateTime()
     {
-        return queryInfo.getQueryStats().getCreateTime();
+        return basicQueryInfo.getQueryStats().getCreateTime();
     }
 
     @Override
@@ -169,7 +154,7 @@ public class FailedDispatchQuery
     @Override
     public Optional<DateTime> getEndTime()
     {
-        return Optional.ofNullable(queryInfo.getQueryStats().getEndTime());
+        return Optional.ofNullable(basicQueryInfo.getQueryStats().getEndTime());
     }
 
     @Override

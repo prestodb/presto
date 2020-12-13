@@ -25,12 +25,16 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.PipelineStatus;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
+import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.base.Function;
@@ -39,7 +43,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -61,10 +64,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SqlTask
 {
@@ -249,22 +249,22 @@ public class SqlTask
 
         int queuedPartitionedDrivers = 0;
         int runningPartitionedDrivers = 0;
-        DataSize physicalWrittenDataSize = new DataSize(0, BYTE);
-        DataSize userMemoryReservation = new DataSize(0, BYTE);
-        DataSize systemMemoryReservation = new DataSize(0, BYTE);
+        long physicalWrittenDataSizeInBytes = 0L;
+        long userMemoryReservationInBytes = 0L;
+        long systemMemoryReservationInBytes = 0L;
         // TODO: add a mechanism to avoid sending the whole completedDriverGroups set over the wire for every task status reply
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
-        Duration fullGcTime = new Duration(0, MILLISECONDS);
+        long fullGcTimeInMillis = 0L;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
-            physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
-            userMemoryReservation = taskStats.getUserMemoryReservation();
-            systemMemoryReservation = taskStats.getSystemMemoryReservation();
+            physicalWrittenDataSizeInBytes = taskStats.getPhysicalWrittenDataSizeInBytes();
+            userMemoryReservationInBytes = taskStats.getUserMemoryReservationInBytes();
+            systemMemoryReservationInBytes = taskStats.getSystemMemoryReservationInBytes();
             fullGcCount = taskStats.getFullGcCount();
-            fullGcTime = taskStats.getFullGcTime();
+            fullGcTimeInMillis = taskStats.getFullGcTimeInMillis();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -275,12 +275,12 @@ public class SqlTask
                 runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
-            physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
-            userMemoryReservation = taskContext.getMemoryReservation();
-            systemMemoryReservation = taskContext.getSystemMemoryReservation();
+            physicalWrittenDataSizeInBytes = physicalWrittenBytes;
+            userMemoryReservationInBytes = taskContext.getMemoryReservation().toBytes();
+            systemMemoryReservationInBytes = taskContext.getSystemMemoryReservation().toBytes();
             completedDriverGroups = taskContext.getCompletedDriverGroups();
             fullGcCount = taskContext.getFullGcCount();
-            fullGcTime = taskContext.getFullGcTime();
+            fullGcTimeInMillis = taskContext.getFullGcTime().toMillis();
         }
 
         return new TaskStatus(
@@ -295,11 +295,12 @@ public class SqlTask
                 runningPartitionedDrivers,
                 outputBuffer.getUtilization(),
                 isOutputBufferOverutilized(),
-                physicalWrittenDataSize.toBytes(),
-                userMemoryReservation.toBytes(),
-                systemMemoryReservation.toBytes(),
+                physicalWrittenDataSizeInBytes,
+                userMemoryReservationInBytes,
+                systemMemoryReservationInBytes,
+                queryContext.getPeakNodeTotalMemory(),
                 fullGcCount,
-                fullGcTime.toMillis());
+                fullGcTimeInMillis);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
@@ -315,6 +316,24 @@ public class SqlTask
         // if the task completed without creation, set end time
         DateTime endTime = taskStateMachine.getState().isDone() ? DateTime.now() : null;
         return new TaskStats(taskStateMachine.getCreatedTime(), endTime);
+    }
+
+    private MetadataUpdates getMetadataUpdateRequests(TaskHolder taskHolder)
+    {
+        ConnectorId connectorId = null;
+        ImmutableList.Builder<ConnectorMetadataUpdateHandle> connectorMetadataUpdatesBuilder = ImmutableList.builder();
+
+        if (taskHolder.getTaskExecution() != null) {
+            TaskMetadataContext taskMetadataContext = taskHolder.getTaskExecution().getTaskContext().getTaskMetadataContext();
+            if (!taskMetadataContext.getMetadataUpdaters().isEmpty()) {
+                connectorId = taskMetadataContext.getConnectorId();
+                for (ConnectorMetadataUpdater metadataUpdater : taskMetadataContext.getMetadataUpdaters()) {
+                    connectorMetadataUpdatesBuilder.addAll(metadataUpdater.getPendingMetadataUpdateRequests());
+                }
+            }
+        }
+
+        return new MetadataUpdates(connectorId, connectorMetadataUpdatesBuilder.build());
     }
 
     private static Set<PlanNodeId> getNoMoreSplits(TaskHolder taskHolder)
@@ -334,6 +353,7 @@ public class SqlTask
     {
         TaskStats taskStats = getTaskStats(taskHolder);
         Set<PlanNodeId> noMoreSplits = getNoMoreSplits(taskHolder);
+        MetadataUpdates metadataRequests = getMetadataUpdateRequests(taskHolder);
 
         TaskStatus taskStatus = createTaskStatus(taskHolder);
         return new TaskInfo(
@@ -343,7 +363,8 @@ public class SqlTask
                 outputBuffer.getInfo(),
                 noMoreSplits,
                 taskStats,
-                needsPlan.get());
+                needsPlan.get(),
+                metadataRequests);
     }
 
     public ListenableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)
@@ -426,6 +447,11 @@ public class SqlTask
         }
 
         return getTaskInfo();
+    }
+
+    public TaskMetadataContext getTaskMetadataContext()
+    {
+        return taskHolderReference.get().taskExecution.getTaskContext().getTaskMetadataContext();
     }
 
     public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)

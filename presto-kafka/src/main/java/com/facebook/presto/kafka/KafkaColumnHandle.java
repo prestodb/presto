@@ -15,6 +15,7 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.decoder.DecoderColumnHandle;
+import com.facebook.presto.kafka.encoder.EncoderColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -28,7 +29,7 @@ import static java.util.Objects.requireNonNull;
  * Kafka specific connector column handle.
  */
 public final class KafkaColumnHandle
-        implements DecoderColumnHandle, Comparable<KafkaColumnHandle>
+        implements EncoderColumnHandle, DecoderColumnHandle, Comparable<KafkaColumnHandle>
 {
     private final String connectorId;
     private final int ordinalPosition;
@@ -44,24 +45,24 @@ public final class KafkaColumnHandle
     private final Type type;
 
     /**
-     * Mapping hint for the decoder. Can be null.
+     * Mapping hint for the codec. Can be null.
      */
     private final String mapping;
 
     /**
-     * Data format to use (selects the decoder). Can be null.
+     * Data format to use (selects the codec). Can be null.
      */
     private final String dataFormat;
 
     /**
-     * Additional format hint for the selected decoder. Selects a decoder subtype (e.g. which timestamp decoder).
+     * Additional format hint for the selected codec. Selects a codec subtype (e.g. which timestamp codec).
      */
     private final String formatHint;
 
     /**
-     * True if the key decoder should be used, false if the message decoder should be used.
+     * True if the key codec should be used, false if the message codec should be used.
      */
-    private final boolean keyDecoder;
+    private final boolean keyCodec;
 
     /**
      * True if the column should be hidden.
@@ -82,7 +83,7 @@ public final class KafkaColumnHandle
             @JsonProperty("mapping") String mapping,
             @JsonProperty("dataFormat") String dataFormat,
             @JsonProperty("formatHint") String formatHint,
-            @JsonProperty("keyDecoder") boolean keyDecoder,
+            @JsonProperty("keyCodec") boolean keyCodec,
             @JsonProperty("hidden") boolean hidden,
             @JsonProperty("internal") boolean internal)
     {
@@ -93,7 +94,7 @@ public final class KafkaColumnHandle
         this.mapping = mapping;
         this.dataFormat = dataFormat;
         this.formatHint = formatHint;
-        this.keyDecoder = keyDecoder;
+        this.keyCodec = keyCodec;
         this.hidden = hidden;
         this.internal = internal;
     }
@@ -146,9 +147,9 @@ public final class KafkaColumnHandle
     }
 
     @JsonProperty
-    public boolean isKeyDecoder()
+    public boolean isKeyCodec()
     {
-        return keyDecoder;
+        return keyCodec;
     }
 
     @JsonProperty
@@ -172,7 +173,7 @@ public final class KafkaColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(connectorId, ordinalPosition, name, type, mapping, dataFormat, formatHint, keyDecoder, hidden, internal);
+        return Objects.hash(connectorId, ordinalPosition, name, type, mapping, dataFormat, formatHint, keyCodec, hidden, internal);
     }
 
     @Override
@@ -193,7 +194,7 @@ public final class KafkaColumnHandle
                 Objects.equals(this.mapping, other.mapping) &&
                 Objects.equals(this.dataFormat, other.dataFormat) &&
                 Objects.equals(this.formatHint, other.formatHint) &&
-                Objects.equals(this.keyDecoder, other.keyDecoder) &&
+                Objects.equals(this.keyCodec, other.keyCodec) &&
                 Objects.equals(this.hidden, other.hidden) &&
                 Objects.equals(this.internal, other.internal);
     }
@@ -215,7 +216,7 @@ public final class KafkaColumnHandle
                 .add("mapping", mapping)
                 .add("dataFormat", dataFormat)
                 .add("formatHint", formatHint)
-                .add("keyDecoder", keyDecoder)
+                .add("keyCodec", keyCodec)
                 .add("hidden", hidden)
                 .add("internal", internal)
                 .toString();

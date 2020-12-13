@@ -15,13 +15,13 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -46,6 +46,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.UNKNOWN;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -86,7 +88,7 @@ public class TestPlannerWarnings
         List<WarningCode> warningCodes = warnings.stream()
                 .map(PrestoWarning::getWarningCode)
                 .collect(toImmutableList());
-        assertPlannerWarnings(queryRunner, "SELECT * FROM NATION", ImmutableMap.of(), warningCodes, Optional.of(ImmutableList.of(new TestWarningsRule(warnings))));
+        assertPlannerWarnings(queryRunner, "SELECT * FROM NATION", ImmutableMap.of(), warningCodes, Optional.of(ImmutableList.of(new TestWarningsRule(warnings), new PassRemoteProjectSanityChecker())));
     }
 
     public static void assertPlannerWarnings(LocalQueryRunner queryRunner, @Language("SQL") String sql, Map<String, String> sessionProperties, List<WarningCode> expectedWarnings, Optional<List<Rule<?>>> rules)
@@ -170,6 +172,25 @@ public class TestPlannerWarnings
         {
             warnings.stream()
                     .forEach(context.getWarningCollector()::add);
+            return Result.empty();
+        }
+    }
+
+    public static class PassRemoteProjectSanityChecker
+            implements Rule<ProjectNode>
+    {
+        @Override
+        public Pattern<ProjectNode> getPattern()
+        {
+            return project();
+        }
+
+        @Override
+        public Result apply(ProjectNode node, Captures captures, Context context)
+        {
+            if (node.getLocality().equals(UNKNOWN)) {
+                return Result.ofPlanNode(new ProjectNode(context.getIdAllocator().getNextId(), node.getSource(), node.getAssignments(), LOCAL));
+            }
             return Result.empty();
         }
     }

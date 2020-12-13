@@ -27,6 +27,7 @@ import java.util.function.BiConsumer;
 import static com.facebook.presto.common.block.BlockUtil.calculateBlockResetSize;
 import static com.facebook.presto.common.block.RowBlock.createRowBlockInternal;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -233,7 +234,7 @@ public class RowBlockBuilder
     @Override
     public String toString()
     {
-        return format("RowBlockBuilder{numFields=%d, positionCount=%d", numFields, getPositionCount());
+        return format("RowBlockBuilder(%d){numFields=%d, positionCount=%d", hashCode(), numFields, getPositionCount());
     }
 
     @Override
@@ -295,6 +296,19 @@ public class RowBlockBuilder
         BlockBuilder[] newBlockBuilders = new BlockBuilder[numFields];
         for (int i = 0; i < numFields; i++) {
             newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus);
+        }
+        return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[newSize + 1], new boolean[newSize]);
+    }
+
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        int newSize = max(calculateBlockResetSize(getPositionCount()), expectedEntries);
+        BlockBuilder[] newBlockBuilders = new BlockBuilder[numFields];
+        // We still calculate the new expected fieldBlockBuilders sizes because the positions could be null.
+        int nestedExpectedEntries = BlockUtil.calculateNestedStructureResetSize(fieldBlockOffsets[positionCount], positionCount, expectedEntries);
+        for (int i = 0; i < numFields; i++) {
+            newBlockBuilders[i] = fieldBlockBuilders[i].newBlockBuilderLike(blockBuilderStatus, nestedExpectedEntries);
         }
         return new RowBlockBuilder(blockBuilderStatus, newBlockBuilders, new int[newSize + 1], new boolean[newSize]);
     }

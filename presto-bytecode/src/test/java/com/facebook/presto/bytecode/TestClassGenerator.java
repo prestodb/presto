@@ -77,7 +77,7 @@ public class TestClassGenerator
             assertThat(writer.toString())
                     .contains("00002 I I  : I I  :     IADD")
                     .contains("public final class test/Example {")
-                    .contains("// declaration: int (int, int)")
+                    .contains("// declaration: int add(int, int)")
                     .contains("LINENUMBER 2002 L1");
 
             assertThat(tempDir.resolve("test/Example.class")).isRegularFile();

@@ -16,6 +16,7 @@ package com.facebook.presto.split;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -45,10 +46,10 @@ public class CloseableSplitSourceProvider
     }
 
     @Override
-    public synchronized SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy)
+    public synchronized SplitSource getSplits(Session session, TableHandle tableHandle, SplitSchedulingStrategy splitSchedulingStrategy, WarningCollector warningCollector)
     {
         checkState(!closed, "split source provider is closed");
-        SplitSource splitSource = delegate.getSplits(session, tableHandle, splitSchedulingStrategy);
+        SplitSource splitSource = delegate.getSplits(session, tableHandle, splitSchedulingStrategy, warningCollector);
         splitSources.add(splitSource);
         return splitSource;
     }

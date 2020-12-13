@@ -15,10 +15,14 @@ package com.facebook.presto.jdbc;
 
 import org.testng.annotations.Test;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import static com.facebook.presto.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static com.facebook.presto.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static com.facebook.presto.jdbc.ConnectionProperties.HTTP_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SESSION_PROPERTIES;
@@ -29,6 +33,7 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestPrestoDriverUri
@@ -162,6 +167,15 @@ public class TestPrestoDriverUri
     }
 
     @Test
+    public void testUriWithoutCompression()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?disableCompression=true");
+        assertTrue(parameters.isCompressionDisabled());
+        assertEquals(parameters.getProperties().getProperty(DISABLE_COMPRESSION.getKey()), "true");
+    }
+
+    @Test
     public void testUriWithoutSsl()
             throws SQLException
     {
@@ -231,10 +245,11 @@ public class TestPrestoDriverUri
 
     @Test
     public void testUriWithExtraCredentials()
-            throws SQLException
+            throws SQLException, UnsupportedEncodingException
     {
-        String extraCredentials = "test.token.foo:bar;test.token.abc:xyz";
-        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?extraCredentials=" + extraCredentials);
+        String extraCredentials = "test.token.foo:bar;test.token.abc:xyz;test.scopes:read_only|read_write";
+        String encodedExtraCredentials = URLEncoder.encode(extraCredentials, StandardCharsets.UTF_8.toString());
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?extraCredentials=" + encodedExtraCredentials);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(EXTRA_CREDENTIALS.getKey()), extraCredentials);
     }

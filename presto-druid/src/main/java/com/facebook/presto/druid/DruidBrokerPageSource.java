@@ -28,7 +28,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -44,6 +43,7 @@ import java.util.List;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_BROKER_RESULT_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 
 public class DruidBrokerPageSource
@@ -111,6 +111,8 @@ public class DruidBrokerPageSource
         }
 
         long start = System.nanoTime();
+        boolean columnHandlesHasErrorMessageField = columnHandles.stream().anyMatch(
+                handle -> ((DruidColumnHandle) handle).getColumnName().equals("errorMessage"));
         try {
             String readLine;
             while ((readLine = responseStream.readLine()) != null) {
@@ -121,11 +123,13 @@ public class DruidBrokerPageSource
                 }
                 else {
                     JsonNode rootNode = OBJECT_MAPPER.readTree(readLine);
-                    ArrayNode arrayNode = (ArrayNode) rootNode;
+                    if (rootNode.has("errorMessage") && !columnHandlesHasErrorMessageField) {
+                        throw new PrestoException(DRUID_BROKER_RESULT_ERROR, rootNode.findValue("errorMessage").asText());
+                    }
                     for (int i = 0; i < columnHandles.size(); i++) {
                         Type type = columnTypes.get(i);
                         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-                        JsonNode value = arrayNode.get(i);
+                        JsonNode value = rootNode.get(((DruidColumnHandle) columnHandles.get(i)).getColumnName());
                         if (value == null) {
                             blockBuilder.appendNull();
                             continue;
@@ -137,7 +141,7 @@ public class DruidBrokerPageSource
                             type.writeDouble(blockBuilder, value.doubleValue());
                         }
                         else if (type instanceof RealType) {
-                            type.writeLong(blockBuilder, value.longValue());
+                            type.writeLong(blockBuilder, floatToRawIntBits(value.floatValue()));
                         }
                         else if (type instanceof TimestampType) {
                             DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()

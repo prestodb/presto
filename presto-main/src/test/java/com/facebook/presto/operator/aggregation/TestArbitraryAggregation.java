@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -42,12 +42,12 @@ import static org.testng.Assert.assertNotNull;
 public class TestArbitraryAggregation
 {
     private static final MetadataManager metadata = MetadataManager.createTestMetadataManager();
-    private static final FunctionManager functionManager = metadata.getFunctionManager();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = metadata.getFunctionAndTypeManager();
 
     @Test
     public void testAllRegistered()
     {
-        Set<Type> allTypes = metadata.getTypeManager().getTypes().stream().collect(toImmutableSet());
+        Set<Type> allTypes = metadata.getFunctionAndTypeManager().getTypes().stream().collect(toImmutableSet());
 
         for (Type valueType : allTypes) {
             assertNotNull(getAggregation(valueType));
@@ -166,6 +166,6 @@ public class TestArbitraryAggregation
 
     private static InternalAggregationFunction getAggregation(Type... arguments)
     {
-        return functionManager.getAggregateFunctionImplementation(functionManager.lookupFunction("arbitrary", fromTypes(arguments)));
+        return FUNCTION_AND_TYPE_MANAGER.getAggregateFunctionImplementation(FUNCTION_AND_TYPE_MANAGER.lookupFunction("arbitrary", fromTypes(arguments)));
     }
 }

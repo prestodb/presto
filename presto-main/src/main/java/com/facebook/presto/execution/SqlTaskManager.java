@@ -33,14 +33,18 @@ import com.facebook.presto.memory.MemoryPoolAssignment;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -130,7 +134,9 @@ public class SqlTaskManager
             NodeSpillConfig nodeSpillConfig,
             GcMonitor gcMonitor,
             BlockEncodingSerde blockEncodingSerde,
-            OrderingCompiler orderingCompiler)
+            OrderingCompiler orderingCompiler,
+            FragmentResultCacheManager fragmentResultCacheManager,
+            ObjectMapper objectMapper)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -152,16 +158,19 @@ public class SqlTaskManager
                 blockEncodingSerde,
                 orderingCompiler,
                 splitMonitor,
+                fragmentResultCacheManager,
+                objectMapper,
                 config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");
         DataSize maxQueryUserMemoryPerNode = nodeMemoryConfig.getMaxQueryMemoryPerNode();
         DataSize maxQueryTotalMemoryPerNode = nodeMemoryConfig.getMaxQueryTotalMemoryPerNode();
         DataSize maxQuerySpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
+        DataSize maxRevocableMemoryPerNode = nodeSpillConfig.getMaxRevocableMemoryPerNode();
         DataSize maxQueryBroadcastMemory = nodeMemoryConfig.getMaxQueryBroadcastMemory();
 
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
-                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxQuerySpillPerNode, maxQueryBroadcastMemory)));
+                queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxRevocableMemoryPerNode, maxQuerySpillPerNode, maxQueryBroadcastMemory)));
 
         tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
                 taskId -> createSqlTask(
@@ -187,6 +196,7 @@ public class SqlTaskManager
             GcMonitor gcMonitor,
             DataSize maxQueryUserMemoryPerNode,
             DataSize maxQueryTotalMemoryPerNode,
+            DataSize maxRevocableMemoryPerNode,
             DataSize maxQuerySpillPerNode,
             DataSize maxQueryBroadcastMemory)
     {
@@ -195,6 +205,7 @@ public class SqlTaskManager
                 maxQueryUserMemoryPerNode,
                 maxQueryTotalMemoryPerNode,
                 maxQueryBroadcastMemory,
+                maxRevocableMemoryPerNode,
                 localMemoryManager.getGeneralPool(),
                 gcMonitor,
                 taskNotificationExecutor,
@@ -238,13 +249,13 @@ public class SqlTaskManager
                 removeOldTasks();
             }
             catch (Throwable e) {
-                log.warn(e, "Error removing old tasks");
+                log.error(e, "Error removing old tasks");
             }
             try {
                 failAbandonedTasks();
             }
             catch (Throwable e) {
-                log.warn(e, "Error canceling abandoned tasks");
+                log.error(e, "Error canceling abandoned tasks");
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
 
@@ -253,7 +264,7 @@ public class SqlTaskManager
                 updateStats();
             }
             catch (Throwable e) {
-                log.warn(e, "Error updating stats");
+                log.error(e, "Error updating stats");
             }
         }, 0, 1, TimeUnit.SECONDS);
     }
@@ -393,6 +404,15 @@ public class SqlTaskManager
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo);
+    }
+
+    @Override
+    public void updateMetadataResults(TaskId taskId, MetadataUpdates metadataUpdates)
+    {
+        TaskMetadataContext metadataContext = tasks.getUnchecked(taskId).getTaskMetadataContext();
+        for (ConnectorMetadataUpdater metadataUpdater : metadataContext.getMetadataUpdaters()) {
+            metadataUpdater.setMetadataUpdateResults(metadataUpdates.getMetadataUpdates());
+        }
     }
 
     @Override

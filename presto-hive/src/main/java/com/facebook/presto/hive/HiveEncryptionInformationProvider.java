@@ -45,14 +45,14 @@ public class HiveEncryptionInformationProvider
         this.sources = ImmutableList.copyOf(requireNonNull(sources, "sources is null"));
     }
 
-    public Optional<Map<String, EncryptionInformation>> getEncryptionInformation(
+    public Optional<Map<String, EncryptionInformation>> getReadEncryptionInformation(
             ConnectorSession session,
             Table table,
             Optional<Set<HiveColumnHandle>> requestedColumns,
             Map<String, Partition> partitions)
     {
         for (EncryptionInformationSource source : sources) {
-            Optional<Map<String, EncryptionInformation>> result = source.getEncryptionInformation(session, table, requestedColumns, partitions);
+            Optional<Map<String, EncryptionInformation>> result = source.getReadEncryptionInformation(session, table, requestedColumns, partitions);
             if (result != null && result.isPresent()) {
                 return result.map(ImmutableMap::copyOf);
             }
@@ -61,13 +61,33 @@ public class HiveEncryptionInformationProvider
         return Optional.empty();
     }
 
-    public Optional<EncryptionInformation> getEncryptionInformation(
+    public Optional<EncryptionInformation> getReadEncryptionInformation(
             ConnectorSession session,
             Table table,
             Optional<Set<HiveColumnHandle>> requestedColumns)
     {
         for (EncryptionInformationSource source : sources) {
-            Optional<EncryptionInformation> result = source.getEncryptionInformation(session, table, requestedColumns);
+            Optional<EncryptionInformation> result = source.getReadEncryptionInformation(session, table, requestedColumns);
+            if (result != null && result.isPresent()) {
+                return result;
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    public Optional<EncryptionInformation> getWriteEncryptionInformation(
+            ConnectorSession session,
+            Optional<TableEncryptionProperties> tableEncryptionProperties,
+            String dbName,
+            String tableName)
+    {
+        if (!tableEncryptionProperties.isPresent()) {
+            return Optional.empty();
+        }
+
+        for (EncryptionInformationSource source : sources) {
+            Optional<EncryptionInformation> result = source.getWriteEncryptionInformation(session, tableEncryptionProperties.get(), dbName, tableName);
             if (result != null && result.isPresent()) {
                 return result;
             }

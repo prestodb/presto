@@ -44,7 +44,13 @@ public class DriverFactory
     private final Set<Lifespan> encounteredLifespans = new HashSet<>();
     private final Set<Lifespan> closedLifespans = new HashSet<>();
 
-    public DriverFactory(int pipelineId, boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
+    public DriverFactory(
+            int pipelineId,
+            boolean inputDriver,
+            boolean outputDriver,
+            List<OperatorFactory> operatorFactories,
+            OptionalInt driverInstances,
+            PipelineExecutionStrategy pipelineExecutionStrategy)
     {
         this.pipelineId = pipelineId;
         this.inputDriver = inputDriver;

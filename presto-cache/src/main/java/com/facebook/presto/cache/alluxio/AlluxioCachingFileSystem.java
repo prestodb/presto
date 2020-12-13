@@ -13,41 +13,28 @@
  */
 package com.facebook.presto.cache.alluxio;
 
-import alluxio.AlluxioURI;
-import alluxio.client.file.FileInStream;
-import alluxio.client.file.URIStatus;
-import alluxio.client.file.cache.LocalCacheFileSystem;
-import alluxio.conf.AlluxioProperties;
-import alluxio.conf.InstancedConfiguration;
-import alluxio.conf.PropertyKey;
-import alluxio.conf.Source;
-import alluxio.grpc.OpenFilePOptions;
-import alluxio.hadoop.AbstractFileSystem;
-import alluxio.hadoop.HadoopConfigurationUtils;
-import alluxio.metrics.MetricsConfig;
-import alluxio.metrics.MetricsSystem;
-import alluxio.util.ConfigurationUtils;
+import alluxio.hadoop.LocalCacheFileSystem;
+import alluxio.wire.FileInfo;
 import com.facebook.presto.cache.CachingFileSystem;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
-import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.hash.Hashing.md5;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class AlluxioCachingFileSystem
         extends CachingFileSystem
 {
+    private static final int BUFFER_SIZE = 65536;
     private final boolean cacheValidationEnabled;
-    private AlluxioCachingFileSystemInternal cachingFileSystem;
+    private LocalCacheFileSystem localCacheFileSystem;
 
     public AlluxioCachingFileSystem(ExtendedFileSystem dataTier, URI uri)
     {
@@ -64,115 +51,43 @@ public class AlluxioCachingFileSystem
     public synchronized void initialize(URI uri, Configuration configuration)
             throws IOException
     {
-        this.cachingFileSystem = new AlluxioCachingFileSystemInternal(uri, dataTier, cacheValidationEnabled);
-        cachingFileSystem.initialize(uri, configuration);
+        this.localCacheFileSystem = new LocalCacheFileSystem(dataTier, uriStatus -> {
+            // URIStatus is the mechanism to pass the hiveFileContext to the source filesystem
+            // hiveFileContext is critical to use to open file.
+            checkState(uriStatus instanceof AlluxioURIStatus);
+            HiveFileContext hiveFileContext = ((AlluxioURIStatus) uriStatus).getHiveFileContext();
+            try {
+                return dataTier.openFile(new Path(uriStatus.getPath()), hiveFileContext);
+            }
+            catch (Exception e) {
+                throw new IOException("Failed to open file", e);
+            }
+        });
+        localCacheFileSystem.initialize(uri, configuration);
     }
 
     @Override
     public FSDataInputStream openFile(Path path, HiveFileContext hiveFileContext)
             throws Exception
     {
-        if (hiveFileContext.isCacheable()) {
-            return cachingFileSystem.openFile(path, hiveFileContext);
+        // Using Alluxio caching requires knowing file size for now
+        if (hiveFileContext.isCacheable() && hiveFileContext.getFileSize().isPresent()) {
+            // FilePath is a unique identifier for a file, however it can be a long string
+            // hence using md5 hash of the file path as the identifier in the cache.
+            // We don't set fileId because fileId is Alluxio specific
+            FileInfo info = new FileInfo().setFileIdentifier(md5().hashString(path.toString(), UTF_8).toString())
+                    .setPath(path.toString())
+                    .setFolder(false)
+                    .setLength(hiveFileContext.getFileSize().get());
+            // URIStatus is the mechanism to pass the hiveFileContext to the source filesystem
+            AlluxioURIStatus alluxioURIStatus = new AlluxioURIStatus(info, hiveFileContext);
+            FSDataInputStream cachingInputStream = localCacheFileSystem.open(alluxioURIStatus, BUFFER_SIZE);
+            if (cacheValidationEnabled) {
+                return new CacheValidatingInputStream(
+                        cachingInputStream, dataTier.openFile(path, hiveFileContext));
+            }
+            return cachingInputStream;
         }
         return dataTier.openFile(path, hiveFileContext);
-    }
-
-    private static class AlluxioCachingFileSystemInternal
-            extends AbstractFileSystem
-    {
-        // The filesystem to query on cache miss
-        private final URI uri;
-        private final ExtendedFileSystem fileSystem;
-        private final boolean cacheValidationEnabled;
-
-        AlluxioCachingFileSystemInternal(URI uri, ExtendedFileSystem fileSystem, boolean cacheValidationEnabled)
-        {
-            this.uri = requireNonNull(uri, "uri is null");
-            this.fileSystem = requireNonNull(fileSystem, "filesystem is null");
-            this.cacheValidationEnabled = cacheValidationEnabled;
-        }
-
-        @Override
-        public synchronized void initialize(URI uri, Configuration configuration)
-                throws IOException
-        {
-            // Set statistics
-            setConf(configuration);
-            statistics = getStatistics(uri.getScheme(), getClass());
-
-            // Take the URI properties, hadoop configuration, and given Alluxio configuration and merge
-            // all three into a single object.
-            Map<String, Object> configurationFromUri = getConfigurationFromUri(uri);
-            AlluxioProperties alluxioProperties = ConfigurationUtils.defaults();
-            InstancedConfiguration newConfiguration = HadoopConfigurationUtils.mergeHadoopConfiguration(configuration, alluxioProperties);
-            // Connection details in the URI has the highest priority
-            newConfiguration.merge(configurationFromUri, Source.RUNTIME);
-            mAlluxioConf = newConfiguration;
-
-            // Handle metrics
-            Properties metricsProperties = new Properties();
-            for (Map.Entry<String, String> entry : configuration) {
-                metricsProperties.setProperty(entry.getKey(), entry.getValue());
-            }
-            MetricsSystem.startSinksFromConfig(new MetricsConfig(metricsProperties));
-            mFileSystem = new LocalCacheFileSystem(new AlluxioCachingClientFileSystem(fileSystem, mAlluxioConf), mAlluxioConf);
-            super.initialize(uri, configuration);
-        }
-
-        public FSDataInputStream openFile(Path path, HiveFileContext hiveFileContext)
-                throws Exception
-        {
-            // URIStatus is the mechanism to pass the hiveFileContext to the source filesystem
-            URIStatus uriStatus = mFileSystem.getStatus(getAlluxioPath(path));
-            AlluxioURIStatus alluxioURIStatus = new AlluxioURIStatus(uriStatus.getFileInfo(), hiveFileContext);
-            FileInStream fileInStream = mFileSystem.openFile(alluxioURIStatus, OpenFilePOptions.getDefaultInstance());
-            return new FSDataInputStream(new AlluxioCachingHdfsFileInputStream(
-                    fileInStream,
-                    (cacheValidationEnabled ? Optional.of(fileSystem.openFile(path, hiveFileContext)) : Optional.empty()),
-                    cacheValidationEnabled));
-        }
-
-        @Override
-        public String getScheme()
-        {
-            return uri.getScheme();
-        }
-
-        @Override
-        protected boolean isZookeeperMode()
-        {
-            return mFileSystem.getConf().getBoolean(PropertyKey.ZOOKEEPER_ENABLED);
-        }
-
-        @Override
-        protected Map<String, Object> getConfigurationFromUri(URI uri)
-        {
-            // local cache doesn't use URI authority for connection.
-            return ImmutableMap.of();
-        }
-
-        @Override
-        protected void validateFsUri(URI uri)
-        {
-        }
-
-        @Override
-        protected String getFsScheme(URI uri)
-        {
-            return getScheme();
-        }
-
-        @Override
-        protected AlluxioURI getAlluxioPath(Path path)
-        {
-            return new AlluxioURI(path.toString());
-        }
-
-        @Override
-        protected Path getFsPath(String uriHeader, URIStatus fileStatus)
-        {
-            return new Path(uriHeader + fileStatus.getPath());
-        }
     }
 }

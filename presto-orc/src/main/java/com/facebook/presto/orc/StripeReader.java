@@ -36,6 +36,7 @@ import com.facebook.presto.orc.stream.OrcInputStream;
 import com.facebook.presto.orc.stream.ValueInputStream;
 import com.facebook.presto.orc.stream.ValueInputStreamSource;
 import com.facebook.presto.orc.stream.ValueStreams;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -145,7 +146,8 @@ public class StripeReader
         StripeFooter stripeFooter = readStripeFooter(stripeId, stripe, systemMemoryUsage);
 
         // get streams for selected columns
-        List<Stream> allStreams = new ArrayList<>(stripeFooter.getStreams());
+        List<List<Stream>> allStreams = new ArrayList<>();
+        allStreams.add(stripeFooter.getStreams());
         Map<StreamId, Stream> includedStreams = new HashMap<>();
         boolean hasRowGroupDictionary = addIncludedStreams(stripeFooter.getColumnEncodings(), stripeFooter.getStreams(), includedStreams);
 
@@ -158,9 +160,10 @@ public class StripeReader
             List<Slice> encryptedEncryptionGroups = stripeFooter.getStripeEncryptionGroups();
             for (Integer groupId : decryptors.get().getEncryptorGroupIds()) {
                 StripeEncryptionGroup stripeEncryptionGroup = getStripeEncryptionGroup(decryptors.get().getEncryptorByGroupId(groupId), encryptedEncryptionGroups.get(groupId), dwrfEncryptionGroupColumns.get(groupId), systemMemoryUsage);
-                allStreams.addAll(stripeEncryptionGroup.getStreams());
+                allStreams.add(stripeEncryptionGroup.getStreams());
                 columnEncodings.putAll(stripeEncryptionGroup.getColumnEncodings());
-                hasRowGroupDictionary = hasRowGroupDictionary || addIncludedStreams(stripeEncryptionGroup.getColumnEncodings(), stripeEncryptionGroup.getStreams(), includedStreams);
+                boolean encryptedHasRowGroupDictionary = addIncludedStreams(stripeEncryptionGroup.getColumnEncodings(), stripeEncryptionGroup.getStreams(), includedStreams);
+                hasRowGroupDictionary = encryptedHasRowGroupDictionary || hasRowGroupDictionary;
             }
         }
 
@@ -559,20 +562,23 @@ public class StripeReader
         return stream.getStreamKind() == DICTIONARY_DATA || (stream.getStreamKind() == LENGTH && (columnEncoding == DICTIONARY || columnEncoding == DICTIONARY_V2));
     }
 
-    private static Map<StreamId, DiskRange> getDiskRanges(List<Stream> streams)
+    @VisibleForTesting
+    public static Map<StreamId, DiskRange> getDiskRanges(List<List<Stream>> streams)
     {
         ImmutableMap.Builder<StreamId, DiskRange> streamDiskRanges = ImmutableMap.builder();
-        long stripeOffset = 0;
-        for (Stream stream : streams) {
-            int streamLength = toIntExact(stream.getLength());
-            if (stream.getOffset().isPresent()) {
-                stripeOffset = stream.getOffset().get();
+        for (List<Stream> groupStreams : streams) {
+            long stripeOffset = 0;
+            for (Stream stream : groupStreams) {
+                int streamLength = toIntExact(stream.getLength());
+                if (stream.getOffset().isPresent()) {
+                    stripeOffset = stream.getOffset().get();
+                }
+                // ignore zero byte streams
+                if (streamLength > 0) {
+                    streamDiskRanges.put(new StreamId(stream), new DiskRange(stripeOffset, streamLength));
+                }
+                stripeOffset += streamLength;
             }
-            // ignore zero byte streams
-            if (streamLength > 0) {
-                streamDiskRanges.put(new StreamId(stream), new DiskRange(stripeOffset, streamLength));
-            }
-            stripeOffset += streamLength;
         }
         return streamDiskRanges.build();
     }

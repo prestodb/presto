@@ -88,7 +88,8 @@ public class HiveAddRequestedColumnsToLayout
                     hiveLayout.getLayoutString(),
                     Optional.of(tableScan.getOutputVariables().stream()
                             .map(output -> (HiveColumnHandle) tableScan.getAssignments().get(output))
-                            .collect(toImmutableSet())));
+                            .collect(toImmutableSet())),
+                    hiveLayout.isPartialAggregationsPushedDown());
 
             return new TableScanNode(
                     tableScan.getId(),

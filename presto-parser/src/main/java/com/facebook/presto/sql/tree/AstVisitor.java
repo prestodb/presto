@@ -307,6 +307,11 @@ public abstract class AstVisitor<R, C>
         return visitLiteral(node, context);
     }
 
+    protected R visitEnumLiteral(EnumLiteral node, C context)
+    {
+        return visitLiteral(node, context);
+    }
+
     protected R visitInListExpression(InListExpression node, C context)
     {
         return visitExpression(node, context);
@@ -583,6 +588,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitDropView(DropView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitCreateMaterializedView(CreateMaterializedView node, C context)
     {
         return visitStatement(node, context);
     }

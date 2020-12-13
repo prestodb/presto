@@ -14,10 +14,10 @@
 package com.facebook.presto.parquet;
 
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.common.Subfield.PathElement;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.google.common.collect.ImmutableList;
+import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;
@@ -37,9 +37,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.common.Subfield.NestedField;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.util.stream.Collectors.joining;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
 public final class ParquetTypeUtils
@@ -267,41 +269,69 @@ public final class ParquetTypeUtils
         return value;
     }
 
-    public static MessageType getSubfieldType(GroupType baseType, Subfield subfield)
+    public static Optional<org.apache.parquet.schema.Type> getSubfieldType(GroupType baseType, String rootName, List<String> nestedColumnPath)
     {
-        checkArgument(subfield.getPath().size() >= 1, "subfield size is less than 1");
-
+        checkArgument(nestedColumnPath.size() >= 1, "subfield size is less than 1");
         ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
-        org.apache.parquet.schema.Type parentType = getParquetTypeByName(subfield.getRootName(), baseType);
+
+        org.apache.parquet.schema.Type parentType = getParquetTypeByName(rootName, baseType.asGroupType());
         if (parentType == null) {
             // column doesn't exist in the file
-            return new MessageType(subfield.getRootName(), ImmutableList.of());
+            return Optional.empty();
         }
-        String rootName = parentType.getName();
+        typeBuilder.add(parentType);
 
-        for (PathElement field : subfield.getPath()) {
-            if (field instanceof NestedField) {
-                NestedField nestedField = (NestedField) field;
-                org.apache.parquet.schema.Type childType = getParquetTypeByName(nestedField.getName(), parentType.asGroupType());
-                if (childType == null) {
-                    // the subtree is missing in the file, just return an empty message type as there is nothing to read
-                    return new MessageType(rootName, ImmutableList.of());
-                }
-                typeBuilder.add(childType);
-                parentType = childType;
+        for (String field : nestedColumnPath) {
+            org.apache.parquet.schema.Type childType = getParquetTypeByName(field, parentType.asGroupType());
+            if (childType == null) {
+                return Optional.empty();
             }
-            else {
-                typeBuilder.add(parentType.asGroupType().getFields().get(0));
-                break;
-            }
+            typeBuilder.add(childType);
+            parentType = childType;
         }
+        List<org.apache.parquet.schema.Type> typeChain = typeBuilder.build();
+        if (typeChain.isEmpty()) {
+            return Optional.empty();
+        }
+        else if (typeChain.size() == 1) {
+            return Optional.of(getOnlyElement(typeChain));
+        }
+        else {
+            org.apache.parquet.schema.Type messageType = typeChain.get(typeChain.size() - 1);
+            for (int i = typeChain.size() - 2; i >= 0; --i) {
+                GroupType groupType = typeChain.get(i).asGroupType();
+                messageType = new MessageType(groupType.getName(), ImmutableList.of(messageType));
+            }
+            return Optional.of(messageType);
+        }
+    }
 
-        List<org.apache.parquet.schema.Type> subfieldTypes = typeBuilder.build();
-        org.apache.parquet.schema.Type type = subfieldTypes.get(subfieldTypes.size() - 1);
-        for (int i = subfieldTypes.size() - 2; i >= 0; --i) {
-            GroupType groupType = subfieldTypes.get(i).asGroupType();
-            type = new MessageType(groupType.getName(), ImmutableList.of(type));
+    public static List<String> nestedColumnPath(Subfield subfield)
+    {
+        ImmutableList.Builder<String> nestedColumnPathBuilder = ImmutableList.builder();
+        for (Subfield.PathElement pathElement : subfield.getPath()) {
+            checkArgument(pathElement instanceof Subfield.NestedField, "Unsupported subfield. Expected only nested field path elements. " + subfield);
+            nestedColumnPathBuilder.add(((Subfield.NestedField) pathElement).getName());
         }
-        return new MessageType(rootName, ImmutableList.of(type));
+        return nestedColumnPathBuilder.build();
+    }
+
+    public static String pushdownColumnNameForSubfield(Subfield subfield)
+    {
+        // Using the delimiter `$_$_$` to avoid conflict with Subfield serialization when `.` is used as delimiter
+        return columnPathFromSubfield(subfield).stream().collect(joining("$_$_$"));
+    }
+
+    public static List<String> columnPathFromSubfield(Subfield subfield)
+    {
+        ImmutableList.Builder<String> columnPath = ImmutableList.builder();
+        columnPath.add(subfield.getRootName());
+        columnPath.addAll(nestedColumnPath(subfield));
+        return columnPath.build();
+    }
+
+    public static boolean isTimeStampMicrosType(ColumnDescriptor descriptor)
+    {
+        return TIMESTAMP_MICROS.equals(descriptor.getPrimitiveType().getOriginalType());
     }
 }

@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.spark;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrestoSparkQueryRunner
         extends AbstractTestQueryFramework
@@ -30,6 +32,7 @@ public class TestPrestoSparkQueryRunner
     @Test
     public void testTableWrite()
     {
+        // some basic tests
         assertUpdate(
                 "CREATE TABLE hive.hive_test.hive_orders AS " +
                 "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
@@ -56,6 +59,27 @@ public class TestPrestoSparkQueryRunner
                         "UNION ALL " +
                         "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                         "FROM orders");
+
+        // 3-way union all with potentially non-flattened plan
+        // See https://github.com/prestodb/presto/issues/12625
+        //
+        // CreateTable is not supported yet, use CreateTableAsSelect
+        assertUpdate(
+                "CREATE TABLE hive.hive_test.test_table_write_with_union AS " +
+                        "SELECT orderkey, 'dummy' AS dummy " +
+                        "FROM orders",
+                15000);
+        assertUpdate(
+                "INSERT INTO hive.hive_test.test_table_write_with_union " +
+                        "SELECT orderkey, dummy " +
+                        "FROM (" +
+                        "   SELECT orderkey, 'a' AS dummy FROM orders " +
+                        "UNION ALL" +
+                        "   SELECT orderkey, 'bb' AS dummy FROM orders " +
+                        "UNION ALL" +
+                        "   SELECT orderkey, 'ccc' AS dummy FROM orders " +
+                        ")",
+                45000);
     }
 
     @Test
@@ -132,11 +156,111 @@ public class TestPrestoSparkQueryRunner
     }
 
     @Test
+    public void testJoinUnderUnionALL()
+    {
+        assertUpdate("create table if not exists hive.hive_test.partitioned_nation_10 " +
+                        "WITH (bucket_count = 10, bucketed_by = ARRAY['nationkey']) as select * from nation",
+                25);
+        assertUpdate("create table if not exists hive.hive_test.partitioned_nation_20 " +
+                        "WITH (bucket_count = 20, bucketed_by = ARRAY['nationkey']) as select * from nation",
+                25);
+        assertUpdate("create table if not exists hive.hive_test.partitioned_nation_30 " +
+                        "WITH (bucket_count = 30, bucketed_by = ARRAY['nationkey']) as select * from nation",
+                25);
+
+        assertQuery("SELECT hive.hive_test.partitioned_nation_10.nationkey " +
+                        "FROM hive.hive_test.partitioned_nation_10 " +
+                        "JOIN hive.hive_test.partitioned_nation_20 " +
+                        "  ON hive.hive_test.partitioned_nation_10.nationkey = hive.hive_test.partitioned_nation_20.nationkey " +
+                        "UNION ALL " +
+                        "SELECT hive.hive_test.partitioned_nation_10.nationkey " +
+                        "FROM hive.hive_test.partitioned_nation_10 " +
+                        "JOIN hive.hive_test.partitioned_nation_30 " +
+                        "  ON hive.hive_test.partitioned_nation_10.nationkey = hive.hive_test.partitioned_nation_30.nationkey ",
+                "SELECT m.nationkey " +
+                        "FROM nation m " +
+                        "JOIN nation n " +
+                        "  ON m.nationkey = n.nationkey " +
+                        "UNION ALL " +
+                        "SELECT m.nationkey " +
+                        "FROM nation m " +
+                        "JOIN nation n " +
+                        "  ON m.nationkey = n.nationkey");
+
+        assertQuery("SELECT nationkey " +
+                        "FROM nation " +
+                        "UNION ALL " +
+                        "SELECT hive.hive_test.partitioned_nation_10.nationkey " +
+                        "FROM hive.hive_test.partitioned_nation_10 " +
+                        "JOIN hive.hive_test.partitioned_nation_30 " +
+                        "  ON hive.hive_test.partitioned_nation_10.nationkey = hive.hive_test.partitioned_nation_30.nationkey ",
+                "SELECT nationkey " +
+                        "FROM nation " +
+                        "UNION ALL " +
+                        "SELECT m.nationkey " +
+                        "FROM nation m " +
+                        "JOIN nation n " +
+                        "  ON m.nationkey = n.nationkey");
+    }
+
+    @Test
+    public void testAggregationUnderUnionAll()
+    {
+        assertQuery("SELECT orderkey, 1 FROM orders UNION ALL SELECT orderkey, count(*) FROM orders GROUP BY 1",
+                "SELECT orderkey, 1 FROM orders UNION ALL SELECT orderkey, count(*) FROM orders GROUP BY orderkey");
+
+        assertQuery("SELECT " +
+                        "   o.regionkey, " +
+                        "   l.orderkey " +
+                        "FROM (" +
+                        "   SELECT " +
+                        "       * " +
+                        "   FROM lineitem " +
+                        "   WHERE" +
+                        "       linenumber = 4" +
+                        ") l " +
+                        "CROSS JOIN (" +
+                        "   SELECT" +
+                        "       regionkey," +
+                        "       1 " +
+                        "   FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT" +
+                        "       regionkey," +
+                        "       count(*) " +
+                        "   FROM nation " +
+                        "       GROUP BY regionkey" +
+                        ") o",
+                "SELECT " +
+                        "   o.regionkey, " +
+                        "   l.orderkey " +
+                        "FROM (" +
+                        "   SELECT " +
+                        "       * " +
+                        "   FROM lineitem " +
+                        "   WHERE" +
+                        "       linenumber = 4" +
+                        ") l " +
+                        "CROSS JOIN (" +
+                        "   SELECT" +
+                        "       regionkey," +
+                        "       1 " +
+                        "   FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT" +
+                        "       regionkey," +
+                        "       count(*) " +
+                        "   FROM nation " +
+                        "       GROUP BY regionkey" +
+                        ") o");
+    }
+
+    @Test
     public void testCrossJoin()
     {
         assertQuery("" +
                 "SELECT o.custkey, l.orderkey " +
-                "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                "FROM (SELECT * FROM lineitem WHERE linenumber = 4) l " +
                 "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
         assertQuery("" +
                 "SELECT o.custkey, l.orderkey " +
@@ -146,6 +270,120 @@ public class TestPrestoSparkQueryRunner
                 "   UNION ALL " +
                 "   SELECT * FROM orders WHERE orderkey = 5 " +
                 ") o");
+
+        assertUpdate("create table if not exists hive.hive_test.partitioned_nation_11 " +
+                        "WITH (bucket_count = 11, bucketed_by = ARRAY['nationkey']) as select * from nation",
+                25);
+        assertUpdate("create table if not exists hive.hive_test.partitioned_nation_22 " +
+                        "WITH (bucket_count = 22, bucketed_by = ARRAY['nationkey']) as select * from nation",
+                25);
+        assertUpdate("create table if not exists hive.hive_test.partitioned_nation_33 " +
+                        "WITH (bucket_count = 33, bucketed_by = ARRAY['nationkey']) as select * from nation",
+                25);
+
+        // UNION ALL over aggregation
+        assertQuery("SELECT o.orderkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT orderkey, 1 FROM orders WHERE orderkey = 5 " +
+                        "   UNION ALL " +
+                        "   SELECT orderkey, count(*) " +
+                        "       FROM orders WHERE orderkey = 5 " +
+                        "   GROUP BY 1 " +
+                        "   ) o",
+                "SELECT o.orderkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT orderkey, 1 FROM orders WHERE orderkey = 5 " +
+                        "   UNION ALL " +
+                        "   SELECT orderkey, count(*) " +
+                        "       FROM orders WHERE orderkey = 5 " +
+                        "   GROUP BY orderkey " +
+                        "   ) o");
+
+        // 22 buckets UNION ALL 11 buckets
+        assertQuery("SELECT o.regionkey, l.orderkey " +
+                "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                "CROSS JOIN (" +
+                "   SELECT * FROM hive.hive_test.partitioned_nation_22 " +
+                "   UNION ALL " +
+                "   SELECT * FROM hive.hive_test.partitioned_nation_11 " +
+                ") o",
+                "SELECT o.regionkey, l.orderkey " +
+                "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                "CROSS JOIN (" +
+                "   SELECT * FROM nation " +
+                "   UNION ALL " +
+                "   SELECT * FROM nation" +
+                ") o");
+
+        // 11 buckets UNION ALL 22 buckets
+        assertQuery("SELECT o.regionkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM hive.hive_test.partitioned_nation_11 " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM hive.hive_test.partitioned_nation_22 " +
+                        ") o",
+                "SELECT o.regionkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM nation" +
+                        ") o");
+
+        // bucketed UNION ALL non-bucketed
+        assertQuery("SELECT o.regionkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM hive.hive_test.partitioned_nation_11 " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM nation " +
+                        ") o",
+                "SELECT o.regionkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM nation" +
+                        ") o");
+
+        // non-bucketed UNION ALL bucketed
+        assertQuery("SELECT o.regionkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM hive.hive_test.partitioned_nation_11 " +
+                        ") o",
+                "SELECT o.regionkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM nation" +
+                        ") o");
+
+        // 11 buckets UNION ALL non-bucketed UNION ALL 22 buckets
+        assertQuery("SELECT o.regionkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM hive.hive_test.partitioned_nation_11 " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM hive.hive_test.partitioned_nation_22 " +
+                        ") o",
+                "SELECT o.regionkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem  WHERE linenumber = 4) l " +
+                        "CROSS JOIN (" +
+                        "   SELECT * FROM nation " +
+                        "   UNION ALL " +
+                        "   SELECT * FROM nation" +
+                        "   UNION ALL " +
+                        "   SELECT * FROM nation" +
+                        ") o");
     }
 
     @Test
@@ -197,6 +435,12 @@ public class TestPrestoSparkQueryRunner
     public void testUnionAll()
     {
         assertQuery("SELECT * FROM orders UNION ALL SELECT * FROM orders");
+
+        assertBucketedQuery("SELECT * FROM lineitem_bucketed UNION ALL SELECT * FROM lineitem_bucketed");
+
+        assertBucketedQuery("SELECT * FROM lineitem UNION ALL SELECT * FROM lineitem_bucketed");
+
+        assertBucketedQuery("SELECT * FROM lineitem_bucketed UNION ALL SELECT * FROM lineitem");
     }
 
     @Test
@@ -314,6 +558,32 @@ public class TestPrestoSparkQueryRunner
         assertEquals(actual.getRowCount(), 10);
         actual = computeActual("SELECT 'a' FROM orders LIMIT 10");
         assertEquals(actual.getRowCount(), 10);
+    }
+
+    @Test
+    public void testTableSampleSystem()
+    {
+        long totalRows = (Long) computeActual("SELECT count(*) FROM orders").getOnlyValue();
+        long sampledRows = (Long) computeActual("SELECT count(*) FROM orders TABLESAMPLE SYSTEM (1)").getOnlyValue();
+        assertThat(sampledRows).isLessThan(totalRows);
+    }
+
+    @Test
+    public void testTimeouts()
+    {
+        // Expected run time for this query is ~30s
+        String longRunningCrossJoin = "SELECT count(l1.orderkey), count(l2.orderkey) FROM lineitem l1, lineitem l2";
+
+        Session queryMaxRunTimeLimitSession = Session.builder(getSession())
+                .setSystemProperty("query_max_run_time", "2s")
+                .build();
+        assertQueryFails(queryMaxRunTimeLimitSession, longRunningCrossJoin, "Query exceeded maximum time limit of 2.00s");
+
+        Session queryMaxExecutionTimeLimitSession = Session.builder(getSession())
+                .setSystemProperty("query_max_run_time", "3s")
+                .setSystemProperty("query_max_execution_time", "2s")
+                .build();
+        assertQueryFails(queryMaxExecutionTimeLimitSession, longRunningCrossJoin, "Query exceeded maximum time limit of 2.00s");
     }
 
     private void assertBucketedQuery(String sql)

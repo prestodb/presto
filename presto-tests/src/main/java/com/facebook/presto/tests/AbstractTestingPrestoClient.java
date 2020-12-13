@@ -19,9 +19,9 @@ import com.facebook.presto.client.Column;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.client.StatementClient;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataUtil;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
@@ -155,7 +155,8 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getIdentity().getRoles(),
                 session.getIdentity().getExtraCredentials(),
                 session.getTransactionId().map(Object::toString).orElse(null),
-                clientRequestTimeout);
+                clientRequestTimeout,
+                true);
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)

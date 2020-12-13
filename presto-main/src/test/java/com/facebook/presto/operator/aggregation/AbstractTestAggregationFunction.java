@@ -14,19 +14,16 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.function.FunctionHandle;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.Lists;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -34,8 +31,9 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -43,8 +41,7 @@ import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestAggregationFunction
 {
-    protected TypeRegistry typeRegistry;
-    protected FunctionManager functionManager;
+    protected FunctionAndTypeManager functionAndTypeManager;
     protected Session session;
 
     protected AbstractTestAggregationFunction()
@@ -60,36 +57,34 @@ public abstract class AbstractTestAggregationFunction
     @BeforeClass
     public final void initTestAggregationFunction()
     {
-        typeRegistry = new TypeRegistry();
-        functionManager = new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
+        functionAndTypeManager = createTestFunctionAndTypeManager();
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroyTestAggregationFunction()
     {
-        functionManager = null;
-        typeRegistry = null;
+        functionAndTypeManager = null;
     }
 
     public abstract Block[] getSequenceBlocks(int start, int length);
 
     protected void registerFunctions(Plugin plugin)
     {
-        functionManager.registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
+        functionAndTypeManager.registerBuiltInFunctions(extractFunctions(plugin.getFunctions()));
     }
 
     protected void registerTypes(Plugin plugin)
     {
         for (Type type : plugin.getTypes()) {
-            typeRegistry.addType(type);
+            functionAndTypeManager.addType(type);
         }
     }
 
     protected final InternalAggregationFunction getFunction()
     {
         List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
-        FunctionHandle functionHandle = functionManager.resolveFunction(session.getTransactionId(), qualifyFunctionName(QualifiedName.of(getFunctionName())), parameterTypes);
-        return functionManager.getAggregateFunctionImplementation(functionHandle);
+        FunctionHandle functionHandle = functionAndTypeManager.resolveFunction(session.getTransactionId(), qualifyObjectName(QualifiedName.of(getFunctionName())), parameterTypes);
+        return functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
     }
 
     protected abstract String getFunctionName();

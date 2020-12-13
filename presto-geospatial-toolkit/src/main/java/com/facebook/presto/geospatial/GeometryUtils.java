@@ -18,6 +18,7 @@ import com.esri.core.geometry.Geometry;
 import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.GeometryEngine;
 import com.esri.core.geometry.MultiVertexGeometry;
+import com.esri.core.geometry.Operator;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.ogc.OGCConcreteGeometryCollection;
@@ -35,6 +36,8 @@ import org.locationtech.jts.geom.impl.PackedCoordinateSequenceFactory;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.io.WKTWriter;
+import org.locationtech.jts.io.geojson.GeoJsonReader;
+import org.locationtech.jts.io.geojson.GeoJsonWriter;
 import org.locationtech.jts.operation.IsSimpleOp;
 import org.locationtech.jts.operation.valid.IsValidOp;
 import org.locationtech.jts.operation.valid.TopologyValidationError;
@@ -55,6 +58,12 @@ public final class GeometryUtils
 {
     private static final CoordinateSequenceFactory COORDINATE_SEQUENCE_FACTORY = new PackedCoordinateSequenceFactory();
     private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory(COORDINATE_SEQUENCE_FACTORY);
+    private static final Set<String> ATOMIC_GEOMETRY_TYPES = new HashSet<>();
+    static {
+        ATOMIC_GEOMETRY_TYPES.add("LineString");
+        ATOMIC_GEOMETRY_TYPES.add("Polygon");
+        ATOMIC_GEOMETRY_TYPES.add("Point");
+    }
 
     private GeometryUtils() {}
 
@@ -230,6 +239,26 @@ public final class GeometryUtils
         return true;
     }
 
+    public static org.locationtech.jts.geom.Geometry jtsGeometryFromJson(String json)
+    {
+        try {
+            return new GeoJsonReader().read(json);
+        }
+        catch (ParseException | IllegalArgumentException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid GeoJSON: " + e.getMessage(), e);
+        }
+    }
+
+    public static Optional<String> jsonFromJtsGeometry(org.locationtech.jts.geom.Geometry geometry)
+    {
+        if (ATOMIC_GEOMETRY_TYPES.contains(geometry.getGeometryType()) && geometry.isEmpty()) {
+            return Optional.empty();
+        }
+        else {
+            return Optional.of(new GeoJsonWriter().write(geometry));
+        }
+    }
+
     public static org.locationtech.jts.geom.Geometry jtsGeometryFromWkt(String wkt)
     {
         try {
@@ -346,6 +375,27 @@ public final class GeometryUtils
             return ImmutableList.of();
         }
         return () -> new GeometryCollectionIterator(geometry);
+    }
+
+    public static void accelerateGeometry(OGCGeometry ogcGeometry, Operator relateOperator)
+    {
+        accelerateGeometry(ogcGeometry, relateOperator, Geometry.GeometryAccelerationDegree.enumMild);
+    }
+
+    public static void accelerateGeometry(
+            OGCGeometry ogcGeometry,
+            Operator relateOperator,
+            Geometry.GeometryAccelerationDegree accelerationDegree)
+    {
+        // Recurse into GeometryCollections
+        GeometryCursor cursor = ogcGeometry.getEsriGeometryCursor();
+        while (true) {
+            Geometry esriGeometry = cursor.next();
+            if (esriGeometry == null) {
+                break;
+            }
+            relateOperator.accelerateGeometry(esriGeometry, null, accelerationDegree);
+        }
     }
 
     private static class GeometryCollectionIterator

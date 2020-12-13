@@ -59,13 +59,14 @@ import static com.facebook.presto.orc.OrcTester.assertFileContentsPresto;
 import static com.facebook.presto.orc.OrcTester.filterRows;
 import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.ALL;
+import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.ALL_EXCEPT_FIRST;
 import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.NONE;
 import static com.facebook.presto.orc.TestMapFlatSelectiveStreamReader.ExpectedValuesBuilder.Frequency.SOME;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.TupleDomainFilterUtils.toBigintValues;
-import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
+import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
@@ -75,7 +76,7 @@ public class TestMapFlatSelectiveStreamReader
 {
     // TODO: Add tests for timestamp as value type
 
-    private static final Type STRUCT_TYPE = TYPE_MANAGER.getParameterizedType(
+    private static final Type STRUCT_TYPE = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
             StandardTypes.ROW,
             ImmutableList.of(
                     TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("value1", false)), IntegerType.INTEGER.getTypeSignature())),
@@ -313,6 +314,17 @@ public class TestMapFlatSelectiveStreamReader
                 ExpectedValuesBuilder.get(Function.identity()).setNullRowsFrequency(ALL));
     }
 
+    @Test
+    public void testWithAllNullsExceptFirst()
+            throws Exception
+    {
+        // A test case where every flat map is null except the first one
+        runTest(
+                "test_flat_map/flat_map_all_null_maps_except_first.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setNullRowsFrequency(ALL_EXCEPT_FIRST));
+    }
+
     // Some maps are empty
     @Test
     public void testWithEmptyMaps()
@@ -331,6 +343,17 @@ public class TestMapFlatSelectiveStreamReader
     {
         runTest(
                 "test_flat_map/flat_map_all_empty_maps.dwrf",
+                INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setEmptyMapsFrequency(ALL));
+    }
+
+    // All maps are empty and encoding is not present
+    @Test
+    public void testWithAllEmptyMapsWithNoEncoding()
+            throws Exception
+    {
+        runTest(
+                "test_flat_map/flat_map_all_empty_maps_no_encoding.dwrf",
                 INTEGER,
                 ExpectedValuesBuilder.get(Function.identity()).setEmptyMapsFrequency(ALL));
     }
@@ -360,6 +383,16 @@ public class TestMapFlatSelectiveStreamReader
                 ExpectedValuesBuilder.get(Function.identity()).setMissingSequences());
     }
 
+    @Test
+    public void testIntegerWithMissingSequence0()
+            throws Exception
+    {
+        // A test case where the (dummy) encoding for sequence 0 of the value node doesn't exist
+        runTest("test_flat_map/flat_map_int_missing_sequence_0.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()));
+    }
+
     private <K, V> void runTest(String testOrcFileName, Type type, ExpectedValuesBuilder<K, V> expectedValuesBuilder)
             throws Exception
     {
@@ -386,7 +419,8 @@ public class TestMapFlatSelectiveStreamReader
                 List<K> requiredKeys = ImmutableList.of(keys.get(0));
                 runTest(testOrcFileName, mapType, pruneMaps(expectedValues, requiredKeys), orcPredicate, Optional.empty(), toSubfields(keyType, requiredKeys));
 
-                requiredKeys = ImmutableList.of(keys.get(1), keys.get(3), keys.get(7), keys.get(11));
+                List<Integer> keyIndices = ImmutableList.of(1, 3, 7, 11);
+                requiredKeys = keyIndices.stream().filter(k -> k < keys.size()).map(keys::get).collect(toList());
                 runTest(testOrcFileName, mapType, pruneMaps(expectedValues, requiredKeys), orcPredicate, Optional.empty(), toSubfields(keyType, requiredKeys));
             }
         }
@@ -494,7 +528,8 @@ public class TestMapFlatSelectiveStreamReader
         {
             NONE,
             SOME,
-            ALL
+            ALL,
+            ALL_EXCEPT_FIRST
         }
 
         private final Function<Integer, K> keyConverter;
@@ -608,6 +643,8 @@ public class TestMapFlatSelectiveStreamReader
                     return true;
                 case SOME:
                     return i % 5 == 0;
+                case ALL_EXCEPT_FIRST:
+                    return i != 0;
                 default:
                     throw new IllegalArgumentException("Got unexpected Frequency: " + frequency);
             }

@@ -42,6 +42,7 @@ import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
+import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.hive.HiveStorageFormat.RCBINARY;
 import static com.facebook.presto.hive.HiveStorageFormat.RCTEXT;
@@ -103,9 +104,13 @@ public class TestHivePushdownFilterQueries
             throws Exception
     {
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(getTables(),
-                ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"),
+                ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
+                        "experimental.pushdown-dereference-enabled", "true"),
                 "sql-standard",
-                ImmutableMap.of("hive.pushdown-filter-enabled", "true"),
+                ImmutableMap.of("hive.pushdown-filter-enabled", "true",
+                        "hive.enable-parquet-dereference-pushdown", "true",
+                        "hive.partial_aggregation_pushdown_enabled", "true",
+                        "hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true"),
                 Optional.empty());
 
         queryRunner.execute(noPushdownFilter(queryRunner.getDefaultSession()),
@@ -1034,7 +1039,8 @@ public class TestHivePushdownFilterQueries
             // no filter
             assertQueryUsingH2Cte("SELECT * FROM test_file_format_orc", cte);
             assertQueryUsingH2Cte("SELECT comment FROM test_file_format_orc", cte);
-            assertQueryUsingH2Cte("SELECT COUNT(*) FROM test_file_format_orc", cte);
+            assertQueryFails("SELECT COUNT(*) FROM test_file_format_orc", "Partial aggregation pushdown only supported for ORC/Parquet files. Table tpch.test_file_format_orc has file ((.*?)) of format (.*?). Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
+            assertQueryUsingH2Cte(noPartialAggregationPushdown(queryRunner.getDefaultSession()), "SELECT COUNT(*) FROM test_file_format_orc", cte, Function.identity());
 
             // filter on partition column
             assertQueryUsingH2Cte("SELECT comment from test_file_format_orc WHERE ds='2019-11-01'", cte);
@@ -1134,6 +1140,11 @@ public class TestHivePushdownFilterQueries
         assertQueryUsingH2Cte(query, Function.identity());
     }
 
+    private void assertQueryUsingH2Cte(Session session, String query, String cte, Function<String, String> rewriter)
+    {
+        assertQuery(session, query, cte + toH2(rewriter.apply(query)));
+    }
+
     private void assertQueryUsingH2Cte(String query, Function<String, String> rewriter)
     {
         assertQuery(query, WITH_LINEITEM_EX + toH2(rewriter.apply(query)));
@@ -1168,6 +1179,13 @@ public class TestHivePushdownFilterQueries
     {
         return Session.builder(session)
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "false")
+                .build();
+    }
+
+    private static Session noPartialAggregationPushdown(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(HIVE_CATALOG, PARTIAL_AGGREGATION_PUSHDOWN_ENABLED, "false")
                 .build();
     }
 }

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
+import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
+
 import java.util.Objects;
 import java.util.Optional;
 
@@ -42,6 +45,16 @@ public class TypeSignatureParameter
     public static TypeSignatureParameter of(String variable)
     {
         return new TypeSignatureParameter(ParameterKind.VARIABLE, variable);
+    }
+
+    public static TypeSignatureParameter of(LongEnumMap enumMap)
+    {
+        return new TypeSignatureParameter(ParameterKind.LONG_ENUM, enumMap);
+    }
+
+    public static TypeSignatureParameter of(VarcharEnumMap enumMap)
+    {
+        return new TypeSignatureParameter(ParameterKind.VARCHAR_ENUM, enumMap);
     }
 
     private TypeSignatureParameter(ParameterKind kind, Object value)
@@ -81,6 +94,16 @@ public class TypeSignatureParameter
         return kind == ParameterKind.VARIABLE;
     }
 
+    public boolean isLongEnum()
+    {
+        return kind == ParameterKind.LONG_ENUM;
+    }
+
+    public boolean isVarcharEnum()
+    {
+        return kind == ParameterKind.VARCHAR_ENUM;
+    }
+
     private <A> A getValue(ParameterKind expectedParameterKind, Class<A> target)
     {
         if (kind != expectedParameterKind) {
@@ -109,6 +132,16 @@ public class TypeSignatureParameter
         return getValue(ParameterKind.VARIABLE, String.class);
     }
 
+    public LongEnumMap getLongEnumMap()
+    {
+        return getValue(ParameterKind.LONG_ENUM, LongEnumMap.class);
+    }
+
+    public VarcharEnumMap getVarcharEnumMap()
+    {
+        return getValue(ParameterKind.VARCHAR_ENUM, VarcharEnumMap.class);
+    }
+
     public Optional<TypeSignature> getTypeSignatureOrNamedTypeSignature()
     {
         switch (kind) {
@@ -129,6 +162,8 @@ public class TypeSignatureParameter
             case NAMED_TYPE:
                 return getNamedTypeSignature().getTypeSignature().isCalculated();
             case LONG:
+            case LONG_ENUM:
+            case VARCHAR_ENUM:
                 return false;
             case VARIABLE:
                 return true;

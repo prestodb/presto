@@ -65,6 +65,9 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractBlockEncodingBuffer
         implements BlockEncodingBuffer
 {
+    @VisibleForTesting
+    public static final double GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY = 1.2f;
+
     // The allocator for internal buffers
     protected final ArrayAllocator bufferAllocator;
 
@@ -205,7 +208,7 @@ public abstract class AbstractBlockEncodingBuffer
         this.positionsOffset = 0;
         this.positionsMapped = false;
 
-        double decodedBlockPageSizeFraction = (decodedBlockNode.getEstimatedSerializedSizeInBytes() - decodedBlockNode.getChildrenEstimatedSerializedSizeInBytes()) / ((double) estimatedSerializedPageSize);
+        double decodedBlockPageSizeFraction = (decodedBlockNode.getEstimatedSerializedSizeInBytes()) / ((double) estimatedSerializedPageSize);
 
         setupDecodedBlockAndMapPositions(decodedBlockNode, partitionBufferCapacity, decodedBlockPageSizeFraction);
     }
@@ -240,9 +243,23 @@ public abstract class AbstractBlockEncodingBuffer
                 .toString();
     }
 
+    @VisibleForTesting
+    abstract int getEstimatedValueBufferMaxCapacity();
+
+    @VisibleForTesting
+    int getEstimatedNullsBufferMaxCapacity()
+    {
+        return estimatedNullsBufferMaxCapacity;
+    }
+
     protected void setEstimatedNullsBufferMaxCapacity(int estimatedNullsBufferMaxCapacity)
     {
         this.estimatedNullsBufferMaxCapacity = estimatedNullsBufferMaxCapacity;
+    }
+
+    protected static int getEstimatedBufferMaxCapacity(double targetBufferSize, int unitSize, int positionSize)
+    {
+        return (int) (targetBufferSize * unitSize / positionSize * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY);
     }
 
     /**

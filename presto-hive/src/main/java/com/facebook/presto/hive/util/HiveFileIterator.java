@@ -23,6 +23,7 @@ import com.google.common.collect.Iterators;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.security.AccessControlException;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -33,6 +34,7 @@ import java.util.Iterator;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
 
 public class HiveFileIterator
@@ -155,6 +157,9 @@ public class HiveFileIterator
             namenodeStats.getRemoteIteratorNext().recordException(exception);
             if (exception instanceof FileNotFoundException) {
                 return new PrestoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + path);
+            }
+            if (exception instanceof AccessControlException) {
+                throw new PrestoException(PERMISSION_DENIED, exception.getMessage(), exception);
             }
             return new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to list directory: " + path, exception);
         }

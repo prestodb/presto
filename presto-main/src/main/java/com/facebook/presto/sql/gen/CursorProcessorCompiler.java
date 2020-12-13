@@ -100,12 +100,29 @@ public class CursorProcessorCompiler
 
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, rowExpressions, metadata, sqlFunctionProperties, "");
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                fieldReferenceCompiler(cseFields),
+                metadata,
+                sqlFunctionProperties,
+                compiledLambdaMap);
+
         if (isOptimizeCommonSubExpressions) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(rowExpressions);
 
             if (!commonSubExpressionsByLevel.isEmpty()) {
                 cseFields = declareCommonSubExpressionFields(classDefinition, commonSubExpressionsByLevel);
-                generateCommonSubExpressionMethods(metadata, sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, commonSubExpressionsByLevel, cseFields);
+                compiler = new RowExpressionCompiler(
+                        classDefinition,
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        fieldReferenceCompiler(cseFields),
+                        metadata,
+                        sqlFunctionProperties,
+                        compiledLambdaMap);
+                generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
 
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
                         .flatMap(m -> m.entrySet().stream())
@@ -118,11 +135,11 @@ public class CursorProcessorCompiler
 
         generateProcessMethod(classDefinition, projections.size(), cseFields);
 
-        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, cseFields);
+        generateFilterMethod(classDefinition, compiler, filter);
 
         for (int i = 0; i < projections.size(); i++) {
             String methodName = "project_" + i;
-            generateProjectMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, methodName, projections.get(i), cseFields);
+            generateProjectMethod(classDefinition, compiler, methodName, projections.get(i));
         }
 
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
@@ -257,13 +274,9 @@ public class CursorProcessorCompiler
     }
 
     private void generateFilterMethod(
-            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
-            RowExpression filter,
-            Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields)
+            RowExpressionCompiler compiler,
+            RowExpression filter)
     {
         Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
@@ -275,14 +288,6 @@ public class CursorProcessorCompiler
         BytecodeBlock body = method.getBody();
 
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
-                classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                fieldReferenceCompiler(cseFields),
-                metadata,
-                sqlFunctionProperties,
-                compiledLambdaMap);
 
         LabelNode end = new LabelNode("end");
         body.comment("boolean wasNull = false;")
@@ -299,14 +304,10 @@ public class CursorProcessorCompiler
     }
 
     private void generateProjectMethod(
-            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            RowExpressionCompiler compiler,
             String methodName,
-            RowExpression projection,
-            Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields)
+            RowExpression projection)
     {
         Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter cursor = arg("cursor", RecordCursor.class);
@@ -316,14 +317,6 @@ public class CursorProcessorCompiler
         method.comment("Projection: %s", projection.toString());
 
         Scope scope = method.getScope();
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
-                classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                fieldReferenceCompiler(cseFields),
-                metadata,
-                sqlFunctionProperties,
-                compiledLambdaMap);
 
         Variable wasNullVariable = scope.declareVariable(type(boolean.class), "wasNull");
         method.getBody()
@@ -335,12 +328,8 @@ public class CursorProcessorCompiler
     }
 
     private List<MethodDefinition> generateCommonSubExpressionMethods(
-            Metadata metadata,
-            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            RowExpressionCompiler compiler,
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel,
             Map<VariableReferenceExpression, CommonSubExpressionFields> commonSubExpressionFieldsMap)
     {
@@ -372,20 +361,12 @@ public class CursorProcessorCompiler
                     Variable thisVariable = method.getThis();
 
                     scope.declareVariable("wasNull", body, constantFalse());
-                    RowExpressionCompiler cseCompiler = new RowExpressionCompiler(
-                            classDefinition,
-                            callSiteBinder,
-                            cachedInstanceBinder,
-                            fieldReferenceCompiler(cseMap),
-                            metadata,
-                            sqlFunctionProperties,
-                            compiledLambdaMap);
 
                     IfStatement ifStatement = new IfStatement()
                             .condition(thisVariable.getField(cseFields.getEvaluatedField()))
                             .ifFalse(new BytecodeBlock()
                                     .append(thisVariable)
-                                    .append(cseCompiler.compile(cse, scope, Optional.empty()))
+                                    .append(compiler.compile(cse, scope, Optional.empty()))
                                     .append(boxPrimitiveIfNecessary(scope, type))
                                     .putField(cseFields.getResultField())
                                     .append(thisVariable.setField(cseFields.getEvaluatedField(), constantBoolean(true))));

@@ -14,11 +14,12 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.cost.StatsCalculator;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
@@ -30,6 +31,7 @@ import org.intellij.lang.annotations.Language;
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 
 public interface QueryRunner
@@ -56,6 +58,8 @@ public interface QueryRunner
 
     StatsCalculator getStatsCalculator();
 
+    Optional<EventListener> getEventListener();
+
     TestingAccessControlManager getAccessControl();
 
     MaterializedResult execute(@Language("SQL") String sql);
@@ -80,7 +84,7 @@ public interface QueryRunner
 
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 
-    void loadFunctionNamespaceManager(String catalogName, String connectorName, Map<String, String> properties);
+    void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties);
 
     Lock getExclusiveLock();
 

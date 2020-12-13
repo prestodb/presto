@@ -17,8 +17,11 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.jaxrs.JsonMapper;
 import com.facebook.airlift.jaxrs.testing.JaxrsTestingHttpProcessor;
+import com.facebook.airlift.jaxrs.thrift.ThriftMapper;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.drift.codec.ThriftCodec;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -32,12 +35,15 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
+import com.facebook.presto.execution.TestQueryManager;
 import com.facebook.presto.execution.TestSqlTaskManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
@@ -54,15 +60,14 @@ import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.testing.TestingSplit;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Provides;
-import com.google.inject.Scopes;
 import io.airlift.units.Duration;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import javax.ws.rs.Consumes;
@@ -90,14 +95,20 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_BINARY;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_COMPACT;
+import static com.facebook.airlift.http.client.thrift.ThriftRequestUtils.APPLICATION_THRIFT_FB_COMPACT;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.server.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
@@ -126,35 +137,41 @@ public class TestHttpRemoteTask
 
     private static final boolean TRACE_HTTP = false;
 
-    @Test(timeOut = 30000)
-    public void testRemoteTaskMismatch()
-            throws Exception
+    @DataProvider
+    public Object[][] thriftEncodingToggle()
     {
-        runTest(FailureScenario.TASK_MISMATCH);
+        return new Object[][] {{true}, {false}};
     }
 
-    @Test(timeOut = 30000)
-    public void testRejectedExecutionWhenVersionIsHigh()
+    @Test(timeOut = 30000, dataProvider = "thriftEncodingToggle")
+    public void testRemoteTaskMismatch(boolean useThriftEncoding)
             throws Exception
     {
-        runTest(FailureScenario.TASK_MISMATCH_WHEN_VERSION_IS_HIGH);
+        runTest(FailureScenario.TASK_MISMATCH, useThriftEncoding);
     }
 
-    @Test(timeOut = 30000)
-    public void testRejectedExecution()
+    @Test(timeOut = 30000, dataProvider = "thriftEncodingToggle")
+    public void testRejectedExecutionWhenVersionIsHigh(boolean useThriftEncoding)
             throws Exception
     {
-        runTest(FailureScenario.REJECTED_EXECUTION);
+        runTest(FailureScenario.TASK_MISMATCH_WHEN_VERSION_IS_HIGH, useThriftEncoding);
     }
 
-    @Test(timeOut = 30000)
-    public void testRegular()
+    @Test(timeOut = 30000, dataProvider = "thriftEncodingToggle")
+    public void testRejectedExecution(boolean useThriftEncoding)
+            throws Exception
+    {
+        runTest(FailureScenario.REJECTED_EXECUTION, useThriftEncoding);
+    }
+
+    @Test(timeOut = 30000, dataProvider = "thriftEncodingToggle")
+    public void testRegular(boolean useThriftEncoding)
             throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
         TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
 
-        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, useThriftEncoding);
 
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
@@ -179,13 +196,13 @@ public class TestHttpRemoteTask
         httpRemoteTaskFactory.stop();
     }
 
-    private void runTest(FailureScenario failureScenario)
+    private void runTest(FailureScenario failureScenario, boolean useThriftEncoding)
             throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
         TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, failureScenario);
 
-        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, useThriftEncoding);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
@@ -226,12 +243,13 @@ public class TestHttpRemoteTask
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
     }
 
-    private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
+    private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, boolean useThriftEncoding)
             throws Exception
     {
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new SmileModule(),
+                new ThriftCodecModule(),
                 new HandleJsonModule(),
                 new Module()
                 {
@@ -239,36 +257,44 @@ public class TestHttpRemoteTask
                     public void configure(Binder binder)
                     {
                         binder.bind(JsonMapper.class);
+                        binder.bind(ThriftMapper.class);
                         configBinder(binder).bindConfig(FeaturesConfig.class);
-                        binder.bind(TypeRegistry.class).in(Scopes.SINGLETON);
-                        binder.bind(TypeManager.class).to(TypeRegistry.class).in(Scopes.SINGLETON);
+                        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+                        binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
                         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
                         newSetBinder(binder, Type.class);
                         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
                         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
                         smileCodecBinder(binder).bindSmileCodec(TaskUpdateRequest.class);
                         smileCodecBinder(binder).bindSmileCodec(PlanFragment.class);
+                        smileCodecBinder(binder).bindSmileCodec(MetadataUpdates.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskStatus.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);
                         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
                         jsonCodecBinder(binder).bindJsonCodec(PlanFragment.class);
+                        jsonCodecBinder(binder).bindJsonCodec(MetadataUpdates.class);
                         jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionSerializer.class);
                         jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionDeserializer.class);
+                        thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
                     }
 
                     @Provides
                     private HttpRemoteTaskFactory createHttpRemoteTaskFactory(
                             JsonMapper jsonMapper,
+                            ThriftMapper thriftMapper,
                             JsonCodec<TaskStatus> taskStatusJsonCodec,
                             SmileCodec<TaskStatus> taskStatusSmileCodec,
+                            ThriftCodec<TaskStatus> taskStatusThriftCodec,
                             JsonCodec<TaskInfo> taskInfoJsonCodec,
                             SmileCodec<TaskInfo> taskInfoSmileCodec,
                             JsonCodec<TaskUpdateRequest> taskUpdateRequestJsonCodec,
                             SmileCodec<TaskUpdateRequest> taskUpdateRequestSmileCodec,
                             JsonCodec<PlanFragment> planFragmentJsonCodec,
-                            SmileCodec<PlanFragment> planFragmentSmileCodec)
+                            SmileCodec<PlanFragment> planFragmentSmileCodec,
+                            JsonCodec<MetadataUpdates> metadataUpdatesJsonCodec,
+                            SmileCodec<MetadataUpdates> metadataUpdatesSmileCodec)
                     {
-                        JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper);
+                        JaxrsTestingHttpProcessor jaxrsTestingHttpProcessor = new JaxrsTestingHttpProcessor(URI.create("http://fake.invalid/"), testingTaskResource, jsonMapper, thriftMapper);
                         TestingHttpClient testingHttpClient = new TestingHttpClient(jaxrsTestingHttpProcessor.setTrace(TRACE_HTTP));
                         testingTaskResource.setHttpClient(testingHttpClient);
                         return new HttpRemoteTaskFactory(
@@ -278,18 +304,22 @@ public class TestHttpRemoteTask
                                 new TestSqlTaskManager.MockLocationFactory(),
                                 taskStatusJsonCodec,
                                 taskStatusSmileCodec,
+                                taskStatusThriftCodec,
                                 taskInfoJsonCodec,
                                 taskInfoSmileCodec,
                                 taskUpdateRequestJsonCodec,
                                 taskUpdateRequestSmileCodec,
                                 planFragmentJsonCodec,
                                 planFragmentSmileCodec,
+                                metadataUpdatesJsonCodec,
+                                metadataUpdatesSmileCodec,
                                 new RemoteTaskStats(),
-                                new InternalCommunicationConfig());
+                                new InternalCommunicationConfig().setThriftTransportEnabled(useThriftEncoding),
+                                createTestMetadataManager(),
+                                new TestQueryManager());
                     }
                 });
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();
@@ -413,7 +443,7 @@ public class TestHttpRemoteTask
 
         @GET
         @Path("{taskId}/status")
-        @Produces(MediaType.APPLICATION_JSON)
+        @Produces({MediaType.APPLICATION_JSON, APPLICATION_THRIFT_BINARY, APPLICATION_THRIFT_COMPACT, APPLICATION_THRIFT_FB_COMPACT})
         public synchronized TaskStatus getTaskStatus(
                 @PathParam("taskId") TaskId taskId,
                 @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
@@ -471,7 +501,8 @@ public class TestHttpRemoteTask
                     initialTaskInfo.getOutputBuffers(),
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),
-                    initialTaskInfo.isNeedsPlan());
+                    initialTaskInfo.isNeedsPlan(),
+                    initialTaskInfo.getMetadataUpdates());
         }
 
         private TaskStatus buildTaskStatus()
@@ -514,6 +545,7 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getPhysicalWrittenDataSizeInBytes(),
                     initialTaskStatus.getMemoryReservationInBytes(),
                     initialTaskStatus.getSystemMemoryReservationInBytes(),
+                    initialTaskStatus.getPeakNodeTotalMemoryReservationInBytes(),
                     initialTaskStatus.getFullGcCount(),
                     initialTaskStatus.getFullGcTimeInMillis());
         }

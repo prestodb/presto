@@ -49,13 +49,16 @@ import static com.facebook.presto.verifier.framework.QueryStage.CONTROL_SETUP;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_MAIN;
 import static com.facebook.presto.verifier.framework.QueryStage.TEST_SETUP;
+import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_STATS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestPrestoExceptionClassifier
 {
     private static final QueryStage QUERY_STAGE = CONTROL_MAIN;
-    private static final QueryStats QUERY_STATS = new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, Optional.empty());
+    private static final QueryActionStats QUERY_ACTION_STATS = new QueryActionStats(
+            Optional.of(new QueryStats("id", "", false, false, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, Optional.empty())),
+            Optional.empty());
 
     private final SqlExceptionClassifier classifier = PrestoExceptionClassifier.defaultBuilder().build();
 
@@ -91,10 +94,10 @@ public class TestPrestoExceptionClassifier
     {
         SQLException sqlException = new SQLException("", "", 0xabcd_1234, new RuntimeException());
         assertPrestoQueryException(
-                classifier.createException(QUERY_STAGE, Optional.of(QUERY_STATS), sqlException),
+                classifier.createException(QUERY_STAGE, QUERY_ACTION_STATS, sqlException),
                 Optional.empty(),
                 false,
-                Optional.of(QUERY_STATS),
+                QUERY_ACTION_STATS,
                 QUERY_STAGE);
     }
 
@@ -115,7 +118,7 @@ public class TestPrestoExceptionClassifier
 
     private void testNetworkException(SQLException sqlException)
     {
-        assertClusterConnectionException(classifier.createException(QUERY_STAGE, Optional.empty(), sqlException), QUERY_STAGE);
+        assertClusterConnectionException(classifier.createException(QUERY_STAGE, EMPTY_STATS, sqlException), QUERY_STAGE);
     }
 
     private void testPrestoException(ErrorCodeSupplier errorCode, boolean expectedRetryable)
@@ -129,7 +132,7 @@ public class TestPrestoExceptionClassifier
                 createTestException(errorCode, queryStage),
                 Optional.of(errorCode),
                 expectedRetryable,
-                Optional.of(QUERY_STATS),
+                QUERY_ACTION_STATS,
                 queryStage);
     }
 
@@ -146,7 +149,7 @@ public class TestPrestoExceptionClassifier
             QueryException queryException,
             Optional<ErrorCodeSupplier> errorCode,
             boolean retryable,
-            Optional<QueryStats> queryStats,
+            QueryActionStats queryActionStats,
             QueryStage queryStage)
     {
         assertTrue(queryException instanceof PrestoQueryException);
@@ -155,7 +158,7 @@ public class TestPrestoExceptionClassifier
 
         assertEquals(exception.getErrorCode(), errorCode);
         assertEquals(exception.isRetryable(), retryable);
-        assertEquals(exception.getQueryStats(), queryStats);
+        assertEquals(exception.getQueryActionStats(), queryActionStats);
     }
 
     private QueryException createTestException(ErrorCodeSupplier errorCode, QueryStage queryStage)
@@ -167,7 +170,7 @@ public class TestPrestoExceptionClassifier
     {
         return classifier.createException(
                 queryStage,
-                Optional.of(QUERY_STATS),
+                QUERY_ACTION_STATS,
                 new SQLException(message, "", errorCode.toErrorCode().getCode(), new PrestoException(errorCode, message)));
     }
 }

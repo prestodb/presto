@@ -252,21 +252,22 @@ public class RowBlockEncodingBuffer
         ColumnarRow columnarRow = (ColumnarRow) decodedBlockNode.getDecodedBlock();
         decodedBlock = columnarRow.getNullCheckBlock();
 
-        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction;
-
-        if (decodedBlock.mayHaveNull()) {
-            setEstimatedNullsBufferMaxCapacity((int) (targetBufferSize * Byte.BYTES / POSITION_SIZE));
-            estimatedOffsetBufferMaxCapacity = (int) (targetBufferSize * Integer.BYTES / POSITION_SIZE);
-        }
-        else {
-            estimatedOffsetBufferMaxCapacity = (int) targetBufferSize;
-        }
-
         populateNestedPositions(columnarRow);
 
+        long estimatedSerializedSizeInBytes = decodedBlockNode.getEstimatedSerializedSizeInBytes();
+        long childrenEstimatedSerializedSizeInBytes = 0;
+
         for (int i = 0; i < fieldBuffers.length; i++) {
-            fieldBuffers[i].setupDecodedBlockAndMapPositions(decodedBlockNode.getChildren().get(i), partitionBufferCapacity, decodedBlockPageSizeFraction);
+            DecodedBlockNode childDecodedBlockNode = decodedBlockNode.getChildren().get(i);
+            long childEstimatedSerializedSizeInBytes = childDecodedBlockNode.getEstimatedSerializedSizeInBytes();
+            childrenEstimatedSerializedSizeInBytes += childEstimatedSerializedSizeInBytes;
+            fieldBuffers[i].setupDecodedBlockAndMapPositions(childDecodedBlockNode, partitionBufferCapacity, decodedBlockPageSizeFraction * childEstimatedSerializedSizeInBytes / estimatedSerializedSizeInBytes);
         }
+
+        double targetBufferSize = partitionBufferCapacity * decodedBlockPageSizeFraction * (estimatedSerializedSizeInBytes - childrenEstimatedSerializedSizeInBytes) / estimatedSerializedSizeInBytes;
+
+        setEstimatedNullsBufferMaxCapacity(getEstimatedBufferMaxCapacity(targetBufferSize, Byte.BYTES, POSITION_SIZE));
+        estimatedOffsetBufferMaxCapacity = getEstimatedBufferMaxCapacity(targetBufferSize, Integer.BYTES, POSITION_SIZE);
     }
 
     @Override
@@ -296,6 +297,24 @@ public class RowBlockEncodingBuffer
         finally {
             bufferAllocator.returnArray(offsetsCopy);
         }
+    }
+
+    @Override
+    int getEstimatedValueBufferMaxCapacity()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @VisibleForTesting
+    int getEstimatedOffsetBufferMaxCapacity()
+    {
+        return estimatedOffsetBufferMaxCapacity;
+    }
+
+    @VisibleForTesting
+    BlockEncodingBuffer[] getFieldBuffers()
+    {
+        return fieldBuffers;
     }
 
     private void populateNestedPositions(ColumnarRow columnarRow)

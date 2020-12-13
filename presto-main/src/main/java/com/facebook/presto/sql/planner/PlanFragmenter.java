@@ -20,7 +20,6 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.NewTableLayout;
 import com.facebook.presto.metadata.PartitioningMetadata;
@@ -37,6 +36,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
@@ -45,12 +45,14 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.ProjectNode.Locality;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -72,7 +74,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode.InsertReference;
 import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.planner.sanity.PlanSanityChecker;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -92,11 +94,8 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
-import static com.facebook.presto.SystemSessionProperties.isDynamicScheduleForGroupedExecution;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
-import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForAggregationEnabled;
-import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForEligibleTableScansEnabled;
-import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionForJoinEnabled;
+import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -150,27 +149,37 @@ public class PlanFragmenter
     private final NodePartitioningManager nodePartitioningManager;
     private final QueryManagerConfig config;
     private final SqlParser sqlParser;
+    private final PlanChecker distributedPlanChecker;
+    private final PlanChecker singleNodePlanChecker;
 
     @Inject
-    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, SqlParser sqlParser)
+    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, SqlParser sqlParser, FeaturesConfig featuresConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.distributedPlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), false);
+        this.singleNodePlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), true);
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    {
+        PlanVariableAllocator variableAllocator = new PlanVariableAllocator(plan.getTypes().allVariables());
+        return createSubPlans(session, plan, forceSingleNode, idAllocator, variableAllocator, warningCollector);
+    }
+
+    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, WarningCollector warningCollector)
     {
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
                 plan.getStatsAndCosts(),
-                new PlanSanityChecker(forceSingleNode),
+                forceSingleNode ? singleNodePlanChecker : distributedPlanChecker,
                 warningCollector,
                 sqlParser,
                 idAllocator,
-                new PlanVariableAllocator(plan.getTypes().allVariables()),
+                variableAllocator,
                 getTableWriterNodeIds(plan.getRoot()));
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
@@ -183,7 +192,10 @@ public class PlanFragmenter
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
         subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
-        subPlan = analyzeGroupedExecution(session, subPlan, false);
+        if (!forceSingleNode) {
+            // grouped execution is not supported for SINGLE_DISTRIBUTION
+            subPlan = analyzeGroupedExecution(session, subPlan, false);
+        }
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
@@ -238,8 +250,7 @@ public class PlanFragmenter
         PlanFragment fragment = subPlan.getFragment();
         GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
         if (properties.isSubTreeUseful()) {
-            boolean preferDynamic = fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE)
-                    && isDynamicScheduleForGroupedExecution(session);
+            boolean preferDynamic = fragment.getRemoteSourceNodes().stream().allMatch(node -> node.getExchangeType() == REPLICATE);
             BucketNodeMap bucketNodeMap = nodePartitioningManager.getBucketNodeMap(session, fragment.getPartitioning(), preferDynamic);
             if (bucketNodeMap.isDynamic()) {
                 /*
@@ -343,7 +354,7 @@ public class PlanFragmenter
         private final PlanNodeIdAllocator idAllocator;
         private final PlanVariableAllocator variableAllocator;
         private final StatsAndCosts statsAndCosts;
-        private final PlanSanityChecker planSanityChecker;
+        private final PlanChecker planChecker;
         private final WarningCollector warningCollector;
         private final SqlParser sqlParser;
         private final Set<PlanNodeId> outputTableWriterNodeIds;
@@ -354,7 +365,7 @@ public class PlanFragmenter
                 Session session,
                 Metadata metadata,
                 StatsAndCosts statsAndCosts,
-                PlanSanityChecker planSanityChecker,
+                PlanChecker planChecker,
                 WarningCollector warningCollector,
                 SqlParser sqlParser,
                 PlanNodeIdAllocator idAllocator,
@@ -364,7 +375,7 @@ public class PlanFragmenter
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
-            this.planSanityChecker = requireNonNull(planSanityChecker, "planSanityChecker is null");
+            this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -393,7 +404,7 @@ public class PlanFragmenter
                     properties.getPartitionedSources());
 
             Set<VariableReferenceExpression> fragmentVariableTypes = extractOutputVariables(root);
-            planSanityChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.fromVariables(fragmentVariableTypes), warningCollector);
+            planChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.fromVariables(fragmentVariableTypes), warningCollector);
 
             Set<PlanNodeId> tableWriterNodeIds = getTableWriterNodeIds(root);
             boolean outputTableWriterFragment = tableWriterNodeIds.stream().anyMatch(outputTableWriterNodeIds::contains);
@@ -415,7 +426,7 @@ public class PlanFragmenter
                     StageExecutionDescriptor.ungroupedExecution(),
                     outputTableWriterFragment,
                     statsAndCosts.getForSubplan(root),
-                    Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, metadata.getFunctionManager(), session)));
+                    Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, metadata.getFunctionAndTypeManager(), session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }
@@ -703,7 +714,7 @@ public class PlanFragmenter
                             Assignments.Builder assignments = Assignments.builder();
                             source.getOutputVariables().forEach(variable -> assignments.put(variable, new VariableReferenceExpression(variable.getName(), variable.getType())));
                             constantVariables.forEach(variable -> assignments.put(variable, constantExpressions.get(variable)));
-                            return new ProjectNode(idAllocator.getNextId(), source, assignments.build());
+                            return new ProjectNode(idAllocator.getNextId(), source, assignments.build(), Locality.LOCAL);
                         })
                         .collect(toImmutableList());
             }
@@ -767,14 +778,14 @@ public class PlanFragmenter
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
             TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
             TableStatisticAggregation statisticsResult = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnNameToVariable, false);
-            StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionManager());
+            StatisticAggregations.Parts aggregations = statisticsResult.getAggregations().splitIntoPartialAndFinal(variableAllocator, metadata.getFunctionAndTypeManager());
             PlanNode tableWriterMerge;
 
             // Disabled by default. Enable when the column statistics are essential for future runtime adaptive plan optimizations
             boolean enableStatsCollectionForTemporaryTable = SystemSessionProperties.isEnableStatsCollectionForTemporaryTable(session);
 
             if (isTableWriterMergeOperatorEnabled(session)) {
-                StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(variableAllocator, metadata.getFunctionManager());
+                StatisticAggregations.Parts localAggregations = aggregations.getPartialAggregation().splitIntoPartialAndIntermediate(variableAllocator, metadata.getFunctionAndTypeManager());
                 tableWriterMerge = new TableWriterMergeNode(
                         idAllocator.getNextId(),
                         gatheringExchange(
@@ -967,16 +978,14 @@ public class PlanFragmenter
         private final Session session;
         private final Metadata metadata;
         private final NodePartitioningManager nodePartitioningManager;
-        private final boolean groupedExecutionForAggregation;
-        private final boolean groupedExecutionForJoin;
+        private final boolean groupedExecutionEnabled;
 
         public GroupedExecutionTagger(Session session, Metadata metadata, NodePartitioningManager nodePartitioningManager)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
-            this.groupedExecutionForAggregation = isGroupedExecutionForAggregationEnabled(session);
-            this.groupedExecutionForJoin = isGroupedExecutionForJoinEnabled(session);
+            this.groupedExecutionEnabled = isGroupedExecutionEnabled(session);
         }
 
         @Override
@@ -994,7 +1003,7 @@ public class PlanFragmenter
             GroupedExecutionProperties left = node.getLeft().accept(this, null);
             GroupedExecutionProperties right = node.getRight().accept(this, null);
 
-            if (!node.getDistributionType().isPresent() || !groupedExecutionForJoin) {
+            if (!node.getDistributionType().isPresent() || !groupedExecutionEnabled) {
                 // This is possible when the optimizers is invoked with `forceSingleNode` set to true.
                 return GroupedExecutionProperties.notCapable();
             }
@@ -1060,7 +1069,7 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitAggregation(AggregationNode node, Void context)
         {
             GroupedExecutionProperties properties = node.getSource().accept(this, null);
-            if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
+            if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
                 switch (node.getStep()) {
                     case SINGLE:
                     case FINAL:
@@ -1094,7 +1103,7 @@ public class PlanFragmenter
         private GroupedExecutionProperties processWindowFunction(PlanNode node)
         {
             GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
-            if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
+            if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
                 return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans, properties.recoveryEligible);
             }
             return GroupedExecutionProperties.notCapable();
@@ -1104,7 +1113,7 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitMarkDistinct(MarkDistinctNode node, Void context)
         {
             GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
-            if (groupedExecutionForAggregation && properties.isCurrentNodeCapable()) {
+            if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
                 return new GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans, properties.recoveryEligible);
             }
             return GroupedExecutionProperties.notCapable();
@@ -1144,7 +1153,7 @@ public class PlanFragmenter
             else {
                 return new GroupedExecutionProperties(
                         true,
-                        isGroupedExecutionForEligibleTableScansEnabled(session),
+                        false,
                         ImmutableList.of(node.getId()),
                         partitionHandles.size(),
                         metadata.getConnectorCapabilities(session, node.getTable().getConnectorId()).contains(SUPPORTS_REWINDABLE_SPLIT_SOURCE));

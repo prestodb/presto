@@ -68,7 +68,6 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -142,7 +141,7 @@ public class PageFunctionCompiler
     public PageFunctionCompiler(Metadata metadata, int expressionCacheSize)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionManager());
+        this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata.getFunctionAndTypeManager());
 
         if (expressionCacheSize > 0) {
             projectionCache = CacheBuilder.newBuilder()
@@ -196,7 +195,7 @@ public class PageFunctionCompiler
                     pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, projection, classNameSuffix), new int[] {i}));
                 }
                 else {
-                    expressionsWithPositionBuilder.put(projections.get(i), i);
+                    expressionsWithPositionBuilder.put(projection, i);
                 }
             }
             Map<RowExpression, Integer> expressionsWithPosition = expressionsWithPositionBuilder.build();
@@ -315,11 +314,30 @@ public class PageFunctionCompiler
 
         // cse
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
+
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields),
+                metadata,
+                sqlFunctionProperties,
+                compiledLambdaMap);
+
         if (isOptimizeCommonSubExpression) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(projections);
             if (!commonSubExpressionsByLevel.isEmpty()) {
                 cseFields = declareCommonSubExpressionFields(classDefinition, commonSubExpressionsByLevel);
-                generateCommonSubExpressionMethods(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, commonSubExpressionsByLevel, cseFields);
+                compiler = new RowExpressionCompiler(
+                        classDefinition,
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields),
+                        metadata,
+                        sqlFunctionProperties,
+                        compiledLambdaMap);
+
+                generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
                         .flatMap(m -> m.entrySet().stream())
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -333,7 +351,7 @@ public class PageFunctionCompiler
         }
 
         // evaluate
-        generateEvaluateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, projections, blockBuilderFields, cseFields);
+        generateEvaluateMethod(classDefinition, compiler, projections, blockBuilderFields, cseFields);
 
         // constructor
         Parameter blockBuilders = arg("blockBuilders", type(List.class, BlockBuilder.class));
@@ -427,11 +445,8 @@ public class PageFunctionCompiler
     }
 
     private List<MethodDefinition> generateCommonSubExpressionMethods(
-            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            RowExpressionCompiler compiler,
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel,
             Map<VariableReferenceExpression, CommonSubExpressionFields> commonSubExpressionFieldsMap)
     {
@@ -441,7 +456,6 @@ public class PageFunctionCompiler
         Parameter page = arg("page", Page.class);
         Parameter position = arg("position", int.class);
 
-        Map<VariableReferenceExpression, CommonSubExpressionFields> cseMap = new HashMap<>();
         int startLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::min).get();
         int maxLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::max).get();
         for (int i = startLevel; i <= maxLevel; i++) {
@@ -470,19 +484,11 @@ public class PageFunctionCompiler
                     declareBlockVariables(ImmutableList.of(cse), page, scope, body);
                     scope.declareVariable("wasNull", body, constantFalse());
 
-                    RowExpressionCompiler cseCompiler = new RowExpressionCompiler(
-                            classDefinition,
-                            callSiteBinder,
-                            cachedInstanceBinder,
-                            new FieldAndVariableReferenceCompiler(callSiteBinder, cseMap, thisVariable),
-                            metadata,
-                            sqlFunctionProperties,
-                            compiledLambdaMap);
                     IfStatement ifStatement = new IfStatement()
                             .condition(thisVariable.getField(cseFields.getEvaluatedField()))
                             .ifFalse(new BytecodeBlock()
                                     .append(thisVariable)
-                                    .append(cseCompiler.compile(cse, scope, Optional.empty()))
+                                    .append(compiler.compile(cse, scope, Optional.empty()))
                                     .append(boxPrimitiveIfNecessary(scope, type))
                                     .putField(cseFields.getResultField())
                                     .append(thisVariable.setField(cseFields.getEvaluatedField(), constantBoolean(true))));
@@ -493,7 +499,6 @@ public class PageFunctionCompiler
                             .retObject();
 
                     methods.add(method);
-                    cseMap.put(cseVariable, cseFields);
                 }
             }
         }
@@ -501,11 +506,8 @@ public class PageFunctionCompiler
     }
 
     private MethodDefinition generateEvaluateMethod(
-            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            RowExpressionCompiler compiler,
             List<RowExpression> projections,
             FieldDefinition blockBuilders,
             Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields)
@@ -533,15 +535,6 @@ public class PageFunctionCompiler
         declareBlockVariables(projections, page, scope, body);
         Variable wasNull = scope.declareVariable("wasNull", body, constantFalse());
         cseFields.values().forEach(fields -> body.append(thisVariable.setField(fields.getEvaluatedField(), constantBoolean(false))));
-
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
-                classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields, thisVariable),
-                metadata,
-                sqlFunctionProperties,
-                compiledLambdaMap);
 
         Variable outputBlockVariable = scope.createTempVariable(BlockBuilder.class);
         for (int i = 0; i < projections.size(); i++) {
@@ -611,11 +604,29 @@ public class PageFunctionCompiler
 
         // cse
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
+        RowExpressionCompiler compiler = new RowExpressionCompiler(
+                classDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields),
+                metadata,
+                sqlFunctionProperties,
+                compiledLambdaMap);
+
         if (isOptimizeCommonSubExpression) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(filter);
             if (!commonSubExpressionsByLevel.isEmpty()) {
                 cseFields = declareCommonSubExpressionFields(classDefinition, commonSubExpressionsByLevel);
-                generateCommonSubExpressionMethods(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, commonSubExpressionsByLevel, cseFields);
+                compiler = new RowExpressionCompiler(
+                        classDefinition,
+                        callSiteBinder,
+                        cachedInstanceBinder,
+                        new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields),
+                        metadata,
+                        sqlFunctionProperties,
+                        compiledLambdaMap);
+
+                generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
                         .flatMap(m -> m.entrySet().stream())
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -628,7 +639,7 @@ public class PageFunctionCompiler
             }
         }
 
-        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, cseFields);
+        generateFilterMethod(classDefinition, compiler, filter, cseFields);
 
         FieldDefinition selectedPositions = classDefinition.declareField(a(PRIVATE), "selectedPositions", boolean[].class);
         generatePageFilterMethod(classDefinition, selectedPositions);
@@ -718,11 +729,8 @@ public class PageFunctionCompiler
     }
 
     private MethodDefinition generateFilterMethod(
-            SqlFunctionProperties sqlFunctionProperties,
             ClassDefinition classDefinition,
-            CallSiteBinder callSiteBinder,
-            CachedInstanceBinder cachedInstanceBinder,
-            Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
+            RowExpressionCompiler compiler,
             RowExpression filter,
             Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields)
     {
@@ -750,15 +758,6 @@ public class PageFunctionCompiler
         cseFields.values().forEach(fields -> body.append(thisVariable.setField(fields.getEvaluatedField(), constantBoolean(false))));
 
         Variable wasNullVariable = scope.declareVariable("wasNull", body, constantFalse());
-        RowExpressionCompiler compiler = new RowExpressionCompiler(
-                classDefinition,
-                callSiteBinder,
-                cachedInstanceBinder,
-                new FieldAndVariableReferenceCompiler(callSiteBinder, cseFields, thisVariable),
-                metadata,
-                sqlFunctionProperties,
-                compiledLambdaMap);
-
         Variable result = scope.declareVariable(boolean.class, "result");
         body.append(compiler.compile(filter, scope, Optional.empty()))
                 // store result so we can check for null
@@ -799,16 +798,14 @@ public class PageFunctionCompiler
     {
         private final InputReferenceCompiler inputReferenceCompiler;
         private final Map<VariableReferenceExpression, CommonSubExpressionFields> variableMap;
-        private final Variable thisVariable;
 
-        public FieldAndVariableReferenceCompiler(CallSiteBinder callSiteBinder, Map<VariableReferenceExpression, CommonSubExpressionFields> variableMap, Variable thisVariable)
+        public FieldAndVariableReferenceCompiler(CallSiteBinder callSiteBinder, Map<VariableReferenceExpression, CommonSubExpressionFields> variableMap)
         {
             this.inputReferenceCompiler = new InputReferenceCompiler(
                     (scope, field) -> scope.getVariable("block_" + field),
                     (scope, field) -> scope.getVariable("position"),
                     callSiteBinder);
             this.variableMap = ImmutableMap.copyOf(variableMap);
-            this.thisVariable = thisVariable;
         }
         @Override
         public BytecodeNode visitCall(CallExpression call, Scope context)
@@ -839,7 +836,7 @@ public class PageFunctionCompiler
         {
             CommonSubExpressionFields fields = variableMap.get(reference);
             return new BytecodeBlock()
-                    .append(thisVariable.invoke(fields.getMethodName(), fields.getResultType(), context.getVariable("properties"), context.getVariable("page"), context.getVariable("position")))
+                    .append(context.getThis().invoke(fields.getMethodName(), fields.getResultType(), context.getVariable("properties"), context.getVariable("page"), context.getVariable("position")))
                     .append(unboxPrimitiveIfNecessary(context, Primitives.wrap(reference.getType().getJavaType())));
         }
 

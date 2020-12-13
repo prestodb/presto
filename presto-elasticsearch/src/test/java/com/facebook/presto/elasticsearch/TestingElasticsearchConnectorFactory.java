@@ -60,7 +60,7 @@ class TestingElasticsearchConnectorFactory
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     });
 
-            Injector injector = app.strictConfig()
+            Injector injector = app
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

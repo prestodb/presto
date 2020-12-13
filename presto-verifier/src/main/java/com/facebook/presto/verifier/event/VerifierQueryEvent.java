@@ -15,7 +15,6 @@ package com.facebook.presto.verifier.event;
 
 import com.facebook.airlift.event.client.EventField;
 import com.facebook.airlift.event.client.EventType;
-import com.facebook.presto.verifier.framework.DeterminismAnalysis;
 import com.facebook.presto.verifier.framework.SkippedReason;
 import com.facebook.presto.verifier.framework.SourceQuery;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +25,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SKIPPED;
+import static com.facebook.presto.verifier.framework.ClusterType.CONTROL;
+import static com.facebook.presto.verifier.framework.ClusterType.TEST;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -45,9 +46,9 @@ public class VerifierQueryEvent
     private final String name;
 
     private final String status;
+    private final String matchType;
     private final String skippedReason;
 
-    private final Boolean deterministic;
     private final String determinismAnalysis;
     private final DeterminismAnalysisDetails determinismAnalysisDetails;
     private final String resolveMessage;
@@ -68,11 +69,11 @@ public class VerifierQueryEvent
             String testId,
             String name,
             EventStatus status,
+            Optional<String> matchType,
             Optional<SkippedReason> skippedReason,
-            Optional<DeterminismAnalysis> determinismAnalysis,
             Optional<DeterminismAnalysisDetails> determinismAnalysisDetails,
             Optional<String> resolveMessage,
-            QueryInfo controlQueryInfo,
+            Optional<QueryInfo> controlQueryInfo,
             QueryInfo testQueryInfo,
             Optional<String> errorCode,
             Optional<String> errorMessage,
@@ -84,12 +85,12 @@ public class VerifierQueryEvent
         this.testId = requireNonNull(testId, "testId is null");
         this.name = requireNonNull(name, "name is null");
         this.status = status.name();
+        this.matchType = matchType.orElse(null);
         this.skippedReason = skippedReason.map(SkippedReason::name).orElse(null);
-        this.deterministic = determinismAnalysis.filter(d -> !d.isUnknown()).map(DeterminismAnalysis::isDeterministic).orElse(null);
-        this.determinismAnalysis = determinismAnalysis.map(DeterminismAnalysis::name).orElse(null);
+        this.determinismAnalysis = determinismAnalysisDetails.map(DeterminismAnalysisDetails::getResult).orElse(null);
         this.determinismAnalysisDetails = determinismAnalysisDetails.orElse(null);
         this.resolveMessage = resolveMessage.orElse(null);
-        this.controlQueryInfo = requireNonNull(controlQueryInfo, "controlQueryInfo is null");
+        this.controlQueryInfo = controlQueryInfo.orElse(null);
         this.testQueryInfo = requireNonNull(testQueryInfo, "testQueryInfo is null");
         this.errorCode = errorCode.orElse(null);
         this.errorMessage = errorMessage.orElse(null);
@@ -102,25 +103,30 @@ public class VerifierQueryEvent
             String suite,
             String testId,
             SourceQuery sourceQuery,
-            SkippedReason skippedReason)
+            SkippedReason skippedReason,
+            boolean skipControl)
     {
         return new VerifierQueryEvent(
                 suite,
                 testId,
                 sourceQuery.getName(),
                 SKIPPED,
+                Optional.empty(),
                 Optional.of(skippedReason),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
-                new QueryInfo(
-                        sourceQuery.getControlConfiguration().getCatalog(),
-                        sourceQuery.getControlConfiguration().getSchema(),
-                        sourceQuery.getControlQuery()),
-                new QueryInfo(
+                skipControl ?
+                        Optional.empty() :
+                        Optional.of(QueryInfo.builder(
+                                sourceQuery.getControlConfiguration().getCatalog(),
+                                sourceQuery.getControlConfiguration().getSchema(),
+                                sourceQuery.getQuery(CONTROL),
+                                sourceQuery.getControlConfiguration().getSessionProperties()).build()),
+                QueryInfo.builder(
                         sourceQuery.getTestConfiguration().getCatalog(),
                         sourceQuery.getTestConfiguration().getSchema(),
-                        sourceQuery.getTestQuery()),
+                        sourceQuery.getQuery(TEST),
+                        sourceQuery.getTestConfiguration().getSessionProperties()).build(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
@@ -153,16 +159,15 @@ public class VerifierQueryEvent
     }
 
     @EventField
-    public String getSkippedReason()
+    public String getMatchType()
     {
-        return skippedReason;
+        return matchType;
     }
 
     @EventField
-    @Deprecated
-    public Boolean getDeterministic()
+    public String getSkippedReason()
     {
-        return deterministic;
+        return skippedReason;
     }
 
     @EventField

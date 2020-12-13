@@ -17,17 +17,20 @@ import com.facebook.presto.parquet.DictionaryPage;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BinaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BooleanValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int32ValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64TimestampMicrosValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.Int64ValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.TimestampValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BinaryPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.BooleanPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int32PlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.Int64PlainValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.plain.Int64TimestampMicrosPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.plain.TimestampPlainValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BinaryRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.BooleanRLEValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int32RLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.Int64RLEDictionaryValuesDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.Int64TimestampMicrosRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.decoders.rle.TimestampRLEDictionaryValuesDecoder;
 import com.facebook.presto.parquet.batchreader.dictionary.BinaryBatchDictionary;
 import com.facebook.presto.parquet.batchreader.dictionary.TimestampDictionary;
@@ -43,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static com.facebook.presto.parquet.batchreader.decoders.TestParquetUtils.generateDictionaryIdPage2048;
@@ -79,9 +83,19 @@ public class TestValuesDecoders
         return new Int64PlainValuesDecoder(pageBytes, 0, pageBytes.length);
     }
 
+    private static Int64TimestampMicrosValuesDecoder int64TimestampMicrosPlain(byte[] pageBytes)
+    {
+        return new Int64TimestampMicrosPlainValuesDecoder(pageBytes, 0, pageBytes.length);
+    }
+
     private static Int64ValuesDecoder int64Dictionary(byte[] pageBytes, int dictionarySize, LongDictionary dictionary)
     {
         return new Int64RLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
+    }
+
+    private static Int64TimestampMicrosValuesDecoder int64TimestampMicrosDictionary(byte[] pageBytes, int dictionarySize, LongDictionary dictionary)
+    {
+        return new Int64TimestampMicrosRLEDictionaryValuesDecoder(getWidthFromMaxInt(dictionarySize), new ByteArrayInputStream(pageBytes), dictionary);
     }
 
     private static TimestampValuesDecoder timestampPlain(byte[] pageBytes)
@@ -146,6 +160,29 @@ public class TestValuesDecoders
             }
 
             inputOffset += readBatchSize;
+
+            int skipBatchSize = min(skipSize, valueCount - inputOffset);
+            decoder.skip(skipBatchSize);
+            inputOffset += skipBatchSize;
+        }
+    }
+
+    private static void int64BatchReadWithSkipHelper(int batchSize, int skipSize, int valueCount, Int64TimestampMicrosValuesDecoder decoder, List<Object> expectedValues)
+            throws IOException
+    {
+        long[] actualValues = new long[valueCount];
+        int inputOffset = 0;
+        int outputOffset = 0;
+        while (inputOffset < valueCount) {
+            int readBatchSize = min(batchSize, valueCount - inputOffset);
+            decoder.readNext(actualValues, outputOffset, readBatchSize);
+
+            for (int i = 0; i < readBatchSize; i++) {
+                assertEquals(actualValues[outputOffset + i], (long) expectedValues.get(inputOffset + i));
+            }
+
+            inputOffset += readBatchSize;
+            outputOffset += readBatchSize;
 
             int skipBatchSize = min(skipSize, valueCount - inputOffset);
             decoder.skip(skipBatchSize);
@@ -336,6 +373,16 @@ public class TestValuesDecoders
         int64BatchReadWithSkipHelper(256, 29, valueCount, int64Plain(pageBytes), expectedValues);
         int64BatchReadWithSkipHelper(89, 29, valueCount, int64Plain(pageBytes), expectedValues);
         int64BatchReadWithSkipHelper(1024, 1024, valueCount, int64Plain(pageBytes), expectedValues);
+
+        List<Object> expectedTimestampValues = expectedValues.stream().map(v -> (long) v / 1000L).collect(Collectors.toList());
+        int64BatchReadWithSkipHelper(valueCount, 0, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues); // read all values in one batch
+        int64BatchReadWithSkipHelper(29, 0, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues);
+        int64BatchReadWithSkipHelper(89, 0, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues);
+        int64BatchReadWithSkipHelper(1024, 0, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues);
+
+        int64BatchReadWithSkipHelper(256, 29, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues);
+        int64BatchReadWithSkipHelper(89, 29, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues);
+        int64BatchReadWithSkipHelper(1024, 1024, valueCount, int64TimestampMicrosPlain(pageBytes), expectedTimestampValues);
     }
 
     @Test
@@ -366,6 +413,16 @@ public class TestValuesDecoders
         int64BatchReadWithSkipHelper(256, 29, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
         int64BatchReadWithSkipHelper(89, 29, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
         int64BatchReadWithSkipHelper(1024, 1024, valueCount, int64Dictionary(dataPage, dictionarySize, longDictionary), expectedValues);
+
+        List<Object> expectedTimestampValues = expectedValues.stream().map(v -> (long) v / 1000L).collect(Collectors.toList());
+        int64BatchReadWithSkipHelper(valueCount, 0, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);
+        int64BatchReadWithSkipHelper(29, 0, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);
+        int64BatchReadWithSkipHelper(89, 0, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);
+        int64BatchReadWithSkipHelper(1024, 0, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);
+
+        int64BatchReadWithSkipHelper(256, 29, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);
+        int64BatchReadWithSkipHelper(89, 29, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);
+        int64BatchReadWithSkipHelper(1024, 1024, valueCount, int64TimestampMicrosDictionary(dataPage, dictionarySize, longDictionary), expectedTimestampValues);
     }
 
     @Test

@@ -115,7 +115,9 @@ public class BenchmarkWindowOperator
                         Ints.asList(),
                         Ints.asList(3),
                         ImmutableList.of(SortOrder.ASC_NULLS_LAST),
-                        0);
+                        0,
+                        new DummySpillerFactory(),
+                        false);
             }
             else if (numberOfPreGroupedColumns < NUMBER_OF_GROUP_COLUMNS) {
                 // Partially grouped
@@ -127,7 +129,9 @@ public class BenchmarkWindowOperator
                         Ints.asList(1),
                         Ints.asList(3),
                         ImmutableList.of(SortOrder.ASC_NULLS_LAST),
-                        0);
+                        0,
+                        new DummySpillerFactory(),
+                        false);
             }
             else {
                 // Fully grouped and (potentially) sorted
@@ -139,7 +143,9 @@ public class BenchmarkWindowOperator
                         Ints.asList(0, 1),
                         Ints.asList(3),
                         ImmutableList.of(SortOrder.ASC_NULLS_LAST),
-                        (numberOfPreGroupedColumns - NUMBER_OF_GROUP_COLUMNS));
+                        (numberOfPreGroupedColumns - NUMBER_OF_GROUP_COLUMNS),
+                        new DummySpillerFactory(),
+                        false);
             }
         }
 

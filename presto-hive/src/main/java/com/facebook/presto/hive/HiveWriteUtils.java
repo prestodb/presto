@@ -419,11 +419,20 @@ public final class HiveWriteUtils
 
         // use relative temporary directory on ViewFS
         if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
-            temporaryPrefix = ".hive-staging";
+            if (pathExists(context, hdfsEnvironment, targetPath)) {
+                temporaryPrefix = ".hive-staging";
+            }
+            else {
+                //use the temporary folder in parent when target path does not exist
+                temporaryPrefix = "../.hive-staging";
+            }
         }
 
         // create a temporary directory on the same filesystem
         Path temporaryRoot = new Path(targetPath, temporaryPrefix);
+        if (!pathExists(context, hdfsEnvironment, temporaryRoot)) {
+            createDirectory(context, hdfsEnvironment, temporaryRoot);
+        }
         Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
 
         createDirectory(context, hdfsEnvironment, temporaryPath);

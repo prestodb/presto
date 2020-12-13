@@ -19,6 +19,14 @@ import com.facebook.presto.common.block.BlockBuilder;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toSet;
+
 public final class TypeUtils
 {
     public static final int NULL_HASH_CODE = 0;
@@ -100,5 +108,38 @@ public final class TypeUtils
         if (isNull) {
             throw new NotSupportedException(errorMsg);
         }
+    }
+
+    static void validateEnumMap(Map<String, ?> enumMap)
+    {
+        if (enumMap.containsKey(null)) {
+            throw new IllegalArgumentException("Enum cannot contain null key");
+        }
+        int nUniqueAndNotNullValues = enumMap.values().stream()
+                .filter(Objects::nonNull).collect(toSet()).size();
+        if (nUniqueAndNotNullValues != enumMap.size()) {
+            throw new IllegalArgumentException("Enum cannot contain null or duplicate values");
+        }
+        int nCaseInsensitiveKeys = enumMap.keySet().stream().map(k -> k.toUpperCase(ENGLISH)).collect(Collectors.toSet()).size();
+        if (nCaseInsensitiveKeys != enumMap.size()) {
+            throw new IllegalArgumentException("Enum cannot contain case-insensitive duplicate keys");
+        }
+    }
+
+    static <V> Map<String, V> normalizeEnumMap(Map<String, V> entries)
+    {
+        return entries.entrySet().stream()
+                .collect(toMap(e -> e.getKey().toUpperCase(ENGLISH), Map.Entry::getValue));
+    }
+
+    public static ParametricType toEnumParametricType(TypeSignature typeSignature)
+    {
+        if (!typeSignature.isEnum() && typeSignature.getParameters().size() == 1) {
+            throw new IllegalStateException("Expect enum type with enum map");
+        }
+        if (typeSignature.isLongEnum()) {
+            return new LongEnumParametricType(typeSignature.getTypeSignatureBase().getQualifiedObjectName(), typeSignature.getParameters().get(0).getLongEnumMap());
+        }
+        return new VarcharEnumParametricType(typeSignature.getTypeSignatureBase().getQualifiedObjectName(), typeSignature.getParameters().get(0).getVarcharEnumMap());
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.CreateTableAsSelect;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
@@ -45,6 +46,7 @@ import java.util.Set;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_DATA_CHANGED;
+import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.FAILED_QUERY_FAILURE;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NON_DETERMINISTIC;
 import static com.facebook.presto.verifier.framework.LimitQueryDeterminismAnalysis.NOT_RUN;
 import static com.facebook.presto.verifier.framework.QueryStage.DETERMINISM_ANALYSIS_MAIN;
@@ -88,7 +90,14 @@ class LimitQueryDeterminismAnalyzer
 
     public LimitQueryDeterminismAnalysis analyze()
     {
-        LimitQueryDeterminismAnalysis analysis = analyzeInternal();
+        LimitQueryDeterminismAnalysis analysis;
+        try {
+            analysis = analyzeInternal();
+        }
+        catch (QueryException queryException) {
+            analysis = FAILED_QUERY_FAILURE;
+        }
+
         determinismAnalysisDetails.setLimitQueryAnalysis(analysis);
         return analysis;
     }
@@ -144,6 +153,9 @@ class LimitQueryDeterminismAnalyzer
             return NOT_RUN;
         }
         long limit = parseLong(query.getLimit().get());
+        if (rowCount < limit) {
+            return DETERMINISTIC;
+        }
         Optional<String> newLimit = Optional.of(Long.toString(limit + 1));
         Query newLimitQuery = new Query(query.getWith(), query.getQueryBody(), Optional.empty(), newLimit);
         return analyzeLimitNoOrderBy(newLimitQuery, limit);
@@ -202,6 +214,9 @@ class LimitQueryDeterminismAnalyzer
             return NOT_RUN;
         }
         long limit = parseLong(querySpecification.getLimit().get());
+        if (rowCount < limit) {
+            return DETERMINISTIC;
+        }
         Optional<String> newLimit = Optional.of(Long.toString(limit + 1));
         Optional<OrderBy> orderBy = querySpecification.getOrderBy();
 
@@ -247,13 +262,13 @@ class LimitQueryDeterminismAnalyzer
 
         QueryResult<Long> result = callAndConsume(
                 () -> prestoAction.execute(rowCountQuery, DETERMINISM_ANALYSIS_MAIN, resultSet -> Optional.of(resultSet.getLong(1))),
-                stats -> determinismAnalysisDetails.setLimitQueryAnalysisQueryId(stats.getQueryId()));
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(determinismAnalysisDetails::setLimitQueryAnalysisQueryId));
 
         long rowCountHigherLimit = getOnlyElement(result.getResults());
         if (rowCountHigherLimit == rowCount) {
             return DETERMINISTIC;
         }
-        if (rowCount >= limit && rowCountHigherLimit > rowCount) {
+        if (rowCountHigherLimit > rowCount) {
             return NON_DETERMINISTIC;
         }
         return FAILED_DATA_CHANGED;
@@ -263,7 +278,7 @@ class LimitQueryDeterminismAnalyzer
     {
         QueryResult<List<Object>> result = callAndConsume(
                 () -> prestoAction.execute(tieInspectorQuery, DETERMINISM_ANALYSIS_MAIN, new TieInspector(limit)),
-                stats -> determinismAnalysisDetails.setLimitQueryAnalysisQueryId(stats.getQueryId()));
+                stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(determinismAnalysisDetails::setLimitQueryAnalysisQueryId));
         if (result.getResults().isEmpty()) {
             return FAILED_DATA_CHANGED;
         }

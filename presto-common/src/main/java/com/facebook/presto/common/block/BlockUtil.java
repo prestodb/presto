@@ -22,6 +22,8 @@ import java.util.Arrays;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.ceil;
+import static java.lang.Math.max;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -106,13 +108,15 @@ public final class BlockUtil
         return (int) newSize;
     }
 
-    static int calculateBlockResetBytes(int currentBytes)
+    static int calculateNestedStructureResetSize(int currentNestedStructureSize, int currentNestedStructurePositionCount, int expectedPositionCount)
     {
-        long newBytes = (long) ceil(currentBytes * BLOCK_RESET_SKEW);
-        if (newBytes > MAX_ARRAY_SIZE) {
+        long newSize = max(
+                (long) ceil(currentNestedStructureSize * BLOCK_RESET_SKEW),
+                currentNestedStructurePositionCount == 0 ? currentNestedStructureSize : (long) currentNestedStructureSize * expectedPositionCount / currentNestedStructurePositionCount);
+        if (newSize > MAX_ARRAY_SIZE) {
             return MAX_ARRAY_SIZE;
         }
-        return (int) newBytes;
+        return toIntExact(newSize);
     }
 
     /**

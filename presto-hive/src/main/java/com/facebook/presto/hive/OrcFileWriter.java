@@ -18,8 +18,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
+import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.DataSink;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfWriterEncryption;
 import com.facebook.presto.orc.OrcDataSource;
@@ -47,6 +47,7 @@ import java.util.function.Supplier;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
+import static com.facebook.presto.hive.HiveManifestUtils.createFileStatisticsPage;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -64,6 +65,7 @@ public class OrcFileWriter
     private final Optional<Supplier<OrcDataSource>> validationInputFactory;
 
     private long validationCpuNanos;
+    private long rowCount;
 
     public OrcFileWriter(
             DataSink dataSink,
@@ -125,6 +127,12 @@ public class OrcFileWriter
     }
 
     @Override
+    public long getFileSizeInBytes()
+    {
+        return orcWriter.getWrittenBytes();
+    }
+
+    @Override
     public long getSystemMemoryUsage()
     {
         return INSTANCE_SIZE + orcWriter.getRetainedBytes();
@@ -146,6 +154,7 @@ public class OrcFileWriter
         Page page = new Page(dataPage.getPositionCount(), blocks);
         try {
             orcWriter.write(page);
+            rowCount += page.getPositionCount();
         }
         catch (IOException | UncheckedIOException e) {
             throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
@@ -153,7 +162,7 @@ public class OrcFileWriter
     }
 
     @Override
-    public void commit()
+    public Optional<Page> commit()
     {
         try {
             orcWriter.close();
@@ -180,6 +189,8 @@ public class OrcFileWriter
                 throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
+
+        return Optional.of(createFileStatisticsPage(getFileSizeInBytes(), rowCount));
     }
 
     @Override

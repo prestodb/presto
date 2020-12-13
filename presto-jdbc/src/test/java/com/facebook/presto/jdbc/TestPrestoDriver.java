@@ -31,6 +31,8 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.metadata.Catalog;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.plugin.blackhole.BlackHolePlugin;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -84,6 +86,9 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
+import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
+import static com.facebook.presto.tests.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.Float.POSITIVE_INFINITY;
 import static java.lang.String.format;
@@ -121,6 +126,10 @@ public class TestPrestoDriver
         server.createCatalog(TEST_CATALOG, "tpch");
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
+        Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
+        server.getCatalogManager().registerCatalog(bogusTestingCatalog);
+        SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
+        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorId(), TEST_CATALOG_PROPERTIES);
         waitForNodeRefresh(server);
         setupTestTables();
         executorService = newCachedThreadPool(daemonThreadsNamed("test-%s"));
@@ -379,7 +388,7 @@ public class TestPrestoDriver
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getCatalogs()) {
-                assertEquals(readRows(rs), list(list("blackhole"), list("system"), list(TEST_CATALOG)));
+                assertEquals(readRows(rs), list(list("blackhole"), list("system"), list(TEST_CATALOG), list(TESTING_CATALOG)));
 
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertEquals(metadata.getColumnCount(), 1);
@@ -1641,6 +1650,32 @@ public class TestPrestoDriver
             // make sure query completes
             assertEquals(future.get(10, SECONDS), (Integer) 1);
         }
+    }
+
+    @Test
+    public void testEncodeDecodeSessionValue()
+            throws Exception
+    {
+        boolean isValidSessionValue = false;
+        String targetValue = "a+1==3";
+        try (Connection connection = createConnection(TESTING_CATALOG)) {
+            try (Statement statement = connection.createStatement()) {
+                assertFalse(statement.execute(format("set session %s.connector_string='%s'", TESTING_CATALOG, targetValue)));
+                assertNull(statement.getResultSet());
+
+                assertTrue(statement.execute("show session"));
+                ResultSet rs = statement.getResultSet();
+                while (rs.next()) {
+                    String sessionName = rs.getString("Name");
+                    if (sessionName.equals(format("%s.connector_string", TESTING_CATALOG))) {
+                        assertEquals(rs.getString("Value"), targetValue);
+                        isValidSessionValue = true;
+                        break;
+                    }
+                }
+            }
+        }
+        assertTrue(isValidSessionValue);
     }
 
     private QueryState getQueryState(String queryId)

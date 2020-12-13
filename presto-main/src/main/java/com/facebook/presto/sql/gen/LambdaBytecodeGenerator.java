@@ -144,7 +144,7 @@ public class LambdaBytecodeGenerator
                 .collect(toImmutableSet());
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
 
-        int counter = 0;
+        int counter = existingCompiledLambdas.size();
         for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
             CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
                     lambdaExpression,
@@ -336,7 +336,7 @@ public class LambdaBytecodeGenerator
                 scope,
                 callSiteBinder,
                 cachedInstanceBinder,
-                metadata.getFunctionManager());
+                metadata.getFunctionAndTypeManager());
 
         body.append(
                 generateLambda(

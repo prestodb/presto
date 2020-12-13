@@ -61,7 +61,7 @@ public class TestTaskManagerConfig
                 .setPartitionedWriterCount(null)
                 .setTaskConcurrency(16)
                 .setHttpResponseThreads(100)
-                .setHttpTimeoutConcurrency(1)
+                .setHttpTimeoutConcurrency(3)
                 .setHttpTimeoutThreads(3)
                 .setTaskNotificationThreads(5)
                 .setTaskYieldThreads(3)

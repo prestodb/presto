@@ -14,9 +14,9 @@
 package com.facebook.presto.kafka.util;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.kafka.KafkaPlugin;
 import com.facebook.presto.kafka.KafkaTopicDescription;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.TestingPrestoClient;
@@ -65,7 +65,8 @@ public final class TestUtils
                 "kafka.nodes", embeddedKafka.getConnectString(),
                 "kafka.table-names", Joiner.on(",").join(topicDescriptions.keySet()),
                 "kafka.connect-timeout", "120s",
-                "kafka.default-schema", "default");
+                "kafka.default-schema", "default",
+                "kafka.table-description-dir", "write-test");
         queryRunner.createCatalog("kafka", "kafka", kafkaConfig);
     }
 

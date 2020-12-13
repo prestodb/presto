@@ -53,6 +53,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -302,5 +303,16 @@ public final class HiveType
     {
         // Size of TypeInfo is not accounted as TypeInfo's are cached and retained by the TypeInfoFactory
         return INSTANCE_SIZE + hiveTypeName.getEstimatedSizeInBytes();
+    }
+
+    public Optional<HiveType> findChildType(List<String> childPath)
+    {
+        TypeInfo typeInfo = getTypeInfo();
+        for (String part : childPath) {
+            checkArgument(typeInfo instanceof StructTypeInfo, "typeinfo is not struct type", typeInfo);
+            StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
+            typeInfo = structTypeInfo.getStructFieldTypeInfo(part);
+        }
+        return Optional.of(toHiveType(typeInfo));
     }
 }

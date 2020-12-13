@@ -20,6 +20,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayDeque;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,6 +33,9 @@ public class PrestoSparkOutputBuffer<T extends PrestoSparkBufferedResult>
     private final Queue<T> buffer = new ArrayDeque<>();
     @GuardedBy("monitor")
     private boolean finished;
+
+    private final AtomicLong totalRowsProcessed = new AtomicLong();
+    private final AtomicLong totalPagesProcessed = new AtomicLong();
 
     public PrestoSparkOutputBuffer(OutputBufferMemoryManager memoryManager)
     {
@@ -79,6 +83,20 @@ public class PrestoSparkOutputBuffer<T extends PrestoSparkBufferedResult>
                 memoryManager.updateMemoryUsage(-rowBatch.getRetainedSizeInBytes());
             }
         }
+        if (rowBatch != null) {
+            totalPagesProcessed.incrementAndGet();
+            totalRowsProcessed.addAndGet(rowBatch.getPositionCount());
+        }
         return rowBatch;
+    }
+
+    public long getTotalRowsProcessed()
+    {
+        return totalRowsProcessed.get();
+    }
+
+    public long getTotalPagesProcessed()
+    {
+        return totalPagesProcessed.get();
     }
 }

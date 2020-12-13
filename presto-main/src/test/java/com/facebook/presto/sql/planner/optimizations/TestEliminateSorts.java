@@ -88,29 +88,14 @@ public class TestEliminateSorts
 
     public void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        List<PlanOptimizer> optimizersBeforeTranslation = ImmutableList.of(
-                new UnaliasSymbolReferences(getMetadata().getFunctionManager()),
-                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser()),
-                new PruneUnreferencedOutputs(),
-                new IterativeOptimizer(
-                        new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
-                        getQueryRunner().getCostCalculator(),
-                        new TranslateExpressions(getQueryRunner().getMetadata(), new SqlParser()).rules()),
-                new IterativeOptimizer(
-                        new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
-                        getQueryRunner().getCostCalculator(),
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
-
-        List<PlanOptimizer> optimizersAfterTranslation = ImmutableList.of(
-                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser()),
+        List<PlanOptimizer> optimizers = ImmutableList.of(
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getCostCalculator(),
                         new TranslateExpressions(getMetadata(), new SqlParser()).rules()),
-                new UnaliasSymbolReferences(getMetadata().getFunctionManager()),
+                new AddExchanges(getQueryRunner().getMetadata(), new SqlParser()),
+                new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
                 new PruneUnreferencedOutputs(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
@@ -118,7 +103,6 @@ public class TestEliminateSorts
                         getQueryRunner().getCostCalculator(),
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())));
 
-        assertPlan(sql, pattern, optimizersBeforeTranslation);
-        assertPlan(sql, pattern, optimizersAfterTranslation);
+        assertPlan(sql, pattern, optimizers);
     }
 }

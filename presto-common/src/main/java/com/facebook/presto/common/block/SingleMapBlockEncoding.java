@@ -15,36 +15,19 @@
 package com.facebook.presto.common.block;
 
 import com.facebook.presto.common.block.AbstractMapBlock.HashTables;
-import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.TypeSerde;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
-import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static com.facebook.presto.common.block.AbstractMapBlock.HASH_MULTIPLIER;
-import static com.facebook.presto.common.block.MethodHandleUtil.compose;
-import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static java.lang.String.format;
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
-import static java.util.Objects.requireNonNull;
 
 public class SingleMapBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "MAP_ELEMENT";
-
-    private final TypeManager typeManager;
-
-    public SingleMapBlockEncoding(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
 
     @Override
     public String getName()
@@ -56,7 +39,6 @@ public class SingleMapBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         SingleMapBlock singleMapBlock = (SingleMapBlock) block;
-        TypeSerde.writeType(sliceOutput, singleMapBlock.getKeyType());
 
         int offset = singleMapBlock.getOffsetBase();
         int positionCount = singleMapBlock.getPositionCount();
@@ -78,12 +60,6 @@ public class SingleMapBlockEncoding
     @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        Type keyType = TypeSerde.readType(typeManager, sliceInput);
-        MethodHandle keyNativeEquals = typeManager.resolveOperator(OperatorType.EQUAL, asList(keyType, keyType));
-        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = typeManager.resolveOperator(OperatorType.HASH_CODE, singletonList(keyType));
-        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
-
         Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
 
@@ -111,12 +87,8 @@ public class SingleMapBlockEncoding
                 new int[] {0, keyBlock.getPositionCount()},
                 keyBlock,
                 valueBlock,
-                new HashTables(Optional.ofNullable(hashTable), 1, hashTableLength),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                new HashTables(Optional.ofNullable(hashTable), 1, hashTableLength));
 
-        return new SingleMapBlock(0, keyBlock.getPositionCount() * 2, mapBlock);
+        return new SingleMapBlock(0, 0, keyBlock.getPositionCount() * 2, mapBlock);
     }
 }

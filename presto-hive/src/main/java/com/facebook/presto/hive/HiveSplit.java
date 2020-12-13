@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
@@ -59,6 +60,7 @@ public class HiveSplit
     private final Optional<byte[]> extraFileInfo;
     private final CacheQuotaRequirement cacheQuotaRequirement;
     private final Optional<EncryptionInformation> encryptionInformation;
+    private final Map<String, String> customSplitInfo;
 
     @JsonCreator
     public HiveSplit(
@@ -81,7 +83,8 @@ public class HiveSplit
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("extraFileInfo") Optional<byte[]> extraFileInfo,
             @JsonProperty("cacheQuota") CacheQuotaRequirement cacheQuotaRequirement,
-            @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation)
+            @JsonProperty("encryptionMetadata") Optional<EncryptionInformation> encryptionInformation,
+            @JsonProperty("customSplitInfo") Map<String, String> customSplitInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -122,6 +125,7 @@ public class HiveSplit
         this.extraFileInfo = extraFileInfo;
         this.cacheQuotaRequirement = cacheQuotaRequirement;
         this.encryptionInformation = encryptionInformation;
+        this.customSplitInfo = ImmutableMap.copyOf(requireNonNull(customSplitInfo, "customSplitInfo is null"));
     }
 
     @JsonProperty
@@ -264,6 +268,12 @@ public class HiveSplit
         return encryptionInformation;
     }
 
+    @JsonProperty
+    public Map<String, String> getCustomSplitInfo()
+    {
+        return customSplitInfo;
+    }
+
     @Override
     public Object getInfo()
     {
@@ -280,6 +290,22 @@ public class HiveSplit
                 .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .put("cacheQuotaRequirement", cacheQuotaRequirement)
                 .build();
+    }
+
+    @Override
+    public Object getSplitIdentifier()
+    {
+        return ImmutableMap.builder()
+                .put("path", path)
+                .put("start", start)
+                .put("length", length)
+                .build();
+    }
+
+    @Override
+    public OptionalLong getSplitSizeInBytes()
+    {
+        return OptionalLong.of(getLength());
     }
 
     @Override

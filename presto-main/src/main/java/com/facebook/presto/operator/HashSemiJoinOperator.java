@@ -143,7 +143,7 @@ public class HashSemiJoinOperator
         // we know the exact size required for the block
         BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(page.getPositionCount());
 
-        Page probeJoinPage = new Page(page.getBlock(probeJoinChannel));
+        Page probeJoinPage = page.extractChannel(probeJoinChannel);
 
         // update hashing strategy to use probe cursor
         for (int position = 0; position < page.getPositionCount(); position++) {

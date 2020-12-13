@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.thrift.BridgingHiveMetastore;
 import com.facebook.presto.hive.metastore.thrift.InMemoryHiveMetastore;
 
@@ -27,7 +28,7 @@ public class TestHiveClientInMemoryMetastore
     {
         File baseDir = new File(tempDir, "metastore");
         InMemoryHiveMetastore hiveMetastore = new InMemoryHiveMetastore(baseDir);
-        return new BridgingHiveMetastore(hiveMetastore);
+        return new BridgingHiveMetastore(hiveMetastore, new HivePartitionMutator());
     }
 
     @Override

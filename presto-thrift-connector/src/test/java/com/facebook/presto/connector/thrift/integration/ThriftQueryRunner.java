@@ -23,14 +23,15 @@ import com.facebook.drift.transport.netty.server.DriftNettyServerConfig;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.connector.thrift.ThriftPlugin;
 import com.facebook.presto.connector.thrift.server.ThriftIndexedTpchService;
 import com.facebook.presto.connector.thrift.server.ThriftTpchService;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
@@ -47,6 +48,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
@@ -234,6 +236,12 @@ public final class ThriftQueryRunner
         }
 
         @Override
+        public Optional<EventListener> getEventListener()
+        {
+            return source.getEventListener();
+        }
+
+        @Override
         public TestingAccessControlManager getAccessControl()
         {
             return source.getAccessControl();
@@ -276,9 +284,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public void loadFunctionNamespaceManager(String catalogName, String connectorName, Map<String, String> properties)
+        public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
         {
-            source.loadFunctionNamespaceManager(catalogName, connectorName, properties);
+            source.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
         }
 
         @Override

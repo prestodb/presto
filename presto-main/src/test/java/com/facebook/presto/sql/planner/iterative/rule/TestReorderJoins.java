@@ -44,7 +44,7 @@ import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -74,7 +74,7 @@ public class TestReorderJoins
                         JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name(),
                         JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name()),
                 Optional.of(4));
-        this.functionResolution = new FunctionResolution(tester.getMetadata().getFunctionManager());
+        this.functionResolution = new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager());
     }
 
     @AfterClass(alwaysRun = true)
@@ -336,7 +336,7 @@ public class TestReorderJoins
                                 ImmutableList.of(p.variable("A1"), p.variable("B1")),
                                 Optional.of(comparisonRowExpression(LESS_THAN, variable("A1", BIGINT), call(
                                         RANDOM.toString(),
-                                        tester.getMetadata().getFunctionManager().resolveFunction(Optional.empty(), qualifyFunctionName(RANDOM), ImmutableList.of()),
+                                        tester.getMetadata().getFunctionAndTypeManager().resolveFunction(Optional.empty(), qualifyObjectName(RANDOM), ImmutableList.of()),
                                         BIGINT,
                                         ImmutableList.of())))))
                 .doesNotFire();

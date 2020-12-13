@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -22,12 +22,15 @@ import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -47,7 +50,7 @@ import static java.util.Objects.requireNonNull;
 
 @Immutable
 public class JoinNode
-        extends InternalPlanNode
+        extends AbstractJoinNode
 {
     private final Type type;
     private final PlanNode left;
@@ -58,6 +61,7 @@ public class JoinNode
     private final Optional<VariableReferenceExpression> leftHashVariable;
     private final Optional<VariableReferenceExpression> rightHashVariable;
     private final Optional<DistributionType> distributionType;
+    private final Map<String, VariableReferenceExpression> dynamicFilters;
 
     @JsonCreator
     public JoinNode(@JsonProperty("id") PlanNodeId id,
@@ -69,7 +73,8 @@ public class JoinNode
             @JsonProperty("filter") Optional<RowExpression> filter,
             @JsonProperty("leftHashVariable") Optional<VariableReferenceExpression> leftHashVariable,
             @JsonProperty("rightHashVariable") Optional<VariableReferenceExpression> rightHashVariable,
-            @JsonProperty("distributionType") Optional<DistributionType> distributionType)
+            @JsonProperty("distributionType") Optional<DistributionType> distributionType,
+            @JsonProperty("dynamicFilters") Map<String, VariableReferenceExpression> dynamicFilters)
     {
         super(id);
         requireNonNull(type, "type is null");
@@ -81,6 +86,7 @@ public class JoinNode
         requireNonNull(leftHashVariable, "leftHashVariable is null");
         requireNonNull(rightHashVariable, "rightHashVariable is null");
         requireNonNull(distributionType, "distributionType is null");
+        requireNonNull(dynamicFilters, "dynamicFilters is null");
 
         this.type = type;
         this.left = left;
@@ -91,6 +97,7 @@ public class JoinNode
         this.leftHashVariable = leftHashVariable;
         this.rightHashVariable = rightHashVariable;
         this.distributionType = distributionType;
+        this.dynamicFilters = ImmutableMap.copyOf(dynamicFilters);
 
         Set<VariableReferenceExpression> inputVariables = ImmutableSet.<VariableReferenceExpression>builder()
                 .addAll(left.getOutputVariables())
@@ -116,6 +123,14 @@ public class JoinNode
                     type,
                     distributionType.get());
         }
+
+        for (VariableReferenceExpression variableReferenceExpression : dynamicFilters.values()) {
+            checkArgument(right.getOutputVariables().contains(variableReferenceExpression), format(
+                    "Right join input doesn't contain symbol for dynamic filter: %s, rightVariables: %s, dynamicFilters.values(): %s",
+                    variableReferenceExpression,
+                    Arrays.toString(right.getOutputVariables().toArray()),
+                    Arrays.toString(dynamicFilters.values().toArray())));
+        }
     }
 
     public JoinNode flipChildren()
@@ -130,7 +145,8 @@ public class JoinNode
                 filter,
                 rightHashVariable,
                 leftHashVariable,
-                distributionType);
+                distributionType,
+                ImmutableMap.of()); // dynamicFilters are invalid after flipping children
     }
 
     private static Type flipType(Type type)
@@ -220,8 +236,20 @@ public class JoinNode
         return left;
     }
 
+    @Override
+    public PlanNode getProbe()
+    {
+        return left;
+    }
+
     @JsonProperty
     public PlanNode getRight()
+    {
+        return right;
+    }
+
+    @Override
+    public PlanNode getBuild()
     {
         return right;
     }
@@ -238,10 +266,10 @@ public class JoinNode
         return filter;
     }
 
-    public Optional<SortExpressionContext> getSortExpressionContext(FunctionManager functionManager)
+    public Optional<SortExpressionContext> getSortExpressionContext(FunctionAndTypeManager functionAndTypeManager)
     {
         return filter
-                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputVariables()), filter, functionManager));
+                .flatMap(filter -> extractSortExpression(ImmutableSet.copyOf(right.getOutputVariables()), filter, functionAndTypeManager));
     }
 
     @JsonProperty
@@ -276,6 +304,13 @@ public class JoinNode
     }
 
     @Override
+    @JsonProperty
+    public Map<String, VariableReferenceExpression> getDynamicFilters()
+    {
+        return dynamicFilters;
+    }
+
+    @Override
     public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitJoin(this, context);
@@ -285,12 +320,12 @@ public class JoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType);
+        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType));
+        return new JoinNode(getId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.of(distributionType), dynamicFilters);
     }
 
     public boolean isCrossJoin()

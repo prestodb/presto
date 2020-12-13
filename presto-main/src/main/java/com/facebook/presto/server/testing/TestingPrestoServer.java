@@ -59,6 +59,7 @@ import com.facebook.presto.server.smile.SmileModule;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -67,9 +68,11 @@ import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingEventListenerManager;
+import com.facebook.presto.testing.TestingTempStorageManager;
 import com.facebook.presto.testing.TestingWarningCollectorModule;
 import com.facebook.presto.transaction.TransactionManager;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
@@ -136,6 +139,7 @@ public class TestingPrestoServer
     private final SqlParser sqlParser;
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
+    private final TestingEventListenerManager eventListenerManager;
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
     private final Optional<InternalResourceGroupManager<?>> resourceGroupManager;
@@ -250,8 +254,10 @@ public class TestingPrestoServer
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
+                    binder.bind(TestingTempStorageManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(EventListenerManager.class).to(TestingEventListenerManager.class).in(Scopes.SINGLETON);
+                    binder.bind(TempStorageManager.class).to(TestingTempStorageManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
@@ -279,7 +285,6 @@ public class TestingPrestoServer
         }
 
         injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(serverProperties)
                 .setOptionalConfigurationProperties(optionalProperties)
@@ -311,6 +316,7 @@ public class TestingPrestoServer
             planOptimizerManager = injector.getInstance(ConnectorPlanOptimizerManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
+            eventListenerManager = ((TestingEventListenerManager) injector.getInstance(EventListenerManager.class));
         }
         else {
             dispatchManager = null;
@@ -320,6 +326,7 @@ public class TestingPrestoServer
             planOptimizerManager = null;
             clusterMemoryManager = null;
             statsCalculator = null;
+            eventListenerManager = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -348,6 +355,7 @@ public class TestingPrestoServer
         serverProperties.put("task.concurrency", "4");
         serverProperties.put("task.max-worker-threads", "4");
         serverProperties.put("exchange.client-threads", "4");
+        serverProperties.put("optimizer.ignore-stats-calculator-failures", "false");
         if (coordinator) {
             // enabling failure detector in tests can make them flakey
             serverProperties.put("failure-detector.enabled", "false");
@@ -469,6 +477,12 @@ public class TestingPrestoServer
     {
         checkState(coordinator, "not a coordinator");
         return statsCalculator;
+    }
+
+    public Optional<EventListener> getEventListener()
+    {
+        checkState(coordinator, "not a coordinator");
+        return eventListenerManager.getEventListener();
     }
 
     public TestingAccessControlManager getAccessControl()

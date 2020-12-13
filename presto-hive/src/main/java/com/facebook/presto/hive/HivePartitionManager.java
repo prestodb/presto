@@ -193,7 +193,7 @@ public class HivePartitionManager
 
         List<HivePartition> partitions = getPartitionsAsList(getPartitionsIterator(metastore, tableHandle, constraint, session).iterator());
 
-        Optional<HiveBucketHandle> hiveBucketHandle = getBucketHandle(table, session);
+        Optional<HiveBucketHandle> hiveBucketHandle = getBucketHandle(table, session, effectivePredicate);
         Optional<HiveBucketFilter> bucketFilter = hiveBucketHandle.flatMap(value -> getHiveBucketFilter(table, effectivePredicate));
 
         if (!queryUsesHiveBucketColumn(effectivePredicate)
@@ -246,7 +246,10 @@ public class HivePartitionManager
                 bucketFilter);
     }
 
-    private Optional<HiveBucketHandle> getBucketHandle(Table table, ConnectorSession session)
+    private Optional<HiveBucketHandle> getBucketHandle(
+            Table table,
+            ConnectorSession session,
+            TupleDomain<ColumnHandle> effectivePredicate)
     {
         // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
         if (table.getTableType().equals(TEMPORARY_TABLE)) {
@@ -254,8 +257,12 @@ public class HivePartitionManager
         }
 
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
-        if (!hiveBucketHandle.isPresent()) {
+        if (!hiveBucketHandle.isPresent() || shouldIgnoreTableBucketing(session)) {
             return Optional.empty();
+        }
+
+        if (queryUsesHiveBucketColumn(effectivePredicate)) {
+            return hiveBucketHandle;
         }
 
         int requiredTableBucketCount = getMinBucketCountToNotIgnoreTableBucketing(session);
@@ -263,7 +270,7 @@ public class HivePartitionManager
             return Optional.empty();
         }
 
-        return shouldIgnoreTableBucketing(session) ? Optional.empty() : hiveBucketHandle;
+        return hiveBucketHandle;
     }
 
     private boolean queryUsesHiveBucketColumn(TupleDomain<ColumnHandle> effectivePredicate)

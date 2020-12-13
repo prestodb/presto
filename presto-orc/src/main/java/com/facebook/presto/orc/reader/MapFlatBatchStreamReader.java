@@ -25,6 +25,7 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.DwrfSequenceEncoding;
@@ -99,8 +100,9 @@ public class MapFlatBatchStreamReader
     private boolean rowGroupOpen;
 
     private OrcAggregatedMemoryContext systemMemoryContext;
+    private final OrcRecordReaderOptions options;
 
-    public MapFlatBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcAggregatedMemoryContext systemMemoryContext)
+    public MapFlatBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcRecordReaderOptions options, OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
@@ -111,6 +113,7 @@ public class MapFlatBatchStreamReader
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.keyOrcType = streamDescriptor.getNestedStreams().get(0).getOrcTypeKind();
         this.baseValueStreamDescriptor = streamDescriptor.getNestedStreams().get(1);
+        this.options = requireNonNull(options);
     }
 
     @Override
@@ -155,13 +158,7 @@ public class MapFlatBatchStreamReader
         else {
             nullVector = new boolean[nextBatchSize];
             int nullValues = presentStream.getUnsetBits(nextBatchSize, nullVector);
-            if (nullValues == nextBatchSize) {
-                for (int i = 0; i < inMapStreams.size(); i++) {
-                    inMapVectors[i] = null;
-                    totalMapEntries += nextBatchSize;
-                }
-            }
-            else {
+            if (nullValues != nextBatchSize) {
                 for (int i = 0; i < inMapStreams.size(); i++) {
                     inMapVectors[i] = new boolean[nextBatchSize];
                     totalMapEntries += inMapStreams.get(i).getSetBits(nextBatchSize, inMapVectors[i], nullVector);
@@ -174,22 +171,24 @@ public class MapFlatBatchStreamReader
 
         Block[] valueBlocks = new Block[valueStreamReaders.size()];
 
-        for (int keyIndex = 0; keyIndex < valueStreamReaders.size(); keyIndex++) {
-            int mapsContainingKey = 0;
+        if (totalMapEntries > 0) {
+            for (int keyIndex = 0; keyIndex < valueStreamReaders.size(); keyIndex++) {
+                int mapsContainingKey = 0;
 
-            for (int mapIndex = 0; mapIndex < nextBatchSize; mapIndex++) {
-                if (inMapVectors[keyIndex] == null || inMapVectors[keyIndex][mapIndex]) {
-                    mapsContainingKey++;
+                for (int mapIndex = 0; mapIndex < nextBatchSize; mapIndex++) {
+                    if (inMapVectors[keyIndex][mapIndex]) {
+                        mapsContainingKey++;
+                    }
                 }
-            }
 
-            if (mapsContainingKey > 0) {
-                BatchStreamReader streamReader = valueStreamReaders.get(keyIndex);
-                streamReader.prepareNextRead(mapsContainingKey);
-                valueBlocks[keyIndex] = streamReader.readBlock();
-            }
-            else {
-                valueBlocks[keyIndex] = valueType.createBlockBuilder(null, 0).build();
+                if (mapsContainingKey > 0) {
+                    BatchStreamReader streamReader = valueStreamReaders.get(keyIndex);
+                    streamReader.prepareNextRead(mapsContainingKey);
+                    valueBlocks[keyIndex] = streamReader.readBlock();
+                }
+                else {
+                    valueBlocks[keyIndex] = valueType.createBlockBuilder(null, 0).build();
+                }
             }
         }
 
@@ -202,12 +201,14 @@ public class MapFlatBatchStreamReader
 
         for (int mapIndex = 0; mapIndex < nextBatchSize; mapIndex++) {
             int mapLength = 0;
-            for (int keyIndex = 0; keyIndex < inMapVectors.length; keyIndex++) {
-                if (inMapVectors[keyIndex] == null || inMapVectors[keyIndex][mapIndex]) {
-                    mapLength++;
-                    valueType.appendTo(valueBlocks[keyIndex], valueBlockPositions[keyIndex], valueBlockBuilder);
-                    keyIds[keyIdsIndex++] = keyIndex;
-                    valueBlockPositions[keyIndex]++;
+            if (totalMapEntries > 0) {
+                for (int keyIndex = 0; keyIndex < inMapVectors.length; keyIndex++) {
+                    if (inMapVectors[keyIndex][mapIndex]) {
+                        mapLength++;
+                        valueType.appendTo(valueBlocks[keyIndex], valueBlockPositions[keyIndex], valueBlockBuilder);
+                        keyIds[keyIdsIndex++] = keyIndex;
+                        valueBlockPositions[keyIndex]++;
+                    }
                 }
             }
 
@@ -246,8 +247,12 @@ public class MapFlatBatchStreamReader
         valueStreamReaders.clear();
 
         ColumnEncoding encoding = encodings.get(baseValueStreamDescriptor.getStreamId());
-        // encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
-        SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().orElse(Collections.emptySortedMap());
+        SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = Collections.emptySortedMap();
+        // encoding or encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
+        if (encoding != null && encoding.getAdditionalSequenceEncodings().isPresent()) {
+            additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().get();
+        }
+
         // The ColumnEncoding with sequence ID 0 doesn't have any data associated with it
         for (int sequence : additionalSequenceEncodings.keySet()) {
             inMapStreamSources.add(missingStreamSource(BooleanInputStream.class));
@@ -255,7 +260,7 @@ public class MapFlatBatchStreamReader
             StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
-            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(type.getValueType(), valueStreamDescriptor, hiveStorageTimeZone, systemMemoryContext);
+            BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(type.getValueType(), valueStreamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
             valueStreamReader.startStripe(dictionaryStreamSources, encodings);
             valueStreamReaders.add(valueStreamReader);
         }

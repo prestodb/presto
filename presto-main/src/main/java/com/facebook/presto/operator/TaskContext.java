@@ -16,8 +16,10 @@ package com.facebook.presto.operator;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskMetadataContext;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
@@ -38,6 +40,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -50,8 +53,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
-import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -94,9 +95,13 @@ public class TaskContext
 
     private final boolean legacyLifespanCompletionCondition;
 
+    private final Optional<FragmentResultCacheContext> fragmentResultCacheContext;
+
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
+
     private final AtomicLong peakTotalMemoryInBytes = new AtomicLong(0);
+    private final AtomicLong peakUserMemoryInBytes = new AtomicLong(0);
 
     @GuardedBy("cumulativeMemoryLock")
     private long lastUserMemoryReservation;
@@ -105,6 +110,8 @@ public class TaskContext
     private long lastTaskStatCallNanos;
 
     private final MemoryTrackingContext taskMemoryContext;
+
+    private final TaskMetadataContext taskMetadataContext;
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -118,7 +125,8 @@ public class TaskContext
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
             boolean allocationTrackingEnabled,
-            boolean legacyLifespanCompletionCondition)
+            boolean legacyLifespanCompletionCondition,
+            Optional<FragmentResultCacheContext> fragmentResultCacheContext)
     {
         TaskContext taskContext = new TaskContext(
                 queryContext,
@@ -132,7 +140,8 @@ public class TaskContext
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
                 allocationTrackingEnabled,
-                legacyLifespanCompletionCondition);
+                legacyLifespanCompletionCondition,
+                fragmentResultCacheContext);
         taskContext.initialize();
         return taskContext;
     }
@@ -148,7 +157,8 @@ public class TaskContext
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
             boolean allocationTrackingEnabled,
-            boolean legacyLifespanCompletionCondition)
+            boolean legacyLifespanCompletionCondition,
+            Optional<FragmentResultCacheContext> fragmentResultCacheContext)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
@@ -164,6 +174,8 @@ public class TaskContext
         this.perOperatorAllocationTrackingEnabled = perOperatorAllocationTrackingEnabled;
         this.allocationTrackingEnabled = allocationTrackingEnabled;
         this.legacyLifespanCompletionCondition = legacyLifespanCompletionCondition;
+        this.fragmentResultCacheContext = requireNonNull(fragmentResultCacheContext, "fragmentResultCacheContext is null");
+        this.taskMetadataContext = new TaskMetadataContext();
     }
 
     // the state change listener is added here in a separate initialize() method
@@ -251,6 +263,11 @@ public class TaskContext
         return taskStateMachine.getState();
     }
 
+    public TaskMetadataContext getTaskMetadataContext()
+    {
+        return taskMetadataContext;
+    }
+
     public DataSize getMemoryReservation()
     {
         return new DataSize(taskMemoryContext.getUserMemory(), BYTE);
@@ -327,6 +344,11 @@ public class TaskContext
     public boolean isLegacyLifespanCompletionCondition()
     {
         return legacyLifespanCompletionCondition;
+    }
+
+    public Optional<FragmentResultCacheContext> getFragmentResultCacheContext()
+    {
+        return fragmentResultCacheContext;
     }
 
     public CounterStat getInputDataSize()
@@ -448,41 +470,41 @@ public class TaskContext
             blockedDrivers += pipeline.getBlockedDrivers();
             completedDrivers += pipeline.getCompletedDrivers();
 
-            totalScheduledTime += pipeline.getTotalScheduledTime().roundTo(NANOSECONDS);
-            totalCpuTime += pipeline.getTotalCpuTime().roundTo(NANOSECONDS);
-            totalBlockedTime += pipeline.getTotalBlockedTime().roundTo(NANOSECONDS);
+            totalScheduledTime += pipeline.getTotalScheduledTimeInNanos();
+            totalCpuTime += pipeline.getTotalCpuTimeInNanos();
+            totalBlockedTime += pipeline.getTotalBlockedTimeInNanos();
 
-            totalAllocation += pipeline.getTotalAllocation().toBytes();
+            totalAllocation += pipeline.getTotalAllocationInBytes();
 
             if (pipeline.isInputPipeline()) {
-                rawInputDataSize += pipeline.getRawInputDataSize().toBytes();
+                rawInputDataSize += pipeline.getRawInputDataSizeInBytes();
                 rawInputPositions += pipeline.getRawInputPositions();
 
-                processedInputDataSize += pipeline.getProcessedInputDataSize().toBytes();
+                processedInputDataSize += pipeline.getProcessedInputDataSizeInBytes();
                 processedInputPositions += pipeline.getProcessedInputPositions();
             }
 
             if (pipeline.isOutputPipeline()) {
-                outputDataSize += pipeline.getOutputDataSize().toBytes();
+                outputDataSize += pipeline.getOutputDataSizeInBytes();
                 outputPositions += pipeline.getOutputPositions();
             }
 
-            physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSize().toBytes();
+            physicalWrittenDataSize += pipeline.getPhysicalWrittenDataSizeInBytes();
         }
 
         long startNanos = this.startNanos.get();
         if (startNanos == 0) {
             startNanos = System.nanoTime();
         }
-        Duration queuedTime = new Duration(startNanos - createNanos, NANOSECONDS);
+        long queuedTimeInNanos = startNanos - createNanos;
 
         long endNanos = this.endNanos.get();
-        Duration elapsedTime;
+        long elapsedTimeInNanos;
         if (endNanos >= startNanos) {
-            elapsedTime = new Duration(endNanos - createNanos, NANOSECONDS);
+            elapsedTimeInNanos = endNanos - createNanos;
         }
         else {
-            elapsedTime = new Duration(0, NANOSECONDS);
+            elapsedTimeInNanos = 0;
         }
 
         int fullGcCount = getFullGcCount();
@@ -491,7 +513,7 @@ public class TaskContext
         long userMemory = taskMemoryContext.getUserMemory();
         long systemMemory = taskMemoryContext.getSystemMemory();
 
-        peakTotalMemoryInBytes.accumulateAndGet(userMemory + systemMemory, Math::max);
+        updatePeakMemory();
 
         synchronized (cumulativeMemoryLock) {
             double sinceLastPeriodMillis = (System.nanoTime() - lastTaskStatCallNanos) / 1_000_000.0;
@@ -517,8 +539,8 @@ public class TaskContext
                 lastExecutionStartTime.get(),
                 lastExecutionEndTime == 0 ? null : new DateTime(lastExecutionEndTime),
                 executionEndTime.get(),
-                elapsedTime.convertToMostSuccinctTimeUnit(),
-                queuedTime.convertToMostSuccinctTimeUnit(),
+                elapsedTimeInNanos,
+                queuedTimeInNanos,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
@@ -527,26 +549,37 @@ public class TaskContext
                 blockedDrivers,
                 completedDrivers,
                 cumulativeUserMemory.get(),
-                succinctBytes(userMemory),
-                succinctBytes(taskMemoryContext.getRevocableMemory()),
-                succinctBytes(systemMemory),
+                userMemory,
+                taskMemoryContext.getRevocableMemory(),
+                systemMemory,
                 peakTotalMemoryInBytes.get(),
-                succinctNanos(totalScheduledTime),
-                succinctNanos(totalCpuTime),
-                succinctNanos(totalBlockedTime),
+                peakUserMemoryInBytes.get(),
+                queryContext.getPeakNodeTotalMemory(),
+                totalScheduledTime,
+                totalCpuTime,
+                totalBlockedTime,
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,
-                succinctBytes(totalAllocation),
-                succinctBytes(rawInputDataSize),
+                totalAllocation,
+                rawInputDataSize,
                 rawInputPositions,
-                succinctBytes(processedInputDataSize),
+                processedInputDataSize,
                 processedInputPositions,
-                succinctBytes(outputDataSize),
+                outputDataSize,
                 outputPositions,
-                succinctBytes(physicalWrittenDataSize),
+                physicalWrittenDataSize,
                 fullGcCount,
-                fullGcTime,
+                fullGcTime.toMillis(),
                 pipelineStats);
+    }
+
+    public void updatePeakMemory()
+    {
+        long userMemory = taskMemoryContext.getUserMemory();
+        long systemMemory = taskMemoryContext.getSystemMemory();
+
+        peakTotalMemoryInBytes.accumulateAndGet(userMemory + systemMemory, Math::max);
+        peakUserMemoryInBytes.accumulateAndGet(userMemory, Math::max);
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)

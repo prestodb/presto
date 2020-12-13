@@ -35,13 +35,18 @@ public class TestVerifierConfig
                 .setJsonEventLogFile(null)
                 .setHumanReadableEventLogFile(null)
                 .setTestId(null)
+                .setTestName(null)
                 .setMaxConcurrency(10)
                 .setSuiteRepetitions(1)
                 .setQueryRepetitions(1)
                 .setRelativeErrorMargin(1e-4)
                 .setAbsoluteErrorMargin(1e-12)
                 .setSmartTeardown(false)
-                .setVerificationResubmissionLimit(2));
+                .setVerificationResubmissionLimit(2)
+                .setSetupOnMainClusters(true)
+                .setTeardownOnMainClusters(true)
+                .setSkipControl(false)
+                .setExplain(false));
     }
 
     @Test
@@ -55,6 +60,7 @@ public class TestVerifierConfig
                 .put("json.log-file", "verifier-json.log")
                 .put("human-readable.log-file", "verifier-human-readable.log")
                 .put("test-id", "12345")
+                .put("test-name", "experiment")
                 .put("max-concurrency", "100")
                 .put("suite-repetitions", "2")
                 .put("query-repetitions", "3")
@@ -62,6 +68,10 @@ public class TestVerifierConfig
                 .put("absolute-error-margin", "1e-14")
                 .put("smart-teardown", "true")
                 .put("verification-resubmission.limit", "1")
+                .put("setup-on-main-clusters", "false")
+                .put("teardown-on-main-clusters", "false")
+                .put("skip-control", "true")
+                .put("explain", "true")
                 .build();
         VerifierConfig expected = new VerifierConfig()
                 .setWhitelist("a,b,c")
@@ -71,13 +81,18 @@ public class TestVerifierConfig
                 .setJsonEventLogFile("verifier-json.log")
                 .setHumanReadableEventLogFile("verifier-human-readable.log")
                 .setTestId("12345")
+                .setTestName("experiment")
                 .setMaxConcurrency(100)
                 .setSuiteRepetitions(2)
                 .setQueryRepetitions(3)
                 .setRelativeErrorMargin(2e-5)
                 .setAbsoluteErrorMargin(1e-14)
                 .setSmartTeardown(true)
-                .setVerificationResubmissionLimit(1);
+                .setVerificationResubmissionLimit(1)
+                .setSetupOnMainClusters(false)
+                .setTeardownOnMainClusters(false)
+                .setSkipControl(true)
+                .setExplain(true);
 
         assertFullMapping(properties, expected);
     }

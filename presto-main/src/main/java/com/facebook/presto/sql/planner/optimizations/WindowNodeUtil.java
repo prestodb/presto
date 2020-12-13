@@ -24,7 +24,6 @@ import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.WindowFrame;
 import com.google.common.collect.ImmutableSet;
 
-import java.util.Collection;
 import java.util.Set;
 
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
@@ -41,17 +40,6 @@ import static java.lang.String.format;
 public final class WindowNodeUtil
 {
     private WindowNodeUtil() {}
-
-    public static boolean dependsOn(WindowNode parent, WindowNode child, TypeProvider types)
-    {
-        return parent.getPartitionBy().stream().anyMatch(child.getCreatedVariable()::contains)
-                || (parent.getOrderingScheme().isPresent() && parent.getOrderingScheme().get().getOrderByVariables().stream()
-                .anyMatch(child.getCreatedVariable()::contains))
-                || parent.getWindowFunctions().values().stream()
-                .map(function -> extractWindowFunctionUniqueVariables(function, types))
-                .flatMap(Collection::stream)
-                .anyMatch(child.getCreatedVariable()::contains);
-    }
 
     public static WindowType toWindowType(WindowFrame.Type type)
     {

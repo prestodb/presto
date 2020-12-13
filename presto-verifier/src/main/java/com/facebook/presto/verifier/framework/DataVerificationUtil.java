@@ -15,7 +15,6 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ShowColumns;
 import com.facebook.presto.sql.tree.Statement;
@@ -23,6 +22,8 @@ import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnMatchResult;
 import com.facebook.presto.verifier.prestoaction.PrestoAction;
+import com.facebook.presto.verifier.prestoaction.QueryAction;
+import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -31,10 +32,10 @@ import java.util.OptionalLong;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
-import static com.facebook.presto.verifier.framework.MatchResult.MatchType.COLUMN_MISMATCH;
-import static com.facebook.presto.verifier.framework.MatchResult.MatchType.MATCH;
-import static com.facebook.presto.verifier.framework.MatchResult.MatchType.ROW_COUNT_MISMATCH;
-import static com.facebook.presto.verifier.framework.MatchResult.MatchType.SCHEMA_MISMATCH;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.COLUMN_MISMATCH;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.ROW_COUNT_MISMATCH;
+import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.SCHEMA_MISMATCH;
 import static com.facebook.presto.verifier.framework.QueryStage.DESCRIBE;
 import static com.facebook.presto.verifier.framework.QueryStage.forTeardown;
 import static com.facebook.presto.verifier.framework.VerifierUtil.runAndConsume;
@@ -46,7 +47,7 @@ public class DataVerificationUtil
 
     private DataVerificationUtil() {}
 
-    public static void teardownSafely(PrestoAction prestoAction, Optional<QueryBundle> bundle, Consumer<QueryStats> queryStatsConsumer)
+    public static void teardownSafely(QueryAction queryAction, Optional<? extends QueryBundle> bundle, Consumer<QueryActionStats> queryStatsConsumer)
     {
         if (!bundle.isPresent()) {
             return;
@@ -54,7 +55,7 @@ public class DataVerificationUtil
 
         for (Statement teardownQuery : bundle.get().getTeardownQueries()) {
             try {
-                runAndConsume(() -> prestoAction.execute(teardownQuery, forTeardown(bundle.get().getCluster())), queryStatsConsumer);
+                runAndConsume(() -> queryAction.execute(teardownQuery, forTeardown(bundle.get().getCluster())), queryStatsConsumer);
             }
             catch (Throwable t) {
                 log.warn("Failed to teardown %s: %s", bundle.get().getCluster().name().toLowerCase(ENGLISH), formatSql(teardownQuery, Optional.empty()));
@@ -69,7 +70,7 @@ public class DataVerificationUtil
                 .getResults();
     }
 
-    public static MatchResult match(
+    public static DataMatchResult match(
             ChecksumValidator checksumValidator,
             List<Column> controlColumns,
             List<Column> testColumns,
@@ -77,7 +78,7 @@ public class DataVerificationUtil
             ChecksumResult testChecksum)
     {
         if (!controlColumns.equals(testColumns)) {
-            return new MatchResult(
+            return new DataMatchResult(
                     SCHEMA_MISMATCH,
                     Optional.empty(),
                     OptionalLong.empty(),
@@ -88,7 +89,7 @@ public class DataVerificationUtil
         OptionalLong controlRowCount = OptionalLong.of(controlChecksum.getRowCount());
         OptionalLong testRowCount = OptionalLong.of(testChecksum.getRowCount());
 
-        MatchResult.MatchType matchType;
+        DataMatchResult.MatchType matchType;
         List<ColumnMatchResult<?>> mismatchedColumns;
         if (controlChecksum.getRowCount() != testChecksum.getRowCount()) {
             mismatchedColumns = ImmutableList.of();
@@ -98,7 +99,7 @@ public class DataVerificationUtil
             mismatchedColumns = checksumValidator.getMismatchedColumns(controlColumns, controlChecksum, testChecksum);
             matchType = mismatchedColumns.isEmpty() ? MATCH : COLUMN_MISMATCH;
         }
-        return new MatchResult(
+        return new DataMatchResult(
                 matchType,
                 Optional.of(controlChecksum),
                 controlRowCount,

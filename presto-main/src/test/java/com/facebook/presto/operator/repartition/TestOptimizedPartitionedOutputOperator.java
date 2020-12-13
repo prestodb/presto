@@ -14,9 +14,9 @@
 package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.VariableWidthBlock;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
@@ -86,7 +86,6 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.PageAssertions.mergePages;
 import static com.facebook.presto.operator.PageAssertions.updateBlockTypesWithHashBlockAndNullBlock;
-import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -102,7 +101,7 @@ public class TestOptimizedPartitionedOutputOperator
     private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
     private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
     private static final DataSize MAX_MEMORY = new DataSize(1, GIGABYTE);
-    private static final PagesSerde PAGES_SERDE = new PagesSerdeFactory(new BlockEncodingManager(TYPE_MANAGER), false).createPagesSerde(); //testingPagesSerde();
+    private static final PagesSerde PAGES_SERDE = new PagesSerdeFactory(new BlockEncodingManager(), false).createPagesSerde(); //testingPagesSerde();
 
     private static final int PARTITION_COUNT = 16;
     private static final int PAGE_COUNT = 50;
@@ -778,7 +777,7 @@ public class TestOptimizedPartitionedOutputOperator
             OptionalInt nullChannel,
             DataSize maxMemory)
     {
-        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(TYPE_MANAGER), false);
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), false);
 
         OutputPartitioning outputPartitioning = new OutputPartitioning(
                 partitionFunction,

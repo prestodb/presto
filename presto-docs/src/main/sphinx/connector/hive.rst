@@ -211,6 +211,8 @@ Property Name                                Description
 
 ``hive.s3.aws-secret-key``                   Default AWS secret key to use.
 
+``hive.s3.iam-role``                         IAM role to assume.
+
 ``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
                                              connect to an S3-compatible storage system instead
                                              of AWS. When using v4 signatures, it is recommended to
@@ -270,10 +272,11 @@ it is highly recommended that you set ``hive.s3.use-instance-credentials``
 to ``true`` and use IAM Roles for EC2 to govern access to S3. If this is
 the case, your EC2 instances will need to be assigned an IAM Role which
 grants appropriate access to the data stored in the S3 bucket(s) you wish
-to use.  This is much cleaner than setting AWS access and secret keys in
-the ``hive.s3.aws-access-key`` and ``hive.s3.aws-secret-key`` settings, and also
-allows EC2 to automatically rotate credentials on a regular basis without
-any additional work on your part.
+to use. It's also possible to configure an IAM role with ``hive.s3.iam-role``
+that will be assumed for accessing any S3 bucket. This is much cleaner than
+setting AWS access and secret keys in the ``hive.s3.aws-access-key``
+and ``hive.s3.aws-secret-key`` settings, and also allows EC2 to automatically
+rotate credentials on a regular basis without any additional work on your part.
 
 Custom S3 Credentials Provider
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -639,6 +642,19 @@ Procedures
 * ``system.create_empty_partition(schema_name, table_name, partition_columns, partition_values)``
 
     Create an empty partition in the specified table.
+
+* ``system.sync_partition_metadata(schema_name, table_name, mode, case_sensitive)``
+
+    Check and update partitions list in metastore. There are three modes available:
+
+    * ``ADD`` : add any partitions that exist on the file system but not in the metastore.
+    * ``DROP``: drop any partitions that exist in the metastore but not on the file system.
+    * ``FULL``: perform both ``ADD`` and ``DROP``.
+
+    The ``case_sensitive`` argument is optional. The default value is ``true`` for compatibility
+    with Hive's ``MSCK REPAIR TABLE`` behavior, which expects the partition column names in
+    file system paths to use lowercase (e.g. ``col_x=SomeValue``). Partitions on the file system
+    not conforming to this convention are ignored, unless the argument is set to ``false``.
 
 Examples
 --------

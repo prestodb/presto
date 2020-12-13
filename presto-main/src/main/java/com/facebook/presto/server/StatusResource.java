@@ -18,6 +18,7 @@ import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.sun.management.OperatingSystemMXBean;
 
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.HEAD;
@@ -28,11 +29,13 @@ import javax.ws.rs.core.Response;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 
+import static com.facebook.presto.server.security.RoleType.INTERNAL;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 @Path("/v1/status")
+@RolesAllowed(INTERNAL)
 public class StatusResource
 {
     private final NodeInfo nodeInfo;

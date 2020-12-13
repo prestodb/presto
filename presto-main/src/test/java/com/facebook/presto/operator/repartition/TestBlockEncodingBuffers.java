@@ -28,11 +28,11 @@
 package com.facebook.presto.operator.repartition;
 
 import com.facebook.presto.block.BlockAssertions.Encoding;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockFlattener;
 import com.facebook.presto.common.block.DictionaryBlock;
-import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.MapType;
@@ -47,7 +47,6 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +58,7 @@ import static com.facebook.presto.block.BlockAssertions.Encoding.RUN_LENGTH;
 import static com.facebook.presto.block.BlockAssertions.assertBlockEquals;
 import static com.facebook.presto.block.BlockAssertions.createAllNullsBlock;
 import static com.facebook.presto.block.BlockAssertions.createMapType;
+import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomBooleansBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomIntsBlock;
@@ -68,12 +68,11 @@ import static com.facebook.presto.block.BlockAssertions.createRandomShortDecimal
 import static com.facebook.presto.block.BlockAssertions.createRandomSmallintsBlock;
 import static com.facebook.presto.block.BlockAssertions.createRandomStringBlock;
 import static com.facebook.presto.block.BlockAssertions.createRleBlockWithRandomValue;
+import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
 import static com.facebook.presto.block.BlockAssertions.wrapBlock;
 import static com.facebook.presto.common.block.ArrayBlock.fromElementBlock;
 import static com.facebook.presto.common.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.common.block.MapBlock.fromKeyValueBlock;
-import static com.facebook.presto.common.block.MethodHandleUtil.compose;
-import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.block.RowBlock.fromFieldBlocks;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -83,10 +82,15 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RowType.withDefaultFieldNames;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY;
 import static com.facebook.presto.operator.repartition.AbstractBlockEncodingBuffer.createBlockEncodingBuffers;
+import static com.facebook.presto.operator.repartition.MapBlockEncodingBuffer.HASH_MULTIPLIER;
 import static com.facebook.presto.operator.repartition.OptimizedPartitionedOutputOperator.decodeBlock;
-import static com.facebook.presto.testing.TestingEnvironment.TYPE_MANAGER;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -95,6 +99,7 @@ import static org.testng.Assert.assertEquals;
 public class TestBlockEncodingBuffers
 {
     private static final int POSITIONS_PER_BLOCK = 1000;
+    public static final String STRING_VALUE = "0123456789";
 
     @Test
     public void testBigint()
@@ -233,6 +238,158 @@ public class TestBlockEncodingBuffers
         testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(SMALLINT), createMapType(SMALLINT, SMALLINT))));
         testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(BOOLEAN), createMapType(BOOLEAN, BOOLEAN))));
         testNestedBlock(withDefaultFieldNames(ImmutableList.of(new ArrayType(VARCHAR), createMapType(VARCHAR, VARCHAR))));
+    }
+
+    @Test
+    public void testBufferSizeEstimation()
+    {
+        Block[] blocks = new Block[2];
+
+        // 0: LongArrayBlock 1: VariableWidthBlock
+        blocks[0] = createRandomLongsBlock(POSITIONS_PER_BLOCK, 0.5f);
+        String[] strings = new String[POSITIONS_PER_BLOCK];
+        Arrays.fill(strings, STRING_VALUE);
+        blocks[1] = createStringsBlock(strings);
+
+        List<Object> expectedMaxBufferCapacities = ImmutableList.of(
+                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
+                ImmutableList.of(
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),   // nullsBuffer
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),    // offsetsBuffer
+                        (int) (POSITIONS_PER_BLOCK * STRING_VALUE.length() * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)));  //sliceBuffer
+        assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
+
+        // 0: LongArrayBlock 1: Rle(VariableWidthBlock)
+        blocks[0] = createRandomLongsBlock(POSITIONS_PER_BLOCK, 0);
+        blocks[1] = createRleBlockWithRandomValue(createStringsBlock(STRING_VALUE), POSITIONS_PER_BLOCK);
+
+        assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
+
+        // 0: Dictionary(LongArrayBlock) 1: Dictionary(VariableWidthBlock)
+        blocks[0] = createRandomDictionaryBlock(createRandomLongsBlock(POSITIONS_PER_BLOCK / 5, 0), POSITIONS_PER_BLOCK);
+        blocks[1] = createRandomDictionaryBlock(createStringsBlock(STRING_VALUE), POSITIONS_PER_BLOCK);
+
+        assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
+
+        // 0: Dictionary(LongArrayBlock) 1: Array(VariableWidthBlock)
+        int[] offsets = IntStream.rangeClosed(0, POSITIONS_PER_BLOCK).toArray();
+        boolean[] nulls = new boolean[POSITIONS_PER_BLOCK];
+
+        blocks[1] = fromElementBlock(POSITIONS_PER_BLOCK, Optional.of(nulls), offsets, createStringsBlock(strings));
+
+        expectedMaxBufferCapacities = ImmutableList.of(
+                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
+                ImmutableList.of(
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),  // nullsBuffer
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),   // offsetsBuffer
+                        ImmutableList.of(
+                                (int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),   // nullsBuffer
+                                (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),    // offsetsBuffer
+                                (int) (POSITIONS_PER_BLOCK * STRING_VALUE.length() * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY))));  //sliceBuffer
+        assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
+
+        // 0: Dictionary(LongArrayBlock) 1: Array(Dictionary(VariableWidthBlock))
+        blocks[1] = fromElementBlock(POSITIONS_PER_BLOCK, Optional.of(nulls), offsets, createRandomDictionaryBlock(createStringsBlock(STRING_VALUE, STRING_VALUE), POSITIONS_PER_BLOCK));
+        assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
+
+        // 0: Rle(LongArrayBlock) 1: Map(LongArrayBlock, Rle(LongArrayBlock))
+        Block keyBlock = createRLEBlock(1L, POSITIONS_PER_BLOCK);
+        Block valueBlock = mapType(BIGINT, BIGINT).createBlockFromKeyValue(POSITIONS_PER_BLOCK, Optional.of(nulls), offsets, createRandomLongsBlock(POSITIONS_PER_BLOCK, 0.5f), createRLEBlock(1L, POSITIONS_PER_BLOCK));
+
+        blocks[0] = createRandomLongsBlock(POSITIONS_PER_BLOCK, 0.5f);
+        blocks[1] = mapType(BIGINT, mapType(BIGINT, BIGINT)).createBlockFromKeyValue(POSITIONS_PER_BLOCK, Optional.of(nulls), offsets, keyBlock, valueBlock);
+
+        expectedMaxBufferCapacities = ImmutableList.of(
+                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
+                ImmutableList.of(
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * HASH_MULTIPLIER * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),
+                        ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
+                        ImmutableList.of(
+                                (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),
+                                (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * HASH_MULTIPLIER * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),
+                                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
+                                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)))));
+        assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
+
+        // 0: Rle(LongArrayBlock) 1: Row(LongArrayBlock, Rle(LongArrayBlock))
+        blocks[1] = fromFieldBlocks(POSITIONS_PER_BLOCK, Optional.of(nulls), new Block[] {createRandomLongsBlock(POSITIONS_PER_BLOCK, 0), createRLEBlock(1L, POSITIONS_PER_BLOCK)});
+
+        expectedMaxBufferCapacities = ImmutableList.of(
+                ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
+                ImmutableList.of(
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),  // nullsBuffer
+                        (int) (POSITIONS_PER_BLOCK * SIZE_OF_INT * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY),   // offsetsBuffer
+                        ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY)),
+                        ImmutableList.of((int) (POSITIONS_PER_BLOCK * SIZE_OF_BYTE * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY), (int) (POSITIONS_PER_BLOCK * SIZE_OF_LONG * GRACE_FACTOR_FOR_MAX_BUFFER_CAPACITY))));
+        assertEstimatedBufferMaxCapacities(new Page(blocks), expectedMaxBufferCapacities);
+    }
+
+    private void assertEstimatedBufferMaxCapacities(Page page, List<Object> expectedMaxBufferCapacities)
+    {
+        int channelCount = page.getChannelCount();
+        int positionCount = page.getPositionCount();
+        DecodedBlockNode[] decodedBlocks = new DecodedBlockNode[channelCount];
+
+        BlockFlattener flattener = new BlockFlattener(new UncheckedStackArrayAllocator());
+        Closer blockLeaseCloser = Closer.create();
+
+        long estimatedSerializedPageSize = 0;
+        for (int i = 0; i < decodedBlocks.length; i++) {
+            decodedBlocks[i] = decodeBlock(flattener, blockLeaseCloser, page.getBlock(i));
+            estimatedSerializedPageSize += decodedBlocks[i].getEstimatedSerializedSizeInBytes();
+        }
+
+        int[] positions = IntStream.range(0, positionCount).toArray();
+        for (int i = 0; i < decodedBlocks.length; i++) {
+            BlockEncodingBuffer buffer = createBlockEncodingBuffers(decodedBlocks[i], new UncheckedStackArrayAllocator(1000), false);
+            buffer.setupDecodedBlocksAndPositions(decodedBlocks[i], positions, positionCount, (int) estimatedSerializedPageSize, estimatedSerializedPageSize);
+            assertEstimatedBufferMaxCapacity(buffer, (List<Object>) expectedMaxBufferCapacities.get(i));
+        }
+
+        try {
+            blockLeaseCloser.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private void assertEstimatedBufferMaxCapacity(BlockEncodingBuffer buffer, List<Object> expectedMaxBufferCapacities)
+    {
+        if (buffer instanceof ArrayBlockEncodingBuffer) {
+            assertEquals(expectedMaxBufferCapacities.size(), 3); // 1: nullsBuffer, 2: offsetsBuffer, 3: valuesBuffers
+            assertEquals(((ArrayBlockEncodingBuffer) buffer).getEstimatedNullsBufferMaxCapacity(), expectedMaxBufferCapacities.get(0));
+            assertEquals(((ArrayBlockEncodingBuffer) buffer).getEstimatedOffsetBufferMaxCapacity(), expectedMaxBufferCapacities.get(1));
+            assertEstimatedBufferMaxCapacity(((ArrayBlockEncodingBuffer) buffer).getValuesBuffers(), (List<Object>) expectedMaxBufferCapacities.get(2));
+        }
+        else if (buffer instanceof MapBlockEncodingBuffer) {
+            assertEquals(expectedMaxBufferCapacities.size(), 4); // 1: offsetsBuffer, 2: hashtableBuffer, 3. keyBuffers, 4: valueBuffers
+            assertEquals(((MapBlockEncodingBuffer) buffer).getEstimatedOffsetBufferMaxCapacity(), expectedMaxBufferCapacities.get(0));
+            assertEquals(((MapBlockEncodingBuffer) buffer).getEstimatedHashTableBufferMaxCapacity(), expectedMaxBufferCapacities.get(1));
+            assertEstimatedBufferMaxCapacity(((MapBlockEncodingBuffer) buffer).getKeyBuffers(), (List<Object>) expectedMaxBufferCapacities.get(2));
+            assertEstimatedBufferMaxCapacity(((MapBlockEncodingBuffer) buffer).getValueBuffers(), (List<Object>) expectedMaxBufferCapacities.get(3));
+        }
+        else if (buffer instanceof RowBlockEncodingBuffer) {
+            BlockEncodingBuffer[] fieldBuffers = ((RowBlockEncodingBuffer) buffer).getFieldBuffers();
+            assertEquals(expectedMaxBufferCapacities.size(), fieldBuffers.length + 2);
+            assertEquals(((RowBlockEncodingBuffer) buffer).getEstimatedNullsBufferMaxCapacity(), expectedMaxBufferCapacities.get(0));
+            assertEquals(((RowBlockEncodingBuffer) buffer).getEstimatedOffsetBufferMaxCapacity(), expectedMaxBufferCapacities.get(1));
+            for (int i = 0; i < fieldBuffers.length; i++) {
+                assertEstimatedBufferMaxCapacity(fieldBuffers[i], (List<Object>) expectedMaxBufferCapacities.get(i + 2));
+            }
+        }
+        else if (buffer instanceof VariableWidthBlockEncodingBuffer) {
+            assertEquals(expectedMaxBufferCapacities.size(), 3); // 1: nullsBuffer, 2:offsetsBuffer, 3: sliceBuffer
+            assertEquals(((VariableWidthBlockEncodingBuffer) buffer).getEstimatedNullsBufferMaxCapacity(), expectedMaxBufferCapacities.get(0));
+            assertEquals(((VariableWidthBlockEncodingBuffer) buffer).getEstimatedOffsetBufferMaxCapacity(), expectedMaxBufferCapacities.get(1));
+            assertEquals(((VariableWidthBlockEncodingBuffer) buffer).getEstimatedSliceBufferMaxCapacity(), expectedMaxBufferCapacities.get(2));
+        }
+        else {
+            assertEquals(expectedMaxBufferCapacities.size(), 2); // 1: offsetsBuffer, 2: valueeBuffer
+            assertEquals(((AbstractBlockEncodingBuffer) buffer).getEstimatedNullsBufferMaxCapacity(), expectedMaxBufferCapacities.get(0));
+            assertEquals(((AbstractBlockEncodingBuffer) buffer).getEstimatedValueBufferMaxCapacity(), expectedMaxBufferCapacities.get(1));
+        }
     }
 
     private void testBlock(Type type, Block block)
@@ -376,7 +533,7 @@ public class TestBlockEncodingBuffers
         SliceOutput output = new DynamicSliceOutput(toIntExact(buffer.getSerializedSizeInBytes()));
         buffer.serializeTo(output);
 
-        BlockEncodingManager blockEncodingSerde = new BlockEncodingManager(TYPE_MANAGER);
+        BlockEncodingManager blockEncodingSerde = new BlockEncodingManager();
         return readBlock(blockEncodingSerde, output.slice().getInput());
     }
 
@@ -633,10 +790,6 @@ public class TestBlockEncodingBuffers
                 .toArray();
 
         Type keyType = mapType.getKeyType();
-        MethodHandle keyNativeEquals = TYPE_MANAGER.resolveOperator(OperatorType.EQUAL, ImmutableList.of(keyType, keyType));
-        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(keyType));
-        MethodHandle keyNativeHashCode = TYPE_MANAGER.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(keyType));
-        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(keyType));
 
         blockStatus = new BlockStatus(
                 fromKeyValueBlock(
@@ -644,11 +797,7 @@ public class TestBlockEncodingBuffers
                         isNull,
                         offsets,
                         keyBlockStatus.block,
-                        valueBlockStatus.block,
-                        mapType,
-                        keyBlockNativeEquals,
-                        keyNativeHashCode,
-                        keyBlockHashCode),
+                        valueBlockStatus.block),
                 expectedRowSizes);
         return blockStatus;
     }

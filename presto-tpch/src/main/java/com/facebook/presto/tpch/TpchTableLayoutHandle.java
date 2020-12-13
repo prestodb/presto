@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 
 public class TpchTableLayoutHandle
         implements ConnectorTableLayoutHandle
@@ -48,5 +49,14 @@ public class TpchTableLayoutHandle
     public String toString()
     {
         return table.toString();
+    }
+
+    @Override
+    public Object getIdentifier()
+    {
+        return ImmutableMap.builder()
+                .put("table", table)
+                .put("predicate", predicate)
+                .build();
     }
 }

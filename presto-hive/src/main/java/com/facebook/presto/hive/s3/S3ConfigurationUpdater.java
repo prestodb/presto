@@ -27,6 +27,7 @@ public interface S3ConfigurationUpdater
     String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
     String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
     String S3_USE_INSTANCE_CREDENTIALS = "presto.s3.use-instance-credentials";
+    String S3_IAM_ROLE = "presto.hive.s3.iam-role";
     String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
     String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
     String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";

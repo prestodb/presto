@@ -14,7 +14,6 @@
 package com.facebook.presto.functionNamespace;
 
 import com.facebook.airlift.configuration.Config;
-import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -22,17 +21,17 @@ import io.airlift.units.MinDuration;
 
 import java.util.Set;
 
-import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class SqlInvokedFunctionNamespaceManagerConfig
 {
-    private static final Splitter LANGUAGE_SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
+    private static final Splitter SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
 
     private Duration functionCacheExpiration = new Duration(5, MINUTES);
     private Duration functionInstanceCacheExpiration = new Duration(8, HOURS);
-    private Set<RoutineCharacteristics.Language> supportedFunctionLanguages = ImmutableSet.of(SQL);
+    private Duration typeCacheExpiration = new Duration(1, HOURS);
+    private Set<String> supportedFunctionLanguages = ImmutableSet.of("sql");
 
     @MinDuration("0ns")
     public Duration getFunctionCacheExpiration()
@@ -60,17 +59,28 @@ public class SqlInvokedFunctionNamespaceManagerConfig
         return this;
     }
 
-    public Set<RoutineCharacteristics.Language> getSupportedFunctionLanguages()
+    @MinDuration("0ns")
+    public Duration getTypeCacheExpiration()
     {
-        return supportedFunctionLanguages;
+        return typeCacheExpiration;
+    }
+
+    @Config("type-cache-expiration")
+    public SqlInvokedFunctionNamespaceManagerConfig setTypeCacheExpiration(Duration typeCacheExpiration)
+    {
+        this.typeCacheExpiration = typeCacheExpiration;
+        return this;
     }
 
     @Config("supported-function-languages")
     public SqlInvokedFunctionNamespaceManagerConfig setSupportedFunctionLanguages(String languages)
     {
-        ImmutableSet.Builder<RoutineCharacteristics.Language> languageBuilder = ImmutableSet.builder();
-        Splitter.on(',').omitEmptyStrings().trimResults().split(languages).forEach(language -> languageBuilder.add(new RoutineCharacteristics.Language(language)));
-        this.supportedFunctionLanguages = languageBuilder.build();
+        this.supportedFunctionLanguages = ImmutableSet.copyOf(SPLITTER.split(languages));
         return this;
+    }
+
+    public Set<String> getSupportedFunctionLanguages()
+    {
+        return supportedFunctionLanguages;
     }
 }

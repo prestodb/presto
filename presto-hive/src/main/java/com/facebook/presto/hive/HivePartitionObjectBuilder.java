@@ -20,6 +20,8 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Map;
+
 public class HivePartitionObjectBuilder
         implements PartitionObjectBuilder
 {
@@ -28,7 +30,8 @@ public class HivePartitionObjectBuilder
             ConnectorSession session,
             Table table,
             PartitionUpdate partitionUpdate,
-            String prestoVersion)
+            String prestoVersion,
+            Map<String, String> extraParameters)
     {
         return Partition.builder()
                 .setDatabaseName(table.getDatabaseName())
@@ -38,6 +41,7 @@ public class HivePartitionObjectBuilder
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put(HiveMetadata.PRESTO_VERSION_NAME, prestoVersion)
                         .put(MetastoreUtil.PRESTO_QUERY_ID_NAME, session.getQueryId())
+                        .putAll(extraParameters)
                         .build())
                 .withStorage(storage -> storage
                         .setStorageFormat(HiveSessionProperties.isRespectTableFormat(session) ?

@@ -73,6 +73,8 @@ import static java.util.Objects.requireNonNull;
 abstract class AbstractOrcRecordReader<T extends StreamReader>
         implements Closeable
 {
+    protected final OrcAggregatedMemoryContext systemMemoryUsage;
+
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractOrcRecordReader.class).instanceSize();
 
     private final OrcDataSource orcDataSource;
@@ -111,8 +113,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     private long maxCombinedBytesPerRow;
 
     private final Map<String, Slice> userMetadata;
-
-    private final OrcAggregatedMemoryContext systemMemoryUsage;
 
     private final Optional<OrcWriteValidation> writeValidation;
     private final Optional<OrcWriteValidation.WriteChecksumBuilder> writeChecksumBuilder;
@@ -221,7 +221,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
 
-        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, tinyStripeThreshold);
+        orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, maxMergeDistance, tinyStripeThreshold, systemMemoryUsage);
         this.orcDataSource = orcDataSource;
         this.splitLength = splitLength;
 
@@ -342,7 +342,12 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         Map<Integer, Slice> intermediateKeys = new HashMap<>(dwrfEncryptionGroupMap.values().size());
         for (Map.Entry<Integer, Slice> entry : columnsToKeys.entrySet()) {
             Slice key = entry.getValue();
-            int group = dwrfEncryptionGroupMap.get(entry.getKey());
+            int orcColumn = entry.getKey();
+            if (!dwrfEncryptionGroupMap.containsKey(orcColumn)) {
+                // ignore columns that don't have encryption groups
+                continue;
+            }
+            int group = dwrfEncryptionGroupMap.get(orcColumn);
             Slice previous = intermediateKeys.putIfAbsent(group, key);
             if (previous != null && !key.equals(previous)) {
                 throw new OrcCorruptionException(dataSourceId, "intermediate keys mapping does not match encryption groups");
@@ -422,7 +427,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
     }
 
     @VisibleForTesting
-    static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
+    static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold, OrcAggregatedMemoryContext systemMemoryContext)
     {
         if (dataSource instanceof CachingOrcDataSource) {
             return dataSource;
@@ -432,7 +437,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
                 return dataSource;
             }
         }
-        return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, tinyStripeThreshold));
+        return new CachingOrcDataSource(dataSource, createTinyStripesRangeFinder(stripes, maxMergeDistance, tinyStripeThreshold), systemMemoryContext.newOrcLocalMemoryContext(CachingOrcDataSource.class.getSimpleName()));
     }
 
     /**

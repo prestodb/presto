@@ -135,7 +135,7 @@ public class BenchmarkArraySubscript
 
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
 
-            FunctionHandle functionHandle = metadata.getFunctionManager().resolveOperator(SUBSCRIPT, fromTypes(arrayType, BIGINT));
+            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveOperator(SUBSCRIPT, fromTypes(arrayType, BIGINT));
             for (int i = 0; i < arraySize; i++) {
                 projectionsBuilder.add(new CallExpression(
                         SUBSCRIPT.name(),

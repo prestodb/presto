@@ -41,7 +41,7 @@ public class TestExceededTimeLimitFailureResolver
                                 false,
                                 TEST_MAIN,
                                 Optional.of(EXCEEDED_TIME_LIMIT),
-                                Optional.of(createQueryStats(CONTROL_CPU_TIME_MILLIS / 2, CONTROL_PEAK_TOTAL_MEMORY_BYTES))),
+                                createQueryActionStats(CONTROL_CPU_TIME_MILLIS / 2, CONTROL_PEAK_TOTAL_MEMORY_BYTES)),
                         Optional.empty()),
                 Optional.of("Time limit exceeded on test cluster"));
     }

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.orc;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -29,14 +28,11 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -53,10 +49,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.ALL;
+import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.ALL_EXCEPT_FIRST;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.NONE;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.SOME;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
@@ -72,21 +70,16 @@ public class TestMapFlatBatchStreamReader
 {
     // TODO: Add tests for timestamp as value type
 
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
     private static final int NUM_ROWS = 31_234;
 
-    static {
-        // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
-
-    private static final Type LIST_TYPE = TYPE_MANAGER.getParameterizedType(
+    private static final Type LIST_TYPE = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
             StandardTypes.ARRAY,
             ImmutableList.of(TypeSignatureParameter.of(IntegerType.INTEGER.getTypeSignature())));
-    private static final Type MAP_TYPE = TYPE_MANAGER.getParameterizedType(
+    private static final Type MAP_TYPE = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
             StandardTypes.MAP,
             ImmutableList.of(TypeSignatureParameter.of(VarcharType.VARCHAR.getTypeSignature()), TypeSignatureParameter.of(RealType.REAL.getTypeSignature())));
-    private static final Type STRUCT_TYPE = TYPE_MANAGER.getParameterizedType(
+    private static final Type STRUCT_TYPE = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
             StandardTypes.ROW,
             ImmutableList.of(
                     TypeSignatureParameter.of(new NamedTypeSignature(Optional.of(new RowFieldName("value1", false)), IntegerType.INTEGER.getTypeSignature())),
@@ -323,6 +316,17 @@ public class TestMapFlatBatchStreamReader
     }
 
     @Test
+    public void testWithAllNullsExceptFirst()
+            throws Exception
+    {
+        // A test case where every flat map is null except the first one
+        runTest(
+                "test_flat_map/flat_map_all_null_maps_except_first.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setNullRowsFrequency(ALL_EXCEPT_FIRST));
+    }
+
+    @Test
     public void testWithEmptyMaps()
             throws Exception
     {
@@ -340,6 +344,17 @@ public class TestMapFlatBatchStreamReader
         // A test case where all of the flat maps are empty
         runTest(
                 "test_flat_map/flat_map_all_empty_maps.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setEmptyMapsFrequency(ALL));
+    }
+
+    // All maps are empty and encoding is not present
+    @Test
+    public void testWithAllEmptyMapsWithNoEncoding()
+            throws Exception
+    {
+        runTest(
+                "test_flat_map/flat_map_all_empty_maps_no_encoding.dwrf",
                 IntegerType.INTEGER,
                 ExpectedValuesBuilder.get(Function.identity()).setEmptyMapsFrequency(ALL));
     }
@@ -367,6 +382,16 @@ public class TestMapFlatBatchStreamReader
         runTest("test_flat_map/flat_map_int_missing_sequences.dwrf",
                 IntegerType.INTEGER,
                 ExpectedValuesBuilder.get(Function.identity()).setMissingSequences());
+    }
+
+    @Test
+    public void testIntegerWithMissingSequence0()
+            throws Exception
+    {
+        // A test case where the (dummy) encoding for sequence 0 of the value node doesn't exist
+        runTest("test_flat_map/flat_map_int_missing_sequence_0.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()));
     }
 
     private <K, V> void runTest(String testOrcFileName, Type type, ExpectedValuesBuilder<K, V> expectedValuesBuilder)
@@ -402,8 +427,9 @@ public class TestMapFlatBatchStreamReader
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 OrcReaderTestingUtils.createDefaultTestConfig(),
                 false,
-                NO_ENCRYPTION);
-        Type mapType = TYPE_MANAGER.getParameterizedType(
+                NO_ENCRYPTION,
+                DwrfKeyProvider.EMPTY);
+        Type mapType = FUNCTION_AND_TYPE_MANAGER.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(
                         TypeSignatureParameter.of(keyType.getTypeSignature()),
@@ -414,8 +440,7 @@ public class TestMapFlatBatchStreamReader
                 createOrcPredicate(0, mapType, expectedValues, OrcTester.Format.DWRF, true),
                 HIVE_STORAGE_TIME_ZONE,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                1024,
-                ImmutableMap.of())) {
+                1024)) {
             Iterator<?> expectedValuesIterator = expectedValues.iterator();
 
             boolean isFirst = true;
@@ -473,7 +498,8 @@ public class TestMapFlatBatchStreamReader
         {
             NONE,
             SOME,
-            ALL
+            ALL,
+            ALL_EXCEPT_FIRST,
         }
 
         private final Function<Integer, K> keyConverter;
@@ -587,6 +613,8 @@ public class TestMapFlatBatchStreamReader
                     return true;
                 case SOME:
                     return i % 5 == 0;
+                case ALL_EXCEPT_FIRST:
+                    return i != 0;
                 default:
                     throw new IllegalArgumentException("Got unexpected Frequency: " + frequency);
             }

@@ -14,7 +14,6 @@
 
 package com.facebook.presto.common.block;
 
-import com.facebook.presto.common.type.Type;
 import io.airlift.slice.SliceOutput;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -42,20 +41,7 @@ public abstract class AbstractMapBlock
     // inverse of hash fill ratio, must be integer
     static final int HASH_MULTIPLIER = 2;
 
-    protected final Type keyType;
-    protected final MethodHandle keyNativeHashCode;
-    protected final MethodHandle keyBlockNativeEquals;
-    protected final MethodHandle keyBlockHashCode;
-
-    public AbstractMapBlock(Type keyType, MethodHandle keyNativeHashCode, MethodHandle keyBlockNativeEquals, MethodHandle keyBlockHashCode)
-    {
-        this.keyType = requireNonNull(keyType, "keyType is null");
-        // keyNativeHashCode can only be null due to map block kill switch. deprecated.new-map-block
-        this.keyNativeHashCode = keyNativeHashCode;
-        // keyBlockNativeEquals can only be null due to map block kill switch. deprecated.new-map-block
-        this.keyBlockNativeEquals = keyBlockNativeEquals;
-        this.keyBlockHashCode = requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
-    }
+    protected volatile long logicalSizeInBytes;
 
     protected abstract Block getRawKeyBlock();
 
@@ -78,7 +64,7 @@ public abstract class AbstractMapBlock
     @Nullable
     protected abstract boolean[] getMapIsNull();
 
-    protected abstract void ensureHashTableLoaded();
+    protected abstract void ensureHashTableLoaded(MethodHandle keyBlockHashCode);
 
     int getOffset(int position)
     {
@@ -147,11 +133,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), length, newHashTableEntries),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                new HashTables(Optional.ofNullable(newRawHashTables), length, newHashTableEntries));
     }
 
     @Override
@@ -167,11 +149,7 @@ public abstract class AbstractMapBlock
                 getOffsets(),
                 getRawKeyBlock(),
                 getRawValueBlock(),
-                getHashTables(),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                getHashTables());
     }
 
     @Override
@@ -189,6 +167,47 @@ public abstract class AbstractMapBlock
                 (Integer.BYTES + Byte.BYTES) * (long) length +
                 Integer.BYTES * HASH_MULTIPLIER * (long) entryCount +
                 getHashTables().getInstanceSizeInBytes();
+    }
+
+    @Override
+    public long getLogicalSizeInBytes()
+    {
+        if (logicalSizeInBytes < 0) {
+            calculateLogicalSize();
+        }
+        return logicalSizeInBytes;
+    }
+
+    @Override
+    public long getRegionLogicalSizeInBytes(int position, int length)
+    {
+        int positionCount = getPositionCount();
+        checkValidRegion(positionCount, position, length);
+
+        int entriesStart = getOffsets()[getOffsetBase() + position];
+        int entriesEnd = getOffsets()[getOffsetBase() + position + length];
+        int entryCount = entriesEnd - entriesStart;
+
+        return getRawKeyBlock().getRegionLogicalSizeInBytes(entriesStart, entryCount) +
+                getRawValueBlock().getRegionLogicalSizeInBytes(entriesStart, entryCount) +
+                (Integer.BYTES + Byte.BYTES) * length +
+                Integer.BYTES * HASH_MULTIPLIER * entryCount;
+    }
+
+    @Override
+    public long getApproximateRegionLogicalSizeInBytes(int position, int length)
+    {
+        int positionCount = getPositionCount();
+        checkValidRegion(positionCount, position, length);
+
+        int entriesStart = getOffset(position);
+        int entriesEnd = getOffset(position + length);
+        int entryCount = entriesEnd - entriesStart;
+
+        return getRawKeyBlock().getApproximateRegionLogicalSizeInBytes(entriesStart, entryCount) +
+                getRawValueBlock().getApproximateRegionLogicalSizeInBytes(entriesStart, entryCount) +
+                (Integer.BYTES + Byte.BYTES) * length +         // offsets and mapIsNull
+                Integer.BYTES * HASH_MULTIPLIER * entryCount;   // hashtables
     }
 
     @Override
@@ -254,11 +273,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), length, expectedNewHashTableEntries),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                new HashTables(Optional.ofNullable(newRawHashTables), length, expectedNewHashTableEntries));
     }
 
     @Override
@@ -269,6 +284,7 @@ public abstract class AbstractMapBlock
         int startEntryOffset = getOffset(position);
         int endEntryOffset = getOffset(position + 1);
         return new SingleMapBlock(
+                position,
                 startEntryOffset * 2,
                 (endEntryOffset - startEntryOffset) * 2,
                 this);
@@ -328,11 +344,7 @@ public abstract class AbstractMapBlock
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
-                new HashTables(Optional.ofNullable(newRawHashTables), 1, expectedNewHashTableEntries),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                new HashTables(Optional.ofNullable(newRawHashTables), 1, expectedNewHashTableEntries));
     }
 
     @Override
@@ -448,7 +460,7 @@ public abstract class AbstractMapBlock
 
         int startEntryOffset = getOffsets()[internalPosition];
         int endEntryOffset = getOffsets()[internalPosition + 1];
-        return new SingleMapBlock(startEntryOffset * 2, (endEntryOffset - startEntryOffset) * 2, this);
+        return new SingleMapBlock(internalPosition - getOffsetBase(), startEntryOffset * 2, (endEntryOffset - startEntryOffset) * 2, this);
     }
 
     @Override
@@ -472,10 +484,17 @@ public abstract class AbstractMapBlock
                 offsets,
                 getRawKeyBlock(),
                 getRawValueBlock(),
-                getHashTables(),
-                keyType,
-                keyBlockNativeEquals,
-                keyNativeHashCode,
-                keyBlockHashCode);
+                getHashTables());
+    }
+
+    private void calculateLogicalSize()
+    {
+        int entriesStart = getOffset(0);
+        int entriesEnd = getOffset(getPositionCount());
+        int entryCount = entriesEnd - entriesStart;
+        logicalSizeInBytes = getRawKeyBlock().getRegionLogicalSizeInBytes(entriesStart, entryCount) +
+                getRawValueBlock().getRegionLogicalSizeInBytes(entriesStart, entryCount) +
+                (Integer.BYTES + Byte.BYTES) * (long) this.getPositionCount() +
+                Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
     }
 }

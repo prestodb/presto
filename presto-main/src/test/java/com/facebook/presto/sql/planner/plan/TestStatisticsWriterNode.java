@@ -18,6 +18,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.ConnectorId;
@@ -33,7 +34,6 @@ import com.facebook.presto.testing.TestingHandleResolver;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -46,6 +46,7 @@ import java.util.UUID;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -110,18 +111,17 @@ public class TestStatisticsWriterNode
     {
         Module module = binder -> {
             SqlParser sqlParser = new SqlParser();
-            TypeManager typeManager = new TypeRegistry();
+            FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.install(new JsonModule());
             binder.install(new HandleJsonModule());
             binder.bind(SqlParser.class).toInstance(sqlParser);
-            binder.bind(TypeManager.class).toInstance(typeManager);
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             newSetBinder(binder, Type.class);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             jsonCodecBinder(binder).bindJsonCodec(StatisticsWriterNode.class);
         };
         Bootstrap app = new Bootstrap(ImmutableList.of(module));
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();

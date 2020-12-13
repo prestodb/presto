@@ -27,9 +27,9 @@ import com.facebook.presto.tests.ResultsSession;
 import com.google.common.collect.ImmutableMap;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,7 +55,7 @@ import static java.util.Objects.requireNonNull;
 public class KafkaLoader
         extends AbstractTestingPrestoClient<Void>
 {
-    private static final DateTimeFormatter ISO8601_FORMATTER = ISODateTimeFormat.dateTime();
+    private static final DateTimeFormatter ISO8601_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private final String topicName;
     private final KafkaProducer<Long, Object> producer;
@@ -147,13 +147,13 @@ public class KafkaLoader
                 return value;
             }
             if (TIME.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimeLiteral(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.format(Instant.ofEpochMilli(parseTimeLiteral(timeZoneKey, (String) value)));
             }
             if (TIMESTAMP.equals(type)) {
-                return ISO8601_FORMATTER.print(parseTimestampWithoutTimeZone(timeZoneKey, (String) value));
+                return ISO8601_FORMATTER.format(Instant.ofEpochMilli(parseTimestampWithoutTimeZone(timeZoneKey, (String) value)));
             }
             if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-                return ISO8601_FORMATTER.print(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value)));
+                return ISO8601_FORMATTER.format(Instant.ofEpochMilli(unpackMillisUtc(parseTimestampWithTimeZone(timeZoneKey, (String) value))));
             }
             throw new AssertionError("unhandled type: " + type);
         }

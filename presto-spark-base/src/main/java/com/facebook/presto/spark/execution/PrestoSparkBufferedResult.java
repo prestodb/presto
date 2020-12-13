@@ -16,4 +16,6 @@ package com.facebook.presto.spark.execution;
 public interface PrestoSparkBufferedResult
 {
     long getRetainedSizeInBytes();
+
+    int getPositionCount();
 }

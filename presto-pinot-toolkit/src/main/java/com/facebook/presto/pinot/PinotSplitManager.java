@@ -13,16 +13,14 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.presto.pinot.query.PinotQueryGenerator.GeneratedPql;
+import com.facebook.presto.pinot.query.PinotQueryGenerator;
+import com.facebook.presto.pinot.query.PinotQueryGenerator.GeneratedPinotQuery;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
@@ -43,7 +41,6 @@ import static com.facebook.presto.pinot.PinotSplit.createBrokerSplit;
 import static com.facebook.presto.pinot.PinotSplit.createSegmentSplit;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.TABLE_NAME_SUFFIX_TEMPLATE;
 import static com.facebook.presto.pinot.query.PinotQueryGeneratorContext.TIME_BOUNDARY_FILTER_TEMPLATE;
-import static com.facebook.presto.spi.ErrorType.USER_ERROR;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
@@ -60,9 +57,10 @@ public class PinotSplitManager
         this.pinotPrestoConnection = requireNonNull(pinotPrestoConnection, "pinotPrestoConnection is null");
     }
 
-    protected ConnectorSplitSource generateSplitForBrokerBasedScan(GeneratedPql brokerPql, List<PinotColumnHandle> expectedColumnHandles)
+    protected ConnectorSplitSource generateSplitForBrokerBasedScan(PinotQueryGenerator.GeneratedPinotQuery brokerPinotQuery,
+            List<PinotColumnHandle> expectedColumnHandles)
     {
-        return new FixedSplitSource(singletonList(createBrokerSplit(connectorId, expectedColumnHandles, brokerPql)));
+        return new FixedSplitSource(singletonList(createBrokerSplit(connectorId, expectedColumnHandles, brokerPinotQuery)));
     }
 
     protected ConnectorSplitSource generateSplitsForSegmentBasedScan(
@@ -78,7 +76,7 @@ public class PinotSplitManager
 
         List<ConnectorSplit> splits = new ArrayList<>();
         if (!routingTable.isEmpty()) {
-            GeneratedPql segmentPql = tableHandle.getPql().orElseThrow(() -> new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Expected to find realtime and offline pql in " + tableHandle));
+            GeneratedPinotQuery segmentPql = tableHandle.getPinotQuery().orElseThrow(() -> new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), "Expected to find realtime and offline pql in " + tableHandle));
             PinotClusterInfoFetcher.TimeBoundary timeBoundary = pinotPrestoConnection.getTimeBoundary(tableName);
             String realtime = getSegmentPql(segmentPql, "_REALTIME", timeBoundary.getOnlineTimePredicate());
             String offline = getSegmentPql(segmentPql, "_OFFLINE", timeBoundary.getOfflineTimePredicate());
@@ -90,9 +88,9 @@ public class PinotSplitManager
         return new FixedSplitSource(splits);
     }
 
-    private String getSegmentPql(GeneratedPql basePql, String suffix, Optional<String> timePredicate)
+    private String getSegmentPql(GeneratedPinotQuery basePql, String suffix, Optional<String> timePredicate)
     {
-        String pql = basePql.getPql().replace(TABLE_NAME_SUFFIX_TEMPLATE, suffix);
+        String pql = basePql.getQuery().replace(TABLE_NAME_SUFFIX_TEMPLATE, suffix);
         if (timePredicate.isPresent()) {
             String tp = timePredicate.get();
             pql = pql.replace(TIME_BOUNDARY_FILTER_TEMPLATE, basePql.isHaveFilter() ? tp : " WHERE " + tp);
@@ -125,42 +123,28 @@ public class PinotSplitManager
                 // segments is already shuffled
                 Iterables.partition(segments, numSegmentsInThisSplit).forEach(
                         segmentsForThisSplit -> splits.add(
-                                createSegmentSplit(connectorId, pql, expectedColumnHandles, segmentsForThisSplit, host)));
+                                createSegmentSplit(connectorId, pql, expectedColumnHandles, segmentsForThisSplit, host, getGrpcPort(host))));
             });
         }
     }
 
-    public enum QueryNotAdequatelyPushedDownErrorCode
-            implements ErrorCodeSupplier
+    private int getGrpcPort(String host)
     {
-        PQL_NOT_PRESENT(1, USER_ERROR, "Query uses unsupported expressions that cannot be pushed into the storage engine. Please see https://XXX for more details");
-
-        private final ErrorCode errorCode;
-
-        QueryNotAdequatelyPushedDownErrorCode(int code, ErrorType type, String guidance)
-        {
-            errorCode = new ErrorCode(code + 0x0625_0000, name() + ": " + guidance, type);
-        }
-
-        @Override
-        public ErrorCode toErrorCode()
-        {
-            return errorCode;
-        }
+        return pinotPrestoConnection.getGrpcPort(host);
     }
 
     public static class QueryNotAdequatelyPushedDownException
-            extends PrestoException
+            extends PinotException
     {
         private final String connectorId;
         private final ConnectorTableHandle connectorTableHandle;
 
         public QueryNotAdequatelyPushedDownException(
-                QueryNotAdequatelyPushedDownErrorCode errorCode,
+                PinotErrorCode errorCode,
                 ConnectorTableHandle connectorTableHandle,
                 String connectorId)
         {
-            super(requireNonNull(errorCode, "error code is null"), (String) null);
+            super(requireNonNull(errorCode, "error code is null"), Optional.empty(), "Query uses unsupported expressions that cannot be pushed into Pinot.");
             this.connectorId = requireNonNull(connectorId, "connector id is null");
             this.connectorTableHandle = requireNonNull(connectorTableHandle, "connector table handle is null");
         }
@@ -181,7 +165,7 @@ public class PinotSplitManager
     {
         PinotTableLayoutHandle pinotLayoutHandle = (PinotTableLayoutHandle) layout;
         PinotTableHandle pinotTableHandle = pinotLayoutHandle.getTable();
-        Supplier<PrestoException> errorSupplier = () -> new QueryNotAdequatelyPushedDownException(QueryNotAdequatelyPushedDownErrorCode.PQL_NOT_PRESENT, pinotTableHandle, connectorId);
+        Supplier<PrestoException> errorSupplier = () -> new QueryNotAdequatelyPushedDownException(PinotErrorCode.PINOT_PUSH_DOWN_QUERY_NOT_PRESENT, pinotTableHandle, connectorId);
         if (!pinotTableHandle.getIsQueryShort().orElseThrow(errorSupplier)) {
             if (PinotSessionProperties.isForbidSegmentQueries(session)) {
                 throw errorSupplier.get();
@@ -189,7 +173,7 @@ public class PinotSplitManager
             return generateSplitsForSegmentBasedScan(pinotLayoutHandle, session, pinotTableHandle.getExpectedColumnHandles().orElseThrow(errorSupplier));
         }
         else {
-            return generateSplitForBrokerBasedScan(pinotTableHandle.getPql().orElseThrow(errorSupplier), pinotTableHandle.getExpectedColumnHandles().orElseThrow(errorSupplier));
+            return generateSplitForBrokerBasedScan(pinotTableHandle.getPinotQuery().orElseThrow(errorSupplier), pinotTableHandle.getExpectedColumnHandles().orElseThrow(errorSupplier));
         }
     }
 }

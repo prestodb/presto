@@ -16,21 +16,17 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.matching.Capture;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Literal;
-import com.facebook.presto.sql.tree.NullLiteral;
-import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableList;
 
 import java.util.LinkedHashMap;
@@ -40,11 +36,10 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.matching.Capture.newCapture;
-import static com.facebook.presto.sql.planner.PlannerUtils.toVariableReference;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static com.facebook.presto.sql.planner.plan.Patterns.project;
 import static com.facebook.presto.sql.planner.plan.Patterns.source;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
+import static com.facebook.presto.sql.relational.Expressions.isNull;
 import static java.util.Objects.requireNonNull;
 
 public class SimplifyCountOverConstant
@@ -57,10 +52,10 @@ public class SimplifyCountOverConstant
 
     private final StandardFunctionResolution functionResolution;
 
-    public SimplifyCountOverConstant(FunctionManager functionManager)
+    public SimplifyCountOverConstant(FunctionAndTypeManager functionAndTypeManager)
     {
-        requireNonNull(functionManager, "functionManager is null");
-        this.functionResolution = new FunctionResolution(functionManager);
+        requireNonNull(functionAndTypeManager, "functionManager is null");
+        this.functionResolution = new FunctionResolution(functionAndTypeManager);
     }
 
     @Override
@@ -81,7 +76,7 @@ public class SimplifyCountOverConstant
             VariableReferenceExpression variable = entry.getKey();
             AggregationNode.Aggregation aggregation = entry.getValue();
 
-            if (isCountOverConstant(aggregation, child.getAssignments(), context.getVariableAllocator().getTypes())) {
+            if (isCountOverConstant(aggregation, child.getAssignments())) {
                 changed = true;
                 aggregations.put(variable, new AggregationNode.Aggregation(
                         new CallExpression(
@@ -111,18 +106,18 @@ public class SimplifyCountOverConstant
                 parent.getGroupIdVariable()));
     }
 
-    private boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs, TypeProvider types)
+    private boolean isCountOverConstant(AggregationNode.Aggregation aggregation, Assignments inputs)
     {
         if (!functionResolution.isCountFunction(aggregation.getFunctionHandle()) || aggregation.getArguments().size() != 1) {
             return false;
         }
 
         RowExpression argument = aggregation.getArguments().get(0);
-        Expression assigned = null;
-        if (castToExpression(argument) instanceof SymbolReference) {
-            assigned = castToExpression(inputs.get(toVariableReference(castToExpression(argument), types)));
+        RowExpression assigned = null;
+        if (argument instanceof VariableReferenceExpression) {
+            assigned = inputs.get((VariableReferenceExpression) argument);
         }
 
-        return assigned instanceof Literal && !(assigned instanceof NullLiteral);
+        return assigned instanceof ConstantExpression && !isNull(assigned);
     }
 }

@@ -223,7 +223,7 @@ public class ExpressionCompiler
         @Override
         public int hashCode()
         {
-            return Objects.hash(sqlFunctionProperties, filter, projections, uniqueKey);
+            return Objects.hash(sqlFunctionProperties, filter, projections, uniqueKey, isOptimizeCommonSubExpression);
         }
 
         @Override

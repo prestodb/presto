@@ -52,6 +52,8 @@ public class PartitionMetadata
     private final Optional<String> externalLocation;
 
     private final Map<String, HiveColumnStatistics> columnStatistics;
+    private final boolean eligibleToIgnore;
+    private final boolean sealedPartition;
 
     @JsonCreator
     public PartitionMetadata(
@@ -62,7 +64,9 @@ public class PartitionMetadata
             @JsonProperty("storageParameters") Map<String, String> storageParameters,
             @JsonProperty("serdeParameters") Map<String, String> serdeParameters,
             @JsonProperty("externalLocation") Optional<String> externalLocation,
-            @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics)
+            @JsonProperty("columnStatistics") Map<String, HiveColumnStatistics> columnStatistics,
+            @JsonProperty("eligibleToIgnore") boolean eligibleToIgnore,
+            @JsonProperty("sealedPartition") boolean sealedPartition)
     {
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
@@ -74,6 +78,8 @@ public class PartitionMetadata
 
         this.externalLocation = requireNonNull(externalLocation, "externalLocation is null");
         this.columnStatistics = ImmutableMap.copyOf(requireNonNull(columnStatistics, "columnStatistics is null"));
+        this.eligibleToIgnore = eligibleToIgnore;
+        this.sealedPartition = sealedPartition;
     }
 
     public PartitionMetadata(Table table, PartitionWithStatistics partitionWithStatistics)
@@ -100,6 +106,8 @@ public class PartitionMetadata
         storageParameters = partition.getStorage().getParameters();
         serdeParameters = partition.getStorage().getSerdeParameters();
         columnStatistics = ImmutableMap.copyOf(statistics.getColumnStatistics());
+        eligibleToIgnore = partition.isEligibleToIgnore();
+        sealedPartition = partition.isSealedPartition();
     }
 
     @JsonProperty
@@ -150,14 +158,26 @@ public class PartitionMetadata
         return columnStatistics;
     }
 
+    @JsonProperty
+    public boolean isEligibleToIgnore()
+    {
+        return eligibleToIgnore;
+    }
+
+    @JsonProperty
+    public boolean isSealedPartition()
+    {
+        return sealedPartition;
+    }
+
     public PartitionMetadata withParameters(Map<String, String> parameters)
     {
-        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, storageParameters, serdeParameters, externalLocation, columnStatistics);
+        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, storageParameters, serdeParameters, externalLocation, columnStatistics, eligibleToIgnore, sealedPartition);
     }
 
     public PartitionMetadata withColumnStatistics(Map<String, HiveColumnStatistics> columnStatistics)
     {
-        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, storageParameters, serdeParameters, externalLocation, columnStatistics);
+        return new PartitionMetadata(columns, parameters, storageFormat, bucketProperty, storageParameters, serdeParameters, externalLocation, columnStatistics, eligibleToIgnore, sealedPartition);
     }
 
     public Partition toPartition(String databaseName, String tableName, List<String> values, String location)
@@ -174,6 +194,9 @@ public class PartitionMetadata
                         .setParameters(parameters)
                         .build(),
                 columns,
-                parameters);
+                parameters,
+                Optional.empty(),
+                eligibleToIgnore,
+                sealedPartition);
     }
 }

@@ -26,19 +26,22 @@ import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
+import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskState;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableFinishInfo;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.OperatorStatistics;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryContext;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
@@ -49,6 +52,7 @@ import com.facebook.presto.spi.eventlistener.QueryMetadata;
 import com.facebook.presto.spi.eventlistener.QueryOutputMetadata;
 import com.facebook.presto.spi.eventlistener.QueryStatistics;
 import com.facebook.presto.spi.eventlistener.ResourceDistribution;
+import com.facebook.presto.spi.eventlistener.StageStatistics;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
@@ -73,27 +77,28 @@ import static java.lang.Math.toIntExact;
 import static java.time.Duration.ofMillis;
 import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class QueryMonitor
 {
     private static final Logger log = Logger.get(QueryMonitor.class);
 
     private final JsonCodec<StageInfo> stageInfoCodec;
-    private final JsonCodec<OperatorStats> operatorStatsCodec;
     private final JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec;
+    private final JsonCodec<OperatorInfo> operatorInfoCodec;
     private final EventListenerManager eventListenerManager;
     private final String serverVersion;
     private final String serverAddress;
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final int maxJsonLimit;
 
     @Inject
     public QueryMonitor(
             JsonCodec<StageInfo> stageInfoCodec,
-            JsonCodec<OperatorStats> operatorStatsCodec,
             JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec,
+            JsonCodec<OperatorInfo> operatorInfoCodec,
             EventListenerManager eventListenerManager,
             NodeInfo nodeInfo,
             NodeVersion nodeVersion,
@@ -103,13 +108,13 @@ public class QueryMonitor
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
-        this.operatorStatsCodec = requireNonNull(operatorStatsCodec, "operatorStatsCodec is null");
+        this.operatorInfoCodec = requireNonNull(operatorInfoCodec, "operatorInfoCodec is null");
         this.executionFailureInfoCodec = requireNonNull(executionFailureInfoCodec, "executionFailureInfoCodec is null");
         this.serverVersion = requireNonNull(nodeVersion, "nodeVersion is null").toString();
         this.serverAddress = requireNonNull(nodeInfo, "nodeInfo is null").getExternalAddress();
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.functionManager = requireNonNull(metadata, "metadata is null").getFunctionManager();
+        this.functionAndTypeManager = requireNonNull(metadata, "metadata is null").getFunctionAndTypeManager();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
@@ -127,7 +132,8 @@ public class QueryMonitor
                                 queryInfo.getSelf(),
                                 Optional.empty(),
                                 Optional.empty(),
-                                Optional.empty())));
+                                Optional.empty(),
+                                ImmutableList.of())));
     }
 
     public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
@@ -141,7 +147,8 @@ public class QueryMonitor
                         queryInfo.getSelf(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.empty()),
+                        Optional.empty(),
+                        ImmutableList.of()),
                 new QueryStatistics(
                         ofMillis(0),
                         ofMillis(0),
@@ -161,12 +168,10 @@ public class QueryMonitor
                         0,
                         0,
                         0,
-                        ImmutableList.of(),
                         0,
-                        true,
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        ImmutableList.of()),
+                        0,
+                        0,
+                        true),
                 createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
@@ -175,7 +180,9 @@ public class QueryMonitor
                 ImmutableList.of(),
                 ofEpochMilli(queryInfo.getQueryStats().getCreateTime().getMillis()),
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
-                ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis())));
+                ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
+                ImmutableList.of(),
+                ImmutableList.of()));
 
         logQueryTimeline(queryInfo);
     }
@@ -183,6 +190,11 @@ public class QueryMonitor
     public void queryCompletedEvent(QueryInfo queryInfo)
     {
         QueryStats queryStats = queryInfo.getQueryStats();
+        ImmutableList.Builder<StageStatistics> stageStatisticsBuilder = ImmutableList.builder();
+        if (queryInfo.getOutputStage().isPresent()) {
+            computeStageStatistics(queryInfo.getOutputStage().get(), stageStatisticsBuilder);
+        }
+
         eventListenerManager.queryCompleted(
                 new QueryCompletedEvent(
                         createQueryMetadata(queryInfo),
@@ -197,29 +209,11 @@ public class QueryMonitor
                                 .collect(toImmutableList()),
                         ofEpochMilli(queryStats.getCreateTime().getMillis()),
                         ofEpochMilli(queryStats.getExecutionStartTime().getMillis()),
-                        ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0)));
+                        ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0),
+                        stageStatisticsBuilder.build(),
+                        createOperatorStatistics(queryInfo)));
 
         logQueryTimeline(queryInfo);
-    }
-
-    public static ResourceDistribution createResourceDistribution(
-            int stageId,
-            int tasks,
-            DistributionSnapshot distributionSnapshot)
-    {
-        return new ResourceDistribution(
-                stageId,
-                tasks,
-                distributionSnapshot.getP25(),
-                distributionSnapshot.getP50(),
-                distributionSnapshot.getP75(),
-                distributionSnapshot.getP90(),
-                distributionSnapshot.getP95(),
-                distributionSnapshot.getP99(),
-                distributionSnapshot.getMin(),
-                distributionSnapshot.getMax(),
-                (long) distributionSnapshot.getTotal(),
-                distributionSnapshot.getTotal() / distributionSnapshot.getCount());
     }
 
     private QueryMetadata createQueryMetadata(QueryInfo queryInfo)
@@ -232,23 +226,58 @@ public class QueryMonitor
                 queryInfo.getSelf(),
                 createTextQueryPlan(queryInfo),
                 createJsonQueryPlan(queryInfo),
-                queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)));
+                queryInfo.getOutputStage().flatMap(stage -> stageInfoCodec.toJsonWithLengthLimit(stage, maxJsonLimit)),
+                queryInfo.getRuntimeOptimizedStages().orElse(ImmutableList.of()).stream()
+                        .map(stageId -> String.valueOf(stageId.getId()))
+                        .collect(toImmutableList()));
+    }
+
+    private List<OperatorStatistics> createOperatorStatistics(QueryInfo queryInfo)
+    {
+        return queryInfo.getQueryStats().getOperatorSummaries().stream()
+                .map(operatorSummary -> new OperatorStatistics(
+                        operatorSummary.getStageId(),
+                        operatorSummary.getStageExecutionId(),
+                        operatorSummary.getPipelineId(),
+                        operatorSummary.getOperatorId(),
+                        operatorSummary.getPlanNodeId(),
+                        operatorSummary.getOperatorType(),
+                        operatorSummary.getTotalDrivers(),
+                        operatorSummary.getAddInputCalls(),
+                        operatorSummary.getAddInputWall(),
+                        operatorSummary.getAddInputCpu(),
+                        operatorSummary.getAddInputAllocation(),
+                        operatorSummary.getRawInputDataSize(),
+                        operatorSummary.getRawInputPositions(),
+                        operatorSummary.getInputDataSize(),
+                        operatorSummary.getInputPositions(),
+                        operatorSummary.getSumSquaredInputPositions(),
+                        operatorSummary.getGetOutputCalls(),
+                        operatorSummary.getGetOutputWall(),
+                        operatorSummary.getGetOutputCpu(),
+                        operatorSummary.getGetOutputAllocation(),
+                        operatorSummary.getOutputDataSize(),
+                        operatorSummary.getOutputPositions(),
+                        operatorSummary.getPhysicalWrittenDataSize(),
+                        operatorSummary.getBlockedWall(),
+                        operatorSummary.getFinishCalls(),
+                        operatorSummary.getFinishWall(),
+                        operatorSummary.getFinishCpu(),
+                        operatorSummary.getFinishAllocation(),
+                        operatorSummary.getUserMemoryReservation(),
+                        operatorSummary.getRevocableMemoryReservation(),
+                        operatorSummary.getSystemMemoryReservation(),
+                        operatorSummary.getPeakUserMemoryReservation(),
+                        operatorSummary.getPeakSystemMemoryReservation(),
+                        operatorSummary.getPeakTotalMemoryReservation(),
+                        operatorSummary.getSpilledDataSize(),
+                        Optional.ofNullable(operatorSummary.getInfo()).map(operatorInfoCodec::toJson)))
+                .collect(toImmutableList());
     }
 
     private QueryStatistics createQueryStatistics(QueryInfo queryInfo)
     {
-        ImmutableList.Builder<String> operatorSummaries = ImmutableList.builder();
-        for (OperatorStats summary : queryInfo.getQueryStats().getOperatorSummaries()) {
-            operatorSummaries.add(operatorStatsCodec.toJson(summary));
-        }
-
         QueryStats queryStats = queryInfo.getQueryStats();
-
-        ImmutableList.Builder<ResourceDistribution> cpuDistributionBuilder = ImmutableList.builder();
-        ImmutableList.Builder<ResourceDistribution> memoryDistributionBuilder = ImmutableList.builder();
-        if (queryInfo.getOutputStage().isPresent()) {
-            computeCpuAndMemoryDistributions(queryInfo.getOutputStage().get(), cpuDistributionBuilder, memoryDistributionBuilder);
-        }
 
         return new QueryStatistics(
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
@@ -261,6 +290,7 @@ public class QueryMonitor
                 queryStats.getPeakTotalMemoryReservation().toBytes(),
                 queryStats.getPeakTaskUserMemory().toBytes(),
                 queryStats.getPeakTaskTotalMemory().toBytes(),
+                queryStats.getPeakNodeTotalMemory().toBytes(),
                 queryStats.getRawInputDataSize().toBytes(),
                 queryStats.getRawInputPositions(),
                 queryStats.getOutputDataSize().toBytes(),
@@ -268,13 +298,10 @@ public class QueryMonitor
                 queryStats.getWrittenOutputLogicalDataSize().toBytes(),
                 queryStats.getWrittenOutputPositions(),
                 queryStats.getWrittenIntermediatePhysicalDataSize().toBytes(),
+                queryStats.getSpilledDataSize().toBytes(),
                 queryStats.getCumulativeUserMemory(),
-                queryStats.getStageGcStatistics(),
                 queryStats.getCompletedDrivers(),
-                queryInfo.isCompleteInfo(),
-                cpuDistributionBuilder.build(),
-                memoryDistributionBuilder.build(),
-                operatorSummaries.build());
+                queryInfo.isCompleteInfo());
     }
 
     private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup)
@@ -303,7 +330,7 @@ public class QueryMonitor
             if (queryInfo.getOutputStage().isPresent()) {
                 return Optional.of(textDistributedPlan(
                         queryInfo.getOutputStage().get(),
-                        functionManager,
+                        functionAndTypeManager,
                         queryInfo.getSession().toSession(sessionPropertyManager),
                         false));
             }
@@ -527,31 +554,51 @@ public class QueryMonitor
                 queryEndTime);
     }
 
-    private static void computeCpuAndMemoryDistributions(
+    private static ResourceDistribution createResourceDistribution(
+            DistributionSnapshot distributionSnapshot)
+    {
+        return new ResourceDistribution(
+                distributionSnapshot.getP25(),
+                distributionSnapshot.getP50(),
+                distributionSnapshot.getP75(),
+                distributionSnapshot.getP90(),
+                distributionSnapshot.getP95(),
+                distributionSnapshot.getP99(),
+                distributionSnapshot.getMin(),
+                distributionSnapshot.getMax(),
+                (long) distributionSnapshot.getTotal(),
+                distributionSnapshot.getTotal() / distributionSnapshot.getCount());
+    }
+
+    private static void computeStageStatistics(
             StageInfo stageInfo,
-            ImmutableList.Builder<ResourceDistribution> cpuDistributionBuilder,
-            ImmutableList.Builder<ResourceDistribution> memoryDistributionBuilder)
+            ImmutableList.Builder<StageStatistics> stageStatisticsBuilder)
     {
         Distribution cpuDistribution = new Distribution();
         Distribution memoryDistribution = new Distribution();
 
-        for (TaskInfo taskInfo : stageInfo.getLatestAttemptExecutionInfo().getTasks()) {
-            cpuDistribution.add(taskInfo.getStats().getTotalCpuTime().toMillis());
+        StageExecutionInfo executionInfo = stageInfo.getLatestAttemptExecutionInfo();
+
+        for (TaskInfo taskInfo : executionInfo.getTasks()) {
+            cpuDistribution.add(NANOSECONDS.toMillis(taskInfo.getStats().getTotalCpuTimeInNanos()));
             memoryDistribution.add(taskInfo.getStats().getPeakTotalMemoryInBytes());
         }
 
-        cpuDistributionBuilder.add(createResourceDistribution(
+        stageStatisticsBuilder.add(new StageStatistics(
                 stageInfo.getStageId().getId(),
-                stageInfo.getLatestAttemptExecutionInfo().getTasks().size(),
-                cpuDistribution.snapshot()));
+                executionInfo.getStats().getGcInfo().getStageExecutionId(),
+                executionInfo.getTasks().size(),
+                executionInfo.getStats().getTotalScheduledTime(),
+                executionInfo.getStats().getTotalCpuTime(),
+                executionInfo.getStats().getRetriedCpuTime(),
+                executionInfo.getStats().getTotalBlockedTime(),
+                executionInfo.getStats().getRawInputDataSize(),
+                executionInfo.getStats().getProcessedInputDataSize(),
+                executionInfo.getStats().getPhysicalWrittenDataSize(),
+                executionInfo.getStats().getGcInfo(),
+                createResourceDistribution(cpuDistribution.snapshot()),
+                createResourceDistribution(memoryDistribution.snapshot())));
 
-        memoryDistributionBuilder.add(createResourceDistribution(
-                stageInfo.getStageId().getId(),
-                stageInfo.getLatestAttemptExecutionInfo().getTasks().size(),
-                memoryDistribution.snapshot()));
-
-        for (StageInfo subStage : stageInfo.getSubStages()) {
-            computeCpuAndMemoryDistributions(subStage, cpuDistributionBuilder, memoryDistributionBuilder);
-        }
+        stageInfo.getSubStages().forEach(subStage -> computeStageStatistics(subStage, stageStatisticsBuilder));
     }
 }

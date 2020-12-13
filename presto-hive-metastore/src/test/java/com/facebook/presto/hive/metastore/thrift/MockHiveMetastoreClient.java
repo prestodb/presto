@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.PartitionNameWithVersion;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,6 +56,8 @@ public class MockHiveMetastoreClient
     public static final String TEST_PARTITION2 = "key=testpartition2";
     public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
     public static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
+    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION1 = new PartitionNameWithVersion(TEST_PARTITION1, 1);
+    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION2 = new PartitionNameWithVersion(TEST_PARTITION2, 2);
     public static final List<String> TEST_ROLES = ImmutableList.of("testrole");
     public static final List<RolePrincipalGrant> TEST_ROLE_GRANTS = ImmutableList.of(
             new RolePrincipalGrant("role1", "user", USER, false, 0, "grantor1", USER),
@@ -211,6 +216,19 @@ public class MockHiveMetastoreClient
             throw new NoSuchObjectException();
         }
         return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
+    }
+
+    public List<PartitionNameWithVersion> getPartitionNamesWithVersionByFilter(String dbName, String tableName, Map<Column, Domain> partitionPredicates)
+            throws TException
+    {
+        accessCount.incrementAndGet();
+        if (throwException) {
+            throw new RuntimeException();
+        }
+        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
+            throw new NoSuchObjectException();
+        }
+        return ImmutableList.of(TEST_PARTITION_NAME_WITH_VERSION1, TEST_PARTITION_NAME_WITH_VERSION2);
     }
 
     @Override

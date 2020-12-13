@@ -52,7 +52,6 @@ public class LocalFileConnectorFactory
                     new LocalFileModule(catalogName));
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

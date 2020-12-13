@@ -13,18 +13,17 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.BoundVariables;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -39,7 +38,7 @@ public final class JsonStringToArrayCast
     private JsonStringToArrayCast()
     {
         super(new Signature(
-                QualifiedFunctionName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ARRAY_NAME),
+                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, JSON_STRING_TO_ARRAY_NAME),
                 SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),
@@ -68,8 +67,8 @@ public final class JsonStringToArrayCast
     }
 
     @Override
-    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, TypeManager typeManager, FunctionManager functionManager)
+    public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        return JSON_TO_ARRAY.specialize(boundVariables, arity, typeManager, functionManager);
+        return JSON_TO_ARRAY.specialize(boundVariables, arity, functionAndTypeManager);
     }
 }

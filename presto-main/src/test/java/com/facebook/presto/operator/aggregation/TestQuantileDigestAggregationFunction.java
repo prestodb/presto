@@ -19,7 +19,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Floats;
 import org.testng.annotations.Test;
@@ -127,9 +127,9 @@ public class TestQuantileDigestAggregationFunction
     @Override
     protected InternalAggregationFunction getAggregationFunction(Type... type)
     {
-        FunctionManager functionManager = METADATA.getFunctionManager();
-        return functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("qdigest_agg", fromTypes(type)));
+        FunctionAndTypeManager functionAndTypeManager = METADATA.getFunctionAndTypeManager();
+        return functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("qdigest_agg", fromTypes(type)));
     }
 
     private void testAggregationBigint(Block inputBlock, Block weightsBlock, double maxError, long... inputs)

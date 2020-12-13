@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -60,7 +60,7 @@ public class AggregationFunctionMatcher
 
         FunctionCall expectedCall = callMaker.getExpectedValue(symbolAliases);
         for (Map.Entry<VariableReferenceExpression, Aggregation> assignment : aggregationNode.getAggregations().entrySet()) {
-            if (verifyAggregation(metadata.getFunctionManager(), assignment.getValue(), expectedCall)) {
+            if (verifyAggregation(metadata.getFunctionAndTypeManager(), assignment.getValue(), expectedCall)) {
                 checkState(!result.isPresent(), "Ambiguous function calls in %s", aggregationNode);
                 result = Optional.of(assignment.getKey());
             }
@@ -69,9 +69,9 @@ public class AggregationFunctionMatcher
         return result;
     }
 
-    private static boolean verifyAggregation(FunctionManager functionManager, Aggregation aggregation, FunctionCall expectedCall)
+    private static boolean verifyAggregation(FunctionAndTypeManager functionAndTypeManager, Aggregation aggregation, FunctionCall expectedCall)
     {
-        return functionManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName().getFunctionName().equalsIgnoreCase(expectedCall.getName().getSuffix()) &&
+        return functionAndTypeManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName().getObjectName().equalsIgnoreCase(expectedCall.getName().getSuffix()) &&
                 aggregation.getArguments().size() == expectedCall.getArguments().size() &&
                 Streams.zip(
                         aggregation.getArguments().stream(),

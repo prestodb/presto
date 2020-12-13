@@ -29,7 +29,7 @@ replacing the properties as appropriate:
     connector.name=elasticsearch
     elasticsearch.host=localhost
     elasticsearch.port=9200
-    elasticsearch.default-schema=default
+    elasticsearch.default-schema-name=default
 
 Configuration Properties
 ------------------------
@@ -41,7 +41,7 @@ Property Name                                 Description
 ============================================= ==============================================================================
 ``elasticsearch.host``                        Host name of the Elasticsearch server.
 ``elasticsearch.port``                        Port of the Elasticsearch server.
-``elasticsearch.default-schema``              Default schema name for tables.
+``elasticsearch.default-schema-name``         Default schema name for tables.
 ``elasticsearch.scroll-size``                 Maximum number of hits to be returned with each Elasticsearch scroll request.
 ``elasticsearch.scroll-timeout``              Amount of time Elasticsearch will keep the search context alive for scroll requests.
 ``elasticsearch.max-hits``                    Maximum number of hits a single Elasticsearch request can fetch.
@@ -49,6 +49,9 @@ Property Name                                 Description
 ``elasticsearch.connect-timeout``             Timeout for connections to Elasticsearch hosts.
 ``elasticsearch.max-retry-time``              Maximum duration across all retry attempts for a single request.
 ``elasticsearch.node-refresh-interval``       How often to refresh the list of available Elasticsearch nodes.
+``elasticsearch.max-http-connections``        Maximum number of persistent HTTP connections to Elasticsearch.
+``elasticsearch.http-thread-count``           Number of threads handling HTTP connections to Elasticsearch.
+``elasticsearch.ignore-publish-address``      Whether to ignore the published address and use the configured address.
 ============================================= ==============================================================================
 
 ``elasticsearch.host``
@@ -65,8 +68,8 @@ Specifies the port of the Elasticsearch node to connect to.
 
 This property is optional; the default is ``9200``.
 
-``elasticsearch.default-schema``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``elasticsearch.default-schema-name``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Defines the schema that will contain all tables defined without
 a qualifying schema name.
@@ -126,6 +129,29 @@ This property is optional; the default is ``20s``.
 This property controls how often the list of available Elasticsearch nodes is refreshed.
 
 This property is optional; the default is ``1m``.
+
+``elasticsearch.max-http-connections``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This property controls the maximum number of persistent HTTP connections to Elasticsearch.
+
+This property is optional; the default is ``25``.
+
+``elasticsearch.http-thread-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This property controls the number of threads handling HTTP connections to Elasticsearch.
+
+This property is optional; the default is number of available processors.
+
+``elasticsearch.ignore-publish-address``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The address is used to address Elasticsearch nodes. When running in a container environment, the
+published address may not match the public address of the container.  This option makes the
+connector ignore the published address and use the configured address, instead.
+
+This property is optional; the default is ``false``.
 
 TLS Security
 ------------
@@ -187,6 +213,7 @@ Elasticsearch Presto
 ``long``      ``BIGINT``
 ``text``      ``VARCHAR``
 ``date``      ``TIMESTAMP``
+``ip``        ``IPADDRESS``
 (others)      (unsupported)
 ============= =============
 
@@ -258,7 +285,7 @@ as part of the table name, separated by a colon. For example:
 
 .. code-block:: sql
 
-    SELECT * FROM "tweets: +presto DB^2"
+    SELECT * FROM elasticsearch.default."tweets: +presto DB^2"
 
 .. _full text query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
 

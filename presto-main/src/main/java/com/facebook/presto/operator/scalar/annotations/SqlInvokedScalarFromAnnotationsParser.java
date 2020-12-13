@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar.annotations;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
@@ -36,7 +36,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.findPublicStaticMethods;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
@@ -156,13 +156,13 @@ public final class SqlInvokedScalarFromAnnotationsParser
 
         return Stream.concat(Stream.of(functionHeader.value()), stream(functionHeader.alias()))
                 .map(name -> new SqlInvokedFunction(
-                        QualifiedFunctionName.of(DEFAULT_NAMESPACE, name),
+                        QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
                         parameters,
                         returnType,
                         functionDescription,
                         routineCharacteristics,
                         body,
-                        Optional.of(1L)))
+                        Optional.of("unique")))
                 .collect(toImmutableList());
     }
 

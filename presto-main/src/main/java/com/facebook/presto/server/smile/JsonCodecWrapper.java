@@ -14,6 +14,7 @@
 package com.facebook.presto.server.smile;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.server.codec.Codec;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;

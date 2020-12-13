@@ -21,6 +21,7 @@ import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.sql.gen.OrderingCompiler;
@@ -28,11 +29,14 @@ import com.facebook.presto.sql.planner.HttpRemoteSourceFactory;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.concurrent.Executor;
 
+import static com.facebook.presto.execution.FragmentResultCacheContext.createFragmentResultCacheContext;
 import static com.facebook.presto.execution.SqlTaskExecution.createSqlTaskExecution;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 
@@ -46,6 +50,8 @@ public class SqlTaskExecutionFactory
     private final BlockEncodingSerde blockEncodingSerde;
     private final OrderingCompiler orderingCompiler;
     private final SplitMonitor splitMonitor;
+    private final FragmentResultCacheManager fragmentResultCacheManager;
+    private final ObjectMapper objectMapper;
     private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
     private final boolean perOperatorAllocationTrackingEnabled;
@@ -59,6 +65,8 @@ public class SqlTaskExecutionFactory
             BlockEncodingSerde blockEncodingSerde,
             OrderingCompiler orderingCompiler,
             SplitMonitor splitMonitor,
+            FragmentResultCacheManager fragmentResultCacheManager,
+            ObjectMapper objectMapper,
             TaskManagerConfig config)
     {
         this.taskNotificationExecutor = requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
@@ -67,6 +75,9 @@ public class SqlTaskExecutionFactory
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
+        this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
+        // Ordering is needed to make sure serialized plans are consistent for the same map
+        this.objectMapper = objectMapper.copy().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
         requireNonNull(config, "config is null");
         this.perOperatorCpuTimerEnabled = config.isPerOperatorCpuTimerEnabled();
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
@@ -92,7 +103,8 @@ public class SqlTaskExecutionFactory
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
                 allocationTrackingEnabled,
-                legacyLifespanCompletionCondition);
+                legacyLifespanCompletionCondition,
+                createFragmentResultCacheContext(fragmentResultCacheManager, fragment.getRoot(), fragment.getPartitioningScheme(), session, objectMapper));
 
         LocalExecutionPlan localExecutionPlan;
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskStateMachine.getTaskId())) {

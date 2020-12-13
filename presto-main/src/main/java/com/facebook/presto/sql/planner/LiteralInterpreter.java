@@ -48,6 +48,7 @@ import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.CharLiteral;
 import com.facebook.presto.sql.tree.DecimalLiteral;
 import com.facebook.presto.sql.tree.DoubleLiteral;
+import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.IntervalLiteral;
@@ -184,7 +185,7 @@ public final class LiteralInterpreter
         private LiteralVisitor(Metadata metadata)
         {
             this.metadata = metadata;
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionManager());
+            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
         }
 
         @Override
@@ -236,6 +237,12 @@ public final class LiteralInterpreter
         }
 
         @Override
+        protected Object visitEnumLiteral(EnumLiteral node, ConnectorSession context)
+        {
+            return node.getValue();
+        }
+
+        @Override
         protected Object visitGenericLiteral(GenericLiteral node, ConnectorSession session)
         {
             Type type = metadata.getType(parseTypeSignature(node.getType()));
@@ -244,12 +251,12 @@ public final class LiteralInterpreter
             }
 
             if (JSON.equals(type)) {
-                FunctionHandle functionHandle = metadata.getFunctionManager().lookupFunction("json_parse", fromTypes(VARCHAR));
+                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupFunction("json_parse", fromTypes(VARCHAR));
                 return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
 
             try {
-                FunctionHandle functionHandle = metadata.getFunctionManager().lookupCast(CAST, VARCHAR.getTypeSignature(), type.getTypeSignature());
+                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, VARCHAR.getTypeSignature(), type.getTypeSignature());
                 return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {

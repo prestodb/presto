@@ -15,10 +15,11 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
-import com.facebook.presto.execution.warnings.WarningCollector;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
@@ -46,7 +47,6 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.DeleteNode;
-import com.facebook.presto.sql.planner.plan.DistinctLimitNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -117,11 +117,11 @@ import static java.util.Objects.requireNonNull;
 public class UnaliasSymbolReferences
         implements PlanOptimizer
 {
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
-    public UnaliasSymbolReferences(FunctionManager functionManager)
+    public UnaliasSymbolReferences(FunctionAndTypeManager functionAndTypeManager)
     {
-        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
     }
 
     @Override
@@ -133,7 +133,7 @@ public class UnaliasSymbolReferences
         requireNonNull(variableAllocator, "variableAllocator is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        return SimplePlanRewriter.rewriteWith(new Rewriter(types, functionManager), plan);
+        return SimplePlanRewriter.rewriteWith(new Rewriter(types, functionAndTypeManager), plan);
     }
 
     private static class Rewriter
@@ -143,10 +143,10 @@ public class UnaliasSymbolReferences
         private final TypeProvider types;
         private final RowExpressionDeterminismEvaluator determinismEvaluator;
 
-        private Rewriter(TypeProvider types, FunctionManager functionManager)
+        private Rewriter(TypeProvider types, FunctionAndTypeManager functionAndTypeManager)
         {
             this.types = types;
-            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionManager);
+            this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
         }
 
         @Override
@@ -449,7 +449,7 @@ public class UnaliasSymbolReferences
         public PlanNode visitProject(ProjectNode node, RewriteContext<Void> context)
         {
             PlanNode source = context.rewrite(node.getSource());
-            return new ProjectNode(node.getId(), source, canonicalize(node.getAssignments()));
+            return new ProjectNode(node.getId(), source, canonicalize(node.getAssignments()), node.getLocality());
         }
 
         @Override
@@ -527,6 +527,8 @@ public class UnaliasSymbolReferences
             Optional<VariableReferenceExpression> canonicalLeftHashVariable = canonicalize(node.getLeftHashVariable());
             Optional<VariableReferenceExpression> canonicalRightHashVariable = canonicalize(node.getRightHashVariable());
 
+            Map<String, VariableReferenceExpression> canonicalDynamicFilters = canonicalizeAndDistinct(node.getDynamicFilters());
+
             if (node.getType().equals(INNER)) {
                 canonicalCriteria.stream()
                         .filter(clause -> clause.getLeft().getType().equals(clause.getRight().getType()))
@@ -544,7 +546,8 @@ public class UnaliasSymbolReferences
                     canonicalFilter,
                     canonicalLeftHashVariable,
                     canonicalRightHashVariable,
-                    node.getDistributionType());
+                    node.getDistributionType(),
+                    canonicalDynamicFilters);
         }
 
         @Override
@@ -562,7 +565,8 @@ public class UnaliasSymbolReferences
                     canonicalize(node.getSemiJoinOutput()),
                     canonicalize(node.getSourceHashVariable()),
                     canonicalize(node.getFilteringSourceHashVariable()),
-                    node.getDistributionType());
+                    node.getDistributionType(),
+                    node.getDynamicFilters());
         }
 
         @Override
@@ -757,6 +761,19 @@ public class UnaliasSymbolReferences
                 VariableReferenceExpression canonical = canonicalize(variable);
                 if (added.add(canonical)) {
                     builder.add(canonical);
+                }
+            }
+            return builder.build();
+        }
+
+        private Map<String, VariableReferenceExpression> canonicalizeAndDistinct(Map<String, VariableReferenceExpression> dynamicFilters)
+        {
+            Set<VariableReferenceExpression> added = new HashSet<>();
+            ImmutableMap.Builder<String, VariableReferenceExpression> builder = ImmutableMap.builder();
+            for (Map.Entry<String, VariableReferenceExpression> entry : dynamicFilters.entrySet()) {
+                VariableReferenceExpression canonical = canonicalize(entry.getValue());
+                if (added.add(canonical)) {
+                    builder.put(entry.getKey(), canonical);
                 }
             }
             return builder.build();

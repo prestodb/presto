@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.execution.buffer;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -36,13 +35,13 @@ public class TestingPagesSerdeFactory
     public TestingPagesSerdeFactory()
     {
         // compression should be enabled in as many tests as possible
-        super(new BlockEncodingManager(new TestingTypeManager()), true);
+        super(new BlockEncodingManager(), true);
     }
 
     public static PagesSerde testingPagesSerde()
     {
         return new SynchronizedPagesSerde(
-                new BlockEncodingManager(new TestingTypeManager()),
+                new BlockEncodingManager(),
                 Optional.of(new PageCompressor()
                 {
                     Compressor compressor = new Lz4Compressor();

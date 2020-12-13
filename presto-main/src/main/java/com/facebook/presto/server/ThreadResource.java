@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 
+import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -30,8 +31,10 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.facebook.presto.server.ThreadResource.Info.byName;
+import static com.facebook.presto.server.security.RoleType.ADMIN;
 
 @Path("/")
+@RolesAllowed(ADMIN)
 public class ThreadResource
 {
     @GET
@@ -43,6 +46,9 @@ public class ThreadResource
 
         ImmutableList.Builder<Info> builder = ImmutableList.builder();
         for (ThreadInfo info : mbean.getThreadInfo(mbean.getAllThreadIds(), Integer.MAX_VALUE)) {
+            if (info == null) {
+                continue;
+            }
             builder.add(new Info(
                     info.getThreadId(),
                     info.getThreadName(),

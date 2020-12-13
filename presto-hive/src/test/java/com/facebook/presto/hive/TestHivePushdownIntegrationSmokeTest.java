@@ -34,7 +34,17 @@ public class TestHivePushdownIntegrationSmokeTest
 {
     public TestHivePushdownIntegrationSmokeTest()
     {
-        super(() -> createQueryRunner(ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER), ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), "sql-standard", ImmutableMap.of("hive.pushdown-filter-enabled", "true"), Optional.empty()),
+        super(() -> createQueryRunner(
+                    ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER),
+                    ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
+                            "experimental.pushdown-dereference-enabled", "true"),
+                    "sql-standard",
+                    ImmutableMap.of("hive.pushdown-filter-enabled", "true",
+                            "hive.enable-parquet-dereference-pushdown", "true",
+                            "hive.partial_aggregation_pushdown_enabled", "true",
+                            "hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true",
+                            "hive.orc.writer.string-statistics-limit", "128B"),
+                    Optional.empty()),
                 createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 HIVE_CATALOG,

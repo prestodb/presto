@@ -13,58 +13,51 @@
  */
 package com.facebook.presto.benchmark;
 
-import com.facebook.airlift.bootstrap.Bootstrap;
-import com.facebook.airlift.bootstrap.LifeCycleManager;
-import com.facebook.airlift.log.Logger;
-import com.facebook.presto.benchmark.event.EventClientModule;
-import com.facebook.presto.benchmark.framework.BenchmarkModule;
 import com.facebook.presto.benchmark.prestoaction.PrestoExceptionClassifier;
-import com.facebook.presto.benchmark.source.BenchmarkSuiteModule;
+import com.facebook.presto.benchmark.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.airline.Command;
 
-import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static com.google.common.base.Throwables.throwIfUnchecked;
+import java.util.List;
+import java.util.Set;
 
-@Command(name = "benchmark", description = "benchmark")
+import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+
+@Command(name = "benchmark")
 public class PrestoBenchmarkCommand
-        implements Runnable
+        extends AbstractBenchmarkCommand
 {
-    private static final Logger log = Logger.get(PrestoBenchmarkCommand.class);
+    @Override
+    public List<Module> getAdditionalModules()
+    {
+        return ImmutableList.of();
+    }
 
     @Override
-    public void run()
+    public SqlParserOptions getSqlParserOptions()
     {
-        Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
-                .add(new BenchmarkSuiteModule(ImmutableSet.of()))
-                .add(new BenchmarkModule(
-                        new SqlParserOptions(),
-                        ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build(),
-                        new PrestoExceptionClassifier(ImmutableSet.of())))
-                .add(new EventClientModule(ImmutableSet.of()))
-                .build());
-        Injector injector = null;
-        try {
-            injector = app.strictConfig().initialize();
-        }
-        catch (Exception e) {
-            throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
-        finally {
-            if (injector != null) {
-                try {
-                    injector.getInstance(LifeCycleManager.class).stop();
-                }
-                catch (Exception e) {
-                    log.error(e);
-                }
-            }
-        }
+        return new SqlParserOptions();
+    }
+
+    @Override
+    public ParsingOptions getParsingOptions()
+    {
+        return ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
+    }
+
+    @Override
+    public Set<String> getCustomBenchmarkSuiteSupplierTypes()
+    {
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public SqlExceptionClassifier getExceptionClassifier()
+    {
+        return new PrestoExceptionClassifier(ImmutableSet.of());
     }
 }

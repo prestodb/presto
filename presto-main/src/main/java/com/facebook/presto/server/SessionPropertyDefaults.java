@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
 
 public class SessionPropertyDefaults
@@ -68,29 +69,42 @@ public class SessionPropertyDefaults
             return;
         }
 
-        Map<String, String> propertyMap = new HashMap<>(loadProperties(SESSION_PROPERTY_CONFIGURATION));
+        Map<String, String> properties = loadProperties(SESSION_PROPERTY_CONFIGURATION);
+        checkArgument(!isNullOrEmpty(properties.get(SESSION_PROPERTY_MANAGER_NAME)),
+                "Session property configuration %s does not contain %s",
+                SESSION_PROPERTY_CONFIGURATION,
+                SESSION_PROPERTY_MANAGER_NAME);
 
+        loadConfigurationManager(properties);
+    }
+
+    public void loadConfigurationManager(Map<String, String> properties)
+    {
+        properties = new HashMap<>(properties);
+        String sessionPropertyManagerName = properties.remove(SESSION_PROPERTY_MANAGER_NAME);
+        checkArgument(!isNullOrEmpty(sessionPropertyManagerName), "%s property must be present", SESSION_PROPERTY_MANAGER_NAME);
+
+        setConfigurationManager(sessionPropertyManagerName, properties);
+    }
+
+    @VisibleForTesting
+    public void setConfigurationManager(String configManagerName, Map<String, String> properties)
+    {
         log.info("-- Loading session property configuration manager --");
 
-        String configManagerName = propertyMap.remove(SESSION_PROPERTY_MANAGER_NAME);
-        checkArgument(configManagerName != null, "Session property configuration %s does not contain %s", SESSION_PROPERTY_CONFIGURATION, SESSION_PROPERTY_MANAGER_NAME);
+        SessionPropertyConfigurationManagerFactory factory = factories.get(configManagerName);
+        checkState(factory != null, "Session property configuration manager '%s' is not registered", configManagerName);
 
-        setConfigurationManager(configManagerName, propertyMap);
+        SessionPropertyConfigurationManager manager = factory.create(properties, configurationManagerContext);
+        checkState(delegate.compareAndSet(null, manager), "sessionPropertyConfigurationManager is already set");
 
         log.info("-- Loaded session property configuration manager %s --", configManagerName);
     }
 
-    @VisibleForTesting
-    public void setConfigurationManager(String name, Map<String, String> properties)
-    {
-        SessionPropertyConfigurationManagerFactory factory = factories.get(name);
-        checkState(factory != null, "Session property configuration manager %s is not registered");
-
-        SessionPropertyConfigurationManager manager = factory.create(properties, configurationManagerContext);
-        checkState(delegate.compareAndSet(null, manager), "sessionPropertyConfigurationManager is already set");
-    }
-
-    public Session newSessionWithDefaultProperties(Session session, Optional<String> queryType, ResourceGroupId resourceGroupId)
+    public Session newSessionWithDefaultProperties(
+            Session session,
+            Optional<String> queryType,
+            Optional<ResourceGroupId> resourceGroupId)
     {
         SessionPropertyConfigurationManager configurationManager = delegate.get();
         if (configurationManager == null) {

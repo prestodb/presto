@@ -17,13 +17,12 @@ import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.relational.OriginalExpressionUtils;
-import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -36,11 +35,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
-import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToExpression;
 import static com.facebook.presto.sql.relational.ProjectNodeUtils.isIdentity;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Maps.transformValues;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -51,8 +48,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class JoinGraph
 {
-    private final Optional<Map<VariableReferenceExpression, Expression>> assignments;
-    private final List<Expression> filters;
+    private final Optional<Map<VariableReferenceExpression, RowExpression>> assignments;
+    private final List<RowExpression> filters;
     private final List<PlanNode> nodes; // nodes in order of their appearance in tree plan (left, right, parent)
     private final Multimap<PlanNodeId, Edge> edges;
     private final PlanNodeId rootId;
@@ -93,8 +90,8 @@ public class JoinGraph
             List<PlanNode> nodes,
             Multimap<PlanNodeId, Edge> edges,
             PlanNodeId rootId,
-            List<Expression> filters,
-            Optional<Map<VariableReferenceExpression, Expression>> assignments)
+            List<RowExpression> filters,
+            Optional<Map<VariableReferenceExpression, RowExpression>> assignments)
     {
         this.nodes = nodes;
         this.edges = edges;
@@ -103,26 +100,26 @@ public class JoinGraph
         this.assignments = assignments;
     }
 
-    public JoinGraph withAssignments(Map<VariableReferenceExpression, Expression> assignments)
+    public JoinGraph withAssignments(Map<VariableReferenceExpression, RowExpression> assignments)
     {
         return new JoinGraph(nodes, edges, rootId, filters, Optional.of(assignments));
     }
 
-    public Optional<Map<VariableReferenceExpression, Expression>> getAssignments()
+    public Optional<Map<VariableReferenceExpression, RowExpression>> getAssignments()
     {
         return assignments;
     }
 
-    public JoinGraph withFilter(Expression expression)
+    public JoinGraph withFilter(RowExpression expression)
     {
-        ImmutableList.Builder<Expression> filters = ImmutableList.builder();
+        ImmutableList.Builder<RowExpression> filters = ImmutableList.builder();
         filters.addAll(this.filters);
         filters.add(expression);
 
         return new JoinGraph(nodes, edges, rootId, filters.build(), assignments);
     }
 
-    public List<Expression> getFilters()
+    public List<RowExpression> getFilters()
     {
         return filters;
     }
@@ -200,7 +197,7 @@ public class JoinGraph
                 .putAll(this.edges)
                 .putAll(other.edges);
 
-        List<Expression> joinedFilters = ImmutableList.<Expression>builder()
+        List<RowExpression> joinedFilters = ImmutableList.<RowExpression>builder()
                 .addAll(this.filters)
                 .addAll(other.filters)
                 .build();
@@ -256,7 +253,7 @@ public class JoinGraph
         public JoinGraph visitFilter(FilterNode node, Context context)
         {
             JoinGraph graph = node.getSource().accept(this, context);
-            return graph.withFilter(castToExpression(node.getPredicate()));
+            return graph.withFilter(node.getPredicate());
         }
 
         @Override
@@ -273,7 +270,7 @@ public class JoinGraph
             JoinGraph graph = left.joinWith(right, node.getCriteria(), context, node.getId());
 
             if (node.getFilter().isPresent()) {
-                return graph.withFilter(castToExpression(node.getFilter().get()));
+                return graph.withFilter(node.getFilter().get());
             }
             return graph;
         }
@@ -283,7 +280,7 @@ public class JoinGraph
         {
             if (isIdentity(node)) {
                 JoinGraph graph = node.getSource().accept(this, context);
-                return graph.withAssignments(transformValues(node.getAssignments().getMap(), OriginalExpressionUtils::castToExpression));
+                return graph.withAssignments(node.getAssignments().getMap());
             }
             return visitPlan(node, context);
         }

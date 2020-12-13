@@ -133,6 +133,12 @@ public class Int128ArrayBlockBuilder
         return new Int128ArrayBlockBuilder(blockBuilderStatus, calculateBlockResetSize(positionCount));
     }
 
+    @Override
+    public BlockBuilder newBlockBuilderLike(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return new Int128ArrayBlockBuilder(blockBuilderStatus, max(calculateBlockResetSize(positionCount), expectedEntries));
+    }
+
     private void growCapacity()
     {
         int newSize;
@@ -419,10 +425,7 @@ public class Int128ArrayBlockBuilder
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("Int128ArrayBlockBuilder{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("Int128ArrayBlockBuilder(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     private void checkReadablePosition(int position)

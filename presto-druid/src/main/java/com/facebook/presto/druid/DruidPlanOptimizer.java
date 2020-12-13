@@ -26,6 +26,7 @@ import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
@@ -43,7 +44,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_QUERY_GENERATOR_FAILURE;
-import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
@@ -81,11 +81,8 @@ public class DruidPlanOptimizer
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator)
     {
-        Map<TableScanNode, Void> scanNodes = maxSubplan.accept(new TableFindingVisitor(), null);
-        TableScanNode druidTableScanNode = getOnlyDruidTable(scanNodes).orElseThrow(() -> new PrestoException(
-                        GENERIC_INTERNAL_ERROR,
-                        "Expected to find druid table handle for the scan node"));
-        return maxSubplan.accept(new Visitor(druidTableScanNode, session, idAllocator), null);
+        Map<PlanNodeId, TableScanNode> scanNodes = maxSubplan.accept(new TableFindingVisitor(), null);
+        return maxSubplan.accept(new Visitor(scanNodes, session, idAllocator), null);
     }
 
     private static Optional<DruidTableHandle> getDruidTableHandle(TableScanNode tableScanNode)
@@ -95,17 +92,6 @@ public class DruidPlanOptimizer
             ConnectorTableHandle connectorHandle = table.getConnectorHandle();
             if (connectorHandle instanceof DruidTableHandle) {
                 return Optional.of((DruidTableHandle) connectorHandle);
-            }
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<TableScanNode> getOnlyDruidTable(Map<TableScanNode, Void> scanNodes)
-    {
-        if (scanNodes.size() == 1) {
-            TableScanNode tableScanNode = scanNodes.keySet().iterator().next();
-            if (getDruidTableHandle(tableScanNode).isPresent()) {
-                return Optional.of(tableScanNode);
             }
         }
         return Optional.empty();
@@ -122,21 +108,21 @@ public class DruidPlanOptimizer
     }
 
     private static class TableFindingVisitor
-            extends PlanVisitor<Map<TableScanNode, Void>, Void>
+            extends PlanVisitor<Map<PlanNodeId, TableScanNode>, Void>
     {
         @Override
-        public Map<TableScanNode, Void> visitPlan(PlanNode node, Void context)
+        public Map<PlanNodeId, TableScanNode> visitPlan(PlanNode node, Void context)
         {
-            Map<TableScanNode, Void> result = new IdentityHashMap<>();
+            Map<PlanNodeId, TableScanNode> result = new IdentityHashMap<>();
             node.getSources().forEach(source -> result.putAll(source.accept(this, context)));
             return result;
         }
 
         @Override
-        public Map<TableScanNode, Void> visitTableScan(TableScanNode node, Void context)
+        public Map<PlanNodeId, TableScanNode> visitTableScan(TableScanNode node, Void context)
         {
-            Map<TableScanNode, Void> result = new IdentityHashMap<>();
-            result.put(node, null);
+            Map<PlanNodeId, TableScanNode> result = new IdentityHashMap<>();
+            result.put(node.getId(), node);
             return result;
         }
     }
@@ -146,16 +132,16 @@ public class DruidPlanOptimizer
     {
         private final PlanNodeIdAllocator idAllocator;
         private final ConnectorSession session;
-        private final TableScanNode tableScanNode;
+        private final Map<PlanNodeId, TableScanNode> tableScanNodes;
         private final IdentityHashMap<FilterNode, Void> filtersSplitUp = new IdentityHashMap<>();
 
-        public Visitor(TableScanNode tableScanNode, ConnectorSession session, PlanNodeIdAllocator idAllocator)
+        public Visitor(Map<PlanNodeId, TableScanNode> tableScanNodes, ConnectorSession session, PlanNodeIdAllocator idAllocator)
         {
             this.session = session;
             this.idAllocator = idAllocator;
-            this.tableScanNode = tableScanNode;
+            this.tableScanNodes = tableScanNodes;
             // Just making sure that the table exists
-            getDruidTableHandle(this.tableScanNode).get().getTableName();
+            tableScanNodes.forEach((key, value) -> getDruidTableHandle(value).get().getTableName());
         }
 
         private Optional<PlanNode> tryCreatingNewScanNode(PlanNode plan)
@@ -164,8 +150,13 @@ public class DruidPlanOptimizer
             if (!dql.isPresent()) {
                 return Optional.empty();
             }
-            DruidTableHandle druidTableHandle = getDruidTableHandle(tableScanNode).orElseThrow(() -> new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Expected to find a druid table handle"));
             DruidQueryGeneratorContext context = dql.get().getContext();
+            final PlanNodeId tableScanNodeId = context.getTableScanNodeId().orElseThrow(() -> new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Expected to find a druid table scan node id"));
+            if (!tableScanNodes.containsKey(tableScanNodeId)) {
+                throw new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Expected to find a druid table scan node");
+            }
+            final TableScanNode tableScanNode = tableScanNodes.get(tableScanNodeId);
+            DruidTableHandle druidTableHandle = getDruidTableHandle(tableScanNode).orElseThrow(() -> new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Expected to find a druid table handle"));
             TableHandle oldTableHandle = tableScanNode.getTable();
             Map<VariableReferenceExpression, DruidColumnHandle> assignments = context.getAssignments();
             TableHandle newTableHandle = new TableHandle(

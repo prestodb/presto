@@ -15,8 +15,8 @@ package com.facebook.presto.sql.planner.sanity;
 
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.BooleanType;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -83,7 +83,7 @@ public class TestVerifyNoOriginalExpression
         valuesNode = builder.values();
         comparisonCallExpression = new CallExpression(
                 "LESS_THAN",
-                metadata.getFunctionManager().resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT)),
+                metadata.getFunctionAndTypeManager().resolveOperator(LESS_THAN, fromTypes(BIGINT, BIGINT)),
                 BooleanType.BOOLEAN,
                 ImmutableList.of(VARIABLE_REFERENCE_EXPRESSION, VARIABLE_REFERENCE_EXPRESSION));
     }

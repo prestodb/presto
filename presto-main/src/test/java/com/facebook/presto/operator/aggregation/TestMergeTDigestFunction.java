@@ -68,7 +68,7 @@ public class TestMergeTDigestFunction
     @Override
     public Block[] getSequenceBlocks(int start, int length)
     {
-        Type type = TDIGEST.createType(typeRegistry, ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
+        Type type = TDIGEST.createType(ImmutableList.of(TypeParameter.of(DoubleType.DOUBLE)));
         BlockBuilder blockBuilder = type.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             TDigest tdigest = createTDigest(100);

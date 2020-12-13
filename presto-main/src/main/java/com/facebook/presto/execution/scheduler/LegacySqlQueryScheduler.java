@@ -14,6 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.BasicStageExecutionStats;
@@ -30,32 +31,48 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
+import static com.facebook.presto.SystemSessionProperties.isRuntimeOptimizerEnabled;
 import static com.facebook.presto.execution.BasicStageExecutionStats.aggregateBasicStageStats;
 import static com.facebook.presto.execution.StageExecutionState.ABORTED;
 import static com.facebook.presto.execution.StageExecutionState.CANCELED;
@@ -64,9 +81,14 @@ import static com.facebook.presto.execution.StageExecutionState.FINISHED;
 import static com.facebook.presto.execution.StageExecutionState.PLANNED;
 import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
+import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createDiscardingOutputBuffers;
+import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.sql.planner.PlanFragmenter.ROOT_FRAGMENT_ID;
+import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrder;
+import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonFragmentPlan;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -83,19 +105,36 @@ import static java.util.function.Function.identity;
 public class LegacySqlQueryScheduler
         implements SqlQuerySchedulerInterface
 {
+    private static final Logger log = Logger.get(LegacySqlQueryScheduler.class);
+
     private final LocationFactory locationFactory;
     private final ExecutionPolicy executionPolicy;
 
     private final SplitSchedulerStats schedulerStats;
 
     private final QueryStateMachine queryStateMachine;
-    private final SubPlan plan;
+    private final AtomicReference<SubPlan> plan = new AtomicReference<>();
     private final StreamingPlanSection sectionedPlan;
     private final StageId rootStageId;
     private final boolean summarizeTaskInfo;
     private final int maxConcurrentMaterializations;
 
-    private final Map<StageId, StageExecutionAndScheduler> stageExecutions;
+    // The following fields are required by adaptive optimization in runtime.
+    private final Session session;
+    private final FunctionAndTypeManager functionAndTypeManager;
+    private final List<PlanOptimizer> runtimePlanOptimizers;
+    private final WarningCollector warningCollector;
+    private final PlanNodeIdAllocator idAllocator;
+    private final PlanVariableAllocator variableAllocator;
+    private final SectionExecutionFactory sectionExecutionFactory;
+    private final RemoteTaskFactory remoteTaskFactory;
+    private final SplitSourceFactory splitSourceFactory;
+    private final Set<StageId> runtimeOptimizedStages = Collections.synchronizedSet(new HashSet<>());
+    private final PlanChecker planChecker;
+    private final Metadata metadata;
+    private final SqlParser sqlParser;
+
+    private final Map<StageId, StageExecutionAndScheduler> stageExecutions = new ConcurrentHashMap<>();
     private final ExecutorService executor;
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean scheduling = new AtomicBoolean();
@@ -109,10 +148,18 @@ public class LegacySqlQueryScheduler
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
+            FunctionAndTypeManager functionAndTypeManager,
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             OutputBuffers rootOutputBuffers,
-            boolean summarizeTaskInfo)
+            boolean summarizeTaskInfo,
+            List<PlanOptimizer> runtimePlanOptimizers,
+            WarningCollector warningCollector,
+            PlanNodeIdAllocator idAllocator,
+            PlanVariableAllocator variableAllocator,
+            PlanChecker planChecker,
+            Metadata metadata,
+            SqlParser sqlParser)
     {
         LegacySqlQueryScheduler sqlQueryScheduler = new LegacySqlQueryScheduler(
                 locationFactory,
@@ -123,10 +170,18 @@ public class LegacySqlQueryScheduler
                 remoteTaskFactory,
                 splitSourceFactory,
                 session,
+                functionAndTypeManager,
                 queryStateMachine,
                 plan,
                 summarizeTaskInfo,
-                rootOutputBuffers);
+                rootOutputBuffers,
+                runtimePlanOptimizers,
+                warningCollector,
+                idAllocator,
+                variableAllocator,
+                planChecker,
+                metadata,
+                sqlParser);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -140,17 +195,37 @@ public class LegacySqlQueryScheduler
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
             Session session,
+            FunctionAndTypeManager functionAndTypeManager,
             QueryStateMachine queryStateMachine,
             SubPlan plan,
             boolean summarizeTaskInfo,
-            OutputBuffers rootOutputBuffers)
+            OutputBuffers rootOutputBuffers,
+            List<PlanOptimizer> runtimePlanOptimizers,
+            WarningCollector warningCollector,
+            PlanNodeIdAllocator idAllocator,
+            PlanVariableAllocator variableAllocator,
+            PlanChecker planChecker,
+            Metadata metadata,
+            SqlParser sqlParser)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
         this.executor = queryExecutor;
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
-        this.plan = requireNonNull(plan, "plan is null");
+        this.plan.compareAndSet(null, requireNonNull(plan, "plan is null"));
+        this.session = requireNonNull(session, "session is null");
+        this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
+        this.runtimePlanOptimizers = requireNonNull(runtimePlanOptimizers, "runtimePlanOptimizers is null");
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+        this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
+        this.planChecker = requireNonNull(planChecker, "planChecker is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
+        this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
+        this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
         this.sectionedPlan = extractStreamingSections(plan);
         this.summarizeTaskInfo = summarizeTaskInfo;
 
@@ -167,8 +242,8 @@ public class LegacySqlQueryScheduler
 
         this.rootStageId = Iterables.getLast(stageExecutions).getStageExecution().getStageExecutionId().getStageId();
 
-        this.stageExecutions = stageExecutions.stream()
-                .collect(toImmutableMap(execution -> execution.getStageExecution().getStageExecutionId().getStageId(), identity()));
+        stageExecutions.stream()
+                .forEach(execution -> this.stageExecutions.put(execution.getStageExecution().getStageExecutionId().getStageId(), execution));
 
         this.maxConcurrentMaterializations = getMaxConcurrentMaterializations(session);
     }
@@ -459,7 +534,198 @@ public class LegacySqlQueryScheduler
                 // get all sections ready for execution
                 .filter(this::isReadyForExecution)
                 .limit(maxConcurrentMaterializations - runningPlanSections)
+                .map(this::tryCostBasedOptimize)
                 .collect(toImmutableList());
+    }
+
+    /**
+     * A general purpose utility function to invoke runtime cost-based optimizer.
+     * (right now there is only one plan optimizer which determines if the probe and build side of a JoinNode should be swapped
+     * based on the statistics of the temporary table holding materialized exchange outputs from finished children sections)
+     */
+    private StreamingPlanSection tryCostBasedOptimize(StreamingPlanSection section)
+    {
+        // no need to do runtime optimization if no materialized exchange data is utilized by the section.
+        if (!isRuntimeOptimizerEnabled(session) || section.getChildren().isEmpty()) {
+            return section;
+        }
+
+        // Apply runtime optimization on each StreamingSubPlan and generate optimized new fragments
+        Map<PlanFragment, PlanFragment> oldToNewFragment = new HashMap<>();
+        stream(forTree(StreamingSubPlan::getChildren).depthFirstPreOrder(section.getPlan()))
+                .forEach(currentSubPlan -> {
+                    Optional<PlanFragment> newPlanFragment = performRuntimeOptimizations(currentSubPlan);
+                    if (newPlanFragment.isPresent()) {
+                        planChecker.validatePlanFragment(newPlanFragment.get().getRoot(), session, metadata, sqlParser, variableAllocator.getTypes(), warningCollector);
+                        oldToNewFragment.put(currentSubPlan.getFragment(), newPlanFragment.get());
+                    }
+                });
+
+        // Early exit when no stage's fragment is changed
+        if (oldToNewFragment.isEmpty()) {
+            return section;
+        }
+
+        oldToNewFragment.forEach((oldFragment, newFragment) -> runtimeOptimizedStages.add(getStageId(oldFragment.getId())));
+
+        // Update SubPlan so that getStageInfo will reflect the latest optimized plan when query is finished.
+        updatePlan(oldToNewFragment);
+
+        // Rebuild and update entries of the stageExecutions map.
+        updateStageExecutions(section, oldToNewFragment);
+        log.debug("Invoked CBO during runtime, optimized stage IDs: " + oldToNewFragment.keySet().stream()
+                .map(PlanFragment::getId)
+                .map(PlanFragmentId::toString)
+                .collect(Collectors.joining(", ")));
+        return section;
+    }
+
+    private Optional<PlanFragment> performRuntimeOptimizations(StreamingSubPlan subPlan)
+    {
+        PlanFragment fragment = subPlan.getFragment();
+        PlanNode newRoot = fragment.getRoot();
+        for (PlanOptimizer optimizer : runtimePlanOptimizers) {
+            newRoot = optimizer.optimize(newRoot, session, variableAllocator.getTypes(), variableAllocator, idAllocator, warningCollector);
+        }
+        if (newRoot != fragment.getRoot()) {
+            return Optional.of(
+                    // The partitioningScheme should stay the same
+                    // even if the root's outputVariable layout is changed.
+                    new PlanFragment(
+                            fragment.getId(),
+                            newRoot,
+                            fragment.getVariables(),
+                            fragment.getPartitioning(),
+                            scheduleOrder(newRoot),
+                            fragment.getPartitioningScheme(),
+                            fragment.getStageExecutionDescriptor(),
+                            fragment.isOutputTableWriterFragment(),
+                            fragment.getStatsAndCosts(),
+                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionAndTypeManager, session))));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Utility function that rebuild a StreamingPlanSection, re-create stageExecutionAndScheduler for each of its stage, and finally update the stageExecutions map.
+     */
+    private void updateStageExecutions(StreamingPlanSection section, Map<PlanFragment, PlanFragment> oldToNewFragment)
+    {
+        StreamingPlanSection newSection = new StreamingPlanSection(rewriteStreamingSubPlan(section.getPlan(), oldToNewFragment), section.getChildren());
+        PlanFragment sectionRootFragment = newSection.getPlan().getFragment();
+        Optional<int[]> bucketToPartition;
+        OutputBuffers outputBuffers;
+        ExchangeLocationsConsumer locationsConsumer;
+        if (isRootFragment(sectionRootFragment)) {
+            bucketToPartition = Optional.of(new int[1]);
+            outputBuffers = createInitialEmptyOutputBuffers(sectionRootFragment.getPartitioningScheme().getPartitioning().getHandle())
+                    .withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID)
+                    .withNoMoreBufferIds();
+            OutputBufferId rootBufferId = getOnlyElement(outputBuffers.getBuffers().keySet());
+            locationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) ->
+                    updateQueryOutputLocations(queryStateMachine, rootBufferId, tasks, noMoreExchangeLocations);
+        }
+        else {
+            bucketToPartition = Optional.empty();
+            outputBuffers = createDiscardingOutputBuffers();
+            locationsConsumer = (fragmentId, tasks, noMoreExchangeLocations) -> {};
+        }
+        SectionExecution sectionExecution = sectionExecutionFactory.createSectionExecutions(
+                session,
+                newSection,
+                locationsConsumer,
+                bucketToPartition,
+                outputBuffers,
+                summarizeTaskInfo,
+                remoteTaskFactory,
+                splitSourceFactory,
+                0);
+        addStateChangeListeners(sectionExecution);
+        Map<StageId, StageExecutionAndScheduler> updatedStageExecutions = sectionExecution.getSectionStages().stream()
+                .collect(toImmutableMap(execution -> execution.getStageExecution().getStageExecutionId().getStageId(), identity()));
+        synchronized (this) {
+            stageExecutions.putAll(updatedStageExecutions);
+        }
+    }
+
+    private void updatePlan(Map<PlanFragment, PlanFragment> oldToNewFragments)
+    {
+        plan.getAndUpdate(value -> rewritePlan(value, oldToNewFragments));
+    }
+
+    private SubPlan rewritePlan(SubPlan root, Map<PlanFragment, PlanFragment> oldToNewFragments)
+    {
+        ImmutableList.Builder<SubPlan> children = ImmutableList.builder();
+        for (SubPlan child : root.getChildren()) {
+            children.add(rewritePlan(child, oldToNewFragments));
+        }
+        if (oldToNewFragments.containsKey(root.getFragment())) {
+            return new SubPlan(oldToNewFragments.get(root.getFragment()), children.build());
+        }
+        else {
+            return new SubPlan(root.getFragment(), children.build());
+        }
+    }
+
+    // Only used for adaptive optimization, to register listeners to new stageExecutions generated in runtime.
+    private void addStateChangeListeners(SectionExecution sectionExecution)
+    {
+        for (StageExecutionAndScheduler stageExecutionAndScheduler : sectionExecution.getSectionStages()) {
+            SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();
+            if (isRootFragment(stageExecution.getFragment())) {
+                stageExecution.addStateChangeListener(state -> {
+                    if (state == FINISHED) {
+                        queryStateMachine.transitionToFinishing();
+                    }
+                    else if (state == CANCELED) {
+                        // output stage was canceled
+                        queryStateMachine.transitionToCanceled();
+                    }
+                });
+            }
+            stageExecution.addStateChangeListener(state -> {
+                if (queryStateMachine.isDone()) {
+                    return;
+                }
+                if (state == FAILED) {
+                    queryStateMachine.transitionToFailed(stageExecution.getStageExecutionInfo().getFailureCause().get().toException());
+                }
+                else if (state == ABORTED) {
+                    // this should never happen, since abort can only be triggered in query clean up after the query is finished
+                    queryStateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
+                }
+                else if (state == FINISHED) {
+                    // checks if there's any new sections available for execution and starts the scheduling if any
+                    startScheduling();
+                }
+                else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
+                    // if the stage has at least one task, we are running
+                    if (stageExecution.hasTasks()) {
+                        queryStateMachine.transitionToRunning();
+                    }
+                }
+            });
+            stageExecution.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.of(getStageInfo())));
+        }
+    }
+
+    private StreamingSubPlan rewriteStreamingSubPlan(StreamingSubPlan root, Map<PlanFragment, PlanFragment> oldToNewFragment)
+    {
+        ImmutableList.Builder<StreamingSubPlan> childrenPlans = ImmutableList.builder();
+        for (StreamingSubPlan child : root.getChildren()) {
+            childrenPlans.add(rewriteStreamingSubPlan(child, oldToNewFragment));
+        }
+        if (oldToNewFragment.containsKey(root.getFragment())) {
+            return new StreamingSubPlan(oldToNewFragment.get(root.getFragment()), childrenPlans.build());
+        }
+        else {
+            return new StreamingSubPlan(root.getFragment(), childrenPlans.build());
+        }
+    }
+
+    private static boolean isRootFragment(PlanFragment fragment)
+    {
+        return fragment.getId().getId() == ROOT_FRAGMENT_ID;
     }
 
     private boolean isReadyForExecution(StreamingPlanSection section)
@@ -527,6 +793,21 @@ public class LegacySqlQueryScheduler
         return new Duration(millis, MILLISECONDS);
     }
 
+    @Override
+    public DataSize getRawInputDataSize()
+    {
+        long datasize = stageExecutions.values().stream()
+                .mapToLong(stage -> stage.getStageExecution().getRawInputDataSize().toBytes())
+                .sum();
+        return DataSize.succinctBytes(datasize);
+    }
+
+    @Override
+    public DataSize getOutputDataSize()
+    {
+        return stageExecutions.get(rootStageId).getStageExecution().getStageExecutionInfo().getStats().getOutputDataSize();
+    }
+
     public BasicStageExecutionStats getBasicStageStats()
     {
         List<BasicStageExecutionStats> stageStats = stageExecutions.values().stream()
@@ -542,7 +823,7 @@ public class LegacySqlQueryScheduler
                 .map(StageExecutionAndScheduler::getStageExecution)
                 .collect(toImmutableMap(execution -> execution.getStageExecutionId().getStageId(), SqlStageExecution::getStageExecutionInfo));
 
-        return buildStageInfo(plan, stageInfos);
+        return buildStageInfo(plan.get(), stageInfos);
     }
 
     private StageInfo buildStageInfo(SubPlan subPlan, Map<StageId, StageExecutionInfo> stageExecutionInfos)
@@ -558,7 +839,8 @@ public class LegacySqlQueryScheduler
                 ImmutableList.of(),
                 subPlan.getChildren().stream()
                         .map(plan -> buildStageInfo(plan, stageExecutionInfos))
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                runtimeOptimizedStages.contains(stageId));
     }
 
     public void cancelStage(StageId stageId)

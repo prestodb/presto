@@ -23,10 +23,22 @@ import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.nio.ByteBuffer;
 
+import static org.spark_project.guava.base.Preconditions.checkState;
+
 public class PrestoSparkMutableRow
         implements Externalizable, KryoSerializable, PrestoSparkTaskOutput
 {
     private ByteBuffer buffer;
+
+    // Can be backed either by the "buffer" or by the "array"
+    // Row is backed by the "array" only when deserialized
+    // with the PrestoSparkShuffleSerializerInstance#deserialize(byte[], int, int, ClassTag<T>)
+    private byte[] array;
+    // offset and length are meaningful only when the row is backed by the "array"
+    private int offset;
+    private int length;
+
+    private int positionCount;
 
     public ByteBuffer getBuffer()
     {
@@ -36,6 +48,44 @@ public class PrestoSparkMutableRow
     public void setBuffer(ByteBuffer buffer)
     {
         this.buffer = buffer;
+    }
+
+    public byte[] getArray()
+    {
+        return array;
+    }
+
+    public PrestoSparkMutableRow setArray(byte[] array)
+    {
+        this.array = array;
+        return this;
+    }
+
+    public int getOffset()
+    {
+        return offset;
+    }
+
+    public PrestoSparkMutableRow setOffset(int offset)
+    {
+        this.offset = offset;
+        return this;
+    }
+
+    public int getLength()
+    {
+        return length;
+    }
+
+    public PrestoSparkMutableRow setLength(int length)
+    {
+        this.length = length;
+        return this;
+    }
+
+    public void setPositionCount(int positionCount)
+    {
+        this.positionCount = positionCount;
     }
 
     @Override
@@ -67,5 +117,18 @@ public class PrestoSparkMutableRow
         // PrestoSparkMutableRow is expected to be serialized only during shuffle.
         // During shuffle rows are always serialized with PrestoSparkShuffleSerializer.
         return new UnsupportedOperationException("PrestoSparkUnsafeRow is not expected to be serialized with Kryo or standard Java serialization");
+    }
+
+    @Override
+    public long getPositionCount()
+    {
+        return positionCount;
+    }
+
+    @Override
+    public long getSize()
+    {
+        checkState(buffer != null, "buffer is expected to be not null");
+        return buffer.remaining();
     }
 }

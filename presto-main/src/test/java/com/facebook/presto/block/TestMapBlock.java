@@ -20,14 +20,12 @@ import com.facebook.presto.common.block.ByteArrayBlock;
 import com.facebook.presto.common.block.MapBlock;
 import com.facebook.presto.common.block.MapBlockBuilder;
 import com.facebook.presto.common.block.SingleMapBlock;
+import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.MapType;
-import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.type.TypeRegistry;
 import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -36,11 +34,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.block.BlockAssertions.createLongDictionaryBlock;
 import static com.facebook.presto.block.BlockAssertions.createLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRLEBlock;
+import static com.facebook.presto.block.BlockAssertions.createRandomLongsBlock;
+import static com.facebook.presto.block.BlockAssertions.createRleBlockWithRandomValue;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
+import static com.facebook.presto.common.block.MethodHandleUtil.compose;
+import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGetter;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.testing.TestingEnvironment.getOperatorMethodHandle;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
@@ -52,13 +57,6 @@ import static org.testng.Assert.assertTrue;
 public class TestMapBlock
         extends AbstractTestBlock
 {
-    private static final TypeManager TYPE_MANAGER = new TypeRegistry();
-
-    static {
-        // associate TYPE_MANAGER with a function manager
-        new FunctionManager(TYPE_MANAGER, new BlockEncodingManager(TYPE_MANAGER), new FeaturesConfig());
-    }
-
     @Test
     public void test()
     {
@@ -99,12 +97,61 @@ public class TestMapBlock
         Block valueBlock = createStringsBlock("v");
         Block mapBlock = mapType(VARCHAR, VARCHAR).createBlockFromKeyValue(1, Optional.empty(), IntStream.range(0, 2).toArray(), keyBlock, valueBlock);
         SingleMapBlock singleMapBlock = (SingleMapBlock) mapBlock.getBlock(0);
+        MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, VARCHAR);
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(VARCHAR));
+        MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, VARCHAR, VARCHAR);
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(VARCHAR));
+
         // Testing not found case. The key to seek should be longer than AbstractVariableWidthType#EXPECTED_BYTES_PER_ENTRY(32) and has same hash code as the key in keyBlock.
         // This is because the default capacity of the slice of the keyBlock for 1 single character key is EXPECTED_BYTES_PER_ENTRY. We want to make the seeked key out of boundary
         // to make sure no exception is thrown.
-        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice(new String(new char[10]).replace("\0", "Doudou"))), -1);
+        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice(new String(new char[10]).replace("\0", "Doudou")), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode), -1);
         // Testing found case.
-        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice("k")), 1);
+        assertEquals(singleMapBlock.seekKeyExact(Slices.utf8Slice("k"), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode), 1);
+    }
+
+    @Test
+    public void testLogicalSizeInBytes()
+    {
+        int positionCount = 100;
+        int[] offsets = IntStream.rangeClosed(0, positionCount).toArray();
+        boolean[] nulls = new boolean[positionCount];
+
+        // Map(LongArrayBlock, LongArrayBlock)
+        Block keyBlock1 = createRandomLongsBlock(positionCount, 0);
+        Block valueBlock1 = createRandomLongsBlock(positionCount, 0);
+        Block mapOfLongAndLong = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock1, valueBlock1);
+        assertEquals(mapOfLongAndLong.getLogicalSizeInBytes(), 3100);
+
+        // Map(RLE(LongArrayBlock), RLE(LongArrayBlock))
+        Block keyBlock2 = createRLEBlock(1, positionCount);
+        Block valueBlock2 = createRLEBlock(2, positionCount);
+        Block mapOfRleOfLongAndRleOfLong = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock2, valueBlock2);
+        assertEquals(mapOfRleOfLongAndRleOfLong.getLogicalSizeInBytes(), 3100);
+
+        // Map(RLE(LongArrayBlock), RLE(Map(LongArrayBlock, LongArrayBlock)))
+        Block keyBlock3 = createRLEBlock(1, positionCount);
+        Block valueBlock3 = createRleBlockWithRandomValue(mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock1, valueBlock1), positionCount); //createRleBlockWithRandomValue(fromElementBlock(positionCount, Optional.of(nulls), arrayOffsets, createRandomLongsBlock(positionCount * 2, 0)), positionCount);
+        Block mapOfRleOfLongAndRleOfMapOfLongAndLong = mapType(BIGINT, mapType(BIGINT, BIGINT)).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock3, valueBlock3);
+        assertEquals(mapOfRleOfLongAndRleOfMapOfLongAndLong.getLogicalSizeInBytes(), 5300);
+
+        // Map(RLE(LongArrayBlock), Map(LongArrayBlock, RLE(LongArrayBlock)))
+        Block keyBlock4 = createRLEBlock(1, positionCount);
+        Block valueBlock4 = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock1, createRLEBlock(1, positionCount));
+        Block mapBlock4 = mapType(BIGINT, mapType(BIGINT, BIGINT)).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock4, valueBlock4);
+        assertEquals(mapBlock4.getLogicalSizeInBytes(), 5300);
+
+        // Map(Dictionary(LongArrayBlock), Dictionary(LongArrayBlock))
+        Block keyBlock5 = createLongDictionaryBlock(0, positionCount);
+        Block valuesBlock5 = createLongDictionaryBlock(0, positionCount);
+        Block mapBlock5 = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock5, valuesBlock5);
+        assertEquals(mapBlock5.getLogicalSizeInBytes(), 3100);
+
+        // Map(Dictionary(LongArrayBlock), Map(LongArrayBlock, Dictionary(LongArrayBlock)))
+        Block keyBlock6 = createLongDictionaryBlock(0, positionCount);
+        Block valuesBlock6 = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock1, createLongDictionaryBlock(0, positionCount));
+        Block mapBlock6 = mapType(BIGINT, BIGINT).createBlockFromKeyValue(positionCount, Optional.of(nulls), offsets, keyBlock6, valuesBlock6);
+        assertEquals(mapBlock6.getLogicalSizeInBytes(), 5300);
     }
 
     private void assertLazyHashTableBuildOverBlockRegion(Map<String, Long>[] testValues)
@@ -307,6 +354,10 @@ public class TestMapBlock
     private void assertValue(Block mapBlock, int position, Map<String, Long> map)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
+        MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, VARCHAR);
+        MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, VARCHAR, VARCHAR);
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(VARCHAR));
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(VARCHAR));
 
         // null maps are handled by assertPositionValue
         requireNonNull(map, "map is null");
@@ -317,7 +368,7 @@ public class TestMapBlock
 
         // Test new/hash-index access: assert inserted keys
         for (Map.Entry<String, Long> entry : map.entrySet()) {
-            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()));
+            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
             assertNotEquals(pos, -1);
             if (entry.getValue() == null) {
                 assertTrue(elementBlock.isNull(pos));
@@ -329,7 +380,7 @@ public class TestMapBlock
         }
         // Test new/hash-index access: assert non-existent keys
         for (int i = 0; i < 10; i++) {
-            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i)), -1);
+            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode), -1);
         }
 
         // Test legacy/iterative access
@@ -350,6 +401,10 @@ public class TestMapBlock
     private void assertValueUnchecked(Block mapBlock, int internalPosition, Map<String, Long> map)
     {
         MapType mapType = mapType(VARCHAR, BIGINT);
+        MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, VARCHAR);
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(VARCHAR));
+        MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, VARCHAR, VARCHAR);
+        MethodHandle keyBlockNativeEquals = compose(keyNativeEquals, nativeValueGetter(VARCHAR));
 
         // null maps are handled by assertPositionValue
         requireNonNull(map, "map is null");
@@ -360,7 +415,7 @@ public class TestMapBlock
 
         // Test new/hash-index access: assert inserted keys
         for (Map.Entry<String, Long> entry : map.entrySet()) {
-            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()));
+            int pos = elementBlock.seekKey(utf8Slice(entry.getKey()), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode);
             assertNotEquals(pos, -1);
             if (entry.getValue() == null) {
                 assertTrue(elementBlock.isNullUnchecked(pos + elementBlock.getOffsetBase()));
@@ -372,7 +427,7 @@ public class TestMapBlock
         }
         // Test new/hash-index access: assert non-existent keys
         for (int i = 0; i < 10; i++) {
-            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i)), -1);
+            assertEquals(elementBlock.seekKey(utf8Slice("not-inserted-" + i), keyNativeHashCode, keyBlockNativeEquals, keyBlockHashCode), -1);
         }
 
         // Test legacy/iterative access
@@ -396,6 +451,10 @@ public class TestMapBlock
     {
         MapType mapType = mapType(BIGINT, BIGINT);
         MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) mapType.createBlockBuilder(null, 1);
+        MethodHandle keyNativeEquals = getOperatorMethodHandle(OperatorType.EQUAL, BIGINT, BIGINT);
+        MethodHandle keyBlockEquals = compose(keyNativeEquals, nativeValueGetter(BIGINT), nativeValueGetter(BIGINT));
+        MethodHandle keyNativeHashCode = getOperatorMethodHandle(OperatorType.HASH_CODE, BIGINT);
+        MethodHandle keyBlockHashCode = compose(keyNativeHashCode, nativeValueGetter(BIGINT));
 
         // Add 100 maps with only one entry but the same key
         for (int i = 0; i < 100; i++) {
@@ -412,7 +471,8 @@ public class TestMapBlock
             BIGINT.writeLong(entryBuilder, i);
             BIGINT.writeLong(entryBuilder, -1);
         }
-        mapBlockBuilder.closeEntryStrict();
+
+        mapBlockBuilder.closeEntryStrict(keyBlockEquals, keyBlockHashCode);
     }
 
     @Test

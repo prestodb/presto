@@ -15,27 +15,25 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkNonRetryableExecutionException;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkRetryableExecutionException;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import org.apache.spark.SparkException;
 
 import javax.inject.Inject;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.zip.DeflaterInputStream;
-import java.util.zip.InflaterOutputStream;
 
+import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
 import static com.facebook.presto.spi.ErrorType.EXTERNAL;
 import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
-import static com.google.common.io.ByteStreams.toByteArray;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Pattern.DOTALL;
 import static java.util.regex.Pattern.MULTILINE;
@@ -97,27 +95,5 @@ public class PrestoSparkExecutionExceptionFactory
         }
         ErrorType type = errorCode.getType();
         return type == INTERNAL_ERROR || type == EXTERNAL;
-    }
-
-    private static byte[] compress(byte[] bytes)
-    {
-        try (DeflaterInputStream decompressor = new DeflaterInputStream(new ByteArrayInputStream(bytes))) {
-            return toByteArray(decompressor);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private static byte[] decompress(byte[] bytes)
-    {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try (InflaterOutputStream compressor = new InflaterOutputStream(output)) {
-            compressor.write(bytes);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return output.toByteArray();
     }
 }

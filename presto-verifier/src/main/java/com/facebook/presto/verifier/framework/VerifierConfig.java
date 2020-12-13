@@ -38,6 +38,7 @@ public class VerifierConfig
     private Optional<String> humanReadableEventLogFile = Optional.empty();
 
     private String testId;
+    private Optional<String> testName = Optional.empty();
     private int maxConcurrency = 10;
     private int suiteRepetitions = 1;
     private int queryRepetitions = 1;
@@ -46,6 +47,12 @@ public class VerifierConfig
     private double absoluteErrorMargin = 1e-12;
     private boolean smartTeardown;
     private int verificationResubmissionLimit = 2;
+
+    private boolean setupOnMainClusters = true;
+    private boolean teardownOnMainClusters = true;
+    private boolean skipControl;
+
+    private boolean explain;
 
     @NotNull
     public Optional<Set<String>> getWhitelist()
@@ -141,11 +148,25 @@ public class VerifierConfig
         return testId;
     }
 
-    @ConfigDescription("A customizable string that will be logged with the results")
+    @ConfigDescription("A customizable string that will be passed into query client info and logged with the results")
     @Config("test-id")
     public VerifierConfig setTestId(String testId)
     {
         this.testId = testId;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getTestName()
+    {
+        return testName;
+    }
+
+    @ConfigDescription("A customizable string that will be passed into query client info")
+    @Config("test-name")
+    public VerifierConfig setTestName(String testName)
+    {
+        this.testName = Optional.ofNullable(testName);
         return this;
     }
 
@@ -242,6 +263,58 @@ public class VerifierConfig
     public VerifierConfig setVerificationResubmissionLimit(int verificationResubmissionLimit)
     {
         this.verificationResubmissionLimit = verificationResubmissionLimit;
+        return this;
+    }
+
+    public boolean isSetupOnMainClusters()
+    {
+        return setupOnMainClusters;
+    }
+
+    @ConfigDescription("If true, run control/test setup queries on control/test clusters. Otherwise, run setup queries on the help cluster.")
+    @Config("setup-on-main-clusters")
+    public VerifierConfig setSetupOnMainClusters(boolean setupOnMainClusters)
+    {
+        this.setupOnMainClusters = setupOnMainClusters;
+        return this;
+    }
+
+    public boolean isTeardownOnMainClusters()
+    {
+        return teardownOnMainClusters;
+    }
+
+    @ConfigDescription("If true, run control/test teardown queries on control/test clusters. Otherwise, run teardown queries on the help cluster.")
+    @Config("teardown-on-main-clusters")
+    public VerifierConfig setTeardownOnMainClusters(boolean teardownOnMainClusters)
+    {
+        this.teardownOnMainClusters = teardownOnMainClusters;
+        return this;
+    }
+
+    public boolean isSkipControl()
+    {
+        return skipControl;
+    }
+
+    @ConfigDescription("Skip control queries and result comparison, only run test queries.")
+    @Config("skip-control")
+    public VerifierConfig setSkipControl(boolean skipControl)
+    {
+        this.skipControl = skipControl;
+        return this;
+    }
+
+    public boolean isExplain()
+    {
+        return explain;
+    }
+
+    @ConfigDescription("If true, run explain verification on the given queries.")
+    @Config("explain")
+    public VerifierConfig setExplain(boolean explain)
+    {
+        this.explain = explain;
         return this;
     }
 }

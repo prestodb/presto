@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
@@ -32,9 +32,9 @@ public class TestRowExpressionVariableInliner
             implements FunctionHandle
     {
         @Override
-        public CatalogSchemaName getFunctionNamespace()
+        public CatalogSchemaName getCatalogSchemaName()
         {
-            return QualifiedFunctionName.of(new CatalogSchemaName("a", "b"), "c").getFunctionNamespace();
+            return QualifiedObjectName.valueOf(new CatalogSchemaName("a", "b"), "c").getCatalogSchemaName();
         }
     }
 

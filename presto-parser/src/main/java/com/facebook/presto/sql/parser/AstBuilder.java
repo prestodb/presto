@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -184,6 +185,7 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
@@ -203,10 +205,12 @@ class AstBuilder
 {
     private int parameterPosition;
     private final ParsingOptions parsingOptions;
+    private final Consumer<ParsingWarning> warningConsumer;
 
     AstBuilder(ParsingOptions parsingOptions)
     {
         this.parsingOptions = requireNonNull(parsingOptions, "parsingOptions is null");
+        this.warningConsumer = requireNonNull(parsingOptions.getWarningConsumer(), "warningConsumer is null");
     }
 
     @Override
@@ -372,7 +376,7 @@ class AstBuilder
     @Override
     public Node visitRenameTable(SqlBaseParser.RenameTableContext context)
     {
-        return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
+        return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to), context.EXISTS() != null);
     }
 
     @Override
@@ -382,7 +386,9 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.tableName),
                 (Identifier) visit(context.from),
-                (Identifier) visit(context.to));
+                (Identifier) visit(context.to),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
 
     @Override
@@ -401,23 +407,62 @@ class AstBuilder
     @Override
     public Node visitAddColumn(SqlBaseParser.AddColumnContext context)
     {
-        return new AddColumn(getLocation(context), getQualifiedName(context.qualifiedName()), (ColumnDefinition) visit(context.columnDefinition()));
+        return new AddColumn(getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                (ColumnDefinition) visit(context.columnDefinition()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
 
     @Override
     public Node visitDropColumn(SqlBaseParser.DropColumnContext context)
     {
-        return new DropColumn(getLocation(context), getQualifiedName(context.tableName), (Identifier) visit(context.column));
+        return new DropColumn(getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
 
     @Override
     public Node visitCreateView(SqlBaseParser.CreateViewContext context)
     {
+        Optional<CreateView.Security> security = Optional.empty();
+        if (context.DEFINER() != null) {
+            security = Optional.of(CreateView.Security.DEFINER);
+        }
+        else if (context.INVOKER() != null) {
+            security = Optional.of(CreateView.Security.INVOKER);
+        }
+
         return new CreateView(
                 getLocation(context),
                 getQualifiedName(context.qualifiedName()),
                 (Query) visit(context.query()),
-                context.REPLACE() != null);
+                context.REPLACE() != null,
+                security);
+    }
+
+    @Override
+    public Node visitCreateMaterializedView(SqlBaseParser.CreateMaterializedViewContext context)
+    {
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
+        return new CreateMaterializedView(
+                Optional.of(getLocation(context)),
+                getQualifiedName(context.qualifiedName()),
+                (Query) visit(context.query()),
+                context.EXISTS() != null,
+                properties,
+                comment);
     }
 
     @Override
@@ -730,7 +775,15 @@ class AstBuilder
         QueryBody left = (QueryBody) visit(context.left);
         QueryBody right = (QueryBody) visit(context.right);
 
-        boolean distinct = context.setQuantifier() == null || context.setQuantifier().DISTINCT() != null;
+        Optional<Boolean> distinct = Optional.empty();
+        if (context.setQuantifier() != null) {
+            if (context.setQuantifier().DISTINCT() != null) {
+                distinct = Optional.of(true);
+            }
+            else if (context.setQuantifier().ALL() != null) {
+                distinct = Optional.of(false);
+            }
+        }
 
         switch (context.operator.getType()) {
             case SqlBaseLexer.UNION:
@@ -1044,11 +1097,36 @@ class AstBuilder
     @Override
     public Node visitLogicalBinary(SqlBaseParser.LogicalBinaryContext context)
     {
+        LogicalBinaryExpression.Operator operator = getLogicalBinaryOperator(context.operator);
+        boolean warningForMixedAndOr = false;
+        Expression left = (Expression) visit(context.left);
+        Expression right = (Expression) visit(context.right);
+
+        if (operator.equals(LogicalBinaryExpression.Operator.OR) &&
+                (mixedAndOrOperatorParenthesisCheck(right, context.right, LogicalBinaryExpression.Operator.AND) ||
+                 mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.AND))) {
+            warningForMixedAndOr = true;
+        }
+
+        if (operator.equals(LogicalBinaryExpression.Operator.AND) &&
+                (mixedAndOrOperatorParenthesisCheck(right, context.right, LogicalBinaryExpression.Operator.OR) ||
+                 mixedAndOrOperatorParenthesisCheck(left, context.left, LogicalBinaryExpression.Operator.OR))) {
+            warningForMixedAndOr = true;
+        }
+
+        if (warningForMixedAndOr) {
+            warningConsumer.accept(new ParsingWarning(
+                    "The Query contains OR and AND operator without proper parenthesis. "
+                    + "Make sure the operators are guarded by parenthesis in order "
+                    + "to fetch logically correct results",
+                    context.getStart().getLine(), context.getStart().getCharPositionInLine()));
+        }
+
         return new LogicalBinaryExpression(
                 getLocation(context.operator),
-                getLogicalBinaryOperator(context.operator),
-                (Expression) visit(context.left),
-                (Expression) visit(context.right));
+                operator,
+                left,
+                right);
     }
 
     // *************** from clause *****************
@@ -2381,6 +2459,22 @@ class AstBuilder
         else {
             throw new IllegalArgumentException("Unsupported principal: " + context);
         }
+    }
+
+    private boolean mixedAndOrOperatorParenthesisCheck(Expression expression, SqlBaseParser.BooleanExpressionContext node, LogicalBinaryExpression.Operator operator)
+    {
+        if (expression instanceof LogicalBinaryExpression) {
+            if (((LogicalBinaryExpression) expression).getOperator().equals(operator)) {
+                if (node.children.get(0) instanceof SqlBaseParser.ValueExpressionDefaultContext) {
+                    return !(((SqlBaseParser.PredicatedContext) node).valueExpression().getChild(0) instanceof
+                        SqlBaseParser.ParenthesizedExpressionContext);
+                }
+                else {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static void check(boolean condition, String message, ParserRuleContext context)

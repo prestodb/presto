@@ -247,7 +247,7 @@ public class PrestoStatement
             executingClient.set(client);
             WarningsManager warningsManager = new WarningsManager();
             currentWarningsManager.set(Optional.of(warningsManager));
-            resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer, warningsManager);
+            resultSet = new PrestoResultSet(this, client, maxRows.get(), progressConsumer, warningsManager);
 
             for (Map.Entry<String, SelectedRole> entry : client.getSetRoles().entrySet()) {
                 connection.get().setRole(entry.getKey(), entry.getValue());

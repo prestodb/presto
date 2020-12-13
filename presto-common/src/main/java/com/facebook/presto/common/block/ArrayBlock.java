@@ -36,6 +36,7 @@ public class ArrayBlock
     private final int[] offsets;
 
     private volatile long sizeInBytes;
+    private volatile long logicalSizeInBytes;
     private final long retainedSizeInBytes;
 
     /**
@@ -104,6 +105,7 @@ public class ArrayBlock
         this.values = requireNonNull(values);
 
         sizeInBytes = -1;
+        logicalSizeInBytes = -1;
         retainedSizeInBytes = INSTANCE_SIZE + values.getRetainedSizeInBytes() + sizeOf(offsets) + sizeOf(valueIsNull);
     }
 
@@ -122,11 +124,27 @@ public class ArrayBlock
         return sizeInBytes;
     }
 
+    @Override
+    public long getLogicalSizeInBytes()
+    {
+        if (logicalSizeInBytes < 0) {
+            calculateLogicalSize();
+        }
+        return logicalSizeInBytes;
+    }
+
     private void calculateSize()
     {
         int valueStart = offsets[arrayOffset];
         int valueEnd = offsets[arrayOffset + positionCount];
         sizeInBytes = values.getRegionSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) this.positionCount);
+    }
+
+    private void calculateLogicalSize()
+    {
+        int valueStart = offsets[arrayOffset];
+        int valueEnd = offsets[arrayOffset + positionCount];
+        logicalSizeInBytes = values.getRegionLogicalSizeInBytes(valueStart, valueEnd - valueStart) + ((Integer.BYTES + Byte.BYTES) * (long) this.positionCount);
     }
 
     @Override
@@ -172,10 +190,7 @@ public class ArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("ArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("ArrayBlock(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     @Override

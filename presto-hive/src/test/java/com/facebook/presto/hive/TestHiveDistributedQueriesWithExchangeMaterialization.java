@@ -18,12 +18,16 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE;
 import static com.facebook.presto.hive.HiveQueryRunner.createMaterializingQueryRunner;
+import static com.facebook.presto.hive.HiveStorageFormat.ORC;
+import static com.facebook.presto.hive.HiveStorageFormat.PAGEFILE;
 import static com.facebook.presto.hive.TestHiveIntegrationSmokeTest.assertRemoteMaterializedExchangesCount;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 public class TestHiveDistributedQueriesWithExchangeMaterialization
         extends AbstractTestDistributedQueries
@@ -42,8 +46,19 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
     @Test
     public void testMaterializeHiveUnsupportedTypeForTemporaryTable()
     {
+        testMaterializeHiveUnsupportedTypeForTemporaryTable(ORC, true);
+        testMaterializeHiveUnsupportedTypeForTemporaryTable(PAGEFILE, false);
+        assertThrows(RuntimeException.class, () -> testMaterializeHiveUnsupportedTypeForTemporaryTable(ORC, false));
+    }
+
+    private void testMaterializeHiveUnsupportedTypeForTemporaryTable(
+            HiveStorageFormat storageFormat,
+            boolean usePageFileForHiveUnsupportedType)
+    {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_table_storage_format", "PAGEFILE")
+                .setCatalogSessionProperty("hive", "temporary_table_storage_format", storageFormat.name())
+                .setCatalogSessionProperty("hive", "use_pagefile_for_hive_unsupported_type", String.valueOf(usePageFileForHiveUnsupportedType))
+                .setSystemProperty(ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE, "true")
                 .build();
 
         assertUpdate(session, "CREATE TABLE test_materialize_non_hive_types AS\n" +
@@ -70,13 +85,47 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
                 assertRemoteMaterializedExchangesCount(2));
 
         assertUpdate("DROP TABLE IF EXISTS test_materialize_non_hive_types");
+
+        assertUpdate(session, "CREATE TABLE test_materialize_non_hive_types AS\n" +
+                        "WITH t1 AS (\n" +
+                        "    SELECT\n" +
+                        "        CAST('2000-01-01' AS DATE) date,\n" +
+                        "        nationkey\n" +
+                        "    FROM nation\n" +
+                        "),\n" +
+                        "t2 AS (\n" +
+                        "    SELECT\n" +
+                        "        FROM_ISO8601_TIMESTAMP('2020-02-25') time,\n" +
+                        "        nationkey\n" +
+                        "    FROM nation\n" +
+                        ")\n" +
+                        "SELECT\n" +
+                        "    t1.nationkey,\n" +
+                        "    t1.date,\n" +
+                        "    CAST(t2.time AS VARCHAR) time\n" +
+                        "FROM t1\n" +
+                        "JOIN t2\n" +
+                        "    ON t1.nationkey = t2.nationkey",
+                25);
+
+        assertUpdate("DROP TABLE IF EXISTS test_materialize_non_hive_types");
     }
 
     @Test
     public void testBucketedByHiveUnsupportedTypeForTemporaryTable()
     {
+        testBucketedByHiveUnsupportedTypeForTemporaryTable(ORC, true);
+        testBucketedByHiveUnsupportedTypeForTemporaryTable(PAGEFILE, false);
+        assertThrows(RuntimeException.class, () -> testBucketedByHiveUnsupportedTypeForTemporaryTable(ORC, false));
+    }
+
+    private void testBucketedByHiveUnsupportedTypeForTemporaryTable(
+            HiveStorageFormat storageFormat,
+            boolean usePageFileForHiveUnsupportedType)
+    {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("hive", "temporary_table_storage_format", "PAGEFILE")
+                .setCatalogSessionProperty("hive", "temporary_table_storage_format", storageFormat.name())
+                .setCatalogSessionProperty("hive", "use_pagefile_for_hive_unsupported_type", String.valueOf(usePageFileForHiveUnsupportedType))
                 .setCatalogSessionProperty("hive", "bucket_function_type_for_exchange", "PRESTO_NATIVE")
                 .build();
 
@@ -136,7 +185,6 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
         // decimal type is not supported by the Hive hash code function
     }
 
-    @Override
     public void testSemiJoin()
     {
         // decimal type is not supported by the Hive hash code function
@@ -295,6 +343,23 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
                             "JOIN nation t2\n" +
                             "    ON t1.nationkey = t2.nationkey",
                     assertRemoteMaterializedExchangesCount(2));
+
+            // do not ignore table bucketing if $bucket column is referenced
+            assertQuery(
+                    testSession,
+                    "SELECT\n" +
+                            "    *\n" +
+                            "FROM partitioned_nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey\n" +
+                            "WHERE\n" +
+                            "    \"$bucket\" < 20",
+                            "SELECT\n" +
+                            "    *\n" +
+                            "FROM nation t1\n" +
+                            "JOIN nation t2\n" +
+                            "    ON t1.nationkey = t2.nationkey",
+                    assertRemoteMaterializedExchangesCount(1));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS partitioned_nation");

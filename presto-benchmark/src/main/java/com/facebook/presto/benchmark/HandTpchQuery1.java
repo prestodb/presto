@@ -18,7 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.Operator;
@@ -58,15 +58,15 @@ public class HandTpchQuery1
     {
         super(localQueryRunner, "hand_tpch_query_1", 1, 5);
 
-        FunctionManager functionManager = localQueryRunner.getMetadata().getFunctionManager();
-        longAverage = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("avg", fromTypes(BIGINT)));
-        doubleAverage = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("avg", fromTypes(DOUBLE)));
-        doubleSum = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("sum", fromTypes(DOUBLE)));
-        countFunction = functionManager.getAggregateFunctionImplementation(
-                functionManager.lookupFunction("count", ImmutableList.of()));
+        FunctionAndTypeManager functionAndTypeManager = localQueryRunner.getMetadata().getFunctionAndTypeManager();
+        longAverage = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("avg", fromTypes(BIGINT)));
+        doubleAverage = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("avg", fromTypes(DOUBLE)));
+        doubleSum = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("sum", fromTypes(DOUBLE)));
+        countFunction = functionAndTypeManager.getAggregateFunctionImplementation(
+                functionAndTypeManager.lookupFunction("count", ImmutableList.of()));
     }
 
     @Override

@@ -52,6 +52,7 @@ public final class HiveTableLayoutHandle
     private final boolean pushdownFilterEnabled;
     private final String layoutString;
     private final Optional<Set<HiveColumnHandle>> requestedColumns;
+    private final boolean partialAggregationsPushedDown;
 
     // coordinator-only properties
     @Nullable
@@ -71,7 +72,8 @@ public final class HiveTableLayoutHandle
             @JsonProperty("bucketFilter") Optional<HiveBucketFilter> bucketFilter,
             @JsonProperty("pushdownFilterEnabled") boolean pushdownFilterEnabled,
             @JsonProperty("layoutString") String layoutString,
-            @JsonProperty("requestedColumns") Optional<Set<HiveColumnHandle>> requestedColumns)
+            @JsonProperty("requestedColumns") Optional<Set<HiveColumnHandle>> requestedColumns,
+            @JsonProperty("partialAggregationsPushedDown") boolean partialAggregationsPushedDown)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
@@ -87,6 +89,7 @@ public final class HiveTableLayoutHandle
         this.pushdownFilterEnabled = pushdownFilterEnabled;
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
+        this.partialAggregationsPushedDown = partialAggregationsPushedDown;
     }
 
     public HiveTableLayoutHandle(
@@ -103,7 +106,8 @@ public final class HiveTableLayoutHandle
             Optional<HiveBucketFilter> bucketFilter,
             boolean pushdownFilterEnabled,
             String layoutString,
-            Optional<Set<HiveColumnHandle>> requestedColumns)
+            Optional<Set<HiveColumnHandle>> requestedColumns,
+            boolean partialAggregationsPushedDown)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
@@ -119,6 +123,7 @@ public final class HiveTableLayoutHandle
         this.pushdownFilterEnabled = pushdownFilterEnabled;
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
+        this.partialAggregationsPushedDown = partialAggregationsPushedDown;
     }
 
     @JsonProperty
@@ -214,5 +219,26 @@ public final class HiveTableLayoutHandle
     public String toString()
     {
         return layoutString;
+    }
+
+    @JsonProperty
+    public boolean isPartialAggregationsPushedDown()
+    {
+        return partialAggregationsPushedDown;
+    }
+
+    @Override
+    public Object getIdentifier()
+    {
+        // Identifier is used to identify if the table layout is providing the same set of data.
+        // To achieve this, we need table name, data column predicates and bucket filter.
+        // We did not include other fields because they are either table metadata or partition column predicate,
+        // which is unrelated to identifier purpose, or has already been applied as the boundary of split.
+        return ImmutableMap.builder()
+                .put("schemaTableName", schemaTableName)
+                .put("domainPredicate", domainPredicate)
+                .put("remainingPredicate", remainingPredicate)
+                .put("bucketFilter", bucketFilter)
+                .build();
     }
 }

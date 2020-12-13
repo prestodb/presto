@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.log.Logger;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -27,21 +26,22 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.io.Files.getNameWithoutExtension;
 
 public class StaticFunctionNamespaceStore
 {
     private static final Logger log = Logger.get(StaticFunctionNamespaceStore.class);
-    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+    private static final String FUNCTION_NAMESPACE_MANAGER_NAME = "function-namespace-manager.name";
 
-    private final FunctionManager functionManager;
+    private final FunctionAndTypeManager functionAndTypeManager;
     private final File configDir;
     private final AtomicBoolean functionNamespaceLoading = new AtomicBoolean();
 
     @Inject
-    public StaticFunctionNamespaceStore(FunctionManager functionManager, StaticFunctionNamespaceStoreConfig config)
+    public StaticFunctionNamespaceStore(FunctionAndTypeManager functionAndTypeManager, StaticFunctionNamespaceStoreConfig config)
     {
-        this.functionManager = functionManager;
+        this.functionAndTypeManager = functionAndTypeManager;
         this.configDir = config.getFunctionNamespaceConfigurationDir();
     }
 
@@ -54,22 +54,31 @@ public class StaticFunctionNamespaceStore
 
         for (File file : listFiles(configDir)) {
             if (file.isFile() && file.getName().endsWith(".properties")) {
-                loadFunctionNamespaceManager(file);
+                String catalogName = getNameWithoutExtension(file.getName());
+                Map<String, String> properties = loadProperties(file);
+                checkState(!isNullOrEmpty(properties.get(FUNCTION_NAMESPACE_MANAGER_NAME)),
+                        "Function namespace configuration %s does not contain %s",
+                        file.getAbsoluteFile(),
+                        FUNCTION_NAMESPACE_MANAGER_NAME);
+                loadFunctionNamespaceManager(catalogName, properties);
             }
         }
     }
 
-    private void loadFunctionNamespaceManager(File file)
-            throws Exception
+    public void loadFunctionNamespaceManagers(Map<String, Map<String, String>> catalogProperties)
     {
-        String catalogName = getNameWithoutExtension(file.getName());
-        log.info("-- Loading function namespace manager from %s --", file);
-        Map<String, String> properties = new HashMap<>(loadProperties(file));
+        catalogProperties.entrySet().stream()
+                .forEach(entry -> loadFunctionNamespaceManager(entry.getKey(), entry.getValue()));
+    }
 
-        String functionNamespaceManagerName = properties.remove("function-namespace-manager.name");
-        checkState(functionNamespaceManagerName != null, "Function namespace configuration %s does not contain function-namespace-manager.name", file.getAbsoluteFile());
+    private void loadFunctionNamespaceManager(String catalogName, Map<String, String> properties)
+    {
+        log.info("-- Loading function namespace manager for catalog %s --", catalogName);
+        properties = new HashMap<>(properties);
+        String functionNamespaceManagerName = properties.remove(FUNCTION_NAMESPACE_MANAGER_NAME);
+        checkState(!isNullOrEmpty(functionNamespaceManagerName), "%s property must be present", FUNCTION_NAMESPACE_MANAGER_NAME);
 
-        functionManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        functionAndTypeManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
         log.info("-- Added function namespace manager [%s] --", catalogName);
     }
 

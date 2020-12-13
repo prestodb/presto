@@ -19,6 +19,7 @@ import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.server.SliceDeserializer;
 import com.facebook.presto.server.SliceSerializer;
@@ -36,7 +37,6 @@ import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.type.TypeDeserializer;
-import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -56,6 +56,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_FOLLOWING;
@@ -99,7 +100,7 @@ public class TestWindowNode
     public void testSerializationRoundtrip()
     {
         VariableReferenceExpression windowVariable = variableAllocator.newVariable("sum", BIGINT);
-        FunctionHandle functionHandle = createTestMetadataManager().getFunctionManager().lookupFunction("sum", fromTypes(BIGINT));
+        FunctionHandle functionHandle = createTestMetadataManager().getFunctionAndTypeManager().lookupFunction("sum", fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
                 RANGE,
                 UNBOUNDED_PRECEDING,
@@ -149,11 +150,11 @@ public class TestWindowNode
     {
         Module module = binder -> {
             SqlParser sqlParser = new SqlParser();
-            TypeManager typeManager = new TypeRegistry();
+            FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             binder.install(new JsonModule());
             binder.install(new HandleJsonModule());
             binder.bind(SqlParser.class).toInstance(sqlParser);
-            binder.bind(TypeManager.class).toInstance(typeManager);
+            binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             configBinder(binder).bindConfig(FeaturesConfig.class);
             newSetBinder(binder, Type.class);
             jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
@@ -168,7 +169,6 @@ public class TestWindowNode
         };
         Bootstrap app = new Bootstrap(ImmutableList.of(module));
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();

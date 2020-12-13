@@ -14,7 +14,6 @@
 package com.facebook.presto.druid;
 
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.druid.DruidQueryGeneratorContext.Origin;
@@ -41,19 +40,16 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.druid.DruidErrorCode.DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION;
 import static com.facebook.presto.druid.DruidExpression.derived;
 import static com.facebook.presto.druid.DruidPushdownUtils.getLiteralAsString;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class DruidFilterExpressionConverter
         implements RowExpressionVisitor<DruidExpression, Function<VariableReferenceExpression, Selection>>
 {
     private static final Set<String> LOGICAL_BINARY_OPS_FILTER = ImmutableSet.of("=", "<", "<=", ">", ">=", "<>");
-    private static final String TIMESTAMP_LITERAL = "$literal$timestamp";
 
     private final TypeManager typeManager;
     private final FunctionMetadataManager functionMetadataManager;
@@ -177,16 +173,6 @@ public class DruidFilterExpressionConverter
                 return handleLogicalBinary(operatorType.getOperator(), call, context);
             }
         }
-        if (call.getDisplayName().toLowerCase(ENGLISH).equals(TIMESTAMP_LITERAL)
-                && call.getArguments().size() == 1
-                && call.getType().getDisplayName().equals(TIMESTAMP)) {
-            RowExpression argument = call.getArguments().get(0);
-            if (!(argument instanceof ConstantExpression)) {
-                throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Invalid Timestamp literal in Druid filter: " + argument.toString());
-            }
-            SqlTimestamp value = new SqlTimestamp((long) ((ConstantExpression) argument).getValue(), session.getSqlFunctionProperties().getTimeZoneKey());
-            return new DruidExpression("'" + value.toString() + "'", Origin.LITERAL);
-        }
 
         throw new PrestoException(DRUID_PUSHDOWN_UNSUPPORTED_EXPRESSION, "Function " + call + " not supported in Druid filter");
     }
@@ -200,7 +186,7 @@ public class DruidFilterExpressionConverter
     @Override
     public DruidExpression visitConstant(ConstantExpression literal, Function<VariableReferenceExpression, Selection> context)
     {
-        return new DruidExpression(getLiteralAsString(literal), Origin.LITERAL);
+        return new DruidExpression(getLiteralAsString(session, literal), Origin.LITERAL);
     }
 
     @Override

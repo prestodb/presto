@@ -902,7 +902,7 @@ public class TestRowExpressionDomainTranslator
     @Test
     public void testExpressionConstantFolding()
     {
-        FunctionHandle hex = metadata.getFunctionManager().lookupFunction("from_hex", fromTypes(VARCHAR));
+        FunctionHandle hex = metadata.getFunctionAndTypeManager().lookupFunction("from_hex", fromTypes(VARCHAR));
         RowExpression originalExpression = greaterThan(C_VARBINARY, call("from_hex", hex, VARBINARY, stringLiteral("123456")));
         ExtractionResult result = fromPredicate(originalExpression);
         assertEquals(result.getRemainingExpression(), TRUE_CONSTANT);
@@ -976,7 +976,7 @@ public class TestRowExpressionDomainTranslator
     {
         Type columnType = columnValues.getInput().getType();
         Type literalType = literalValues.getInput().getType();
-        Type superType = metadata.getTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
+        Type superType = metadata.getFunctionAndTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
 
         RowExpression max = toRowExpression(literalValues.getMax(), literalType);
         RowExpression min = toRowExpression(literalValues.getMin(), literalType);
@@ -1225,13 +1225,13 @@ public class TestRowExpressionDomainTranslator
 
     private RowExpression cast(RowExpression expression, Type toType)
     {
-        FunctionHandle cast = metadata.getFunctionManager().lookupCast(CastType.CAST, expression.getType().getTypeSignature(), toType.getTypeSignature());
+        FunctionHandle cast = metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, expression.getType().getTypeSignature(), toType.getTypeSignature());
         return call(CastType.CAST.name(), cast, toType, expression);
     }
 
     private RowExpression not(RowExpression expression)
     {
-        return call("not", new FunctionResolution(metadata.getFunctionManager()).notFunction(), expression.getType(), expression);
+        return call("not", new FunctionResolution(metadata.getFunctionAndTypeManager()).notFunction(), expression.getType(), expression);
     }
 
     private RowExpression in(RowExpression value, List<RowExpression> inList)
@@ -1254,7 +1254,7 @@ public class TestRowExpressionDomainTranslator
     {
         return call(
                 operatorType.name(),
-                metadata.getFunctionManager().resolveOperator(operatorType, fromTypes(left.getType(), right.getType())),
+                metadata.getFunctionAndTypeManager().resolveOperator(operatorType, fromTypes(left.getType(), right.getType())),
                 BOOLEAN,
                 left,
                 right);
@@ -1264,7 +1264,7 @@ public class TestRowExpressionDomainTranslator
     {
         return call(
                 OperatorType.BETWEEN.name(),
-                metadata.getFunctionManager().resolveOperator(OperatorType.BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
+                metadata.getFunctionAndTypeManager().resolveOperator(OperatorType.BETWEEN, fromTypes(value.getType(), min.getType(), max.getType())),
                 BOOLEAN,
                 value,
                 min,
@@ -1318,10 +1318,10 @@ public class TestRowExpressionDomainTranslator
 
     private RowExpression randPredicate(VariableReferenceExpression expression)
     {
-        RowExpression random = call("random", metadata.getFunctionManager().lookupFunction("random", fromTypes()), DOUBLE);
+        RowExpression random = call("random", metadata.getFunctionAndTypeManager().lookupFunction("random", fromTypes()), DOUBLE);
         return greaterThan(
                 expression,
-                call(CastType.CAST.name(), metadata.getFunctionManager().lookupCast(CastType.CAST, DOUBLE.getTypeSignature(), expression.getType().getTypeSignature()), expression.getType(), random));
+                call(CastType.CAST.name(), metadata.getFunctionAndTypeManager().lookupCast(CastType.CAST, DOUBLE.getTypeSignature(), expression.getType().getTypeSignature()), expression.getType(), random));
     }
 
     private void assertUnsupportedPredicate(RowExpression expression)

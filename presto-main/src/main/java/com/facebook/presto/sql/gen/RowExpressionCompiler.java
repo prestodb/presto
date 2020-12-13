@@ -19,7 +19,7 @@ import com.facebook.presto.bytecode.ClassDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
@@ -104,8 +104,8 @@ public class RowExpressionCompiler
         @Override
         public BytecodeNode visitCall(CallExpression call, Context context)
         {
-            FunctionManager functionManager = metadata.getFunctionManager();
-            FunctionMetadata functionMetadata = functionManager.getFunctionMetadata(call.getFunctionHandle());
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
             BytecodeGeneratorContext generatorContext;
             switch (functionMetadata.getImplementationType()) {
                 case BUILTIN:
@@ -114,10 +114,10 @@ public class RowExpressionCompiler
                             context.getScope(),
                             callSiteBinder,
                             cachedInstanceBinder,
-                            functionManager);
+                            functionAndTypeManager);
                     return (new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
                 case SQL:
-                    SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionManager.getScalarFunctionImplementation(call.getFunctionHandle());
+                    SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionAndTypeManager.getScalarFunctionImplementation(call.getFunctionHandle());
                     RowExpression function = getSqlFunctionRowExpression(functionMetadata, functionImplementation, metadata, sqlFunctionProperties, call.getArguments());
 
                     // Pre-compile lambda bytecode and update compiled lambda map
@@ -140,7 +140,7 @@ public class RowExpressionCompiler
                             context.getScope(),
                             callSiteBinder,
                             cachedInstanceBinder,
-                            functionManager);
+                            functionAndTypeManager);
 
                     return (new IfCodeGenerator()).generateExpression(
                             generatorContext,
@@ -246,7 +246,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata.getFunctionManager());
+                    metadata.getFunctionAndTypeManager());
 
             return generateLambda(
                     generatorContext,
@@ -298,7 +298,7 @@ public class RowExpressionCompiler
                     break;
                 // functions that require varargs and/or complex types (e.g., lists)
                 case IN:
-                    generator = new InCodeGenerator(metadata.getFunctionManager());
+                    generator = new InCodeGenerator(metadata.getFunctionAndTypeManager());
                     break;
                 // optimized implementations (shortcircuiting behavior)
                 case AND:
@@ -324,7 +324,7 @@ public class RowExpressionCompiler
                     context.getScope(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata.getFunctionManager());
+                    metadata.getFunctionAndTypeManager());
 
             return generator.generateExpression(generatorContext, specialForm.getType(), specialForm.getArguments(), context.getOutputBlockVariable());
         }

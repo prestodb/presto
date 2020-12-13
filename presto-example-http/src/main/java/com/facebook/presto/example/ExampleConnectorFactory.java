@@ -52,7 +52,6 @@ public class ExampleConnectorFactory
                     new ExampleModule(catalogName, context.getTypeManager()));
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)
                     .initialize();

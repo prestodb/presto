@@ -28,16 +28,18 @@ public final class JoinUtils
 
     public static List<Page> channelsToPages(List<List<Block>> channels)
     {
-        ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builder();
-        if (!channels.isEmpty()) {
-            int pagesCount = channels.get(0).size();
-            for (int pageIndex = 0; pageIndex < pagesCount; ++pageIndex) {
-                Block[] blocks = new Block[channels.size()];
-                for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
-                    blocks[channelIndex] = channels.get(channelIndex).get(pageIndex);
-                }
-                pagesBuilder.add(new Page(blocks));
+        if (channels.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        int pagesCount = channels.get(0).size();
+        ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builderWithExpectedSize(pagesCount);
+        for (int pageIndex = 0; pageIndex < pagesCount; ++pageIndex) {
+            Block[] blocks = new Block[channels.size()];
+            for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
+                blocks[channelIndex] = channels.get(channelIndex).get(pageIndex);
             }
+            pagesBuilder.add(new Page(blocks));
         }
         return pagesBuilder.build();
     }

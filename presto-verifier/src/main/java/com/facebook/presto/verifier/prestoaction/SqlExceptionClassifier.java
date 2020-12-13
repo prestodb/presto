@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
-import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryStage;
 
@@ -22,7 +22,11 @@ import java.util.Optional;
 
 public interface SqlExceptionClassifier
 {
-    QueryException createException(QueryStage queryStage, Optional<QueryStats> queryStats, SQLException cause);
+    QueryException createException(QueryStage queryStage, QueryActionStats queryActionStats, SQLException cause);
+
+    Optional<ErrorCodeSupplier> getErrorCode(int code);
+
+    boolean isRetryable(ErrorCodeSupplier errorCode, QueryStage queryStage, String message);
 
     boolean shouldResubmit(Throwable throwable);
 }

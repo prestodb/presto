@@ -60,7 +60,8 @@ public class TestOrcLz4
                         SIZE,
                         false),
                 false,
-                NO_ENCRYPTION);
+                NO_ENCRYPTION,
+                DwrfKeyProvider.EMPTY);
 
         assertEquals(orcReader.getCompressionKind(), LZ4);
         assertEquals(orcReader.getFooter().getNumberOfRows(), 10_000);
@@ -76,8 +77,7 @@ public class TestOrcLz4
                 OrcPredicate.TRUE,
                 DateTimeZone.UTC,
                 new TestingHiveOrcAggregatedMemoryContext(),
-                INITIAL_BATCH_SIZE,
-                ImmutableMap.of());
+                INITIAL_BATCH_SIZE);
 
         int rows = 0;
         while (true) {

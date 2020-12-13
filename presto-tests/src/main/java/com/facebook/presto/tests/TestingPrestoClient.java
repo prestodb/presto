@@ -20,11 +20,14 @@ import com.facebook.presto.client.QueryData;
 import com.facebook.presto.client.QueryStatusInfo;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.JsonType;
+import com.facebook.presto.common.type.LongEnumType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoWarning;
@@ -70,6 +73,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static com.facebook.presto.type.IpAddressType.IPADDRESS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
@@ -228,6 +232,9 @@ public class TestingPrestoClient
         else if (INTERVAL_YEAR_MONTH.equals(type)) {
             return new SqlIntervalYearMonth(IntervalYearMonth.parseMonths(String.valueOf(value)));
         }
+        else if (IPADDRESS.equals(type)) {
+            return value;
+        }
         else if (type instanceof ArrayType) {
             return ((List<Object>) value).stream()
                     .map(element -> convertToRowValue(((ArrayType) type).getElementType(), element))
@@ -249,6 +256,15 @@ public class TestingPrestoClient
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
+        }
+        else if (type instanceof JsonType) {
+            return value;
+        }
+        else if (type instanceof VarcharEnumType) {
+            return value;
+        }
+        else if (type instanceof LongEnumType) {
+            return ((Number) value).longValue();
         }
         else if (type.getTypeSignature().getBase().equals("ObjectId")) {
             return value;

@@ -133,6 +133,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public Optional<String> getSchema()
+    {
+        return session.getSchema();
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

@@ -143,7 +143,7 @@ public class HeartbeatFailureDetector
                     }
                     catch (Throwable e) {
                         // ignore to avoid getting unscheduled
-                        log.warn(e, "Error updating services");
+                        log.error(e, "Error updating services");
                     }
                 }
             }, 0, 5, TimeUnit.SECONDS);
@@ -332,7 +332,7 @@ public class HeartbeatFailureDetector
                         }
                         catch (Throwable e) {
                             // ignore to avoid getting unscheduled
-                            log.warn(e, "Error pinging service %s (%s)", service.getId(), uri);
+                            log.error(e, "Error pinging service %s (%s)", service.getId(), uri);
                         }
                     }
                 }, heartbeat.toMillis(), heartbeat.toMillis(), TimeUnit.MILLISECONDS);

@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -72,11 +73,9 @@ public final class MetadataUtil
         return checkLowerCase(tableName, "tableName");
     }
 
-    public static void checkObjectName(String catalogName, String schemaName, String objectName)
+    public static SchemaTableName toSchemaTableName(QualifiedObjectName qualifiedObjectName)
     {
-        checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
+        return new SchemaTableName(qualifiedObjectName.getSchemaName(), qualifiedObjectName.getObjectName());
     }
 
     public static String checkLowerCase(String value, String name)

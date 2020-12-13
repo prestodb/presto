@@ -13,14 +13,16 @@
  */
 package com.facebook.presto.orc.reader;
 
+import com.facebook.presto.orc.DecodeTimestampOptions;
+
 final class ApacheHiveTimestampDecoder
 {
     private ApacheHiveTimestampDecoder() {}
 
     // This comes from the Apache Hive ORC code
-    public static long decodeTimestamp(long seconds, long serializedNanos, long baseTimestampInSeconds)
+    public static long decodeTimestamp(long seconds, long serializedNanos, DecodeTimestampOptions options)
     {
-        long millis = (seconds + baseTimestampInSeconds) * 1000;
+        long millis = (seconds + options.getBaseSeconds()) * options.getUnitsPerSecond();
         long nanos = parseNanos(serializedNanos);
         if (nanos > 999999999 || nanos < 0) {
             throw new IllegalArgumentException("nanos field of an encoded timestamp in ORC must be between 0 and 999999999 inclusive, got " + nanos);
@@ -32,10 +34,10 @@ final class ApacheHiveTimestampDecoder
         // (-42 - 1)*1000 + 999 = -42001
         // (42)*1000 + 1 = 42001
         if (millis < 0 && nanos != 0) {
-            millis -= 1000;
+            millis -= options.getUnitsPerSecond();
         }
         // Truncate nanos to millis and add to mills
-        return millis + (nanos / 1_000_000);
+        return millis + (nanos / options.getNanosPerUnit());
     }
 
     // This comes from the Apache Hive ORC code

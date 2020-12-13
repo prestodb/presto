@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.verifier.checksum;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -26,7 +24,6 @@ import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Statement;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.framework.Column;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +41,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
@@ -57,22 +55,18 @@ import static org.testng.Assert.assertTrue;
 
 public class TestChecksumValidator
 {
-    private static final TypeRegistry typeRegistry = new TypeRegistry();
-
-    static {
-        new FunctionManager(typeRegistry, new BlockEncodingManager(typeRegistry), new FeaturesConfig());
-    }
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();
 
     private static final Column BIGINT_COLUMN = createColumn("bigint", BIGINT);
     private static final Column VARCHAR_COLUMN = createColumn("varchar", VARCHAR);
     private static final Column DOUBLE_COLUMN = createColumn("double", DOUBLE);
     private static final Column REAL_COLUMN = createColumn("real", REAL);
     private static final Column INT_ARRAY_COLUMN = createColumn("int_array", new ArrayType(INTEGER));
-    private static final Column ROW_ARRAY_COLUMN = createColumn("row_array", typeRegistry.getType(parseTypeSignature("array(row(a int,b varchar))")));
-    private static final Column MAP_ARRAY_COLUMN = createColumn("map_array", typeRegistry.getType(parseTypeSignature("array(map(int,varchar))")));
-    private static final Column MAP_COLUMN = createColumn("map", typeRegistry.getType(parseTypeSignature("map(int,array(varchar))")));
-    private static final Column MAP_NON_ORDERABLE_COLUMN = createColumn("map_non_orderable", typeRegistry.getType(parseTypeSignature("map(map(int,varchar),map(int,varchar))")));
-    private static final Column ROW_COLUMN = createColumn("row", typeRegistry.getType(parseTypeSignature("row(i int, varchar, d double, a array(int), r row(double, b bigint))")));
+    private static final Column ROW_ARRAY_COLUMN = createColumn("row_array", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("array(row(a int,b varchar))")));
+    private static final Column MAP_ARRAY_COLUMN = createColumn("map_array", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("array(map(int,varchar))")));
+    private static final Column MAP_COLUMN = createColumn("map", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("map(int,array(varchar))")));
+    private static final Column MAP_NON_ORDERABLE_COLUMN = createColumn("map_non_orderable", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("map(map(int,varchar),map(int,varchar))")));
+    private static final Column ROW_COLUMN = createColumn("row", FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature("row(i int, varchar, d double, a array(int), r row(double, b bigint))")));
 
     private static final double RELATIVE_ERROR_MARGIN = 1e-4;
     private static final double ABSOLUTE_ERROR_MARGIN = 1e-12;

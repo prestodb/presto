@@ -20,6 +20,7 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -98,7 +99,7 @@ public final class HttpRequestSessionContext
     private final boolean clientTransactionSupport;
     private final String clientInfo;
 
-    public HttpRequestSessionContext(HttpServletRequest servletRequest)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -157,7 +158,7 @@ public final class HttpRequestSessionContext
         this.catalogSessionProperties = catalogSessionProperties.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
 
-        preparedStatements = parsePreparedStatementsHeaders(servletRequest);
+        preparedStatements = parsePreparedStatementsHeaders(servletRequest, sqlParserOptions);
 
         String transactionIdHeader = servletRequest.getHeader(PRESTO_TRANSACTION_ID);
         clientTransactionSupport = transactionIdHeader != null;
@@ -200,7 +201,7 @@ public final class HttpRequestSessionContext
         for (String header : splitSessionHeader(servletRequest.getHeaders(headerName))) {
             List<String> nameValue = Splitter.on('=').trimResults().splitToList(header);
             assertRequest(nameValue.size() == 2, "Invalid %s header", headerName);
-            properties.put(nameValue.get(0), nameValue.get(1));
+            properties.put(nameValue.get(0), urlDecode(nameValue.get(1)));
         }
         return properties;
     }
@@ -223,7 +224,7 @@ public final class HttpRequestSessionContext
         }
     }
 
-    private static Map<String, String> parsePreparedStatementsHeaders(HttpServletRequest servletRequest)
+    private static Map<String, String> parsePreparedStatementsHeaders(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
         ImmutableMap.Builder<String, String> preparedStatements = ImmutableMap.builder();
         for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_PREPARED_STATEMENT))) {
@@ -241,7 +242,7 @@ public final class HttpRequestSessionContext
             }
 
             // Validate statement
-            SqlParser sqlParser = new SqlParser();
+            SqlParser sqlParser = new SqlParser(sqlParserOptions);
             try {
                 sqlParser.createStatement(sqlString, new ParsingOptions(AS_DOUBLE /* anything */));
             }

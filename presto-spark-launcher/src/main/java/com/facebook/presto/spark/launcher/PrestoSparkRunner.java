@@ -22,20 +22,21 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.apache.spark.TaskContext;
 
 import java.io.File;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.Set;
 
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkDirectory;
 import static com.google.common.base.Preconditions.checkState;
@@ -57,23 +58,57 @@ public class PrestoSparkRunner
                 SparkProcessType.DRIVER,
                 distribution.getPackageSupplier(),
                 distribution.getConfigProperties(),
-                distribution.getCatalogProperties());
+                distribution.getCatalogProperties(),
+                distribution.getEventListenerProperties(),
+                distribution.getAccessControlProperties(),
+                distribution.getSessionPropertyConfigurationProperties(),
+                distribution.getFunctionNamespaceProperties());
     }
 
     public void run(
+            String user,
+            Optional<Principal> principal,
+            Map<String, String> extraCredentials,
             String catalog,
             String schema,
-            String query,
+            Optional<String> source,
+            Optional<String> userAgent,
+            Optional<String> clientInfo,
+            Set<String> clientTags,
             Map<String, String> sessionProperties,
-            Map<String, Map<String, String>> catalogSessionProperties)
+            Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<String> traceToken,
+            String query,
+            Optional<String> sparkQueueName,
+            Optional<Path> queryStatusInfoOutputPath,
+            Optional<Path> queryDataOutputPath)
     {
         IPrestoSparkQueryExecutionFactory queryExecutionFactory = driverPrestoSparkService.getQueryExecutionFactory();
-        PrestoSparkSession session = createSessionInfo(catalog, schema, sessionProperties, catalogSessionProperties);
+
+        PrestoSparkSession session = new PrestoSparkSession(
+                user,
+                principal,
+                extraCredentials,
+                Optional.ofNullable(catalog),
+                Optional.ofNullable(schema),
+                source,
+                userAgent,
+                clientInfo,
+                clientTags,
+                Optional.empty(),
+                Optional.empty(),
+                sessionProperties,
+                catalogSessionProperties,
+                traceToken);
+
         IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
                 distribution.getSparkContext(),
                 session,
                 query,
-                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution));
+                sparkQueueName,
+                new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
+                queryStatusInfoOutputPath,
+                queryDataOutputPath);
 
         List<List<Object>> results = queryExecution.execute();
 
@@ -85,29 +120,6 @@ public class PrestoSparkRunner
     public void close()
     {
         driverPrestoSparkService.close();
-    }
-
-    private static PrestoSparkSession createSessionInfo(
-            String catalog,
-            String schema,
-            Map<String, String> sessionProperties,
-            Map<String, Map<String, String>> catalogSessionProperties)
-    {
-        // TODO: add all important session parameters to client options
-        return new PrestoSparkSession(
-                "test",
-                Optional.empty(),
-                ImmutableMap.of(),
-                Optional.ofNullable(catalog),
-                Optional.ofNullable(schema),
-                Optional.empty(),
-                Optional.empty(),
-                ImmutableSet.of(),
-                Optional.empty(),
-                Optional.empty(),
-                sessionProperties,
-                catalogSessionProperties,
-                Optional.empty());
     }
 
     private static IPrestoSparkServiceFactory createServiceFactory(File directory)
@@ -138,11 +150,22 @@ public class PrestoSparkRunner
             SparkProcessType sparkProcessType,
             PackageSupplier packageSupplier,
             Map<String, String> configProperties,
-            Map<String, Map<String, String>> catalogProperties)
+            Map<String, Map<String, String>> catalogProperties,
+            Optional<Map<String, String>> eventListenerProperties,
+            Optional<Map<String, String>> accessControlProperties,
+            Optional<Map<String, String>> sessionPropertyConfigurationProperties,
+            Optional<Map<String, Map<String, String>>> functionNamespaceProperties)
     {
         String packagePath = getPackagePath(packageSupplier);
         File pluginsDirectory = checkDirectory(new File(packagePath, "plugin"));
-        PrestoSparkConfiguration configuration = new PrestoSparkConfiguration(configProperties, pluginsDirectory.getAbsolutePath(), catalogProperties);
+        PrestoSparkConfiguration configuration = new PrestoSparkConfiguration(
+                configProperties,
+                pluginsDirectory.getAbsolutePath(),
+                catalogProperties,
+                eventListenerProperties,
+                accessControlProperties,
+                sessionPropertyConfigurationProperties,
+                functionNamespaceProperties);
         IPrestoSparkServiceFactory serviceFactory = createServiceFactory(checkDirectory(new File(packagePath, "lib")));
         return serviceFactory.createService(sparkProcessType, configuration);
     }
@@ -158,6 +181,10 @@ public class PrestoSparkRunner
         private final PackageSupplier packageSupplier;
         private final Map<String, String> configProperties;
         private final Map<String, Map<String, String>> catalogProperties;
+        private final Map<String, String> eventListenerProperties;
+        private final Map<String, String> accessControlProperties;
+        private final Map<String, String> sessionPropertyConfigurationProperties;
+        private final Map<String, Map<String, String>> functionNamespaceProperties;
 
         public DistributionBasedPrestoSparkTaskExecutorFactoryProvider(PrestoSparkDistribution distribution)
         {
@@ -165,6 +192,11 @@ public class PrestoSparkRunner
             this.packageSupplier = distribution.getPackageSupplier();
             this.configProperties = distribution.getConfigProperties();
             this.catalogProperties = distribution.getCatalogProperties();
+            // Optional is not Serializable
+            this.eventListenerProperties = distribution.getEventListenerProperties().orElse(null);
+            this.accessControlProperties = distribution.getAccessControlProperties().orElse(null);
+            this.sessionPropertyConfigurationProperties = distribution.getSessionPropertyConfigurationProperties().orElse(null);
+            this.functionNamespaceProperties = distribution.getFunctionNamespaceProperties().orElse(null);
         }
 
         @Override
@@ -179,19 +211,44 @@ public class PrestoSparkRunner
         private static String currentPackagePath;
         private static Map<String, String> currentConfigProperties;
         private static Map<String, Map<String, String>> currentCatalogProperties;
+        private static Map<String, String> currentEventListenerProperties;
+        private static Map<String, String> currentAccessControlProperties;
+        private static Map<String, String> currentSessionPropertyConfigurationProperties;
+        private static Map<String, Map<String, String>> currentFunctionNamespaceProperties;
 
         private IPrestoSparkService getOrCreatePrestoSparkService()
         {
             synchronized (DistributionBasedPrestoSparkTaskExecutorFactoryProvider.class) {
                 if (service == null) {
-                    service = createService(SparkProcessType.EXECUTOR, packageSupplier, configProperties, catalogProperties);
+                    service = createService(
+                            SparkProcessType.EXECUTOR,
+                            packageSupplier,
+                            configProperties,
+                            catalogProperties,
+                            Optional.ofNullable(eventListenerProperties),
+                            Optional.ofNullable(accessControlProperties),
+                            Optional.ofNullable(sessionPropertyConfigurationProperties),
+                            Optional.ofNullable(functionNamespaceProperties));
+
                     currentPackagePath = getPackagePath(packageSupplier);
                     currentConfigProperties = configProperties;
                     currentCatalogProperties = catalogProperties;
+                    currentEventListenerProperties = eventListenerProperties;
+                    currentAccessControlProperties = accessControlProperties;
+                    currentSessionPropertyConfigurationProperties = sessionPropertyConfigurationProperties;
+                    currentFunctionNamespaceProperties = functionNamespaceProperties;
                 }
-                checkEquals("packagePath", currentPackagePath, getPackagePath(packageSupplier));
-                checkEquals("configProperties", currentConfigProperties, configProperties);
-                checkEquals("catalogProperties", currentCatalogProperties, catalogProperties);
+                else {
+                    checkEquals("packagePath", currentPackagePath, getPackagePath(packageSupplier));
+                    checkEquals("configProperties", currentConfigProperties, configProperties);
+                    checkEquals("catalogProperties", currentCatalogProperties, catalogProperties);
+                    checkEquals("eventListenerProperties", currentEventListenerProperties, eventListenerProperties);
+                    checkEquals("accessControlProperties", currentAccessControlProperties, accessControlProperties);
+                    checkEquals("sessionPropertyConfigurationProperties",
+                            currentSessionPropertyConfigurationProperties,
+                            sessionPropertyConfigurationProperties);
+                    checkEquals("functionNamespaceProperties", currentFunctionNamespaceProperties, functionNamespaceProperties);
+                }
                 return service;
             }
         }

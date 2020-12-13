@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.239-SNAPSHOT</version>
+        <version>0.246-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-docs</artifactId>
@@ -56,7 +56,7 @@
                         <configuration>
                             <outputFile>${project.build.directory}/PrestoThriftService.thrift</outputFile>
                             <classes>
-                                <class>com.facebook.presto.connector.thrift.api.PrestoThriftService</class>
+                                <class>com.facebook.presto.thrift.api.connector.PrestoThriftService</class>
                             </classes>
                             <recursive>true</recursive>
                         </configuration>
@@ -65,7 +65,7 @@
                 <dependencies>
                     <dependency>
                         <groupId>com.facebook.presto</groupId>
-                        <artifactId>presto-thrift-connector-api</artifactId>
+                        <artifactId>presto-thrift-api</artifactId>
                         <version>${project.version}</version>
                     </dependency>
                 </dependencies>

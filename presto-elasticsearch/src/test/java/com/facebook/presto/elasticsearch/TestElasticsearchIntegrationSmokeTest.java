@@ -38,9 +38,11 @@ import static com.facebook.presto.elasticsearch.EmbeddedElasticsearchNode.create
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.elasticsearch.client.Requests.indexAliasesRequest;
 import static org.elasticsearch.client.Requests.refreshRequest;
 
+@Test(singleThreaded = true)
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
@@ -94,6 +96,15 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    public void testCountAll()
+    {
+        assertQuery("SELECT COUNT(*) FROM orders");
+        assertQuery("SELECT count(*) FROM orders WHERE orderkey > 10");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM orders LIMIT 10)");
+        assertQuery("SELECT count(*) FROM (SELECT * FROM orders WHERE orderkey > 10 LIMIT 10)");
+    }
+
+    @Test
     public void testMultipleRangesPredicate()
     {
         assertQuery("" +
@@ -125,6 +136,23 @@ public class TestElasticsearchIntegrationSmokeTest
                 .row("totalprice", "real", "", "")
                 .build();
         assertEquals(actualResult, expectedColumns, format("%s != %s", actualResult, expectedColumns));
+    }
+
+    @Test
+    public void testShowCreateTable()
+    {
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE elasticsearch.tpch.orders (\n" +
+                        "   clerk varchar,\n" +
+                        "   comment varchar,\n" +
+                        "   custkey bigint,\n" +
+                        "   orderdate timestamp,\n" +
+                        "   orderkey bigint,\n" +
+                        "   orderpriority varchar,\n" +
+                        "   orderstatus varchar,\n" +
+                        "   shippriority bigint,\n" +
+                        "   totalprice real\n" +
+                        ")");
     }
 
     @Test
@@ -359,7 +387,9 @@ public class TestElasticsearchIntegrationSmokeTest
                         "keyword_column", "type=keyword",
                         "text_column", "type=text",
                         "binary_column", "type=binary",
-                        "timestamp_column", "type=date")
+                        "timestamp_column", "type=date",
+                        "ipv4_column", "type=ip",
+                        "ipv6_column", "type=ip")
                 .get();
 
         index(indexName, ImmutableMap.<String, Object>builder()
@@ -372,6 +402,8 @@ public class TestElasticsearchIntegrationSmokeTest
                 .put("text_column", "some text")
                 .put("binary_column", new byte[] {(byte) 0xCA, (byte) 0xFE})
                 .put("timestamp_column", 0)
+                .put("ipv4_column", "192.0.2.4")
+                .put("ipv6_column", "2001:db8:0:1:1:1:1:1")
                 .build());
 
         embeddedElasticsearchNode.getClient()
@@ -389,11 +421,14 @@ public class TestElasticsearchIntegrationSmokeTest
                 "keyword_column, " +
                 "text_column, " +
                 "binary_column, " +
-                "timestamp_column " +
+                "timestamp_column, " +
+                "ipv4_column, " +
+                "ipv6_column " +
                 "FROM types");
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE}, LocalDateTime.of(1970, 1, 1, 0, 0))
+                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0), "192.0.2.4", "2001:db8:0:1:1:1:1:1")
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
@@ -419,7 +454,9 @@ public class TestElasticsearchIntegrationSmokeTest
                         "keyword_column", "type=keyword",
                         "text_column", "type=text",
                         "binary_column", "type=binary",
-                        "timestamp_column", "type=date")
+                        "timestamp_column", "type=date",
+                        "ipv4_column", "type=ip",
+                        "ipv6_column", "type=ip")
                 .get();
 
         index(indexName, ImmutableMap.<String, Object>builder()
@@ -434,6 +471,8 @@ public class TestElasticsearchIntegrationSmokeTest
                 .put("text_column", "some text")
                 .put("binary_column", new byte[] {(byte) 0xCA, (byte) 0xFE})
                 .put("timestamp_column", 1569888000000L)
+                .put("ipv4_column", "192.0.2.4")
+                .put("ipv6_column", "2001:db8:0:1:1:1:1:1")
                 .build());
 
         embeddedElasticsearchNode.getClient()
@@ -506,6 +545,10 @@ public class TestElasticsearchIntegrationSmokeTest
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column = TIMESTAMP '2019-10-02 00:00:00'", "VALUES 0");
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column > TIMESTAMP '2001-01-01 00:00:00'", "VALUES 1");
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE timestamp_column < TIMESTAMP '2030-01-01 00:00:00'", "VALUES 1");
+
+        // ipaddress
+        assertQuery("SELECT count(ipv4_column) FROM filter_pushdown", "VALUES 1");
+        assertQuery("SELECT count(ipv6_column) FROM filter_pushdown", "VALUES 1");
     }
 
     @Test
@@ -530,7 +573,9 @@ public class TestElasticsearchIntegrationSmokeTest
                                 "                \"keyword_column\":   { \"type\": \"keyword\" },\n" +
                                 "                \"text_column\":      { \"type\": \"text\" },\n" +
                                 "                \"binary_column\":    { \"type\": \"binary\" },\n" +
-                                "                \"timestamp_column\": { \"type\": \"date\" }\n" +
+                                "                \"timestamp_column\": { \"type\": \"date\" },\n" +
+                                "                \"ipv4_column\":      { \"type\": \"ip\" },\n" +
+                                "                \"ipv6_column\":      { \"type\": \"ip\" }\n" +
                                 "            }\n" +
                                 "        }\n" +
                                 "    }" +
@@ -550,6 +595,8 @@ public class TestElasticsearchIntegrationSmokeTest
                         .put("text_column", "some text")
                         .put("binary_column", new byte[] {(byte) 0xCA, (byte) 0xFE})
                         .put("timestamp_column", 0)
+                        .put("ipv4_column", "192.0.2.4")
+                        .put("ipv6_column", "2001:db8:0:1:1:1:1:1")
                         .build()));
 
         embeddedElasticsearchNode.getClient()
@@ -568,11 +615,14 @@ public class TestElasticsearchIntegrationSmokeTest
                 "field.keyword_column, " +
                 "field.text_column, " +
                 "field.binary_column, " +
-                "field.timestamp_column " +
+                "field.timestamp_column, " +
+                "field.ipv4_column, " +
+                "field.ipv6_column " +
                 "FROM types_nested");
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
-                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE}, LocalDateTime.of(1970, 1, 1, 0, 0))
+                .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
+                        LocalDateTime.of(1970, 1, 1, 0, 0), "192.0.2.4", "2001:db8:0:1:1:1:1:1")
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
@@ -601,7 +651,9 @@ public class TestElasticsearchIntegrationSmokeTest
                                 "            \"keyword_column\":   { \"type\": \"keyword\" },\n" +
                                 "            \"text_column\":      { \"type\": \"text\" },\n" +
                                 "            \"binary_column\":    { \"type\": \"binary\" },\n" +
-                                "            \"timestamp_column\": { \"type\": \"date\" }\n" +
+                                "            \"timestamp_column\": { \"type\": \"date\" },\n" +
+                                "            \"ipv4_column\":      { \"type\": \"ip\" },\n" +
+                                "            \"ipv6_column\":      { \"type\": \"ip\" }\n" +
                                 "            }\n" +
                                 "        }\n" +
                                 "    }" +
@@ -621,6 +673,8 @@ public class TestElasticsearchIntegrationSmokeTest
                         .put("text_column", "some text")
                         .put("binary_column", new byte[] {(byte) 0xCA, (byte) 0xFE})
                         .put("timestamp_column", 0)
+                        .put("ipv4_column", "192.0.2.4")
+                        .put("ipv6_column", "2001:db8:0:1:1:1:1:1")
                         .build()));
 
         embeddedElasticsearchNode.getClient()
@@ -639,12 +693,14 @@ public class TestElasticsearchIntegrationSmokeTest
                 "nested_field.keyword_column, " +
                 "nested_field.text_column, " +
                 "nested_field.binary_column, " +
-                "nested_field.timestamp_column " +
+                "nested_field.timestamp_column, " +
+                "nested_field.ipv4_column, " +
+                "nested_field.ipv6_column " +
                 "FROM nested_type_nested");
 
         MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
                 .row(true, 1.0f, 1.0d, 1, 1L, "cool", "some text", new byte[] {(byte) 0xCA, (byte) 0xFE},
-                        LocalDateTime.of(1970, 1, 1, 0, 0))
+                        LocalDateTime.of(1970, 1, 1, 0, 0), "192.0.2.4", "2001:db8:0:1:1:1:1:1")
                 .build();
 
         assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
@@ -687,8 +743,40 @@ public class TestElasticsearchIntegrationSmokeTest
     }
 
     @Test
+    public void testNumericKeyword()
+            throws IOException
+    {
+        String indexName = "numeric_keyword";
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .prepareCreate(indexName)
+                .addMapping("doc",
+                        "numeric_column", "type=keyword")
+                .get();
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("numeric_column", 20)
+                .build());
+
+        embeddedElasticsearchNode.getClient()
+                .admin()
+                .indices()
+                .refresh(refreshRequest(indexName))
+                .actionGet();
+
+        assertQuery(
+                "SELECT numeric_column FROM numeric_keyword",
+                "VALUES 20");
+        assertQuery(
+                "SELECT numeric_column FROM numeric_keyword where numeric_column = '20'",
+                "VALUES 20");
+    }
+
+    @Test
     public void testQueryStringError()
     {
+        assertQueryFails("SELECT orderkey FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
         assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
     }
 
@@ -715,7 +803,7 @@ public class TestElasticsearchIntegrationSmokeTest
                 "SELECT count(*) FROM orders");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testMultiIndexAlias()
     {
         embeddedElasticsearchNode.getClient()

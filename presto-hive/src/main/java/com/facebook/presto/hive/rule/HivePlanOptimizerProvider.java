@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.hive.rule;
 
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HivePartialAggregationPushdown;
 import com.facebook.presto.hive.HivePartitionManager;
 import com.facebook.presto.hive.HiveTransactionManager;
+import com.facebook.presto.hive.TransactionalMetadata;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -24,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -38,16 +42,21 @@ public class HivePlanOptimizerProvider
             RowExpressionService rowExpressionService,
             StandardFunctionResolution functionResolution,
             HivePartitionManager partitionManager,
-            FunctionMetadataManager functionMetadataManager)
+            FunctionMetadataManager functionMetadataManager,
+            TypeManager typeManager,
+            Supplier<TransactionalMetadata> metadataFactory)
     {
         requireNonNull(transactionManager, "transactionManager is null");
         requireNonNull(rowExpressionService, "rowExpressionService is null");
         requireNonNull(functionResolution, "functionResolution is null");
         requireNonNull(partitionManager, "partitionManager is null");
         requireNonNull(functionMetadataManager, "functionMetadataManager is null");
+        requireNonNull(typeManager, "typeManager is null");
         this.planOptimizers = ImmutableSet.of(
                 new HiveFilterPushdown(transactionManager, rowExpressionService, functionResolution, partitionManager, functionMetadataManager),
-                new HiveAddRequestedColumnsToLayout());
+                new HiveAddRequestedColumnsToLayout(),
+                new HiveParquetDereferencePushDown(transactionManager, rowExpressionService),
+                new HivePartialAggregationPushdown(functionMetadataManager, functionResolution, metadataFactory));
     }
 
     @Override

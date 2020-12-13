@@ -18,13 +18,13 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.execution.warnings.WarningCollector;
 import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -99,7 +99,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.PlannerUtils.toOrderingScheme;
@@ -292,13 +292,13 @@ public class PlanBuilder
 
     public CallExpression binaryOperation(OperatorType operatorType, RowExpression left, RowExpression right)
     {
-        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionManager()).arithmeticFunction(operatorType, left.getType(), right.getType());
+        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager()).arithmeticFunction(operatorType, left.getType(), right.getType());
         return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
     }
 
     public CallExpression comparison(OperatorType operatorType, RowExpression left, RowExpression right)
     {
-        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionManager()).comparisonFunction(operatorType, left.getType(), right.getType());
+        FunctionHandle functionHandle = new FunctionResolution(metadata.getFunctionAndTypeManager()).comparisonFunction(operatorType, left.getType(), right.getType());
         return call(operatorType.getOperator(), functionHandle, left.getType(), left, right);
     }
 
@@ -339,15 +339,15 @@ public class PlanBuilder
         {
             checkArgument(expression instanceof FunctionCall);
             FunctionCall call = (FunctionCall) expression;
-            FunctionHandle functionHandle = metadata.getFunctionManager().resolveFunction(
+            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
                     session.getTransactionId(),
-                    qualifyFunctionName(call.getName()),
+                    qualifyObjectName(call.getName()),
                     TypeSignatureProvider.fromTypes(inputTypes));
             return addAggregation(output, new Aggregation(
                     new CallExpression(
                             call.getName().getSuffix(),
                             functionHandle,
-                            metadata.getType(metadata.getFunctionManager().getFunctionMetadata(functionHandle).getReturnType()),
+                            metadata.getType(metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle).getReturnType()),
                             call.getArguments().stream().map(OriginalExpressionUtils::castToRowExpression).collect(toImmutableList())),
                     call.getFilter().map(OriginalExpressionUtils::castToRowExpression),
                     call.getOrderBy().map(orderBy -> toOrderingScheme(orderBy, types)),
@@ -568,7 +568,8 @@ public class PlanBuilder
                 semiJoinOutput,
                 sourceHashVariable,
                 filteringSourceHashVariable,
-                distributionType);
+                distributionType,
+                ImmutableMap.of());
     }
 
     public IndexSourceNode indexSource(
@@ -729,7 +730,7 @@ public class PlanBuilder
             Optional<VariableReferenceExpression> leftHashVariable,
             Optional<VariableReferenceExpression> rightHashVariable)
     {
-        return join(type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.empty());
+        return join(type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.empty(), ImmutableMap.of());
     }
 
     public JoinNode join(
@@ -741,9 +742,24 @@ public class PlanBuilder
             Optional<RowExpression> filter,
             Optional<VariableReferenceExpression> leftHashVariable,
             Optional<VariableReferenceExpression> rightHashVariable,
-            Optional<JoinNode.DistributionType> distributionType)
+            Map<String, VariableReferenceExpression> dynamicFilters)
     {
-        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType);
+        return join(type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, Optional.empty(), dynamicFilters);
+    }
+
+    public JoinNode join(
+            JoinNode.Type type,
+            PlanNode left,
+            PlanNode right,
+            List<JoinNode.EquiJoinClause> criteria,
+            List<VariableReferenceExpression> outputVariables,
+            Optional<RowExpression> filter,
+            Optional<VariableReferenceExpression> leftHashVariable,
+            Optional<VariableReferenceExpression> rightHashVariable,
+            Optional<JoinNode.DistributionType> distributionType,
+            Map<String, VariableReferenceExpression> dynamicFilters)
+    {
+        return new JoinNode(idAllocator.getNextId(), type, left, right, criteria, outputVariables, filter, leftHashVariable, rightHashVariable, distributionType, dynamicFilters);
     }
 
     public PlanNode indexJoin(IndexJoinNode.Type type, TableScanNode probe, TableScanNode index)
@@ -874,8 +890,7 @@ public class PlanBuilder
                 expression,
                 expressionTypes,
                 ImmutableMap.of(),
-                metadata.getFunctionManager(),
-                metadata.getTypeManager(),
+                metadata.getFunctionAndTypeManager(),
                 session);
     }
 

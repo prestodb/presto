@@ -16,6 +16,8 @@ package com.facebook.presto.benchmark;
 import com.facebook.airlift.stats.CpuTimer;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
@@ -23,7 +25,6 @@ import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
@@ -42,6 +43,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -173,7 +175,7 @@ public abstract class AbstractOperatorBenchmark
             public Operator createOperator(DriverContext driverContext)
             {
                 OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, "BenchmarkSource");
-                ConnectorPageSource pageSource = localQueryRunner.getPageSourceManager().createPageSource(session, split, tableHandle, columnHandles);
+                ConnectorPageSource pageSource = localQueryRunner.getPageSourceManager().createPageSource(session, split, tableHandle.withDynamicFilter(TupleDomain::all), columnHandles);
                 return new PageSourceOperator(pageSource, operatorContext);
             }
 
@@ -192,7 +194,7 @@ public abstract class AbstractOperatorBenchmark
 
     private Split getLocalQuerySplit(Session session, TableHandle handle)
     {
-        SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, UNGROUPED_SCHEDULING);
+        SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, UNGROUPED_SCHEDULING, WarningCollector.NOOP);
         List<Split> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
             splits.addAll(getNextBatch(splitSource));
@@ -218,7 +220,7 @@ public abstract class AbstractOperatorBenchmark
             projections.add(new PageProjectionWithOutputs(new InputPageProjection(channel), new int[] {channel}));
         }
 
-        Optional<RowExpression> hashExpression = HashGenerationOptimizer.getHashExpression(localQueryRunner.getMetadata().getFunctionManager(), variables.build());
+        Optional<RowExpression> hashExpression = HashGenerationOptimizer.getHashExpression(localQueryRunner.getMetadata().getFunctionAndTypeManager(), variables.build());
         verify(hashExpression.isPresent());
         RowExpression translatedHashExpression = translate(hashExpression.get(), variableToInputMapping.build());
 
@@ -248,7 +250,7 @@ public abstract class AbstractOperatorBenchmark
                 if (!driver.isFinished()) {
                     driver.process();
                     long lastPeakMemory = peakMemory;
-                    peakMemory = (long) taskContext.getTaskStats().getUserMemoryReservation().getValue(BYTE);
+                    peakMemory = taskContext.getTaskStats().getUserMemoryReservationInBytes();
                     if (peakMemory <= lastPeakMemory) {
                         peakMemory = lastPeakMemory;
                     }
@@ -274,6 +276,7 @@ public abstract class AbstractOperatorBenchmark
                 new DataSize(256, MEGABYTE),
                 new DataSize(512, MEGABYTE),
                 new DataSize(256, MEGABYTE),
+                new DataSize(1, GIGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
@@ -286,7 +289,8 @@ public abstract class AbstractOperatorBenchmark
                         false,
                         false,
                         false,
-                        false);
+                        false,
+                        Optional.empty());
 
         CpuTimer cpuTimer = new CpuTimer();
         Map<String, Long> executionStats = execute(taskContext);
@@ -294,9 +298,9 @@ public abstract class AbstractOperatorBenchmark
 
         TaskStats taskStats = taskContext.getTaskStats();
         long inputRows = taskStats.getRawInputPositions();
-        long inputBytes = taskStats.getRawInputDataSize().toBytes();
+        long inputBytes = taskStats.getRawInputDataSizeInBytes();
         long outputRows = taskStats.getOutputPositions();
-        long outputBytes = taskStats.getOutputDataSize().toBytes();
+        long outputBytes = taskStats.getOutputDataSizeInBytes();
 
         double inputMegaBytes = new DataSize(inputBytes, BYTE).getValue(MEGABYTE);
 

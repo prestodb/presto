@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
+import com.facebook.presto.orc.OrcRecordReaderOptions;
 import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -57,6 +58,7 @@ public class MapDirectBatchStreamReader
 
     private final BatchStreamReader keyStreamReader;
     private final BatchStreamReader valueStreamReader;
+    private final OrcRecordReaderOptions options;
 
     private int readOffset;
     private int nextBatchSize;
@@ -71,15 +73,21 @@ public class MapDirectBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public MapDirectBatchStreamReader(Type type, StreamDescriptor streamDescriptor, DateTimeZone hiveStorageTimeZone, OrcAggregatedMemoryContext systemMemoryContext)
+    public MapDirectBatchStreamReader(
+            Type type,
+            StreamDescriptor streamDescriptor,
+            DateTimeZone hiveStorageTimeZone,
+            OrcRecordReaderOptions options,
+            OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
+        this.options = requireNonNull(options);
         requireNonNull(type, "type is null");
         verifyStreamType(streamDescriptor, type, MapType.class::isInstance);
         this.type = (MapType) type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.keyStreamReader = createStreamReader(this.type.getKeyType(), streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, systemMemoryContext);
-        this.valueStreamReader = createStreamReader(this.type.getValueType(), streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone, systemMemoryContext);
+        this.keyStreamReader = createStreamReader(this.type.getKeyType(), streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, options, systemMemoryContext);
+        this.valueStreamReader = createStreamReader(this.type.getValueType(), streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone, options, systemMemoryContext);
     }
 
     @Override
@@ -136,9 +144,8 @@ public class MapDirectBatchStreamReader
             }
         }
 
-        MapType mapType = (MapType) type;
-        Type keyType = mapType.getKeyType();
-        Type valueType = mapType.getValueType();
+        Type keyType = type.getKeyType();
+        Type valueType = type.getValueType();
 
         // Calculate the entryCount. Note that the values in the offsetVector are still length values now.
         int entryCount = 0;
@@ -159,11 +166,13 @@ public class MapDirectBatchStreamReader
             values = valueType.createBlockBuilder(null, 1).build();
         }
 
-        Block[] keyValueBlock = createKeyValueBlock(nextBatchSize, keys, values, offsetVector);
+        Block[] keyValueBlock = options.mapNullKeysEnabled()
+                ? new Block[] {keys, values}
+                : filterOutNullKeys(nextBatchSize, keys, values, offsetVector);
 
         convertLengthVectorToOffsetVector(offsetVector);
 
-        Block block = mapType.createBlockFromKeyValue(nextBatchSize, Optional.ofNullable(nullVector), offsetVector, keyValueBlock[0], keyValueBlock[1]);
+        Block block = type.createBlockFromKeyValue(nextBatchSize, Optional.ofNullable(nullVector), offsetVector, keyValueBlock[0], keyValueBlock[1]);
 
         readOffset = 0;
         nextBatchSize = 0;
@@ -171,15 +180,14 @@ public class MapDirectBatchStreamReader
         return block;
     }
 
-    private static Block[] createKeyValueBlock(int positionCount, Block keys, Block values, int[] lengths)
+    /**
+     * Map entries with a null key are skipped in the Hive ORC reader, so skip them here also
+     */
+    private static Block[] filterOutNullKeys(int positionCount, Block keys, Block values, int[] lengths)
     {
         if (!hasNull(keys)) {
             return new Block[] {keys, values};
         }
-
-        //
-        // Map entries with a null key are skipped in the Hive ORC reader, so skip them here also
-        //
 
         IntArrayList nonNullPositions = new IntArrayList(keys.getPositionCount());
 

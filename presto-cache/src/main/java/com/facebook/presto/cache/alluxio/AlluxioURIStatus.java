@@ -24,9 +24,9 @@ public class AlluxioURIStatus
 {
     private final HiveFileContext hiveFileContext;
 
-    public AlluxioURIStatus(FileInfo fileInfo, HiveFileContext hiveFileContext)
+    public AlluxioURIStatus(FileInfo info, HiveFileContext hiveFileContext)
     {
-        super(fileInfo);
+        super(info);
         this.hiveFileContext = requireNonNull(hiveFileContext, "hiveFileContext is null");
     }
 

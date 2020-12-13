@@ -14,11 +14,8 @@
 package com.facebook.presto.verifier;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.metadata.FunctionManager;
 import com.facebook.presto.plugin.memory.MemoryPlugin;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -26,7 +23,6 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.mysql.MySqlOptions;
 import com.facebook.presto.testing.mysql.TestingMySqlServer;
 import com.facebook.presto.tests.StandaloneQueryRunner;
-import com.facebook.presto.type.TypeRegistry;
 import com.facebook.presto.verifier.checksum.ArrayColumnValidator;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.checksum.ColumnValidator;
@@ -35,7 +31,7 @@ import com.facebook.presto.verifier.checksum.MapColumnValidator;
 import com.facebook.presto.verifier.checksum.RowColumnValidator;
 import com.facebook.presto.verifier.checksum.SimpleColumnValidator;
 import com.facebook.presto.verifier.framework.Column;
-import com.facebook.presto.verifier.framework.QueryBundle;
+import com.facebook.presto.verifier.framework.QueryObjectBundle;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.source.MySqlSourceQueryConfig;
 import com.facebook.presto.verifier.source.VerifierDao;
@@ -51,6 +47,7 @@ import javax.inject.Provider;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
@@ -65,7 +62,7 @@ public class VerifierTestUtil
     public static final String XDB = "presto";
     public static final String VERIFIER_QUERIES_TABLE = "verifier_queries";
 
-    public static final QueryBundle TEST_BUNDLE = new QueryBundle(
+    public static final QueryObjectBundle TEST_BUNDLE = new QueryObjectBundle(
             QualifiedName.of("test"),
             ImmutableList.of(),
             new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON)).createStatement(
@@ -148,8 +145,6 @@ public class VerifierTestUtil
 
     public static TypeManager createTypeManager()
     {
-        TypeManager typeManager = new TypeRegistry();
-        new FunctionManager(typeManager, new BlockEncodingManager(typeManager), new FeaturesConfig());
-        return typeManager;
+        return createTestFunctionAndTypeManager();
     }
 }

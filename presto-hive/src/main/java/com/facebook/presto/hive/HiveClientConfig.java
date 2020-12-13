@@ -133,6 +133,7 @@ public class HiveClientConfig
     private boolean sortedWritingEnabled = true;
     private BucketFunctionType bucketFunctionTypeForExchange = HIVE_COMPATIBLE;
     private boolean ignoreTableBucketing;
+    private boolean ignoreUnreadablePartition;
     private int minBucketCountToNotIgnoreTableBucketing;
     private int maxBucketsForGroupedExecution = 1_000_000;
     // TODO: Clean up this gatekeeper config and related code/session property once the roll out is done.
@@ -159,6 +160,7 @@ public class HiveClientConfig
     private String temporaryTableSchema = "default";
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
+    private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
     private boolean rangeFiltersOnSubscriptsEnabled;
@@ -172,6 +174,16 @@ public class HiveClientConfig
     private DataSize pageFileStripeMaxSize = new DataSize(24, MEGABYTE);
     private boolean parquetBatchReadOptimizationEnabled;
     private boolean parquetEnableBatchReaderVerification;
+    private boolean parquetDereferencePushdownEnabled;
+
+    private int maxMetadataUpdaterThreads = 100;
+
+    private boolean isPartialAggregationPushdownEnabled;
+    private boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
+
+    private boolean fileRenamingEnabled;
+    private boolean preferManifestToListFiles;
+    private boolean manifestVerificationEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -1098,6 +1110,19 @@ public class HiveClientConfig
         return bucketFunctionTypeForExchange;
     }
 
+    @Config("hive.ignore-unreadable-partition")
+    @ConfigDescription("Ignore unreadable partitions and report as warnings instead of failing the query")
+    public HiveClientConfig setIgnoreUnreadablePartition(boolean ignoreUnreadablePartition)
+    {
+        this.ignoreUnreadablePartition = ignoreUnreadablePartition;
+        return this;
+    }
+
+    public boolean isIgnoreUnreadablePartition()
+    {
+        return ignoreUnreadablePartition;
+    }
+
     @Config("hive.ignore-table-bucketing")
     @ConfigDescription("Ignore table bucketing to allow reading from unbucketed partitions")
     public HiveClientConfig setIgnoreTableBucketing(boolean ignoreTableBucketing)
@@ -1348,6 +1373,18 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean getUsePageFileForHiveUnsupportedType()
+    {
+        return usePageFileForHiveUnsupportedType;
+    }
+
+    @Config("hive.use-pagefile-for-hive-unsupported-type")
+    public HiveClientConfig setUsePageFileForHiveUnsupportedType(boolean usePageFileForHiveUnsupportedType)
+    {
+        this.usePageFileForHiveUnsupportedType = usePageFileForHiveUnsupportedType;
+        return this;
+    }
+
     public boolean isPushdownFilterEnabled()
     {
         return pushdownFilterEnabled;
@@ -1423,5 +1460,96 @@ public class HiveClientConfig
     public boolean isParquetBatchReaderVerificationEnabled()
     {
         return this.parquetEnableBatchReaderVerification;
+    }
+
+    @Config("hive.enable-parquet-dereference-pushdown")
+    @ConfigDescription("enable parquet dereference pushdown")
+    public HiveClientConfig setParquetDereferencePushdownEnabled(boolean parquetDereferencePushdownEnabled)
+    {
+        this.parquetDereferencePushdownEnabled = parquetDereferencePushdownEnabled;
+        return this;
+    }
+
+    public boolean isParquetDereferencePushdownEnabled()
+    {
+        return this.parquetDereferencePushdownEnabled;
+    }
+
+    @Min(1)
+    public int getMaxMetadataUpdaterThreads()
+    {
+        return maxMetadataUpdaterThreads;
+    }
+
+    @Config("hive.max-metadata-updater-threads")
+    public HiveClientConfig setMaxMetadataUpdaterThreads(int maxMetadataUpdaterThreads)
+    {
+        this.maxMetadataUpdaterThreads = maxMetadataUpdaterThreads;
+        return this;
+    }
+
+    @Config("hive.partial_aggregation_pushdown_enabled")
+    @ConfigDescription("enable partial aggregation pushdown")
+    public HiveClientConfig setPartialAggregationPushdownEnabled(boolean partialAggregationPushdownEnabled)
+    {
+        this.isPartialAggregationPushdownEnabled = partialAggregationPushdownEnabled;
+        return this;
+    }
+
+    public boolean isPartialAggregationPushdownEnabled()
+    {
+        return this.isPartialAggregationPushdownEnabled;
+    }
+
+    @Config("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled")
+    @ConfigDescription("enable partial aggregation pushdown for variable length datatypes")
+    public HiveClientConfig setPartialAggregationPushdownForVariableLengthDatatypesEnabled(boolean partialAggregationPushdownForVariableLengthDatatypesEnabled)
+    {
+        this.isPartialAggregationPushdownForVariableLengthDatatypesEnabled = partialAggregationPushdownForVariableLengthDatatypesEnabled;
+        return this;
+    }
+
+    public boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled()
+    {
+        return this.isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
+    }
+
+    @Config("hive.file_renaming_enabled")
+    @ConfigDescription("enable file renaming")
+    public HiveClientConfig setFileRenamingEnabled(boolean fileRenamingEnabled)
+    {
+        this.fileRenamingEnabled = fileRenamingEnabled;
+        return this;
+    }
+
+    public boolean isFileRenamingEnabled()
+    {
+        return this.fileRenamingEnabled;
+    }
+
+    @Config("hive.prefer-manifests-to-list-files")
+    @ConfigDescription("Prefer to fetch the list of file names and sizes from manifests rather than storage")
+    public HiveClientConfig setPreferManifestsToListFiles(boolean preferManifestToListFiles)
+    {
+        this.preferManifestToListFiles = preferManifestToListFiles;
+        return this;
+    }
+
+    public boolean isPreferManifestsToListFiles()
+    {
+        return this.preferManifestToListFiles;
+    }
+
+    @Config("hive.manifest-verification-enabled")
+    @ConfigDescription("Enable verification of file names and sizes in manifest / partition parameters")
+    public HiveClientConfig setManifestVerificationEnabled(boolean manifestVerificationEnabled)
+    {
+        this.manifestVerificationEnabled = manifestVerificationEnabled;
+        return this;
+    }
+
+    public boolean isManifestVerificationEnabled()
+    {
+        return this.manifestVerificationEnabled;
     }
 }

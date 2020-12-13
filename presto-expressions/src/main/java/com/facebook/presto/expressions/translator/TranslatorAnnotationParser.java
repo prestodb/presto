@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.expressions.translator;
 
-import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.ScalarFunction;
@@ -88,7 +87,6 @@ class TranslatorAnnotationParser
         return new FunctionMetadata(
                 metadata.getName(),
                 argumentsBuilder.build(),
-                Optional.empty(),
                 metadata.getReturnType(),
                 metadata.getFunctionKind(),
                 metadata.getImplementationType(),
@@ -162,7 +160,7 @@ class TranslatorAnnotationParser
         if (header.getOperatorType().isPresent()) {
             return new FunctionMetadata(header.getOperatorType().get(), argumentTypes.build(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
         }
-        return new FunctionMetadata(header.getName(), argumentTypes.build(), Optional.empty(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
+        return new FunctionMetadata(header.getName(), argumentTypes.build(), returnType, SCALAR, BUILTIN, header.isDeterministic(), header.isCalledOnNullInput());
     }
 
     @SafeVarargs
@@ -206,7 +204,7 @@ class TranslatorAnnotationParser
 
     private static class ScalarTranslationHeader
     {
-        private final QualifiedFunctionName name;
+        private final QualifiedObjectName name;
         private final Optional<OperatorType> operatorType;
         private final boolean deterministic;
         private final boolean calledOnNullInput;
@@ -239,7 +237,7 @@ class TranslatorAnnotationParser
         private ScalarTranslationHeader(String name, boolean deterministic, boolean calledOnNullInput)
         {
             // TODO This is a hack. Engine should provide an API for connectors to overwrite functions. Connector should not hard code the builtin function namespace.
-            this.name = requireNonNull(QualifiedFunctionName.of(new CatalogSchemaName("presto", "default"), name));
+            this.name = requireNonNull(QualifiedObjectName.valueOf("presto", "default", name));
             this.operatorType = Optional.empty();
             this.deterministic = deterministic;
             this.calledOnNullInput = calledOnNullInput;
@@ -270,7 +268,7 @@ class TranslatorAnnotationParser
             return LOWER_CAMEL.to(LOWER_UNDERSCORE, name);
         }
 
-        QualifiedFunctionName getName()
+        QualifiedObjectName getName()
         {
             return name;
         }

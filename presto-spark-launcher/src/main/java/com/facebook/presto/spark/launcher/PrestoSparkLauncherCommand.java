@@ -15,6 +15,7 @@ package com.facebook.presto.spark.launcher;
 
 import com.facebook.presto.spark.classloader_interface.PrestoSparkConfInitializer;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.airline.Command;
 import io.airlift.airline.HelpOption;
 import org.apache.spark.SparkConf;
@@ -23,6 +24,7 @@ import org.apache.spark.SparkContext;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.util.Optional;
 
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkFile;
 import static com.facebook.presto.spark.launcher.LauncherUtils.loadCatalogProperties;
@@ -55,12 +57,32 @@ public class PrestoSparkLauncherCommand
                 sparkContext,
                 packageSupplier,
                 loadProperties(checkFile(new File(clientOptions.config))),
-                loadCatalogProperties(new File(clientOptions.catalogs)));
+                loadCatalogProperties(new File(clientOptions.catalogs)),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
 
         String query = readFileUtf8(checkFile(new File(clientOptions.file)));
 
         try (PrestoSparkRunner runner = new PrestoSparkRunner(distribution)) {
-            runner.run(clientOptions.catalog, clientOptions.schema, query, ImmutableMap.of(), ImmutableMap.of());
+            runner.run(
+                    "test",
+                    Optional.empty(),
+                    ImmutableMap.of(),
+                    clientOptions.catalog,
+                    clientOptions.schema,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableSet.of(),
+                    ImmutableMap.of(),
+                    ImmutableMap.of(),
+                    Optional.empty(),
+                    query,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
         }
     }
 }

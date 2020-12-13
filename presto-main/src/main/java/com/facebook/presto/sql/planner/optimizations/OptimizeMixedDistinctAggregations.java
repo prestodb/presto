@@ -14,9 +14,9 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.function.QualifiedFunctionName;
-import com.facebook.presto.execution.warnings.WarningCollector;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -51,9 +51,10 @@ import static com.facebook.presto.SystemSessionProperties.isOptimizeDistinctAggr
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IF;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -86,7 +87,7 @@ public class OptimizeMixedDistinctAggregations
     public OptimizeMixedDistinctAggregations(Metadata metadata)
     {
         this.metadata = metadata;
-        this.functionResolution = new FunctionResolution(metadata.getFunctionManager());
+        this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager());
     }
 
     @Override
@@ -183,17 +184,17 @@ public class OptimizeMixedDistinctAggregations
                     Aggregation aggregation = new Aggregation(
                             new CallExpression(
                                     "arbitrary",
-                                    metadata.getFunctionManager().lookupFunction("arbitrary", fromTypes(ImmutableList.of(argument.getType()))),
+                                    metadata.getFunctionAndTypeManager().lookupFunction("arbitrary", fromTypes(ImmutableList.of(argument.getType()))),
                                     entry.getKey().getType(),
                                     ImmutableList.of(argument)),
                             Optional.empty(),
                             Optional.empty(),
                             false,
                             Optional.empty());
-                    QualifiedFunctionName functionName = metadata.getFunctionManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
-                    if (functionName.equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "count")) ||
-                            functionName.equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "count_if")) ||
-                            functionName.equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "approx_distinct"))) {
+                    QualifiedObjectName functionName = metadata.getFunctionAndTypeManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
+                    if (functionName.equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "count")) ||
+                            functionName.equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "count_if")) ||
+                            functionName.equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_distinct"))) {
                         VariableReferenceExpression newVariable = variableAllocator.newVariable("expr", entry.getKey().getType());
                         aggregations.put(newVariable, aggregation);
                         coalesceVariablesBuilder.put(newVariable, entry.getKey());
@@ -230,7 +231,7 @@ public class OptimizeMixedDistinctAggregations
                 }
             }
 
-            return new ProjectNode(idAllocator.getNextId(), aggregationNode, outputVariables.build());
+            return new ProjectNode(idAllocator.getNextId(), aggregationNode, outputVariables.build(), LOCAL);
         }
 
         @Override
@@ -390,7 +391,7 @@ public class OptimizeMixedDistinctAggregations
 
             aggregateInfo.setNewNonDistinctAggregateSymbols(outputNonDistinctAggregateVariables.build());
 
-            return new ProjectNode(idAllocator.getNextId(), source, outputVariables.build());
+            return new ProjectNode(idAllocator.getNextId(), source, outputVariables.build(), LOCAL);
         }
 
         private GroupIdNode createGroupIdNode(

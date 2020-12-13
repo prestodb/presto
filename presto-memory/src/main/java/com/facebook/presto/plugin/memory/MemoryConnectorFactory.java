@@ -52,7 +52,6 @@ public class MemoryConnectorFactory
                     new MemoryModule(catalogName, context.getTypeManager(), context.getNodeManager()));
 
             Injector injector = app
-                    .strictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(requiredConfig)
                     .initialize();

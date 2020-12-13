@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -25,8 +26,13 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.CreateFunction;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.ExpressionRewriter;
+import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
+import com.facebook.presto.sql.tree.Return;
+import com.facebook.presto.sql.tree.RoutineBody;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -36,7 +42,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.FunctionManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -76,13 +82,13 @@ public class CreateFunctionTask
             throw new PrestoException(NOT_SUPPORTED, "Invoking a dynamically registered function in SQL function body is not supported");
         }
 
-        metadata.getFunctionManager().createFunction(createSqlInvokedFunction(statement), statement.isReplace());
+        metadata.getFunctionAndTypeManager().createFunction(createSqlInvokedFunction(statement, metadata, analysis), statement.isReplace());
         return immediateFuture(null);
     }
 
-    private SqlInvokedFunction createSqlInvokedFunction(CreateFunction statement)
+    private SqlInvokedFunction createSqlInvokedFunction(CreateFunction statement, Metadata metadata, Analysis analysis)
     {
-        QualifiedFunctionName functionName = qualifyFunctionName(statement.getFunctionName());
+        QualifiedObjectName functionName = qualifyObjectName(statement.getFunctionName());
         List<Parameter> parameters = statement.getParameters().stream()
                 .map(parameter -> new Parameter(parameter.getName().toString(), parseTypeSignature(parameter.getType())))
                 .collect(toImmutableList());
@@ -93,7 +99,39 @@ public class CreateFunctionTask
                 .setDeterminism(RoutineCharacteristics.Determinism.valueOf(statement.getCharacteristics().getDeterminism().name()))
                 .setNullCallClause(RoutineCharacteristics.NullCallClause.valueOf(statement.getCharacteristics().getNullCallClause().name()))
                 .build();
-        String body = formatSql(statement.getBody(), Optional.empty());
+        RoutineBody body = statement.getBody();
+
+        if (statement.getBody() instanceof Return) {
+            Expression bodyExpression = ((Return) statement.getBody()).getExpression();
+            Type bodyType = analysis.getType(bodyExpression);
+
+            // Coerce expressions in body if necessary
+            bodyExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+            {
+                @Override
+                public Expression rewriteExpression(Expression expression, Void context, ExpressionTreeRewriter<Void> treeRewriter)
+                {
+                    Expression rewritten = treeRewriter.defaultRewrite(expression, null);
+
+                    Type coercion = analysis.getCoercion(expression);
+                    if (coercion != null) {
+                        return new Cast(
+                                rewritten,
+                                coercion.getTypeSignature().toString(),
+                                false,
+                                analysis.isTypeOnlyCoercion(expression));
+                    }
+                    return rewritten;
+                }
+            }, bodyExpression, null);
+
+            if (!bodyType.equals(metadata.getType(returnType))) {
+                // Casting is safe here, since we have verified at analysis time that the actual type of the body is coercible to declared return type.
+                bodyExpression = new Cast(bodyExpression, statement.getReturnType());
+            }
+
+            body = new Return(bodyExpression);
+        }
 
         return new SqlInvokedFunction(
                 functionName,
@@ -101,7 +139,7 @@ public class CreateFunctionTask
                 returnType,
                 description,
                 routineCharacteristics,
-                body,
+                formatSql(body, Optional.empty()),
                 Optional.empty());
     }
 }

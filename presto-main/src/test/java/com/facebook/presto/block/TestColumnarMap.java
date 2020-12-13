@@ -184,9 +184,7 @@ public class TestColumnarMap
         return new MapBlockBuilder(
                 VARCHAR,
                 VARCHAR,
-                varcharBlockNativeEquals,
                 varcharBlockEquals,
-                MethodHandleUtil.methodHandle(Slice.class, "hashCode").asType(MethodType.methodType(long.class, Slice.class)),
                 MethodHandleUtil.methodHandle(TestColumnarMap.class, "blockVarcharHashCode", Block.class, int.class),
                 null,
                 expectedEntries);

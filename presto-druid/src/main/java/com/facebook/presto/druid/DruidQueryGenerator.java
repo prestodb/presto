@@ -40,7 +40,6 @@ import javax.inject.Inject;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -225,7 +224,7 @@ public class DruidQueryGenerator
                 RowExpression expression = node.getAssignments().get(variable);
                 DruidProjectExpressionConverter projectExpressionConverter = druidProjectExpressionConverter;
                 if (contextIn.getVariablesInAggregation().contains(variable)) {
-                    projectExpressionConverter = new DruidAggregationProjectConverter(typeManager, functionMetadataManager, standardFunctionResolution);
+                    projectExpressionConverter = new DruidAggregationProjectConverter(session, typeManager, functionMetadataManager, standardFunctionResolution);
                 }
                 DruidExpression druidExpression = expression.accept(
                         projectExpressionConverter,
@@ -257,7 +256,7 @@ public class DruidQueryGenerator
                 checkArgument(druidColumn.getType().equals(DruidColumnHandle.DruidColumnType.REGULAR), "Unexpected druid column handle that is not regular: " + druidColumn);
                 selections.put(outputColumn, new Selection(druidColumn.getColumnName(), TABLE_COLUMN));
             });
-            return new DruidQueryGeneratorContext(selections, tableHandle.getTableName());
+            return new DruidQueryGeneratorContext(selections, tableHandle.getTableName(), node.getId());
         }
 
         @Override
@@ -300,7 +299,7 @@ public class DruidQueryGenerator
 
             // 2nd pass
             Map<VariableReferenceExpression, Selection> newSelections = new LinkedHashMap<>();
-            Set<VariableReferenceExpression> groupByColumns = new LinkedHashSet<>();
+            Map<VariableReferenceExpression, Selection> groupByColumns = new LinkedHashMap<>();
             Set<VariableReferenceExpression> hiddenColumnSet = new HashSet<>(context.getHiddenColumnSet());
             int aggregations = 0;
             boolean groupByExists = false;
@@ -314,7 +313,7 @@ public class DruidQueryGenerator
                         Selection druidColumn = requireNonNull(context.getSelections().get(groupByInputColumn), "Group By column " + groupByInputColumn + " doesn't exist in input " + context.getSelections());
 
                         newSelections.put(outputColumn, new Selection(druidColumn.getDefinition(), druidColumn.getOrigin()));
-                        groupByColumns.add(outputColumn);
+                        groupByColumns.put(outputColumn, new Selection(druidColumn.getDefinition(), druidColumn.getOrigin()));
                         groupByExists = true;
                         break;
                     }

@@ -16,7 +16,7 @@ package com.facebook.presto.sql.gen;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.metadata.FunctionManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -32,9 +32,9 @@ public class FunctionCallCodeGenerator
 {
     public BytecodeNode generateCall(FunctionHandle functionHandle, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments, Optional<Variable> outputBlockVariable)
     {
-        FunctionManager functionManager = context.getFunctionManager();
+        FunctionAndTypeManager functionAndTypeManager = context.getFunctionManager();
 
-        BuiltInScalarFunctionImplementation function = functionManager.getBuiltInScalarFunctionImplementation(functionHandle);
+        BuiltInScalarFunctionImplementation function = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle);
 
         List<BytecodeNode> argumentsBytecode = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
@@ -49,7 +49,7 @@ public class FunctionCallCodeGenerator
         }
 
         return context.generateCall(
-                functionManager.getFunctionMetadata(functionHandle).getName().getFunctionName(),
+                functionAndTypeManager.getFunctionMetadata(functionHandle).getName().getObjectName(),
                 function,
                 argumentsBytecode,
                 outputBlockVariable.map(variable -> new OutputBlockVariableAndType(variable, returnType)));

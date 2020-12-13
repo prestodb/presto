@@ -16,9 +16,9 @@ package com.facebook.presto.verifier.framework;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.jdbc.QueryStats;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.verifier.prestoaction.QueryActionStats;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -44,25 +44,30 @@ public class VerifierUtil
         return new Identifier(name, true);
     }
 
-    public static void runAndConsume(Callable<QueryStats> callable, Consumer<QueryStats> queryStatsConsumer)
+    public static void runAndConsume(Callable<QueryActionStats> callable, Consumer<QueryActionStats> queryStatsConsumer)
     {
         runAndConsume(callable, queryStatsConsumer, e -> {});
     }
 
-    public static void runAndConsume(Callable<QueryStats> callable, Consumer<QueryStats> queryStatsConsumer, Consumer<QueryException> queryExceptionConsumer)
+    public static void runAndConsume(Callable<QueryActionStats> callable, Consumer<QueryActionStats> queryStatsConsumer, Consumer<QueryException> queryExceptionConsumer)
     {
         callAndConsume(callable, identity(), queryStatsConsumer, queryExceptionConsumer);
     }
 
-    public static <V> QueryResult<V> callAndConsume(Callable<QueryResult<V>> callable, Consumer<QueryStats> queryStatsConsumer)
+    public static <V> QueryResult<V> callAndConsume(Callable<QueryResult<V>> callable, Consumer<QueryActionStats> queryStatsConsumer)
     {
-        return callAndConsume(callable, QueryResult::getQueryStats, queryStatsConsumer, e -> {});
+        return callAndConsume(callable, queryStatsConsumer, e -> {});
+    }
+
+    public static <V> QueryResult<V> callAndConsume(Callable<QueryResult<V>> callable, Consumer<QueryActionStats> queryStatsConsumer, Consumer<QueryException> queryExceptionConsumer)
+    {
+        return callAndConsume(callable, QueryResult::getQueryActionStats, queryStatsConsumer, queryExceptionConsumer);
     }
 
     private static <V> V callAndConsume(
             Callable<V> callable,
-            Function<V, QueryStats> queryStatsTransformer,
-            Consumer<QueryStats> queryStatsConsumer,
+            Function<V, QueryActionStats> queryStatsTransformer,
+            Consumer<QueryActionStats> queryStatsConsumer,
             Consumer<QueryException> queryExceptionConsumer)
     {
         try {
@@ -71,7 +76,7 @@ public class VerifierUtil
             return result;
         }
         catch (PrestoQueryException e) {
-            e.getQueryStats().ifPresent(queryStatsConsumer);
+            queryStatsConsumer.accept(e.getQueryActionStats());
             queryExceptionConsumer.accept(e);
             throw e;
         }

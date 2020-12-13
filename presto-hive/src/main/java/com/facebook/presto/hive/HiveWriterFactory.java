@@ -36,6 +36,7 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.airlift.units.DataSize;
@@ -70,6 +71,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isFailFastOnInsertI
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
 import static com.facebook.presto.hive.HiveType.toHiveTypes;
 import static com.facebook.presto.hive.HiveWriteUtils.checkPartitionIsWritable;
+import static com.facebook.presto.hive.LocationHandle.TableType.TEMPORARY;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createPartitionValues;
@@ -112,6 +114,7 @@ public class HiveWriterFactory
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
     private final HiveCompressionCodec compressionCodec;
+    private final Map<String, String> additionalTableParameters;
     private final LocationHandle locationHandle;
     private final LocationService locationService;
     private final String filePrefix;
@@ -137,6 +140,8 @@ public class HiveWriterFactory
 
     private final boolean writeToTempFile;
 
+    private final Optional<EncryptionInformation> encryptionInformation;
+
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
             String schemaName,
@@ -146,6 +151,7 @@ public class HiveWriterFactory
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
             HiveCompressionCodec compressionCodec,
+            Map<String, String> additionalTableParameters,
             OptionalInt bucketCount,
             List<SortingColumn> sortedBy,
             LocationHandle locationHandle,
@@ -164,7 +170,8 @@ public class HiveWriterFactory
             HiveSessionProperties hiveSessionProperties,
             HiveWriterStats hiveWriterStats,
             OrcFileWriterFactory orcFileWriterFactory,
-            boolean commitRequired)
+            boolean commitRequired,
+            Optional<EncryptionInformation> encryptionInformation)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -173,6 +180,7 @@ public class HiveWriterFactory
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+        this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.filePrefix = requireNonNull(filePrefix, "filePrefix is null");
@@ -291,6 +299,8 @@ public class HiveWriterFactory
         // In Hive connector, bucket commit is fulfilled by writing to temporary file in TableWriterOperator, and rename in TableFinishOpeartor
         // (note Presto partition here loosely maps to Hive bucket)
         this.writeToTempFile = commitRequired;
+
+        this.encryptionInformation = requireNonNull(encryptionInformation, "encryptionInformation is null");
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -314,13 +324,16 @@ public class HiveWriterFactory
         }
 
         WriterParameters writerParameters = getWriterParameters(partitionName, bucketNumber);
+        Properties schema = writerParameters.getSchema();
+        schema.putAll(additionalTableParameters);
 
         validateSchema(partitionName, writerParameters.getSchema());
 
         String extension = getFileExtension(writerParameters.getOutputStorageFormat(), compressionCodec);
         String targetFileName;
         if (bucketNumber.isPresent()) {
-            targetFileName = computeBucketedFileName(filePrefix, bucketNumber.getAsInt()) + extension;
+            // Use the bucket number for file name when fileRenaming is enabled
+            targetFileName = HiveSessionProperties.isFileRenamingEnabled(session) ? String.valueOf(bucketNumber.getAsInt()) : computeBucketedFileName(filePrefix, bucketNumber.getAsInt()) + extension;
         }
         else {
             targetFileName = filePrefix + "_" + randomUUID() + extension;
@@ -344,9 +357,10 @@ public class HiveWriterFactory
                             .map(DataColumn::getName)
                             .collect(toList()),
                     writerParameters.getOutputStorageFormat(),
-                    writerParameters.getSchema(),
+                    schema,
                     conf,
-                    session);
+                    session,
+                    encryptionInformation);
             if (fileWriter.isPresent()) {
                 hiveFileWriter = fileWriter.get();
                 break;
@@ -360,7 +374,7 @@ public class HiveWriterFactory
                             .map(DataColumn::getName)
                             .collect(toList()),
                     writerParameters.getOutputStorageFormat(),
-                    writerParameters.getSchema(),
+                    schema,
                     partitionStorageFormat.getEstimatedWriterSystemMemoryUsage(),
                     conf,
                     typeManager,
@@ -377,15 +391,18 @@ public class HiveWriterFactory
                     writerParameters.getWriteInfo().getTempPath());
         }
 
+        boolean writeTempData = locationHandle.getTableType() == TEMPORARY || locationHandle.getTempPath().isPresent() || writeToTempFile;
+
         return new HiveWriter(
                 hiveFileWriter,
                 partitionName,
                 writerParameters.getUpdateMode(),
-                new FileWriteInfo(writeFileName, targetFileName),
+                new FileWriteInfo(writeFileName, targetFileName, Optional.empty()),
                 writerParameters.getWriteInfo().getWritePath().toString(),
                 writerParameters.getWriteInfo().getTargetPath().toString(),
                 createCommitEventListener(path, partitionName, hiveFileWriter, writerParameters),
-                hiveWriterStats);
+                hiveWriterStats,
+                writeTempData);
     }
 
     private WriterParameters getWriterParameters(Optional<String> partitionName, OptionalInt bucketNumber)

@@ -72,6 +72,32 @@ final class ReaderUtils
         }
     }
 
+    public static void packByteArrayOffsetsAndNulls(byte[] values, int[] offsets, boolean[] nulls, int[] positions, int positionCount)
+    {
+        int valuesIndex = 0;
+        for (int i = 0; i < positionCount; i++) {
+            int position = positions[i];
+
+            int length = copyValuesRange(values, offsets, valuesIndex, position);
+
+            valuesIndex += length;
+
+            offsets[i + 1] = offsets[i] + length;
+            nulls[i] = nulls[position];
+        }
+    }
+
+    public static void packByteArrayAndOffsets(byte[] values, int[] offsets, int[] positions, int positionCount)
+    {
+        int valuesIndex = 0;
+        for (int i = 0; i < positionCount; i++) {
+            int length = copyValuesRange(values, offsets, valuesIndex, positions[i]);
+            valuesIndex += length;
+
+            offsets[i + 1] = offsets[i] + length;
+        }
+    }
+
     public static short[] unpackShortNulls(short[] values, boolean[] isNull)
     {
         short[] result = new short[isNull.length];
@@ -137,5 +163,39 @@ final class ReaderUtils
             vector[i] = vector[i - 1] + currentLength;
             currentLength = nextLength;
         }
+    }
+
+    public static void convertLengthVectorToOffsetVector(int[] lengthVector, boolean[] isNullVector, int positionCount, int[] offsetVector)
+    {
+        offsetVector[0] = 0;
+        int lengthVectorIndex = 0;
+        for (int i = 0; i < positionCount; i++) {
+            if (isNullVector[i]) {
+                offsetVector[i + 1] = offsetVector[i];
+            }
+            else {
+                offsetVector[i + 1] = offsetVector[i] + lengthVector[lengthVectorIndex++];
+            }
+        }
+    }
+
+    public static void convertLengthVectorToOffsetVector(int[] lengthVector, int positionCount, int[] offsetVector)
+    {
+        offsetVector[0] = 0;
+        for (int i = 0; i < positionCount; i++) {
+            offsetVector[i + 1] = offsetVector[i] + lengthVector[i];
+        }
+    }
+
+    private static int copyValuesRange(byte[] values, int[] offsets, int toIndex, int position)
+    {
+        int fromIndex = offsets[position];
+        int length = offsets[position + 1] - fromIndex;
+
+        if (length > 0 && fromIndex != toIndex) {
+            System.arraycopy(values, fromIndex, values, toIndex, length);
+        }
+
+        return length;
     }
 }

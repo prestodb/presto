@@ -18,6 +18,7 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -35,12 +36,15 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
 import static com.facebook.presto.server.QueryStateInfo.createQueuedQueryStateInfo;
+import static com.facebook.presto.server.security.RoleType.ADMIN;
+import static com.facebook.presto.server.security.RoleType.USER;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/v1/queryState")
+@RolesAllowed({ADMIN, USER})
 public class QueryStateInfoResource
 {
     private final DispatchManager dispatchManager;
