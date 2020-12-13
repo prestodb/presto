@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.json.ObjectMapperProvider;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
@@ -26,9 +27,9 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static com.facebook.presto.plugin.prometheus.TestPrometheusTable.TYPE_MANAGER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Locale.ENGLISH;
@@ -48,8 +49,8 @@ public class MetadataUtil
         private final Map<String, Type> types = ImmutableMap.<String, Type>builder()
                 .put(varcharMapType.getTypeSignature().toString(), varcharMapType)
                 .put(StandardTypes.BIGINT, BIGINT)
-                .put(StandardTypes.TIMESTAMP, TIMESTAMP_COLUMN_TYPE)
-                .put("timestamp(3)", TIMESTAMP_COLUMN_TYPE)
+                .put(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_WITH_TIME_ZONE)
+                .put("timestamp(3) with time zone", TIMESTAMP_WITH_TIME_ZONE)
                 .put(StandardTypes.DOUBLE, DOUBLE)
                 .put(StandardTypes.VARCHAR, createUnboundedVarcharType()) // with max value length in signature
                 .build();
@@ -69,7 +70,7 @@ public class MetadataUtil
     }
 
     static {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        ObjectMapperProvider objectMapperProvider = new JsonObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TestingTypeDeserializer()));
         JsonCodecFactory codecFactory = new JsonCodecFactory(objectMapperProvider);
         TABLE_CODEC = codecFactory.jsonCodec(PrometheusTable.class);

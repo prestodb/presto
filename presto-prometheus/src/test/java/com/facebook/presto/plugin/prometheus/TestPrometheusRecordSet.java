@@ -25,18 +25,18 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static com.facebook.presto.plugin.prometheus.MetadataUtil.varcharMapType;
-import static com.facebook.presto.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static com.facebook.presto.plugin.prometheus.PrometheusRecordCursor.getBlockFromMap;
 import static com.facebook.presto.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
 import static com.facebook.presto.plugin.prometheus.TestPrometheusTable.TYPE_MANAGER;
+import static java.time.Instant.ofEpochMilli;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -53,19 +53,19 @@ public class TestPrometheusRecordSet
                 new PrometheusSplit(dataUri),
                 ImmutableList.of(
                         new PrometheusColumnHandle("labels", varcharMapType, 0),
-                        new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 1),
+                        new PrometheusColumnHandle("timestamp", TIMESTAMP_WITH_TIME_ZONE, 1),
                         new PrometheusColumnHandle("value", DoubleType.DOUBLE, 2)));
         RecordCursor cursor = recordSet.cursor();
 
         assertEquals(cursor.getType(0), varcharMapType);
-        assertEquals(cursor.getType(1), TIMESTAMP_COLUMN_TYPE);
+        assertEquals(cursor.getType(1), TIMESTAMP_WITH_TIME_ZONE);
         assertEquals(cursor.getType(2), DoubleType.DOUBLE);
 
         List<PrometheusStandardizedRow> actual = new ArrayList<>();
         while (cursor.advanceNextPosition()) {
             actual.add(new PrometheusStandardizedRow(
                     (Block) cursor.getObject(0),
-                    ((Timestamp) cursor.getObject(1)),
+                    ((Instant) cursor.getObject(1)),
                     cursor.getDouble(2)));
             assertFalse(cursor.isNull(0));
             assertFalse(cursor.isNull(1));
@@ -73,13 +73,13 @@ public class TestPrometheusRecordSet
         }
         List<PrometheusStandardizedRow> expected = ImmutableList.<PrometheusStandardizedRow>builder()
                 .add(new PrometheusStandardizedRow(getBlockFromMap(varcharMapType,
-                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), Timestamp.from(Instant.ofEpochMilli(1565962969044L)), 1.0))
+                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), ofEpochMilli(1565962969044L), 1.0))
                 .add(new PrometheusStandardizedRow(getBlockFromMap(varcharMapType,
-                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), Timestamp.from(Instant.ofEpochMilli(1565962984045L)), 1.0))
+                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), ofEpochMilli(1565962984045L), 1.0))
                 .add(new PrometheusStandardizedRow(getBlockFromMap(varcharMapType,
-                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), Timestamp.from(Instant.ofEpochMilli(1565962999044L)), 1.0))
+                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), ofEpochMilli(1565962999044L), 1.0))
                 .add(new PrometheusStandardizedRow(getBlockFromMap(varcharMapType,
-                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), Timestamp.from(Instant.ofEpochMilli(1565963014044L)), 1.0))
+                        ImmutableMap.of("instance", "localhost:9090", "__name__", "up", "job", "prometheus")), ofEpochMilli(1565963014044L), 1.0))
                 .build();
         List<PairLike<PrometheusStandardizedRow, PrometheusStandardizedRow>> pairs = Streams.zip(actual.stream(), expected.stream(), PairLike::new)
                 .collect(Collectors.toList());

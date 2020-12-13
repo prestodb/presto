@@ -25,18 +25,17 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static com.facebook.presto.plugin.prometheus.MetadataUtil.varcharMapType;
-import static com.facebook.presto.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static com.facebook.presto.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
 import static com.facebook.presto.plugin.prometheus.TestPrometheusTable.TYPE_MANAGER;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
+import static java.time.Instant.ofEpochMilli;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -73,28 +72,28 @@ public class TestPrometheusRecordSetProvider
                 new PrometheusSplit(dataUri),
                 ImmutableList.of(
                         new PrometheusColumnHandle("labels", varcharMapType, 0),
-                        new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 1),
+                        new PrometheusColumnHandle("timestamp", TIMESTAMP_WITH_TIME_ZONE, 1),
                         new PrometheusColumnHandle("value", DoubleType.DOUBLE, 2)));
         assertNotNull(recordSet, "recordSet is null");
 
         RecordCursor cursor = recordSet.cursor();
         assertNotNull(cursor, "cursor is null");
 
-        Map<Timestamp, Map<?, ?>> actual = new LinkedHashMap<>();
+        Map<Instant, Map<?, ?>> actual = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
-            actual.put((Timestamp) cursor.getObject(1), getMapFromBlock(varcharMapType, (Block) cursor.getObject(0)));
+            actual.put((Instant) cursor.getObject(1), getMapFromBlock(varcharMapType, (Block) cursor.getObject(0)));
         }
-        Map<Timestamp, Map<String, String>> expected = ImmutableMap.<Timestamp, Map<String, String>>builder()
-                .put(new Timestamp(Instant.ofEpochMilli(1565962969044L).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()), ImmutableMap.of("instance",
+        Map<Instant, Map<String, String>> expected = ImmutableMap.<Instant, Map<String, String>>builder()
+                .put(ofEpochMilli(1565962969044L), ImmutableMap.of("instance",
                         "localhost:9090", "__name__", "up",
                         "job", "prometheus"))
-                .put(new Timestamp(Instant.ofEpochMilli(1565962984045L).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()), ImmutableMap.of("instance",
+                .put(ofEpochMilli(1565962984045L), ImmutableMap.of("instance",
                         "localhost:9090", "__name__", "up",
                         "job", "prometheus"))
-                .put(new Timestamp(Instant.ofEpochMilli(1565962999044L).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()), ImmutableMap.of("instance",
+                .put(ofEpochMilli(1565962999044L), ImmutableMap.of("instance",
                         "localhost:9090", "__name__", "up",
                         "job", "prometheus"))
-                .put(new Timestamp(Instant.ofEpochMilli(1565963014044L).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()), ImmutableMap.of("instance",
+                .put(ofEpochMilli(1565963014044L), ImmutableMap.of("instance",
                         "localhost:9090", "__name__", "up",
                         "job", "prometheus"))
                 .build();

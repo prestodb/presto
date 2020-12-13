@@ -33,7 +33,7 @@ public class PrometheusConnectorConfig
 {
     private URI prometheusURI = URI.create("http://localhost:9090");
     private Duration queryChunkSizeDuration = new Duration(1, TimeUnit.DAYS);
-    private Duration maxQueryRangeDuration = new Duration(21, TimeUnit.DAYS);
+    private Duration maxQueryRangeDuration = new Duration(1, TimeUnit.HOURS);
     private Duration cacheDuration = new Duration(30, TimeUnit.SECONDS);
     private File bearerTokenFile;
 
@@ -44,7 +44,7 @@ public class PrometheusConnectorConfig
     }
 
     @Config("prometheus.uri")
-    @ConfigDescription("Where to find Prometheus coordinator host")
+    @ConfigDescription("Prometheus coordinator host address")
     public PrometheusConnectorConfig setPrometheusURI(URI prometheusURI)
     {
         this.prometheusURI = prometheusURI;
@@ -57,7 +57,7 @@ public class PrometheusConnectorConfig
         return queryChunkSizeDuration;
     }
 
-    @Config("prometheus.query-chunk-size-duration")
+    @Config("prometheus.query-chunk-duration")
     @ConfigDescription("The duration of each query to Prometheus")
     public PrometheusConnectorConfig setQueryChunkSizeDuration(Duration queryChunkSizeDuration)
     {
@@ -71,8 +71,8 @@ public class PrometheusConnectorConfig
         return maxQueryRangeDuration;
     }
 
-    @Config("prometheus.max-query-range-duration")
-    @ConfigDescription("Width of overall query to Prometheus, will be divided into prometheus.query-chunk-size-duration queries")
+    @Config("prometheus.max-query-duration")
+    @ConfigDescription("Width of overall query to Prometheus, will be divided into prometheus.query-chunk-duration queries")
     public PrometheusConnectorConfig setMaxQueryRangeDuration(Duration maxQueryRangeDuration)
     {
         this.maxQueryRangeDuration = maxQueryRangeDuration;
@@ -112,7 +112,7 @@ public class PrometheusConnectorConfig
         long maxQueryRangeDuration = (long) getMaxQueryRangeDuration().getValue(TimeUnit.SECONDS);
         long queryChunkSizeDuration = (long) getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS);
         if (maxQueryRangeDuration < queryChunkSizeDuration) {
-            throw new ConfigurationException(ImmutableList.of(new Message("prometheus.max-query-range-duration must be greater than prometheus.query-chunk-size-duration")));
+            throw new ConfigurationException(ImmutableList.of(new Message("prometheus.max-query-duration must be greater than prometheus.query-chunk-duration")));
         }
     }
 }

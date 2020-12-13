@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.prometheus;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -38,7 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.plugin.prometheus.PrometheusColumn.mapType;
 import static com.facebook.presto.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR;
@@ -49,7 +50,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PrometheusClient
 {
-    public static final Type TIMESTAMP_COLUMN_TYPE = TIMESTAMP;
     public static final String METRICS_ENDPOINT = "/api/v1/label/__name__/values";
 
     private static final OkHttpClient httpClient = new OkHttpClient.Builder().build();
@@ -57,6 +57,8 @@ public class PrometheusClient
     private final Optional<File> bearerTokenFile;
     private final Supplier<Map<String, Object>> tableSupplier;
     private final Type varcharMapType;
+
+    private static final Logger log = Logger.get(PrometheusClient.class);
 
     @Inject
     public PrometheusClient(PrometheusConnectorConfig config, JsonCodec<Map<String, Object>> metricCodec, TypeManager typeManager)
@@ -90,7 +92,13 @@ public class PrometheusClient
         requireNonNull(schema, "schema is null");
         String status = "";
         if (schema.equals("default")) {
-            status = (String) tableSupplier.get().get("status");
+            if (!tableSupplier.get().isEmpty()) {
+                Object tableSupplierStatus = tableSupplier.get().get("status");
+                if (tableSupplierStatus instanceof String) {
+                    status = (String) tableSupplierStatus;
+                }
+            }
+
             //TODO prometheus warnings (success|error|warning) could be handled separately
             if (status.equals("success")) {
                 List<String> tableNames = (List<String>) tableSupplier.get().get("data");
@@ -98,6 +106,11 @@ public class PrometheusClient
                     return ImmutableSet.of();
                 }
                 return ImmutableSet.copyOf(tableNames);
+            }
+            else {
+                if (status.equals("warning")) {
+                    log.warn("Prometheus client gets a warning by retrieving table name from metric list");
+                }
             }
         }
         throw new PrestoException(PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR, String.format("Prometheus did no return metrics list (table names): %s", status));
@@ -122,7 +135,7 @@ public class PrometheusClient
                 tableName,
                 ImmutableList.of(
                         new PrometheusColumn("labels", varcharMapType),
-                        new PrometheusColumn("timestamp", TIMESTAMP_COLUMN_TYPE),
+                        new PrometheusColumn("timestamp", TIMESTAMP_WITH_TIME_ZONE),
                         new PrometheusColumn("value", DoubleType.DOUBLE)));
     }
 

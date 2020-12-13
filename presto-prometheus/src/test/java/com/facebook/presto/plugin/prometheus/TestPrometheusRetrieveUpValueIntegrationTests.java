@@ -28,8 +28,8 @@ import org.testng.annotations.Test;
 import java.net.URI;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
-import static com.facebook.presto.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static com.facebook.presto.plugin.prometheus.PrometheusQueryRunner.createPrometheusClient;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -131,8 +131,8 @@ public class TestPrometheusRetrieveUpValueIntegrationTests
                 ImmutableList.of(
                         new PrometheusColumnHandle("labels", createUnboundedVarcharType(), 0),
                         new PrometheusColumnHandle("value", DoubleType.DOUBLE, 1),
-                        new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 2)));
-        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(createUnboundedVarcharType(), DoubleType.DOUBLE, TIMESTAMP_COLUMN_TYPE));
+                        new PrometheusColumnHandle("timestamp", TIMESTAMP_WITH_TIME_ZONE, 2)));
+        assertEquals(recordSet.getColumnTypes(), ImmutableList.of(createUnboundedVarcharType(), DoubleType.DOUBLE, TIMESTAMP_WITH_TIME_ZONE));
 
         recordSet = new PrometheusRecordSet(
                 client,

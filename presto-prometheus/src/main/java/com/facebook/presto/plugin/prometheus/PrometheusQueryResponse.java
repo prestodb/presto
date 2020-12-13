@@ -29,17 +29,28 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_PARSE_ERROR;
+import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static java.util.Collections.singletonList;
 
 public class PrometheusQueryResponse
 {
-    private static boolean status;
+    enum ResultType {
+        matrix,
+        vector,
+        scalar,
+        string
+    }
+    private boolean status;
 
-    private static String error;
-    private static String errorType;
-    private static String resultType;
-    private static String result;
-    private static List<PrometheusMetricResult> results;
+    private String error;
+    private String errorType;
+    private ResultType resultType;
+    private String result;
+    private List<PrometheusMetricResult> results;
+    private final String parseResultStatus = "status";
+    private final String parseResultSuccess = "success";
+    private final String parseResultType = "resultType";
+    private final String parseResult = "result";
 
     public PrometheusQueryResponse(InputStream response)
             throws IOException
@@ -47,7 +58,7 @@ public class PrometheusQueryResponse
         parsePrometheusQueryResponse(response);
     }
 
-    private static void parsePrometheusQueryResponse(InputStream response)
+    private void parsePrometheusQueryResponse(InputStream response)
             throws IOException
     {
         ObjectMapper mapper = new ObjectMapper();
@@ -55,19 +66,19 @@ public class PrometheusQueryResponse
         JsonParser parser = new JsonFactory().createParser(response);
         while (!parser.isClosed()) {
             JsonToken jsonToken = parser.nextToken();
-            if (JsonToken.FIELD_NAME.equals(jsonToken)) {
-                if (parser.getCurrentName().equals("status")) {
+            if (FIELD_NAME.equals(jsonToken)) {
+                if (parser.getCurrentName().equals(parseResultStatus)) {
                     parser.nextToken();
-                    if (parser.getValueAsString().equals("success")) {
-                        status = true;
+                    if (parser.getValueAsString().equals(parseResultSuccess)) {
+                        this.status = true;
                         while (!parser.isClosed()) {
                             parser.nextToken();
-                            if (JsonToken.FIELD_NAME.equals(jsonToken)) {
-                                if (parser.getCurrentName().equals("resultType")) {
+                            if (FIELD_NAME.equals(jsonToken)) {
+                                if (parser.getCurrentName().equals(parseResultType)) {
                                     parser.nextToken();
-                                    resultType = parser.getValueAsString();
+                                    resultType = ResultType.valueOf(parser.getValueAsString());
                                 }
-                                if (parser.getCurrentName().equals("result")) {
+                                if (parser.getCurrentName().equals(parseResult)) {
                                     parser.nextToken();
                                     ArrayNode node = mapper.readTree(parser);
                                     result = node.toString();
@@ -79,11 +90,12 @@ public class PrometheusQueryResponse
                     else {
                         //error path
                         String parsedStatus = parser.getValueAsString();
-                        parser.nextToken();
-                        parser.nextToken();
+                        //parsing json is key-value based, so first nextToken is advanced to the key, nextToken advances to the value.
+                        parser.nextToken(); // for "errorType" key
+                        parser.nextToken(); // for "errorType" key's value
                         errorType = parser.getValueAsString();
-                        parser.nextToken();
-                        parser.nextToken();
+                        parser.nextToken(); // advance to "error" key
+                        parser.nextToken(); // advance to "error" key's value
                         error = parser.getValueAsString();
                         throw new PrestoException(PROMETHEUS_PARSE_ERROR, "Unable to parse Prometheus response: " + parsedStatus + " " + errorType + " " + error);
                     }
@@ -95,15 +107,15 @@ public class PrometheusQueryResponse
         }
         if (result != null && resultType != null) {
             switch (resultType) {
-                case "matrix":
-                case "vector":
+                case matrix:
+                case vector:
                     results = mapper.readValue(result, new TypeReference<List<PrometheusMetricResult>>() {});
                     break;
-                case "scalar":
-                case "string":
+                case scalar:
+                case string:
                     PrometheusTimeSeriesValue stringOrScalarResult = mapper.readValue(result, new TypeReference<PrometheusTimeSeriesValue>() {});
                     Map<String, String> madeUpMetricHeader = new HashMap<>();
-                    madeUpMetricHeader.put("__name__", resultType);
+                    madeUpMetricHeader.put("__name__", resultType.toString());
                     PrometheusTimeSeriesValueArray timeSeriesValues = new PrometheusTimeSeriesValueArray(singletonList(stringOrScalarResult));
                     results = singletonList(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
             }

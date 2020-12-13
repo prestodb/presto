@@ -54,7 +54,6 @@ public class PrometheusConnectorFactory
                     new PrometheusModule(context.getTypeManager()));
 
             Injector injector = app
-                    .noStrictConfig()
                     .doNotInitializeLogging()
                     .setRequiredConfigurationProperties(config)
                     .initialize();

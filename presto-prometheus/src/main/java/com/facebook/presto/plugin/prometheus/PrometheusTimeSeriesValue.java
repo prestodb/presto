@@ -18,27 +18,27 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
-import java.sql.Timestamp;
+import java.time.Instant;
 
 @JsonFormat(shape = JsonFormat.Shape.ARRAY)
 public class PrometheusTimeSeriesValue
 {
     @JsonDeserialize(using = PrometheusTimestampDeserializer.class)
-    private final Timestamp timestamp;
+    private final Instant timestamp;
 
     @JsonProperty
     private final String value;
 
     @JsonCreator
     public PrometheusTimeSeriesValue(
-            @JsonProperty("timestamp") Timestamp timestamp,
+            @JsonProperty("timestamp") Instant timestamp,
             @JsonProperty("value") String value)
     {
         this.timestamp = timestamp;
         this.value = value;
     }
 
-    public Timestamp getTimestamp()
+    public Instant getTimestamp()
     {
         return timestamp;
     }
