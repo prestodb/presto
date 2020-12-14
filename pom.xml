@@ -2026,6 +2026,12 @@
                 <version>${project.version}</version>
             </dependency>
 
+            <dependency>
+                <groupId>com.facebook.presto.ranger</groupId>
+                <artifactId>ranger-apache</artifactId>
+                <version>2.1.0-2</version>
+            </dependency>
+
             <!-- force newer version to be used for dependencies -->
             <dependency>
                 <groupId>org.javassist</groupId>
