@@ -498,11 +498,15 @@ public class ServerMainModule
         NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
         binder.bind(NodeVersion.class).toInstance(nodeVersion);
 
+        NodeMemoryConfig nodeMemoryConfig = buildConfigObject(NodeMemoryConfig.class);
+
         // presto announcement
         discoveryBinder(binder).bindHttpAnnouncement("presto")
                 .addProperty("node_version", nodeVersion.toString())
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
-                .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
+                .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()))
+                .addProperty("generalPoolCapacityInBytes", String.valueOf(nodeMemoryConfig.getMaxQueryTotalMemoryPerNode().toBytes()))
+                .addProperty("numberOfCpuCores", String.valueOf(Runtime.getRuntime().availableProcessors()));
 
         // server info resource
         jaxrsBinder(binder).bind(ServerInfoResource.class);

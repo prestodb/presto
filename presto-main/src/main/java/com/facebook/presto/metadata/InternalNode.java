@@ -18,6 +18,7 @@ import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.Node;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -36,13 +37,14 @@ public class InternalNode
     private final OptionalInt thriftPort;
     private final NodeVersion nodeVersion;
     private final boolean coordinator;
+    private final Optional<InternalNodeSupply> internalNodeResource;
 
     public InternalNode(String nodeIdentifier, URI internalUri, NodeVersion nodeVersion, boolean coordinator)
     {
-        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator);
+        this(nodeIdentifier, internalUri, OptionalInt.empty(), nodeVersion, coordinator, Optional.empty());
     }
 
-    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator)
+    public InternalNode(String nodeIdentifier, URI internalUri, OptionalInt thriftPort, NodeVersion nodeVersion, boolean coordinator, Optional<InternalNodeSupply> internalNodeResource)
     {
         nodeIdentifier = emptyToNull(nullToEmpty(nodeIdentifier).trim());
         this.nodeIdentifier = requireNonNull(nodeIdentifier, "nodeIdentifier is null or empty");
@@ -50,6 +52,7 @@ public class InternalNode
         this.thriftPort = requireNonNull(thriftPort, "thriftPort is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.coordinator = coordinator;
+        this.internalNodeResource = requireNonNull(internalNodeResource, "internalNodeResource is null");
     }
 
     @Override
@@ -104,6 +107,11 @@ public class InternalNode
         return nodeVersion;
     }
 
+    public Optional<InternalNodeSupply> getInternalNodeResource()
+    {
+        return internalNodeResource;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -131,6 +139,7 @@ public class InternalNode
                 .add("internalUri", internalUri)
                 .add("thriftPort", thriftPort)
                 .add("nodeVersion", nodeVersion)
+                .add("internalNodeResource", internalNodeResource)
                 .toString();
     }
 }

@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -138,9 +139,10 @@ public final class DiscoveryNodeManager
         for (ServiceDescriptor service : allServices) {
             URI uri = getHttpUri(service, httpsRequired);
             OptionalInt thriftPort = getThriftServerPort(service);
+            InternalNodeSupply internalNodeSupply = getInternalNodeResource(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, isCoordinator(service));
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, isCoordinator(service), Optional.of(internalNodeSupply));
 
                 if (node.getNodeIdentifier().equals(currentNodeId)) {
                     checkState(
@@ -243,10 +245,11 @@ public final class DiscoveryNodeManager
         for (ServiceDescriptor service : services) {
             URI uri = getHttpUri(service, httpsRequired);
             OptionalInt thriftPort = getThriftServerPort(service);
+            InternalNodeSupply internalNodeSupply = getInternalNodeResource(service);
             NodeVersion nodeVersion = getNodeVersion(service);
             boolean coordinator = isCoordinator(service);
             if (uri != null && nodeVersion != null) {
-                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator);
+                InternalNode node = new InternalNode(service.getNodeId(), uri, thriftPort, nodeVersion, coordinator, Optional.of(internalNodeSupply));
                 NodeState nodeState = getNodeState(node);
 
                 switch (nodeState) {
@@ -422,6 +425,30 @@ public final class DiscoveryNodeManager
             }
         }
         return OptionalInt.empty();
+    }
+
+    private static InternalNodeSupply getInternalNodeResource(ServiceDescriptor descriptor)
+    {
+        OptionalLong generalPoolCapacityInBytes = OptionalLong.empty();
+        OptionalInt numberOfCpuCores = OptionalInt.empty();
+
+        String generalPoolCapacityInBytesInString = descriptor.getProperties().get("generalPoolCapacityInBytes");
+        if (generalPoolCapacityInBytesInString != null) {
+            try {
+                generalPoolCapacityInBytes = OptionalLong.of(Long.parseLong(generalPoolCapacityInBytesInString));
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+        String numberOfCpuCoresInString = descriptor.getProperties().get("numberOfCpuCores");
+        if (numberOfCpuCoresInString != null) {
+            try {
+                numberOfCpuCores = OptionalInt.of(Integer.parseInt(numberOfCpuCoresInString));
+            }
+            catch (IllegalArgumentException ignored) {
+            }
+        }
+        return new InternalNodeSupply(generalPoolCapacityInBytes, numberOfCpuCores);
     }
 
     private static NodeVersion getNodeVersion(ServiceDescriptor descriptor)
