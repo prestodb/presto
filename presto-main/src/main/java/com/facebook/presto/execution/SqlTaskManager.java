@@ -389,19 +389,21 @@ public class SqlTaskManager
         requireNonNull(sources, "sources is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
 
-        if (resourceOvercommit(session)) {
-            // TODO: This should have been done when the QueryContext was created. However, the session isn't available at that point.
-            queryContexts.getUnchecked(taskId.getQueryId()).setResourceOvercommit();
-        }
-        else {
-            queryContexts.getUnchecked(
-                    taskId.getQueryId()).setMemoryLimits(
-                    getQueryMaxMemoryPerNode(session),
-                    getQueryMaxTotalMemoryPerNode(session),
-                    getQueryMaxBroadcastMemory(session));
+        SqlTask sqlTask = tasks.getUnchecked(taskId);
+        QueryContext queryContext = sqlTask.getQueryContext();
+        if (!queryContext.isMemoryLimitsInitialized()) {
+            if (resourceOvercommit(session)) {
+                // TODO: This should have been done when the QueryContext was created. However, the session isn't available at that point.
+                queryContext.setResourceOvercommit();
+            }
+            else {
+                queryContext.setMemoryLimits(
+                        getQueryMaxMemoryPerNode(session),
+                        getQueryMaxTotalMemoryPerNode(session),
+                        getQueryMaxBroadcastMemory(session));
+            }
         }
 
-        SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
         return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo);
     }
