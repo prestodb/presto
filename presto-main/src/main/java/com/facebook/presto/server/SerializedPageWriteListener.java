@@ -35,7 +35,7 @@ import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 public class SerializedPageWriteListener
         implements WriteListener
 {
-    private final Logger log = Logger.get(SerializedPageWriteListener.class);
+    private static final Logger log = Logger.get(SerializedPageWriteListener.class);
 
     public static final int PAGE_METADATA_SIZE = SIZE_OF_INT * 3 + SIZE_OF_BYTE;
     private final ArrayDeque<SerializedPage> serializedPages;
