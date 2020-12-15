@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.facebook.presto.sql.tree.ExplainType;
+import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilege;
@@ -70,22 +71,29 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
-    private QueryRunnerSupplier queryRunnerSupplier;
+    private QueryRunnerSupplier actualQueryRunnerSupplier;
+    private ExpectedQueryRunnerSupplier expectedQueryRunnerSupplier;
     private QueryRunner queryRunner;
-    private H2QueryRunner h2QueryRunner;
+    private ExpectedQueryRunner expectedQueryRunner;
     private SqlParser sqlParser;
 
     protected AbstractTestQueryFramework(QueryRunnerSupplier supplier)
     {
-        this.queryRunnerSupplier = requireNonNull(supplier, "queryRunnerSupplier is null");
+        this(supplier, H2QueryRunner::new);
+    }
+
+    protected AbstractTestQueryFramework(QueryRunnerSupplier actualQueryRunnerSupplier, ExpectedQueryRunnerSupplier expectedQueryRunnerSupplier)
+    {
+        this.actualQueryRunnerSupplier = requireNonNull(actualQueryRunnerSupplier, "queryRunnerSupplier is null");
+        this.expectedQueryRunnerSupplier = requireNonNull(expectedQueryRunnerSupplier, "queryRunnerSupplier is null");
     }
 
     @BeforeClass
     public void init()
             throws Exception
     {
-        queryRunner = queryRunnerSupplier.get();
-        h2QueryRunner = new H2QueryRunner();
+        queryRunner = actualQueryRunnerSupplier.get();
+        expectedQueryRunner = expectedQueryRunnerSupplier.get();
         sqlParser = new SqlParser();
     }
 
@@ -93,11 +101,12 @@ public abstract class AbstractTestQueryFramework
     public void close()
             throws Exception
     {
-        closeAllRuntimeException(queryRunner, h2QueryRunner);
+        closeAllRuntimeException(queryRunner, expectedQueryRunner);
         queryRunner = null;
-        h2QueryRunner = null;
+        expectedQueryRunner = null;
         sqlParser = null;
-        queryRunnerSupplier = null;
+        actualQueryRunnerSupplier = null;
+        expectedQueryRunnerSupplier = null;
     }
 
     protected Session getSession()
@@ -132,29 +141,29 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQuery(Session session, @Language("SQL") String sql)
     {
-        QueryAssertions.assertQuery(queryRunner, session, sql, h2QueryRunner, sql, false, false);
+        QueryAssertions.assertQuery(queryRunner, session, sql, expectedQueryRunner, sql, false, false);
     }
 
     protected void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        QueryAssertions.assertQuery(queryRunner, getSession(), actual, h2QueryRunner, expected, false, false);
+        QueryAssertions.assertQuery(queryRunner, getSession(), actual, expectedQueryRunner, expected, false, false);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false);
+        QueryAssertions.assertQuery(queryRunner, session, actual, expectedQueryRunner, expected, false, false);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String sql, Consumer<Plan> planAssertion)
     {
         checkArgument(queryRunner instanceof DistributedQueryRunner, "pattern assertion is only supported for DistributedQueryRunner");
-        QueryAssertions.assertQuery(queryRunner, session, sql, h2QueryRunner, sql, false, false, planAssertion);
+        QueryAssertions.assertQuery(queryRunner, session, sql, expectedQueryRunner, sql, false, false, planAssertion);
     }
 
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, Consumer<Plan> planAssertion)
     {
         checkArgument(queryRunner instanceof DistributedQueryRunner, "pattern assertion is only supported for DistributedQueryRunner");
-        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false, planAssertion);
+        QueryAssertions.assertQuery(queryRunner, session, actual, expectedQueryRunner, expected, false, false, planAssertion);
     }
 
     public void assertQueryOrdered(@Language("SQL") String sql)
@@ -174,7 +183,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryOrdered(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, true, false);
+        QueryAssertions.assertQuery(queryRunner, session, actual, expectedQueryRunner, expected, true, false);
     }
 
     protected void assertUpdate(@Language("SQL") String actual, @Language("SQL") String expected)
@@ -184,7 +193,7 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertUpdate(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
-        QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, true);
+        QueryAssertions.assertQuery(queryRunner, session, actual, expectedQueryRunner, expected, false, true);
     }
 
     protected void assertUpdate(@Language("SQL") String sql)
@@ -305,7 +314,7 @@ public abstract class AbstractTestQueryFramework
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
-        return h2QueryRunner.execute(getSession(), sql, resultTypes);
+        return expectedQueryRunner.execute(getSession(), sql, resultTypes);
     }
 
     protected void executeExclusively(Runnable executionBlock)
@@ -446,6 +455,11 @@ public abstract class AbstractTestQueryFramework
     public interface QueryRunnerSupplier
     {
         QueryRunner get()
+                throws Exception;
+    }
+    public interface ExpectedQueryRunnerSupplier
+    {
+        ExpectedQueryRunner get()
                 throws Exception;
     }
 }

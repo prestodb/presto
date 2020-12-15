@@ -26,6 +26,7 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tpch.TpchMetadata;
@@ -42,7 +43,6 @@ import org.jdbi.v3.core.statement.SqlParser;
 import org.jdbi.v3.core.statement.StatementContext;
 import org.joda.time.DateTimeZone;
 
-import java.io.Closeable;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.sql.Array;
@@ -92,7 +92,7 @@ import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 
 public class H2QueryRunner
-        implements Closeable
+        implements ExpectedQueryRunner
 {
     private final Handle handle;
 
