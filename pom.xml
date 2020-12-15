@@ -164,6 +164,7 @@
         <module>presto-druid</module>
         <module>presto-common</module>
         <module>presto-thrift-testing-udf-server</module>
+        <module>presto-thrift-spec</module>
     </modules>
 
     <dependencyManagement>
