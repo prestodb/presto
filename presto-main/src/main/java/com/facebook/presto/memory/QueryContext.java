@@ -72,7 +72,7 @@ public class QueryContext
     private final ScheduledExecutorService yieldExecutor;
     private final long maxSpill;
     private final SpillSpaceTracker spillSpaceTracker;
-    private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap();
+    private final Map<TaskId, TaskContext> taskContexts = new ConcurrentHashMap<>();
 
     @GuardedBy("this")
     private boolean resourceOverCommit;
