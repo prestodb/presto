@@ -15,6 +15,7 @@ package com.facebook.presto.testing;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Plugin;
@@ -28,18 +29,14 @@ import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
-import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 
 public interface QueryRunner
-        extends Closeable
+        extends ExpectedQueryRunner
 {
-    @Override
-    void close();
-
     int getNodeCount();
 
     Session getDefaultSession();
@@ -65,6 +62,11 @@ public interface QueryRunner
     MaterializedResult execute(@Language("SQL") String sql);
 
     MaterializedResult execute(Session session, @Language("SQL") String sql);
+
+    default MaterializedResult execute(Session session, @Language("SQL") String sql, List<? extends Type> resultTypes)
+    {
+        return this.execute(session, sql);
+    }
 
     default MaterializedResultWithPlan executeWithPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
     {
