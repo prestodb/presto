@@ -583,16 +583,6 @@ public class LocalExecutionPlanner
         return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder, stageExecutionDescriptor);
     }
 
-    private static boolean isOnlyScanFilterProject(PlanNode planNode)
-    {
-        if (planNode instanceof TableScanNode ||
-                planNode instanceof FilterNode ||
-                planNode instanceof ProjectNode) {
-            return planNode.getSources().stream().allMatch(LocalExecutionPlanner::isOnlyScanFilterProject);
-        }
-        return false;
-    }
-
     private static void addLookupOuterDrivers(LocalExecutionPlanContext context)
     {
         // For an outer join on the lookup side (RIGHT or FULL) add an additional
