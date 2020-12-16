@@ -35,6 +35,7 @@ import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.orc.stream.SharedBuffer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,6 +54,7 @@ import java.util.Optional;
 import java.util.SortedMap;
 
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
+import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -194,6 +196,8 @@ public class DwrfMetadataReader
                 Slice encryptedFileStats = encryptionGroup.getStatistics().get(i);
                 try (OrcInputStream inputStream = new OrcInputStream(
                         orcDataSource.getId(),
+                        // Memory is not accounted as the buffer is expected to be tiny and will be immediately discarded
+                        new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
                         new BasicSliceInput(encryptedFileStats),
                         decompressor,
                         Optional.of(decryptor),

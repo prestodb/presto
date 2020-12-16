@@ -145,7 +145,15 @@ public class TestDecimalStream
 
     private static OrcInputStream orcInputStreamFor(String source, byte[] bytes)
     {
-        return new OrcInputStream(new OrcDataSourceId(source), new BasicSliceInput(Slices.wrappedBuffer(bytes)), Optional.empty(), Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), bytes.length);
+        TestingHiveOrcAggregatedMemoryContext aggregatedMemoryContext = new TestingHiveOrcAggregatedMemoryContext();
+        return new OrcInputStream(
+                new OrcDataSourceId(source),
+                new SharedBuffer(aggregatedMemoryContext.newOrcLocalMemoryContext("sharedDecompressionBuffer")),
+                new BasicSliceInput(Slices.wrappedBuffer(bytes)),
+                Optional.empty(),
+                Optional.empty(),
+                aggregatedMemoryContext,
+                bytes.length);
     }
 
     // copied from org.apache.hadoop.hive.ql.io.orc.SerializationUtils.java

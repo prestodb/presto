@@ -55,6 +55,7 @@ public final class OrcInputStream
     private static final double BUFFER_ALLOWED_MEMORY_WASTE_RATIO = 1.5;
 
     private final OrcDataSourceId orcDataSourceId;
+    private final SharedBuffer sharedDecompressionBuffer;
     private final FixedLengthSliceInput compressedSliceInput;
     private final long compressedSliceInputRetainedSizeInBytes;
     private final Optional<OrcDecompressor> decompressor;
@@ -66,13 +67,13 @@ public final class OrcInputStream
     private int currentCompressedBlockOffset;
 
     private byte[] buffer;
-    private byte[] compressedBuffer;
     private int position;
     private int length;
     private int uncompressedOffset;
 
     public OrcInputStream(
             OrcDataSourceId orcDataSourceId,
+            SharedBuffer sharedDecompressionBuffer,
             FixedLengthSliceInput sliceInput,
             Optional<OrcDecompressor> decompressor,
             Optional<DwrfDataEncryptor> dwrfDecryptor,
@@ -80,6 +81,7 @@ public final class OrcInputStream
             long sliceInputRetainedSizeInBytes)
     {
         this.orcDataSourceId = requireNonNull(orcDataSourceId, "orcDataSource is null");
+        this.sharedDecompressionBuffer = requireNonNull(sharedDecompressionBuffer, "sharedDecompressionBuffer is null");
 
         requireNonNull(sliceInput, "sliceInput is null");
 
@@ -481,7 +483,8 @@ public final class OrcInputStream
             position = 0;
         }
         else {
-            compressedBuffer = ensureCapacity(compressedBuffer, chunkLength);
+            sharedDecompressionBuffer.ensureCapacity(chunkLength);
+            byte[] compressedBuffer = sharedDecompressionBuffer.get();
             int readCompressed = compressedSliceInput.read(compressedBuffer, 0, chunkLength);
             if (dwrfDecryptor.isPresent()) {
                 compressedBuffer = dwrfDecryptor.get().decrypt(compressedBuffer, 0, chunkLength);
@@ -518,7 +521,6 @@ public final class OrcInputStream
         return INSTANCE_SIZE +
                 compressedSliceInputRetainedSizeInBytes +
                 sizeOf(buffer) +
-                sizeOf(compressedBuffer) +
                 sizeOf(temporaryBuffer);
     }
 
