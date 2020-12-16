@@ -41,6 +41,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static java.lang.Math.round;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -51,6 +52,7 @@ public final class OrcInputStream
 
     private static final long VARINT_MASK = 0x8080_8080_8080_8080L;
     private static final int MAX_VARINT_LENGTH = 10;
+    private static final double BUFFER_ALLOWED_MEMORY_WASTE_RATIO = 1.5;
 
     private final OrcDataSourceId orcDataSourceId;
     private final FixedLengthSliceInput compressedSliceInput;
@@ -491,11 +493,7 @@ public final class OrcInputStream
                 @Override
                 public byte[] initialize(int size)
                 {
-                    if (buffer == null || size > buffer.length) {
-                        buffer = new byte[size];
-                        position = 0;
-                        length = size;
-                    }
+                    buffer = ensureCapacity(buffer, size);
                     return buffer;
                 }
 
@@ -526,7 +524,7 @@ public final class OrcInputStream
 
     private static byte[] ensureCapacity(byte[] buffer, int capacity)
     {
-        if (buffer == null || buffer.length < capacity) {
+        if (buffer == null || buffer.length < capacity || buffer.length > round(capacity * BUFFER_ALLOWED_MEMORY_WASTE_RATIO)) {
             return new byte[capacity];
         }
 
