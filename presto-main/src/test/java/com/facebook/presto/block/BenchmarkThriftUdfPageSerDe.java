@@ -32,6 +32,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock;
+import com.facebook.presto.thrift.api.udf.PrestoThriftPage;
 import com.facebook.presto.thrift.api.udf.ThriftUdfPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -86,7 +87,7 @@ public class BenchmarkThriftUdfPageSerDe
     public void testThriftPageSerde(BenchmarkData data)
     {
         if (data.typeSignature.indexOf("map") < 0) {
-            assertTrue(data.thriftTestService.get().test(thriftPage(ImmutableList.of(PrestoThriftBlock.fromBlock(data.page.getBlock(0), TYPE_MANAGER.getType(parseTypeSignature(data.typeSignature))))), data.typeSignature));
+            assertTrue(data.thriftTestService.get().test(thriftPage(new PrestoThriftPage(ImmutableList.of(PrestoThriftBlock.fromBlock(data.page.getBlock(0), TYPE_MANAGER.getType(parseTypeSignature(data.typeSignature)))), data.page.getPositionCount())), data.typeSignature));
         }
     }
 
@@ -163,7 +164,7 @@ public class BenchmarkThriftUdfPageSerDe
         {
             switch (input.getPageFormat()) {
                 case PRESTO_THRIFT:
-                    return input.getThriftBlocks().get(0).toBlock(TYPE_MANAGER.getType(parseTypeSignature(type))) != null;
+                    return input.getThriftPage().getThriftBlocks().get(0).toBlock(TYPE_MANAGER.getType(parseTypeSignature(type))) != null;
                 case PRESTO_SERIALIZED:
                     return PAGE_SERDE.deserialize(input.getPrestoPage().toSerializedPage()) != null;
             }
