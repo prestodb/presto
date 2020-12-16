@@ -1622,11 +1622,7 @@ public class SemiTransactionalHiveMetastore
     {
         for (DeclaredIntentionToWrite declaredIntentionToWrite : declaredIntentionsToWrite) {
             if (declaredIntentionToWrite.isTemporaryTable()) {
-                String tableName = declaredIntentionToWrite.getSchemaTableName().getTableName();
-                // table path is set to _presto_temporary_table_${uuid}/${uuid}/ for temporary table
-                Path tablePath = declaredIntentionToWrite.getStagingPathRoot().getParent();
-                checkState(tablePath.getName().equalsIgnoreCase(tableName));
-                deleteRecursivelyIfExists(declaredIntentionToWrite.getContext(), hdfsEnvironment, tablePath);
+                deleteRecursivelyIfExists(declaredIntentionToWrite.getContext(), hdfsEnvironment, declaredIntentionToWrite.getStagingPathRoot());
             }
         }
     }
