@@ -69,7 +69,7 @@ public class TestNestedLoopBuildOperator
                 false,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
-                lifespan -> new NestedLoopJoinPagesSupplier(),
+                NestedLoopJoinPagesSupplier::new,
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
@@ -106,7 +106,7 @@ public class TestNestedLoopBuildOperator
                 false,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
-                lifespan -> new NestedLoopJoinPagesSupplier(),
+                NestedLoopJoinPagesSupplier::new,
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
@@ -142,7 +142,7 @@ public class TestNestedLoopBuildOperator
                 false,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
                 PipelineExecutionStrategy.UNGROUPED_EXECUTION,
-                lifespan -> new NestedLoopJoinPagesSupplier(),
+                NestedLoopJoinPagesSupplier::new,
                 buildTypes);
         NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(3, new PlanNodeId("test"), nestedLoopJoinBridgeManager);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();

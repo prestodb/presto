@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -42,7 +42,7 @@ public class JoinBridgeManager<T extends JoinBridge>
                 false,
                 UNGROUPED_EXECUTION,
                 UNGROUPED_EXECUTION,
-                ignored -> factory,
+                () -> factory,
                 factory.getOutputTypes());
     }
 
@@ -50,7 +50,7 @@ public class JoinBridgeManager<T extends JoinBridge>
     private final boolean buildOuter;
     private final PipelineExecutionStrategy probeExecutionStrategy;
     private final PipelineExecutionStrategy buildExecutionStrategy;
-    private final Function<Lifespan, T> joinBridgeProvider;
+    private final Supplier<T> joinBridgeProvider;
 
     private final FreezeOnReadCounter probeFactoryCount = new FreezeOnReadCounter();
 
@@ -61,7 +61,7 @@ public class JoinBridgeManager<T extends JoinBridge>
             boolean buildOuter,
             PipelineExecutionStrategy probeExecutionStrategy,
             PipelineExecutionStrategy lookupSourceExecutionStrategy,
-            Function<Lifespan, T> lookupSourceFactoryProvider,
+            Supplier<T> lookupSourceFactoryProvider,
             List<Type> buildOutputTypes)
     {
         this.buildOuter = buildOuter;
@@ -165,7 +165,7 @@ public class JoinBridgeManager<T extends JoinBridge>
     private static <T extends JoinBridge> InternalJoinBridgeDataManager<T> internalJoinBridgeDataManager(
             PipelineExecutionStrategy probeExecutionStrategy,
             PipelineExecutionStrategy buildExecutionStrategy,
-            Function<Lifespan, T> joinBridgeProvider,
+            Supplier<T> joinBridgeProvider,
             int probeFactoryCount,
             int outerFactoryCount)
     {
@@ -222,9 +222,9 @@ public class JoinBridgeManager<T extends JoinBridge>
         private final T joinBridge;
         private final JoinLifecycle joinLifecycle;
 
-        public TaskWideInternalJoinBridgeDataManager(Function<Lifespan, T> lookupSourceFactoryProvider, int probeFactoryCount, int outerFactoryCount)
+        public TaskWideInternalJoinBridgeDataManager(Supplier<T> lookupSourceFactoryProvider, int probeFactoryCount, int outerFactoryCount)
         {
-            joinBridge = lookupSourceFactoryProvider.apply(Lifespan.taskWide());
+            joinBridge = lookupSourceFactoryProvider.get();
             joinLifecycle = new JoinLifecycle(joinBridge, probeFactoryCount, outerFactoryCount);
         }
 
@@ -296,11 +296,11 @@ public class JoinBridgeManager<T extends JoinBridge>
             implements InternalJoinBridgeDataManager<T>
     {
         private final Map<Lifespan, JoinBridgeAndLifecycle<T>> joinBridgeMap = new ConcurrentHashMap<>();
-        private final Function<Lifespan, T> joinBridgeProvider;
+        private final Supplier<T> joinBridgeProvider;
         private final int probeFactoryCount;
         private final int outerFactoryCount;
 
-        public OneToOneInternalJoinBridgeDataManager(Function<Lifespan, T> joinBridgeProvider, int probeFactoryCount, int outerFactoryCount)
+        public OneToOneInternalJoinBridgeDataManager(Supplier<T> joinBridgeProvider, int probeFactoryCount, int outerFactoryCount)
         {
             this.joinBridgeProvider = joinBridgeProvider;
             this.probeFactoryCount = probeFactoryCount;
@@ -373,7 +373,7 @@ public class JoinBridgeManager<T extends JoinBridge>
         {
             checkArgument(!Lifespan.taskWide().equals(lifespan));
             return joinBridgeMap.computeIfAbsent(lifespan, span -> {
-                T joinBridge = joinBridgeProvider.apply(span);
+                T joinBridge = joinBridgeProvider.get();
                 return new JoinBridgeAndLifecycle<>(joinBridge, new JoinLifecycle(joinBridge, probeFactoryCount, outerFactoryCount));
             });
         }
@@ -399,9 +399,9 @@ public class JoinBridgeManager<T extends JoinBridge>
 
         private final JoinLifecycle joinLifecycle;
 
-        public SharedInternalJoinBridgeDataManager(Function<Lifespan, T> lookupSourceFactoryProvider, int probeFactoryCount, int outerFactoryCount)
+        public SharedInternalJoinBridgeDataManager(Supplier<T> lookupSourceFactoryProvider, int probeFactoryCount, int outerFactoryCount)
         {
-            this.taskWideJoinBridge = lookupSourceFactoryProvider.apply(Lifespan.taskWide());
+            this.taskWideJoinBridge = lookupSourceFactoryProvider.get();
             this.joinLifecycle = new JoinLifecycle(taskWideJoinBridge, probeFactoryCount, outerFactoryCount);
         }
 
