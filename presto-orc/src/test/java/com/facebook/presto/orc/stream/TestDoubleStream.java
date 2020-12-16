@@ -63,7 +63,15 @@ public class TestDoubleStream
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        return new DoubleInputStream(new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize()));
+        TestingHiveOrcAggregatedMemoryContext aggregatedMemoryContext = new TestingHiveOrcAggregatedMemoryContext();
+        return new DoubleInputStream(new OrcInputStream(
+                ORC_DATA_SOURCE_ID,
+                new SharedBuffer(aggregatedMemoryContext.newOrcLocalMemoryContext("sharedDecompressionBuffer")),
+                slice.getInput(),
+                orcDecompressor,
+                Optional.empty(),
+                aggregatedMemoryContext,
+                slice.getRetainedSize()));
     }
 
     @Override

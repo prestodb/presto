@@ -29,6 +29,7 @@ import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.orc.stream.SharedBuffer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -45,6 +46,7 @@ import java.util.function.Predicate;
 
 import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
+import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.Math.toIntExact;
@@ -130,7 +132,15 @@ public class OrcReader
         this.decompressor = createOrcDecompressor(orcDataSource.getId(), compressionKind, bufferSize, orcReaderOptions.isOrcZstdJniDecompressionEnabled());
         this.hiveWriterVersion = orcFileTail.getHiveWriterVersion();
 
-        try (InputStream footerInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getFooterSlice().getInput(), decompressor, Optional.empty(), aggregatedMemoryContext, orcFileTail.getFooterSize())) {
+        try (InputStream footerInputStream = new OrcInputStream(
+                orcDataSource.getId(),
+                // Memory is not accounted as the buffer is expected to be tiny and will be immediately discarded
+                new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
+                orcFileTail.getFooterSlice().getInput(),
+                decompressor,
+                Optional.empty(),
+                aggregatedMemoryContext,
+                orcFileTail.getFooterSize())) {
             this.footer = metadataReader.readFooter(hiveWriterVersion, footerInputStream, dwrfEncryptionProvider, dwrfKeyProvider, orcDataSource, decompressor);
         }
         if (this.footer.getTypes().size() == 0) {
@@ -156,7 +166,15 @@ public class OrcReader
             this.columnsToIntermediateKeys = ImmutableMap.of();
         }
 
-        try (InputStream metadataInputStream = new OrcInputStream(orcDataSource.getId(), orcFileTail.getMetadataSlice().getInput(), decompressor, Optional.empty(), aggregatedMemoryContext, orcFileTail.getMetadataSize())) {
+        try (InputStream metadataInputStream = new OrcInputStream(
+                orcDataSource.getId(),
+                // Memory is not accounted as the buffer is expected to be tiny and will be immediately discarded
+                new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
+                orcFileTail.getMetadataSlice().getInput(),
+                decompressor,
+                Optional.empty(),
+                aggregatedMemoryContext,
+                orcFileTail.getMetadataSize())) {
             this.metadata = metadataReader.readMetadata(hiveWriterVersion, metadataInputStream);
         }
         validateWrite(writeValidation, orcDataSource, validation -> validation.getColumnNames().equals(footer.getTypes().get(0).getFieldNames()), "Unexpected column names");

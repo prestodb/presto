@@ -229,7 +229,7 @@ public class TestOrcBatchPageSourceMemoryTracking
             }
             createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
             memoryUsage = pageSource.getSystemMemoryUsage();
-            assertBetweenInclusive(memoryUsage, 450000L, 459999L); // Memory usage after lazy-loading the actual block
+            assertBetweenInclusive(memoryUsage, 430000L, 459999L); // Memory usage after lazy-loading the actual block
             totalRows += page.getPositionCount();
         }
 
@@ -333,7 +333,7 @@ public class TestOrcBatchPageSourceMemoryTracking
             Page page = operator.getOutput();
             assertNotNull(page);
             page.getBlock(1);
-            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 450000L, 459999L);
+            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 430000L, 459999L);
             totalRows += page.getPositionCount();
         }
 

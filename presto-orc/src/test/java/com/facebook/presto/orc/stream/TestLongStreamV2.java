@@ -64,7 +64,15 @@ public class TestLongStreamV2
             throws OrcCorruptionException
     {
         Optional<OrcDecompressor> orcDecompressor = createOrcDecompressor(ORC_DATA_SOURCE_ID, SNAPPY, COMPRESSION_BLOCK_SIZE);
-        OrcInputStream input = new OrcInputStream(ORC_DATA_SOURCE_ID, slice.getInput(), orcDecompressor, Optional.empty(), new TestingHiveOrcAggregatedMemoryContext(), slice.getRetainedSize());
+        TestingHiveOrcAggregatedMemoryContext aggregatedMemoryContext = new TestingHiveOrcAggregatedMemoryContext();
+        OrcInputStream input = new OrcInputStream(
+                ORC_DATA_SOURCE_ID,
+                new SharedBuffer(aggregatedMemoryContext.newOrcLocalMemoryContext("sharedDecompressionBuffer")),
+                slice.getInput(),
+                orcDecompressor,
+                Optional.empty(),
+                aggregatedMemoryContext,
+                slice.getRetainedSize());
         return new LongInputStreamV2(input, true, false);
     }
 
