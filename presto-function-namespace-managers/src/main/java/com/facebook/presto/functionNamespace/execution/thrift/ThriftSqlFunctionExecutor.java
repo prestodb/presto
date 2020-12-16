@@ -27,6 +27,7 @@ import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.ThriftScalarFunctionImplementation;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock;
+import com.facebook.presto.thrift.api.udf.PrestoThriftPage;
 import com.facebook.presto.thrift.api.udf.ThriftFunctionHandle;
 import com.facebook.presto.thrift.api.udf.ThriftUdfPage;
 import com.facebook.presto.thrift.api.udf.ThriftUdfPageFormat;
@@ -102,7 +103,7 @@ public class ThriftSqlFunctionExecutor
                 for (int i = 0; i < blocks.length; i++) {
                     thriftBlocks.add(PrestoThriftBlock.fromBlock(blocks[i], argumentTypes.get(i)));
                 }
-                return thriftPage(thriftBlocks.build());
+                return thriftPage(new PrestoThriftPage(thriftBlocks.build(), input.getPositionCount()));
             case PRESTO_SERIALIZED:
                 PagesSerde pagesSerde = new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), Optional.empty());
                 return prestoPage(pagesSerde.serialize(wrapBlocksWithoutCopy(input.getPositionCount(), blocks)));
@@ -116,7 +117,7 @@ public class ThriftSqlFunctionExecutor
         ThriftUdfPage page = result.getResult();
         switch (page.getPageFormat()) {
             case PRESTO_THRIFT:
-                return getOnlyElement(page.getThriftBlocks()).toBlock(returnType);
+                return getOnlyElement(page.getThriftPage().getThriftBlocks()).toBlock(returnType);
             case PRESTO_SERIALIZED:
                 PagesSerde pagesSerde = new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), Optional.empty());
                 return pagesSerde.deserialize(page.getPrestoPage().toSerializedPage()).getBlock(0);

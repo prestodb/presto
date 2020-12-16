@@ -16,6 +16,7 @@ package com.facebook.presto.udf.thrift;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.thrift.api.udf.PrestoThriftPage;
 import com.facebook.presto.thrift.api.udf.ThriftFunctionHandle;
 import com.facebook.presto.thrift.api.udf.ThriftUdfPage;
 import com.facebook.presto.thrift.api.udf.ThriftUdfResult;
@@ -50,7 +51,11 @@ public class EchoFirstInputThriftUdfService
         ThriftUdfPage result;
         switch (inputs.getPageFormat()) {
             case PRESTO_THRIFT:
-                result = thriftPage(ImmutableList.of(inputs.getThriftBlocks().get(0)));
+                PrestoThriftPage thriftPage = inputs.getThriftPage();
+                if (thriftPage.getThriftBlocks().isEmpty()) {
+                    throw new UnsupportedOperationException("No input to echo");
+                }
+                result = thriftPage(new PrestoThriftPage(ImmutableList.of(thriftPage.getThriftBlocks().get(0)), inputs.getThriftPage().getPositionCount()));
                 break;
             case PRESTO_SERIALIZED:
                 PagesSerde pagesSerde = new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), Optional.empty());

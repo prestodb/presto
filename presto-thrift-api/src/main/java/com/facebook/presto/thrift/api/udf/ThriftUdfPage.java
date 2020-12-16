@@ -17,11 +17,9 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.page.SerializedPage;
-import com.facebook.presto.thrift.api.datatypes.PrestoThriftBlock;
 
 import javax.annotation.Nullable;
 
-import java.util.List;
 import java.util.Objects;
 
 import static com.facebook.drift.annotations.ThriftField.Requiredness.OPTIONAL;
@@ -32,17 +30,17 @@ import static com.facebook.presto.thrift.api.udf.ThriftUdfPageFormat.PRESTO_THRI
 public class ThriftUdfPage
 {
     private final ThriftUdfPageFormat pageFormat;
-    private final List<PrestoThriftBlock> thriftBlocks;
+    private final PrestoThriftPage thriftPage;
     private final ThriftSerializedPage prestoPage;
 
     @ThriftConstructor
     public ThriftUdfPage(
             ThriftUdfPageFormat pageFormat,
-            @Nullable List<PrestoThriftBlock> thriftBlocks,
+            @Nullable PrestoThriftPage thriftPage,
             @Nullable ThriftSerializedPage prestoPage)
     {
         this.pageFormat = pageFormat;
-        this.thriftBlocks = thriftBlocks;
+        this.thriftPage = thriftPage;
         this.prestoPage = prestoPage;
     }
 
@@ -54,9 +52,9 @@ public class ThriftUdfPage
 
     @Nullable
     @ThriftField(value = 2, requiredness = OPTIONAL)
-    public List<PrestoThriftBlock> getThriftBlocks()
+    public PrestoThriftPage getThriftPage()
     {
-        return thriftBlocks;
+        return thriftPage;
     }
 
     @Nullable
@@ -77,19 +75,19 @@ public class ThriftUdfPage
         }
         ThriftUdfPage other = (ThriftUdfPage) obj;
         return Objects.equals(this.pageFormat, other.pageFormat) &&
-                Objects.equals(this.thriftBlocks, other.thriftBlocks) &&
+                Objects.equals(this.thriftPage, other.thriftPage) &&
                 Objects.equals(this.prestoPage, other.prestoPage);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(pageFormat, thriftBlocks, prestoPage);
+        return Objects.hash(pageFormat, thriftPage, prestoPage);
     }
 
-    public static ThriftUdfPage thriftPage(List<PrestoThriftBlock> thriftBlocks)
+    public static ThriftUdfPage thriftPage(PrestoThriftPage thriftPage)
     {
-        return new ThriftUdfPage(PRESTO_THRIFT, thriftBlocks, null);
+        return new ThriftUdfPage(PRESTO_THRIFT, thriftPage, null);
     }
 
     public static ThriftUdfPage prestoPage(SerializedPage prestoPage)
