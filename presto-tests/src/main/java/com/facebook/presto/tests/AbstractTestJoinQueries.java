@@ -35,7 +35,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
-public class AbstractTestJoinQueries
+public abstract class AbstractTestJoinQueries
         extends AbstractTestQueryFramework
 {
     protected AbstractTestJoinQueries(QueryRunnerSupplier supplier)

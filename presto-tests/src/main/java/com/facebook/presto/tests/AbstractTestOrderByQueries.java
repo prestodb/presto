@@ -25,7 +25,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryTemplate.parameter;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
 
-public class AbstractTestOrderByQueries
+public abstract class AbstractTestOrderByQueries
         extends AbstractTestQueryFramework
 {
     public AbstractTestOrderByQueries(QueryRunnerSupplier supplier)
