@@ -33,6 +33,7 @@ import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.orc.stream.SharedBuffer;
 import com.facebook.presto.orc.stream.ValueInputStream;
 import com.facebook.presto.orc.stream.ValueInputStreamSource;
 import com.facebook.presto.orc.stream.ValueStreams;
@@ -59,6 +60,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 
+import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getDictionaryStreamCheckpoint;
 import static com.facebook.presto.orc.checkpoint.Checkpoints.getStreamCheckpoints;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
@@ -137,7 +139,11 @@ public class StripeReader
         return invertedMapBuilder.build();
     }
 
-    public Stripe readStripe(StripeInformation stripe, OrcAggregatedMemoryContext systemMemoryUsage, Optional<DwrfEncryptionInfo> decryptors)
+    public Stripe readStripe(
+            StripeInformation stripe,
+            OrcAggregatedMemoryContext systemMemoryUsage,
+            Optional<DwrfEncryptionInfo> decryptors,
+            SharedBuffer sharedDecompressionBuffer)
             throws IOException
     {
         StripeId stripeId = new StripeId(orcDataSource.getId(), stripe.getOffset());
@@ -175,7 +181,7 @@ public class StripeReader
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(includedStreams.keySet()));
 
             // read the file regions
-            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors);
+            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors, sharedDecompressionBuffer);
 
             // read the bloom filter for each column
             Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(includedStreams, streamsData);
@@ -236,7 +242,7 @@ public class StripeReader
         ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.build();
 
         // read the file regions
-        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors);
+        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors, sharedDecompressionBuffer);
 
         long minAverageRowBytes = 0;
         for (Entry<StreamId, Stream> entry : includedStreams.entrySet()) {
@@ -279,6 +285,8 @@ public class StripeReader
     {
         OrcInputStream orcInputStream = new OrcInputStream(
                 orcDataSource.getId(),
+                // Memory is not accounted as the buffer is expected to be tiny and will be immediately discarded
+                new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
                 encryptedGroup.getInput(),
                 decompressor,
                 Optional.of(decryptor),
@@ -318,7 +326,12 @@ public class StripeReader
         return hasRowGroupDictionary;
     }
 
-    private Map<StreamId, OrcInputStream> readDiskRanges(StripeId stripeId, Map<StreamId, DiskRange> diskRanges, OrcAggregatedMemoryContext systemMemoryUsage, Optional<DwrfEncryptionInfo> decryptors)
+    private Map<StreamId, OrcInputStream> readDiskRanges(
+            StripeId stripeId,
+            Map<StreamId, DiskRange> diskRanges,
+            OrcAggregatedMemoryContext systemMemoryUsage,
+            Optional<DwrfEncryptionInfo> decryptors,
+            SharedBuffer sharedDecompressionBuffer)
             throws IOException
     {
         //
@@ -333,7 +346,14 @@ public class StripeReader
         for (Entry<StreamId, OrcDataSourceInput> entry : streamsData.entrySet()) {
             OrcDataSourceInput sourceInput = entry.getValue();
             Optional<DwrfDataEncryptor> dwrfDecryptor = createDwrfDecryptor(entry.getKey(), decryptors);
-            streamsBuilder.put(entry.getKey(), new OrcInputStream(orcDataSource.getId(), sourceInput.getInput(), decompressor, dwrfDecryptor, systemMemoryUsage, sourceInput.getRetainedSizeInBytes()));
+            streamsBuilder.put(entry.getKey(), new OrcInputStream(
+                    orcDataSource.getId(),
+                    sharedDecompressionBuffer,
+                    sourceInput.getInput(),
+                    decompressor,
+                    dwrfDecryptor,
+                    systemMemoryUsage,
+                    sourceInput.getRetainedSizeInBytes()));
         }
         return streamsBuilder.build();
     }
@@ -456,7 +476,15 @@ public class StripeReader
 
         // read the footer
         Slice footerSlice = stripeMetadataSource.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, cacheable);
-        try (InputStream inputStream = new OrcInputStream(orcDataSource.getId(), footerSlice.getInput(), decompressor, Optional.empty(), systemMemoryUsage, footerLength)) {
+        try (InputStream inputStream = new OrcInputStream(
+                orcDataSource.getId(),
+                // Memory is not accounted as the buffer is expected to be tiny and will be immediately discarded
+                new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
+                footerSlice.getInput(),
+                decompressor,
+                Optional.empty(),
+                systemMemoryUsage,
+                footerLength)) {
             return metadataReader.readStripeFooter(types, inputStream);
         }
     }
