@@ -26,7 +26,7 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.tests.StructuralTestUtil.mapType;
 
-public class AbstractTestWindowQueries
+public abstract class AbstractTestWindowQueries
         extends AbstractTestQueryFramework
 {
     public AbstractTestWindowQueries(QueryRunnerSupplier supplier)
