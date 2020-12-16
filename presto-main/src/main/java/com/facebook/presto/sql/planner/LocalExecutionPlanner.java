@@ -1709,7 +1709,7 @@ public class LocalExecutionPlanner
                     false,
                     UNGROUPED_EXECUTION,
                     UNGROUPED_EXECUTION,
-                    lifespan -> indexLookupSourceFactory,
+                    () -> indexLookupSourceFactory,
                     indexLookupSourceFactory.getOutputTypes());
 
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
@@ -1957,7 +1957,7 @@ public class LocalExecutionPlanner
                     false,
                     probeSource.getPipelineExecutionStrategy(),
                     buildSource.getPipelineExecutionStrategy(),
-                    lifespan -> new NestedLoopJoinPagesSupplier(),
+                    () -> new NestedLoopJoinPagesSupplier(),
                     buildSource.getTypes());
             NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -2203,7 +2203,7 @@ public class LocalExecutionPlanner
                     buildOuter,
                     probeSource.getPipelineExecutionStrategy(),
                     buildSource.getPipelineExecutionStrategy(),
-                    lifespan -> new PartitionedLookupSourceFactory(
+                    () -> new PartitionedLookupSourceFactory(
                             buildSource.getTypes(),
                             buildOutputTypes,
                             buildChannels.stream()
