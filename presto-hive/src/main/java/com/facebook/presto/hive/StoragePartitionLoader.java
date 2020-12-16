@@ -50,6 +50,7 @@ import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -62,6 +63,7 @@ import static com.facebook.presto.hive.HiveBucketing.getVirtualBucketNumber;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_FILE_NAMES;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
@@ -346,8 +348,23 @@ public class StoragePartitionLoader
                             partitionName));
         }
 
-        // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
-        fileInfos.sort(null);
+        if (fileInfos.get(0).getPath().getName().matches("\\d+")) {
+            try {
+                // File names are integer if they are created when file_renaming_enabled is set to true
+                fileInfos.sort(Comparator.comparingInt(fileInfo -> Integer.parseInt(fileInfo.getPath().getName())));
+            }
+            catch (NumberFormatException e) {
+                throw new PrestoException(
+                        HIVE_INVALID_FILE_NAMES,
+                        format("Hive table '%s' is corrupt. Some of the filenames in the partition: %s are not integers",
+                                new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                                partitionName));
+            }
+        }
+        else {
+            // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
+            fileInfos.sort(null);
+        }
 
         // convert files internal splits
         List<InternalHiveSplit> splitList = new ArrayList<>();

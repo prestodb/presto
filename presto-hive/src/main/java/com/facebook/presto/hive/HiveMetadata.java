@@ -1684,7 +1684,7 @@ public class HiveMetadata
                     locationHandle.getWritePath(),
                     locationHandle.getTargetPath(),
                     fileNamesForMissingBuckets.stream()
-                            .map(fileName -> new FileWriteInfo(fileName, fileName, Optional.empty()))
+                            .map(fileName -> new FileWriteInfo(fileName, fileName, Optional.of(0L)))
                             .collect(toImmutableList()),
                     0,
                     0,
@@ -1708,7 +1708,7 @@ public class HiveMetadata
                     partitionUpdate.getWritePath(),
                     partitionUpdate.getTargetPath(),
                     fileNamesForMissingBuckets.stream()
-                            .map(fileName -> new FileWriteInfo(fileName, fileName, Optional.empty()))
+                            .map(fileName -> new FileWriteInfo(fileName, fileName, Optional.of(0L)))
                             .collect(toImmutableList()),
                     0,
                     0,
