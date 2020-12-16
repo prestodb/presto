@@ -44,8 +44,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
-import static com.facebook.airlift.concurrent.MoreFutures.checkSuccess;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
+import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.facebook.presto.operator.WorkProcessor.TransformationState.needsMoreData;
 import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -705,7 +705,7 @@ public class WindowOperator
                 return;
             }
 
-            checkSuccess(spillInProgress.get(), "spilling failed");
+            checkSpillSucceeded(spillInProgress.get());
             spillInProgress = Optional.empty();
 
             // No memory to reclaim
@@ -824,8 +824,8 @@ public class WindowOperator
 
     /**
      * @param startPosition - inclusive
-     * @param endPosition - exclusive
-     * @param comparator - returns true if positions given as parameters are equal
+     * @param endPosition   - exclusive
+     * @param comparator    - returns true if positions given as parameters are equal
      * @return the end of the group position exclusive (the position the very next group starts)
      */
     @VisibleForTesting

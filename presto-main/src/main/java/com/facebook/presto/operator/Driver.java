@@ -47,8 +47,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.facebook.presto.util.MoreUninterruptibles.tryLockUninterruptibly;
@@ -539,7 +539,7 @@ public class Driver
     {
         ListenableFuture<?> future = revokingOperators.get(operator);
         if (future.isDone()) {
-            getFutureValue(future); // propagate exception if there was some
+            checkSpillSucceeded(future); // propagate exception if there was some
             revokingOperators.remove(operator);
             operator.finishMemoryRevoke();
             operator.getOperatorContext().resetMemoryRevokingRequested();
