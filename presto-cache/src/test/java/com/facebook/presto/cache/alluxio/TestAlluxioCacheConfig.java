@@ -35,6 +35,7 @@ public class TestAlluxioCacheConfig
         assertRecordedDefaults(recordDefaults(AlluxioCacheConfig.class)
                 .setAsyncWriteEnabled(false)
                 .setConfigValidationEnabled(false)
+                .setEvictionRetries(0)
                 .setJmxClass("alluxio.metrics.sink.JmxSink")
                 .setMaxCacheSize(new DataSize(2, GIGABYTE))
                 .setMetricsCollectionEnabled(true)
@@ -50,6 +51,7 @@ public class TestAlluxioCacheConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("cache.alluxio.async-write-enabled", "true")
                 .put("cache.alluxio.config-validation-enabled", "true")
+                .put("cache.alluxio.eviction-retries", "5")
                 .put("cache.alluxio.jmx-class", "test.TestJmxSink")
                 .put("cache.alluxio.max-cache-size", "42MB")
                 .put("cache.alluxio.metrics-domain", "test.alluxio")
@@ -61,6 +63,7 @@ public class TestAlluxioCacheConfig
 
         AlluxioCacheConfig expected = new AlluxioCacheConfig()
                 .setAsyncWriteEnabled(true)
+                .setEvictionRetries(5)
                 .setMaxCacheSize(new DataSize(42, MEGABYTE))
                 .setMetricsCollectionEnabled(false)
                 .setMetricsDomain("test.alluxio")

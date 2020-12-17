@@ -32,6 +32,7 @@ public class AlluxioCacheConfig
     private boolean timeoutEnabled;
     private Duration timeoutDuration = new Duration(60, SECONDS);
     private int timeoutThreads = 64;
+    private int evictionRetries;
 
     public boolean isMetricsCollectionEnabled()
     {
@@ -147,6 +148,19 @@ public class AlluxioCacheConfig
     public AlluxioCacheConfig setTimeoutEnabled(boolean timeoutEnabled)
     {
         this.timeoutEnabled = timeoutEnabled;
+        return this;
+    }
+
+    public int getEvictionRetries()
+    {
+        return evictionRetries;
+    }
+
+    @Config("cache.alluxio.eviction-retries")
+    @ConfigDescription("The maximum number of eviction retries")
+    public AlluxioCacheConfig setEvictionRetries(int evictionRetries)
+    {
+        this.evictionRetries = evictionRetries;
         return this;
     }
 }
