@@ -124,7 +124,8 @@ public class CreateEmptyPartitionProcedure
                                 ImmutableList.of(),
                                 0,
                                 0,
-                                0)));
+                                0,
+                                writeInfo.getWritePath().getName().matches("\\d+"))));
 
         hiveMetadata.finishInsert(
                 session,

@@ -59,6 +59,7 @@ import static com.facebook.presto.hive.HiveBucketFunction.createPrestoNativeBuck
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
+import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -191,7 +192,7 @@ public class HivePageSink
 
         this.session = requireNonNull(session, "session is null");
         this.hiveMetadataUpdater = requireNonNull(hiveMetadataUpdater, "hiveMetadataUpdater is null");
-        this.fileRenamingEnabled = HiveSessionProperties.isFileRenamingEnabled(session);
+        this.fileRenamingEnabled = isFileRenamingEnabled(session);
     }
 
     @Override
@@ -418,7 +419,8 @@ public class HivePageSink
                 ImmutableList.of(fileInfoWithRenamedFileName),
                 partitionUpdate.getRowCount(),
                 partitionUpdate.getInMemoryDataSizeInBytes(),
-                partitionUpdate.getOnDiskDataSizeInBytes());
+                partitionUpdate.getOnDiskDataSizeInBytes(),
+                true);
         partitionUpdatesWithRenamedFileNames.add(wrappedBuffer(partitionUpdateCodec.toJsonBytes(partitionUpdateWithRenamedFileName)));
 
         hiveMetadataUpdater.removeResultFuture(writerIndex);
