@@ -81,7 +81,7 @@ public class HiveLocationService
         String schemaName = table.getDatabaseName();
         String tableName = table.getTableName();
         HdfsContext context = new HdfsContext(session, schemaName, tableName);
-        Path targetPath = new Path(getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName), randomUUID().toString().replaceAll("-", "_"));
+        Path targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
         return new LocationHandle(
                 targetPath,
                 targetPath,
