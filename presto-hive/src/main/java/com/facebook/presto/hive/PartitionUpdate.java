@@ -41,6 +41,7 @@ public class PartitionUpdate
     private final long rowCount;
     private final long inMemoryDataSizeInBytes;
     private final long onDiskDataSizeInBytes;
+    private final boolean containsNumberedFileNames;
 
     @JsonCreator
     public PartitionUpdate(
@@ -51,7 +52,8 @@ public class PartitionUpdate
             @JsonProperty("fileWriteInfos") List<FileWriteInfo> fileWriteInfos,
             @JsonProperty("rowCount") long rowCount,
             @JsonProperty("inMemoryDataSizeInBytes") long inMemoryDataSizeInBytes,
-            @JsonProperty("onDiskDataSizeInBytes") long onDiskDataSizeInBytes)
+            @JsonProperty("onDiskDataSizeInBytes") long onDiskDataSizeInBytes,
+            @JsonProperty("containsNumberedFileNames") boolean containsNumberedFileNames)
     {
         this(
                 name,
@@ -61,7 +63,8 @@ public class PartitionUpdate
                 fileWriteInfos,
                 rowCount,
                 inMemoryDataSizeInBytes,
-                onDiskDataSizeInBytes);
+                onDiskDataSizeInBytes,
+                containsNumberedFileNames);
     }
 
     public PartitionUpdate(
@@ -72,7 +75,8 @@ public class PartitionUpdate
             List<FileWriteInfo> fileWriteInfos,
             long rowCount,
             long inMemoryDataSizeInBytes,
-            long onDiskDataSizeInBytes)
+            long onDiskDataSizeInBytes,
+            boolean containsNumberedFileNames)
     {
         this.name = requireNonNull(name, "name is null");
         this.updateMode = requireNonNull(updateMode, "updateMode is null");
@@ -85,6 +89,7 @@ public class PartitionUpdate
         this.inMemoryDataSizeInBytes = inMemoryDataSizeInBytes;
         checkArgument(onDiskDataSizeInBytes >= 0, "onDiskDataSizeInBytes is negative: %d", onDiskDataSizeInBytes);
         this.onDiskDataSizeInBytes = onDiskDataSizeInBytes;
+        this.containsNumberedFileNames = containsNumberedFileNames;
     }
 
     @JsonProperty
@@ -145,6 +150,12 @@ public class PartitionUpdate
         return onDiskDataSizeInBytes;
     }
 
+    @JsonProperty
+    public boolean containsNumberedFileNames()
+    {
+        return containsNumberedFileNames;
+    }
+
     @Override
     public String toString()
     {
@@ -157,6 +168,7 @@ public class PartitionUpdate
                 .add("rowCount", rowCount)
                 .add("inMemoryDataSizeInBytes", inMemoryDataSizeInBytes)
                 .add("onDiskDataSizeInBytes", onDiskDataSizeInBytes)
+                .add("containsNumberedFileNames", containsNumberedFileNames)
                 .toString();
     }
 
@@ -175,6 +187,7 @@ public class PartitionUpdate
             long totalRowCount = 0;
             long totalInMemoryDataSizeInBytes = 0;
             long totalOnDiskDataSizeInBytes = 0;
+            boolean containsNumberedFileNames = true;
             for (PartitionUpdate partition : partitionGroup) {
                 // verify partitions have the same new flag, write path and target path
                 // this shouldn't happen but could if another user added a partition during the write
@@ -187,6 +200,7 @@ public class PartitionUpdate
                 totalRowCount += partition.getRowCount();
                 totalInMemoryDataSizeInBytes += partition.getInMemoryDataSizeInBytes();
                 totalOnDiskDataSizeInBytes += partition.getOnDiskDataSizeInBytes();
+                containsNumberedFileNames &= partition.containsNumberedFileNames();
             }
 
             partitionUpdates.add(new PartitionUpdate(firstPartition.getName(),
@@ -196,7 +210,8 @@ public class PartitionUpdate
                     allFileWriterInfos.build(),
                     totalRowCount,
                     totalInMemoryDataSizeInBytes,
-                    totalOnDiskDataSizeInBytes));
+                    totalOnDiskDataSizeInBytes,
+                    containsNumberedFileNames));
         }
         return partitionUpdates.build();
     }

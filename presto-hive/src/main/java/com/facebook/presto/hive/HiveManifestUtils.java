@@ -112,17 +112,37 @@ public class HiveManifestUtils
         ImmutableMap.Builder<String, String> partitionMetadata = ImmutableMap.builder();
         List<FileWriteInfo> fileWriteInfos = new ArrayList<>(partitionUpdate.getFileWriteInfos());
 
+        if (!partitionUpdate.containsNumberedFileNames()) {
+            // Filenames starting with ".tmp.presto" will be renamed in TableFinishOperator. So it doesn't make sense to store the filenames in manifest
+            return metadata;
+        }
+
         // Sort the file infos based on fileName
         fileWriteInfos.sort(Comparator.comparing(info -> Integer.valueOf(info.getWriteFileName())));
 
+        List<String> fileNames = fileWriteInfos.stream().map(FileWriteInfo::getWriteFileName).collect(toImmutableList());
+        List<Long> fileSizes = fileWriteInfos.stream().map(FileWriteInfo::getFileSize).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
+
+        if (fileSizes.size() < fileNames.size()) {
+            if (fileSizes.isEmpty()) {
+                // These files may not have been written by OrcFileWriter. So file sizes not available.
+                return metadata;
+            }
+            throw new PrestoException(
+                    MALFORMED_HIVE_FILE_STATISTICS,
+                    format(
+                            "During manifest creation for partition= %s, filename count= %s is not equal to filesizes count= %s",
+                            partitionUpdate.getName(),
+                            fileNames.size(),
+                            fileSizes.size()));
+        }
+
         // Compress the file names into a consolidated string
-        String fileNames = compressFileNames(fileWriteInfos.stream().map(FileWriteInfo::getWriteFileName).collect(toImmutableList()));
+        partitionMetadata.put(FILE_NAMES, compressFileNames(fileNames));
 
         // Compress the file sizes
-        String fileSizes = compressFileSizes(fileWriteInfos.stream().map(FileWriteInfo::getFileSize).map(Optional::get).collect(toImmutableList()));
+        partitionMetadata.put(FILE_SIZES, compressFileSizes(fileSizes));
 
-        partitionMetadata.put(FILE_NAMES, fileNames);
-        partitionMetadata.put(FILE_SIZES, fileSizes);
         partitionMetadata.put(MANIFEST_VERSION, VERSION_1);
         partitionMetadata.putAll(metadata);
 
