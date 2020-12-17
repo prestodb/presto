@@ -201,6 +201,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isCollectColumnStat
 import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
+import static com.facebook.presto.hive.HiveSessionProperties.isPreferManifestsToListFiles;
 import static com.facebook.presto.hive.HiveSessionProperties.isRespectTableFormat;
 import static com.facebook.presto.hive.HiveSessionProperties.isShufflePartitionedColumnsForTableWriteEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTempPathEnabled;
@@ -1625,7 +1626,8 @@ public class HiveMetadata
         }
         for (PartitionUpdate update : partitionUpdates) {
             Map<String, String> partitionParameters = partitionEncryptionParameters;
-            if (isFileRenamingEnabled(session)) {
+            if (isPreferManifestsToListFiles(session) && isFileRenamingEnabled(session)) {
+                // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files and file_renaming_enabled are set to true
                 partitionParameters = updatePartitionMetadataWithFileNamesAndSizes(update, partitionParameters);
             }
             Partition partition = partitionObjectBuilder.buildPartitionObject(session, table, update, prestoVersion, partitionParameters);
@@ -1935,8 +1937,8 @@ public class HiveMetadata
                         .map(encryptionInfo -> encryptionInfo.getDwrfEncryptionMetadata().map(DwrfEncryptionMetadata::getExtraMetadata).orElseGet(ImmutableMap::of))
                         .orElseGet(ImmutableMap::of);
 
-                if (HiveSessionProperties.isPreferManifestsToListFiles(session)) {
-                    // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files property is set
+                if (isPreferManifestsToListFiles(session) && isFileRenamingEnabled(session)) {
+                    // Store list of file names and sizes in partition metadata when prefer_manifests_to_list_files and file_renaming_enabled are set to true
                     extraPartitionMetadata = updatePartitionMetadataWithFileNamesAndSizes(partitionUpdate, extraPartitionMetadata);
                 }
 
