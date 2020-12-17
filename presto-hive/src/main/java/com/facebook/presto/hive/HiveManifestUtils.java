@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.github.luben.zstd.Zstd;
 import com.google.common.base.Joiner;
@@ -31,11 +32,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.stream.LongStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveErrorCode.MALFORMED_HIVE_FILE_STATISTICS;
+import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -147,6 +150,20 @@ public class HiveManifestUtils
         partitionMetadata.putAll(metadata);
 
         return partitionMetadata.build();
+    }
+
+    public static OptionalLong getManifestSizeInBytes(ConnectorSession session, PartitionUpdate partitionUpdate, Map<String, String> parameters)
+    {
+        if (isFileRenamingEnabled(session) && partitionUpdate.containsNumberedFileNames()) {
+            if (parameters.containsKey(MANIFEST_VERSION)) {
+                return OptionalLong.of(parameters.get(FILE_NAMES).length() + parameters.get(FILE_SIZES).length());
+            }
+            List<FileWriteInfo> fileWriteInfos = partitionUpdate.getFileWriteInfos();
+            return OptionalLong.of(compressFileNames(fileWriteInfos.stream().map(FileWriteInfo::getWriteFileName).collect(toImmutableList())).length()
+                    + compressFileSizes(fileWriteInfos.stream().map(FileWriteInfo::getFileSize).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList())).length());
+        }
+
+        return OptionalLong.empty();
     }
 
     static String compressFileNames(List<String> fileNames)

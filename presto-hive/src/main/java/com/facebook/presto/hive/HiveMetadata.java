@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
@@ -182,7 +181,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_TIMEZONE_MISMATCH;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_ENCRYPTION_OPERATION;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static com.facebook.presto.hive.HiveManifestUtils.createPartitionManifest;
+import static com.facebook.presto.hive.HiveManifestUtils.getManifestSizeInBytes;
 import static com.facebook.presto.hive.HiveManifestUtils.updatePartitionMetadataWithFileNamesAndSizes;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatiblePartitioningHandle;
@@ -1941,10 +1940,8 @@ public class HiveMetadata
                     extraPartitionMetadata = updatePartitionMetadataWithFileNamesAndSizes(partitionUpdate, extraPartitionMetadata);
                 }
 
-                // TODO: Put the manifest blob in partition parameters
                 // Track the manifest blob size
-                Optional<Page> manifestBlob = createPartitionManifest(partitionUpdate);
-                manifestBlob.ifPresent(manifest -> hivePartitionStats.addManifestSizeInBytes(manifest.getRetainedSizeInBytes()));
+                getManifestSizeInBytes(session, partitionUpdate, extraPartitionMetadata).ifPresent(hivePartitionStats::addManifestSizeInBytes);
 
                 // insert into new partition or overwrite existing partition
                 Partition partition = partitionObjectBuilder.buildPartitionObject(
