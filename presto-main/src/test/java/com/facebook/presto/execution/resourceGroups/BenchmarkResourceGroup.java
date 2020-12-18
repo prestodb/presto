@@ -73,7 +73,7 @@ public class BenchmarkResourceGroup
         @Setup
         public void setup()
         {
-            root = new RootInternalResourceGroup("root", (group, export) -> {}, executor, new ConcurrentHashMap<>(), new AtomicLong(0));
+            root = new RootInternalResourceGroup("root", (group, export) -> {}, executor, new ConcurrentHashMap<>(), new AtomicLong(0), 100);
             root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
             root.setMaxQueuedQueries(queries);
             root.setHardConcurrencyLimit(queries);

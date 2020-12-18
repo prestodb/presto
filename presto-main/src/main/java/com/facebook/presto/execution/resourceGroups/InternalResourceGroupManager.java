@@ -33,6 +33,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.units.Duration;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
@@ -68,7 +69,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -80,7 +81,7 @@ public final class InternalResourceGroupManager<C>
     private static final File RESOURCE_GROUPS_CONFIGURATION = new File("etc/resource-groups.properties");
     private static final String CONFIGURATION_MANAGER_PROPERTY_NAME = "resource-groups.configuration-manager";
 
-    private final ScheduledExecutorService refreshExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("ResourceGroupManager"));
+    private final ScheduledExecutorService refreshExecutor = newScheduledThreadPool(2, daemonThreadsNamed("ResourceGroupManager"));
     private final List<RootInternalResourceGroup> rootGroups = new CopyOnWriteArrayList<>();
     private final ConcurrentMap<ResourceGroupId, InternalResourceGroup> groups = new ConcurrentHashMap<>();
     private final AtomicReference<ResourceGroupConfigurationManager<C>> configurationManager;
@@ -95,8 +96,9 @@ public final class InternalResourceGroupManager<C>
     private final AtomicLong lastSchedulingCycleRunTimeMs = new AtomicLong(currentTimeMillis());
     private final HeartbeatSender heartbeatSender;
     private final ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = new ConcurrentHashMap<>();
-    private final AtomicLong lastUpdatedResourceGroupRuntimeInfo = new AtomicLong(0l);
+    private AtomicLong lastUpdatedResourceGroupRuntimeInfo = new AtomicLong(0L);
     private final int concurrencyThresholdPercentage;
+    private final Duration resourceGroupRuntimeInfoRefreshInterval;
 
     @Inject
     public InternalResourceGroupManager(
@@ -116,6 +118,7 @@ public final class InternalResourceGroupManager<C>
         this.maxTotalRunningTaskCountToNotExecuteNewQuery = queryManagerConfig.getMaxTotalRunningTaskCountToNotExecuteNewQuery();
         this.heartbeatSender = requireNonNull(heartbeatSender, "heartbeatSender is null");
         this.concurrencyThresholdPercentage = queryManagerConfig.getConcurrencyThresholdToEnableResourceGroupRefresh();
+        this.resourceGroupRuntimeInfoRefreshInterval = queryManagerConfig.getResourceGroupRunTimeInfoRegreshInterval();
     }
 
     @Override
@@ -215,10 +218,10 @@ public final class InternalResourceGroupManager<C>
                     log.error(t, "Error while executing refreshAndStartQueries");
                     throw t;
                 }
-            }, 1, 1, MILLISECONDS);
+            }, 0, 1, MILLISECONDS);
             refreshExecutor.scheduleWithFixedDelay(() -> {
                 refreshResourceGroupRuntimeInfo();
-            }, 0, 100, MILLISECONDS);
+            }, 100, resourceGroupRuntimeInfoRefreshInterval.toMillis(), MILLISECONDS);
         }
     }
 

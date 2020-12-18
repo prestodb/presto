@@ -69,9 +69,9 @@ import static com.google.common.math.LongMath.saturatedSubtract;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.lang.System.currentTimeMillis;
 
 /**
  * Resource groups form a tree, and all access to a group is guarded by the root of the tree.
@@ -145,7 +145,7 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private final CounterStat timeBetweenStartsSec = new CounterStat();
     @GuardedBy("root")
-    private AtomicLong lastUpdatedResourceGroupRuntimeInfo;
+    private final AtomicLong lastUpdatedResourceGroupRuntimeInfo;
     @GuardedBy("root")
     private AtomicLong lastRunningQueryStartTime = new AtomicLong(0);
     @GuardedBy("root")
@@ -661,7 +661,8 @@ public class InternalResourceGroup
                 query.fail(new QueryQueueFullException(id));
                 return;
             }
-            if (canRun) {
+            boolean waitingForResourceGroupUpdate = waitingForResourceGroupRunTimeInfoUpdate();
+            if (canRun && !waitingForResourceGroupUpdate) {
                 startInBackground(query);
             }
             else {
@@ -826,16 +827,19 @@ public class InternalResourceGroup
             if (subGroup == null) {
                 return false;
             }
-            boolean started = subGroup.internalStartNext();
-            checkState(started, "Eligible sub group had no queries to run");
 
-            long currentTime = System.currentTimeMillis();
-            if (lastStartMillis != 0) {
-                timeBetweenStartsSec.update(Math.max(0, (currentTime - lastStartMillis) / 1000));
+            if (!subGroup.waitingForResourceGroupRunTimeInfoUpdate()) {
+                boolean started = subGroup.internalStartNext();
+                checkState(started, "Eligible sub group had no queries to run");
+
+                long currentTime = System.currentTimeMillis();
+                if (lastStartMillis != 0) {
+                    timeBetweenStartsSec.update(Math.max(0, (currentTime - lastStartMillis) / 1000));
+                }
+                lastStartMillis = currentTime;
+
+                descendantQueuedQueries--;
             }
-            lastStartMillis = currentTime;
-
-            descendantQueuedQueries--;
             // Don't call updateEligibility here, as we're in a recursive call, and don't want to repeatedly update our ancestors.
             if (subGroup.isEligibleToStartNext()) {
                 addOrUpdateSubGroup(subGroup);
@@ -933,6 +937,23 @@ public class InternalResourceGroup
                 return false;
             }
 
+            int hardConcurrencyLimit = getHardConcurrencyLimitBasedOnCpuUsage();
+
+            int totalRunningQueries = runningQueries.size() + descendantRunningQueries;
+
+            ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfos.get(getId());
+            if (resourceGroupRuntimeInfo != null) {
+                totalRunningQueries += resourceGroupRuntimeInfo.getRunningQueries();
+            }
+
+            return totalRunningQueries < hardConcurrencyLimit && cachedMemoryUsageBytes <= softMemoryLimitBytes;
+        }
+    }
+
+    private int getHardConcurrencyLimitBasedOnCpuUsage()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock");
+        synchronized (root) {
             int hardConcurrencyLimit = this.hardConcurrencyLimit;
             if (cpuUsageMillis >= softCpuLimitMillis) {
                 // TODO: Consider whether cpu limit math should be performed on softConcurrency or hardConcurrency
@@ -945,6 +966,16 @@ public class InternalResourceGroup
                 hardConcurrencyLimit = Math.max(1, hardConcurrencyLimit);
             }
 
+            return hardConcurrencyLimit;
+        }
+    }
+
+    protected boolean waitingForResourceGroupRunTimeInfoUpdate()
+    {
+        checkState(Thread.holdsLock(root), "Must hold lock");
+        synchronized (root) {
+            int hardConcurrencyLimit = getHardConcurrencyLimitBasedOnCpuUsage();
+
             int totalRunningQueries = runningQueries.size() + descendantRunningQueries;
 
             ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfos.get(getId());
@@ -953,11 +984,8 @@ public class InternalResourceGroup
             }
 
             //If lastRunnintStartTime earlier than the last resource group refresh time, won't let the resource group start new query
-            if (totalRunningQueries > (hardConcurrencyLimit * concurrencyThresholdPercentage / 100) && lastUpdatedResourceGroupRuntimeInfo.get() < lastRunningQueryStartTime.get()) {
-                return false;
-            }
-
-            return totalRunningQueries < hardConcurrencyLimit && cachedMemoryUsageBytes <= softMemoryLimitBytes;
+            return totalRunningQueries >= (hardConcurrencyLimit * concurrencyThresholdPercentage / 100) &&
+                    lastUpdatedResourceGroupRuntimeInfo.get() < lastRunningQueryStartTime.get();
         }
     }
 
