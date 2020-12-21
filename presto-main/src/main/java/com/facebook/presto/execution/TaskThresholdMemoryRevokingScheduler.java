@@ -16,10 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.MemoryPool;
-import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.TaskRevocableMemoryListener;
 import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -31,6 +31,7 @@ import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -167,7 +168,7 @@ public class TaskThresholdMemoryRevokingScheduler
 
     private boolean memoryRevokingNeeded(SqlTask task)
     {
-        return task.getTaskInfo().getStats().getRevocableMemoryReservationInBytes() >= maxRevocableMemoryPerTask;
+        return task.getTaskContext().filter(taskContext -> taskContext.getTaskMemoryContext().getRevocableMemory() >= maxRevocableMemoryPerTask).isPresent();
     }
 
     private synchronized void revokeHighMemoryTasks()
@@ -175,25 +176,18 @@ public class TaskThresholdMemoryRevokingScheduler
         if (checkPending.getAndSet(false)) {
             Collection<SqlTask> sqlTasks = requireNonNull(allTasksSupplier.get());
             for (SqlTask task : sqlTasks) {
-                if (!memoryRevokingNeeded(task)) {
+                Optional<TaskContext> taskContext = task.getTaskContext();
+                if (!taskContext.isPresent()) {
+                    continue;
+                }
+                long currentTaskRevocableMemory = taskContext.get().getTaskMemoryContext().getRevocableMemory();
+                if (currentTaskRevocableMemory < maxRevocableMemoryPerTask) {
                     continue;
                 }
 
-                long currentTaskRevocableMemory = task.getTaskInfo().getStats().getRevocableMemoryReservationInBytes();
-
                 AtomicLong remainingBytesToRevokeAtomic = new AtomicLong(currentTaskRevocableMemory - maxRevocableMemoryPerTask);
-                task.getQueryContext().accept(new VoidTraversingQueryContextVisitor<AtomicLong>()
+                taskContext.get().accept(new VoidTraversingQueryContextVisitor<AtomicLong>()
                 {
-                    @Override
-                    public Void visitQueryContext(QueryContext queryContext, AtomicLong remainingBytesToRevoke)
-                    {
-                        if (remainingBytesToRevoke.get() < 0) {
-                            // exit immediately if no work needs to be done
-                            return null;
-                        }
-                        return super.visitQueryContext(queryContext, remainingBytesToRevoke);
-                    }
-
                     @Override
                     public Void visitOperatorContext(OperatorContext operatorContext, AtomicLong remainingBytesToRevoke)
                     {
