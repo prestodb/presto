@@ -719,31 +719,30 @@ public class SliceDirectSelectiveStreamReader
 
     private boolean useBatchMode(int positionCount, int totalPositionCount)
     {
-        return true;
         // maxCodePointCount < 0 means it's unbounded varchar VARCHAR.
         // If the types are VARCHAR(N) or CHAR(N), the length of the string need to be calculated and truncated.
-//        if (lengthStream == null || maxCodePointCount >= 0) {
-//            return false;
-//        }
-//
-//        double inputFilterRate = (double) (totalPositionCount - positionCount) / totalPositionCount;
-//        if (filter == null) {  // readNoFilter
-//            // When there is no filter, batch mode performs better for almost all inputFilterRate.
-//            // But to limit data buffer size, we enable it for the range of [0.0f, 0.5f]
-//            if (inputFilterRate >= 0.0f && inputFilterRate <= 0.5f) {
-//                return true;
-//            }
-//
-//            return false;
-//        }
-//        else { // readWithFilter
-//            // When there is filter, batch mode performs better for almost all inputFilterRate except when inputFilterRate is around 0.1f.
-//            // To limit data buffer size, we enable it for the range of [0.0f, 0.05f] and [0.15f, 0.5f]
-//            if (inputFilterRate >= 0.0f && inputFilterRate <= 0.05f || inputFilterRate >= 0.15f && inputFilterRate <= 0.5f) {
-//                return true;
-//            }
-//
-//            return false;
-//        }
+        if (lengthStream == null || maxCodePointCount >= 0) {
+            return false;
+        }
+
+        double inputFilterRate = (double) (totalPositionCount - positionCount) / totalPositionCount;
+        if (filter == null) {  // readNoFilter
+            // When there is no filter, batch mode performs better for almost all inputFilterRate.
+            // But to limit data buffer size, we enable it for the range of [0.0f, 0.5f]
+            if (inputFilterRate >= 0.0f && inputFilterRate <= 0.5f) {
+                return true;
+            }
+
+            return false;
+        }
+        else { // readWithFilter
+            // When there is filter, batch mode performs better for almost all inputFilterRate except when inputFilterRate is around 0.1f.
+            // To limit data buffer size, we enable it for the range of [0.0f, 0.05f] and [0.15f, 0.5f]
+            if (inputFilterRate >= 0.0f && inputFilterRate <= 0.05f || inputFilterRate >= 0.15f && inputFilterRate <= 0.5f) {
+                return true;
+            }
+
+            return false;
+        }
     }
 }
