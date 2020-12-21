@@ -32,6 +32,7 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.facebook.presto.orc.stream.RowGroupDictionaryLengthInputStream;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -681,6 +682,12 @@ public class SliceDictionarySelectiveReader
                 sizeOf(evaluationStatus) +
                 sizeOf(valueWithPadding) +
                 dictionary.getRetainedSizeInBytes();
+    }
+
+    @VisibleForTesting
+    public void resetDataStream()
+    {
+        dataStream = null;
     }
 
     private void initiateEvaluationStatus(int positionCount)
