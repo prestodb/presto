@@ -201,7 +201,7 @@ public class TaskThresholdMemoryRevokingScheduler
                             long revokedBytes = operatorContext.requestMemoryRevoking();
                             if (revokedBytes > 0) {
                                 remainingBytesToRevoke.addAndGet(-revokedBytes);
-                                log.debug("taskId=%s: requested revoking %s; remaining %s", task.getTaskInfo().getTaskId(), revokedBytes, remainingBytesToRevoke.get());
+                                log.debug("taskId=%s: requested revoking %s; remaining %s", task.getTaskId(), revokedBytes, remainingBytesToRevoke.get());
                             }
                         }
                         return null;
