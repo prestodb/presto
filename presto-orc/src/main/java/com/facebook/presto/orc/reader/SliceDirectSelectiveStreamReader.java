@@ -30,6 +30,7 @@ import com.facebook.presto.orc.stream.ByteArrayInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -39,6 +40,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.orc.array.Arrays.ExpansionOption.INITIALIZE;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -626,6 +629,12 @@ public class SliceDirectSelectiveStreamReader
         return INSTANCE_SIZE + sizeOf(offsets) + sizeOf(outputPositions) + sizeOf(data) + sizeOf(nulls) + sizeOf(lengthVector) + sizeOf(isNullVector);
     }
 
+    @VisibleForTesting
+    public void resetDataStream()
+    {
+        dataStream = null;
+    }
+
     private int prepareForNextRead(int positionCount, int[] positions)
             throws IOException
     {
@@ -688,13 +697,13 @@ public class SliceDirectSelectiveStreamReader
             }
             dataLength = totalLength;
             data = ensureCapacity(data, totalLength);
-            offsets = ensureCapacity(offsets, totalPositions + 1);
+            offsets = ensureCapacity(offsets, totalPositions + 1, SMALL, INITIALIZE);
         }
         else {
             if (useBatchMode(positionCount, totalPositions)) {
                 dataLength = totalLength;
                 if (filter != null) {
-                    offsets = ensureCapacity(offsets, totalPositions + 1);
+                    offsets = ensureCapacity(offsets, totalPositions + 1, SMALL, INITIALIZE);
                 }
             }
             else {

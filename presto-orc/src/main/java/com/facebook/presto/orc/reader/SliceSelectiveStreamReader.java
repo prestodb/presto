@@ -23,6 +23,7 @@ import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.TupleDomainFilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.stream.InputStreamSources;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
@@ -150,5 +151,12 @@ public class SliceSelectiveStreamReader
             return Varchars.byteCount(slice, offset, length, maxCodePointCount);
         }
         return length;
+    }
+
+    @VisibleForTesting
+    public void resetDataStream()
+    {
+        ((SliceDirectSelectiveStreamReader) directReader).resetDataStream();
+        ((SliceDictionarySelectiveReader) dictionaryReader).resetDataStream();
     }
 }
