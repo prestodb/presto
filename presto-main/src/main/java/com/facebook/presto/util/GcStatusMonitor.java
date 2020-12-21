@@ -146,7 +146,7 @@ public class GcStatusMonitor
     private List<SqlTask> getActiveSqlTasks()
     {
         return sqlTaskManager.getAllTasks().stream()
-                .filter(task -> !task.getTaskInfo().getTaskStatus().getState().isDone())
+                .filter(task -> !task.getTaskState().isDone())
                 .collect(toImmutableList());
     }
 

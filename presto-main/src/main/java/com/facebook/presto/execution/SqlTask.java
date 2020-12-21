@@ -221,6 +221,16 @@ public class SqlTask
         lastHeartbeat.set(DateTime.now());
     }
 
+    public TaskState getTaskState()
+    {
+        return taskStateMachine.getState();
+    }
+
+    public DateTime getTaskCreatedTime()
+    {
+        return taskStateMachine.getCreatedTime();
+    }
+
     public TaskInfo getTaskInfo()
     {
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
