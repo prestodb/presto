@@ -86,6 +86,7 @@ public final class HiveSessionProperties
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     public static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
+    public static final String PARTITION_STATISTICS_BASED_OPTIMIZATION_ENABLED = "partition_stats_based_optimization_enabled";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     public static final String SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE = "shuffle_partitioned_columns_for_table_write";
@@ -375,6 +376,11 @@ public final class HiveSessionProperties
                         COLLECT_COLUMN_STATISTICS_ON_WRITE,
                         "Experimental: Enables automatic column level statistics collection on write",
                         hiveClientConfig.isCollectColumnStatisticsOnWrite(),
+                        false),
+                booleanProperty(
+                        PARTITION_STATISTICS_BASED_OPTIMIZATION_ENABLED,
+                        "Enables partition stats based optimization, including partition pruning and predicate stripping",
+                        hiveClientConfig.isPartitionStatisticsBasedOptimizationEnabled(),
                         false),
                 booleanProperty(
                         OPTIMIZE_MISMATCHED_BUCKET_COUNT,
@@ -774,6 +780,11 @@ public final class HiveSessionProperties
     public static boolean isCollectColumnStatisticsOnWrite(ConnectorSession session)
     {
         return session.getProperty(COLLECT_COLUMN_STATISTICS_ON_WRITE, Boolean.class);
+    }
+
+    public static boolean isPartitionStatisticsBasedOptimizationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_STATISTICS_BASED_OPTIMIZATION_ENABLED, Boolean.class);
     }
 
     @Deprecated
