@@ -196,7 +196,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L); // Memory usage after lazy-loading the actual block
+                assertBetweenInclusive(memoryUsage, 610000L, 619999L); // Memory usage after lazy-loading the actual block
             }
             else {
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
@@ -217,7 +217,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 180000L, 189999L); // Memory usage before lazy-loading the block
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L); // Memory usage after lazy-loading the actual block
+                assertBetweenInclusive(memoryUsage, 610000L, 619999L); // Memory usage after lazy-loading the actual block
             }
             else {
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
@@ -238,7 +238,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                 assertBetweenInclusive(pageSource.getSystemMemoryUsage(), 90000L, 99999L); // Memory usage before lazy-loading the block
                 createUnboundedVarcharType().getSlice(block, block.getPositionCount() - 1); // trigger loading for lazy block
                 memoryUsage = pageSource.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 360000L, 369999L); // Memory usage after lazy-loading the actual block
+                assertBetweenInclusive(memoryUsage, 450000L, 459999L); // Memory usage after lazy-loading the actual block
             }
             else {
                 assertEquals(pageSource.getSystemMemoryUsage(), memoryUsage);
@@ -333,7 +333,7 @@ public class TestOrcBatchPageSourceMemoryTracking
             page.getBlock(1);
             if (memoryUsage == -1) {
                 memoryUsage = driverContext.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L);
+                assertBetweenInclusive(memoryUsage, 610000L, 619999L);
             }
             else {
                 assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
@@ -349,7 +349,7 @@ public class TestOrcBatchPageSourceMemoryTracking
             page.getBlock(1);
             if (memoryUsage == -1) {
                 memoryUsage = driverContext.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 460000L, 469999L);
+                assertBetweenInclusive(memoryUsage, 610000L, 619999L);
             }
             else {
                 assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
@@ -365,7 +365,7 @@ public class TestOrcBatchPageSourceMemoryTracking
             page.getBlock(1);
             if (memoryUsage == -1) {
                 memoryUsage = driverContext.getSystemMemoryUsage();
-                assertBetweenInclusive(memoryUsage, 360000L, 369999L);
+                assertBetweenInclusive(memoryUsage, 450000L, 459999L);
             }
             else {
                 assertEquals(driverContext.getSystemMemoryUsage(), memoryUsage);
@@ -395,7 +395,7 @@ public class TestOrcBatchPageSourceMemoryTracking
             assertFalse(operator.isFinished());
             Page page = operator.getOutput();
             assertNotNull(page);
-            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 90_000L, 499_999L);
+            assertBetweenInclusive(driverContext.getSystemMemoryUsage(), 90_000L, 619999L);
             totalRows += page.getPositionCount();
         }
 
