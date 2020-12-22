@@ -158,8 +158,6 @@ public class SqlTaskManager
                 blockEncodingSerde,
                 orderingCompiler,
                 splitMonitor,
-                fragmentResultCacheManager,
-                objectMapper,
                 config);
 
         this.localMemoryManager = requireNonNull(localMemoryManager, "localMemoryManager is null");

@@ -115,7 +115,7 @@ public class HashBuildAndJoinBenchmark
                 SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory(),
                 false);
         driversBuilder.add(hashBuilder);
-        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
+        DriverFactory hashBuildDriverFactory = new DriverFactory(0, true, false, driversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION, Optional.empty());
 
         // join
         ImmutableList.Builder<OperatorFactory> joinDriversBuilder = ImmutableList.builder();
@@ -143,7 +143,7 @@ public class HashBuildAndJoinBenchmark
                 unsupportedPartitioningSpillerFactory());
         joinDriversBuilder.add(joinOperator);
         joinDriversBuilder.add(new NullOutputOperatorFactory(3, new PlanNodeId("test")));
-        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION);
+        DriverFactory joinDriverFactory = new DriverFactory(1, true, true, joinDriversBuilder.build(), OptionalInt.empty(), UNGROUPED_EXECUTION, Optional.empty());
 
         Driver hashBuildDriver = hashBuildDriverFactory.createDriver(taskContext.addPipelineContext(0, true, false, false).addDriverContext());
         hashBuildDriverFactory.noMoreDrivers();

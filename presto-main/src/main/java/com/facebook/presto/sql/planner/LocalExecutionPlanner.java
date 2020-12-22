@@ -27,6 +27,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
+import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskMetadataContext;
@@ -56,6 +57,7 @@ import com.facebook.presto.operator.DynamicFilterSourceOperator;
 import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.GroupIdOperator;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
@@ -199,6 +201,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ContiguousSet;
@@ -254,6 +257,7 @@ import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.execution.FragmentResultCacheContext.createFragmentResultCacheContext;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.sphericalDistance;
@@ -348,6 +352,8 @@ public class LocalExecutionPlanner
     private final OrderingCompiler orderingCompiler;
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final LogicalRowExpressions logicalRowExpressions;
+    private final FragmentResultCacheManager fragmentResultCacheManager;
+    private final ObjectMapper objectMapper;
 
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
@@ -375,7 +381,9 @@ public class LocalExecutionPlanner
             LookupJoinOperators lookupJoinOperators,
             OrderingCompiler orderingCompiler,
             JsonCodec<TableCommitContext> tableCommitContextCodec,
-            DeterminismEvaluator determinismEvaluator)
+            DeterminismEvaluator determinismEvaluator,
+            FragmentResultCacheManager fragmentResultCacheManager,
+            ObjectMapper objectMapper)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -406,6 +414,8 @@ public class LocalExecutionPlanner
                 requireNonNull(determinismEvaluator, "determinismEvaluator is null"),
                 new FunctionResolution(metadata.getFunctionAndTypeManager()),
                 metadata.getFunctionAndTypeManager());
+        this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
     }
 
     public LocalExecutionPlan plan(
@@ -445,7 +455,7 @@ public class LocalExecutionPlanner
                 taskContext,
                 stageExecutionDescriptor,
                 plan,
-                partitioningScheme.getOutputLayout(),
+                partitioningScheme,
                 partitionedSourceOrder,
                 outputFactory,
                 createOutputPartitioning(taskContext, partitioningScheme),
@@ -536,7 +546,7 @@ public class LocalExecutionPlanner
             TaskContext taskContext,
             StageExecutionDescriptor stageExecutionDescriptor,
             PlanNode plan,
-            List<VariableReferenceExpression> outputLayout,
+            PartitioningScheme partitioningScheme,
             List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory,
             Optional<OutputPartitioning> outputPartitioning,
@@ -544,6 +554,7 @@ public class LocalExecutionPlanner
             TableWriteInfo tableWriteInfo,
             boolean pageSinkCommitRequired)
     {
+        List<VariableReferenceExpression> outputLayout = partitioningScheme.getOutputLayout();
         Session session = taskContext.getSession();
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, tableWriteInfo);
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor, remoteSourceFactory, pageSinkCommitRequired), context);
@@ -568,7 +579,8 @@ public class LocalExecutionPlanner
                                 new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))))
                         .build(),
                 context.getDriverInstanceCount(),
-                physicalOperation.getPipelineExecutionStrategy());
+                physicalOperation.getPipelineExecutionStrategy(),
+                createFragmentResultCacheContext(fragmentResultCacheManager, plan, partitioningScheme, session, objectMapper));
 
         addLookupOuterDrivers(context);
 
@@ -607,7 +619,7 @@ public class LocalExecutionPlanner
                             .map(OperatorFactory::duplicate)
                             .forEach(newOperators::add);
 
-                    context.addDriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.get().getBuildExecutionStrategy());
+                    context.addDriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.get().getBuildExecutionStrategy(), Optional.empty());
                 }
             }
         }
@@ -652,7 +664,13 @@ public class LocalExecutionPlanner
             this.tableWriteInfo = tableWriteInfo;
         }
 
-        public void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
+        public void addDriverFactory(
+                boolean inputDriver,
+                boolean outputDriver,
+                List<OperatorFactory> operatorFactories,
+                OptionalInt driverInstances,
+                PipelineExecutionStrategy pipelineExecutionStrategy,
+                Optional<FragmentResultCacheContext> fragmentResultCacheContext)
         {
             if (pipelineExecutionStrategy == GROUPED_EXECUTION) {
                 OperatorFactory firstOperatorFactory = operatorFactories.get(0);
@@ -663,7 +681,7 @@ public class LocalExecutionPlanner
                     checkArgument(firstOperatorFactory instanceof LocalExchangeSourceOperatorFactory || firstOperatorFactory instanceof LookupOuterOperatorFactory);
                 }
             }
-            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy));
+            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy, fragmentResultCacheContext));
         }
 
         private List<DriverFactory> getDriverFactories()
@@ -1963,7 +1981,8 @@ public class LocalExecutionPlanner
                             .add(nestedLoopBuildOperatorFactory)
                             .build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
             outputMappings.putAll(probeSource.getLayout());
@@ -2094,7 +2113,8 @@ public class LocalExecutionPlanner
                             .add(builderOperatorFactory)
                             .build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             return builderOperatorFactory.getPagesSpatialIndexFactory();
         }
@@ -2233,7 +2253,8 @@ public class LocalExecutionPlanner
                     false,
                     factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             return lookupSourceFactoryManager;
         }
@@ -2397,7 +2418,8 @@ public class LocalExecutionPlanner
                     false,
                     factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             // Source channels are always laid out first, followed by the boolean output variable
             Map<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.<VariableReferenceExpression, Integer>builder()
@@ -2729,7 +2751,13 @@ public class LocalExecutionPlanner
                     node.getId(),
                     exchangeFactory.newSinkFactoryId(),
                     pagePreprocessor));
-            context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount(), source.getPipelineExecutionStrategy());
+            context.addDriverFactory(
+                    subContext.isInputDriver(),
+                    false,
+                    operatorFactories,
+                    subContext.getDriverInstanceCount(),
+                    source.getPipelineExecutionStrategy(),
+                    createFragmentResultCacheContext(fragmentResultCacheManager, sourceNode, node.getPartitioningScheme(), session, objectMapper));
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
 
@@ -2817,7 +2845,8 @@ public class LocalExecutionPlanner
                         false,
                         operatorFactories,
                         subContext.getDriverInstanceCount(),
-                        exchangeSourcePipelineExecutionStrategy);
+                        source.getPipelineExecutionStrategy(),
+                        createFragmentResultCacheContext(fragmentResultCacheManager, node.getSources().get(i), node.getPartitioningScheme(), session, objectMapper));
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan

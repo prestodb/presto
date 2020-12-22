@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.FragmentResultCacheContext;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -134,7 +135,7 @@ public class TestDriver
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, TESTING_FRAGMENT_RESULT_CACHE_CONTEXT)
+        driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }
@@ -418,9 +419,9 @@ public class TestDriver
         processSourceDriver(driverContextWithFragmentResultCacheContext);
 
         // Create a new driver and test cache hit
-        driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, TESTING_FRAGMENT_RESULT_CACHE_CONTEXT)
+        driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
-                .addDriverContext();
+                .addDriverContext(Lifespan.taskWide(), Optional.of(TESTING_FRAGMENT_RESULT_CACHE_CONTEXT));
         processSourceDriver(driverContextWithFragmentResultCacheContext);
     }
 

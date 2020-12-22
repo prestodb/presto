@@ -339,7 +339,7 @@ public class PrestoSparkTaskExecution
             pendingCreation.incrementAndGet();
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
-            DriverContext driverContext = pipelineContext.addDriverContext(Lifespan.taskWide());
+            DriverContext driverContext = pipelineContext.addDriverContext(Lifespan.taskWide(), driverFactory.getFragmentResultCacheContext());
             return new DriverSplitRunner(this, driverContext, partitionedSplit);
         }
 

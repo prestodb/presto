@@ -15,7 +15,6 @@ package com.facebook.presto.memory;
 
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.context.MemoryReservationHandler;
@@ -34,7 +33,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -306,8 +304,7 @@ public class QueryContext
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
             boolean allocationTrackingEnabled,
-            boolean legacyLifespanCompletionCondition,
-            Optional<FragmentResultCacheContext> fragmentResultCacheContext)
+            boolean legacyLifespanCompletionCondition)
     {
         TaskContext taskContext = TaskContext.createTaskContext(
                 this,
@@ -321,8 +318,7 @@ public class QueryContext
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
                 allocationTrackingEnabled,
-                legacyLifespanCompletionCondition,
-                fragmentResultCacheContext);
+                legacyLifespanCompletionCondition);
         taskContexts.put(taskStateMachine.getTaskId(), taskContext);
         return taskContext;
     }

@@ -16,7 +16,6 @@ package com.facebook.presto.operator;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskMetadataContext;
@@ -40,7 +39,6 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -95,8 +93,6 @@ public class TaskContext
 
     private final boolean legacyLifespanCompletionCondition;
 
-    private final Optional<FragmentResultCacheContext> fragmentResultCacheContext;
-
     private final Object cumulativeMemoryLock = new Object();
     private final AtomicDouble cumulativeUserMemory = new AtomicDouble(0.0);
 
@@ -125,8 +121,7 @@ public class TaskContext
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
             boolean allocationTrackingEnabled,
-            boolean legacyLifespanCompletionCondition,
-            Optional<FragmentResultCacheContext> fragmentResultCacheContext)
+            boolean legacyLifespanCompletionCondition)
     {
         TaskContext taskContext = new TaskContext(
                 queryContext,
@@ -140,8 +135,7 @@ public class TaskContext
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
                 allocationTrackingEnabled,
-                legacyLifespanCompletionCondition,
-                fragmentResultCacheContext);
+                legacyLifespanCompletionCondition);
         taskContext.initialize();
         return taskContext;
     }
@@ -157,8 +151,7 @@ public class TaskContext
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
             boolean allocationTrackingEnabled,
-            boolean legacyLifespanCompletionCondition,
-            Optional<FragmentResultCacheContext> fragmentResultCacheContext)
+            boolean legacyLifespanCompletionCondition)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.gcMonitor = requireNonNull(gcMonitor, "gcMonitor is null");
@@ -174,7 +167,6 @@ public class TaskContext
         this.perOperatorAllocationTrackingEnabled = perOperatorAllocationTrackingEnabled;
         this.allocationTrackingEnabled = allocationTrackingEnabled;
         this.legacyLifespanCompletionCondition = legacyLifespanCompletionCondition;
-        this.fragmentResultCacheContext = requireNonNull(fragmentResultCacheContext, "fragmentResultCacheContext is null");
         this.taskMetadataContext = new TaskMetadataContext();
     }
 
@@ -344,11 +336,6 @@ public class TaskContext
     public boolean isLegacyLifespanCompletionCondition()
     {
         return legacyLifespanCompletionCondition;
-    }
-
-    public Optional<FragmentResultCacheContext> getFragmentResultCacheContext()
-    {
-        return fragmentResultCacheContext;
     }
 
     public CounterStat getInputDataSize()
