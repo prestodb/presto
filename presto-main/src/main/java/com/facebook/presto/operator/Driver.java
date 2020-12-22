@@ -129,7 +129,7 @@ public class Driver
     private Driver(DriverContext driverContext, List<Operator> operators)
     {
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
-        this.fragmentResultCacheContext = driverContext.getPipelineContext().getTaskContext().getFragmentResultCacheContext();
+        this.fragmentResultCacheContext = driverContext.getFragmentResultCacheContext();
         this.allOperators = ImmutableList.copyOf(requireNonNull(operators, "operators is null"));
         checkArgument(allOperators.size() > 1, "At least two operators are required");
         this.activeOperators = new ArrayList<>(operators);

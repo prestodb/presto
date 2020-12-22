@@ -214,8 +214,7 @@ public class MockRemoteTaskFactory
                     true,
                     true,
                     true,
-                    false,
-                    Optional.empty());
+                    false);
 
             this.location = URI.create("fake://task/" + taskId);
 

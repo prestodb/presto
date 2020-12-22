@@ -16,7 +16,6 @@ package com.facebook.presto.testing;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.MemoryPool;
@@ -27,7 +26,6 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import io.airlift.units.DataSize;
 
-import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -46,13 +44,6 @@ public final class TestingTaskContext
         return builder(notificationExecutor, yieldExecutor, session).build();
     }
 
-    public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session, FragmentResultCacheContext fragmentResultCacheContext)
-    {
-        return builder(notificationExecutor, yieldExecutor, session)
-                .setFragmentResultCacheContext(fragmentResultCacheContext)
-                .build();
-    }
-
     public static TaskContext createTaskContext(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session, DataSize maxMemory)
     {
         return builder(notificationExecutor, yieldExecutor, session)
@@ -69,15 +60,10 @@ public final class TestingTaskContext
 
     public static TaskContext createTaskContext(QueryContext queryContext, Executor executor, Session session)
     {
-        return createTaskContext(queryContext, executor, session, Optional.empty());
+        return createTaskContext(queryContext, session, new TaskStateMachine(new TaskId("query", 0, 0, 0), executor));
     }
 
-    public static TaskContext createTaskContext(QueryContext queryContext, Executor executor, Session session, Optional<FragmentResultCacheContext> fragmentResultCacheContext)
-    {
-        return createTaskContext(queryContext, session, new TaskStateMachine(new TaskId("query", 0, 0, 0), executor), fragmentResultCacheContext);
-    }
-
-    private static TaskContext createTaskContext(QueryContext queryContext, Session session, TaskStateMachine taskStateMachine, Optional<FragmentResultCacheContext> fragmentResultCacheContext)
+    private static TaskContext createTaskContext(QueryContext queryContext, Session session, TaskStateMachine taskStateMachine)
     {
         return queryContext.addTaskContext(
                 taskStateMachine,
@@ -86,8 +72,7 @@ public final class TestingTaskContext
                 true,
                 true,
                 true,
-                false,
-                fragmentResultCacheContext);
+                false);
     }
 
     public static Builder builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
@@ -108,7 +93,6 @@ public final class TestingTaskContext
         private DataSize maxSpillSize = new DataSize(1, GIGABYTE);
         private DataSize maxRevocableMemory = new DataSize(1, GIGABYTE);
         private DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
-        private Optional<FragmentResultCacheContext> fragmentResultCacheContext = Optional.empty();
 
         private Builder(Executor notificationExecutor, ScheduledExecutorService yieldExecutor, Session session)
         {
@@ -160,12 +144,6 @@ public final class TestingTaskContext
             return this;
         }
 
-        public Builder setFragmentResultCacheContext(FragmentResultCacheContext fragmentResultCacheContext)
-        {
-            this.fragmentResultCacheContext = Optional.of(fragmentResultCacheContext);
-            return this;
-        }
-
         public TaskContext build()
         {
             MemoryPool memoryPool = new MemoryPool(new MemoryPoolId("test"), memoryPoolSize);
@@ -183,7 +161,7 @@ public final class TestingTaskContext
                     queryMaxSpillSize,
                     spillSpaceTracker);
 
-            return createTaskContext(queryContext, session, taskStateMachine, fragmentResultCacheContext);
+            return createTaskContext(queryContext, session, taskStateMachine);
         }
     }
 }
