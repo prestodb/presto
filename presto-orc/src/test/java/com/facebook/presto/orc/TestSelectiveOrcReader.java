@@ -86,6 +86,9 @@ import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NOT_NULL;
 import static com.facebook.presto.orc.TupleDomainFilter.IS_NULL;
 import static com.facebook.presto.orc.TupleDomainFilterUtils.toBigintValues;
+import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -909,6 +912,14 @@ public class TestSelectiveOrcReader
     public void testMemoryTracking()
             throws Exception
     {
+        testMemoryTracking(NONE, 150000L, 170000L);
+        testMemoryTracking(ZSTD, 150000L, 170000L);
+        testMemoryTracking(ZLIB, 220000L, 240000L);
+    }
+
+    private void testMemoryTracking(CompressionKind compression, long lowerRetainedMemoryBound, long upperRetainedMemoryBound)
+            throws Exception
+    {
         List<Type> types = ImmutableList.of(INTEGER, VARCHAR, VARCHAR);
         TempFile tempFile = new TempFile();
         List<Integer> intValues = newArrayList(limit(
@@ -922,7 +933,7 @@ public class TestSelectiveOrcReader
         List<String> varcharDictionaryValues = newArrayList(limit(cycle(ImmutableList.of("apple", "apple pie", "apple\uD835\uDC03", "apple\uFFFD")), NUM_ROWS));
         List<List<?>> values = ImmutableList.of(intValues, varcharDirectValues, varcharDictionaryValues);
 
-        writeOrcColumnsPresto(tempFile.getFile(), DWRF, CompressionKind.NONE, Optional.empty(), types, values, new OrcWriterStats());
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, compression, Optional.empty(), types, values, new OrcWriterStats());
 
         OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
         Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
@@ -964,7 +975,7 @@ public class TestSelectiveOrcReader
 
                 page.getLoadedPage();
 
-                assertBetweenInclusive(systemMemoryUsage.getBytes(), 150000L, 160000L);
+                assertBetweenInclusive(systemMemoryUsage.getBytes(), lowerRetainedMemoryBound, upperRetainedMemoryBound);
 
                 rowsProcessed += positionCount;
             }
@@ -982,7 +993,7 @@ public class TestSelectiveOrcReader
         List<String> varcharDirectValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
         List<List<?>> values = ImmutableList.of(varcharDirectValues, varcharDirectValues);
 
-        writeOrcColumnsPresto(tempFile.getFile(), DWRF, CompressionKind.NONE, Optional.empty(), types, values, new OrcWriterStats());
+        writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, values, new OrcWriterStats());
 
         OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
         Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), stringIn(true, "A", "B", "C")); //ImmutableMap.of(1, stringIn(true, "10", "11"));
