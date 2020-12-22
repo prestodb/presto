@@ -289,8 +289,7 @@ public abstract class AbstractOperatorBenchmark
                         false,
                         false,
                         false,
-                        false,
-                        Optional.empty());
+                        false);
 
         CpuTimer cpuTimer = new CpuTimer();
         Map<String, Long> executionStats = execute(taskContext);

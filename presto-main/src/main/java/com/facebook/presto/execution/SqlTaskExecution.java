@@ -934,7 +934,7 @@ public class SqlTaskExecution
             status.incrementPendingCreation(pipelineContext.getPipelineId(), lifespan);
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
-            DriverContext driverContext = pipelineContext.addDriverContext(lifespan);
+            DriverContext driverContext = pipelineContext.addDriverContext(lifespan, driverFactory.getFragmentResultCacheContext());
             return new DriverSplitRunner(this, driverContext, partitionedSplit, lifespan);
         }
 

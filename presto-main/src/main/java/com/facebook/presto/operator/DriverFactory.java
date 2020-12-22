@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +40,7 @@ public class DriverFactory
     private final Optional<PlanNodeId> sourceId;
     private final OptionalInt driverInstances;
     private final PipelineExecutionStrategy pipelineExecutionStrategy;
+    private final Optional<FragmentResultCacheContext> fragmentResultCacheContext;
 
     private boolean closed;
     private final Set<Lifespan> encounteredLifespans = new HashSet<>();
@@ -50,7 +52,8 @@ public class DriverFactory
             boolean outputDriver,
             List<OperatorFactory> operatorFactories,
             OptionalInt driverInstances,
-            PipelineExecutionStrategy pipelineExecutionStrategy)
+            PipelineExecutionStrategy pipelineExecutionStrategy,
+            Optional<FragmentResultCacheContext> fragmentResultCacheContext)
     {
         this.pipelineId = pipelineId;
         this.inputDriver = inputDriver;
@@ -59,6 +62,7 @@ public class DriverFactory
         checkArgument(!operatorFactories.isEmpty(), "There must be at least one operator");
         this.driverInstances = requireNonNull(driverInstances, "driverInstances is null");
         this.pipelineExecutionStrategy = requireNonNull(pipelineExecutionStrategy, "pipelineExecutionStrategy is null");
+        this.fragmentResultCacheContext = requireNonNull(fragmentResultCacheContext, "fragmentResultCacheContext is null");
 
         List<PlanNodeId> sourceIds = operatorFactories.stream()
                 .filter(SourceOperatorFactory.class::isInstance)
@@ -102,6 +106,11 @@ public class DriverFactory
     public PipelineExecutionStrategy getPipelineExecutionStrategy()
     {
         return pipelineExecutionStrategy;
+    }
+
+    public Optional<FragmentResultCacheContext> getFragmentResultCacheContext()
+    {
+        return fragmentResultCacheContext;
     }
 
     public List<OperatorFactory> getOperatorFactories()

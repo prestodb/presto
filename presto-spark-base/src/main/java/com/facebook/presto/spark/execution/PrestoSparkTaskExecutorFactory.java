@@ -100,7 +100,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.execution.FragmentResultCacheContext.createFragmentResultCacheContext;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
@@ -112,7 +111,6 @@ import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
-import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
@@ -143,9 +141,6 @@ public class PrestoSparkTaskExecutorFactory
     private final SplitMonitor splitMonitor;
 
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
-
-    private final FragmentResultCacheManager fragmentResultCacheManager;
-    private final ObjectMapper objectMapper;
 
     private final DataSize maxUserMemory;
     private final DataSize maxTotalMemory;
@@ -197,8 +192,6 @@ public class PrestoSparkTaskExecutorFactory
                 taskExecutor,
                 splitMonitor,
                 authenticatorProviders,
-                fragmentResultCacheManager,
-                objectMapper,
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryMemoryPerNode(),
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryTotalMemoryPerNode(),
                 requireNonNull(nodeMemoryConfig, "nodeSpillConfig is null").getMaxQueryBroadcastMemory(),
@@ -226,8 +219,6 @@ public class PrestoSparkTaskExecutorFactory
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
-            FragmentResultCacheManager fragmentResultCacheManager,
-            ObjectMapper objectMapper,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
             DataSize maxBroadcastMemory,
@@ -253,9 +244,7 @@ public class PrestoSparkTaskExecutorFactory
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
-        this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
         // Ordering is needed to make sure serialized plans are consistent for the same map
-        this.objectMapper = objectMapper.copy().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null");
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null");
         this.maxBroadcastMemory = requireNonNull(maxBroadcastMemory, "maxBroadcastMemory is null");
@@ -359,8 +348,7 @@ public class PrestoSparkTaskExecutorFactory
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
                 allocationTrackingEnabled,
-                false,
-                createFragmentResultCacheContext(fragmentResultCacheManager, fragment.getRoot(), fragment.getPartitioningScheme(), session, objectMapper));
+                false);
 
         ImmutableMap.Builder<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputs = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputs = ImmutableMap.builder();

@@ -278,8 +278,7 @@ public class TestSqlTaskManager
                         false,
                         false,
                         false,
-                        false,
-                        Optional.empty());
+                        false);
         return sqlTaskManager.updateTask(
                 TEST_SESSION,
                 taskId,

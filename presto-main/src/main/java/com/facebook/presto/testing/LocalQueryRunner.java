@@ -99,6 +99,7 @@ import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.DriverFactory;
 import com.facebook.presto.operator.LookupJoinOperators;
+import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.PagesIndex;
@@ -184,6 +185,7 @@ import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.util.FinalizerService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -793,7 +795,9 @@ public class LocalQueryRunner
                 new LookupJoinOperators(),
                 new OrderingCompiler(),
                 jsonCodec(TableCommitContext.class),
-                new RowExpressionDeterminismEvaluator(metadata));
+                new RowExpressionDeterminismEvaluator(metadata),
+                new NoOpFragmentResultCacheManager(),
+                new ObjectMapper());
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();
@@ -804,7 +808,7 @@ public class LocalQueryRunner
                 taskContext,
                 stageExecutionDescriptor,
                 subplan.getFragment().getRoot(),
-                subplan.getFragment().getPartitioningScheme().getOutputLayout(),
+                subplan.getFragment().getPartitioningScheme(),
                 subplan.getFragment().getTableScanSchedulingOrder(),
                 outputFactory,
                 Optional.empty(),
