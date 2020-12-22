@@ -40,7 +40,7 @@ public class TestResourceManagerResourceGroupService
         assertTrue(resourceGroupInfos.isEmpty());
         assertEquals(resourceManagerClient.getResourceGroupInfoCalls("local"), 1);
 
-        resourceManagerClient.setResourceGroupRuntimeInfos(ImmutableList.of(new ResourceGroupRuntimeInfo(new ResourceGroupId("global"), 1, 2, 3)));
+        resourceManagerClient.setResourceGroupRuntimeInfos(ImmutableList.of(new ResourceGroupRuntimeInfo(new ResourceGroupId("global"), 1, 2, 3, 0, 1)));
 
         Thread.sleep(SECONDS.toMillis(2));
 

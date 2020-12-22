@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -72,7 +73,7 @@ public class BenchmarkResourceGroup
         @Setup
         public void setup()
         {
-            root = new RootInternalResourceGroup("root", (group, export) -> {}, executor, new ConcurrentHashMap<>());
+            root = new RootInternalResourceGroup("root", (group, export) -> {}, executor, new ConcurrentHashMap<>(), new AtomicLong(0), 1);
             root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
             root.setMaxQueuedQueries(queries);
             root.setHardConcurrencyLimit(queries);

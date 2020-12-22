@@ -59,7 +59,7 @@ public class TestDistributedQueryResource
             throws Exception
     {
         client = new JettyHttpClient();
-        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"), 2);
+        DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "200s"), 2);
         coordinator1 = runner.getCoordinators().get(0);
         coordinator2 = runner.getCoordinators().get(1);
         Optional<TestingPrestoServer> resourceManager = runner.getResourceManager();
@@ -104,7 +104,7 @@ public class TestDistributedQueryResource
         runToQueued(coordinator1, "SELECT 3");
 
         // Sleep to allow query to make some progress
-        sleep(SECONDS.toMillis(5));
+        sleep(SECONDS.toMillis(1));
 
         List<BasicQueryInfo> infos = getQueryInfos(coordinator1, "/v1/query");
         assertEquals(infos.size(), 7);
