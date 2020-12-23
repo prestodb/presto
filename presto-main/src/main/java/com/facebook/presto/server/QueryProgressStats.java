@@ -31,6 +31,7 @@ public class QueryProgressStats
     private final long peakMemoryBytes;
     private final long peakTotalMemoryBytes;
     private final long peakTaskTotalMemoryBytes;
+    private final long peakNodeTotalMemoryBytes;
     private final long inputRows;
     private final long inputBytes;
     private final OptionalDouble progressPercentage;
@@ -46,6 +47,7 @@ public class QueryProgressStats
             @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
             @JsonProperty("peakTotalMemoryBytes") long peakTotalMemoryBytes,
             @JsonProperty("peakTaskTotalMemoryBytes") long peakTaskTotalMemoryBytes,
+            @JsonProperty("peakNodeTotalMemoryBytes") long peakNodeTotalMemoryBytes,
             @JsonProperty("inputRows") long inputRows,
             @JsonProperty("inputBytes") long inputBytes,
             @JsonProperty("blocked") boolean blocked,
@@ -59,6 +61,7 @@ public class QueryProgressStats
         this.peakMemoryBytes = peakMemoryBytes;
         this.peakTotalMemoryBytes = peakTotalMemoryBytes;
         this.peakTaskTotalMemoryBytes = peakTaskTotalMemoryBytes;
+        this.peakNodeTotalMemoryBytes = peakNodeTotalMemoryBytes;
         this.inputRows = inputRows;
         this.inputBytes = inputBytes;
         this.blocked = blocked;
@@ -76,6 +79,7 @@ public class QueryProgressStats
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getPeakTotalMemoryReservation().toBytes(),
                 queryStats.getPeakTaskTotalMemoryReservation().toBytes(),
+                queryStats.getPeakNodeTotalMemoryReservation().toBytes(),
                 queryStats.getRawInputPositions(),
                 queryStats.getRawInputDataSize().toBytes(),
                 queryStats.isFullyBlocked(),
@@ -128,6 +132,12 @@ public class QueryProgressStats
     public long getPeakTaskTotalMemoryBytes()
     {
         return peakTaskTotalMemoryBytes;
+    }
+
+    @JsonProperty
+    public long getPeakNodeTotalMemoryBytes()
+    {
+        return peakNodeTotalMemoryBytes;
     }
 
     @JsonProperty

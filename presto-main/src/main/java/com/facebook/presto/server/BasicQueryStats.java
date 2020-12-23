@@ -308,7 +308,7 @@ public class BasicQueryStats
     }
 
     @JsonProperty
-    public DataSize getPeakNodeTotalMemorReservation()
+    public DataSize getPeakNodeTotalMemoryReservation()
     {
         return peakNodeTotalMemoryReservation;
     }

@@ -210,6 +210,8 @@ Spilled: 20GB
             reprintLine("Peak Total Memory: " + formatDataSize(bytes(stats.getPeakTotalMemoryBytes()), true));
             // Peak Task Total Memory: 1.99GB
             reprintLine("Peak Task Total Memory: " + formatDataSize(bytes(stats.getPeakTaskTotalMemoryBytes()), true));
+            // Peak Node Total Memory: 2.00GB
+            reprintLine("Peak Node Total Memory: " + formatDataSize(bytes(stats.getPeakNodeTotalMemoryBytes()), true));
 
             // Spilled Data: 20GB
             if (stats.getSpilledBytes() > 0) {
@@ -310,6 +312,8 @@ Spilled: 20GB
                 reprintLine("Peak Total Memory: " + formatDataSize(bytes(stats.getPeakTotalMemoryBytes()), true));
                 // Peak Task Total Memory: 1.99GB
                 reprintLine("Peak Task Total Memory: " + formatDataSize(bytes(stats.getPeakTaskTotalMemoryBytes()), true));
+                // Peak Node Total Memory: 2.00GB
+                reprintLine("Peak Node Total Memory: " + formatDataSize(bytes(stats.getPeakNodeTotalMemoryBytes()), true));
 
                 // Spilled Data: 20GB
                 if (stats.getSpilledBytes() > 0) {
