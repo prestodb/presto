@@ -508,22 +508,6 @@ public class HashGenerationOptimizer
             // establish fixed ordering for hash variables
             List<HashComputation> hashVariableOrder = ImmutableList.copyOf(preference.getHashes());
             Map<HashComputation, VariableReferenceExpression> newHashVariables = new HashMap<>();
-            for (HashComputation preferredHashVariable : hashVariableOrder) {
-                newHashVariables.put(preferredHashVariable, variableAllocator.newHashVariable());
-            }
-
-            // rewrite partition function to include new variables (and precomputed hash
-            partitioningScheme = new PartitioningScheme(
-                    partitioningScheme.getPartitioning(),
-                    ImmutableList.<VariableReferenceExpression>builder()
-                            .addAll(partitioningScheme.getOutputLayout())
-                            .addAll(hashVariableOrder.stream()
-                                    .map(newHashVariables::get)
-                                    .collect(toImmutableList()))
-                            .build(),
-                    partitionVariables.map(newHashVariables::get),
-                    partitioningScheme.isReplicateNullsAndAny(),
-                    partitioningScheme.getBucketToPartition());
 
             // add hash variables to sources
             ImmutableList.Builder<List<VariableReferenceExpression>> newInputs = ImmutableList.builder();
@@ -548,10 +532,24 @@ public class HashGenerationOptimizer
                 for (HashComputation preferredHashSymbol : hashVariableOrder) {
                     HashComputation hashComputation = preferredHashSymbol.translate(outputToInputTranslator).get();
                     newInputVariables.add(child.getRequiredHashVariable(hashComputation));
+                    newHashVariables.put(hashComputation, child.getRequiredHashVariable(hashComputation));
                 }
 
                 newInputs.add(newInputVariables.build());
             }
+
+            // rewrite partition function to include new variables (and precomputed hash
+            partitioningScheme = new PartitioningScheme(
+                    partitioningScheme.getPartitioning(),
+                    ImmutableList.<VariableReferenceExpression>builder()
+                            .addAll(partitioningScheme.getOutputLayout())
+                            .addAll(hashVariableOrder.stream()
+                                    .map(newHashVariables::get)
+                                    .collect(toImmutableList()))
+                            .build(),
+                    partitionVariables.map(newHashVariables::get),
+                    partitioningScheme.isReplicateNullsAndAny(),
+                    partitioningScheme.getBucketToPartition());
 
             return new PlanWithProperties(
                     new ExchangeNode(
