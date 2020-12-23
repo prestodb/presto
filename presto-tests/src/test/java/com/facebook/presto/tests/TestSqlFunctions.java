@@ -110,7 +110,7 @@ public class TestSqlFunctions
     @Test
     public void testCreateFunction()
     {
-        assertQuerySucceeds("CREATE FUNCTION testing.test.tan (x int) RETURNS double RETURN sin(x) / cos(x)");
+        assertQuerySucceeds("CREATE FUNCTION TESTING.TEST.TAN (x int) RETURNS double RETURN sin(x) / cos(x)");
         assertQuerySucceeds("CREATE FUNCTION testing.test.tan (x double) RETURNS double LANGUAGE JAVA RETURN sin(x) / cos(x)");
 
         // external function
