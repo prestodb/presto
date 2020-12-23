@@ -302,7 +302,7 @@ public class FunctionAndTypeManager
         if (name.getOriginalParts().size() != 3) {
             throw new PrestoException(FUNCTION_NOT_FOUND, format("Non-builtin functions must be referenced by 'catalog.schema.function_name', found: %s", name));
         }
-        return QualifiedObjectName.valueOf(name.getOriginalParts().get(0), name.getOriginalParts().get(1), name.getOriginalParts().get(2));
+        return QualifiedObjectName.valueOf(name.getParts().get(0), name.getParts().get(1), name.getParts().get(2));
     }
 
     /**
