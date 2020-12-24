@@ -15,9 +15,10 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.type.LongEnumParametricType;
 import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
-import com.facebook.presto.common.type.VarcharEnumParametricType;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -32,6 +33,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.StandardTypes.LONG_ENUM;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertEquals;
@@ -42,28 +45,38 @@ public class TestEnums
 {
     private static final Long BIG_VALUE = Integer.MAX_VALUE + 10L; // 2147483657
 
-    private static final LongEnumParametricType MOOD_ENUM = new LongEnumParametricType(QualifiedObjectName.valueOf("test.enum.mood"), new LongEnumMap(ImmutableMap.of(
-            "HAPPY", 0L,
-            "SAD", 1L,
-            "MELLOW", BIG_VALUE,
-            "curious", -2L)));
-    private static final VarcharEnumParametricType COUNTRY_ENUM = new VarcharEnumParametricType(QualifiedObjectName.valueOf("test.enum.country"), new VarcharEnumMap(ImmutableMap.of(
+    private static final UserDefinedType MOOD_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.mood"), new TypeSignature(
+            LONG_ENUM,
+            TypeSignatureParameter.of(new LongEnumMap("test.enum.mood", ImmutableMap.of(
+                    "HAPPY", 0L,
+                "SAD", 1L,
+                "MELLOW", BIG_VALUE,
+                "curious", -2L)))));
+    private static final UserDefinedType COUNTRY_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.country"), new TypeSignature(
+            VARCHAR_ENUM,
+            TypeSignatureParameter.of(new VarcharEnumMap("test.enum.country", ImmutableMap.of(
             "US", "United States",
             "BAHAMAS", "The Bahamas",
             "FRANCE", "France",
             "CHINA", "中国",
-            "भारत", "India")));
-    private static final VarcharEnumParametricType TEST_ENUM = new VarcharEnumParametricType(QualifiedObjectName.valueOf("test.enum.testenum"), new VarcharEnumMap(ImmutableMap.of(
+            "भारत", "India")))));
+    private static final UserDefinedType TEST_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testenum"), new TypeSignature(
+            VARCHAR_ENUM,
+            TypeSignatureParameter.of(new VarcharEnumMap("test.enum.testenum", ImmutableMap.of(
             "TEST", "\"}\"",
             "TEST2", "",
             "TEST3", " ",
-            "TEST4", ")))\"\"")));
-    private static final LongEnumParametricType TEST_LONG_ENUM = new LongEnumParametricType(QualifiedObjectName.valueOf("test.enum.testlongenum"), new LongEnumMap(ImmutableMap.of(
+            "TEST4", ")))\"\"")))));
+    private static final UserDefinedType TEST_LONG_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testlongenum"), new TypeSignature(
+            LONG_ENUM,
+            TypeSignatureParameter.of(new LongEnumMap("test.enum.testlongenum", ImmutableMap.of(
             "TEST", 6L,
-            "TEST2", 8L)));
-    private static final VarcharEnumParametricType MARKET_SEGMENT_ENUM = new VarcharEnumParametricType(QualifiedObjectName.valueOf("test.enum.market_segment"), new VarcharEnumMap(ImmutableMap.of(
-            "MKT_BUILDING", "BUILDING",
-            "MKT_FURNITURE", "FURNITURE")));
+            "TEST2", 8L)))));
+    private static final UserDefinedType MARKET_SEGMENT_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.market_segment"), new TypeSignature(
+            VARCHAR_ENUM,
+            TypeSignatureParameter.of(new VarcharEnumMap("test.enum.market_segment", ImmutableMap.of(
+                    "MKT_BUILDING", "BUILDING",
+                    "MKT_FURNITURE", "FURNITURE")))));
 
     protected TestEnums()
     {
@@ -76,11 +89,11 @@ public class TestEnums
             Session session = testSessionBuilder().build();
             DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
             queryRunner.enableTestFunctionNamespaces(ImmutableList.of("test"), ImmutableMap.of());
-            queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(MOOD_ENUM);
-            queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(COUNTRY_ENUM);
-            queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(TEST_ENUM);
-            queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(TEST_LONG_ENUM);
-            queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(MARKET_SEGMENT_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MOOD_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(COUNTRY_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(TEST_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(TEST_LONG_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MARKET_SEGMENT_ENUM);
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -142,7 +155,7 @@ public class TestEnums
         assertSingleValue(
                 "cast(JSON '{\"France\": [0]}' as MAP<test.enum.country,ARRAY<test.enum.mood>>)",
                 ImmutableMap.of("France", singletonList(0L)));
-        assertQueryFails("select cast(7 as test.enum.mood)", ".*No value '7' in enum 'test.enum.mood'");
+        assertQueryFails("select cast(7 as test.enum.mood)", ".*No value '7' in enum 'LongEnum'");
     }
 
     @Test
@@ -172,10 +185,10 @@ public class TestEnums
         assertSingleValue("test.enum.country.\"भारत\" between test.enum.country.FRANCE and test.enum.country.BAHAMAS", true);
         assertSingleValue("test.enum.country.US between test.enum.country.FRANCE and test.enum.country.\"भारत\"", false);
 
-        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to test.enum.country.*, test.enum.mood.*");
+        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to VarcharEnum\\(test.enum.country.*\\), LongEnum\\(test.enum.mood.*\\)");
         assertQueryFails("select test.enum.country.US IN (test.enum.country.CHINA, test.enum.mood.SAD)", ".* All IN list values must be the same type.*");
         assertQueryFails("select test.enum.country.US IN (test.enum.mood.HAPPY, test.enum.mood.SAD)", ".* IN value and list items must be the same type: test.enum.country");
-        assertQueryFails("select test.enum.country.US > 2", ".* '>' cannot be applied to test.enum.country.*, integer");
+        assertQueryFails("select test.enum.country.US > 2", ".* '>' cannot be applied to VarcharEnum\\(test.enum.country.*\\), integer");
     }
 
     @Test
@@ -205,7 +218,7 @@ public class TestEnums
         assertSingleValue("test.enum.mood.HAPPY between test.enum.mood.CURIOUS and test.enum.mood.SAD ", true);
         assertSingleValue("test.enum.mood.MELLOW between test.enum.mood.SAD and test.enum.mood.HAPPY", false);
 
-        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to test.enum.mood.*, integer");
+        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to LongEnum\\(test.enum.mood.*, integer");
     }
 
     @Test

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
-import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -33,7 +33,7 @@ import java.util.Optional;
 @RegisterRowMappers({
         @RegisterRowMapper(SqlInvokedFunctionRowMapper.class),
         @RegisterRowMapper(SqlInvokedFunctionRecordRowMapper.class),
-        @RegisterRowMapper(EnumParametricTypeRowMapper.class)
+        @RegisterRowMapper(EnumTypeRowMapper.class)
 })
 @RegisterArgumentFactories({
         @RegisterArgumentFactory(SqlFunctionIdArgumentFactory.class),
@@ -79,7 +79,7 @@ public interface FunctionNamespaceDao
             "  catalog_name varchar(128) NOT NULL,\n" +
             "  schema_name varchar(128) NOT NULL,\n" +
             "  type_name varchar(256) NOT NULL,\n" +
-            "  type_parameters text NOT NULL,\n" +
+            "  physical_type text NOT NULL,\n" +
             "  PRIMARY KEY (id), \n" +
             "  UNIQUE KEY type_name (catalog_name, schema_name, type_name))")
     void createEnumTypesTableIfNotExists();
@@ -312,13 +312,13 @@ public interface FunctionNamespaceDao
             "    catalog_name,\n" +
             "    schema_name,\n" +
             "    type_name,\n" +
-            "    type_parameters\n" +
+            "    physical_type\n" +
             "  FROM <enum_types_table>\n" +
             "WHERE\n" +
             "    catalog_name = :catalog_name\n" +
             "    AND schema_name = :schema_name\n" +
             "    AND type_name = :type_name")
-    Optional<ParametricType> getEnumParametricType(
+    Optional<UserDefinedType> getEnumType(
             @Bind("catalog_name") String catalogName,
             @Bind("schema_name") String schemaName,
             @Bind("type_name") String typeName);
@@ -327,18 +327,18 @@ public interface FunctionNamespaceDao
             "        catalog_name,\n" +
             "        schema_name,\n" +
             "        type_name,\n" +
-            "        type_parameters\n" +
+            "        physical_type\n" +
             "    )\n" +
             "VALUES\n" +
             "    (\n" +
             "        :catalog_name,\n" +
             "        :schema_name,\n" +
             "        :type_name,\n" +
-            "        :type_parameters\n" +
+            "        :physical_type\n" +
             "    )")
     void insertEnumType(
             @Bind("catalog_name") String catalogName,
             @Bind("schema_name") String schemaName,
             @Bind("type_name") String typeName,
-            @Bind("type_parameters") String typeParameters);
+            @Bind("physical_type") String physicalType);
 }

@@ -25,10 +25,10 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.window.WindowFunctionSupplier;
@@ -50,7 +50,6 @@ import com.facebook.presto.sql.gen.CacheStatsMBean;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
-import com.facebook.presto.type.MapParametricType;
 import com.facebook.presto.type.TypeCoercer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -65,7 +64,6 @@ import org.weakref.jmx.Nested;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -91,7 +89,6 @@ import static com.facebook.presto.transaction.InMemoryTransactionManager.createT
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
@@ -113,7 +110,6 @@ public class FunctionAndTypeManager
     private final FunctionResolver functionResolver;
     private final TypeCoercer typeCoercer;
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
-    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
     private final CacheStatsMBean cacheStatsMBean;
 
     @Inject
@@ -136,10 +132,6 @@ public class FunctionAndTypeManager
                 .recordStats()
                 .maximumSize(1000)
                 .build(CacheLoader.from(key -> resolveBuiltInFunction(key.functionName, fromTypeSignatures(key.parameterTypes))));
-        this.parametricTypeCache = CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .build(CacheLoader.from(typeSignature -> instantiateParametricType(typeSignature, builtInTypeAndFunctionNamespaceManager)));
-
         this.cacheStatsMBean = new CacheStatsMBean(functionCache);
         this.functionResolver = new FunctionResolver(this);
         this.typeCoercer = new TypeCoercer(featuresConfig, this);
@@ -199,18 +191,16 @@ public class FunctionAndTypeManager
             if (type.isPresent()) {
                 return type.get();
             }
-            try {
-                return parametricTypeCache.getUnchecked(signature);
-            }
-            catch (UncheckedExecutionException e) {
-                throwIfUnchecked(e.getCause());
-                throw new RuntimeException(e.getCause());
-            }
         }
 
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
-        return instantiateParametricType(signature, functionNamespaceManager.get());
+        Optional<UserDefinedType> userDefinedType = functionNamespaceManager.get().getUserDefinedType(signature.getTypeSignatureBase().getQualifiedObjectName());
+        if (!userDefinedType.isPresent()) {
+            throw new IllegalArgumentException("Unknown type " + signature);
+        }
+        checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().isStandardType(), "UserDefinedType must be based on static types.");
+        return getType(userDefinedType.get().getPhysicalTypeSignature());
     }
 
     @Override
@@ -334,14 +324,16 @@ public class FunctionAndTypeManager
     public void addParametricType(ParametricType parametricType)
     {
         TypeSignatureBase typeSignatureBase = parametricType.getTypeSignatureBase();
-        if (typeSignatureBase.isStandardType()) {
-            builtInTypeAndFunctionNamespaceManager.addParametricType(parametricType);
-        }
-        else {
-            Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(typeSignatureBase);
-            checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for parametric type %", parametricType);
-            functionNamespaceManager.get().addParametricType(parametricType);
-        }
+        checkArgument(typeSignatureBase.isStandardType(), "Expect standard types");
+        builtInTypeAndFunctionNamespaceManager.addParametricType(parametricType);
+    }
+
+    @VisibleForTesting
+    public void addUserDefinedType(UserDefinedType userDefinedType)
+    {
+        Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(userDefinedType.getUserDefinedTypeName().getCatalogSchemaName());
+        checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for user defined type %", userDefinedType.getUserDefinedTypeName());
+        functionNamespaceManager.get().addUserDefinedType(userDefinedType);
     }
 
     public List<Type> getTypes()
@@ -351,7 +343,7 @@ public class FunctionAndTypeManager
 
     public Collection<ParametricType> getParametricTypes()
     {
-        return builtInTypeAndFunctionNamespaceManager.getParametricTypes();
+        return ImmutableList.copyOf(builtInTypeAndFunctionNamespaceManager.getParametricTypes());
     }
 
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
@@ -503,32 +495,6 @@ public class FunctionAndTypeManager
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(TypeSignatureBase typeSignatureBase)
     {
         return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getQualifiedObjectName().getCatalogName()));
-    }
-
-    private Type instantiateParametricType(TypeSignature signature, FunctionNamespaceManager<?> functionNamespaceManager)
-    {
-        List<TypeParameter> parameters = new ArrayList<>();
-
-        for (TypeSignatureParameter parameter : signature.getParameters()) {
-            TypeParameter typeParameter = TypeParameter.of(parameter, this);
-            parameters.add(typeParameter);
-        }
-
-        Optional<ParametricType> type = functionNamespaceManager.getParametricType(signature);
-        if (!type.isPresent()) {
-            throw new IllegalArgumentException("Unknown type " + signature);
-        }
-
-        ParametricType parametricType = type.get();
-        if (parametricType instanceof MapParametricType) {
-            return ((MapParametricType) parametricType).createType(this, parameters);
-        }
-
-        Type instantiatedType = parametricType.createType(parameters);
-
-        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
-        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-        return instantiatedType;
     }
 
     private static class FunctionResolutionCacheKey

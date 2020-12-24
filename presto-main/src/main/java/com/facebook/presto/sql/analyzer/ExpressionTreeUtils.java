@@ -144,24 +144,10 @@ public final class ExpressionTreeUtils
         return Optional.empty();
     }
 
-    private static boolean isEnumLiteral(DereferenceExpression node, Type nodeType)
-    {
-        if (!(nodeType instanceof EnumType)) {
-            return false;
-        }
-        QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
-        if (qualifiedName == null) {
-            return false;
-        }
-        Optional<QualifiedName> prefix = qualifiedName.getPrefix();
-        return prefix.isPresent()
-                && prefix.get().toString().equalsIgnoreCase(nodeType.getTypeSignature().getBase());
-    }
-
     public static Optional<Object> tryResolveEnumLiteral(DereferenceExpression node, Type nodeType)
     {
         QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
-        if (!isEnumLiteral(node, nodeType)) {
+        if (!(nodeType instanceof EnumType) || qualifiedName == null) {
             return Optional.empty();
         }
         EnumType enumType = (EnumType) nodeType;
