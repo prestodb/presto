@@ -18,9 +18,8 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -52,7 +51,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.facebook.presto.common.type.TypeUtils.toEnumParametricType;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -71,7 +69,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     private final String catalogName;
     private final SqlFunctionExecutors sqlFunctionExecutors;
     private final LoadingCache<QualifiedObjectName, Collection<SqlInvokedFunction>> functions;
-    private final LoadingCache<TypeSignature, ParametricType> parametricTypes;
+    private final LoadingCache<QualifiedObjectName, UserDefinedType> userDefinedTypes;
     private final LoadingCache<SqlFunctionHandle, FunctionMetadata> metadataByHandle;
     private final LoadingCache<SqlFunctionHandle, ScalarFunctionImplementation> implementationByHandle;
 
@@ -95,14 +93,9 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                         return functions;
                     }
                 });
-        this.parametricTypes = CacheBuilder.newBuilder()
+        this.userDefinedTypes = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getTypeCacheExpiration().toMillis(), MILLISECONDS)
-                .build(CacheLoader.from(typeSignature -> {
-                    if (!typeSignature.getParameters().isEmpty()) {
-                        return toEnumParametricType(typeSignature);
-                    }
-                    return fetchParametricTypeDirect(typeSignature);
-                }));
+                .build(CacheLoader.from(this::fetchUserDefinedTypeDirect));
 
         this.metadataByHandle = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getFunctionInstanceCacheExpiration().toMillis(), MILLISECONDS)
@@ -129,7 +122,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
 
     protected abstract Collection<SqlInvokedFunction> fetchFunctionsDirect(QualifiedObjectName functionName);
 
-    protected abstract ParametricType fetchParametricTypeDirect(TypeSignature typeSignature);
+    protected abstract UserDefinedType fetchUserDefinedTypeDirect(QualifiedObjectName typeName);
 
     protected abstract FunctionMetadata fetchFunctionMetadataDirect(SqlFunctionHandle functionHandle);
 
@@ -174,10 +167,10 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     }
 
     @Override
-    public Optional<ParametricType> getParametricType(TypeSignature typeSignature)
+    public Optional<UserDefinedType> getUserDefinedType(QualifiedObjectName typeName)
     {
         try {
-            return Optional.of(parametricTypes.getUnchecked(typeSignature));
+            return Optional.of(userDefinedTypes.getUnchecked(typeName));
         }
         catch (PrestoException e) {
             if (e.getErrorCode().equals(NOT_FOUND.toErrorCode())) {

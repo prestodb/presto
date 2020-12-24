@@ -100,7 +100,7 @@ public final class Serialization
                 throws IOException
         {
             // serialize variable as "name<type>"
-            jsonGenerator.writeFieldName(format("%s%s%s%s", value.getName(), VARIABLE_TYPE_OPEN_BRACKET, value.getType(), VARIABLE_TYPE_CLOSE_BRACKET));
+            jsonGenerator.writeFieldName(format("%s%s%s%s", value.getName(), VARIABLE_TYPE_OPEN_BRACKET, value.getType().getTypeSignature(), VARIABLE_TYPE_CLOSE_BRACKET));
         }
     }
 
