@@ -15,9 +15,9 @@ package com.facebook.presto.functionNamespace.testing;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
@@ -51,7 +51,7 @@ public class InMemoryFunctionNamespaceManager
 {
     private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
     private final Map<TypeSignature, Type> types = new ConcurrentHashMap<>();
-    private final Map<QualifiedObjectName, ParametricType> parametricTypes = new ConcurrentHashMap<>();
+    private final Map<QualifiedObjectName, UserDefinedType> userDefinedTypes = new ConcurrentHashMap<>();
 
     public InMemoryFunctionNamespaceManager(String catalogName, SqlFunctionExecutors sqlFunctionExecutors, SqlInvokedFunctionNamespaceManagerConfig config)
     {
@@ -100,14 +100,14 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
-    public void addParametricType(ParametricType type)
+    public void addUserDefinedType(UserDefinedType type)
     {
-        QualifiedObjectName name = type.getTypeSignatureBase().getQualifiedObjectName();
+        QualifiedObjectName name = type.getUserDefinedTypeName();
         checkArgument(
-                !parametricTypes.containsKey(name),
+                !userDefinedTypes.containsKey(name),
                 "Parametric type %s already registered",
                         name);
-        parametricTypes.put(name, type);
+        userDefinedTypes.put(name, type);
     }
 
     @Override
@@ -120,9 +120,9 @@ public class InMemoryFunctionNamespaceManager
     }
 
     @Override
-    protected ParametricType fetchParametricTypeDirect(TypeSignature typeSignature)
+    protected UserDefinedType fetchUserDefinedTypeDirect(QualifiedObjectName typeName)
     {
-        return parametricTypes.get(typeSignature.getTypeSignatureBase().getQualifiedObjectName());
+        return userDefinedTypes.get(typeName);
     }
 
     @Override
