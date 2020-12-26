@@ -472,10 +472,18 @@ public class MetastoreUtil
 
     public static List<String> extractPartitionValues(String partitionName)
     {
+        return extractPartitionValues(partitionName, Optional.empty());
+    }
+
+    public static List<String> extractPartitionValues(String partitionName, Optional<List<String>> partitionColumnNames)
+    {
         ImmutableList.Builder<String> values = ImmutableList.builder();
+        ImmutableList.Builder<String> keys = ImmutableList.builder();
 
         boolean inKey = true;
         int valueStart = -1;
+        int keyStart = 0;
+        int keyEnd = -1;
         for (int i = 0; i < partitionName.length(); i++) {
             char current = partitionName.charAt(i);
             if (inKey) {
@@ -483,19 +491,31 @@ public class MetastoreUtil
                 if (current == '=') {
                     inKey = false;
                     valueStart = i + 1;
+                    keyEnd = i;
                 }
             }
             else if (current == '/') {
                 checkArgument(valueStart != -1, "Invalid partition spec: %s", partitionName);
                 values.add(unescapePathName(partitionName.substring(valueStart, i)));
+                keys.add(unescapePathName(partitionName.substring(keyStart, keyEnd)));
                 inKey = true;
                 valueStart = -1;
+                keyStart = i + 1;
             }
         }
         checkArgument(!inKey, "Invalid partition spec: %s", partitionName);
         values.add(unescapePathName(partitionName.substring(valueStart, partitionName.length())));
+        keys.add(unescapePathName(partitionName.substring(keyStart, keyEnd)));
 
-        return values.build();
+        if (!partitionColumnNames.isPresent() || partitionColumnNames.get().size() == 1) {
+            return values.build();
+        }
+        else {
+            ImmutableList.Builder<String> orderedValues = ImmutableList.builder();
+            partitionColumnNames.get()
+                    .forEach(columnName -> orderedValues.add(values.build().get(keys.build().indexOf(columnName))));
+            return orderedValues.build();
+        }
     }
 
     public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)

@@ -44,6 +44,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketFilter;
 import static com.facebook.presto.hive.HiveBucketing.getHiveBucketHandle;
@@ -395,7 +396,10 @@ public class HivePartitionManager
             List<Type> partitionColumnTypes,
             DateTimeZone timeZone)
     {
-        List<String> partitionValues = extractPartitionValues(partitionName);
+        List<String> partitionColumnNames = partitionColumns.stream()
+                .map(HiveColumnHandle::getName)
+                .collect(Collectors.toList());
+        List<String> partitionValues = extractPartitionValues(partitionName, Optional.of(partitionColumnNames));
         ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
             HiveColumnHandle column = partitionColumns.get(i);

@@ -143,7 +143,7 @@ public class StoragePartitionLoader
         int partitionDataColumnCount = partition.getPartition()
                 .map(p -> p.getColumns().size())
                 .orElse(table.getDataColumns().size());
-        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
+        List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition(), partitionName);
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);

@@ -35,6 +35,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_DATE;
 import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.reconstructPartitionSchema;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -196,5 +197,16 @@ public class TestHiveMetastoreUtil
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> reconstructPartitionSchema(ImmutableList.of(c1), 2, ImmutableMap.of(0, c2)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void testExtractPartitionValues()
+    {
+        String p1 = "date_str";
+        String p2 = "20201221";
+        assertEquals(extractPartitionValues("p1=date_str/p2=20201221", Optional.of(ImmutableList.of("p1", "p2"))), ImmutableList.of(p1, p2));
+        assertEquals(extractPartitionValues("p2=20201221/p1=date_str", Optional.of(ImmutableList.of("p1", "p2"))), ImmutableList.of(p1, p2));
+        assertEquals(extractPartitionValues("p1=date_str/p2=20201221"), ImmutableList.of(p1, p2));
+        assertEquals(extractPartitionValues("p2=20201221/p1=date_str"), ImmutableList.of(p2, p1));
     }
 }

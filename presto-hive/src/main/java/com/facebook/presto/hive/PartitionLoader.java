@@ -23,10 +23,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.hive.HiveUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.checkCondition;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionValues;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 
@@ -35,14 +38,19 @@ public abstract class PartitionLoader
     public abstract ListenableFuture<?> loadPartition(HivePartitionMetadata partition, HiveSplitSource hiveSplitSource, boolean stopped)
             throws IOException;
 
-    public List<HivePartitionKey> getPartitionKeys(Table table, Optional<Partition> partition)
+    public List<HivePartitionKey> getPartitionKeys(Table table, Optional<Partition> partition, String partitionName)
     {
         if (!partition.isPresent()) {
             return ImmutableList.of();
         }
         ImmutableList.Builder<HivePartitionKey> partitionKeys = ImmutableList.builder();
+        // partition information provided by Hive Metastore is out of order
         List<Column> keys = table.getPartitionColumns();
-        List<String> values = partition.get().getValues();
+        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table);
+        List<String> partitionColumnNames = partitionColumns.stream()
+                .map(HiveColumnHandle::getName)
+                .collect(Collectors.toList());
+        List<String> values = extractPartitionValues(partitionName, Optional.of(partitionColumnNames));
         checkCondition(keys.size() == values.size(), HIVE_INVALID_METADATA, "Expected %s partition key values, but got %s", keys.size(), values.size());
         for (int i = 0; i < keys.size(); i++) {
             String name = keys.get(i).getName();
