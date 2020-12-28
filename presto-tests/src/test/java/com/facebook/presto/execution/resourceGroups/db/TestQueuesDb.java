@@ -112,7 +112,7 @@ public class TestQueuesDb
     {
         String dbConfigUrl1 = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl1);
-        DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl1, dao, ImmutableMap.of("concurrency-threshold-to-enable-resource-group-refresh", "10", "resource-group-runtimeinfo-refresh-interval", "10s"));
+        DistributedQueryRunner queryRunner = createQueryRunner(dbConfigUrl1, dao, ImmutableMap.of("concurrency-threshold-to-enable-resource-group-refresh", "0.1", "resource-group-runtimeinfo-refresh-interval", "10s"));
 
         MILLISECONDS.sleep(500);
         QueryId firstAdhocQuery = createQuery(queryRunner, adhocSession(), LONG_LASTING_QUERY);
@@ -131,7 +131,7 @@ public class TestQueuesDb
         closeQuietly(queryRunner);
     }
 
-    @Test(timeOut = 60_000)
+    @Test(timeOut = 600_000)
     public void testBasic()
             throws Exception
     {

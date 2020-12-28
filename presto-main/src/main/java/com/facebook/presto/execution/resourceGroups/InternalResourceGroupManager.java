@@ -70,7 +70,6 @@ import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -98,7 +97,7 @@ public final class InternalResourceGroupManager<C>
     private final ResourceGroupService resourceGroupService;
     private final ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = new ConcurrentHashMap<>();
     private final AtomicLong lastUpdatedResourceGroupRuntimeInfo = new AtomicLong(0L);
-    private final int concurrencyThreshold;
+    private final double concurrencyThreshold;
     private final Duration resourceGroupRuntimeInfoRefreshInterval;
 
     @Inject
@@ -222,7 +221,7 @@ public final class InternalResourceGroupManager<C>
             }, 1, 1, MILLISECONDS);
             refreshExecutor.scheduleWithFixedDelay(() -> {
                 refreshResourceGroupRuntimeInfo();
-            }, 100, resourceGroupRuntimeInfoRefreshInterval.toMillis(), MILLISECONDS);
+            }, 1, resourceGroupRuntimeInfoRefreshInterval.toMillis(), MILLISECONDS);
         }
     }
 

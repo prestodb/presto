@@ -48,7 +48,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
 import static com.facebook.presto.execution.QueryState.QUEUED;
-import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
 import static com.facebook.presto.memory.LocalMemoryManager.RESERVED_POOL;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -154,13 +153,6 @@ public class ResourceManagerClusterStateProvider
                     }
                     else if (!info.getState().isDone()) {
                         builder.addRunningQueries(1);
-                    }
-                    Optional<ResourceGroupId> parentId = resourceGroupId.getParent();
-                    while (parentId.isPresent()) {
-                        ResourceGroupRuntimeInfo.Builder parentBuilder = resourceGroupBuilders.computeIfAbsent(parentId.get(), ResourceGroupRuntimeInfo::builder);
-                        parentBuilder.addDescendantQueuedQueries(info.getState() == QUEUED ? 1 : 0);
-                        parentBuilder.addDescendantRunningQueries(info.getState() == RUNNING ? 1 : 0);
-                        parentId = parentId.get().getParent();
                     }
                     builder.addUserMemoryReservationBytes(info.getQueryStats().getUserMemoryReservation().toBytes());
                 });

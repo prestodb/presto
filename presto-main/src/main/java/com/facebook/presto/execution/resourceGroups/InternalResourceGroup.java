@@ -149,8 +149,6 @@ public class InternalResourceGroup
     private final AtomicLong lastUpdatedResourceGroupRuntimeInfo;
     @GuardedBy("root")
     private AtomicLong lastRunningQueryStartTime = new AtomicLong(0);
-    @GuardedBy("root")
-    private int concurrencyThresholdPercentage;
 
     protected InternalResourceGroup(
             Optional<InternalResourceGroup> parent,
@@ -160,7 +158,7 @@ public class InternalResourceGroup
             boolean staticResourceGroup,
             ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos,
             AtomicLong lastUpdatedResourceGroupRuntimeInfo,
-            double concurrencyThreshold)
+            Double concurrencyThreshold)
     {
         this.parent = requireNonNull(parent, "parent is null");
         this.jmxExportListener = requireNonNull(jmxExportListener, "jmxExportListener is null");
@@ -986,11 +984,7 @@ public class InternalResourceGroup
                 totalRunningQueries += resourceGroupRuntimeInfo.getRunningQueries();
             }
 
-            //If lastRunnintStartTime earlier than the last resource group refresh time, won't let the resource group start new query
-            if (totalRunningQueries > (hardConcurrencyLimit * concurrencyThresholdPercentage / 100) && lastUpdatedResourceGroupRuntimeInfo.get() < lastRunningQueryStartTime.get()) {
-                return false;
-            }
-
+            //If lastRunningStartTime earlier than the last resource group refresh time, won't let the resource group start new query
             return totalRunningQueries >= (hardConcurrencyLimit * concurrencyThreshold) && lastUpdatedResourceGroupRuntimeInfo.get() < lastRunningQueryStartTime.get();
         }
     }
@@ -1041,7 +1035,7 @@ public class InternalResourceGroup
                 Executor executor,
                 ConcurrentMap<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos,
                 AtomicLong lastUpdatedResourceGroupRuntimeInfo,
-                int concurrencyThreshold)
+                Double concurrencyThreshold)
         {
             super(Optional.empty(), name, jmxExportListener, executor, true, resourceGroupRuntimeInfos,
                     lastUpdatedResourceGroupRuntimeInfo, concurrencyThreshold);
