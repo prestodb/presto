@@ -117,7 +117,7 @@ public class OptimizedPartitionedOutputOperator
                 serdeFactory,
                 sourceTypes,
                 maxMemory,
-                operatorContext.getDriverContext().getLifespan());
+                operatorContext);
 
         operatorContext.setInfoSupplier(this::getInfo);
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
@@ -172,9 +172,6 @@ public class OptimizedPartitionedOutputOperator
 
         page = pagePreprocessor.apply(page);
         pagePartitioner.partitionPage(page);
-
-        // TODO: PartitionedOutputOperator reports incorrect output data size #11770
-        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
 
         systemMemoryContext.setBytes(pagePartitioner.getRetainedSizeInBytes());
     }
@@ -416,7 +413,7 @@ public class OptimizedPartitionedOutputOperator
                 PagesSerdeFactory serdeFactory,
                 List<Type> sourceTypes,
                 DataSize maxMemory,
-                Lifespan lifespan)
+                OperatorContext operatorContext)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "pagePartitioner is null");
             this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -448,7 +445,7 @@ public class OptimizedPartitionedOutputOperator
 
             partitionBuffers = new PartitionBuffer[partitionCount];
             for (int i = 0; i < partitionCount; i++) {
-                partitionBuffers[i] = new PartitionBuffer(i, sourceTypes.size(), partitionBufferCapacity, pagesAdded, rowsAdded, serde, lifespan, bufferAllocator);
+                partitionBuffers[i] = new PartitionBuffer(i, sourceTypes.size(), partitionBufferCapacity, pagesAdded, rowsAdded, serde, bufferAllocator, operatorContext);
             }
 
             this.sourceTypes = sourceTypes;
@@ -608,8 +605,9 @@ public class OptimizedPartitionedOutputOperator
 
         private int bufferedRowCount;
         private boolean bufferFull;
+        private OperatorContext operatorContext;
 
-        PartitionBuffer(int partition, int channelCount, int capacity, AtomicLong pagesAdded, AtomicLong rowsAdded, PagesSerde serde, Lifespan lifespan, ArrayAllocator bufferAllocator)
+        PartitionBuffer(int partition, int channelCount, int capacity, AtomicLong pagesAdded, AtomicLong rowsAdded, PagesSerde serde, ArrayAllocator bufferAllocator, OperatorContext operatorContext)
         {
             this.partition = partition;
             this.channelCount = channelCount;
@@ -617,8 +615,9 @@ public class OptimizedPartitionedOutputOperator
             this.pagesAdded = requireNonNull(pagesAdded, "pagesAdded is null");
             this.rowsAdded = requireNonNull(rowsAdded, "rowsAdded is null");
             this.serde = requireNonNull(serde, "serde is null");
-            this.lifespan = requireNonNull(lifespan, "lifespan is null");
             this.bufferAllocator = requireNonNull(bufferAllocator, "bufferAllocator is null");
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+            this.lifespan = operatorContext.getDriverContext().getLifespan();
         }
 
         private void resetPositions(int estimatedPositionCount)
@@ -752,7 +751,9 @@ public class OptimizedPartitionedOutputOperator
             SliceOutput output = new DynamicSliceOutput(toIntExact(getSerializedBuffersSizeInBytes()));
             output.writeInt(channelCount);
 
+            long totalSizeInBytes = 0;
             for (int i = 0; i < channelCount; i++) {
+                totalSizeInBytes += blockEncodingBuffers[i].getSerializedSizeInBytes();
                 blockEncodingBuffers[i].serializeTo(output);
                 blockEncodingBuffers[i].resetBuffers();
             }
@@ -761,6 +762,7 @@ public class OptimizedPartitionedOutputOperator
             outputBuffer.enqueue(lifespan, partition, ImmutableList.of(serializedPage));
             pagesAdded.incrementAndGet();
             rowsAdded.addAndGet(bufferedRowCount);
+            operatorContext.recordOutput(totalSizeInBytes, bufferedRowCount);
 
             bufferedRowCount = 0;
         }
