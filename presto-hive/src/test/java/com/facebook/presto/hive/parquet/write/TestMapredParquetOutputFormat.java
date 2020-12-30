@@ -20,8 +20,8 @@ import org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Progressable;
-import parquet.hadoop.ParquetOutputFormat;
-import parquet.schema.MessageType;
+import org.apache.parquet.hadoop.ParquetOutputFormat;
+import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.util.Optional;
