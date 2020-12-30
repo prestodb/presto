@@ -120,6 +120,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
@@ -202,7 +203,6 @@ public class OrcTester
     {
         ORC_12(OrcEncoding.ORC) {
             @Override
-            @SuppressWarnings("deprecation")
             public Serializer createSerializer()
             {
                 return new OrcSerde();
@@ -210,7 +210,6 @@ public class OrcTester
         },
         ORC_11(OrcEncoding.ORC) {
             @Override
-            @SuppressWarnings("deprecation")
             public Serializer createSerializer()
             {
                 return new OrcSerde();
@@ -224,7 +223,6 @@ public class OrcTester
             }
 
             @Override
-            @SuppressWarnings("deprecation")
             public Serializer createSerializer()
             {
                 return new com.facebook.hive.orc.OrcSerde();
@@ -248,7 +246,6 @@ public class OrcTester
             return true;
         }
 
-        @SuppressWarnings("deprecation")
         public abstract Serializer createSerializer();
     }
 
@@ -1968,7 +1965,7 @@ public class OrcTester
         Object row = objectInspector.create();
 
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
-        @SuppressWarnings("deprecation") Serializer serializer = format.createSerializer();
+        Serializer serializer = format.createSerializer();
 
         for (int i = 0; i < values.get(0).size(); i++) {
             for (int j = 0; j < types.size(); j++) {
@@ -2210,8 +2207,8 @@ public class OrcTester
             throws IOException
     {
         JobConf jobConf = new JobConf();
-        jobConf.set("hive.exec.orc.write.format", format == ORC_12 ? "0.12" : "0.11");
-        jobConf.set("hive.exec.orc.default.compress", compression.name());
+        org.apache.orc.OrcConf.WRITE_FORMAT.setString(jobConf, format == ORC_12 ? "0.12" : "0.11");
+        org.apache.orc.OrcConf.COMPRESS.setString(jobConf, compression.name());
 
         return new OrcOutputFormat().getHiveRecordWriter(
                 jobConf,
@@ -2226,8 +2223,7 @@ public class OrcTester
             throws IOException
     {
         JobConf jobConf = new JobConf();
-        jobConf.set("hive.exec.orc.default.compress", compressionCodec.name());
-        jobConf.set("hive.exec.orc.compress", compressionCodec.name());
+        OrcConf.setVar(jobConf, HIVE_ORC_COMPRESSION, compressionCodec.name());
         OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_ENTROPY_STRING_THRESHOLD, 1);
         OrcConf.setIntVar(jobConf, OrcConf.ConfVars.HIVE_ORC_DICTIONARY_ENCODING_INTERVAL, 2);
         OrcConf.setBoolVar(jobConf, OrcConf.ConfVars.HIVE_ORC_BUILD_STRIDE_DICTIONARY, true);

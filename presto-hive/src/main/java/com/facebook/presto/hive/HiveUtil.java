@@ -404,7 +404,7 @@ public final class HiveUtil
         }
     }
 
-    public static StructObjectInspector getTableObjectInspector(@SuppressWarnings("deprecation") Deserializer deserializer)
+    public static StructObjectInspector getTableObjectInspector(Deserializer deserializer)
     {
         try {
             ObjectInspector inspector = deserializer.getObjectInspector();
@@ -428,7 +428,6 @@ public final class HiveUtil
         return name;
     }
 
-    @SuppressWarnings("deprecation")
     public static Deserializer getDeserializer(Configuration configuration, Properties schema)
     {
         String name = getDeserializerClassName(schema);
@@ -438,7 +437,6 @@ public final class HiveUtil
         return deserializer;
     }
 
-    @SuppressWarnings("deprecation")
     private static Class<? extends Deserializer> getDeserializerClass(String name)
     {
         // CDH uses different names for Parquet
@@ -461,7 +459,6 @@ public final class HiveUtil
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static Deserializer createDeserializer(Class<? extends Deserializer> clazz)
     {
         try {
@@ -472,7 +469,6 @@ public final class HiveUtil
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static void initializeDeserializer(Configuration configuration, Deserializer deserializer, Properties schema)
     {
         try {
@@ -485,7 +481,6 @@ public final class HiveUtil
         }
     }
 
-    @SuppressWarnings("deprecation")
     private static void validate(Deserializer deserializer)
     {
         if (deserializer instanceof AbstractSerDe && !((AbstractSerDe) deserializer).getConfigurationErrors().isEmpty()) {
