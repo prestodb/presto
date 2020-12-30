@@ -29,7 +29,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.List;
@@ -60,15 +59,10 @@ public class RcFilePageSource
 
     private boolean closed;
 
-    public RcFilePageSource(
-            RcFileReader rcFileReader,
-            List<HiveColumnHandle> columns,
-            DateTimeZone hiveStorageTimeZone,
-            TypeManager typeManager)
+    public RcFilePageSource(RcFileReader rcFileReader, List<HiveColumnHandle> columns, TypeManager typeManager)
     {
         requireNonNull(rcFileReader, "rcReader is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         requireNonNull(typeManager, "typeManager is null");
 
         this.rcFileReader = rcFileReader;

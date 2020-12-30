@@ -159,11 +159,7 @@ public class RcFilePageSourceFactory
                     length,
                     new DataSize(8, Unit.MEGABYTE));
 
-            return Optional.of(new RcFilePageSource(
-                    rcFileReader,
-                    columns,
-                    hiveStorageTimeZone,
-                    typeManager));
+            return Optional.of(new RcFilePageSource(rcFileReader, columns, typeManager));
         }
         catch (Throwable e) {
             try {
