@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.orc.metadata.statistics.BloomFilter;
 import com.facebook.presto.orc.metadata.statistics.BooleanStatistics;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
@@ -29,7 +30,6 @@ import com.facebook.presto.orc.metadata.statistics.RangeStatistics;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.apache.hive.common.util.BloomFilter;
 
 import java.util.Collection;
 import java.util.List;

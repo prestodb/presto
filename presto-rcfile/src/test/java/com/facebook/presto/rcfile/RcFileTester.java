@@ -197,7 +197,6 @@ public class RcFileTester
     {
         BINARY {
             @Override
-            @SuppressWarnings("deprecation")
             public Serializer createSerializer()
             {
                 return new LazyBinaryColumnarSerDe();
@@ -212,7 +211,6 @@ public class RcFileTester
 
         TEXT {
             @Override
-            @SuppressWarnings("deprecation")
             public Serializer createSerializer()
             {
                 try {
@@ -235,7 +233,6 @@ public class RcFileTester
             }
         };
 
-        @SuppressWarnings("deprecation")
         public abstract Serializer createSerializer();
 
         public abstract RcFileEncoding getVectorEncoding();
@@ -776,7 +773,6 @@ public class RcFileTester
         schema.setProperty(META_TABLE_COLUMNS, "test");
         schema.setProperty(META_TABLE_COLUMN_TYPES, getJavaObjectInspector(type).getTypeName());
 
-        @SuppressWarnings("deprecation")
         Deserializer deserializer;
         if (format == Format.BINARY) {
             deserializer = new LazyBinaryColumnarSerDe();
@@ -925,7 +921,7 @@ public class RcFileTester
         Object row = objectInspector.create();
 
         List<StructField> fields = ImmutableList.copyOf(objectInspector.getAllStructFieldRefs());
-        @SuppressWarnings("deprecation") Serializer serializer = format.createSerializer();
+        Serializer serializer = format.createSerializer();
 
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", "test");
