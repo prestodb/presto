@@ -47,6 +47,7 @@ import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -109,7 +110,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
-import static org.apache.hadoop.hive.metastore.MetaStoreUtils.typeToThriftType;
+import static org.apache.hadoop.hive.metastore.ColumnType.typeToThriftType;
 import static org.apache.hadoop.hive.metastore.ProtectMode.getProtectModeFromString;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_COUNT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.BUCKET_FIELD_NAME;
@@ -217,7 +218,7 @@ public class MetastoreUtil
         if (storage.getBucketProperty().isPresent()) {
             List<String> bucketedBy = storage.getBucketProperty().get().getBucketedBy();
             if (!bucketedBy.isEmpty()) {
-                schema.setProperty(BUCKET_FIELD_NAME, bucketedBy.get(0));
+                schema.setProperty(BUCKET_FIELD_NAME, Joiner.on(",").join(bucketedBy));
             }
             schema.setProperty(BUCKET_COUNT, Integer.toString(storage.getBucketProperty().get().getBucketCount()));
         }
