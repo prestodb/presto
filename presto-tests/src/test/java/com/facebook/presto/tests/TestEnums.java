@@ -15,7 +15,7 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
+import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
@@ -33,7 +33,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.common.type.StandardTypes.LONG_ENUM;
+import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.singletonList;
@@ -46,7 +46,7 @@ public class TestEnums
     private static final Long BIG_VALUE = Integer.MAX_VALUE + 10L; // 2147483657
 
     private static final UserDefinedType MOOD_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.mood"), new TypeSignature(
-            LONG_ENUM,
+            BIGINT_ENUM,
             TypeSignatureParameter.of(new LongEnumMap("test.enum.mood", ImmutableMap.of(
                     "HAPPY", 0L,
                 "SAD", 1L,
@@ -67,9 +67,9 @@ public class TestEnums
             "TEST2", "",
             "TEST3", " ",
             "TEST4", ")))\"\"")))));
-    private static final UserDefinedType TEST_LONG_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testlongenum"), new TypeSignature(
-            LONG_ENUM,
-            TypeSignatureParameter.of(new LongEnumMap("test.enum.testlongenum", ImmutableMap.of(
+    private static final UserDefinedType TEST_BIGINT_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.testbigintenum"), new TypeSignature(
+            BIGINT_ENUM,
+            TypeSignatureParameter.of(new LongEnumMap("test.enum.testbigintenum", ImmutableMap.of(
             "TEST", 6L,
             "TEST2", 8L)))));
     private static final UserDefinedType MARKET_SEGMENT_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("test.enum.market_segment"), new TypeSignature(
@@ -92,7 +92,7 @@ public class TestEnums
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MOOD_ENUM);
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(COUNTRY_ENUM);
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(TEST_ENUM);
-            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(TEST_LONG_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(TEST_BIGINT_ENUM);
             queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MARKET_SEGMENT_ENUM);
 
             queryRunner.installPlugin(new TpchPlugin());
@@ -155,7 +155,7 @@ public class TestEnums
         assertSingleValue(
                 "cast(JSON '{\"France\": [0]}' as MAP<test.enum.country,ARRAY<test.enum.mood>>)",
                 ImmutableMap.of("France", singletonList(0L)));
-        assertQueryFails("select cast(7 as test.enum.mood)", ".*No value '7' in enum 'LongEnum'");
+        assertQueryFails("select cast(7 as test.enum.mood)", ".*No value '7' in enum 'BigintEnum'");
     }
 
     @Test
@@ -185,7 +185,7 @@ public class TestEnums
         assertSingleValue("test.enum.country.\"भारत\" between test.enum.country.FRANCE and test.enum.country.BAHAMAS", true);
         assertSingleValue("test.enum.country.US between test.enum.country.FRANCE and test.enum.country.\"भारत\"", false);
 
-        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to VarcharEnum\\(test.enum.country.*\\), LongEnum\\(test.enum.mood.*\\)");
+        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to VarcharEnum\\(test.enum.country.*\\), BigintEnum\\(test.enum.mood.*\\)");
         assertQueryFails("select test.enum.country.US IN (test.enum.country.CHINA, test.enum.mood.SAD)", ".* All IN list values must be the same type.*");
         assertQueryFails("select test.enum.country.US IN (test.enum.mood.HAPPY, test.enum.mood.SAD)", ".* IN value and list items must be the same type: test.enum.country");
         assertQueryFails("select test.enum.country.US > 2", ".* '>' cannot be applied to VarcharEnum\\(test.enum.country.*\\), integer");
@@ -218,7 +218,7 @@ public class TestEnums
         assertSingleValue("test.enum.mood.HAPPY between test.enum.mood.CURIOUS and test.enum.mood.SAD ", true);
         assertSingleValue("test.enum.mood.MELLOW between test.enum.mood.SAD and test.enum.mood.HAPPY", false);
 
-        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to LongEnum\\(test.enum.mood.*, integer");
+        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to BigintEnum\\(test.enum.mood.*, integer");
     }
 
     @Test
@@ -288,7 +288,7 @@ public class TestEnums
     public void testCastFunctionCaching()
     {
         assertSingleValue("CAST(' ' as test.enum.TestEnum)", " ");
-        assertSingleValue("CAST(8 as test.enum.TestLongEnum)", 8L);
+        assertSingleValue("CAST(8 as test.enum.TestBigintEnum)", 8L);
     }
 
     @Test

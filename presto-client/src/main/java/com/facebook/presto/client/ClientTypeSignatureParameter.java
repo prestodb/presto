@@ -14,7 +14,7 @@
 package com.facebook.presto.client;
 
 import com.facebook.airlift.json.ObjectMapperProvider;
-import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
+import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
 import com.facebook.presto.common.type.TypeSignatureParameter;

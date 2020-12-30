@@ -14,7 +14,7 @@
 package com.facebook.presto.type;
 
 import com.facebook.presto.common.type.AbstractLongType;
-import com.facebook.presto.common.type.LongEnumType;
+import com.facebook.presto.common.type.BigintEnumType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Description;
@@ -51,7 +51,7 @@ public final class LongEnumOperators
     private LongEnumOperators() {}
 
     @ScalarOperator(EQUAL)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(BOOLEAN)
     @SqlNullable
     public static Boolean equal(@SqlType("T") long left, @SqlType("T") long right)
@@ -60,7 +60,7 @@ public final class LongEnumOperators
     }
 
     @ScalarOperator(NOT_EQUAL)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(BOOLEAN)
     @SqlNullable
     public static Boolean notEqual(@SqlType("T") long left, @SqlType("T") long right)
@@ -69,7 +69,7 @@ public final class LongEnumOperators
     }
 
     @ScalarOperator(IS_DISTINCT_FROM)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(BOOLEAN)
     public static boolean isDistinctFrom(
             @SqlType("T") long left,
@@ -87,7 +87,7 @@ public final class LongEnumOperators
     }
 
     @ScalarOperator(HASH_CODE)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(BIGINT)
     public static long hashCode(@SqlType("T") long value)
     {
@@ -95,7 +95,7 @@ public final class LongEnumOperators
     }
 
     @ScalarOperator(XX_HASH_64)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(BIGINT)
     public static long xxHash64(@SqlType("T") long value)
     {
@@ -103,7 +103,7 @@ public final class LongEnumOperators
     }
 
     @ScalarOperator(INDETERMINATE)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(BOOLEAN)
     public static boolean indeterminate(@SqlType("T") long value, @IsNull boolean isNull)
     {
@@ -111,7 +111,7 @@ public final class LongEnumOperators
     }
 
     @ScalarOperator(LESS_THAN)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThan(@SqlType("T") long left, @SqlType("T") long right)
     {
@@ -119,7 +119,7 @@ public final class LongEnumOperators
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean lessThanOrEqual(@SqlType("T") long left, @SqlType("T") long right)
     {
@@ -127,7 +127,7 @@ public final class LongEnumOperators
     }
 
     @ScalarOperator(GREATER_THAN)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThan(@SqlType("T") long left, @SqlType("T") long right)
     {
@@ -135,7 +135,7 @@ public final class LongEnumOperators
     }
 
     @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean greaterThanOrEqual(@SqlType("T") long left, @SqlType("T") long right)
     {
@@ -143,7 +143,7 @@ public final class LongEnumOperators
     }
 
     @ScalarOperator(BETWEEN)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean between(@SqlType("T") long value, @SqlType("T") long min, @SqlType("T") long max)
     {
@@ -152,9 +152,9 @@ public final class LongEnumOperators
 
     @Description("Get the key corresponding to an enum value")
     @ScalarFunction("enum_key")
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice enumKey(@TypeParameter("T") LongEnumType enumType, @SqlType("T") long value)
+    public static Slice enumKey(@TypeParameter("T") BigintEnumType enumType, @SqlType("T") long value)
     {
         Optional<String> key = enumType.getEnumKeyForValue(value);
         if (!key.isPresent()) {
