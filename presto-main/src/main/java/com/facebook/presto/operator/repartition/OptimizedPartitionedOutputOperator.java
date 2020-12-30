@@ -117,7 +117,7 @@ public class OptimizedPartitionedOutputOperator
                 serdeFactory,
                 sourceTypes,
                 maxMemory,
-                operatorContext.getDriverContext().getLifespan());
+                operatorContext);
 
         operatorContext.setInfoSupplier(this::getInfo);
         this.systemMemoryContext = operatorContext.newLocalSystemMemoryContext(PartitionedOutputOperator.class.getSimpleName());
@@ -172,9 +172,6 @@ public class OptimizedPartitionedOutputOperator
 
         page = pagePreprocessor.apply(page);
         pagePartitioner.partitionPage(page);
-
-        // TODO: PartitionedOutputOperator reports incorrect output data size #11770
-        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
 
         systemMemoryContext.setBytes(pagePartitioner.getRetainedSizeInBytes());
     }
@@ -405,6 +402,7 @@ public class OptimizedPartitionedOutputOperator
         private final DecodedBlockNode[] decodedBlocks;
 
         private boolean hasAnyRowBeenReplicated;
+        private final OperatorContext operatorContext;
 
         public PagePartitioner(
                 PartitionFunction partitionFunction,
@@ -416,7 +414,7 @@ public class OptimizedPartitionedOutputOperator
                 PagesSerdeFactory serdeFactory,
                 List<Type> sourceTypes,
                 DataSize maxMemory,
-                Lifespan lifespan)
+                OperatorContext operatorContext)
         {
             this.partitionFunction = requireNonNull(partitionFunction, "pagePartitioner is null");
             this.partitionChannels = Ints.toArray(requireNonNull(partitionChannels, "partitionChannels is null"));
@@ -441,6 +439,7 @@ public class OptimizedPartitionedOutputOperator
             this.nullChannel = requireNonNull(nullChannel, "nullChannel is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.serde = requireNonNull(serdeFactory, "serdeFactory is null").createPagesSerde();
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
 
             int partitionCount = partitionFunction.getPartitionCount();
 
@@ -448,7 +447,7 @@ public class OptimizedPartitionedOutputOperator
 
             partitionBuffers = new PartitionBuffer[partitionCount];
             for (int i = 0; i < partitionCount; i++) {
-                partitionBuffers[i] = new PartitionBuffer(i, sourceTypes.size(), partitionBufferCapacity, pagesAdded, rowsAdded, serde, lifespan, bufferAllocator);
+                partitionBuffers[i] = new PartitionBuffer(i, sourceTypes.size(), partitionBufferCapacity, pagesAdded, rowsAdded, serde, operatorContext.getDriverContext().getLifespan(), bufferAllocator, operatorContext);
             }
 
             this.sourceTypes = sourceTypes;
@@ -608,8 +607,9 @@ public class OptimizedPartitionedOutputOperator
 
         private int bufferedRowCount;
         private boolean bufferFull;
+        private OperatorContext operatorContext;
 
-        PartitionBuffer(int partition, int channelCount, int capacity, AtomicLong pagesAdded, AtomicLong rowsAdded, PagesSerde serde, Lifespan lifespan, ArrayAllocator bufferAllocator)
+        PartitionBuffer(int partition, int channelCount, int capacity, AtomicLong pagesAdded, AtomicLong rowsAdded, PagesSerde serde, Lifespan lifespan, ArrayAllocator bufferAllocator, OperatorContext operatorContext)
         {
             this.partition = partition;
             this.channelCount = channelCount;
@@ -619,6 +619,12 @@ public class OptimizedPartitionedOutputOperator
             this.serde = requireNonNull(serde, "serde is null");
             this.lifespan = requireNonNull(lifespan, "lifespan is null");
             this.bufferAllocator = requireNonNull(bufferAllocator, "bufferAllocator is null");
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+        }
+
+        public int getPositionCount()
+        {
+            return this.positionCount;
         }
 
         private void resetPositions(int estimatedPositionCount)
@@ -752,7 +758,9 @@ public class OptimizedPartitionedOutputOperator
             SliceOutput output = new DynamicSliceOutput(toIntExact(getSerializedBuffersSizeInBytes()));
             output.writeInt(channelCount);
 
+            long totalSizeInBytes = 0;
             for (int i = 0; i < channelCount; i++) {
+                totalSizeInBytes += blockEncodingBuffers[i].getSerializedSizeInBytes();
                 blockEncodingBuffers[i].serializeTo(output);
                 blockEncodingBuffers[i].resetBuffers();
             }
@@ -761,6 +769,7 @@ public class OptimizedPartitionedOutputOperator
             outputBuffer.enqueue(lifespan, partition, ImmutableList.of(serializedPage));
             pagesAdded.incrementAndGet();
             rowsAdded.addAndGet(bufferedRowCount);
+            operatorContext.recordOutput(totalSizeInBytes, bufferedRowCount);
 
             bufferedRowCount = 0;
         }
