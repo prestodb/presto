@@ -223,7 +223,7 @@ public final class JsonUtil
         {
             TypeSignature signature = type.getTypeSignature();
             String baseType = signature.getBase();
-            if (signature.isLongEnum()) {
+            if (signature.isBigintEnum()) {
                 return (block, position) -> String.valueOf(type.getLong(block, position));
             }
             if (signature.isVarcharEnum()) {
@@ -272,7 +272,7 @@ public final class JsonUtil
         {
             TypeSignature signature = type.getTypeSignature();
             String baseType = signature.getBase();
-            if (signature.isLongEnum()) {
+            if (signature.isBigintEnum()) {
                 return new LongJsonGeneratorWriter(type);
             }
             if (signature.isVarcharEnum()) {
@@ -890,7 +890,7 @@ public final class JsonUtil
         {
             TypeSignature signature = type.getTypeSignature();
             String baseType = signature.getBase();
-            if (signature.isLongEnum()) {
+            if (signature.isBigintEnum()) {
                 return new BigintBlockBuilderAppender();
             }
             if (signature.isVarcharEnum()) {

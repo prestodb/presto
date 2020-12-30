@@ -32,15 +32,15 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
-public class LongEnumType
+public class BigintEnumType
         extends AbstractLongType
         implements EnumType<Long>
 {
     private final LongEnumMap enumMap;
 
-    public LongEnumType(LongEnumMap enumMap)
+    public BigintEnumType(LongEnumMap enumMap)
     {
-        super(new TypeSignature(StandardTypes.LONG_ENUM, TypeSignatureParameter.of(enumMap)));
+        super(new TypeSignature(StandardTypes.BIGINT_ENUM, TypeSignatureParameter.of(enumMap)));
         this.enumMap = enumMap;
     }
 
@@ -158,7 +158,7 @@ public class LongEnumType
             return false;
         }
 
-        LongEnumType other = (LongEnumType) o;
+        BigintEnumType other = (BigintEnumType) o;
 
         return Objects.equals(getTypeSignature().getBase(), other.getTypeSignature().getBase())
                 && Objects.equals(getEnumMap(), other.getEnumMap());

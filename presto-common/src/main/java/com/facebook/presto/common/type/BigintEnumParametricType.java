@@ -17,17 +17,17 @@ import java.util.List;
 
 import static java.lang.String.format;
 
-public final class LongEnumParametricType
+public final class BigintEnumParametricType
         implements ParametricType
 {
-    public static final LongEnumParametricType LONG_ENUM = new LongEnumParametricType();
+    public static final BigintEnumParametricType BIGINT_ENUM = new BigintEnumParametricType();
 
-    private LongEnumParametricType() {}
+    private BigintEnumParametricType() {}
 
     @Override
     public String getName()
     {
-        return StandardTypes.LONG_ENUM;
+        return StandardTypes.BIGINT_ENUM;
     }
 
     @Override
@@ -38,7 +38,7 @@ public final class LongEnumParametricType
                 parameters.get(0).getKind() == ParameterKind.LONG_ENUM,
                 "Enum definition expected, got %s",
                 parameters);
-        return new LongEnumType(parameters.get(0).getLongEnumMap());
+        return new BigintEnumType(parameters.get(0).getLongEnumMap());
     }
 
     private static void checkArgument(boolean argument, String format, Object... args)

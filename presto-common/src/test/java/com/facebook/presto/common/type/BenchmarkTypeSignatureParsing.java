@@ -102,7 +102,7 @@ public class BenchmarkTypeSignatureParsing
             for (int i = 0; i < 35_000; i++) {
                 bigMap.put(format("KEY_%d", i), ThreadLocalRandom.current().nextLong());
             }
-            return new LongEnumType(new LongEnumType.LongEnumMap("test.enum.biglongenum", bigMap));
+            return new BigintEnumType(new BigintEnumType.LongEnumMap("test.enum.biglongenum", bigMap));
         }
 
         @Setup

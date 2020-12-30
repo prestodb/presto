@@ -14,7 +14,7 @@
 package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.type.LongEnumType.LongEnumMap;
+import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 import com.facebook.presto.common.type.encoding.Base32;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -34,7 +34,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.common.type.StandardTypes.LONG_ENUM;
+import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
 import static java.lang.Character.isDigit;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -53,8 +53,8 @@ public class TypeSignature
     private static final Set<String> SIMPLE_TYPE_WITH_SPACES =
             new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
-    private static final String LONG_ENUM_PREFIX = LONG_ENUM.toLowerCase(ENGLISH);
-    private static final Pattern ENUM_PREFIX = Pattern.compile("(varchar|long)enum\\(");
+    private static final String BIGINT_ENUM_PREFIX = BIGINT_ENUM.toLowerCase(ENGLISH);
+    private static final Pattern ENUM_PREFIX = Pattern.compile("(varchar|bigint)enum\\(");
 
     static {
         BASE_NAME_ALIAS_TO_CANONICAL.put("int", StandardTypes.INTEGER);
@@ -130,10 +130,10 @@ public class TypeSignature
 
     public boolean isEnum()
     {
-        return isLongEnum() || isVarcharEnum();
+        return isBigintEnum() || isVarcharEnum();
     }
 
-    public boolean isLongEnum()
+    public boolean isBigintEnum()
     {
         return parameters.size() == 1 && parameters.get(0).isLongEnum();
     }
@@ -224,19 +224,19 @@ public class TypeSignature
         final int mapEndIndex;
         private final String typeName;
         private final Map<String, String> map;
-        private final boolean isLongEnum;
+        private final boolean isBigintEnum;
 
-        EnumMapParsingData(int mapEndIndex, String typeName, Map<String, String> map, boolean isLongEnum)
+        EnumMapParsingData(int mapEndIndex, String typeName, Map<String, String> map, boolean isBigintEnum)
         {
             this.mapEndIndex = mapEndIndex;
             this.typeName = typeName;
             this.map = map;
-            this.isLongEnum = isLongEnum;
+            this.isBigintEnum = isBigintEnum;
         }
 
         LongEnumMap getLongEnumMap()
         {
-            checkArgument(isLongEnum, "Invalid enum map format");
+            checkArgument(isBigintEnum, "Invalid enum map format");
             return new LongEnumMap(
                     typeName,
                     map.entrySet().stream()
@@ -245,7 +245,7 @@ public class TypeSignature
 
         VarcharEnumMap getVarcharEnumMap()
         {
-            checkArgument(!isLongEnum, "Invalid enum map format");
+            checkArgument(!isBigintEnum, "Invalid enum map format");
             // Varchar enum values are base32-encoded so that they are case-insensitive, which is expected of TypeSigntures
             Base32 base32 = new Base32();
             return new VarcharEnumMap(
@@ -281,7 +281,7 @@ public class TypeSignature
     private static EnumMapParsingData parseEnumMap(String signature, int startIndex)
     {
         EnumMapParsingState state = EnumMapParsingState.EXPECT_KEY;
-        boolean isLongEnum = signature.startsWith(LONG_ENUM_PREFIX, startIndex - LONG_ENUM_PREFIX.length() - 1);
+        boolean isBigintEnum = signature.startsWith(BIGINT_ENUM_PREFIX, startIndex - BIGINT_ENUM_PREFIX.length() - 1);
         int openBracketIndex = signature.indexOf("{", startIndex);
         String typeName = signature.substring(startIndex, openBracketIndex);
         String key = null;
@@ -303,7 +303,7 @@ public class TypeSignature
                     state = EnumMapParsingState.IN_KEY;
                 }
                 else if (state == EnumMapParsingState.EXPECT_VALUE) {
-                    if (isLongEnum) {
+                    if (isBigintEnum) {
                         throw new IllegalStateException("Unexpected varchar value in numeric enum signature");
                     }
                     state = EnumMapParsingState.IN_STR_VALUE;
@@ -331,7 +331,7 @@ public class TypeSignature
                 state = EnumMapParsingState.EXPECT_VALUE;
             }
             else if ((Character.isDigit(c) || c == '-') && state == EnumMapParsingState.EXPECT_VALUE) {
-                if (!isLongEnum) {
+                if (!isBigintEnum) {
                     throw new IllegalStateException("Unexpected numeric value in varchar enum signature");
                 }
                 state = EnumMapParsingState.IN_NUM_VALUE;
@@ -346,7 +346,7 @@ public class TypeSignature
                 }
                 map.put(key, keyOrValue.toString());
                 if (c == '}') {
-                    return new EnumMapParsingData(i, typeName, map, isLongEnum);
+                    return new EnumMapParsingData(i, typeName, map, isBigintEnum);
                 }
                 key = null;
                 keyOrValue = new StringBuilder();
@@ -520,7 +520,7 @@ public class TypeSignature
                 throw new IllegalStateException("Cannot parse enum signature");
             }
             EnumMapParsingData enumMapData = parsedEnumMaps.get(begin);
-            if (enumMapData.isLongEnum) {
+            if (enumMapData.isBigintEnum) {
                 return TypeSignatureParameter.of(enumMapData.getLongEnumMap());
             }
             return TypeSignatureParameter.of(enumMapData.getVarcharEnumMap());
