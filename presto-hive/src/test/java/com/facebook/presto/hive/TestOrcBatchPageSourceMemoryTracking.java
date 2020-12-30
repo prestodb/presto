@@ -59,15 +59,13 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
-import org.apache.hadoop.hive.ql.io.orc.NullMemoryManager;
+import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.WriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.OrcInputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.hive.ql.io.orc.OrcSerde;
-import org.apache.hadoop.hive.ql.io.orc.OrcWriterOptions;
 import org.apache.hadoop.hive.ql.io.orc.Writer;
-import org.apache.hadoop.hive.ql.io.orc.WriterImpl;
-import org.apache.hadoop.hive.serde2.SerDe;
+import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -77,6 +75,8 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.orc.NullMemoryManager;
+import org.apache.orc.impl.WriterImpl;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -535,7 +535,7 @@ public class TestOrcBatchPageSourceMemoryTracking
 
     public static FileSplit createTestFile(String filePath,
             HiveOutputFormat<?, ?> outputFormat,
-            @SuppressWarnings("deprecation") SerDe serDe,
+            Serializer serializer,
             String compressionCodec,
             List<TestColumn> testColumns,
             int numRows,
@@ -548,7 +548,7 @@ public class TestOrcBatchPageSourceMemoryTracking
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
         tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
-        serDe.initialize(CONFIGURATION, tableProperties);
+        serializer.initialize(CONFIGURATION, tableProperties);
 
         JobConf jobConf = new JobConf();
         if (compressionCodec != null) {
@@ -577,7 +577,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     objectInspector.setStructFieldData(row, fields.get(i), writeValue);
                 }
 
-                Writable record = serDe.serialize(row, objectInspector);
+                Writable record = serializer.serialize(row, objectInspector);
                 recordWriter.write(record);
                 if (rowNumber % stripeRows == stripeRows - 1) {
                     flushStripe(recordWriter);
@@ -614,8 +614,8 @@ public class TestOrcBatchPageSourceMemoryTracking
     private static RecordWriter createRecordWriter(Path target, Configuration conf)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
-            WriterOptions options = new OrcWriterOptions(conf)
-                    .memory(new NullMemoryManager(conf))
+            WriterOptions options = OrcFile.writerOptions(conf)
+                    .memory(new NullMemoryManager())
                     .compress(ZLIB);
 
             try {

@@ -72,14 +72,14 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.SimpleGroupFactory;
 import org.apache.parquet.hadoop.example.ExampleParquetWriter;
 import org.apache.parquet.hadoop.example.GroupWriteSupport;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
-import parquet.column.ParquetProperties.WriterVersion;
-import parquet.hadoop.metadata.CompressionCodecName;
-import parquet.schema.MessageType;
 
 import java.io.Closeable;
 import java.io.File;
@@ -133,17 +133,17 @@ import static java.lang.Math.toIntExact;
 import static java.util.Arrays.stream;
 import static java.util.Collections.singletonList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static org.apache.parquet.hadoop.ParquetOutputFormat.COMPRESSION;
+import static org.apache.parquet.hadoop.ParquetOutputFormat.ENABLE_DICTIONARY;
+import static org.apache.parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
+import static org.apache.parquet.hadoop.metadata.CompressionCodecName.GZIP;
+import static org.apache.parquet.hadoop.metadata.CompressionCodecName.LZO;
+import static org.apache.parquet.hadoop.metadata.CompressionCodecName.SNAPPY;
+import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
-import static parquet.hadoop.ParquetOutputFormat.COMPRESSION;
-import static parquet.hadoop.ParquetOutputFormat.ENABLE_DICTIONARY;
-import static parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
-import static parquet.hadoop.metadata.CompressionCodecName.GZIP;
-import static parquet.hadoop.metadata.CompressionCodecName.LZO;
-import static parquet.hadoop.metadata.CompressionCodecName.SNAPPY;
-import static parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 
 public class ParquetTester
 {

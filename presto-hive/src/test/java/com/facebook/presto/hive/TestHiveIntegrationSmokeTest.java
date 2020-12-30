@@ -295,6 +295,22 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testReadNoColumns()
+    {
+        testWithAllStorageFormats(this::testReadNoColumns);
+    }
+
+    private void testReadNoColumns(Session session, HiveStorageFormat storageFormat)
+    {
+        if (!insertOperationsSupported(storageFormat)) {
+            return;
+        }
+        assertUpdate(session, format("CREATE TABLE test_read_no_columns WITH (format = '%s') AS SELECT 0 x", storageFormat), 1);
+        assertQuery(session, "SELECT count(*) FROM test_read_no_columns", "SELECT 1");
+        assertUpdate(session, "DROP TABLE test_read_no_columns");
+    }
+
+    @Test
     public void createTableWithEveryType()
     {
         @Language("SQL") String query = "" +
