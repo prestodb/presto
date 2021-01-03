@@ -412,6 +412,10 @@ public class SliceDirectSelectiveStreamReader
             if (filter.testLength(lengthVector[position])) {
                 outputPositions[positionsIndex++] = position;  // compact positions on the fly
             }
+            else {
+                i += filter.getSucceedingPositionsToFail();
+                positionsIndex -= filter.getPrecedingPositionsToFail();
+            }
         }
 
         int filteredPositionCount = 0;
@@ -437,15 +441,17 @@ public class SliceDirectSelectiveStreamReader
             convertLengthVectorToOffsetVector(lengthVector, isNullVector, totalPositionCount, offsets);
         }
 
-        boolean testNull = (nonDeterministicFilter && filter.testNull()) || nullsAllowed;
-
         int positionsIndex = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
 
             if (isNullVector[position]) {
-                if (testNull) {
+                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                     outputPositions[positionsIndex++] = position;
+                }
+                else {
+                    i += filter.getSucceedingPositionsToFail();
+                    positionsIndex -= filter.getPrecedingPositionsToFail();
                 }
             }
             else {
@@ -454,6 +460,10 @@ public class SliceDirectSelectiveStreamReader
 
                 if (filter.testLength(length) && filter.testBytes(data, dataOffset, length)) {
                     outputPositions[positionsIndex++] = position;  // compact positions on the fly
+                }
+                else {
+                    i += filter.getSucceedingPositionsToFail();
+                    positionsIndex -= filter.getPrecedingPositionsToFail();
                 }
             }
         }
@@ -471,6 +481,10 @@ public class SliceDirectSelectiveStreamReader
             int length = offsets[position + 1] - dataOffset;
             if (filter.testBytes(data, dataOffset, length)) {
                 positions[positionsIndex++] = position;
+            }
+            else {
+                i += filter.getSucceedingPositionsToFail();
+                positionsIndex -= filter.getPrecedingPositionsToFail();
             }
         }
         return positionsIndex;
