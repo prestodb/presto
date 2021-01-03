@@ -1101,7 +1101,7 @@ public class OrcTester
             if (nestedType instanceof ArrayType) {
                 assertTrue(pathElement instanceof Subfield.LongSubscript);
                 if (nestedValue == null) {
-                    return filter == IS_NULL;
+                    return filter.testNull();
                 }
                 int index = toIntExact(((Subfield.LongSubscript) pathElement).getIndex()) - 1;
                 nestedType = ((ArrayType) nestedType).getElementType();
