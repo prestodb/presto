@@ -409,6 +409,19 @@ public class TestSelectiveOrcReader
         BigintRange negative = BigintRange.of(Integer.MIN_VALUE, 0, false);
         BigintRange nonNegative = BigintRange.of(0, Integer.MAX_VALUE, false);
 
+        // arrays of strings
+        tester.testRoundTrip(arrayType(VARCHAR),
+                createList(1000, i -> randomStrings(5 + random.nextInt(5), random)),
+                ImmutableList.of(
+                        toSubfieldFilter("c[1]", IS_NULL),
+                        toSubfieldFilter("c[1]", stringIn(true, "a", "b", "c", "d"))));
+
+        tester.testRoundTrip(arrayType(VARCHAR),
+                createList(10, i -> randomStringsWithNulls(5 + random.nextInt(5), random)),
+                ImmutableList.of(
+                        toSubfieldFilter("c[1]", IS_NULL),
+                        toSubfieldFilter("c[1]", stringIn(true, "a", "b", "c", "d"))));
+
         // non-empty non-null arrays of varying sizes
         tester.testRoundTrip(arrayType(INTEGER),
                 createList(NUM_ROWS, i -> randomIntegers(5 + random.nextInt(5), random)),
@@ -1214,6 +1227,23 @@ public class TestSelectiveOrcReader
     private static List<Integer> randomIntegers(int size, Random random)
     {
         return createList(size, i -> random.nextInt());
+    }
+
+    private static List<String> randomStrings(int size, Random random)
+    {
+        return createList(size, i -> generateRandomStringWithLength(random, 10));
+    }
+
+    private static List<String> randomStringsWithNulls(int size, Random random)
+    {
+        return createList(size, i -> i % 2 == 0 ? null : generateRandomStringWithLength(random, 10));
+    }
+
+    private static String generateRandomStringWithLength(Random random, int length)
+    {
+        byte[] array = new byte[length];
+        random.nextBytes(array);
+        return new String(array, UTF_8);
     }
 
     private static List<SqlDecimal> decimalSequence(String start, String step, int items, int precision, int scale)
