@@ -141,7 +141,7 @@ public class PrestoSparkRunner
         PrestoSparkLoader prestoSparkLoader = new PrestoSparkLoader(
                 urls,
                 PrestoSparkLauncher.class.getClassLoader(),
-                asList("org.apache.spark.", "com.facebook.presto.spark.classloader_interface.", "scala."));
+                asList("org.apache.spark.", "com.facebook.presto.spark.classloader_interface.", "scala.", "com.facebook.di.security.token_service."));
         ServiceLoader<IPrestoSparkServiceFactory> serviceLoader = ServiceLoader.load(IPrestoSparkServiceFactory.class, prestoSparkLoader);
         return serviceLoader.iterator().next();
     }
