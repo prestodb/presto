@@ -259,6 +259,6 @@ public class TestCanonicalPlanGenerator
                 Arrays.stream(CanonicalTableHandle.class.getDeclaredFields())
                         .map(Field::getName)
                         .collect(toImmutableSet()),
-                ImmutableSet.of("connectorId", "connectorHandle", "layoutIdentifier"));
+                ImmutableSet.of("connectorId", "tableHandle", "layoutIdentifier", "layoutHandle"));
     }
 }

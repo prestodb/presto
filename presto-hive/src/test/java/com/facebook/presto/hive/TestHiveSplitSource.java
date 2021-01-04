@@ -21,6 +21,7 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
@@ -542,7 +543,8 @@ public class TestHiveSplitSource
                             "partition-name",
                             id,
                             ImmutableMap.of(),
-                            Optional.empty()),
+                            Optional.empty(),
+                            ImmutableSet.of()),
                     Optional.empty(),
                     Optional.empty(),
                     ImmutableMap.of());
