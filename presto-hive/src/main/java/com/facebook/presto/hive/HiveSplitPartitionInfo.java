@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -24,6 +25,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -46,6 +48,7 @@ public class HiveSplitPartitionInfo
     private final int partitionDataColumnCount;
     private final Map<Integer, Column> partitionSchemaDifference;
     private final Optional<HiveSplit.BucketConversion> bucketConversion;
+    private final Set<ColumnHandle> redundantColumnDomains;
 
     // keep track of how many InternalHiveSplits reference this PartitionInfo.
     private final AtomicInteger references = new AtomicInteger(0);
@@ -57,7 +60,8 @@ public class HiveSplitPartitionInfo
             String partitionName,
             int partitionDataColumnCount,
             Map<Integer, Column> partitionSchemaDifference,
-            Optional<HiveSplit.BucketConversion> bucketConversion)
+            Optional<HiveSplit.BucketConversion> bucketConversion,
+            Set<ColumnHandle> redundantColumnDomains)
     {
         requireNonNull(storage, "storage is null");
         requireNonNull(path, "path is null");
@@ -65,6 +69,7 @@ public class HiveSplitPartitionInfo
         requireNonNull(partitionName, "partitionName is null");
         requireNonNull(partitionSchemaDifference, "partitionSchemaDifference is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
+        requireNonNull(redundantColumnDomains, "redundantColumnDomains is null");
 
         this.storage = storage;
         this.path = ensurePathHasTrailingSlash(path);
@@ -73,6 +78,7 @@ public class HiveSplitPartitionInfo
         this.partitionDataColumnCount = partitionDataColumnCount;
         this.partitionSchemaDifference = partitionSchemaDifference;
         this.bucketConversion = bucketConversion;
+        this.redundantColumnDomains = redundantColumnDomains;
     }
 
     // Hadoop path strips trailing slashes from the path string,
@@ -122,6 +128,11 @@ public class HiveSplitPartitionInfo
     public Optional<HiveSplit.BucketConversion> getBucketConversion()
     {
         return bucketConversion;
+    }
+
+    public Set<ColumnHandle> getRedundantColumnDomains()
+    {
+        return redundantColumnDomains;
     }
 
     public int getEstimatedSizeInBytes()

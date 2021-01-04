@@ -30,6 +30,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -148,7 +149,8 @@ public class TestDynamicPruning
                 Optional.empty(),
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                ImmutableSet.of());
 
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),

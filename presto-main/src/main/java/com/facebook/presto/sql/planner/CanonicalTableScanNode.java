@@ -21,6 +21,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.plan.InternalPlanNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -37,7 +39,7 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class CanonicalTableScanNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final CanonicalTableHandle table;
     private final Map<VariableReferenceExpression, ColumnHandle> assignments;
@@ -90,6 +92,12 @@ public class CanonicalTableScanNode
     }
 
     @Override
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitCanonicalTableScan(this, context);
+    }
+
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
@@ -113,24 +121,41 @@ public class CanonicalTableScanNode
     public static class CanonicalTableHandle
     {
         private final ConnectorId connectorId;
-        private final ConnectorTableHandle connectorHandle;
-
+        private final ConnectorTableHandle tableHandle;
         private final Optional<Object> layoutIdentifier;
+
+        // This field is only used for plan rewrite but not participate in fragment result caching, so
+        // we do not serialize this field.
+        private final Optional<ConnectorTableLayoutHandle> layoutHandle;
 
         public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle)
         {
-            return new CanonicalTableHandle(tableHandle.getConnectorId(), tableHandle.getConnectorHandle(), tableHandle.getLayout().map(ConnectorTableLayoutHandle::getIdentifier));
+            return new CanonicalTableHandle(
+                    tableHandle.getConnectorId(),
+                    tableHandle.getConnectorHandle(),
+                    tableHandle.getLayout().map(layout -> layout.getIdentifier(Optional.empty())),
+                    tableHandle.getLayout());
         }
 
         @JsonCreator
         public CanonicalTableHandle(
-                @JsonProperty("coonectorId") ConnectorId connectorId,
-                @JsonProperty("connectorHandle") ConnectorTableHandle connectorHandle,
+                @JsonProperty("connectorId") ConnectorId connectorId,
+                @JsonProperty("tableHandle") ConnectorTableHandle tableHandle,
                 @JsonProperty("layoutIdentifier") Optional<Object> layoutIdentifier)
         {
+            this(connectorId, tableHandle, layoutIdentifier, Optional.empty());
+        }
+
+        public CanonicalTableHandle(
+                ConnectorId connectorId,
+                ConnectorTableHandle tableHandle,
+                Optional<Object> layoutIdentifier,
+                Optional<ConnectorTableLayoutHandle> layoutHandle)
+        {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
-            this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
+            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
             this.layoutIdentifier = requireNonNull(layoutIdentifier, "layoutIdentifier is null");
+            this.layoutHandle = requireNonNull(layoutHandle, "layoutHandle is null");
         }
 
         @JsonProperty
@@ -140,15 +165,20 @@ public class CanonicalTableScanNode
         }
 
         @JsonProperty
-        public ConnectorTableHandle getConnectorHandle()
+        public ConnectorTableHandle getTableHandle()
         {
-            return connectorHandle;
+            return tableHandle;
         }
 
         @JsonProperty
         public Optional<Object> getLayoutIdentifier()
         {
             return layoutIdentifier;
+        }
+
+        public Optional<ConnectorTableLayoutHandle> getLayoutHandle()
+        {
+            return layoutHandle;
         }
 
         @Override
@@ -162,14 +192,14 @@ public class CanonicalTableScanNode
             }
             CanonicalTableHandle that = (CanonicalTableHandle) o;
             return Objects.equals(connectorId, that.connectorId) &&
-                    Objects.equals(connectorHandle, that.connectorHandle) &&
+                    Objects.equals(tableHandle, that.tableHandle) &&
                     Objects.equals(layoutIdentifier, that.layoutIdentifier);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(connectorId, connectorHandle, layoutIdentifier);
+            return Objects.hash(connectorId, tableHandle, layoutIdentifier);
         }
     }
 }
