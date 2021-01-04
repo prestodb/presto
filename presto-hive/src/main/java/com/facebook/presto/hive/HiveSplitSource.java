@@ -504,7 +504,8 @@ class HiveSplitSource
                         internalSplit.getExtraFileInfo(),
                         cacheQuotaRequirement,
                         internalSplit.getEncryptionInformation(),
-                        internalSplit.getCustomSplitInfo()));
+                        internalSplit.getCustomSplitInfo(),
+                        internalSplit.getPartitionInfo().getRedundantColumnDomains()));
 
                 internalSplit.increaseStart(splitBytes);
 

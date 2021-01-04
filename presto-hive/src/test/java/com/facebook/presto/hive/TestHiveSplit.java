@@ -23,18 +23,19 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.hive.HiveColumnHandle.ColumnType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -44,12 +45,14 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.CacheQuotaRequirement.NO_CACHE_REQUIREMENT;
+import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
@@ -66,6 +69,15 @@ public class TestHiveSplit
         ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
         ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
         Map<String, String> customSplitInfo = ImmutableMap.of("key", "value");
+        Set<ColumnHandle> redundantColumnDomains = ImmutableSet.of(new HiveColumnHandle(
+                "test_column",
+                HIVE_LONG,
+                HIVE_LONG.getTypeSignature(),
+                5,
+                REGULAR,
+                Optional.empty(),
+                ImmutableList.of(),
+                Optional.empty()));
         HiveSplit expected = new HiveSplit(
                 "db",
                 "table",
@@ -91,7 +103,7 @@ public class TestHiveSplit
                 Optional.of(new HiveSplit.BucketConversion(
                         32,
                         16,
-                        ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, ColumnType.REGULAR, Optional.of("comment"), Optional.empty())))),
+                        ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, REGULAR, Optional.of("comment"), Optional.empty())))),
                 false,
                 Optional.empty(),
                 NO_CACHE_REQUIREMENT,
@@ -100,7 +112,8 @@ public class TestHiveSplit
                         ImmutableMap.of(),
                         "test_algo",
                         "test_provider"))),
-                customSplitInfo);
+                customSplitInfo,
+                redundantColumnDomains);
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);

@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.operator.FragmentResultCacheManager;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -44,7 +45,9 @@ public class FragmentResultCacheContext
     private static final Set<Class<? extends PlanNode>> ALLOWED_CHILDREN_NODES = ImmutableSet.of(TableScanNode.class, FilterNode.class, ProjectNode.class, GroupIdNode.class);
 
     private final FragmentResultCacheManager fragmentResultCacheManager;
+    private final CanonicalPlanFragment canonicalPlanFragment;
     private final String hashedCanonicalPlanFragment;
+    private final ObjectMapper objectMapper;
 
     public static Optional<FragmentResultCacheContext> createFragmentResultCacheContext(
             FragmentResultCacheManager fragmentResultCacheManager,
@@ -62,15 +65,25 @@ public class FragmentResultCacheContext
             return Optional.empty();
         }
 
+        String hashedCanonicalPlanFragment = generateHashedCanonicalPlanFragment(canonicalPlanFragment.get(), objectMapper);
+        if (hashedCanonicalPlanFragment == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new FragmentResultCacheContext(
+                fragmentResultCacheManager,
+                canonicalPlanFragment.get(),
+                hashedCanonicalPlanFragment,
+                objectMapper));
+    }
+
+    private static String generateHashedCanonicalPlanFragment(CanonicalPlanFragment canonicalPlanFragment, ObjectMapper objectMapper)
+    {
         try {
-            return Optional.of(new FragmentResultCacheContext(
-                    fragmentResultCacheManager,
-                    canonicalPlanFragment.get(),
-                    sha256().hashString(objectMapper.writeValueAsString(canonicalPlanFragment.get()), UTF_8).toString()));
+            return sha256().hashString(objectMapper.writeValueAsString(canonicalPlanFragment), UTF_8).toString();
         }
         catch (JsonProcessingException e) {
-            log.warn("Cannot serialize query plan for plan %s in query %s", root.getId(), session.getQueryId());
-            return Optional.empty();
+            log.warn("Cannot serialize query plan for plan %s", canonicalPlanFragment.getPlan());
+            return null;
         }
     }
 
@@ -90,10 +103,16 @@ public class FragmentResultCacheContext
         return node.getSources().stream().allMatch(FragmentResultCacheContext::containsOnlyAllowedNodesInChildren);
     }
 
-    private FragmentResultCacheContext(FragmentResultCacheManager fragmentResultCacheManager, CanonicalPlanFragment canonicalPlanFragment, String hashedCanonicalPlanFragment)
+    private FragmentResultCacheContext(
+            FragmentResultCacheManager fragmentResultCacheManager,
+            CanonicalPlanFragment canonicalPlanFragment,
+            String hashedCanonicalPlanFragment,
+            ObjectMapper objectMapper)
     {
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
+        this.canonicalPlanFragment = requireNonNull(canonicalPlanFragment, "canonicalPlanFragment is null");
         this.hashedCanonicalPlanFragment = requireNonNull(hashedCanonicalPlanFragment, "hashedCanonicalPlanFragment is null");
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
     }
 
     public FragmentResultCacheManager getFragmentResultCacheManager()
@@ -104,5 +123,15 @@ public class FragmentResultCacheContext
     public String getHashedCanonicalPlanFragment()
     {
         return hashedCanonicalPlanFragment;
+    }
+
+    public FragmentResultCacheContext updateRuntimeInformation(ConnectorSplit split)
+    {
+        CanonicalPlanFragment processedContext = canonicalPlanFragment.updateRuntimeInformation(split);
+        return new FragmentResultCacheContext(
+                fragmentResultCacheManager,
+                processedContext,
+                generateHashedCanonicalPlanFragment(processedContext, objectMapper),
+                objectMapper);
     }
 }
