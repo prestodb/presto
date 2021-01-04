@@ -219,11 +219,15 @@ public final class MetadataReader
     public static org.apache.parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveTypeName type)
     {
         org.apache.parquet.column.statistics.Statistics<?> stats = org.apache.parquet.column.statistics.Statistics.getStatsBasedOnType(type);
+        //manual initial num_nulls
+        stats.setNumNulls(-1);
         if (statistics != null) {
             if (statistics.isSetMax() && statistics.isSetMin()) {
                 stats.setMinMaxFromBytes(statistics.min.array(), statistics.max.array());
             }
-            stats.setNumNulls(statistics.null_count);
+            if (statistics.isSetNull_count()) {
+                stats.setNumNulls(statistics.null_count);
+            }
         }
         return stats;
     }
