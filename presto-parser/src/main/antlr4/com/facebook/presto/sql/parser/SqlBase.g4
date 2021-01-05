@@ -64,6 +64,7 @@ statement
     | CREATE MATERIALIZED VIEW (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?
         (WITH properties)? AS (query | '('query')')                    #createMaterializedView
+    | DROP MATERIALIZED VIEW (IF EXISTS)? qualifiedName                #dropMaterializedView
     | CREATE (OR REPLACE)? TEMPORARY? FUNCTION functionName=qualifiedName
         '(' (sqlParameterDeclaration (',' sqlParameterDeclaration)*)? ')'
         RETURNS returnType=type
