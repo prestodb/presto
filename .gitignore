@@ -25,3 +25,4 @@ benchmark_outputs
 .mvn/timing.properties
 .editorconfig
 node_modules
+presto-docs-venv/
