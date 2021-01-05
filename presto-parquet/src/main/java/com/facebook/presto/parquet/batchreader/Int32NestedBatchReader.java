@@ -23,6 +23,7 @@ import com.facebook.presto.parquet.reader.ColumnChunk;
 import java.io.IOException;
 import java.util.Optional;
 
+//TODO: Implement column index filter later
 public class Int32NestedBatchReader
         extends AbstractNestedBatchReader
 {

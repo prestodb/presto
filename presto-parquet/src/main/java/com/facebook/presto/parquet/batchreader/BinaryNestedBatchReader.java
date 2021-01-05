@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+//TODO: Implement column index filter later
 public class BinaryNestedBatchReader
         extends AbstractNestedBatchReader
 {

@@ -28,6 +28,10 @@
 
 package com.facebook.presto.parquet;
 
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.internal.column.columnindex.ColumnIndex;
+import org.apache.parquet.internal.column.columnindex.OffsetIndex;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -63,5 +67,17 @@ public class FileParquetDataSource
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Override
+    public ColumnIndex readColumnIndex(ColumnChunkMetaData column) throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public OffsetIndex readOffsetIndex(ColumnChunkMetaData column) throws IOException
+    {
+        throw new UnsupportedOperationException();
     }
 }

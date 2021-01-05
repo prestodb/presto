@@ -33,6 +33,7 @@ import com.facebook.presto.parquet.reader.PageReader;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,6 +46,7 @@ import static com.facebook.presto.parquet.batchreader.decoders.Decoders.readFlat
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+//TODO: Implement column index filter later
 public class BinaryFlatBatchReader
         implements ColumnReader
 {
@@ -72,7 +74,7 @@ public class BinaryFlatBatchReader
     }
 
     @Override
-    public void init(PageReader pageReader, Field field)
+    public void init(PageReader pageReader, Field field, RowRanges rowRanges)
     {
         checkArgument(!isInitialized(), "Parquet batch reader already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");

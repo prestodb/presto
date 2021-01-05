@@ -34,24 +34,39 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.ParquetResultVerifierUtils;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.RichColumnDescriptor;
+import com.facebook.presto.parquet.predicate.Predicate;
+import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
+import com.facebook.presto.parquet.reader.ColumnIndexFilterUtils.OffsetRange;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.filter2.compat.FilterCompat;
+import org.apache.parquet.filter2.predicate.FilterPredicate;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
+import org.apache.parquet.internal.column.columnindex.OffsetIndex;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexFilter;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
+import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -81,11 +96,13 @@ public class ParquetReader
     private final AggregatedMemoryContext systemMemoryContext;
     private final boolean batchReadEnabled;
     private final boolean enableVerification;
+    private final FilterPredicate filter;
 
     private int currentBlock;
     private BlockMetaData currentBlockMetadata;
     private long currentPosition;
     private long currentGroupRowCount;
+    private RowRanges currentGroupRowRanges;
     private long nextRowInGroup;
     private int batchSize;
 
@@ -99,6 +116,12 @@ public class ParquetReader
 
     private AggregatedMemoryContext currentRowGroupMemoryContext;
 
+    private final List<ColumnIndexStore> blockIndexStores;
+    private final List<RowRanges> blockRowRanges;
+    private final Map<ColumnPath, ColumnDescriptor> paths = new HashMap<>();
+
+    private final boolean readColumnIndexFilter;
+
     public ParquetReader(MessageColumnIO
             messageColumnIO,
             List<BlockMetaData> blocks,
@@ -106,7 +129,10 @@ public class ParquetReader
             AggregatedMemoryContext systemMemoryContext,
             DataSize maxReadBlockSize,
             boolean batchReadEnabled,
-            boolean enableVerification)
+            boolean enableVerification,
+            Predicate parquetPredicate,
+            List<ColumnIndexStore> blockIndexStores,
+            boolean readColumnIndexFilter)
     {
         this.blocks = blocks;
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -119,6 +145,20 @@ public class ParquetReader
         this.enableVerification = enableVerification;
         verificationColumnReaders = enableVerification ? new ColumnReader[columns.size()] : null;
         maxBytesPerCell = new long[columns.size()];
+        this.blockIndexStores = blockIndexStores;
+        this.blockRowRanges = listWithNulls(this.blocks.size());
+        for (PrimitiveColumnIO column : columns) {
+            ColumnDescriptor columnDescriptor = column.getColumnDescriptor();
+            this.paths.put(ColumnPath.get(columnDescriptor.getPath()), columnDescriptor);
+        }
+        if (parquetPredicate != null && readColumnIndexFilter && parquetPredicate instanceof TupleDomainParquetPredicate) {
+            this.filter = ((TupleDomainParquetPredicate) parquetPredicate).convertToParquetUdp();
+        }
+        else {
+            this.filter = null;
+        }
+        this.currentBlock = -1; // Set it as invalid block
+        this.readColumnIndexFilter = readColumnIndexFilter;
     }
 
     @Override
@@ -159,6 +199,7 @@ public class ParquetReader
 
     private boolean advanceToNextRowGroup()
     {
+        currentBlock++;
         currentRowGroupMemoryContext.close();
         currentRowGroupMemoryContext = systemMemoryContext.newAggregatedMemoryContext();
 
@@ -166,7 +207,20 @@ public class ParquetReader
             return false;
         }
         currentBlockMetadata = blocks.get(currentBlock);
-        currentBlock = currentBlock + 1;
+
+        if (filter != null && readColumnIndexFilter) {
+            ColumnIndexStore ciStore = blockIndexStores.get(currentBlock);
+            if (ciStore != null) {
+                currentGroupRowRanges = getRowRanges(currentBlock);
+                long rowCount = currentGroupRowRanges.rowCount();
+                if (rowCount == 0) {
+                    return false;
+                }
+                if (rowCount == blocks.get(currentBlock).getRowCount()) {
+                    // TODO: All rows are matching -> fall back to the non-filtering path
+                }
+            }
+        }
 
         nextRowInGroup = 0L;
         currentGroupRowCount = currentBlockMetadata.getRowCount();
@@ -243,16 +297,37 @@ public class ParquetReader
             ColumnChunkMetaData metadata = getColumnChunkMetaData(columnDescriptor);
             long startingPosition = metadata.getStartingPos();
             int totalSize = toIntExact(metadata.getTotalSize());
-            byte[] buffer = allocateBlock(totalSize);
-            dataSource.readFully(startingPosition, buffer);
-            ColumnChunkDescriptor descriptor = new ColumnChunkDescriptor(columnDescriptor, metadata, totalSize);
-            ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
-            columnReader.init(columnChunk.readAllPages(), field);
 
-            if (enableVerification) {
-                ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
-                ParquetColumnChunk columnChunkVerfication = new ParquetColumnChunk(descriptor, buffer, 0);
-                verificationColumnReader.init(columnChunkVerfication.readAllPages(), field);
+            if (shouldUseColumnIndex(metadata.getPath())) {
+                OffsetIndex offsetIndex = blockIndexStores.get(currentBlock).getOffsetIndex(metadata.getPath());
+                OffsetIndex filteredOffsetIndex = ColumnIndexFilterUtils.filterOffsetIndex(offsetIndex, currentGroupRowRanges, blocks.get(currentBlock).getRowCount());
+                List<OffsetRange> offsetRanges = ColumnIndexFilterUtils.calculateOffsetRanges(filteredOffsetIndex, metadata, offsetIndex.getOffset(0), startingPosition);
+                List<ConsecutivePartList> allParts = concatRanges(offsetRanges);
+                List<ByteBuffer> buffers = allocateBlocks(allParts);
+                for (int i = 0; i < allParts.size(); i++) {
+                    ByteBuffer buffer = buffers.get(i);
+                    dataSource.readFully(startingPosition + allParts.get(i).getOffset(), buffer.array());
+                }
+                PageReader pageReader = createPageReader(buffers, totalSize, metadata, columnDescriptor, filteredOffsetIndex);
+                columnReader.init(pageReader, field, currentGroupRowRanges);
+
+                if (enableVerification) {
+                    ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
+                    PageReader pageReaderVerification = createPageReader(buffers, totalSize, metadata, columnDescriptor, filteredOffsetIndex);
+                    verificationColumnReader.init(pageReaderVerification, field, currentGroupRowRanges);
+                }
+            }
+            else {
+                byte[] buffer = allocateBlock(totalSize);
+                dataSource.readFully(startingPosition, buffer);
+                PageReader pageReader = createPageReader(buffer, totalSize, metadata, columnDescriptor);
+                columnReader.init(pageReader, field, null);
+
+                if (enableVerification) {
+                    ColumnReader verificationColumnReader = verificationColumnReaders[field.getId()];
+                    PageReader pageReaderVerification = createPageReader(buffer, totalSize, metadata, columnDescriptor);
+                    verificationColumnReader.init(pageReaderVerification, field, null);
+                }
             }
         }
 
@@ -276,7 +351,42 @@ public class ParquetReader
         return columnChunk;
     }
 
-    private byte[] allocateBlock(int length)
+    private boolean shouldUseColumnIndex(ColumnPath path)
+    {
+        return filter != null &&
+                readColumnIndexFilter &&
+                currentGroupRowRanges != null &&
+                currentGroupRowRanges.rowCount() < currentGroupRowCount &&
+                blockIndexStores.get(currentBlock) != null &&
+                blockIndexStores.get(currentBlock).getColumnIndex(path) != null;
+    }
+
+    private List<ByteBuffer> allocateBlocks(List<ConsecutivePartList> allParts)
+    {
+        List<ByteBuffer> buffers = new ArrayList<>();
+        for (ConsecutivePartList part : allParts) {
+            buffers.add(ByteBuffer.wrap(allocateBlock(part.getLength())));
+        }
+        return buffers;
+    }
+
+    protected PageReader createPageReader(List<ByteBuffer> buffers, int bufferSize, ColumnChunkMetaData metadata, ColumnDescriptor columnDescriptor, OffsetIndex offsetIndex)
+            throws IOException
+    {
+        ColumnChunkDescriptor descriptor = new ColumnChunkDescriptor(columnDescriptor, metadata, bufferSize);
+        ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffers, offsetIndex);
+        return columnChunk.readAllPages();
+    }
+
+    protected PageReader createPageReader(byte[] buffer, int bufferSize, ColumnChunkMetaData metadata, ColumnDescriptor columnDescriptor)
+            throws IOException
+    {
+        ColumnChunkDescriptor descriptor = new ColumnChunkDescriptor(columnDescriptor, metadata, bufferSize);
+        ParquetColumnChunk columnChunk = new ParquetColumnChunk(descriptor, buffer, 0);
+        return columnChunk.readAllPages();
+    }
+
+    protected byte[] allocateBlock(int length)
     {
         byte[] buffer = new byte[length];
         LocalMemoryContext blockMemoryContext = currentRowGroupMemoryContext.newLocalMemoryContext(ParquetReader.class.getSimpleName());
@@ -407,5 +517,78 @@ public class ParquetReader
         }
 
         return newBlockBuilder.build();
+    }
+
+    private static <T> List<T> listWithNulls(int size)
+    {
+        return Stream.generate(() -> (T) null).limit(size).collect(Collectors.toCollection(ArrayList<T>::new));
+    }
+
+    private RowRanges getRowRanges(int blockIndex)
+    {
+        assert filter != null;
+
+        RowRanges rowRanges = blockRowRanges.get(blockIndex);
+        if (rowRanges == null) {
+            rowRanges = ColumnIndexFilter.calculateRowRanges(FilterCompat.get(filter), blockIndexStores.get(blockIndex),
+                    paths.keySet(), blocks.get(blockIndex).getRowCount());
+            blockRowRanges.set(blockIndex, rowRanges);
+        }
+        return rowRanges;
+    }
+
+    /**
+     * Describes a list of consecutive parts to be read at once. A consecutive part may contain whole column chunks or
+     * only parts of them (some pages).
+     */
+    private class ConsecutivePartList
+    {
+        private final long offset;
+        private int length;
+
+        /**
+         * @param offset where the first chunk starts
+         */
+        public ConsecutivePartList(long offset)
+        {
+            this.offset = offset;
+            this.length = 0;
+        }
+
+        public void extendLength(int length)
+        {
+            this.length += length;
+        }
+
+        public long getOffset()
+        {
+            return offset;
+        }
+
+        public int getLength()
+        {
+            return length;
+        }
+
+        public long endPos()
+        {
+            return offset + length;
+        }
+    }
+
+    private List<ConsecutivePartList> concatRanges(List<OffsetRange> offsetRanges)
+    {
+        List<ConsecutivePartList> allParts = new ArrayList<>();
+        ConsecutivePartList currentParts = null;
+        for (OffsetRange range : offsetRanges) {
+            long rangeStartPos = range.getOffset();
+            // first part or not consecutive => new list
+            if (currentParts == null || currentParts.endPos() != rangeStartPos) {
+                currentParts = new ConsecutivePartList(rangeStartPos);
+            }
+            allParts.add(currentParts);
+            currentParts.extendLength((int) range.getLength());
+        }
+        return allParts;
     }
 }

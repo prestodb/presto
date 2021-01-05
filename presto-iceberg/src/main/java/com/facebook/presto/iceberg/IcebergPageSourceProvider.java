@@ -54,6 +54,8 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.predicate.Predicate;
+import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
+import com.facebook.presto.parquet.reader.ColumnIndexStoreImpl;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -77,8 +79,11 @@ import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 
@@ -86,10 +91,12 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -100,6 +107,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isFailOnCorruptedPa
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseParquetColumnNames;
+import static com.facebook.presto.hive.HiveSessionProperties.readColumnIndexFilter;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
@@ -235,7 +243,8 @@ public class IcebergPageSourceProvider
                         isParquetBatchReadsEnabled(session),
                         isParquetBatchReaderVerificationEnabled(session),
                         predicate,
-                        fileFormatDataSourceStats);
+                        fileFormatDataSourceStats,
+                        false);
             case ORC:
                 FileStatus fileStatus = null;
                 try {
@@ -295,7 +304,8 @@ public class IcebergPageSourceProvider
             boolean batchReaderEnabled,
             boolean verificationEnabled,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
-            FileFormatDataSourceStats fileFormatDataSourceStats)
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            boolean readColumnIndexFilter)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -333,13 +343,18 @@ public class IcebergPageSourceProvider
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
-
+            final ParquetDataSource finalDataSource = dataSource;
             List<BlockMetaData> blocks = new ArrayList<>();
+            List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
+                ColumnIndexStore ciStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, readColumnIndexFilter);
                 if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
-                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics)) {
+                        predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics, ciStore, readColumnIndexFilter)) {
                     blocks.add(block);
+                }
+                else {
+                    blockIndexStores.add(ciStore);
                 }
             }
 
@@ -351,7 +366,10 @@ public class IcebergPageSourceProvider
                     systemMemoryContext,
                     maxReadBlockSize,
                     batchReaderEnabled,
-                    verificationEnabled);
+                    verificationEnabled,
+                    parquetPredicate,
+                    blockIndexStores,
+                    readColumnIndexFilter);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
@@ -663,5 +681,30 @@ public class IcebergPageSourceProvider
                     .collect(toImmutableList());
         }
         return columnAttributes;
+    }
+
+    private static ColumnIndexStore getColumnIndexStore(Predicate parquetPredicate, ParquetDataSource dataSource, BlockMetaData blockMetadata, Map<List<String>, RichColumnDescriptor> descriptorsByPath, boolean readColumnIndexFilter)
+    {
+        if (!readColumnIndexFilter || parquetPredicate == null || !(parquetPredicate instanceof TupleDomainParquetPredicate)) {
+            return null;
+        }
+
+        boolean hasColumnIndex = false;
+        for (ColumnChunkMetaData column : blockMetadata.getColumns()) {
+            if (column.getColumnIndexReference() != null && column.getOffsetIndexReference() != null) {
+                hasColumnIndex = true;
+                break;
+            }
+        }
+
+        if (!hasColumnIndex) {
+            return null;
+        }
+
+        Set<ColumnPath> paths = new HashSet<>();
+        for (List<String> path : descriptorsByPath.keySet()) {
+            paths.add(ColumnPath.get(path.toArray(new String[0])));
+        }
+        return ColumnIndexStoreImpl.create(dataSource, blockMetadata, paths);
     }
 }

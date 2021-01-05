@@ -20,6 +20,12 @@ import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.format.Util;
+import org.apache.parquet.format.converter.ParquetMetadataConverter;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.internal.column.columnindex.ColumnIndex;
+import org.apache.parquet.internal.column.columnindex.OffsetIndex;
+import org.apache.parquet.internal.hadoop.metadata.IndexReference;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -65,6 +71,28 @@ public class HdfsParquetDataSource
         catch (Exception e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error reading from %s at position %s", getId(), position), e);
         }
+    }
+
+    @Override
+    public ColumnIndex readColumnIndex(ColumnChunkMetaData column) throws IOException
+    {
+        IndexReference ref = column.getColumnIndexReference();
+        if (ref == null) {
+            return null;
+        }
+        inputStream.seek(ref.getOffset());
+        return ParquetMetadataConverter.fromParquetColumnIndex(column.getPrimitiveType(), Util.readColumnIndex(inputStream));
+    }
+
+    @Override
+    public OffsetIndex readOffsetIndex(ColumnChunkMetaData column) throws IOException
+    {
+        IndexReference ref = column.getOffsetIndexReference();
+        if (ref == null) {
+            return null;
+        }
+        inputStream.seek(ref.getOffset());
+        return ParquetMetadataConverter.fromParquetOffsetIndex(Util.readOffsetIndex(inputStream));
     }
 
     public static HdfsParquetDataSource buildHdfsParquetDataSource(FileSystem fileSystem, Path path, long start, long length, FileFormatDataSourceStats stats)

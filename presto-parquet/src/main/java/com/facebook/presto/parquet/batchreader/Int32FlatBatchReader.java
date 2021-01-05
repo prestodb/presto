@@ -29,6 +29,7 @@ import com.facebook.presto.parquet.dictionary.Dictionary;
 import com.facebook.presto.parquet.reader.ColumnChunk;
 import com.facebook.presto.parquet.reader.PageReader;
 import com.facebook.presto.spi.PrestoException;
+import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
@@ -40,6 +41,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+//TODO: Implement column index filter later
 public class Int32FlatBatchReader
         implements ColumnReader
 {
@@ -67,7 +69,7 @@ public class Int32FlatBatchReader
     }
 
     @Override
-    public void init(PageReader pageReader, Field field)
+    public void init(PageReader pageReader, Field field, RowRanges rowRanges)
     {
         checkArgument(!isInitialized(), "Parquet batch reader already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");

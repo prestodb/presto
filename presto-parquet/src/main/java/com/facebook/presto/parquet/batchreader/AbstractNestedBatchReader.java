@@ -29,6 +29,7 @@ import com.facebook.presto.parquet.reader.PageReader;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.Preconditions;
+import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
@@ -38,6 +39,7 @@ import static com.facebook.presto.parquet.batchreader.decoders.Decoders.readNest
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+//TODO: Implement column index filter later
 public abstract class AbstractNestedBatchReader
         implements ColumnReader
 {
@@ -77,8 +79,9 @@ public abstract class AbstractNestedBatchReader
     }
 
     @Override
-    public void init(PageReader pageReader, Field field)
+    public void init(PageReader pageReader, Field field, RowRanges rowRanges)
     {
+        // Todo: Add rowRanges handling
         Preconditions.checkState(!isInitialized(), "already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
