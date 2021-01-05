@@ -54,6 +54,7 @@ import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -348,6 +349,12 @@ class AstBuilder
     public Node visitDropView(SqlBaseParser.DropViewContext context)
     {
         return new DropView(getLocation(context), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitDropMaterializedView(SqlBaseParser.DropMaterializedViewContext context)
+    {
+        return new DropMaterializedView(Optional.of(getLocation(context)), getQualifiedName(context.qualifiedName()), context.EXISTS() != null);
     }
 
     @Override
