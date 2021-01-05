@@ -15,12 +15,13 @@ package com.facebook.presto.parquet;
 
 import com.facebook.presto.parquet.reader.ColumnChunk;
 import com.facebook.presto.parquet.reader.PageReader;
+import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 
 public interface ColumnReader
 {
     boolean isInitialized();
 
-    void init(PageReader pageReader, Field field);
+    void init(PageReader pageReader, Field field, RowRanges rowRanges);
 
     void prepareNextRead(int batchSize);
 
