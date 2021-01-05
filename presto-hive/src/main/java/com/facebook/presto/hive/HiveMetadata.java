@@ -61,6 +61,7 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.InMemoryRecordSet;
+import com.facebook.presto.spi.MaterializedViewNotFoundException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.RecordCursor;
@@ -2301,6 +2302,25 @@ public class HiveMetadata
         }
         catch (TableAlreadyExistsException e) {
             throw new MaterializedViewAlreadyExistsException(e.getTableName());
+        }
+    }
+
+    @Override
+    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        Optional<ConnectorMaterializedViewDefinition> view = getMaterializedView(session, viewName);
+        if (!view.isPresent()) {
+            throw new MaterializedViewNotFoundException(viewName);
+        }
+
+        try {
+            metastore.dropTable(
+                    new HdfsContext(session, viewName.getSchemaName(), viewName.getTableName()),
+                    viewName.getSchemaName(),
+                    viewName.getTableName());
+        }
+        catch (TableNotFoundException e) {
+            throw new MaterializedViewNotFoundException(e.getTableName());
         }
     }
 

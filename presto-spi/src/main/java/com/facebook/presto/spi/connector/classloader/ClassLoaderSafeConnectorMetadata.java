@@ -493,6 +493,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropMaterializedView(session, viewName);
+        }
+    }
+
+    @Override
     public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

@@ -1066,6 +1066,16 @@ public class MetadataManager
     }
 
     @Override
+    public void dropMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.dropMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
+    }
+
+    @Override
     public Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
