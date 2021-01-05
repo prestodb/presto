@@ -51,6 +51,7 @@ import com.facebook.presto.sql.tree.DescribeOutput;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropRole;
 import com.facebook.presto.sql.tree.DropSchema;
 import com.facebook.presto.sql.tree.DropTable;
@@ -1362,6 +1363,18 @@ public class TestSqlParser
         assertStatement("DROP VIEW IF EXISTS a", new DropView(QualifiedName.of("a"), true));
         assertStatement("DROP VIEW IF EXISTS a.b", new DropView(QualifiedName.of("a", "b"), true));
         assertStatement("DROP VIEW IF EXISTS a.b.c", new DropView(QualifiedName.of("a", "b", "c"), true));
+    }
+
+    @Test
+    public void testDropMaterializedView()
+    {
+        assertStatement("DROP MATERIALIZED VIEW a", new DropMaterializedView(Optional.empty(), QualifiedName.of("a"), false));
+        assertStatement("DROP MATERIALIZED VIEW a.b", new DropMaterializedView(Optional.empty(), QualifiedName.of("a", "b"), false));
+        assertStatement("DROP MATERIALIZED VIEW a.b.c", new DropMaterializedView(Optional.empty(), QualifiedName.of("a", "b", "c"), false));
+
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a", new DropMaterializedView(Optional.empty(), QualifiedName.of("a"), true));
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b", new DropMaterializedView(Optional.empty(), QualifiedName.of("a", "b"), true));
+        assertStatement("DROP MATERIALIZED VIEW IF EXISTS a.b.c", new DropMaterializedView(Optional.empty(), QualifiedName.of("a", "b", "c"), true));
     }
 
     @Test
