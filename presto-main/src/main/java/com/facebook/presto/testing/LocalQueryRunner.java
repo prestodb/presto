@@ -51,6 +51,7 @@ import com.facebook.presto.execution.CreateViewTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.DeallocateTask;
 import com.facebook.presto.execution.DropFunctionTask;
+import com.facebook.presto.execution.DropMaterializedViewTask;
 import com.facebook.presto.execution.DropTableTask;
 import com.facebook.presto.execution.DropViewTask;
 import com.facebook.presto.execution.Lifespan;
@@ -171,6 +172,7 @@ import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.CreateView;
 import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DropFunction;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.DropTable;
 import com.facebook.presto.sql.tree.DropView;
 import com.facebook.presto.sql.tree.Explain;
@@ -469,6 +471,7 @@ public class LocalQueryRunner
                 .put(DropFunction.class, new DropFunctionTask(sqlParser))
                 .put(DropTable.class, new DropTableTask())
                 .put(DropView.class, new DropViewTask())
+                .put(DropMaterializedView.class, new DropMaterializedViewTask())
                 .put(RenameColumn.class, new RenameColumnTask())
                 .put(RenameTable.class, new RenameTableTask())
                 .put(ResetSession.class, new ResetSessionTask())

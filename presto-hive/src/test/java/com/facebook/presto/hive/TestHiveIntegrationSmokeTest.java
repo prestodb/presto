@@ -5404,6 +5404,26 @@ public class TestHiveIntegrationSmokeTest
         computeActual("DROP TABLE IF EXISTS test_customer_base_3");
     }
 
+    @Test
+    public void testDropMaterializedView()
+    {
+        computeActual("CREATE TABLE test_customer_base_4 WITH (partitioned_by = ARRAY['nationkey']) AS SELECT custkey, name, address, nationkey FROM customer LIMIT 10");
+        computeActual("CREATE MATERIALIZED VIEW test_customer_mv_4 WITH (partitioned_by = ARRAY['nationkey']" + retentionDays(30) + ") AS SELECT name, nationkey FROM test_customer_base_4");
+
+        assertQueryFails(
+                "DROP TABLE test_customer_mv_4",
+                format(".*'%s.%s.test_customer_mv_4' is a materialized view, not a table. Use DROP MATERIALIZED VIEW to drop.", getSession().getCatalog().get(), getSession().getSchema().get()));
+        assertQueryFails(
+                "DROP VIEW test_customer_mv_4",
+                format(".*View '%s.%s.test_customer_mv_4' does not exist", getSession().getCatalog().get(), getSession().getSchema().get()));
+
+        assertUpdate("DROP MATERIALIZED VIEW test_customer_mv_4");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_customer_mv_4"));
+
+        // Clean up
+        computeActual("DROP TABLE IF EXISTS test_customer_base_4");
+    }
+
     protected String retentionDays(int days)
     {
         return "";
