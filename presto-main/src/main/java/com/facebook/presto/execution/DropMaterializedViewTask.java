@@ -18,9 +18,8 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.SemanticException;
-import com.facebook.presto.sql.tree.DropTable;
+import com.facebook.presto.sql.tree.DropMaterializedView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,44 +28,36 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_MATERIALIZED_VIEW;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
-public class DropTableTask
-        implements DataDefinitionTask<DropTable>
+public class DropMaterializedViewTask
+        implements DataDefinitionTask<DropMaterializedView>
 {
     @Override
     public String getName()
     {
-        return "DROP TABLE";
+        return "DROP MATERIALIZED VIEW";
     }
 
     @Override
-    public ListenableFuture<?> execute(DropTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(DropMaterializedView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        if (!tableHandle.isPresent()) {
+        Optional<ConnectorMaterializedViewDefinition> view = metadata.getMaterializedView(session, name);
+        if (!view.isPresent()) {
             if (!statement.isExists()) {
-                throw new SemanticException(MISSING_TABLE, statement, "Table '%s' does not exist", tableName);
+                throw new SemanticException(MISSING_MATERIALIZED_VIEW, statement, "Materialized view '%s' does not exist", name);
             }
             return immediateFuture(null);
         }
 
-        Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
-        if (optionalMaterializedView.isPresent()) {
-            if (!statement.isExists()) {
-                throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, not a table. Use DROP MATERIALIZED VIEW to drop.", tableName);
-            }
-            return immediateFuture(null);
-        }
+        accessControl.checkCanDropTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name);
+        accessControl.checkCanDropView(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name);
 
-        accessControl.checkCanDropTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
-
-        metadata.dropTable(session, tableHandle.get());
+        metadata.dropMaterializedView(session, name);
 
         return immediateFuture(null);
     }

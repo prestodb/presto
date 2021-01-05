@@ -578,6 +578,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drop the specified materialized view.
+     */
+    default void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping materialized views");
+    }
+
+    /**
      * @return whether delete without table scan is supported
      */
     default boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle)
