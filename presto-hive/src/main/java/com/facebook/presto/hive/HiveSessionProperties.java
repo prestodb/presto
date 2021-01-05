@@ -131,6 +131,7 @@ public final class HiveSessionProperties
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
     private static final String DWRF_WRITER_STRIPE_CACHE_ENABLED = "dwrf_writer_stripe_cache_enabled";
     private static final String DWRF_WRITER_STRIPE_CACHE_SIZE = "dwrf_writer_stripe_cache_size";
+    public static final String USE_COLUMN_INDEX_FILTER = "use_column_index_filter";
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     private static final String USE_RECORD_PAGE_SOURCE_FOR_CUSTOM_SPLIT = "use_record_page_source_for_custom_split";
@@ -634,6 +635,11 @@ public final class HiveSessionProperties
                         orcFileWriterConfig.getDwrfStripeCacheMaxSize(),
                         false),
                 booleanProperty(
+                        USE_COLUMN_INDEX_FILTER,
+                        "should use column index statistics filtering",
+                        hiveClientConfig.getReadColumnIndexFilter(),
+                        false),
+                booleanProperty(
                         SIZE_BASED_SPLIT_WEIGHTS_ENABLED,
                         "Enable estimating split weights based on size in bytes",
                         hiveClientConfig.isSizeBasedSplitWeightsEnabled(),
@@ -1121,6 +1127,11 @@ public final class HiveSessionProperties
     public static DataSize getDwrfWriterStripeCacheeMaxSize(ConnectorSession session)
     {
         return session.getProperty(DWRF_WRITER_STRIPE_CACHE_SIZE, DataSize.class);
+    }
+
+    public static boolean readColumnIndexFilter(ConnectorSession session)
+    {
+        return session.getProperty(USE_COLUMN_INDEX_FILTER, Boolean.class);
     }
 
     public static boolean isSizeBasedSplitWeightsEnabled(ConnectorSession session)

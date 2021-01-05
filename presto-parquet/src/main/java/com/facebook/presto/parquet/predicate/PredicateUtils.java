@@ -37,6 +37,7 @@ import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.schema.MessageType;
 
 import java.io.ByteArrayInputStream;
@@ -86,11 +87,16 @@ public final class PredicateUtils
         return new TupleDomainParquetPredicate(parquetTupleDomain, columnReferences.build());
     }
 
-    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, boolean failOnCorruptedParquetStatistics)
+    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, boolean failOnCorruptedParquetStatistics, ColumnIndexStore ciStore, boolean readColumnIndex)
             throws ParquetCorruptionException
     {
         Map<ColumnDescriptor, Statistics<?>> columnStatistics = getStatistics(block, descriptorsByPath);
         if (!parquetPredicate.matches(block.getRowCount(), columnStatistics, dataSource.getId(), failOnCorruptedParquetStatistics)) {
+            return false;
+        }
+
+        // Page stats is finer grained but relatively more expensive, so we do the filtering after above block filtering.
+        if (ciStore != null && readColumnIndex && !parquetPredicate.matches(block.getRowCount(), ciStore, dataSource.getId(), failOnCorruptedParquetStatistics)) {
             return false;
         }
 

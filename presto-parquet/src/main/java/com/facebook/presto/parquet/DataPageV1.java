@@ -32,12 +32,13 @@ public class DataPageV1
             Slice slice,
             int valueCount,
             int uncompressedSize,
+            long firstRowIndex,
             Statistics<?> statistics,
             ParquetEncoding repetitionLevelEncoding,
             ParquetEncoding definitionLevelEncoding,
             ParquetEncoding valuesEncoding)
     {
-        super(slice.length(), uncompressedSize, valueCount);
+        super(slice.length(), uncompressedSize, valueCount, firstRowIndex);
         this.slice = requireNonNull(slice, "slice is null");
         this.statistics = statistics;
         this.repetitionLevelEncoding = repetitionLevelEncoding;
@@ -82,6 +83,7 @@ public class DataPageV1
                 .add("valueCount", valueCount)
                 .add("compressedSize", compressedSize)
                 .add("uncompressedSize", uncompressedSize)
+                .add("firstRowIndex", getFirstRowIndex())
                 .toString();
     }
 }

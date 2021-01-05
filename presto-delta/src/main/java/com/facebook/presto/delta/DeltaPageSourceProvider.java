@@ -33,6 +33,8 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.predicate.Predicate;
+import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
+import com.facebook.presto.parquet.reader.ColumnIndexStoreImpl;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -53,8 +55,11 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.AccessControlException;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
@@ -64,9 +69,12 @@ import javax.inject.Inject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
@@ -166,7 +174,8 @@ public class DeltaPageSourceProvider
                 isParquetBatchReaderVerificationEnabled(session),
                 typeManager,
                 deltaTableLayoutHandle.getPredicate(),
-                fileFormatDataSourceStats);
+                fileFormatDataSourceStats,
+                false);
 
         return new DeltaPageSource(
                 deltaColumnHandles,
@@ -210,7 +219,8 @@ public class DeltaPageSourceProvider
             boolean verificationEnabled,
             TypeManager typeManager,
             TupleDomain<DeltaColumnHandle> effectivePredicate,
-            FileFormatDataSourceStats stats)
+            FileFormatDataSourceStats stats,
+            boolean readColumnIndexFilter)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -246,9 +256,14 @@ public class DeltaPageSourceProvider
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
             final ParquetDataSource finalDataSource = dataSource;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
+            List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : footerBlocks.build()) {
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics)) {
+                ColumnIndexStore ciStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, readColumnIndexFilter);
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, failOnCorruptedParquetStatistics, ciStore, readColumnIndexFilter)) {
                     blocks.add(block);
+                }
+                else {
+                    blockIndexStores.add(ciStore);
                 }
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
@@ -259,7 +274,10 @@ public class DeltaPageSourceProvider
                     systemMemoryContext,
                     maxReadBlockSize,
                     batchReaderEnabled,
-                    verificationEnabled);
+                    verificationEnabled,
+                    parquetPredicate,
+                    blockIndexStores,
+                    readColumnIndexFilter);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -393,5 +411,30 @@ public class DeltaPageSourceProvider
             return getSubfieldType(messageType, pushedDownSubfield.getRootName(), nestedColumnPath(pushedDownSubfield));
         }
         return getParquetType(prestoType, messageType, column, tableName, path);
+    }
+
+    private static ColumnIndexStore getColumnIndexStore(Predicate parquetPredicate, ParquetDataSource dataSource, BlockMetaData blockMetadata, Map<List<String>, RichColumnDescriptor> descriptorsByPath, boolean readColumnIndexFilter)
+    {
+        if (!readColumnIndexFilter || parquetPredicate == null || !(parquetPredicate instanceof TupleDomainParquetPredicate)) {
+            return null;
+        }
+
+        boolean hasColumnIndex = false;
+        for (ColumnChunkMetaData column : blockMetadata.getColumns()) {
+            if (column.getColumnIndexReference() != null && column.getOffsetIndexReference() != null) {
+                hasColumnIndex = true;
+                break;
+            }
+        }
+
+        if (!hasColumnIndex) {
+            return null;
+        }
+
+        Set<ColumnPath> paths = new HashSet<>();
+        for (List<String> path : descriptorsByPath.keySet()) {
+            paths.add(ColumnPath.get(path.toArray(new String[0])));
+        }
+        return ColumnIndexStoreImpl.create(dataSource, blockMetadata, paths);
     }
 }
