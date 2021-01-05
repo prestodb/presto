@@ -201,6 +201,7 @@ public class QueryManagerConfig
 
     @LegacyConfig("query.max-age")
     @Config("query.min-expire-age")
+    @MinDuration("30s")
     public QueryManagerConfig setMinQueryExpireAge(Duration minQueryExpireAge)
     {
         this.minQueryExpireAge = minQueryExpireAge;
