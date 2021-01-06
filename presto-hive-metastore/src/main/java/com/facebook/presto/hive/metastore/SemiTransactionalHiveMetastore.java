@@ -682,6 +682,8 @@ public class SemiTransactionalHiveMetastore
             ConnectorSession session,
             String databaseName,
             String tableName,
+            String tablePath,
+            boolean isNewTable,
             Partition partition,
             Path currentLocation,
             PartitionStatistics statistics)
@@ -690,7 +692,7 @@ public class SemiTransactionalHiveMetastore
         checkArgument(getPrestoQueryId(partition).isPresent());
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partition.getValues());
-        HdfsContext context = new HdfsContext(session, databaseName, tableName);
+        HdfsContext context = new HdfsContext(session, databaseName, tableName, tablePath, isNewTable);
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
                     partition.getValues(),
@@ -979,18 +981,19 @@ public class SemiTransactionalHiveMetastore
                 for (Map.Entry<List<String>, Action<PartitionAndMore>> partitionEntry : tableEntry.getValue().entrySet()) {
                     List<String> partitionValues = partitionEntry.getKey();
                     Action<PartitionAndMore> action = partitionEntry.getValue();
+                    HdfsContext context = action.getContext();
                     switch (action.getType()) {
                         case DROP:
                             committer.prepareDropPartition(schemaTableName, partitionValues);
                             break;
                         case ALTER:
-                            committer.prepareAlterPartition(action.getContext(), action.getData());
+                            committer.prepareAlterPartition(context, action.getData());
                             break;
                         case ADD:
-                            committer.prepareAddPartition(action.getContext(), action.getData());
+                            committer.prepareAddPartition(context, action.getData());
                             break;
                         case INSERT_EXISTING:
-                            committer.prepareInsertExistingPartition(action.getContext(), action.getData());
+                            committer.prepareInsertExistingPartition(context, action.getData());
                             break;
                         default:
                             throw new IllegalStateException("Unknown action type");
