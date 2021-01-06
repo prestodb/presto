@@ -5560,4 +5560,80 @@ public abstract class AbstractTestQueries
         assertQuery("select max_by(x, y) from (select null x, 1 y)", "select null");
         assertQuery("select max_by(x, y) from (select null x, null y)", "select null");
     }
+
+    @Test
+    public void testMapUnionSum()
+    {
+        MaterializedResult actual = computeActual("select map_union_sum(x) from (select map(array['x', 'y'], cast(array[1.1,2] as array<real>) ) x union all select map(array['x', 'y'], cast(array[10,20] as array<real>)))");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableMap.of("x", 11.1f, "y", 22.0f));
+
+        actual = computeActual("select map_union_sum(x) from (select map(array['x', 'y'], cast(array[1.1,2.58] as array<double>)) x union all select map(array['x', 'y'], cast(array[10.1,20.1] as array<double>)))");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableMap.of("x", 11.2, "y", 22.68));
+
+        actual = computeActual("select map_union_sum(x) from (select map(array['x', 'y'], cast(array[1,2] as array<bigint>)) x union all select map(array['x', 'y'], cast(array[10,20] as array<bigint>)))");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), ImmutableMap.of("x", 11L, "y", 22L));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'y'], cast(array[1,2] as array<bigint>)) x union all select 1 y, map(array['x', 'z', 'y'], cast(array[10,30,20] as array<bigint>))) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", 11L, "y", 22L, "z", 30L));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'y'], cast(array[1, null] as array<bigint>))x ) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", 1L, "y", 0L));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<integer>)) x " +
+                "union all select 1 y, map(array['x', 'y'], cast(array[1,null] as array<integer>))x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", 1, "y", 20, "z", 30));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<smallint>)) x " +
+                "union all select 1 y, map(array['x', 'y'], cast(array[1,null] as array<smallint>))x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", (short) 1, "y", (short) 20, "z", (short) 30));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<tinyint>)) x " +
+                "union all select 1 y, map(array['x', 'y'], cast(array[1,null] as array<tinyint>))x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", (byte) 1, "y", (byte) 20, "z", (byte) 30));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<bigint>)) x union all select 1 y, map(array['x', 'y'], cast(array[1,null] as array<bigint>))x) group by y");
+        assertEquals(actual.getRowCount(), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("x", 1L, "y", 20L, "z", 30L));
+
+        actual = computeActual("select y, map_union_sum(x) from (select 1 y, map(array['x', 'y'], cast(array[1,null] as array<bigint>)) x " +
+                "union all select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,20] as array<bigint>)) " +
+                "union all select 1 y, map(array['a', 'y', 'x'], cast(array[100, 400, 200] as array<bigint>)) " +
+                "union all select 3 y, map(array['a', 'm', 'x'], cast(array[-1, 2, -3] as array<bigint>)) " +
+                ") group by y order by y");
+        assertEquals(actual.getRowCount(), 2);
+        assertEquals(actual.getMaterializedRows().get(0).getField(0), 1);
+        assertEquals(actual.getMaterializedRows().get(0).getField(1), ImmutableMap.of("a", 100L, "x", 201L, "y", 420L, "z", 30L));
+        assertEquals(actual.getMaterializedRows().get(1).getField(0), 3);
+        assertEquals(actual.getMaterializedRows().get(1).getField(1), ImmutableMap.of("a", -1L, "m", 2L, "x", -3L));
+    }
+
+    @Test
+    public void testInvalidMapUnionSum()
+    {
+        assertQueryFails(
+                "SELECT map_union_sum(x) from (select cast(MAP() as map<varchar, varchar>) x)",
+                ".*line 1:8: Unexpected parameters \\(map\\(varchar,varchar\\)\\) for function map_union_sum. Expected: map_union_sum\\(map\\(K,V\\)\\) K:comparable, V:nonDecimalNumeric.*");
+        assertQueryFails(
+                "SELECT map_union_sum(x) from (select cast(MAP() as map<varchar, decimal(10,2)>) x)",
+                ".*line 1:8: Unexpected parameters \\(map\\(varchar,decimal\\(10,2\\)\\)\\) for function map_union_sum. Expected: map_union_sum\\(map\\(K,V\\)\\) K:comparable, V:nonDecimalNumeric.*");
+    }
+
+    @Test
+    public void testMapUnionSumOverflow()
+    {
+        assertQueryFails(
+                "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30,100] as array<tinyint>)) x " +
+                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<tinyint>))x) group by y", ".*Value 200 exceeds MAX_BYTE.*");
+        assertQueryFails(
+                "select y, map_union_sum(x) from (select 1 y, map(array['x', 'z', 'y'], cast(array[null,30, 32760] as array<smallint>)) x " +
+                "union all select 1 y, map(array['x', 'y'], cast(array[1,100] as array<smallint>))x) group by y", ".*Value 32860 exceeds MAX_SHORT.*");
+    }
 }

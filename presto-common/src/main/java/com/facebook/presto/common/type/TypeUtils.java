@@ -23,6 +23,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -33,6 +39,26 @@ public final class TypeUtils
 
     private TypeUtils()
     {
+    }
+
+    public static boolean isNumericType(Type type)
+    {
+        return isNonDecimalNumericType(type) || type instanceof DecimalType;
+    }
+
+    public static boolean isNonDecimalNumericType(Type type)
+    {
+        return isExactNumericType(type) || isApproximateNumericType(type);
+    }
+
+    public static boolean isExactNumericType(Type type)
+    {
+        return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT);
+    }
+
+    public static boolean isApproximateNumericType(Type type)
+    {
+        return type.equals(DOUBLE) || type.equals(REAL);
     }
 
     /**

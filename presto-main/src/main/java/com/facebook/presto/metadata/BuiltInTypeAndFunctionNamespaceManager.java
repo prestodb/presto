@@ -288,6 +288,7 @@ import static com.facebook.presto.operator.aggregation.DecimalAverageAggregation
 import static com.facebook.presto.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MapAggregationFunction.MAP_AGG;
 import static com.facebook.presto.operator.aggregation.MapUnionAggregation.MAP_UNION;
+import static com.facebook.presto.operator.aggregation.MapUnionSumAggregation.MAP_UNION_SUM;
 import static com.facebook.presto.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MaxNAggregationFunction.MAX_N_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
@@ -781,7 +782,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .function(new ArrayAggregationFunction(featuresConfig.isLegacyArrayAgg(), featuresConfig.getArrayAggGroupImplementation()))
                 .functions(new MapSubscriptOperator(featuresConfig.isLegacyMapSubscript()))
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
-                .functions(MAP_AGG, MAP_UNION)
+                .functions(MAP_AGG, MAP_UNION, MAP_UNION_SUM)
                 .function(REDUCE_AGG)
                 .function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()))
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
