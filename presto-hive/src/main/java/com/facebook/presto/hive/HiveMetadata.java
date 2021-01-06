@@ -149,6 +149,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TypeUtils.isNumericType;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -267,7 +268,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_N
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getProtectMode;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.isNumericType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyOnline;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
