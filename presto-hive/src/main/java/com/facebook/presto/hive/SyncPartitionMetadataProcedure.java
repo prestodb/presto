@@ -204,6 +204,8 @@ public class SyncPartitionMetadataProcedure
                     session,
                     table.getDatabaseName(),
                     table.getTableName(),
+                    table.getStorage().getLocation(),
+                    false,
                     buildPartitionObject(session, table, name),
                     new Path(table.getStorage().getLocation(), name),
                     PartitionStatistics.empty());
