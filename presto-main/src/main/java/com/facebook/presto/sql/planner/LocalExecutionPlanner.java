@@ -2230,6 +2230,9 @@ public class LocalExecutionPlanner
             createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
                     filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
 
+            // spill does not work for probe only grouped execution because PartitionedLookupSourceFactory.finishProbe() expects a defined number of probe operators
+            boolean isProbeOnlyGroupedExecution = probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION && buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION;
+
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
@@ -2242,7 +2245,7 @@ public class LocalExecutionPlanner
                     searchFunctionFactories,
                     10_000,
                     pagesIndexFactory,
-                    spillEnabled && !buildOuter && partitionCount > 1,
+                    spillEnabled && !buildOuter && partitionCount > 1 && !isProbeOnlyGroupedExecution,
                     singleStreamSpillerFactory,
                     isBroadcastJoin);
 
