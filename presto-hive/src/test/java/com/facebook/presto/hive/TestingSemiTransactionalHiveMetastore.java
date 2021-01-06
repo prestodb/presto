@@ -252,7 +252,7 @@ public class TestingSemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized void addPartition(ConnectorSession session, String databaseName, String tableName, Partition partition, Path currentLocation, PartitionStatistics statistics)
+    public synchronized void addPartition(ConnectorSession session, String databaseName, String tableName, String tablePath, boolean isNewTable, Partition partition, Path currentLocation, PartitionStatistics statistics)
     {
         throw new UnsupportedOperationException("method not implemented");
     }
