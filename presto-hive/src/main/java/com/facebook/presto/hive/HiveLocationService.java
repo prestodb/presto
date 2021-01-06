@@ -57,9 +57,9 @@ public class HiveLocationService
     @Override
     public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, boolean tempPathRequired)
     {
-        HdfsContext context = new HdfsContext(session, schemaName, tableName);
-        Path targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
+        Path targetPath = getTableDefaultLocation(session, metastore, hdfsEnvironment, schemaName, tableName);
 
+        HdfsContext context = new HdfsContext(session, schemaName, tableName, targetPath.toString(), true);
         // verify the target directory for the table
         if (pathExists(context, hdfsEnvironment, targetPath)) {
             throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
@@ -70,8 +70,9 @@ public class HiveLocationService
     @Override
     public LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, boolean tempPathRequired)
     {
-        HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
-        Path targetPath = new Path(table.getStorage().getLocation());
+        String tablePath = table.getStorage().getLocation();
+        HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), tablePath, false);
+        Path targetPath = new Path(tablePath);
         return createLocationHandle(context, session, targetPath, EXISTING, tempPathRequired);
     }
 
@@ -80,8 +81,8 @@ public class HiveLocationService
     {
         String schemaName = table.getDatabaseName();
         String tableName = table.getTableName();
-        HdfsContext context = new HdfsContext(session, schemaName, tableName);
-        Path targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
+        Path targetPath = getTableDefaultLocation(session, metastore, hdfsEnvironment, schemaName, tableName);
+        HdfsContext context = new HdfsContext(session, schemaName, tableName, targetPath.toString(), false);
         return new LocationHandle(
                 targetPath,
                 targetPath,
