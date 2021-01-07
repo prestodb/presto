@@ -52,6 +52,11 @@ Array Functions
 
     Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
 
+.. function:: array_intersect(array(array(E))) -> array(bigint/double)
+
+    Returns an array of the elements in the intersection of all arrays in the given array, without duplicates.
+    E must be coercible to ``double``. Returns ``bigint`` if T is coercible to ``bigint``. Otherwise, returns ``double``.
+
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
     Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.

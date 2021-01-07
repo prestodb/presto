@@ -65,4 +65,13 @@ public class TestArrayIntersectFunction
         assertFunction("array_intersect(ARRAY[CAST('x' as VARCHAR), 'x', 'y', 'z'], ARRAY['x', 'y', 'x'])", new ArrayType(VARCHAR), ImmutableList.of("x", "y"));
         assertFunction("array_intersect(ARRAY[true, false, null, true, false, null], ARRAY[true, true, true])", new ArrayType(BOOLEAN), asList(true));
     }
+
+    @Test
+    public void testSQLFunctions()
+    {
+        assertFunction("array_intersect(ARRAY[ARRAY[1, 3, 5], ARRAY[2, 3, 5], ARRAY[3, 3, 3, 6]])", new ArrayType(BIGINT), ImmutableList.of(3L));
+        assertFunction("array_intersect(ARRAY[ARRAY[], ARRAY[1, 2, 3]])", new ArrayType(BIGINT), ImmutableList.of());
+        assertFunction("array_intersect(ARRAY[ARRAY[1, 2, 3], null])", new ArrayType(BIGINT), null);
+        assertFunction("array_intersect(ARRAY[ARRAY[1.1, 2.2, 3.3], ARRAY[1.1, 3.4], ARRAY[1.0, 1.1, 1.2]])", new ArrayType(DOUBLE), ImmutableList.of(1.1));
+    }
 }

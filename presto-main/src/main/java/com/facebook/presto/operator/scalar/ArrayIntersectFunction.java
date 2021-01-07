@@ -18,15 +18,17 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.OptimizedTypedSet;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
+import com.facebook.presto.spi.function.SqlParameter;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
-@ScalarFunction("array_intersect")
-@Description("Intersects elements of the two given arrays")
 public final class ArrayIntersectFunction
 {
     private ArrayIntersectFunction() {}
 
+    @ScalarFunction("array_intersect")
+    @Description("Intersects elements of the two given arrays")
     @TypeParameter("E")
     @SqlType("array(E)")
     public static Block intersect(
@@ -51,5 +53,23 @@ public final class ArrayIntersectFunction
         typedSet.intersect(leftArray);
 
         return typedSet.getBlock();
+    }
+
+    @SqlInvokedScalarFunction(value = "array_intersect", deterministic = true, calledOnNullInput = false)
+    @Description("Intersects elements of all arrays in the given array")
+    @SqlParameter(name = "input", type = "array<array<bigint>>")
+    @SqlType("array<bigint>")
+    public static String arrayIntersectBigint()
+    {
+        return "RETURN reduce(input, null, (s, x) -> IF((s IS NULL), x, array_intersect(s, x)), (s) -> s)";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_intersect", deterministic = true, calledOnNullInput = false)
+    @Description("Intersects elements of all arrays in the given array")
+    @SqlParameter(name = "input", type = "array<array<double>>")
+    @SqlType("array<double>")
+    public static String arrayIntersectDouble()
+    {
+        return "RETURN reduce(input, null, (s, x) -> IF((s IS NULL), x, array_intersect(s, x)), (s) -> s)";
     }
 }
