@@ -22,6 +22,8 @@ import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryState;
+import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.server.HttpRequestSessionContext;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionContext;
@@ -41,6 +43,7 @@ import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -57,12 +60,14 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
@@ -112,6 +117,8 @@ public class QueuedStatementResource
     private final ConcurrentMap<QueryId, Query> queries = new ConcurrentHashMap<>();
     private final ScheduledExecutorService queryPurger = newSingleThreadScheduledExecutor(threadsNamed("dispatch-query-purger"));
     private final boolean compressionEnabled;
+    private final boolean resourceManagerEnabled;
+    private final InternalNodeManager internalNodeManager;
 
     private final SqlParserOptions sqlParserOptions;
 
@@ -121,12 +128,15 @@ public class QueuedStatementResource
             DispatchExecutor executor,
             LocalQueryProvider queryResultsProvider,
             SqlParserOptions sqlParserOptions,
-            ServerConfig serverConfig)
+            ServerConfig serverConfig,
+            InternalNodeManager internalNodeManager)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.queryResultsProvider = queryResultsProvider;
         this.sqlParserOptions = requireNonNull(sqlParserOptions, "sqlParserOptions is null");
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
+        this.resourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
+        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
 
         this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
@@ -167,9 +177,26 @@ public class QueuedStatementResource
     public Response postStatement(
             String statement,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
+            @QueryParam("redirected") @DefaultValue("false") boolean redirected,
             @Context HttpServletRequest servletRequest,
             @Context UriInfo uriInfo)
     {
+        System.out.println(System.identityHashCode(this));
+        if (resourceManagerEnabled && !redirected) {
+            List<InternalNode> coordinatorNodes = ImmutableList.copyOf(internalNodeManager.getCoordinators());
+            InternalNode resourceManagerNode = coordinatorNodes.get(ThreadLocalRandom.current().nextInt(coordinatorNodes.size()));
+            String scheme = isNullOrEmpty(xForwardedProto) ? uriInfo.getRequestUri().getScheme() : xForwardedProto;
+            return Response
+                    .temporaryRedirect(uriInfo.getRequestUriBuilder()
+                            .scheme(scheme)
+                            .replaceQuery("")
+                            .queryParam("redirected", true)
+                            .host(resourceManagerNode.getHostAndPort().getHostText())
+                            .port(resourceManagerNode.getHostAndPort().getPort())
+                            .build())
+                    .build();
+        }
+
         if (isNullOrEmpty(statement)) {
             throw badRequest(BAD_REQUEST, "SQL statement is empty");
         }
