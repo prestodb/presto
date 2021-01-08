@@ -14,6 +14,7 @@
 package com.facebook.presto.functionNamespace.testing;
 
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
@@ -55,6 +56,12 @@ public class InMemoryFunctionNamespaceManager
     public InMemoryFunctionNamespaceManager(String catalogName, SqlFunctionExecutors sqlFunctionExecutors, SqlInvokedFunctionNamespaceManagerConfig config)
     {
         super(catalogName, sqlFunctionExecutors, config);
+    }
+
+    @Override
+    public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
+    {
+        // Do not need to do anything here since InMemoryFunctionNamespaceManager cannot execute functions
     }
 
     @Override

@@ -850,6 +850,12 @@ public class BuiltInTypeAndFunctionNamespaceManager
     }
 
     @Override
+    public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
+    {
+        // Do not need to do anything here since BlockEncodingSerde is passed in constructor
+    }
+
+    @Override
     public void createFunction(SqlInvokedFunction function, boolean replace)
     {
         throw new PrestoException(GENERIC_USER_ERROR, format("Cannot create function in built-in function namespace: %s", function.getSignature().getName()));
