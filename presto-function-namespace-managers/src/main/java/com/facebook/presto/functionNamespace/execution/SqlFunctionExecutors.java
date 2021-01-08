@@ -15,6 +15,7 @@ package com.facebook.presto.functionNamespace.execution;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -46,6 +47,11 @@ public class SqlFunctionExecutors
     {
         this.supportedLanguages = requireNonNull(supportedLanguages, "supportedLanguages is null");
         this.thriftSqlFunctionExecutor = Optional.ofNullable(thriftSqlFunctionExecutor);
+    }
+
+    public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
+    {
+        thriftSqlFunctionExecutor.ifPresent(executor -> executor.setBlockEncodingSerde(blockEncodingSerde));
     }
 
     public Set<Language> getSupportedLanguages()

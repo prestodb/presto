@@ -47,6 +47,8 @@ import static com.facebook.presto.common.Page.wrapBlocksWithoutCopy;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.prestoPage;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.thriftPage;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -55,15 +57,21 @@ import static java.util.Objects.requireNonNull;
 public class ThriftSqlFunctionExecutor
 {
     private final DriftClient<ThriftUdfService> thriftUdfClient;
-    private final BlockEncodingSerde blockEncodingSerde;
     private final Map<Language, ThriftSqlFunctionExecutionConfig> executionConfigs;
+    private BlockEncodingSerde blockEncodingSerde;
 
     @Inject
-    public ThriftSqlFunctionExecutor(DriftClient<ThriftUdfService> thriftUdfClient, BlockEncodingSerde blockEncodingSerde, Map<Language, ThriftSqlFunctionExecutionConfig> executionConfigs)
+    public ThriftSqlFunctionExecutor(DriftClient<ThriftUdfService> thriftUdfClient, Map<Language, ThriftSqlFunctionExecutionConfig> executionConfigs)
     {
         this.thriftUdfClient = requireNonNull(thriftUdfClient, "thriftUdfClient is null");
-        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.executionConfigs = requireNonNull(executionConfigs, "executionConfigs is null");
+    }
+
+    public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
+    {
+        checkState(this.blockEncodingSerde == null, "blockEncodingSerde already set");
+        checkArgument(blockEncodingSerde != null, "blockEncodingSerde is null");
+        this.blockEncodingSerde = blockEncodingSerde;
     }
 
     public CompletableFuture<Block> executeFunction(ThriftScalarFunctionImplementation functionImplementation, Page input, List<Integer> channels, List<Type> argumentTypes, Type returnType)
@@ -105,6 +113,7 @@ public class ThriftSqlFunctionExecutor
                 }
                 return thriftPage(new PrestoThriftPage(thriftBlocks.build(), input.getPositionCount()));
             case PRESTO_SERIALIZED:
+                checkState(blockEncodingSerde != null, "blockEncodingSerde not set");
                 PagesSerde pagesSerde = new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), Optional.empty());
                 return prestoPage(pagesSerde.serialize(wrapBlocksWithoutCopy(input.getPositionCount(), blocks)));
             default:
@@ -119,6 +128,7 @@ public class ThriftSqlFunctionExecutor
             case PRESTO_THRIFT:
                 return getOnlyElement(page.getThriftPage().getThriftBlocks()).toBlock(returnType);
             case PRESTO_SERIALIZED:
+                checkState(blockEncodingSerde != null, "blockEncodingSerde not set");
                 PagesSerde pagesSerde = new PagesSerde(blockEncodingSerde, Optional.empty(), Optional.empty(), Optional.empty());
                 return pagesSerde.deserialize(page.getPrestoPage().toSerializedPage()).getBlock(0);
             default:

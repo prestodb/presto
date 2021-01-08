@@ -17,6 +17,7 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
@@ -133,6 +134,12 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     protected abstract FunctionMetadata fetchFunctionMetadataDirect(SqlFunctionHandle functionHandle);
 
     protected abstract ScalarFunctionImplementation fetchFunctionImplementationDirect(SqlFunctionHandle functionHandle);
+
+    @Override
+    public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
+    {
+        sqlFunctionExecutors.setBlockEncodingSerde(blockEncodingSerde);
+    }
 
     @Override
     public final FunctionNamespaceTransactionHandle beginTransaction()
