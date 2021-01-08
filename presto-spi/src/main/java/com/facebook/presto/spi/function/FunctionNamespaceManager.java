@@ -16,6 +16,7 @@ package com.facebook.presto.spi.function;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
@@ -29,6 +30,11 @@ import java.util.concurrent.CompletableFuture;
 @Experimental
 public interface FunctionNamespaceManager<F extends SqlFunction>
 {
+    /**
+     * BlockEncodingSerde might be needed to serialize/deserialize Presto pages when running external functions.
+     */
+    void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde);
+
     /**
      * Start a transaction.
      */
