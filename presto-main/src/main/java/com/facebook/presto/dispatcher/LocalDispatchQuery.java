@@ -63,13 +63,16 @@ public class LocalDispatchQuery
     private final Consumer<QueryExecution> querySubmitter;
     private final SettableFuture<?> submitted = SettableFuture.create();
 
+    private final Boolean isResourceManagerEnabled;
+
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
             QueryMonitor queryMonitor,
             ListenableFuture<QueryExecution> queryExecutionFuture,
             ClusterSizeMonitor clusterSizeMonitor,
             Executor queryExecutor,
-            Consumer<QueryExecution> querySubmitter)
+            Consumer<QueryExecution> querySubmitter,
+            boolean isResourceManagerEnabled)
     {
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -77,6 +80,7 @@ public class LocalDispatchQuery
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         this.querySubmitter = requireNonNull(querySubmitter, "querySubmitter is null");
+        this.isResourceManagerEnabled = isResourceManagerEnabled;
 
         addExceptionCallback(queryExecutionFuture, throwable -> {
             if (stateMachine.transitionToFailed(throwable)) {
@@ -94,7 +98,12 @@ public class LocalDispatchQuery
     public void startWaitingForResources()
     {
         if (stateMachine.transitionToWaitingForResources()) {
-            waitForMinimumWorkers();
+            if (isResourceManagerEnabled) {
+                waitForMinimumResourceManagers();
+            }
+            else {
+                waitForMinimumWorkers();
+            }
         }
     }
 
@@ -104,6 +113,14 @@ public class LocalDispatchQuery
         // when worker requirement is met, wait for query execution to finish construction and then start the execution
         addSuccessCallback(minimumWorkerFuture, () -> addSuccessCallback(queryExecutionFuture, this::startExecution));
         addExceptionCallback(minimumWorkerFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
+    }
+
+    private void waitForMinimumResourceManagers()
+    {
+        ListenableFuture<?> minimumResourceManagersFuture = clusterSizeMonitor.waitForMinimumResourceManagers();
+        // when resource manager requirement is met, wait for minimum workers
+        addSuccessCallback(minimumResourceManagersFuture, this::waitForMinimumWorkers);
+        addExceptionCallback(minimumResourceManagersFuture, throwable -> queryExecutor.execute(() -> fail(throwable)));
     }
 
     private void startExecution(QueryExecution queryExecution)

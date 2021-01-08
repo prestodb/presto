@@ -65,6 +65,8 @@ public class TestQueryManagerConfig
                 .setRequiredWorkersMaxWait(new Duration(5, TimeUnit.MINUTES))
                 .setRequiredCoordinators(1)
                 .setRequiredCoordinatorsMaxWait(new Duration(5, TimeUnit.MINUTES))
+                .setRequiredResourceManagers(1)
+                .setRequiredResourceManagersMaxWait(new Duration(5, TimeUnit.MINUTES))
                 .setQuerySubmissionMaxThreads(Runtime.getRuntime().availableProcessors() * 2)
                 .setUseStreamingExchangeForMarkDistinct(false));
     }
@@ -106,6 +108,8 @@ public class TestQueryManagerConfig
                 .put("query-manager.required-workers-max-wait", "33m")
                 .put("query-manager.experimental.required-coordinators", "999")
                 .put("query-manager.experimental.required-coordinators-max-wait", "99m")
+                .put("query-manager.experimental.required-resource-managers", "999")
+                .put("query-manager.experimental.required-resource-managers-max-wait", "99m")
                 .put("query-manager.experimental.query-submission-max-threads", "5")
                 .build();
 
@@ -142,6 +146,8 @@ public class TestQueryManagerConfig
                 .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES))
                 .setRequiredCoordinators(999)
                 .setRequiredCoordinatorsMaxWait(new Duration(99, TimeUnit.MINUTES))
+                .setRequiredResourceManagers(999)
+                .setRequiredResourceManagersMaxWait(new Duration(99, TimeUnit.MINUTES))
                 .setQuerySubmissionMaxThreads(5)
                 .setUseStreamingExchangeForMarkDistinct(true);
 

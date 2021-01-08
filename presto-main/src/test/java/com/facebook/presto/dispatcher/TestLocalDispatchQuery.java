@@ -84,9 +84,10 @@ public class TestLocalDispatchQuery
                 createStateMachine(),
                 createQueryMonitor(eventListener),
                 immediateFailedFuture(new IllegalStateException("abc")),
-                createClusterSizeMonitor(0),
+                createClusterSizeMonitor(0, 0),
                 directExecutor(),
-                execution -> {});
+                execution -> {},
+                false);
 
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
@@ -106,9 +107,10 @@ public class TestLocalDispatchQuery
                 stateMachine,
                 createQueryMonitor(eventListener),
                 immediateFailedFuture(new IllegalStateException("abc")),
-                createClusterSizeMonitor(0),
+                createClusterSizeMonitor(0, 0),
                 directExecutor(),
-                execution -> {});
+                execution -> {},
+                false);
 
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), QUERY_QUEUE_FULL.toErrorCode());
@@ -125,11 +127,12 @@ public class TestLocalDispatchQuery
                 stateMachine,
                 createQueryMonitor(eventListener),
                 immediateFuture(null),
-                createClusterSizeMonitor(0),
+                createClusterSizeMonitor(0, 0),
                 directExecutor(),
                 execution -> {
                     throw new AccessDeniedException("sdf");
-                });
+                },
+                false);
 
         assertEquals(query.getBasicQueryInfo().getState(), QUEUED);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -154,9 +157,40 @@ public class TestLocalDispatchQuery
                 stateMachine,
                 createQueryMonitor(eventListener),
                 immediateFuture(null),
-                createClusterSizeMonitor(1),
+                createClusterSizeMonitor(1, 0),
                 directExecutor(),
-                execution -> {});
+                execution -> {},
+                false);
+
+        assertEquals(query.getBasicQueryInfo().getState(), QUEUED);
+        assertFalse(eventListener.getQueryCompletedEvent().isPresent());
+
+        query.startWaitingForResources();
+
+        Thread.sleep(300); // Sleep long enough to ensure resource exhaustion error
+
+        assertEquals(query.getBasicQueryInfo().getState(), FAILED);
+        assertEquals(query.getBasicQueryInfo().getErrorCode(), GENERIC_INSUFFICIENT_RESOURCES.toErrorCode());
+        assertTrue(eventListener.getQueryCompletedEvent().isPresent());
+        assertTrue(eventListener.getQueryCompletedEvent().get().getFailureInfo().isPresent());
+        assertEquals(eventListener.getQueryCompletedEvent().get().getFailureInfo().get().getErrorCode(), GENERIC_INSUFFICIENT_RESOURCES.toErrorCode());
+    }
+
+    @Test
+    public void testTimeOutWaitingForClusterResourcesWithResourceManagerEnabled()
+            throws Exception
+    {
+        QueryStateMachine stateMachine = createStateMachine();
+        CountingEventListener eventListener = new CountingEventListener();
+
+        LocalDispatchQuery query = new LocalDispatchQuery(
+                stateMachine,
+                createQueryMonitor(eventListener),
+                immediateFuture(null),
+                createClusterSizeMonitor(1, 1),
+                directExecutor(),
+                execution -> {},
+                true);
 
         assertEquals(query.getBasicQueryInfo().getState(), QUEUED);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -182,9 +216,10 @@ public class TestLocalDispatchQuery
                 stateMachine,
                 createQueryMonitor(eventListener),
                 immediateFuture(null),
-                createClusterSizeMonitor(0),
+                createClusterSizeMonitor(0, 0),
                 directExecutor(),
-                execution -> {});
+                execution -> {},
+                false);
 
         assertEquals(query.getBasicQueryInfo().getState(), QUEUED);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -208,9 +243,10 @@ public class TestLocalDispatchQuery
                 stateMachine,
                 createQueryMonitor(eventListener),
                 immediateFuture(null),
-                createClusterSizeMonitor(0),
+                createClusterSizeMonitor(0, 0),
                 directExecutor(),
-                execution -> {});
+                execution -> {},
+                false);
 
         assertEquals(query.getBasicQueryInfo().getState(), QUEUED);
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
@@ -222,9 +258,34 @@ public class TestLocalDispatchQuery
         assertFalse(eventListener.getQueryCompletedEvent().isPresent());
     }
 
-    private ClusterSizeMonitor createClusterSizeMonitor(int minimumNodes)
+    @Test
+    public void testQueryDispatchedWithResourceManagerEnabled()
     {
-        return new ClusterSizeMonitor(new InMemoryNodeManager(), true, minimumNodes, new Duration(10, MILLISECONDS), 1, new Duration(1, SECONDS));
+        QueryStateMachine stateMachine = createStateMachine();
+        CountingEventListener eventListener = new CountingEventListener();
+
+        LocalDispatchQuery query = new LocalDispatchQuery(
+                stateMachine,
+                createQueryMonitor(eventListener),
+                immediateFuture(null),
+                createClusterSizeMonitor(0, 0),
+                directExecutor(),
+                execution -> {},
+                true);
+
+        assertEquals(query.getBasicQueryInfo().getState(), QUEUED);
+        assertFalse(eventListener.getQueryCompletedEvent().isPresent());
+
+        query.startWaitingForResources();
+
+        assertEquals(query.getBasicQueryInfo().getState(), DISPATCHING);
+        assertNull(query.getBasicQueryInfo().getErrorCode());
+        assertFalse(eventListener.getQueryCompletedEvent().isPresent());
+    }
+
+    private ClusterSizeMonitor createClusterSizeMonitor(int minimumNodes, int minimumResourceManagers)
+    {
+        return new ClusterSizeMonitor(new InMemoryNodeManager(), true, minimumNodes, new Duration(10, MILLISECONDS), 1, new Duration(1, SECONDS), minimumResourceManagers, new Duration(10, MILLISECONDS));
     }
 
     private QueryMonitor createQueryMonitor(CountingEventListener eventListener)

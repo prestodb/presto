@@ -41,23 +41,29 @@ public class TestClusterSizeMonitor
     public static final ConnectorId CONNECTOR_ID = new ConnectorId("dummy");
     public static final int DESIRED_WORKER_COUNT = 10;
     public static final int DESIRED_COORDINATOR_COUNT = 3;
+    public static final int DESIRED_RESOURCE_MANAGERS_COUNT = 3;
 
     private InMemoryNodeManager nodeManager;
     private ClusterSizeMonitor monitor;
     private CountDownLatch minWorkersLatch;
     private CountDownLatch minCoordinatorsLatch;
+    private CountDownLatch minResourceManagersLatch;
     private AtomicInteger numWorkers;
     private AtomicInteger numCoordinators;
+    private AtomicInteger numResourceManagers;
     private AtomicBoolean workersTimeout;
     private AtomicBoolean coordinatorsTimeout;
+    private AtomicBoolean resourceManagersTimeout;
 
     @BeforeMethod
     public void setUp()
     {
         numWorkers = new AtomicInteger(0);
         numCoordinators = new AtomicInteger(0);
+        numResourceManagers = new AtomicInteger(0);
         workersTimeout = new AtomicBoolean();
         coordinatorsTimeout = new AtomicBoolean();
+        resourceManagersTimeout = new AtomicBoolean();
 
         nodeManager = new InMemoryNodeManager();
         monitor = new ClusterSizeMonitor(
@@ -66,10 +72,13 @@ public class TestClusterSizeMonitor
                 DESIRED_WORKER_COUNT,
                 new Duration(4, SECONDS),
                 DESIRED_COORDINATOR_COUNT,
+                new Duration(4, SECONDS),
+                DESIRED_RESOURCE_MANAGERS_COUNT,
                 new Duration(4, SECONDS));
 
         minWorkersLatch = new CountDownLatch(1);
         minCoordinatorsLatch = new CountDownLatch(1);
+        minResourceManagersLatch = new CountDownLatch(1);
 
         monitor.start();
     }
@@ -144,6 +153,23 @@ public class TestClusterSizeMonitor
         assertEquals(minCoordinatorsLatch.getCount(), 0);
     }
 
+    @Test(timeOut = 10_000)
+    public void testTimeoutWaitingForResourceManagers()
+            throws InterruptedException
+    {
+        waitForMinimumResourceManagers();
+
+        assertFalse(resourceManagersTimeout.get());
+        addResourceManager(nodeManager);
+        assertFalse(resourceManagersTimeout.get());
+        assertEquals(minResourceManagersLatch.getCount(), 1);
+
+        Thread.sleep(SECONDS.toMillis(5));
+
+        assertTrue(resourceManagersTimeout.get());
+        assertEquals(minResourceManagersLatch.getCount(), 0);
+    }
+
     private ListenableFuture<?> waitForMinimumWorkers()
     {
         ListenableFuture<?> workersFuture = monitor.waitForMinimumWorkers();
@@ -172,6 +198,20 @@ public class TestClusterSizeMonitor
         return coordinatorsFuture;
     }
 
+    private ListenableFuture<?> waitForMinimumResourceManagers()
+    {
+        ListenableFuture<?> resourceManagersFuture = monitor.waitForMinimumResourceManagers();
+        addSuccessCallback(resourceManagersFuture, () -> {
+            assertFalse(resourceManagersTimeout.get());
+            minResourceManagersLatch.countDown();
+        });
+        addExceptionCallback(resourceManagersFuture, () -> {
+            assertTrue(resourceManagersTimeout.compareAndSet(false, true));
+            minResourceManagersLatch.countDown();
+        });
+        return resourceManagersFuture;
+    }
+
     private void addWorker(InMemoryNodeManager nodeManager)
     {
         String identifier = "worker/" + numWorkers.incrementAndGet();
@@ -182,5 +222,11 @@ public class TestClusterSizeMonitor
     {
         String identifier = "coordinator/" + numCoordinators.incrementAndGet();
         nodeManager.addNode(CONNECTOR_ID, new InternalNode(identifier, URI.create("localhost/" + identifier), new NodeVersion("1"), true));
+    }
+
+    private void addResourceManager(InMemoryNodeManager nodeManager)
+    {
+        String identifier = "resourceManager/" + numResourceManagers.incrementAndGet();
+        nodeManager.addNode(CONNECTOR_ID, new InternalNode(identifier, URI.create("localhost/" + identifier), new NodeVersion("1"), false, true));
     }
 }

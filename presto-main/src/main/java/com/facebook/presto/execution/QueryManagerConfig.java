@@ -80,6 +80,8 @@ public class QueryManagerConfig
     private Duration requiredWorkersMaxWait = new Duration(5, TimeUnit.MINUTES);
     private int requiredCoordinators = 1;
     private Duration requiredCoordinatorsMaxWait = new Duration(5, TimeUnit.MINUTES);
+    private int requiredResourceManagers = 1;
+    private Duration requireResourceManagersMaxWait = new Duration(5, TimeUnit.MINUTES);
 
     private int querySubmissionMaxThreads = Runtime.getRuntime().availableProcessors() * 2;
 
@@ -530,6 +532,36 @@ public class QueryManagerConfig
     public QueryManagerConfig setRequiredCoordinatorsMaxWait(Duration requiredCoordinatorsMaxWait)
     {
         this.requiredCoordinatorsMaxWait = requiredCoordinatorsMaxWait;
+        return this;
+    }
+
+    @Min(1)
+    public int getRequiredResourceManagers()
+    {
+        return requiredResourceManagers;
+    }
+
+    @Experimental
+    @Config("query-manager.experimental.required-resource-managers")
+    @ConfigDescription("Minimum number of action resource managers that must be available before a query will start")
+    public QueryManagerConfig setRequiredResourceManagers(int requiredResourceManagers)
+    {
+        this.requiredResourceManagers = requiredResourceManagers;
+        return this;
+    }
+
+    @NotNull
+    public Duration getRequiredResourceManagersMaxWait()
+    {
+        return requireResourceManagersMaxWait;
+    }
+
+    @Experimental
+    @Config("query-manager.experimental.required-resource-managers-max-wait")
+    @ConfigDescription("Maximum time to wait for minimum number of resource managers before the query is failed")
+    public QueryManagerConfig setRequiredResourceManagersMaxWait(Duration requireResourceManagersMaxWait)
+    {
+        this.requireResourceManagersMaxWait = requireResourceManagersMaxWait;
         return this;
     }
 

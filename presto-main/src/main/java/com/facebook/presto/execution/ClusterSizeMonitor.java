@@ -51,6 +51,8 @@ public class ClusterSizeMonitor
     private final Duration executionMaxWait;
     private final int coordinatorMinCount;
     private final Duration coordinatorMaxWait;
+    private final int resourceManagerMinCount;
+    private final Duration resourceManagerMaxWait;
     private final ScheduledExecutorService executor;
 
     private final Consumer<AllNodes> listener = this::updateAllNodes;
@@ -62,10 +64,16 @@ public class ClusterSizeMonitor
     private int currentCoordinatorCount;
 
     @GuardedBy("this")
+    private int currentResourceManagerCount;
+
+    @GuardedBy("this")
     private final List<SettableFuture<?>> workerSizeFutures = new ArrayList<>();
 
     @GuardedBy("this")
     private final List<SettableFuture<?>> coordinatorSizeFutures = new ArrayList<>();
+
+    @GuardedBy("this")
+    private final List<SettableFuture<?>> resourceManagerSizeFutures = new ArrayList<>();
 
     @Inject
     public ClusterSizeMonitor(InternalNodeManager nodeManager, NodeSchedulerConfig nodeSchedulerConfig, QueryManagerConfig queryManagerConfig)
@@ -76,7 +84,9 @@ public class ClusterSizeMonitor
                 requireNonNull(queryManagerConfig, "queryManagerConfig is null").getRequiredWorkers(),
                 queryManagerConfig.getRequiredWorkersMaxWait(),
                 queryManagerConfig.getRequiredCoordinators(),
-                queryManagerConfig.getRequiredCoordinatorsMaxWait());
+                queryManagerConfig.getRequiredCoordinatorsMaxWait(),
+                queryManagerConfig.getRequiredResourceManagers(),
+                queryManagerConfig.getRequiredResourceManagersMaxWait());
     }
 
     public ClusterSizeMonitor(
@@ -85,7 +95,9 @@ public class ClusterSizeMonitor
             int workerMinCount,
             Duration executionMaxWait,
             int coordinatorMinCount,
-            Duration coordinatorMaxWait)
+            Duration coordinatorMaxWait,
+            int resourceManagerMinCount,
+            Duration resourceManagerMaxWait)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.includeCoordinator = includeCoordinator;
@@ -95,6 +107,8 @@ public class ClusterSizeMonitor
         checkArgument(coordinatorMinCount >= 0, "coordinatorMinCount is negative");
         this.coordinatorMinCount = coordinatorMinCount;
         this.coordinatorMaxWait = requireNonNull(coordinatorMaxWait, "coordinatorMaxWait is null");
+        this.resourceManagerMinCount = resourceManagerMinCount;
+        this.resourceManagerMaxWait = requireNonNull(resourceManagerMaxWait, "resourceManagerMaxWait is null");
         this.executor = newSingleThreadScheduledExecutor(threadsNamed("node-monitor-%s"));
     }
 
@@ -176,6 +190,36 @@ public class ClusterSizeMonitor
         return future;
     }
 
+    public synchronized ListenableFuture<?> waitForMinimumResourceManagers()
+    {
+        if (currentResourceManagerCount >= resourceManagerMinCount) {
+            return immediateFuture(null);
+        }
+
+        SettableFuture<?> future = SettableFuture.create();
+        resourceManagerSizeFutures.add(future);
+
+        // if future does not finish in wait period, complete with an exception
+        ScheduledFuture<?> timeoutTask = executor.schedule(
+                () -> {
+                    synchronized (this) {
+                        future.setException(new PrestoException(
+                                GENERIC_INSUFFICIENT_RESOURCES,
+                                format("Insufficient active resource managers. Waited %s for at least %s resource managers, but only %s resource managers are active", executionMaxWait, resourceManagerMinCount, currentResourceManagerCount)));
+                    }
+                },
+                resourceManagerMaxWait.toMillis(),
+                MILLISECONDS);
+
+        // remove future if finished (e.g., canceled, timed out)
+        future.addListener(() -> {
+            timeoutTask.cancel(true);
+            removeCoordinatorFuture(future);
+        }, executor);
+
+        return future;
+    }
+
     private synchronized void removeWorkerFuture(SettableFuture<?> future)
     {
         workerSizeFutures.remove(future);
@@ -184,6 +228,11 @@ public class ClusterSizeMonitor
     private synchronized void removeCoordinatorFuture(SettableFuture<?> future)
     {
         coordinatorSizeFutures.remove(future);
+    }
+
+    private synchronized void removeResourceManagerFuture(SettableFuture<?> future)
+    {
+        resourceManagerSizeFutures.remove(future);
     }
 
     private synchronized void updateAllNodes(AllNodes allNodes)
@@ -195,6 +244,7 @@ public class ClusterSizeMonitor
             currentWorkerCount = Sets.difference(allNodes.getActiveNodes(), allNodes.getActiveCoordinators()).size();
         }
         currentCoordinatorCount = allNodes.getActiveCoordinators().size();
+        currentResourceManagerCount = allNodes.getActiveResourceManagers().size();
         if (currentWorkerCount >= workerMinCount) {
             List<SettableFuture<?>> listeners = ImmutableList.copyOf(workerSizeFutures);
             workerSizeFutures.clear();

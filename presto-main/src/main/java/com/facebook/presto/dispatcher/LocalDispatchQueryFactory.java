@@ -24,6 +24,7 @@ import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.QueryType;
@@ -53,6 +54,7 @@ public class LocalDispatchQueryFactory
     private final LocationFactory locationFactory;
 
     private final ClusterSizeMonitor clusterSizeMonitor;
+    private final ServerConfig serverConfig;
 
     private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
     private final ListeningExecutorService executor;
@@ -67,7 +69,8 @@ public class LocalDispatchQueryFactory
             LocationFactory locationFactory,
             Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
             ClusterSizeMonitor clusterSizeMonitor,
-            DispatchExecutor dispatchExecutor)
+            DispatchExecutor dispatchExecutor,
+            ServerConfig serverConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
@@ -78,6 +81,7 @@ public class LocalDispatchQueryFactory
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
 
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
+        this.serverConfig = requireNonNull(serverConfig, "serverConfig is null");
 
         this.executor = requireNonNull(dispatchExecutor, "executorService is null").getExecutor();
     }
@@ -122,6 +126,7 @@ public class LocalDispatchQueryFactory
                 queryExecutionFuture,
                 clusterSizeMonitor,
                 executor,
-                queryManager::createQuery);
+                queryManager::createQuery,
+                serverConfig.isResourceManagerEnabled());
     }
 }
