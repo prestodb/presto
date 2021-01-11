@@ -216,9 +216,10 @@ public class ParquetPageSourceFactory
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
+        FSDataInputStream inputStream = null;
         ParquetDataSource dataSource = null;
         try {
-            FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(user, path, configuration).openFile(path, hiveFileContext);
+            inputStream = hdfsEnvironment.getFileSystem(user, path, configuration).openFile(path, hiveFileContext);
             dataSource = buildHdfsParquetDataSource(inputStream, path, stats);
             ParquetMetadata parquetMetadata = parquetMetadataSource.getParquetMetadata(inputStream, dataSource.getId(), fileSize, hiveFileContext.isCacheable()).getParquetMetadata();
 
@@ -305,8 +306,12 @@ public class ParquetPageSourceFactory
                 if (dataSource != null) {
                     dataSource.close();
                 }
+                else if (inputStream != null) {
+                    inputStream.close();
+                }
             }
-            catch (IOException ignored) {
+            catch (IOException ioException) {
+                e.addSuppressed(ioException);
             }
             if (e instanceof PrestoException) {
                 throw (PrestoException) e;
