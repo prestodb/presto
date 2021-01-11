@@ -150,6 +150,12 @@ class UnimplementedHiveMetastore
     }
 
     @Override
+    public void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> parameterUpdate)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
         throw new UnsupportedOperationException();

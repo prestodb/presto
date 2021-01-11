@@ -242,6 +242,21 @@ public class BridgingHiveMetastore
         alterTable(databaseName, tableName, table);
     }
 
+    @Override
+    public void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> parameterUpdate)
+    {
+        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
+        if (!source.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+
+        Map<String, String> newParameters = parameterUpdate.apply(table.getParameters());
+        table.setParameters(ImmutableMap.copyOf(newParameters));
+
+        alterTable(databaseName, tableName, table);
+    }
+
     private void alterTable(String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
     {
         delegate.alterTable(databaseName, tableName, table);

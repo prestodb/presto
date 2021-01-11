@@ -126,7 +126,9 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -264,6 +266,7 @@ import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.NEW;
 import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.OVERWRITE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.AVRO_SCHEMA_URL_KEY;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZED_VIEW_DATA;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZED_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
@@ -2224,16 +2227,11 @@ public class HiveMetadata
         Table viewTable = Table.builder(basicTable).setParameters(parameters).build();
 
         List<Table> baseTables = viewDefinition.getBaseTables().stream()
-                .map(viewBaseTable -> metastore.getTable(viewBaseTable.getName().getSchemaName(), viewBaseTable.getName().getTableName())
-                        .orElseThrow(() -> new TableNotFoundException(viewBaseTable.getName())))
+                .map(baseTableName -> metastore.getTable(baseTableName.getName().getSchemaName(), baseTableName.getName().getTableName())
+                        .orElseThrow(() -> new TableNotFoundException(baseTableName.getName())))
                 .collect(toImmutableList());
 
-        List<Column> viewPartitionColumns = ImmutableList.copyOf(viewTable.getPartitionColumns());
-        Map<SchemaTableName, List<Column>> baseTablePartitionColumns = baseTables.stream()
-                .collect(toImmutableMap(
-                        table -> new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                        Table::getPartitionColumns));
-        validateMaterializedViewPartitionColumns(viewMetadata.getTable(), viewPartitionColumns, baseTablePartitionColumns, viewDefinition.getViewToBaseColumnMap());
+        validateMaterializedViewPartitionColumns(viewTable, baseTables, viewDefinition.getViewToBaseColumnMap());
 
         try {
             PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(viewTable.getOwner());
@@ -2249,6 +2247,20 @@ public class HiveMetadata
         catch (TableAlreadyExistsException e) {
             throw new MaterializedViewAlreadyExistsException(e.getTableName());
         }
+
+        baseTables.forEach(baseTable -> {
+            Set<String> viewNames = new LinkedHashSet<>();
+            if (baseTable.getParameters().containsKey(PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST)) {
+                viewNames.addAll(Splitter.on(",").splitToList(baseTable.getParameters().get(PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST)));
+            }
+            viewNames.add(viewMetadata.getTable().toString());
+
+            Map<String, String> newParameters = new HashMap<>(baseTable.getParameters());
+            newParameters.put(PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST, Joiner.on(",").join(viewNames));
+
+            Table newBaseTable = Table.builder(baseTable).setParameters(ImmutableMap.copyOf(newParameters)).build();
+            metastore.alterTable(session, baseTable.getDatabaseName(), baseTable.getTableName(), newBaseTable);
+        });
     }
 
     @Override
@@ -3165,34 +3177,34 @@ public class HiveMetadata
         }
     }
 
-    private static void validateMaterializedViewPartitionColumns(SchemaTableName view, List<Column> viewPartitionColumns, Map<SchemaTableName, List<Column>> baseTablePartitionColumns, Optional<Map<TableColumn, TableColumn>> viewToBaseColumnMap)
+    private static void validateMaterializedViewPartitionColumns(Table viewTable, List<Table> baseTables, Optional<Map<TableColumn, TableColumn>> viewToBaseColumnMap)
     {
-        if (viewPartitionColumns.isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Unpartitioned materialized view is not supported.");
-        }
+        SchemaTableName viewName = new SchemaTableName(viewTable.getDatabaseName(), viewTable.getTableName());
         if (!viewToBaseColumnMap.isPresent() || viewToBaseColumnMap.get().isEmpty()) {
             throw new PrestoException(
                     NOT_SUPPORTED,
-                    format("Materialized view %s must have a partition directly defined by one base table partition.", view.toString()));
+                    format("Materialized view %s has no column directly mapped to a base table column.", viewName.toString()));
         }
 
-        ImmutableMap.Builder<TableColumn, TableColumn> builder = ImmutableMap.builder();
-        for (Map.Entry<TableColumn, TableColumn> entry : viewToBaseColumnMap.get().entrySet()) {
-            TableColumn viewColumn = entry.getKey();
-            TableColumn baseColumn = entry.getValue();
-            if (Iterables.all(
-                    viewPartitionColumns,
-                    part -> !part.getName().equals(viewColumn.getColumnName()))) {
-                continue;
-            }
-            if (Iterables.all(
-                    baseTablePartitionColumns.getOrDefault(baseColumn.getTableName(), ImmutableList.of()),
-                    part -> !part.getName().equals(baseColumn.getColumnName()))) {
-                continue;
-            }
-            builder.put(viewColumn, baseColumn);
+        List<Column> viewPartitionColumns = ImmutableList.copyOf(viewTable.getPartitionColumns());
+        if (viewPartitionColumns.isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Unpartitioned materialized view is not supported.");
         }
-        ImmutableMap<TableColumn, TableColumn> viewToBasePartitionMap = builder.build();
+
+        Map<SchemaTableName, List<Column>> baseTablePartitionColumns = baseTables.stream()
+                .collect(toImmutableMap(
+                        table -> new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                        Table::getPartitionColumns));
+
+        Map<TableColumn, TableColumn> viewToBasePartitionMap = viewToBaseColumnMap.get().entrySet().stream()
+                .filter(entry ->
+                        Iterables.any(
+                            viewPartitionColumns,
+                            part -> part.getName().equals(entry.getKey().getColumnName())) &&
+                        Iterables.any(
+                                baseTablePartitionColumns.getOrDefault(entry.getValue().getTableName(), emptyList()),
+                                part -> part.getName().equals(entry.getValue().getColumnName())))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         for (SchemaTableName baseName : baseTablePartitionColumns.keySet()) {
             List<Column> basePartitionColumns = baseTablePartitionColumns.get(baseName);
@@ -3202,8 +3214,8 @@ public class HiveMetadata
             ).isEmpty()) {
                 throw new PrestoException(
                         NOT_SUPPORTED,
-                        format("Materialized view %s must have a partition directly defined on one partition of base table %s",
-                                view.toString(), baseName.toString()));
+                        format("Materialized view %s must have a partition directly defined by one partition of base table %s",
+                                viewName.toString(), baseName.toString()));
             }
         }
     }

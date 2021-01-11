@@ -73,6 +73,8 @@ public interface ExtendedHiveMetastore
 
     void dropColumn(String databaseName, String tableName, String columnName);
 
+    void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> parameterUpdate);
+
     Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues);
 
     Optional<List<String>> getPartitionNames(String databaseName, String tableName);

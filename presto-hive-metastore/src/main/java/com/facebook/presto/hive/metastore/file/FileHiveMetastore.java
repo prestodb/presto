@@ -540,6 +540,15 @@ public class FileHiveMetastore
         });
     }
 
+    @Override
+    public void updateTableParameters(String databaseName, String tableName, Function<Map<String, String>, Map<String, String>> parameterUpdate)
+    {
+        alterTable(databaseName, tableName, oldTable -> {
+            Map<String, String> newParameters = parameterUpdate.apply(oldTable.getParameters());
+            return oldTable.withParameters(newParameters);
+        });
+    }
+
     private void alterTable(String databaseName, String tableName, Function<TableMetadata, TableMetadata> alterFunction)
     {
         requireNonNull(databaseName, "databaseName is null");
