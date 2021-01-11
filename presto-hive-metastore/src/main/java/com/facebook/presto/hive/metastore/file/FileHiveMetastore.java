@@ -540,6 +540,14 @@ public class FileHiveMetastore
         });
     }
 
+    public void alterTable(String databaseName, String tableName, Table newTable)
+    {
+        alterTable(databaseName, tableName, oldTable -> {
+            // Currently only table parameter modification is supported for alter table
+            return oldTable.withParameters(ImmutableMap.copyOf(newTable.getParameters()));
+        });
+    }
+
     private void alterTable(String databaseName, String tableName, Function<TableMetadata, TableMetadata> alterFunction)
     {
         requireNonNull(databaseName, "databaseName is null");

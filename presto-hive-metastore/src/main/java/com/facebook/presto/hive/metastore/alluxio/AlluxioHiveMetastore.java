@@ -275,6 +275,12 @@ public class AlluxioHiveMetastore
     }
 
     @Override
+    public void alterTable(String databaseName, String tableName, Table newTable)
+    {
+        throw new UnsupportedOperationException("updateTableParameters is not supported in AlluxioHiveMetastore");
+    }
+
+    @Override
     public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
         throw new UnsupportedOperationException("getPartition is not supported in AlluxioHiveMetastore");

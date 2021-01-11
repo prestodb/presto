@@ -150,6 +150,12 @@ public class UnimplementedHiveMetastore
     }
 
     @Override
+    public void alterTable(String databaseName, String tableName, Table newTable)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
         throw new UnsupportedOperationException();

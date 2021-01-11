@@ -557,6 +557,17 @@ public class CachingHiveMetastore
         }
     }
 
+    @Override
+    public void alterTable(String databaseName, String tableName, Table newTable)
+    {
+        try {
+            delegate.alterTable(databaseName, tableName, newTable);
+        }
+        finally {
+            invalidateTable(databaseName, tableName);
+        }
+    }
+
     protected void invalidateTable(String databaseName, String tableName)
     {
         tableCache.invalidate(hiveTableName(databaseName, tableName));

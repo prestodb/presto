@@ -635,6 +635,12 @@ public class GlueHiveMetastore
     }
 
     @Override
+    public void alterTable(String databaseName, String tableName, Table newTable)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "Update table parameters is not yet supported by Glue service");
+    }
+
+    @Override
     public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
         return stats.getGetPartition().record(() -> {
