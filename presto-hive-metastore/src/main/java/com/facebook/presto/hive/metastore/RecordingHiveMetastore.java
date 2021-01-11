@@ -326,6 +326,13 @@ public class RecordingHiveMetastore
     }
 
     @Override
+    public void alterTable(String databaseName, String tableName, Table newTable)
+    {
+        verifyRecordingMode();
+        delegate.alterTable(databaseName, tableName, newTable);
+    }
+
+    @Override
     public Optional<Partition> getPartition(String databaseName, String tableName, List<String> partitionValues)
     {
         return loadValue(

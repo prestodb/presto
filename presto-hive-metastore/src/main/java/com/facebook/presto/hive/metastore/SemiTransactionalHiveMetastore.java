@@ -438,6 +438,54 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.dropColumn(databaseName, tableName, columnName));
     }
 
+    /**
+     * Only table parameter modification is supported for an existing table.
+     */
+    public synchronized void alterTable(
+            ConnectorSession session,
+            String databaseName,
+            String tableName,
+            Table newTable)
+    {
+        setShared();
+        // When updating a table, it should never have partition actions. This is just a sanity check.
+        checkNoPartitionAction(databaseName, tableName);
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
+        if (oldTableAction == null) {
+            Table oldTable = getTable(databaseName, tableName)
+                    .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+
+            Table tmpTable = Table.builder(oldTable).setParameters(newTable.getParameters()).build();
+            if (!newTable.equals(tmpTable)) {
+                throw new UnsupportedOperationException("Only modification on table parameters is supported for alter table.");
+            }
+
+            PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName);
+            TableAndMore tableAndMore = new TableAndMore(
+                    newTable,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    false,
+                    currentStatistics,
+                    currentStatistics);
+            HdfsContext context = new HdfsContext(session, databaseName, tableName);
+            tableActions.put(schemaTableName, new Action<>(ActionType.ALTER, tableAndMore, context));
+            return;
+        }
+        switch (oldTableAction.getType()) {
+            case DROP:
+                throw new TableNotFoundException(schemaTableName);
+            case ADD:
+            case ALTER:
+            case INSERT_EXISTING:
+                throw new UnsupportedOperationException("Updating a table added/modified in the same transaction is not supported");
+            default:
+                throw new IllegalStateException("Unknown action type");
+        }
+    }
+
     public synchronized void finishInsertIntoExistingTable(
             ConnectorSession session,
             String databaseName,
@@ -958,7 +1006,7 @@ public class SemiTransactionalHiveMetastore
                         committer.prepareDropTable(schemaTableName);
                         break;
                     case ALTER:
-                        committer.prepareAlterTable();
+                        committer.prepareAlterTable(action.getContext(), action.getData());
                         break;
                     case ADD:
                         committer.prepareAddTable(action.getContext(), action.getData());
@@ -1006,8 +1054,8 @@ public class SemiTransactionalHiveMetastore
 
             // At this point, all file system operations, whether asynchronously issued or not, have completed successfully.
             // We are moving on to metastore operations now.
-
             committer.executeAddTableOperations();
+            committer.executeAlterTableOperations();
             committer.executeAlterPartitionOperations();
             committer.executeAddPartitionOperations();
             committer.executeUpdateStatisticsOperations();
@@ -1029,6 +1077,7 @@ public class SemiTransactionalHiveMetastore
 
             // Partition directory must be put back before relevant metastore operation can be undone
             committer.undoAlterPartitionOperations();
+            committer.undoAlterTableOperations();
 
             rollbackShared();
 
@@ -1088,6 +1137,7 @@ public class SemiTransactionalHiveMetastore
         private final List<AlterPartitionOperation> alterPartitionOperations = new ArrayList<>();
         private final List<UpdateStatisticsOperation> updateStatisticsOperations = new ArrayList<>();
         private final List<IrreversibleMetastoreOperation> metastoreDeleteOperations = new ArrayList<>();
+        private final List<AlterTableOperation> alterTableOperations = new ArrayList<>();
 
         // Flag for better error message
         private boolean deleteOnly = true;
@@ -1104,11 +1154,28 @@ public class SemiTransactionalHiveMetastore
                     () -> delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), true)));
         }
 
-        private void prepareAlterTable()
+        private void prepareAlterTable(HdfsContext context, TableAndMore tableAndMore)
         {
             deleteOnly = false;
 
-            // Currently, ALTER action is never constructed for tables. Dropping a table and then re-creating it
+            Table newTable = tableAndMore.getTable();
+            if (newTable.getTableType().equals(TEMPORARY_TABLE)) {
+                // do not commit a temporary table to the metastore
+                return;
+            }
+
+            SchemaTableName schemaTableName = new SchemaTableName(newTable.getDatabaseName(), newTable.getTableName());
+            Table oldTable = delegate.getTable(newTable.getDatabaseName(), newTable.getTableName())
+                    .orElseThrow(() -> new PrestoException(TRANSACTION_CONFLICT, "Table that this transaction modified was deleted in another transaction: " + schemaTableName.toString()));
+            // Currently, only support table parameter modification for an existing table
+            Table tmpTable = Table.builder(oldTable).setParameters(newTable.getParameters()).build();
+
+            if (newTable.equals(tmpTable)) {
+                alterTableOperations.add(new AlterTableOperation(oldTable, newTable));
+                return;
+            }
+
+            // Currently, dropping a table and then re-creating it
             // in the same transaction is not supported now. The following line should be replaced with actual
             // implementation when create after drop support is introduced for a table.
             throw new UnsupportedOperationException("Dropping and then creating a table with the same name is not supported");
@@ -1412,6 +1479,13 @@ public class SemiTransactionalHiveMetastore
             }
         }
 
+        private void executeAlterTableOperations()
+        {
+            for (AlterTableOperation alterTableOperation : alterTableOperations) {
+                alterTableOperation.run(delegate);
+            }
+        }
+
         private void executeAlterPartitionOperations()
         {
             for (AlterPartitionOperation alterPartitionOperation : alterPartitionOperations) {
@@ -1454,6 +1528,18 @@ public class SemiTransactionalHiveMetastore
                 }
                 catch (Throwable throwable) {
                     logCleanupFailure(throwable, "failed to rollback: %s", addTableOperation.getDescription());
+                }
+            }
+        }
+
+        private void undoAlterTableOperations()
+        {
+            for (AlterTableOperation alterTableOperation : alterTableOperations) {
+                try {
+                    alterTableOperation.undo(delegate);
+                }
+                catch (Throwable throwable) {
+                    logCleanupFailure(throwable, "failed to rollback: %s", alterTableOperation.getDescription());
                 }
             }
         }
@@ -2604,6 +2690,50 @@ public class SemiTransactionalHiveMetastore
         private PartitionStatistics resetStatistics(PartitionStatistics currentStatistics)
         {
             return new PartitionStatistics(reduce(currentStatistics.getBasicStatistics(), statistics.getBasicStatistics(), SUBTRACT), ImmutableMap.of());
+        }
+    }
+
+    private static class AlterTableOperation
+    {
+        private final Table oldTable;
+        private final Table newTable;
+
+        private boolean done;
+
+        public AlterTableOperation(Table oldTable, Table newTable)
+        {
+            this.oldTable = requireNonNull(oldTable, "oldParameters is null");
+            this.newTable = requireNonNull(newTable, "newParameters is null");
+
+            done = false;
+        }
+
+        public String getDescription()
+        {
+            return format(
+                    "alter table %s.%s",
+                    newTable.getDatabaseName(),
+                    newTable.getTableName());
+        }
+
+        public void run(ExtendedHiveMetastore metastore)
+        {
+            Table tmpTable = Table.builder(oldTable).setParameters(newTable.getParameters()).build();
+            if (!newTable.equals(tmpTable)) {
+                throw new UnsupportedOperationException("Only modification on table parameters is supported for alter table.");
+            }
+
+            metastore.alterTable(oldTable.getDatabaseName(), oldTable.getTableName(), newTable);
+            done = true;
+        }
+
+        public void undo(ExtendedHiveMetastore metastore)
+        {
+            if (!done) {
+                return;
+            }
+            metastore.alterTable(newTable.getDatabaseName(), newTable.getTableName(), oldTable);
+            done = false;
         }
     }
 

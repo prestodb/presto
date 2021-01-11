@@ -242,6 +242,19 @@ public class BridgingHiveMetastore
         alterTable(databaseName, tableName, table);
     }
 
+    @Override
+    public void alterTable(String databaseName, String tableName, Table newTable)
+    {
+        Optional<org.apache.hadoop.hive.metastore.api.Table> source = delegate.getTable(databaseName, tableName);
+        if (!source.isPresent()) {
+            throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
+        }
+        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        // Currently only table parameter modification is supported for alter table
+        table.setParameters(ImmutableMap.copyOf(newTable.getParameters()));
+        alterTable(databaseName, tableName, table);
+    }
+
     private void alterTable(String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
     {
         delegate.alterTable(databaseName, tableName, table);
