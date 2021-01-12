@@ -60,6 +60,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkStorageHandle;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
@@ -83,9 +84,13 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.storage.StorageCapabilities;
+import com.facebook.presto.spi.storage.TempDataOperationContext;
+import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
+import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
@@ -95,7 +100,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.apache.spark.SparkContext;
@@ -126,12 +130,10 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
-import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalBroadcastMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxExecutionTime;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxRunTime;
@@ -144,18 +146,23 @@ import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementStats;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isStorageBasedBroadcastJoinEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE;
 import static com.facebook.presto.spark.SparkErrorCode.GENERIC_SPARK_ERROR;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_LOST;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
+import static com.facebook.presto.spark.SparkErrorCode.UNSUPPORTED_STORAGE_TYPE;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.collectScalaIterator;
 import static com.facebook.presto.spark.classloader_interface.ScalaUtils.emptyScalaIterator;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.createPagesSerde;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.getActionResultWithTimeout;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toSerializedPage;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
+import static com.facebook.presto.spi.storage.StorageCapabilities.REMOTELY_ACCESSIBLE;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
@@ -163,7 +170,6 @@ import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.propagateIfPossible;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -171,12 +177,11 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
-import static java.lang.String.format;
 import static java.nio.file.Files.notExists;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.toList;
+import static org.apache.spark.util.Utils.isLocalMaster;
 
 public class PrestoSparkQueryExecutionFactory
         implements IPrestoSparkQueryExecutionFactory
@@ -206,6 +211,8 @@ public class PrestoSparkQueryExecutionFactory
 
     private final Set<PrestoSparkCredentialsProvider> credentialsProviders;
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
+    private final TempStorageManager tempStorageManager;
+    private final String storageBasedBroadcastJoinStorage;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -230,7 +237,9 @@ public class PrestoSparkQueryExecutionFactory
             SessionPropertyDefaults sessionPropertyDefaults,
             WarningCollectorFactory warningCollectorFactory,
             Set<PrestoSparkCredentialsProvider> credentialsProviders,
-            Set<PrestoSparkAuthenticatorProvider> authenticatorProviders)
+            Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
+            TempStorageManager tempStorageManager,
+            PrestoSparkConfig prestoSparkConfig)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -254,6 +263,8 @@ public class PrestoSparkQueryExecutionFactory
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.credentialsProviders = ImmutableSet.copyOf(requireNonNull(credentialsProviders, "credentialsProviders is null"));
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
+        this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
+        this.storageBasedBroadcastJoinStorage = requireNonNull(prestoSparkConfig, "prestoSparkConfig is null").getStorageBasedBroadcastJoinStorage();
     }
 
     @Override
@@ -329,7 +340,7 @@ public class PrestoSparkQueryExecutionFactory
             taskInfoCollector.register(sparkContext, new Some<>("taskInfoCollector"), false);
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector = new CollectionAccumulator<>();
             shuffleStatsCollector.register(sparkContext, new Some<>("shuffleStatsCollector"), false);
-
+            TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);
             queryStateTimer.endAnalysis();
 
             return new PrestoSparkQueryExecution(
@@ -358,7 +369,8 @@ public class PrestoSparkQueryExecutionFactory
                     queryTimeout,
                     queryCompletionDeadline,
                     queryStatusInfoOutputPath,
-                    queryDataOutputPath);
+                    queryDataOutputPath,
+                    tempStorage);
         }
         catch (Throwable executionFailure) {
             queryStateTimer.beginFinishing();
@@ -711,6 +723,7 @@ public class PrestoSparkQueryExecutionFactory
         private final Optional<Path> queryDataOutputPath;
 
         private final long queryCompletionDeadline;
+        private final TempStorage tempStorage;
 
         private PrestoSparkQueryExecution(
                 JavaSparkContext sparkContext,
@@ -738,7 +751,8 @@ public class PrestoSparkQueryExecutionFactory
                 Duration queryTimeout,
                 long queryCompletionDeadline,
                 Optional<Path> queryStatusInfoOutputPath,
-                Optional<Path> queryDataOutputPath)
+                Optional<Path> queryDataOutputPath,
+                TempStorage tempStorage)
         {
             this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
             this.session = requireNonNull(session, "session is null");
@@ -767,6 +781,7 @@ public class PrestoSparkQueryExecutionFactory
             this.queryCompletionDeadline = queryCompletionDeadline;
             this.queryStatusInfoOutputPath = requireNonNull(queryStatusInfoOutputPath, "queryStatusInfoOutputPath is null");
             this.queryDataOutputPath = requireNonNull(queryDataOutputPath, "queryDataOutputPath is null");
+            this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
         }
 
         @Override
@@ -915,7 +930,7 @@ public class PrestoSparkQueryExecutionFactory
                 Map<String, JavaFutureAction<List<Tuple2<MutablePartitionId, PrestoSparkSerializedPage>>>> inputFutures = inputRdds.entrySet().stream()
                         .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> entry.getValue().getRdd().collectAsync()));
 
-                waitForActionsCompletionWithTimeout(inputFutures.values(), computeNextTimeout(), MILLISECONDS);
+                waitForActionsCompletionWithTimeout(inputFutures.values(), computeNextTimeout(queryCompletionDeadline), MILLISECONDS);
 
                 Map<String, List<PrestoSparkSerializedPage>> inputs = inputFutures.entrySet().stream()
                         .collect(toImmutableMap(
@@ -935,46 +950,46 @@ public class PrestoSparkQueryExecutionFactory
             }
 
             RddAndMore<PrestoSparkSerializedPage> rootRdd = createRdd(root, PrestoSparkSerializedPage.class);
-            return rootRdd.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(), MILLISECONDS);
+            return rootRdd.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(queryCompletionDeadline), MILLISECONDS);
         }
 
         private <T extends PrestoSparkTaskOutput> RddAndMore<T> createRdd(SubPlan subPlan, Class<T> outputType)
                 throws SparkException, TimeoutException
         {
             ImmutableMap.Builder<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs = ImmutableMap.builder();
-            ImmutableMap.Builder<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs = ImmutableMap.builder();
-            ImmutableList.Builder<Broadcast<?>> broadcastDependencies = ImmutableList.builder();
+            ImmutableMap.Builder<PlanFragmentId, Broadcast<List<T>>> broadcastInputs = ImmutableMap.builder();
+            ImmutableList.Builder<PrestoSparkBroadcastDependency> broadcastDependencies = ImmutableList.builder();
 
             for (SubPlan child : subPlan.getChildren()) {
                 PlanFragment childFragment = child.getFragment();
                 if (childFragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION)) {
-                    RddAndMore<PrestoSparkSerializedPage> childRdd = createRdd(child, PrestoSparkSerializedPage.class);
+                    PrestoSparkBroadcastDependency broadcastDependency;
+                    if (isStorageBasedBroadcastJoinEnabled(session)) {
+                        validateStorageCapabilities(tempStorage);
+                        RddAndMore<PrestoSparkStorageHandle> childRdd = createRdd(child, PrestoSparkStorageHandle.class);
+                        TempDataOperationContext tempDataOperationContext = new TempDataOperationContext(
+                                session.getSource(),
+                                session.getQueryId().getId(),
+                                session.getClientInfo(),
+                                session.getIdentity());
 
-                    // TODO: The driver might still OOM on a very large broadcast, think of how to prevent that from happening
-                    List<PrestoSparkSerializedPage> broadcastPages = childRdd.collectAndDestroyDependenciesWithTimeout(computeNextTimeout(), MILLISECONDS).stream()
-                            .map(Tuple2::_2)
-                            .collect(toList());
-
-                    int compressedBroadcastSizeInBytes = broadcastPages.stream()
-                            .mapToInt(page -> page.getBytes().length)
-                            .sum();
-                    int uncompressedBroadcastSizeInBytes = broadcastPages.stream()
-                            .mapToInt(PrestoSparkSerializedPage::getUncompressedSizeInBytes)
-                            .sum();
-                    DataSize maxBroadcastSize = getQueryMaxBroadcastMemory(session);
-                    long maxBroadcastSizeInBytes = maxBroadcastSize.toBytes();
-
-                    if (compressedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
-                        throw exceededLocalBroadcastMemoryLimit(maxBroadcastSize, format("Compressed broadcast size: %s", succinctBytes(compressedBroadcastSizeInBytes)));
+                        broadcastDependency = new PrestoSparkStorageBasedBroadcastDependency(
+                                childRdd,
+                                getQueryMaxBroadcastMemory(session),
+                                queryCompletionDeadline,
+                                tempStorage,
+                                tempDataOperationContext);
+                    }
+                    else {
+                        RddAndMore<PrestoSparkSerializedPage> childRdd = createRdd(child, PrestoSparkSerializedPage.class);
+                        broadcastDependency = new PrestoSparkMemoryBasedBroadcastDependency(
+                                childRdd,
+                                getQueryMaxBroadcastMemory(session),
+                                queryCompletionDeadline);
                     }
 
-                    if (uncompressedBroadcastSizeInBytes > maxBroadcastSizeInBytes) {
-                        throw exceededLocalBroadcastMemoryLimit(maxBroadcastSize, format("Uncompressed broadcast size: %s", succinctBytes(compressedBroadcastSizeInBytes)));
-                    }
-
-                    Broadcast<List<PrestoSparkSerializedPage>> broadcast = sparkContext.broadcast(broadcastPages);
-                    broadcastInputs.put(childFragment.getId(), broadcast);
-                    broadcastDependencies.add(broadcast);
+                    broadcastInputs.put(childFragment.getId(), broadcastDependency.executeBroadcast(sparkContext));
+                    broadcastDependencies.add(broadcastDependency);
                 }
                 else {
                     RddAndMore<PrestoSparkMutableRow> childRdd = createRdd(child, PrestoSparkMutableRow.class);
@@ -994,6 +1009,15 @@ public class PrestoSparkQueryExecutionFactory
                     tableWriteInfo,
                     outputType);
             return new RddAndMore<>(rdd, broadcastDependencies.build());
+        }
+
+        private void validateStorageCapabilities(TempStorage tempStorage)
+        {
+            boolean isLocalMode = isLocalMaster(sparkContext.getConf());
+            List<StorageCapabilities> storageCapabilities = tempStorage.getStorageCapabilities();
+            if (!isLocalMode && !storageCapabilities.contains(REMOTELY_ACCESSIBLE)) {
+                throw new PrestoException(UNSUPPORTED_STORAGE_TYPE, "Configured TempStorage does not support remote access required for distributing broadcast tables.");
+            }
         }
 
         private void queryCompletedEvent(Optional<ExecutionFailureInfo> failureInfo, OptionalLong updateCount)
@@ -1089,16 +1113,6 @@ public class PrestoSparkQueryExecutionFactory
                     rowBatchesPerSecond,
                     DataSize.succinctBytes(bytesPerSecond));
         }
-
-        private long computeNextTimeout()
-                throws TimeoutException
-        {
-            long timeout = queryCompletionDeadline - System.currentTimeMillis();
-            if (timeout <= 0) {
-                throw new TimeoutException();
-            }
-            return timeout;
-        }
     }
 
     private static <T> void waitForActionsCompletionWithTimeout(Collection<JavaFutureAction<T>> actions, long timeout, TimeUnit timeUnit)
@@ -1121,79 +1135,6 @@ public class PrestoSparkQueryExecutionFactory
                     action.cancel(true);
                 }
             }
-        }
-    }
-
-    private static <T> T getActionResultWithTimeout(JavaFutureAction<T> action, long timeout, TimeUnit timeUnit)
-            throws SparkException, TimeoutException
-    {
-        long deadline = System.currentTimeMillis() + timeUnit.toMillis(timeout);
-        try {
-            while (true) {
-                long nextTimeoutInMillis = deadline - System.currentTimeMillis();
-                if (nextTimeoutInMillis <= 0) {
-                    throw new TimeoutException();
-                }
-                try {
-                    return action.get(nextTimeoutInMillis, MILLISECONDS);
-                }
-                catch (TimeoutException e) {
-                    // guard against spurious wakeup
-                    if (deadline - System.currentTimeMillis() <= 0) {
-                        throw e;
-                    }
-                }
-            }
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
-        catch (ExecutionException e) {
-            propagateIfPossible(e.getCause(), SparkException.class);
-            propagateIfPossible(e.getCause(), RuntimeException.class);
-
-            // this should never happen
-            throw new UncheckedExecutionException(e.getCause());
-        }
-        finally {
-            if (!action.isDone()) {
-                action.cancel(true);
-            }
-        }
-    }
-
-    private static class RddAndMore<T extends PrestoSparkTaskOutput>
-    {
-        private final JavaPairRDD<MutablePartitionId, T> rdd;
-        private final List<Broadcast<?>> broadcastDependencies;
-
-        private boolean collected;
-
-        private RddAndMore(JavaPairRDD<MutablePartitionId, T> rdd, List<Broadcast<?>> broadcastDependencies)
-        {
-            this.rdd = requireNonNull(rdd, "rdd is null");
-            this.broadcastDependencies = ImmutableList.copyOf(requireNonNull(broadcastDependencies, "broadcastDependencies is null"));
-        }
-
-        public List<Tuple2<MutablePartitionId, T>> collectAndDestroyDependenciesWithTimeout(long timeout, TimeUnit timeUnit)
-                throws SparkException, TimeoutException
-        {
-            checkState(!collected, "already collected");
-            collected = true;
-            List<Tuple2<MutablePartitionId, T>> result = getActionResultWithTimeout(rdd.collectAsync(), timeout, timeUnit);
-            broadcastDependencies.forEach(Broadcast::destroy);
-            return result;
-        }
-
-        public JavaPairRDD<MutablePartitionId, T> getRdd()
-        {
-            return rdd;
-        }
-
-        public List<Broadcast<?>> getBroadcastDependencies()
-        {
-            return broadcastDependencies;
         }
     }
 

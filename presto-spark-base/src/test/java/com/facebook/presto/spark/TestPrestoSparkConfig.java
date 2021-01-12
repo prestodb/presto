@@ -24,6 +24,7 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestPrestoSparkConfig
 {
@@ -36,7 +37,10 @@ public class TestPrestoSparkConfig
                 .setMinSparkInputPartitionCountForAutoTune(100)
                 .setMaxSparkInputPartitionCountForAutoTune(1000)
                 .setMaxSplitsDataSizePerSparkPartition(new DataSize(2, GIGABYTE))
-                .setShuffleOutputTargetAverageRowSize(new DataSize(1, KILOBYTE)));
+                .setShuffleOutputTargetAverageRowSize(new DataSize(1, KILOBYTE))
+                .setStorageBasedBroadcastJoinEnabled(false)
+                .setStorageBasedBroadcastJoinStorage("local")
+                .setStorageBasedBroadcastJoinWriteBufferSize(new DataSize(24, MEGABYTE)));
     }
 
     @Test
@@ -49,6 +53,9 @@ public class TestPrestoSparkConfig
                 .put("spark.max-spark-input-partition-count-for-auto-tune", "2000")
                 .put("spark.max-splits-data-size-per-partition", "4GB")
                 .put("spark.shuffle-output-target-average-row-size", "10kB")
+                .put("spark.storage-based-broadcast-join-enabled", "true")
+                .put("spark.storage-based-broadcast-join-storage", "tempfs")
+                .put("spark.storage-based-broadcast-join-write-buffer-size", "4MB")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -56,7 +63,10 @@ public class TestPrestoSparkConfig
                 .setMinSparkInputPartitionCountForAutoTune(200)
                 .setMaxSparkInputPartitionCountForAutoTune(2000)
                 .setMaxSplitsDataSizePerSparkPartition(new DataSize(4, GIGABYTE))
-                .setShuffleOutputTargetAverageRowSize(new DataSize(10, KILOBYTE));
+                .setShuffleOutputTargetAverageRowSize(new DataSize(10, KILOBYTE))
+                .setStorageBasedBroadcastJoinEnabled(true)
+                .setStorageBasedBroadcastJoinStorage("tempfs")
+                .setStorageBasedBroadcastJoinWriteBufferSize(new DataSize(4, MEGABYTE));
         assertFullMapping(properties, expected);
     }
 }
