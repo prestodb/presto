@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.testing.QueryRunner;
@@ -22,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -39,6 +42,8 @@ import static java.lang.String.format;
 public class TestHiveExternalWorkersQueries
         extends AbstractTestQueryFramework
 {
+    private static final Logger log = Logger.get(HiveQueryRunner.class);
+
     protected TestHiveExternalWorkersQueries()
     {
         super(TestHiveExternalWorkersQueries::createQueryRunner);
@@ -49,11 +54,16 @@ public class TestHiveExternalWorkersQueries
     {
         String prestoServerPath = System.getenv("PRESTO_SERVER");
         String baseDataDir = System.getenv("DATA_DIR");
+        String workerCount = System.getenv("WORKER_COUNT");
 
-        return createQueryRunner(Optional.ofNullable(prestoServerPath), Optional.ofNullable(baseDataDir).map(Paths::get));
+        return createQueryRunner(Optional.ofNullable(prestoServerPath),
+                Optional.ofNullable(baseDataDir).map(Paths::get),
+                Optional.ofNullable(workerCount).map(Integer::parseInt));
     }
 
-    private static QueryRunner createQueryRunner(Optional<String> prestoServerPath, Optional<Path> baseDataDir)
+    public static DistributedQueryRunner createQueryRunner(Optional<String> prestoServerPath,
+            Optional<Path> baseDataDir,
+            Optional<Integer> workerCount)
             throws Exception
     {
         if (prestoServerPath.isPresent()) {
@@ -80,11 +90,12 @@ public class TestHiveExternalWorkersQueries
         // Make query runner with external workers for tests
         DistributedQueryRunner queryRunner = HiveQueryRunner.createQueryRunner(ImmutableList.of(),
                 ImmutableMap.of("optimizer.optimize-hash-generation", "false",
-                        "parse-decimal-literals-as-double", "true"),
+                        "parse-decimal-literals-as-double", "true",
+                        "http-server.http.port", "8080"),
                 ImmutableMap.of(),
-                "sql-standard",
-                ImmutableMap.of(),
-                Optional.of(1),
+                "legacy",
+                ImmutableMap.of("hive.storage-format", "DWRF"),
+                workerCount,
                 baseDataDir,
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
@@ -227,5 +238,52 @@ public class TestHiveExternalWorkersQueries
     public void testValues()
     {
         assertQuery("SELECT 1, 0.24, ceil(4.5), 'A not too short ASCII string'");
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        // You need to add "--user user" to your CLI for your queries to work
+        Logging.initialize();
+
+        Optional<Path> baseDataDir = Optional.empty();
+        if (args.length > 0) {
+            if (args.length != 1) {
+                log.error("usage: HiveQueryRunner [baseDataDir]\n");
+                log.error("       [baseDataDir] is a local directory under which you want the hive_data directory to be created.]\n");
+                System.exit(1);
+            }
+
+            File baseDataDirFile = new File(args[0]);
+            if (baseDataDirFile.exists()) {
+                if (!baseDataDirFile.isDirectory()) {
+                    log.error("Error: " + baseDataDirFile.getAbsolutePath() + " is not a directory.");
+                    System.exit(1);
+                }
+                else if (!baseDataDirFile.canRead() || !baseDataDirFile.canWrite()) {
+                    log.error("Error: " + baseDataDirFile.getAbsolutePath() + " is not readable/writable.");
+                    System.exit(1);
+                }
+            }
+            else {
+                // For user supplied path like [path_exists_but_is_not_readable_or_writable]/[paths_do_not_exist], the hadoop file system won't
+                // be able to create directory for it. e.g. "/aaa/bbb" is not creatable because path "/" is not writable.
+                while (!baseDataDirFile.exists()) {
+                    baseDataDirFile = baseDataDirFile.getParentFile();
+                }
+                if (!baseDataDirFile.canRead() || !baseDataDirFile.canWrite()) {
+                    log.error("Error: The ancestor directory " + baseDataDirFile.getAbsolutePath() + " is not readable/writable.");
+                    System.exit(1);
+                }
+            }
+
+            baseDataDir = Optional.of(baseDataDirFile.toPath());
+        }
+
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) TestHiveExternalWorkersQueries.createQueryRunner();
+        Thread.sleep(10);
+        Logger log = Logger.get(DistributedQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
