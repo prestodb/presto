@@ -18,6 +18,8 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -584,6 +586,28 @@ public class TestPrestoSparkQueryRunner
                 .setSystemProperty("query_max_execution_time", "2s")
                 .build();
         assertQueryFails(queryMaxExecutionTimeLimitSession, longRunningCrossJoin, "Query exceeded maximum time limit of 2.00s");
+    }
+
+    @Test
+    public void testDiskBasedBroadcastJoin()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "BROADCAST")
+                .setSystemProperty(STORAGE_BASED_BROADCAST_JOIN_ENABLED, "true")
+                .build();
+
+        assertQuery(session,
+                "select * from lineitem l join orders o on l.orderkey = o.orderkey");
+
+        assertQuery(session,
+                "select l.orderkey from lineitem l join orders o on l.orderkey = o.orderkey " +
+                        "Union all " +
+                        "SELECT m.nationkey FROM nation m JOIN nation n  ON m.nationkey = n.nationkey");
+
+        assertQuery(session,
+                "SELECT o.custkey, l.orderkey " +
+                        "FROM (SELECT * FROM lineitem WHERE linenumber = 4) l " +
+                        "CROSS JOIN (SELECT * FROM orders WHERE orderkey = 5) o");
     }
 
     private void assertBucketedQuery(String sql)

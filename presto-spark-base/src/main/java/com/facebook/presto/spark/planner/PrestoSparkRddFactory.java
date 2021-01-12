@@ -24,7 +24,6 @@ import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkPartitioner;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleSerializer;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
@@ -140,7 +139,7 @@ public class PrestoSparkRddFactory
             Session session,
             PlanFragment fragment,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
@@ -260,7 +259,7 @@ public class PrestoSparkRddFactory
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             TableWriteInfo tableWriteInfo,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs,
             Class<T> outputType)
     {
         checkInputs(fragment.getRemoteSourceNodes(), rddInputs, broadcastInputs);
@@ -545,16 +544,16 @@ public class PrestoSparkRddFactory
                 .findAll();
     }
 
-    private static Map<String, Broadcast<List<PrestoSparkSerializedPage>>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
+    private static <T extends PrestoSparkTaskOutput> Map<String, Broadcast<List<T>>> toTaskProcessorBroadcastInputs(Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs)
     {
         return broadcastInputs.entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().toString(), Map.Entry::getValue));
     }
 
-    private static void checkInputs(
+    private static <T extends PrestoSparkTaskOutput> void checkInputs(
             List<RemoteSourceNode> remoteSources,
             Map<PlanFragmentId, JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow>> rddInputs,
-            Map<PlanFragmentId, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs)
+            Map<PlanFragmentId, Broadcast<List<T>>> broadcastInputs)
     {
         Set<PlanFragmentId> expectedInputs = remoteSources.stream()
                 .map(RemoteSourceNode::getSourceFragmentIds)

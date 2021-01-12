@@ -18,6 +18,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ScheduledSplit;
@@ -43,6 +44,7 @@ import com.facebook.presto.operator.OutputFactory;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spark.PrestoSparkAuthenticatorProvider;
+import com.facebook.presto.spark.PrestoSparkConfig;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
@@ -50,6 +52,7 @@ import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkStorageHandle;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
@@ -61,8 +64,13 @@ import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PreDeter
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.page.PageDataOutput;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.security.TokenAuthenticator;
+import com.facebook.presto.spi.storage.TempDataOperationContext;
+import com.facebook.presto.spi.storage.TempDataSink;
+import com.facebook.presto.spi.storage.TempStorage;
+import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
@@ -72,10 +80,12 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
+import com.facebook.presto.storage.TempStorageManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
@@ -86,6 +96,8 @@ import scala.collection.Iterator;
 
 import javax.inject.Inject;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -98,6 +110,7 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.zip.CRC32;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
@@ -108,6 +121,7 @@ import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
 import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getShuffleOutputTargetAverageRowSize;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getStorageBasedBroadcastJoinWriteBufferSize;
 import static com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation.WRITE;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
@@ -154,6 +168,9 @@ public class PrestoSparkTaskExecutorFactory
 
     private final boolean perOperatorAllocationTrackingEnabled;
     private final boolean allocationTrackingEnabled;
+    private final TempStorageManager tempStorageManager;
+    private final PrestoSparkBroadcastTableCacheManager prestoSparkBroadcastTableCacheManager;
+    private final String storageBasedBroadcastJoinStorage;
 
     @Inject
     public PrestoSparkTaskExecutorFactory(
@@ -175,7 +192,10 @@ public class PrestoSparkTaskExecutorFactory
             ObjectMapper objectMapper,
             TaskManagerConfig taskManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
-            NodeSpillConfig nodeSpillConfig)
+            NodeSpillConfig nodeSpillConfig,
+            TempStorageManager tempStorageManager,
+            PrestoSparkBroadcastTableCacheManager prestoSparkBroadcastTableCacheManager,
+            PrestoSparkConfig prestoSparkConfig)
     {
         this(
                 sessionPropertyManager,
@@ -198,7 +218,10 @@ public class PrestoSparkTaskExecutorFactory
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorCpuTimerEnabled(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskCpuTimerEnabled(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorAllocationTrackingEnabled(),
-                requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskAllocationTrackingEnabled());
+                requireNonNull(taskManagerConfig, "taskManagerConfig is null").isTaskAllocationTrackingEnabled(),
+                tempStorageManager,
+                requireNonNull(prestoSparkConfig, "prestoSparkConfig is null").getStorageBasedBroadcastJoinStorage(),
+                prestoSparkBroadcastTableCacheManager);
     }
 
     public PrestoSparkTaskExecutorFactory(
@@ -222,7 +245,10 @@ public class PrestoSparkTaskExecutorFactory
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
-            boolean allocationTrackingEnabled)
+            boolean allocationTrackingEnabled,
+            TempStorageManager tempStorageManager,
+            String storageBasedBroadcastJoinStorage,
+            PrestoSparkBroadcastTableCacheManager prestoSparkBroadcastTableCacheManager)
     {
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
@@ -246,6 +272,9 @@ public class PrestoSparkTaskExecutorFactory
         this.cpuTimerEnabled = cpuTimerEnabled;
         this.perOperatorAllocationTrackingEnabled = perOperatorAllocationTrackingEnabled;
         this.allocationTrackingEnabled = allocationTrackingEnabled;
+        this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
+        this.storageBasedBroadcastJoinStorage = requireNonNull(storageBasedBroadcastJoinStorage, "storageBasedBroadcastJoinStorage is null");
+        this.prestoSparkBroadcastTableCacheManager = requireNonNull(prestoSparkBroadcastTableCacheManager, "prestoSparkBroadcastTableCacheManager is null");
     }
 
     @Override
@@ -295,6 +324,11 @@ public class PrestoSparkTaskExecutorFactory
                 extraAuthenticators.build());
         PlanFragment fragment = taskDescriptor.getFragment();
         StageId stageId = new StageId(session.getQueryId(), fragment.getId().getId());
+
+        // Clear the cache if the cache does not have broadcast table for current stageId.
+        // We will only cache 1 HT at any time. If the stageId changes, we will drop the old cached HT
+        prestoSparkBroadcastTableCacheManager.removeCachedTablesForStagesOtherThan(stageId);
+
         // TODO: include attemptId in taskId
         TaskId taskId = new TaskId(new StageExecutionId(stageId, 0), partitionId);
 
@@ -343,13 +377,18 @@ public class PrestoSparkTaskExecutorFactory
 
         ImmutableMap.Builder<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputs = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputs = ImmutableMap.builder();
+        ImmutableMap.Builder<PlanNodeId, List<List<?>>> broadcastInputs = ImmutableMap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
             List<PrestoSparkShuffleInput> remoteSourceRowInputs = new ArrayList<>();
             List<java.util.Iterator<PrestoSparkSerializedPage>> remoteSourcePageInputs = new ArrayList<>();
+            List<List<?>> broadcastInputsList = new ArrayList<>();
             for (PlanFragmentId sourceFragmentId : remoteSource.getSourceFragmentIds()) {
-                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput = inputs.getShuffleInputs().get(sourceFragmentId.toString());
-                Broadcast<List<PrestoSparkSerializedPage>> broadcastInput = inputs.getBroadcastInputs().get(sourceFragmentId.toString());
-                List<PrestoSparkSerializedPage> inMemoryInput = inputs.getInMemoryInputs().get(sourceFragmentId.toString());
+                Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>> shuffleInput =
+                        (Iterator<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>) inputs.getShuffleInputs().get(sourceFragmentId.toString());
+                Broadcast<List<T>> broadcastInput =
+                        (Broadcast<List<T>>) inputs.getBroadcastInputs().get(sourceFragmentId.toString());
+                List<PrestoSparkSerializedPage> inMemoryInput =
+                        (List<PrestoSparkSerializedPage>) inputs.getInMemoryInputs().get(sourceFragmentId.toString());
 
                 if (shuffleInput != null) {
                     checkArgument(broadcastInput == null, "single remote source is not expected to accept different kind of inputs");
@@ -364,7 +403,7 @@ public class PrestoSparkTaskExecutorFactory
                     // NullifyingIterator removes element from the list upon return
                     // This allows GC to gradually reclaim memory
                     // remoteSourcePageInputs.add(getNullifyingIterator(broadcastInput.value()));
-                    remoteSourcePageInputs.add(broadcastInput.value().iterator());
+                    broadcastInputsList.add(broadcastInput.value());
                     continue;
                 }
 
@@ -380,6 +419,9 @@ public class PrestoSparkTaskExecutorFactory
             }
             if (!remoteSourcePageInputs.isEmpty()) {
                 pageInputs.put(remoteSource.getId(), remoteSourcePageInputs);
+            }
+            if (!broadcastInputsList.isEmpty()) {
+                broadcastInputs.put(remoteSource.getId(), broadcastInputsList);
             }
         }
 
@@ -398,12 +440,23 @@ public class PrestoSparkTaskExecutorFactory
                     false,
                     OptionalInt.empty()));
         }
+
+        TempDataOperationContext tempDataOperationContext = new TempDataOperationContext(
+                session.getSource(),
+                session.getQueryId().getId(),
+                session.getClientInfo(),
+                session.getIdentity());
+        TempStorage tempStorage = tempStorageManager.getTempStorage(storageBasedBroadcastJoinStorage);
+
         Output<T> output = configureOutput(
                 outputType,
                 blockEncodingManager,
                 memoryManager,
                 getShuffleOutputTargetAverageRowSize(session),
-                preDeterminedPartition);
+                preDeterminedPartition,
+                tempStorage,
+                tempDataOperationContext,
+                getStorageBasedBroadcastJoinWriteBufferSize(session));
         PrestoSparkOutputBuffer<?> outputBuffer = output.getOutputBuffer();
 
         LocalExecutionPlan localExecutionPlan = localExecutionPlanner.plan(
@@ -417,8 +470,13 @@ public class PrestoSparkTaskExecutorFactory
                         blockEncodingManager,
                         shuffleInputs.build(),
                         pageInputs.build(),
+                        broadcastInputs.build(),
                         partitionId,
-                        shuffleStatsCollector),
+                        shuffleStatsCollector,
+                        tempStorage,
+                        tempDataOperationContext,
+                        prestoSparkBroadcastTableCacheManager,
+                        stageId),
                 taskDescriptor.getTableWriteInfo(),
                 true);
 
@@ -448,7 +506,9 @@ public class PrestoSparkTaskExecutorFactory
                 shuffleStatsCollector,
                 executionExceptionFactory,
                 output.getOutputBufferType(),
-                outputBuffer);
+                outputBuffer,
+                tempStorage,
+                tempDataOperationContext);
     }
 
     private static OptionalLong computeAllSplitsSize(List<TaskSource> taskSources)
@@ -484,7 +544,10 @@ public class PrestoSparkTaskExecutorFactory
             BlockEncodingManager blockEncodingManager,
             OutputBufferMemoryManager memoryManager,
             DataSize targetAverageRowSize,
-            Optional<OutputPartitioning> preDeterminedPartition)
+            Optional<OutputPartitioning> preDeterminedPartition,
+            TempStorage tempStorage,
+            TempDataOperationContext tempDataOperationContext,
+            DataSize writeBufferSize)
     {
         if (outputType.equals(PrestoSparkMutableRow.class)) {
             PrestoSparkOutputBuffer<PrestoSparkRowBatch> outputBuffer = new PrestoSparkOutputBuffer<>(memoryManager);
@@ -497,6 +560,12 @@ public class PrestoSparkTaskExecutorFactory
             OutputFactory outputFactory = new PrestoSparkPageOutputFactory(outputBuffer, blockEncodingManager);
             OutputSupplier<T> outputSupplier = (OutputSupplier<T>) new PageOutputSupplier(outputBuffer);
             return new Output<>(OutputBufferType.SPARK_PAGE_OUTPUT_BUFFER, outputBuffer, outputFactory, outputSupplier);
+        }
+        else if (outputType.equals(PrestoSparkStorageHandle.class)) {
+            PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer = new PrestoSparkOutputBuffer<>(memoryManager);
+            OutputFactory outputFactory = new PrestoSparkPageOutputFactory(outputBuffer, blockEncodingManager);
+            OutputSupplier<T> outputSupplier = (OutputSupplier<T>) new DiskPageOutputSupplier(outputBuffer, tempStorage, tempDataOperationContext, writeBufferSize);
+            return new Output<>(OutputBufferType.SPARK_DISK_PAGE_OUTPUT_BUFFER, outputBuffer, outputFactory, outputSupplier);
         }
         else {
             throw new IllegalArgumentException("Unexpected output type: " + outputType.getName());
@@ -516,6 +585,8 @@ public class PrestoSparkTaskExecutorFactory
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
         private final OutputBufferType outputBufferType;
         private final PrestoSparkOutputBuffer<?> outputBuffer;
+        private final TempStorage tempStorage;
+        private final TempDataOperationContext tempDataOperationContext;
 
         private final UUID taskInstanceId = randomUUID();
 
@@ -535,7 +606,9 @@ public class PrestoSparkTaskExecutorFactory
                 CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
                 OutputBufferType outputBufferType,
-                PrestoSparkOutputBuffer<?> outputBuffer)
+                PrestoSparkOutputBuffer<?> outputBuffer,
+                TempStorage tempStorage,
+                TempDataOperationContext tempDataOperationContext)
         {
             this.taskContext = requireNonNull(taskContext, "taskContext is null");
             this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
@@ -546,6 +619,8 @@ public class PrestoSparkTaskExecutorFactory
             this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
             this.outputBufferType = requireNonNull(outputBufferType, "outputBufferType is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+            this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
+            this.tempDataOperationContext = requireNonNull(tempDataOperationContext, "tempDataOperationContext is null");
         }
 
         @Override
@@ -629,6 +704,22 @@ public class PrestoSparkTaskExecutorFactory
             }
 
             Throwable failure = getFirst(failures, null);
+            // Delete the storage file, if task is not successful
+            if (outputSupplier instanceof DiskPageOutputSupplier) {
+                PrestoSparkStorageHandle sparkStorageHandle = (PrestoSparkStorageHandle) output._2;
+                TempStorageHandle tempStorageHandle = tempStorage.deserialize(sparkStorageHandle.getSerializedStorageHandle());
+                try {
+                    tempStorage.remove(tempDataOperationContext, tempStorageHandle);
+                    log.info("Removed broadcast spill file: " + tempStorageHandle.toString());
+                }
+                catch (IOException e) {
+                    // self suppression is not allowed
+                    if (e != failure) {
+                        failure.addSuppressed(e);
+                    }
+                }
+            }
+
             propagateIfPossible(failure, Error.class);
             propagateIfPossible(failure, RuntimeException.class);
             propagateIfPossible(failure, InterruptedException.class);
@@ -823,9 +914,131 @@ public class PrestoSparkTaskExecutorFactory
         }
     }
 
+    private static class DiskPageOutputSupplier
+            implements OutputSupplier<PrestoSparkStorageHandle>
+    {
+        private static final MutablePartitionId DEFAULT_PARTITION = new MutablePartitionId();
+
+        private final PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer;
+        private final TempStorage tempStorage;
+        private final TempDataOperationContext tempDataOperationContext;
+        private final long writeBufferSizeInBytes;
+
+        private TempDataSink tempDataSink;
+        private long timeSpentWaitingForOutputInMillis;
+
+        private DiskPageOutputSupplier(PrestoSparkOutputBuffer<PrestoSparkBufferedSerializedPage> outputBuffer,
+                TempStorage tempStorage,
+                TempDataOperationContext tempDataOperationContext,
+                DataSize writeBufferSize)
+        {
+            this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+            this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
+            this.tempDataOperationContext = requireNonNull(tempDataOperationContext, "tempDataOperationContext is null");
+            this.writeBufferSizeInBytes = requireNonNull(writeBufferSize, "writeBufferSize is null").toBytes();
+        }
+
+        @Override
+        public Tuple2<MutablePartitionId, PrestoSparkStorageHandle> getNext()
+                throws InterruptedException
+        {
+            long start = System.currentTimeMillis();
+            PrestoSparkBufferedSerializedPage page = outputBuffer.get();
+            if (page == null) {
+                return null;
+            }
+
+            long compressedBroadcastSizeInBytes = 0;
+            long uncompressedBroadcastSizeInBytes = 0;
+            int positionCount = 0;
+            CRC32 checksum = new CRC32();
+            TempStorageHandle tempStorageHandle;
+            IOException ioException = null;
+            try {
+                this.tempDataSink = tempStorage.create(tempDataOperationContext);
+                List<DataOutput> bufferedPages = new ArrayList<>();
+                long bufferedBytes = 0;
+
+                while (page != null) {
+                    PageDataOutput pageDataOutput = new PageDataOutput(page.getSerializedPage());
+                    long writtenSize = pageDataOutput.size();
+
+                    if ((writeBufferSizeInBytes - bufferedBytes) < writtenSize) {
+                        tempDataSink.write(bufferedPages);
+                        bufferedPages.clear();
+                        bufferedBytes = 0;
+                    }
+
+                    bufferedPages.add(pageDataOutput);
+                    bufferedBytes += writtenSize;
+                    compressedBroadcastSizeInBytes += page.getSerializedPage().getSizeInBytes();
+                    uncompressedBroadcastSizeInBytes += page.getSerializedPage().getUncompressedSizeInBytes();
+                    positionCount += page.getPositionCount();
+                    Slice slice = page.getSerializedPage().getSlice();
+                    checksum.update(slice.byteArray(), slice.byteArrayOffset(), slice.length());
+                    page = outputBuffer.get();
+                }
+
+                if (!bufferedPages.isEmpty()) {
+                    tempDataSink.write(bufferedPages);
+                    bufferedPages.clear();
+                }
+
+                tempStorageHandle = tempDataSink.commit();
+                log.info("Created broadcast spill file: " + tempStorageHandle.toString());
+                PrestoSparkStorageHandle prestoSparkStorageHandle =
+                        new PrestoSparkStorageHandle(
+                                tempStorage.serializeHandle(tempStorageHandle),
+                                uncompressedBroadcastSizeInBytes,
+                                compressedBroadcastSizeInBytes,
+                                checksum.getValue(),
+                                positionCount);
+                long end = System.currentTimeMillis();
+                timeSpentWaitingForOutputInMillis += (end - start);
+                return new Tuple2<>(DEFAULT_PARTITION, prestoSparkStorageHandle);
+            }
+            catch (IOException e) {
+                if (ioException == null) {
+                    ioException = e;
+                }
+                try {
+                    tempDataSink.rollback();
+                }
+                catch (IOException exception) {
+                    if (ioException != exception) {
+                        ioException.addSuppressed(exception);
+                    }
+                }
+            }
+            finally {
+                try {
+                    tempDataSink.close();
+                }
+                catch (IOException e) {
+                    if (ioException == null) {
+                        ioException = e;
+                    }
+                    else if (ioException != e) {
+                        ioException.addSuppressed(e);
+                    }
+                    throw new UncheckedIOException("Unable to dump data to disk: ", ioException);
+                }
+            }
+
+            throw new UncheckedIOException("Unable to dump data to disk: ", ioException);
+        }
+
+        @Override
+        public long getTimeSpentWaitingForOutputInMillis()
+        {
+            return timeSpentWaitingForOutputInMillis;
+        }
+    }
+
     private enum OutputBufferType
     {
         SPARK_ROW_OUTPUT_BUFFER,
         SPARK_PAGE_OUTPUT_BUFFER,
+        SPARK_DISK_PAGE_OUTPUT_BUFFER,
     }
 }
