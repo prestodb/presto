@@ -35,7 +35,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
     private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
     private final CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector;
     // fragmentId -> Broadcast
-    private final Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs;
+    private final Map<String, Broadcast<List<T>>> broadcastInputs;
     private final Class<T> outputType;
 
     public PrestoSparkTaskProcessor(
@@ -43,7 +43,7 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
-            Map<String, Broadcast<List<PrestoSparkSerializedPage>>> broadcastInputs,
+            Map<String, Broadcast<List<T>>> broadcastInputs,
             Class<T> outputType)
     {
         this.taskExecutorFactoryProvider = requireNonNull(taskExecutorFactoryProvider, "taskExecutorFactoryProvider is null");

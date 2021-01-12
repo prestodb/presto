@@ -21,6 +21,7 @@ import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class PrestoSparkConfig
 {
@@ -30,6 +31,9 @@ public class PrestoSparkConfig
     private int initialSparkPartitionCount = 16;
     private DataSize maxSplitsDataSizePerSparkPartition = new DataSize(2, GIGABYTE);
     private DataSize shuffleOutputTargetAverageRowSize = new DataSize(1, KILOBYTE);
+    private boolean storageBasedBroadcastJoinEnabled;
+    private DataSize storageBasedBroadcastJoinWriteBufferSize = new DataSize(24, MEGABYTE);
+    private String storageBasedBroadcastJoinStorage = "local";
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -107,6 +111,45 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setShuffleOutputTargetAverageRowSize(DataSize shuffleOutputTargetAverageRowSize)
     {
         this.shuffleOutputTargetAverageRowSize = shuffleOutputTargetAverageRowSize;
+        return this;
+    }
+
+    public boolean isStorageBasedBroadcastJoinEnabled()
+    {
+        return storageBasedBroadcastJoinEnabled;
+    }
+
+    @Config("spark.storage-based-broadcast-join-enabled")
+    @ConfigDescription("Distribute broadcast hashtable to workers using storage")
+    public PrestoSparkConfig setStorageBasedBroadcastJoinEnabled(boolean storageBasedBroadcastJoinEnabled)
+    {
+        this.storageBasedBroadcastJoinEnabled = storageBasedBroadcastJoinEnabled;
+        return this;
+    }
+
+    public DataSize getStorageBasedBroadcastJoinWriteBufferSize()
+    {
+        return storageBasedBroadcastJoinWriteBufferSize;
+    }
+
+    @Config("spark.storage-based-broadcast-join-write-buffer-size")
+    @ConfigDescription("Maximum size in bytes to buffer before flushing pages to disk")
+    public PrestoSparkConfig setStorageBasedBroadcastJoinWriteBufferSize(DataSize storageBasedBroadcastJoinWriteBufferSize)
+    {
+        this.storageBasedBroadcastJoinWriteBufferSize = storageBasedBroadcastJoinWriteBufferSize;
+        return this;
+    }
+
+    public String getStorageBasedBroadcastJoinStorage()
+    {
+        return storageBasedBroadcastJoinStorage;
+    }
+
+    @Config("spark.storage-based-broadcast-join-storage")
+    @ConfigDescription("TempStorage to use for dumping broadcast table")
+    public PrestoSparkConfig setStorageBasedBroadcastJoinStorage(String storageBasedBroadcastJoinStorage)
+    {
+        this.storageBasedBroadcastJoinStorage = storageBasedBroadcastJoinStorage;
         return this;
     }
 }
