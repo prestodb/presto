@@ -34,7 +34,7 @@ public final class ShortBigArray
     private final short initialValue;
 
     private short[][] array;
-    private int capacity;
+    private long capacity;
     private int segments;
 
     /**
