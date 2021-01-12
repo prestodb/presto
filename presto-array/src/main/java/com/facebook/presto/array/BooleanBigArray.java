@@ -34,7 +34,7 @@ public final class BooleanBigArray
     private final boolean initialValue;
 
     private boolean[][] array;
-    private int capacity;
+    private long capacity;
     private int segments;
 
     /**
