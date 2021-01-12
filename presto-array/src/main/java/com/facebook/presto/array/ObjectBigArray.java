@@ -34,7 +34,7 @@ public final class ObjectBigArray<T>
     private final Object initialValue;
 
     private Object[][] array;
-    private int capacity;
+    private long capacity;
     private int segments;
 
     /**
