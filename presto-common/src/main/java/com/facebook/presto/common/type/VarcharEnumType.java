@@ -22,7 +22,6 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeUtils.normalizeEnumMap;
@@ -70,15 +69,15 @@ public class VarcharEnumType
     public static class VarcharEnumMap
     {
         private final Map<String, String> enumMap;
-        private Map<String, String> flippedEnumMap;
-        private final AtomicBoolean isFlippedEnumComputed = new AtomicBoolean();
+        private final Map<String, String> flippedEnumMap;
 
         @JsonCreator
         public VarcharEnumMap(@JsonProperty("enumMap") Map<String, String> enumMap)
         {
             validateEnumMap(enumMap);
             this.enumMap = normalizeEnumMap(enumMap);
-            this.flippedEnumMap = null;
+            this.flippedEnumMap = this.enumMap.entrySet().stream()
+                    .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
         }
 
         @JsonProperty
@@ -89,10 +88,6 @@ public class VarcharEnumType
 
         public Optional<String> getKeyForValue(String value)
         {
-            if (!isFlippedEnumComputed.getAndSet(true)) {
-                this.flippedEnumMap = this.enumMap.entrySet().stream()
-                        .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
-            }
             return Optional.ofNullable(flippedEnumMap.get(value));
         }
 

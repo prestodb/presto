@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -60,6 +61,9 @@ public class TestEnums
     private static final LongEnumParametricType TEST_LONG_ENUM = new LongEnumParametricType(QualifiedObjectName.valueOf("test.enum.testlongenum"), new LongEnumMap(ImmutableMap.of(
             "TEST", 6L,
             "TEST2", 8L)));
+    private static final VarcharEnumParametricType MARKET_SEGMENT_ENUM = new VarcharEnumParametricType(QualifiedObjectName.valueOf("test.enum.market_segment"), new VarcharEnumMap(ImmutableMap.of(
+            "MKT_BUILDING", "BUILDING",
+            "MKT_FURNITURE", "FURNITURE")));
 
     protected TestEnums()
     {
@@ -76,6 +80,10 @@ public class TestEnums
             queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(COUNTRY_ENUM);
             queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(TEST_ENUM);
             queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(TEST_LONG_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addParametricType(MARKET_SEGMENT_ENUM);
+
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
             return queryRunner;
         }
         catch (Exception e) {
@@ -281,5 +289,17 @@ public class TestEnums
 
         assertSingleValue("enum_key(try_cast(7 as test.enum.mood))", null);
         assertSingleValue("enum_key(try_cast('invalid_value' as test.enum.country))", null);
+    }
+
+    @Test
+    public void testEnumKeyDistributed()
+    {
+        assertQueryResultUnordered(
+                "SELECT DISTINCT enum_key(try_cast(nationkey as test.enum.mood)) from tpch.sf100.customer where nationkey = cast(test.enum.mood.SAD as bigint)",
+                ImmutableList.of(singletonList("SAD")));
+
+        assertQueryResultUnordered(
+                "SELECT DISTINCT enum_key(try_cast(mktsegment as test.enum.market_segment)) from tpch.sf100.customer where mktsegment IN ('BUILDING', 'FURNITURE')",
+                ImmutableList.of(singletonList("MKT_BUILDING"), singletonList("MKT_FURNITURE")));
     }
 }
