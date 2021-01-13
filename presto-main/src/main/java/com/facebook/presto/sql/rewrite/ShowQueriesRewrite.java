@@ -496,7 +496,7 @@ final class ShowQueriesRewrite
         protected Node visitShowCreateFunction(ShowCreateFunction node, Void context)
         {
             QualifiedObjectName functionName = qualifyObjectName(node.getName());
-            Collection<? extends SqlFunction> functions = metadata.getFunctionAndTypeManager().getFunctions(session.getTransactionId(), functionName);
+            Collection<? extends SqlFunction> functions = metadata.getFunctionAndTypeManager().getFunctions(session, functionName);
             if (node.getParameterTypes().isPresent()) {
                 List<TypeSignature> parameterTypes = node.getParameterTypes().get().stream()
                         .map(TypeSignature::parseTypeSignature)

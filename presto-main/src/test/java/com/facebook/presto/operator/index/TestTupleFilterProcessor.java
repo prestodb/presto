@@ -63,6 +63,7 @@ public class TestTupleFilterProcessor
                 new int[] {1, 0, 3},
                 outputTypes,
                 SESSION.getSqlFunctionProperties(),
+                SESSION.getSessionFunctions(),
                 new PageFunctionCompiler(createTestMetadataManager(), 0));
         PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage, OptionalInt.of(MAX_BATCH_SIZE)).get();
         Page actualPage = getOnlyElement(

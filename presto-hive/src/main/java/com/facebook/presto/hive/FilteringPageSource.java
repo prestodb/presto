@@ -131,7 +131,7 @@ public class FilteringPageSource
             this.filterFunction = new FilterFunction(
                     session.getSqlFunctionProperties(),
                     rowExpressionService.getDeterminismEvaluator().isDeterministic(expression),
-                    rowExpressionService.getPredicateCompiler().compilePredicate(session.getSqlFunctionProperties(), expression).get());
+                    rowExpressionService.getPredicateCompiler().compilePredicate(session.getSqlFunctionProperties(), session.getSessionFunctions(), expression).get());
         }
 
         this.outputBlockCount = requireNonNull(originalIndices, "originalIndices is null").size();

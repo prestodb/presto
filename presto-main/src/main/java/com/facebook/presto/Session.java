@@ -21,6 +21,8 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -82,6 +84,7 @@ public final class Session
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final SessionPropertyManager sessionPropertyManager;
     private final Map<String, String> preparedStatements;
+    private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
     private final AccessControlContext context;
 
     public Session(
@@ -105,7 +108,8 @@ public final class Session
             Map<ConnectorId, Map<String, String>> connectorProperties,
             Map<String, Map<String, String>> unprocessedCatalogProperties,
             SessionPropertyManager sessionPropertyManager,
-            Map<String, String> preparedStatements)
+            Map<String, String> preparedStatements,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -126,6 +130,7 @@ public final class Session
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.preparedStatements = requireNonNull(preparedStatements, "preparedStatements is null");
+        this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
 
         ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         connectorProperties.entrySet().stream()
@@ -278,6 +283,11 @@ public final class Session
         return sql;
     }
 
+    public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+    {
+        return sessionFunctions;
+    }
+
     public AccessControlContext getAccessControlContext()
     {
         return context;
@@ -371,7 +381,8 @@ public final class Session
                 connectorProperties.build(),
                 ImmutableMap.of(),
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                sessionFunctions);
     }
 
     public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
@@ -420,7 +431,8 @@ public final class Session
                 ImmutableMap.of(),
                 connectorProperties,
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                sessionFunctions);
     }
 
     public ConnectorSession toConnectorSession()
@@ -480,7 +492,8 @@ public final class Session
                 connectorProperties,
                 unprocessedCatalogProperties,
                 identity.getRoles(),
-                preparedStatements);
+                preparedStatements,
+                sessionFunctions);
     }
 
     @Override
@@ -540,6 +553,7 @@ public final class Session
         private final Map<String, Map<String, String>> catalogSessionProperties = new HashMap<>();
         private final SessionPropertyManager sessionPropertyManager;
         private final Map<String, String> preparedStatements = new HashMap<>();
+        private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions = new HashMap<>();
 
         private SessionBuilder(SessionPropertyManager sessionPropertyManager)
         {
@@ -569,6 +583,7 @@ public final class Session
             this.systemProperties.putAll(session.systemProperties);
             session.unprocessedCatalogProperties.forEach((key, value) -> this.catalogSessionProperties.put(key, new HashMap<>(value)));
             this.preparedStatements.putAll(session.preparedStatements);
+            this.sessionFunctions.putAll(session.sessionFunctions);
         }
 
         public SessionBuilder setQueryId(QueryId queryId)
@@ -695,6 +710,12 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder addSessionFunction(SqlFunctionId functionSignature, SqlInvokedFunction functionDefinition)
+        {
+            this.sessionFunctions.put(functionSignature, functionDefinition);
+            return this;
+        }
+
         public Session build()
         {
             return new Session(
@@ -718,7 +739,8 @@ public final class Session
                     ImmutableMap.of(),
                     catalogSessionProperties,
                     sessionPropertyManager,
-                    preparedStatements);
+                    preparedStatements,
+                    sessionFunctions);
         }
     }
 

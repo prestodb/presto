@@ -14,9 +14,13 @@
 package com.facebook.presto.spi;
 
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
@@ -79,6 +83,12 @@ public final class TestingSession
                     .setSessionLocale(getLocale())
                     .setSessionUser(getUser())
                     .build();
+        }
+
+        @Override
+        public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+        {
+            return ImmutableMap.of();
         }
 
         @Override

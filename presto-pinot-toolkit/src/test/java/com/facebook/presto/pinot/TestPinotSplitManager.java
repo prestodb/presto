@@ -157,7 +157,8 @@ public class TestPinotSplitManager
                         forbidSegmentQueries),
                 new FeaturesConfig().isLegacyTimestamp(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
     }
 
     private List<PinotSplit> getSplitsHelper(PinotTableHandle pinotTable, int numSegmentsPerSplit, boolean forbidSegmentQueries)

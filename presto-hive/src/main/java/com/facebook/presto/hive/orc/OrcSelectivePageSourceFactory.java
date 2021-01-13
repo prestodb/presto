@@ -636,13 +636,13 @@ public class OrcSelectivePageSourceFactory
         filter = and(extractDynamicFilterResult.getStaticConjuncts());
 
         if (!isAdaptiveFilterReorderingEnabled(session)) {
-            filterFunctions.add(new FilterFunction(session.getSqlFunctionProperties(), determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
+            filterFunctions.add(new FilterFunction(session.getSqlFunctionProperties(), determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), session.getSessionFunctions(), filter).get()));
             return filterFunctions.build();
         }
 
         List<RowExpression> conjuncts = extractConjuncts(filter);
         if (conjuncts.size() == 1) {
-            filterFunctions.add(new FilterFunction(session.getSqlFunctionProperties(), determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), filter).get()));
+            filterFunctions.add(new FilterFunction(session.getSqlFunctionProperties(), determinismEvaluator.isDeterministic(filter), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), session.getSessionFunctions(), filter).get()));
             return filterFunctions.build();
         }
 
@@ -654,7 +654,7 @@ public class OrcSelectivePageSourceFactory
 
         inputsToConjuncts.values().stream()
                 .map(expressions -> binaryExpression(AND, expressions))
-                .map(predicate -> new FilterFunction(session.getSqlFunctionProperties(), determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), predicate).get()))
+                .map(predicate -> new FilterFunction(session.getSqlFunctionProperties(), determinismEvaluator.isDeterministic(predicate), predicateCompiler.compilePredicate(session.getSqlFunctionProperties(), session.getSessionFunctions(), predicate).get()))
                 .forEach(filterFunctions::add);
 
         return filterFunctions.build();

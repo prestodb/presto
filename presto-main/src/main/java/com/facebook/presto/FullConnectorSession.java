@@ -18,6 +18,8 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.google.common.collect.ImmutableMap;
 
@@ -40,6 +42,7 @@ public class FullConnectorSession
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
     private final SqlFunctionProperties sqlFunctionProperties;
+    private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
     public FullConnectorSession(Session session, ConnectorIdentity identity)
     {
@@ -50,6 +53,7 @@ public class FullConnectorSession
         this.catalog = null;
         this.sessionPropertyManager = null;
         this.sqlFunctionProperties = session.getSqlFunctionProperties();
+        this.sessionFunctions = ImmutableMap.copyOf(session.getSessionFunctions());
     }
 
     public FullConnectorSession(
@@ -67,6 +71,7 @@ public class FullConnectorSession
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.sqlFunctionProperties = session.getSqlFunctionProperties();
+        this.sessionFunctions = ImmutableMap.copyOf(session.getSessionFunctions());
     }
 
     public Session getSession()
@@ -120,6 +125,12 @@ public class FullConnectorSession
     public SqlFunctionProperties getSqlFunctionProperties()
     {
         return sqlFunctionProperties;
+    }
+
+    @Override
+    public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+    {
+        return sessionFunctions;
     }
 
     @Override

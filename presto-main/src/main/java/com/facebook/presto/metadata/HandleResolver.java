@@ -59,6 +59,7 @@ public class HandleResolver
         handleResolvers.put("$empty", new MaterializedHandleResolver(new EmptySplitHandleResolver()));
 
         functionHandleResolvers.put("$static", new MaterializedFunctionHandleResolver(new BuiltInFunctionNamespaceHandleResolver()));
+        functionHandleResolvers.put("$session", new MaterializedFunctionHandleResolver(new SessionFunctionHandleResolver()));
     }
 
     public void addConnectorName(String name, ConnectorHandleResolver resolver)

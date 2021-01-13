@@ -27,6 +27,8 @@ import com.facebook.presto.common.relation.Predicate;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.project.PageFieldsToInputParametersRewriter;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -68,7 +70,6 @@ public class RowExpressionPredicateCompiler
         implements PredicateCompiler
 {
     private final Metadata metadata;
-
     private final LoadingCache<CacheKey, Supplier<Predicate>> predicateCache;
 
     @Inject
@@ -85,7 +86,7 @@ public class RowExpressionPredicateCompiler
             predicateCache = CacheBuilder.newBuilder()
                     .recordStats()
                     .maximumSize(predicateCacheSize)
-                    .build(CacheLoader.from(cacheKey -> compilePredicateInternal(cacheKey.sqlFunctionProperties, cacheKey.rowExpression)));
+                    .build(CacheLoader.from(cacheKey -> compilePredicateInternal(cacheKey.sqlFunctionProperties, cacheKey.sessionFunctions, cacheKey.rowExpression)));
         }
         else {
             predicateCache = null;
@@ -93,15 +94,15 @@ public class RowExpressionPredicateCompiler
     }
 
     @Override
-    public Supplier<Predicate> compilePredicate(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate)
+    public Supplier<Predicate> compilePredicate(SqlFunctionProperties sqlFunctionProperties, Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions, RowExpression predicate)
     {
         if (predicateCache == null) {
-            return compilePredicateInternal(sqlFunctionProperties, predicate);
+            return compilePredicateInternal(sqlFunctionProperties, sessionFunctions, predicate);
         }
-        return predicateCache.getUnchecked(new CacheKey(sqlFunctionProperties, predicate));
+        return predicateCache.getUnchecked(new CacheKey(sqlFunctionProperties, sessionFunctions, predicate));
     }
 
-    private Supplier<Predicate> compilePredicateInternal(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate)
+    private Supplier<Predicate> compilePredicateInternal(SqlFunctionProperties sqlFunctionProperties, Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions, RowExpression predicate)
     {
         requireNonNull(predicate, "predicate is null");
 
@@ -111,7 +112,7 @@ public class RowExpressionPredicateCompiler
                 .toArray();
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
-        ClassDefinition classDefinition = definePredicateClass(sqlFunctionProperties, result.getRewrittenExpression(), inputChannels, callSiteBinder);
+        ClassDefinition classDefinition = definePredicateClass(sqlFunctionProperties, sessionFunctions, result.getRewrittenExpression(), inputChannels, callSiteBinder);
 
         Class<? extends Predicate> predicateClass;
         try {
@@ -131,7 +132,12 @@ public class RowExpressionPredicateCompiler
         };
     }
 
-    private ClassDefinition definePredicateClass(SqlFunctionProperties sqlFunctionProperties, RowExpression predicate, int[] inputChannels, CallSiteBinder callSiteBinder)
+    private ClassDefinition definePredicateClass(
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            RowExpression predicate,
+            int[] inputChannels,
+            CallSiteBinder callSiteBinder)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -141,7 +147,7 @@ public class RowExpressionPredicateCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        generatePredicateMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, predicate);
+        generatePredicateMethod(sqlFunctionProperties, sessionFunctions, classDefinition, callSiteBinder, cachedInstanceBinder, predicate);
 
         // getInputChannels
         classDefinition.declareMethod(a(PUBLIC), "getInputChannels", type(int[].class))
@@ -157,12 +163,20 @@ public class RowExpressionPredicateCompiler
 
     private MethodDefinition generatePredicateMethod(
             SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression predicate)
     {
-        Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, predicate, metadata, sqlFunctionProperties);
+        Map<LambdaDefinitionExpression, LambdaBytecodeGenerator.CompiledLambda> compiledLambdaMap = generateMethodsForLambda(
+                classDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                predicate,
+                metadata,
+                sqlFunctionProperties,
+                sessionFunctions);
 
         Parameter properties = arg("properties", SqlFunctionProperties.class);
         Parameter page = arg("page", Page.class);
@@ -193,6 +207,7 @@ public class RowExpressionPredicateCompiler
                 fieldReferenceCompiler(callSiteBinder),
                 metadata,
                 sqlFunctionProperties,
+                sessionFunctions,
                 compiledLambdaMap);
 
         Variable result = scope.declareVariable(boolean.class, "result");
@@ -254,11 +269,13 @@ public class RowExpressionPredicateCompiler
     private static final class CacheKey
     {
         private final SqlFunctionProperties sqlFunctionProperties;
+        private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
         private final RowExpression rowExpression;
 
-        private CacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression rowExpression)
+        private CacheKey(SqlFunctionProperties sqlFunctionProperties, Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions, RowExpression rowExpression)
         {
             this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
+            this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
             this.rowExpression = requireNonNull(rowExpression, "rowExpression is null");
         }
 

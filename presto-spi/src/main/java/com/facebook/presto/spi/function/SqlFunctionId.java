@@ -17,14 +17,17 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 
 @Experimental
 public class SqlFunctionId
@@ -32,22 +35,17 @@ public class SqlFunctionId
     private final QualifiedObjectName functionName;
     private final List<TypeSignature> argumentTypes;
 
-    @JsonCreator
-    public SqlFunctionId(
-            @JsonProperty("functionName") QualifiedObjectName functionName,
-            @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes)
+    public SqlFunctionId(QualifiedObjectName functionName, List<TypeSignature> argumentTypes)
     {
         this.functionName = requireNonNull(functionName, "functionName is null");
         this.argumentTypes = requireNonNull(argumentTypes, "argumentTypes is null");
     }
 
-    @JsonProperty
     public QualifiedObjectName getFunctionName()
     {
         return functionName;
     }
 
-    @JsonProperty
     public List<TypeSignature> getArgumentTypes()
     {
         return argumentTypes;
@@ -85,5 +83,30 @@ public class SqlFunctionId
                 .map(Object::toString)
                 .collect(joining(", "));
         return format("%s(%s)", functionName, arguments);
+    }
+
+    @JsonValue
+    public String toJsonString()
+    {
+        return format("%s;%s", functionName.toString(), argumentTypes.stream().map(TypeSignature::toString).collect(joining(";")));
+    }
+
+    @JsonCreator
+    public static SqlFunctionId parseSqlFunctionId(String signature)
+    {
+        String[] parts = signature.split(";");
+        if (parts.length == 1) {
+            return new SqlFunctionId(QualifiedObjectName.valueOf(parts[0]), emptyList());
+        }
+        else if (parts.length > 1) {
+            QualifiedObjectName name = QualifiedObjectName.valueOf(parts[0]);
+            List<TypeSignature> argumentTypes = Arrays.stream(parts, 1, parts.length)
+                    .map(TypeSignature::parseTypeSignature)
+                    .collect(toList());
+            return new SqlFunctionId(name, argumentTypes);
+        }
+        else {
+            throw new AssertionError(format("Invalid serialization: %s", signature));
+        }
     }
 }

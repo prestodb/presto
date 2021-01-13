@@ -16,6 +16,8 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.transaction.TransactionId;
@@ -142,5 +144,11 @@ public class TestingSessionContext
     public boolean supportClientTransaction()
     {
         return session.isClientTransactionSupport();
+    }
+
+    @Override
+    public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+    {
+        return session.getSessionFunctions();
     }
 }

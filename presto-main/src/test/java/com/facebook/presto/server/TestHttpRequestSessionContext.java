@@ -13,10 +13,18 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.spi.function.Parameter;
+import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.parser.IdentifierSymbol;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -29,6 +37,7 @@ import java.net.URLEncoder;
 import java.util.EnumSet;
 import java.util.Optional;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
@@ -40,13 +49,34 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION_FUNCTION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
+import static com.facebook.presto.common.type.StandardTypes.INTEGER;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class TestHttpRequestSessionContext
 {
+    private static final JsonCodec<SqlFunctionId> SQL_FUNCTION_ID_JSON_CODEC = jsonCodec(SqlFunctionId.class);
+    private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
+
+    private static final SqlFunctionId SQL_FUNCTION_ID_ADD = createSqlFunctionIdAdd();
+    private static final SqlInvokedFunction SQL_FUNCTION_ADD = createFunctionAdd();
+
+    private static final String SERIALIZED_SQL_FUNCTION_ID_ADD = SQL_FUNCTION_ID_JSON_CODEC.toJson(SQL_FUNCTION_ID_ADD);
+    private static final String SERIALIZED_SQL_FUNCTION_ADD = SQL_INVOKED_FUNCTION_JSON_CODEC.toJson(SQL_FUNCTION_ADD);
+
+    private static final SqlFunctionId SQL_FUNCTION_ID_ADD1_TO_INT_ARRAY = createSqlFunctionIdAdd1ToIntArray();
+    private static final SqlInvokedFunction SQL_FUNCTION_ADD_1_TO_INT_ARRAY = createFunctionAdd1ToIntArray();
+
+    private static final String SERIALIZED_SQL_FUNCTION_ID_ADD_1_TO_INT_ARRAY = SQL_FUNCTION_ID_JSON_CODEC.toJson(SQL_FUNCTION_ID_ADD1_TO_INT_ARRAY);
+    private static final String SERIALIZED_SQL_FUNCTION_ADD_1_to_INT_ARRAY = SQL_INVOKED_FUNCTION_JSON_CODEC.toJson(SQL_FUNCTION_ADD_1_TO_INT_ARRAY);
+
     @Test
     public void testSessionContext()
     {
@@ -67,6 +97,12 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_ROLE, "foobar_connector=ROLE{role}")
                         .put(PRESTO_EXTRA_CREDENTIAL, "test.token.foo=bar")
                         .put(PRESTO_EXTRA_CREDENTIAL, "test.token.abc=xyz")
+                        .put(PRESTO_SESSION_FUNCTION, format(
+                                "%s=%s,%s=%s",
+                                urlEncode(SERIALIZED_SQL_FUNCTION_ID_ADD),
+                                urlEncode(SERIALIZED_SQL_FUNCTION_ADD),
+                                urlEncode(SERIALIZED_SQL_FUNCTION_ID_ADD_1_TO_INT_ARRAY),
+                                urlEncode(SERIALIZED_SQL_FUNCTION_ADD_1_to_INT_ARRAY)))
                         .build(),
                 "testRemote");
 
@@ -85,6 +121,13 @@ public class TestHttpRequestSessionContext
                 "bar_connector", new SelectedRole(SelectedRole.Type.NONE, Optional.empty()),
                 "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))));
         assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
+        assertEquals(
+                context.getSessionFunctions(),
+                ImmutableMap.of(
+                        SQL_FUNCTION_ID_ADD,
+                        SQL_FUNCTION_ADD,
+                        SQL_FUNCTION_ID_ADD1_TO_INT_ARRAY,
+                        SQL_FUNCTION_ADD_1_TO_INT_ARRAY));
     }
 
     @Test(expectedExceptions = WebApplicationException.class)
@@ -163,7 +206,7 @@ public class TestHttpRequestSessionContext
                         .build());
     }
 
-    private static String urlEncode(String value)
+    protected static String urlEncode(String value)
     {
         try {
             return URLEncoder.encode(value, "UTF-8");
@@ -171,5 +214,45 @@ public class TestHttpRequestSessionContext
         catch (UnsupportedEncodingException e) {
             throw new AssertionError(e);
         }
+    }
+
+    public static SqlFunctionId createSqlFunctionIdAdd()
+    {
+        return new SqlFunctionId(QualifiedObjectName.valueOf("presto.session.add"), ImmutableList.of(parseTypeSignature("integer"), parseTypeSignature("integer")));
+    }
+
+    public static SqlInvokedFunction createFunctionAdd()
+    {
+        return new SqlInvokedFunction(
+                QualifiedObjectName.valueOf(new CatalogSchemaName("presto", "session"), "add"),
+                ImmutableList.of(new Parameter("x", parseTypeSignature(INTEGER)), new Parameter("y", parseTypeSignature(INTEGER))),
+                parseTypeSignature(INTEGER),
+                "add",
+                RoutineCharacteristics.builder()
+                        .setDeterminism(DETERMINISTIC)
+                        .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
+                        .build(),
+                "RETURN x + y",
+                Optional.empty());
+    }
+
+    public static SqlFunctionId createSqlFunctionIdAdd1ToIntArray()
+    {
+        return new SqlFunctionId(QualifiedObjectName.valueOf("presto.session.add_1_int"), ImmutableList.of(parseTypeSignature("array(int)")));
+    }
+
+    public static SqlInvokedFunction createFunctionAdd1ToIntArray()
+    {
+        return new SqlInvokedFunction(
+                QualifiedObjectName.valueOf(new CatalogSchemaName("presto", "session"), "add_1_int"),
+                ImmutableList.of(new Parameter("x", parseTypeSignature("array(int)"))),
+                parseTypeSignature("array(int)"),
+                "add 1 to all elements of array",
+                RoutineCharacteristics.builder()
+                        .setDeterminism(DETERMINISTIC)
+                        .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
+                        .build(),
+                "RETURN transform(x, x -> x + 1)",
+                Optional.empty());
     }
 }

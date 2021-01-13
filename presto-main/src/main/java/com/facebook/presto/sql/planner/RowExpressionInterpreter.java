@@ -273,7 +273,13 @@ public class RowExpressionInterpreter
                     break;
                 case SQL:
                     SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionAndTypeManager.getScalarFunctionImplementation(functionHandle);
-                    RowExpression function = getSqlFunctionRowExpression(functionMetadata, functionImplementation, metadata, session.getSqlFunctionProperties(), node.getArguments());
+                    RowExpression function = getSqlFunctionRowExpression(
+                            functionMetadata,
+                            functionImplementation,
+                            metadata,
+                            session.getSqlFunctionProperties(),
+                            session.getSessionFunctions(),
+                            node.getArguments());
                     RowExpressionInterpreter rowExpressionInterpreter = new RowExpressionInterpreter(function, metadata, session, optimizationLevel);
                     if (optimizationLevel.ordinal() >= EVALUATED.ordinal()) {
                         value = rowExpressionInterpreter.evaluate();

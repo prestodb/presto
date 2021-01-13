@@ -22,6 +22,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
+import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
@@ -43,10 +44,12 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
+import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CreateFunctionTask
@@ -69,7 +72,7 @@ public class CreateFunctionTask
     @Override
     public String explain(CreateFunction statement, List<Expression> parameters)
     {
-        return "CREATE FUNCTION " + statement.getFunctionName();
+        return format("CREATE %sFUNCTION %s", statement.isTemporary() ? "TEMPORARY " : "", statement.getFunctionName());
     }
 
     @Override
@@ -82,13 +85,22 @@ public class CreateFunctionTask
             throw new PrestoException(NOT_SUPPORTED, "Invoking a dynamically registered function in SQL function body is not supported");
         }
 
-        metadata.getFunctionAndTypeManager().createFunction(createSqlInvokedFunction(statement, metadata, analysis), statement.isReplace());
+        SqlInvokedFunction function = createSqlInvokedFunction(statement, metadata, analysis);
+        if (statement.isTemporary()) {
+            stateMachine.addSessionFunction(new SqlFunctionId(function.getSignature().getName(), function.getSignature().getArgumentTypes()), function);
+        }
+        else {
+            metadata.getFunctionAndTypeManager().createFunction(function, statement.isReplace());
+        }
+
         return immediateFuture(null);
     }
 
     private SqlInvokedFunction createSqlInvokedFunction(CreateFunction statement, Metadata metadata, Analysis analysis)
     {
-        QualifiedObjectName functionName = qualifyObjectName(statement.getFunctionName());
+        QualifiedObjectName functionName = statement.isTemporary() ?
+                QualifiedObjectName.valueOf(SESSION_NAMESPACE, statement.getFunctionName().getSuffix()) :
+                qualifyObjectName(statement.getFunctionName());
         List<Parameter> parameters = statement.getParameters().stream()
                 .map(parameter -> new Parameter(parameter.getName().toString(), parseTypeSignature(parameter.getType())))
                 .collect(toImmutableList());

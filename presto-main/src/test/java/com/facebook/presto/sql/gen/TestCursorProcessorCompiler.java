@@ -60,6 +60,7 @@ import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.util.CompilerUtils.makeClassName;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -105,7 +106,7 @@ public class TestCursorProcessorCompiler
     @Test
     public void testRewriteRowExpressionWithCSE()
     {
-        CursorProcessorCompiler cseCursorCompiler = new CursorProcessorCompiler(METADATA, true);
+        CursorProcessorCompiler cseCursorCompiler = new CursorProcessorCompiler(METADATA, true, emptyMap());
 
         ClassDefinition cursorProcessorClassDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),

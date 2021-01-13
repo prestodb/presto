@@ -88,7 +88,8 @@ public class TestCassandraConnector
             ImmutableMap.of(),
             true,
             Optional.empty(),
-            Optional.empty());
+            Optional.empty(),
+            ImmutableMap.of());
     protected String database;
     protected SchemaTableName table;
     protected SchemaTableName tableUnpartitioned;
