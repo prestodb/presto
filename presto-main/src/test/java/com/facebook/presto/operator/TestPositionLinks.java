@@ -14,11 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -319,12 +319,11 @@ public class TestPositionLinks
                 new FeaturesConfig().isGroupByUsesEqualTo());
     }
 
-    private static AdaptiveLongBigArray addresses()
+    private static LongArrayList addresses()
     {
-        AdaptiveLongBigArray addresses = new AdaptiveLongBigArray();
-        addresses.ensureCapacity(TEST_PAGE.getPositionCount());
+        LongArrayList addresses = new LongArrayList();
         for (int i = 0; i < TEST_PAGE.getPositionCount(); ++i) {
-            addresses.set(i, encodeSyntheticAddress(0, i));
+            addresses.add(encodeSyntheticAddress(0, i));
         }
         return addresses;
     }
