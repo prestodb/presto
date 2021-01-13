@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -24,6 +25,8 @@ import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 public class TestHiveExternalWorkersQueries
         extends AbstractTestQueryFramework
 {
+    private static final Logger log = Logger.get(HiveQueryRunner.class);
+
     protected TestHiveExternalWorkersQueries()
     {
         super(HiveExternalWorkerQueryRunner::createQueryRunner);
