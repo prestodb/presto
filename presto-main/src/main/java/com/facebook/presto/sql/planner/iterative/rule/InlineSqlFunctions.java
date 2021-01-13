@@ -31,6 +31,7 @@ import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isInlineSqlFunctions;
@@ -116,6 +117,7 @@ public class InlineSqlFunctions
                 }
 
                 FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
+                        Optional.of(session.getSessionFunctions()),
                         session.getTransactionId(),
                         qualifyObjectName(node.getName()),
                         fromTypes(argumentTypes));

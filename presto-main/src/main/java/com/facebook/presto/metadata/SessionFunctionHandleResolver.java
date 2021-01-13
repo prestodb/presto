@@ -11,15 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark;
+package com.facebook.presto.metadata;
 
-import com.facebook.presto.tests.AbstractTestAggregations;
+import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionHandleResolver;
 
-public class TestPrestoSparkAbstractTestAggregations
-        extends AbstractTestAggregations
+public class SessionFunctionHandleResolver
+        implements FunctionHandleResolver
 {
-    public TestPrestoSparkAbstractTestAggregations()
+    @Override
+    public Class<? extends FunctionHandle> getFunctionHandleClass()
     {
-        super(PrestoSparkQueryRunner::createHivePrestoSparkQueryRunner);
+        return SessionFunctionHandle.class;
     }
 }

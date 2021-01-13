@@ -171,7 +171,8 @@ public abstract class TestDateTimeFunctionsBase
                         ImmutableMap.of(),
                         isLegacyTimestamp(session),
                         Optional.empty(),
-                        Optional.empty()).getSqlFunctionProperties());
+                        Optional.empty(),
+                        session.getSessionFunctions()).getSqlFunctionProperties());
         assertEquals(dateTimeCalculation, expectedDays);
     }
 

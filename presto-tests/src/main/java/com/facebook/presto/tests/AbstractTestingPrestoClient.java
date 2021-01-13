@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ClientSession;
 import com.facebook.presto.client.Column;
@@ -25,6 +26,8 @@ import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +44,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.StatementClientFactory.newStatementClient;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.spi.session.ResourceEstimates.CPU_TIME;
@@ -50,10 +54,15 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.toMap;
 
 public abstract class AbstractTestingPrestoClient<T>
         implements Closeable
 {
+    private static final JsonCodec<SqlFunctionId> SQL_FUNCTION_ID_JSON_CODEC = jsonCodec(SqlFunctionId.class);
+    private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
+
     private final TestingPrestoServer prestoServer;
     private final Session defaultSession;
 
@@ -138,6 +147,11 @@ public abstract class AbstractTestingPrestoClient<T>
         estimates.getCpuTime().ifPresent(e -> resourceEstimates.put(CPU_TIME, e.toString()));
         estimates.getPeakMemory().ifPresent(e -> resourceEstimates.put(PEAK_MEMORY, e.toString()));
 
+        Map<String, String> serializedSessionFunctions = session.getSessionFunctions().entrySet().stream()
+                .collect(collectingAndThen(
+                        toMap(e -> SQL_FUNCTION_ID_JSON_CODEC.toJson(e.getKey()), e -> SQL_INVOKED_FUNCTION_JSON_CODEC.toJson(e.getValue())),
+                        ImmutableMap::copyOf));
+
         return new ClientSession(
                 server,
                 session.getIdentity().getUser(),
@@ -157,7 +171,7 @@ public abstract class AbstractTestingPrestoClient<T>
                 session.getTransactionId().map(Object::toString).orElse(null),
                 clientRequestTimeout,
                 true,
-                ImmutableMap.of());
+                serializedSessionFunctions);
     }
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)

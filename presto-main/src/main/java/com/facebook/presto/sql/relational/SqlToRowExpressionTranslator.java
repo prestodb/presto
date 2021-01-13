@@ -23,6 +23,8 @@ import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -154,7 +156,15 @@ public final class SqlToRowExpressionTranslator
             FunctionAndTypeManager functionAndTypeManager,
             Session session)
     {
-        return translate(expression, types, layout, functionAndTypeManager, Optional.of(session.getUser()), session.getTransactionId(), session.getSqlFunctionProperties());
+        return translate(
+                expression,
+                types,
+                layout,
+                functionAndTypeManager,
+                Optional.of(session.getUser()),
+                session.getTransactionId(),
+                session.getSqlFunctionProperties(),
+                session.getSessionFunctions());
     }
 
     public static RowExpression translate(
@@ -164,7 +174,8 @@ public final class SqlToRowExpressionTranslator
             FunctionAndTypeManager functionAndTypeManager,
             Optional<String> user,
             Optional<TransactionId> transactionId,
-            SqlFunctionProperties sqlFunctionProperties)
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
         Visitor visitor = new Visitor(
                 types,
@@ -172,7 +183,8 @@ public final class SqlToRowExpressionTranslator
                 functionAndTypeManager,
                 user,
                 transactionId,
-                sqlFunctionProperties);
+                sqlFunctionProperties,
+                sessionFunctions);
         RowExpression result = visitor.process(expression, null);
         requireNonNull(result, "translated expression is null");
         return result;
@@ -187,6 +199,7 @@ public final class SqlToRowExpressionTranslator
         private final Optional<String> user;
         private final Optional<TransactionId> transactionId;
         private final SqlFunctionProperties sqlFunctionProperties;
+        private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
         private final FunctionResolution functionResolution;
 
         private Visitor(
@@ -195,7 +208,8 @@ public final class SqlToRowExpressionTranslator
                 FunctionAndTypeManager functionAndTypeManager,
                 Optional<String> user,
                 Optional<TransactionId> transactionId,
-                SqlFunctionProperties sqlFunctionProperties)
+                SqlFunctionProperties sqlFunctionProperties,
+                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
         {
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
@@ -204,6 +218,7 @@ public final class SqlToRowExpressionTranslator
             this.transactionId = transactionId;
             this.sqlFunctionProperties = sqlFunctionProperties;
             this.functionResolution = new FunctionResolution(functionAndTypeManager);
+            this.sessionFunctions = sessionFunctions;
         }
 
         private Type getType(Expression node)
@@ -415,7 +430,14 @@ public final class SqlToRowExpressionTranslator
                     .map(TypeSignatureProvider::new)
                     .collect(toImmutableList());
 
-            return call(node.getName().toString(), functionAndTypeManager.resolveFunction(transactionId, qualifyObjectName(node.getName()), argumentTypes), getType(node), arguments);
+            return call(node.getName().toString(),
+                    functionAndTypeManager.resolveFunction(
+                            Optional.of(sessionFunctions),
+                            transactionId,
+                            qualifyObjectName(node.getName()),
+                            argumentTypes),
+                    getType(node),
+                    arguments);
         }
 
         @Override

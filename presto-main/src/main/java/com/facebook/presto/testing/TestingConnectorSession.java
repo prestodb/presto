@@ -18,6 +18,8 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -53,15 +55,16 @@ public class TestingConnectorSession
     private final Optional<String> clientInfo;
     private final SqlFunctionProperties sqlFunctionProperties;
     private final Optional<String> schema;
+    private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties)
     {
-        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), Optional.empty());
+        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), Optional.empty(), ImmutableMap.of());
     }
 
     public TestingConnectorSession(List<PropertyMetadata<?>> properties, Optional<String> schema)
     {
-        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), schema);
+        this("user", Optional.of("test"), Optional.empty(), UTC_KEY, ENGLISH, System.currentTimeMillis(), properties, ImmutableMap.of(), new FeaturesConfig().isLegacyTimestamp(), Optional.empty(), schema, ImmutableMap.of());
     }
 
     public TestingConnectorSession(
@@ -75,7 +78,8 @@ public class TestingConnectorSession
             Map<String, Object> propertyValues,
             boolean isLegacyTimestamp,
             Optional<String> clientInfo,
-            Optional<String> schema)
+            Optional<String> schema,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
         this.queryId = queryIdGenerator.createNextQueryId().toString();
         this.identity = new ConnectorIdentity(requireNonNull(user, "user is null"), Optional.empty(), Optional.empty());
@@ -94,6 +98,7 @@ public class TestingConnectorSession
                 .setSessionUser(user)
                 .build();
         this.schema = requireNonNull(schema, "schema is null");
+        this.sessionFunctions = sessionFunctions;
     }
 
     @Override
@@ -142,6 +147,12 @@ public class TestingConnectorSession
     public SqlFunctionProperties getSqlFunctionProperties()
     {
         return sqlFunctionProperties;
+    }
+
+    @Override
+    public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+    {
+        return sessionFunctions;
     }
 
     @Override

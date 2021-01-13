@@ -539,7 +539,9 @@ public class PrestoSparkQueryExecutionFactory
                 sparkQueueName.map(ResourceGroupId::new),
                 planAndMore.flatMap(PlanAndMore::getQueryType),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of(),
+                ImmutableSet.of());
     }
 
     private static StageInfo createStageInfo(QueryId queryId, SubPlan plan, List<TaskInfo> taskInfos)

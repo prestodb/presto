@@ -39,6 +39,8 @@ import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
@@ -198,6 +200,7 @@ public class ExpressionAnalyzer
     private final Multimap<QualifiedObjectName, String> tableColumnReferences = HashMultimap.create();
 
     private final Optional<TransactionId> transactionId;
+    private final Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions;
     private final SqlFunctionProperties sqlFunctionProperties;
     private final List<Expression> parameters;
     private final WarningCollector warningCollector;
@@ -205,6 +208,7 @@ public class ExpressionAnalyzer
     private ExpressionAnalyzer(
             FunctionAndTypeManager functionAndTypeManager,
             Function<Node, StatementAnalyzer> statementAnalyzerFactory,
+            Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
             TypeProvider symbolTypes,
@@ -215,6 +219,7 @@ public class ExpressionAnalyzer
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
+        this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
         this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
         this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
@@ -905,6 +910,7 @@ public class ExpressionAnalyzer
                                 ExpressionAnalyzer innerExpressionAnalyzer = new ExpressionAnalyzer(
                                         functionAndTypeManager,
                                         statementAnalyzerFactory,
+                                        sessionFunctions,
                                         transactionId,
                                         sqlFunctionProperties,
                                         symbolTypes,
@@ -930,7 +936,7 @@ public class ExpressionAnalyzer
             }
 
             ImmutableList<TypeSignatureProvider> argumentTypes = argumentTypesBuilder.build();
-            FunctionHandle function = resolveFunction(transactionId, node, argumentTypes, functionAndTypeManager);
+            FunctionHandle function = resolveFunction(sessionFunctions, transactionId, node, argumentTypes, functionAndTypeManager);
             FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(function);
 
             if (node.getOrderBy().isPresent()) {
@@ -1482,10 +1488,15 @@ public class ExpressionAnalyzer
         }
     }
 
-    public static FunctionHandle resolveFunction(Optional<TransactionId> transactionId, FunctionCall node, List<TypeSignatureProvider> argumentTypes, FunctionAndTypeManager functionAndTypeManager)
+    public static FunctionHandle resolveFunction(
+            Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
+            Optional<TransactionId> transactionId,
+            FunctionCall node,
+            List<TypeSignatureProvider> argumentTypes,
+            FunctionAndTypeManager functionAndTypeManager)
     {
         try {
-            return functionAndTypeManager.resolveFunction(transactionId, qualifyObjectName(node.getName()), argumentTypes);
+            return functionAndTypeManager.resolveFunction(sessionFunctions, transactionId, qualifyObjectName(node.getName()), argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
@@ -1613,6 +1624,7 @@ public class ExpressionAnalyzer
     {
         ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
+                Optional.empty(), // SQL function expression cannot contain session functions
                 Optional.empty(),
                 sqlFunctionProperties,
                 TypeProvider.copyOf(argumentTypes),
@@ -1654,6 +1666,7 @@ public class ExpressionAnalyzer
         return new ExpressionAnalyzer(
                 metadata.getFunctionAndTypeManager(),
                 node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
+                Optional.of(session.getSessionFunctions()),
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
                 types,
@@ -1716,6 +1729,7 @@ public class ExpressionAnalyzer
     {
         return createWithoutSubqueries(
                 functionAndTypeManager,
+                Optional.of(session.getSessionFunctions()),
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
                 symbolTypes,
@@ -1727,6 +1741,7 @@ public class ExpressionAnalyzer
 
     public static ExpressionAnalyzer createWithoutSubqueries(
             FunctionAndTypeManager functionAndTypeManager,
+            Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions,
             Optional<TransactionId> transactionId,
             SqlFunctionProperties sqlFunctionProperties,
             TypeProvider symbolTypes,
@@ -1740,6 +1755,7 @@ public class ExpressionAnalyzer
                 node -> {
                     throw statementAnalyzerRejection.apply(node);
                 },
+                sessionFunctions,
                 transactionId,
                 sqlFunctionProperties,
                 symbolTypes,

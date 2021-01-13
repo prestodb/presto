@@ -18,6 +18,8 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
@@ -105,6 +107,10 @@ public class QuerySessionSupplier
 
         if (context.supportClientTransaction()) {
             sessionBuilder.setClientTransactionSupport();
+        }
+
+        for (Entry<SqlFunctionId, SqlInvokedFunction> entry : context.getSessionFunctions().entrySet()) {
+            sessionBuilder.addSessionFunction(entry.getKey(), entry.getValue());
         }
 
         Session session = sessionBuilder.build();

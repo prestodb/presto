@@ -16,10 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
-import com.facebook.presto.spi.function.FunctionNamespaceManager;
-import com.facebook.presto.spi.function.FunctionNamespaceTransactionHandle;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
@@ -34,14 +31,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
-import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
-import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
-import static com.facebook.presto.sql.planner.LiteralEncoder.getMagicLiteralFunctionSignature;
 import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -52,58 +45,16 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public final class FunctionResolver
+public final class FunctionSignatureMatcher
 {
     private final FunctionAndTypeManager functionAndTypeManager;
 
-    public FunctionResolver(FunctionAndTypeManager functionAndTypeManager)
+    public FunctionSignatureMatcher(FunctionAndTypeManager functionAndTypeManager)
     {
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
     }
 
-    public FunctionHandle resolveFunction(
-            FunctionNamespaceManager<?> functionNamespaceManager,
-            Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle,
-            QualifiedObjectName functionName,
-            List<TypeSignatureProvider> parameterTypes,
-            Collection<? extends SqlFunction> candidates)
-    {
-        try {
-            return lookupFunction(functionNamespaceManager, transactionHandle, functionName, parameterTypes, candidates);
-        }
-        catch (PrestoException e) {
-            if (e.getErrorCode().getCode() != FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                throw e;
-            }
-        }
-
-        Optional<Signature> match = matchFunctionWithCoercion(candidates, parameterTypes);
-        if (match.isPresent()) {
-            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
-        }
-
-        if (functionName.getObjectName().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
-            // extract type from function functionName
-            String typeName = functionName.getObjectName().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
-
-            // lookup the type
-            Type type = functionAndTypeManager.getType(parseTypeSignature(typeName));
-
-            // verify we have one parameter of the proper type
-            checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-
-            return new BuiltInFunctionHandle(getMagicLiteralFunctionSignature(type));
-        }
-
-        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
-    }
-
-    public FunctionHandle lookupFunction(
-            FunctionNamespaceManager<?> functionNamespaceManager,
-            Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle,
-            QualifiedObjectName functionName,
-            List<TypeSignatureProvider> parameterTypes,
-            Collection<? extends SqlFunction> candidates)
+    public Optional<Signature> match(Collection<? extends SqlFunction> candidates, List<TypeSignatureProvider> parameterTypes, boolean coercionAllowed)
     {
         List<SqlFunction> exactCandidates = candidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
@@ -111,7 +62,7 @@ public final class FunctionResolver
 
         Optional<Signature> match = matchFunctionExact(exactCandidates, parameterTypes);
         if (match.isPresent()) {
-            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
+            return match;
         }
 
         List<SqlFunction> genericCandidates = candidates.stream()
@@ -120,10 +71,17 @@ public final class FunctionResolver
 
         match = matchFunctionExact(genericCandidates, parameterTypes);
         if (match.isPresent()) {
-            return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
+            return match;
         }
 
-        throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, candidates));
+        if (coercionAllowed) {
+            match = matchFunctionWithCoercion(candidates, parameterTypes);
+            if (match.isPresent()) {
+                return match;
+            }
+        }
+
+        return Optional.empty();
     }
 
     private Optional<Signature> matchFunctionExact(List<SqlFunction> candidates, List<TypeSignatureProvider> actualParameters)

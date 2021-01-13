@@ -14,6 +14,11 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.spi.function.Parameter;
+import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -25,7 +30,9 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -223,8 +230,8 @@ public class TestSqlFunctions
 
     public void testInvalidFunctionName()
     {
-        assertQueryFails("SELECT x.y(1)", ".*Non-builtin functions must be referenced by 'catalog\\.schema\\.function_name', found: x\\.y");
-        assertQueryFails("SELECT x.y.z.w()", ".*Non-builtin functions must be referenced by 'catalog\\.schema\\.function_name', found: x\\.y\\.z\\.w");
+        assertQueryFails("SELECT x.y(1)", ".*Functions that are not temporary or builtin must be referenced by 'catalog\\.schema\\.function_name', found: x\\.y");
+        assertQueryFails("SELECT x.y.z.w()", ".*Functions that are not temporary or builtin must be referenced by 'catalog\\.schema\\.function_name', found: x\\.y\\.z\\.w");
     }
 
     @Test
@@ -234,6 +241,14 @@ public class TestSqlFunctions
                 "RETURNS array<int>\n" +
                 "RETURN concat(a, array[x])");
         assertQuery("SELECT testing.common.array_append(ARRAY[1, 2, 4], 8)", "SELECT ARRAY[1, 2, 4, 8]");
+    }
+
+    @Test
+    public void testTemporarySqlFunctions()
+    {
+        assertQuery(createSessionWithTempFunctionFoo(), "SELECT foo(2)", "SELECT 4");
+        assertQuery(createSessionWithTempFunctionFoo(), "SELECT abs(foo(-2))", "SELECT 4");
+        assertQuery(createSessionWithTempFunctionFoo(), "SELECT foo(foo(2))", "SELECT 8");
     }
 
     @Test
@@ -416,5 +431,21 @@ public class TestSqlFunctions
     {
         assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL");
         assertQueryFails("SELECT reduce(a, '', (s, x) -> s || testing.test.foo(x), s -> s) from (VALUES (array['a', 'b'])) t(a)", ".*External functions in Lambda expression is not supported:.*");
+    }
+
+    private Session createSessionWithTempFunctionFoo()
+    {
+        SqlFunctionId bigintSignature = new SqlFunctionId(QualifiedObjectName.valueOf("presto.session.foo"), ImmutableList.of(parseTypeSignature("bigint")));
+        SqlInvokedFunction bigintFunction = new SqlInvokedFunction(
+                bigintSignature.getFunctionName(),
+                ImmutableList.of(new Parameter("x", parseTypeSignature("bigint"))),
+                parseTypeSignature("bigint"),
+                "",
+                RoutineCharacteristics.builder().build(),
+                "RETURN x * 2",
+                Optional.empty());
+        return testSessionBuilder()
+                .addSessionFunction(bigintSignature, bigintFunction)
+                .build();
     }
 }

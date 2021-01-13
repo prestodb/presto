@@ -32,6 +32,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.CursorProcessorOutput;
 import com.facebook.presto.spi.RecordCursor;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -81,11 +83,13 @@ public class CursorProcessorCompiler
 
     private final Metadata metadata;
     private final boolean isOptimizeCommonSubExpressions;
+    private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
-    public CursorProcessorCompiler(Metadata metadata, boolean isOptimizeCommonSubExpressions)
+    public CursorProcessorCompiler(Metadata metadata, boolean isOptimizeCommonSubExpressions, Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
         this.metadata = metadata;
         this.isOptimizeCommonSubExpressions = isOptimizeCommonSubExpressions;
+        this.sessionFunctions = sessionFunctions;
     }
 
     @Override
@@ -98,7 +102,14 @@ public class CursorProcessorCompiler
                 .add(filter)
                 .build();
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, rowExpressions, metadata, sqlFunctionProperties, "");
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                rowExpressions,
+                metadata,
+                sqlFunctionProperties,
+                sessionFunctions,
+                "");
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 classDefinition,
@@ -107,6 +118,7 @@ public class CursorProcessorCompiler
                 fieldReferenceCompiler(cseFields),
                 metadata,
                 sqlFunctionProperties,
+                sessionFunctions,
                 compiledLambdaMap);
 
         if (isOptimizeCommonSubExpressions) {
@@ -121,6 +133,7 @@ public class CursorProcessorCompiler
                         fieldReferenceCompiler(cseFields),
                         metadata,
                         sqlFunctionProperties,
+                        sessionFunctions,
                         compiledLambdaMap);
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
 

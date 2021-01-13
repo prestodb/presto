@@ -363,6 +363,7 @@ public class PlanBuilder
             checkArgument(expression instanceof FunctionCall);
             FunctionCall call = (FunctionCall) expression;
             FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
+                    Optional.of(session.getSessionFunctions()),
                     session.getTransactionId(),
                     qualifyObjectName(call.getName()),
                     TypeSignatureProvider.fromTypes(inputTypes));

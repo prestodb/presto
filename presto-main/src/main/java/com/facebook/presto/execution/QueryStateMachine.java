@@ -27,6 +27,8 @@ import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -75,6 +77,7 @@ import static com.facebook.presto.execution.QueryState.TERMINAL_QUERY_STATES;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_RESOURCES;
 import static com.facebook.presto.execution.StageInfo.getAllStages;
 import static com.facebook.presto.memory.LocalMemoryManager.GENERAL_POOL;
+import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
@@ -83,6 +86,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -141,6 +145,9 @@ public class QueryStateMachine
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
+
+    private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = new ConcurrentHashMap<>();
+    private final Set<SqlFunctionId> removedSessionFunctions = Sets.newConcurrentHashSet();
 
     private final WarningCollector warningCollector;
 
@@ -447,7 +454,9 @@ public class QueryStateMachine
                 Optional.of(resourceGroup),
                 queryType,
                 failedTasks,
-                runtimeOptimizedStages.isEmpty() ? Optional.empty() : Optional.of(runtimeOptimizedStages));
+                runtimeOptimizedStages.isEmpty() ? Optional.empty() : Optional.of(runtimeOptimizedStages),
+                addedSessionFunctions,
+                removedSessionFunctions);
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage)
@@ -545,6 +554,16 @@ public class QueryStateMachine
         return deallocatedPreparedStatements;
     }
 
+    public Map<SqlFunctionId, SqlInvokedFunction> getAddedSessionFunctions()
+    {
+        return addedSessionFunctions;
+    }
+
+    public Set<SqlFunctionId> getRemovedSessionFunctions()
+    {
+        return removedSessionFunctions;
+    }
+
     public void addPreparedStatement(String key, String value)
     {
         requireNonNull(key, "key is null");
@@ -561,6 +580,30 @@ public class QueryStateMachine
             throw new PrestoException(NOT_FOUND, "Prepared statement not found: " + key);
         }
         deallocatedPreparedStatements.add(key);
+    }
+
+    public void addSessionFunction(SqlFunctionId signature, SqlInvokedFunction function)
+    {
+        requireNonNull(signature, "signature is null");
+        requireNonNull(function, "function is null");
+
+        if (session.getSessionFunctions().containsKey(signature) || addedSessionFunctions.putIfAbsent(signature, function) != null) {
+            throw new PrestoException(ALREADY_EXISTS, format("Session function %s has already been defined", signature));
+        }
+    }
+
+    public void removeSessionFunction(SqlFunctionId signature, boolean suppressNotFoundException)
+    {
+        requireNonNull(signature, "signature is null");
+
+        if (!session.getSessionFunctions().containsKey(signature)) {
+            if (!suppressNotFoundException) {
+                throw new PrestoException(NOT_FOUND, format("Session function %s not found", signature.getFunctionName()));
+            }
+        }
+        else {
+            removedSessionFunctions.add(signature);
+        }
     }
 
     public void setStartedTransactionId(TransactionId startedTransactionId)
@@ -876,7 +919,9 @@ public class QueryStateMachine
                 queryInfo.getResourceGroupId(),
                 queryInfo.getQueryType(),
                 queryInfo.getFailedTasks(),
-                queryInfo.getRuntimeOptimizedStages());
+                queryInfo.getRuntimeOptimizedStages(),
+                queryInfo.getAddedSessionFunctions(),
+                queryInfo.getRemovedSessionFunctions());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 

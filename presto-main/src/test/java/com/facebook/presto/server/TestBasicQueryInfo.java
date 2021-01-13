@@ -130,7 +130,9 @@ public class TestBasicQueryInfo
                         Optional.empty(),
                         Optional.of(QueryType.INSERT),
                         Optional.empty(),
-                        Optional.empty()));
+                        Optional.empty(),
+                        ImmutableMap.of(),
+                        ImmutableSet.of()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);
