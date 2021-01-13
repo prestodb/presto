@@ -33,6 +33,8 @@ import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -142,6 +144,12 @@ class Query
 
     @GuardedBy("this")
     private Long updateCount;
+
+    @GuardedBy("this")
+    private Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions = ImmutableMap.of();
+
+    @GuardedBy("this")
+    private Set<SqlFunctionId> removedSessionFunctions = ImmutableSet.of();
 
     public static Query create(
             Session session,
@@ -259,6 +267,16 @@ class Query
     public synchronized boolean isClearTransactionId()
     {
         return clearTransactionId;
+    }
+
+    public synchronized Map<SqlFunctionId, SqlInvokedFunction> getAddedSessionFunctions()
+    {
+        return addedSessionFunctions;
+    }
+
+    public synchronized Set<SqlFunctionId> getRemovedSessionFunctions()
+    {
+        return removedSessionFunctions;
     }
 
     public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, String scheme, Duration wait, DataSize targetResultSize)
@@ -438,6 +456,10 @@ class Query
         // update startedTransactionId
         startedTransactionId = queryInfo.getStartedTransactionId();
         clearTransactionId = queryInfo.isClearTransactionId();
+
+        // update sessionFunctions
+        addedSessionFunctions = queryInfo.getAddedSessionFunctions();
+        removedSessionFunctions = queryInfo.getRemovedSessionFunctions();
 
         // first time through, self is null
         QueryResults queryResults = new QueryResults(

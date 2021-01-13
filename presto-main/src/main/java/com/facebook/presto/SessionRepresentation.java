@@ -18,6 +18,8 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.security.TokenAuthenticator;
@@ -60,6 +62,7 @@ public final class SessionRepresentation
     private final Map<String, Map<String, String>> unprocessedCatalogProperties;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> preparedStatements;
+    private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
     @JsonCreator
     public SessionRepresentation(
@@ -84,7 +87,8 @@ public final class SessionRepresentation
             @JsonProperty("catalogProperties") Map<ConnectorId, Map<String, String>> catalogProperties,
             @JsonProperty("unprocessedCatalogProperties") Map<String, Map<String, String>> unprocessedCatalogProperties,
             @JsonProperty("roles") Map<String, SelectedRole> roles,
-            @JsonProperty("preparedStatements") Map<String, String> preparedStatements)
+            @JsonProperty("preparedStatements") Map<String, String> preparedStatements,
+            @JsonProperty("sessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -106,6 +110,7 @@ public final class SessionRepresentation
         this.systemProperties = ImmutableMap.copyOf(systemProperties);
         this.roles = ImmutableMap.copyOf(roles);
         this.preparedStatements = ImmutableMap.copyOf(preparedStatements);
+        this.sessionFunctions = ImmutableMap.copyOf(sessionFunctions);
 
         ImmutableMap.Builder<ConnectorId, Map<String, String>> catalogPropertiesBuilder = ImmutableMap.builder();
         for (Entry<ConnectorId, Map<String, String>> entry : catalogProperties.entrySet()) {
@@ -252,6 +257,12 @@ public final class SessionRepresentation
         return preparedStatements;
     }
 
+    @JsonProperty
+    public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+    {
+        return sessionFunctions;
+    }
+
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
         return toSession(sessionPropertyManager, emptyMap(), emptyMap());
@@ -290,6 +301,7 @@ public final class SessionRepresentation
                 catalogProperties,
                 unprocessedCatalogProperties,
                 sessionPropertyManager,
-                preparedStatements);
+                preparedStatements,
+                sessionFunctions);
     }
 }

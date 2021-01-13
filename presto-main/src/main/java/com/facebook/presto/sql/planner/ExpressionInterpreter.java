@@ -913,6 +913,7 @@ public class ExpressionInterpreter
                 argumentTypes.add(type);
             }
             FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
+                    Optional.of(session.getSessionFunctions()),
                     session.getTransactionId(),
                     qualifyObjectName(node.getName()),
                     fromTypes(argumentTypes));

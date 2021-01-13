@@ -133,6 +133,8 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
@@ -1372,8 +1374,20 @@ public class LocalExecutionPlanner
 
             try {
                 if (columns != null) {
-                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId(), isOptimizeCommonSubExpressions(session));
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(
+                            session.getSqlFunctionProperties(),
+                            filterExpression,
+                            projections,
+                            sourceNode.getId(),
+                            isOptimizeCommonSubExpressions(session),
+                            session.getSessionFunctions());
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                            session.getSqlFunctionProperties(),
+                            filterExpression,
+                            projections,
+                            isOptimizeCommonSubExpressions(session),
+                            session.getSessionFunctions(),
+                            Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1392,7 +1406,13 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
                 else if (locality.equals(LOCAL)) {
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                            session.getSqlFunctionProperties(),
+                            filterExpression,
+                            projections,
+                            isOptimizeCommonSubExpressions(session),
+                            session.getSessionFunctions(),
+                            Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1685,6 +1705,7 @@ public class LocalExecutionPlanner
                         nonLookupOutputChannels,
                         indexSource.getTypes(),
                         session.getSqlFunctionProperties(),
+                        session.getSessionFunctions(),
                         pageFunctionCompiler));
             }
 
@@ -2085,6 +2106,7 @@ public class LocalExecutionPlanner
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = joinFilter
                     .map(filterExpression -> compileJoinFilterFunction(
                             session.getSqlFunctionProperties(),
+                            session.getSessionFunctions(),
                             filterExpression,
                             probeLayout,
                             buildLayout));
@@ -2182,6 +2204,7 @@ public class LocalExecutionPlanner
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
                     .map(filterExpression -> compileJoinFilterFunction(
                             session.getSqlFunctionProperties(),
+                            session.getSessionFunctions(),
                             filterExpression,
                             probeSource.getLayout(),
                             buildSource.getLayout()));
@@ -2200,6 +2223,7 @@ public class LocalExecutionPlanner
                     .map(searchExpressions -> searchExpressions.stream()
                             .map(searchExpression -> compileJoinFilterFunction(
                                     session.getSqlFunctionProperties(),
+                                    session.getSessionFunctions(),
                                     searchExpression,
                                     probeSource.getLayout(),
                                     buildSource.getLayout()))
@@ -2309,12 +2333,13 @@ public class LocalExecutionPlanner
 
         private JoinFilterFunctionFactory compileJoinFilterFunction(
                 SqlFunctionProperties sqlFunctionProperties,
+                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
                 RowExpression filterExpression,
                 Map<VariableReferenceExpression, Integer> probeLayout,
                 Map<VariableReferenceExpression, Integer> buildLayout)
         {
             Map<VariableReferenceExpression, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
-            return joinFilterFunctionCompiler.compileJoinFilterFunction(sqlFunctionProperties, bindChannels(filterExpression, joinSourcesLayout), buildLayout.size());
+            return joinFilterFunctionCompiler.compileJoinFilterFunction(sqlFunctionProperties, sessionFunctions, bindChannels(filterExpression, joinSourcesLayout), buildLayout.size());
         }
 
         private int sortExpressionAsSortChannel(
@@ -2903,7 +2928,12 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             for (int i = 0; i < lambdas.size(); i++) {
                 List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
-                Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(lambdas.get(i), metadata, session.getSqlFunctionProperties(), lambdaInterfaces.get(i));
+                Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(
+                        lambdas.get(i),
+                        metadata,
+                        session.getSqlFunctionProperties(),
+                        session.getSessionFunctions(),
+                        lambdaInterfaces.get(i));
                 try {
                     lambdaProviders.add((LambdaProvider) constructorMethodHandle(lambdaProviderClass, SqlFunctionProperties.class).invoke(session.getSqlFunctionProperties()));
                 }

@@ -336,7 +336,11 @@ public class TestReorderJoins
                                 ImmutableList.of(p.variable("A1"), p.variable("B1")),
                                 Optional.of(comparisonRowExpression(LESS_THAN, variable("A1", BIGINT), call(
                                         RANDOM.toString(),
-                                        tester.getMetadata().getFunctionAndTypeManager().resolveFunction(Optional.empty(), qualifyObjectName(RANDOM), ImmutableList.of()),
+                                        tester.getMetadata().getFunctionAndTypeManager().resolveFunction(
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                qualifyObjectName(RANDOM),
+                                                ImmutableList.of()),
                                         BIGINT,
                                         ImmutableList.of())))))
                 .doesNotFire();

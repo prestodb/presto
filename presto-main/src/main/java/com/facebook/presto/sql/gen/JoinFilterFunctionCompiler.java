@@ -31,6 +31,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.operator.InternalJoinFilterFunction;
 import com.facebook.presto.operator.JoinFilterFunction;
 import com.facebook.presto.operator.StandardJoinFilterFunction;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionVisitor;
@@ -78,7 +80,7 @@ public class JoinFilterFunctionCompiler
     private final LoadingCache<JoinFilterCacheKey, JoinFilterFunctionFactory> joinFilterFunctionFactories = CacheBuilder.newBuilder()
             .recordStats()
             .maximumSize(1000)
-            .build(CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getSqlFunctionProperties(), key.getFilter(), key.getLeftBlocksSize())));
+            .build(CacheLoader.from(key -> internalCompileFilterFunctionFactory(key.getSqlFunctionProperties(), key.getSessionFunctions(), key.getFilter(), key.getLeftBlocksSize())));
 
     @Managed
     @Nested
@@ -87,18 +89,34 @@ public class JoinFilterFunctionCompiler
         return new CacheStatsMBean(joinFilterFunctionFactories);
     }
 
-    public JoinFilterFunctionFactory compileJoinFilterFunction(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, int leftBlocksSize)
+    public JoinFilterFunctionFactory compileJoinFilterFunction(
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            RowExpression filter,
+            int leftBlocksSize)
     {
-        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(sqlFunctionProperties, filter, leftBlocksSize));
+        return joinFilterFunctionFactories.getUnchecked(new JoinFilterCacheKey(sqlFunctionProperties, sessionFunctions, filter, leftBlocksSize));
     }
 
-    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(SqlFunctionProperties sqlFunctionProperties, RowExpression filterExpression, int leftBlocksSize)
+    private JoinFilterFunctionFactory internalCompileFilterFunctionFactory(
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            RowExpression filterExpression,
+            int leftBlocksSize)
     {
-        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(sqlFunctionProperties, filterExpression, leftBlocksSize);
+        Class<? extends InternalJoinFilterFunction> internalJoinFilterFunction = compileInternalJoinFilterFunction(
+                sqlFunctionProperties,
+                sessionFunctions,
+                filterExpression,
+                leftBlocksSize);
         return new IsolatedJoinFilterFunctionFactory(internalJoinFilterFunction);
     }
 
-    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(SqlFunctionProperties sqlFunctionProperties, RowExpression filterExpression, int leftBlocksSize)
+    private Class<? extends InternalJoinFilterFunction> compileInternalJoinFilterFunction(
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            RowExpression filterExpression,
+            int leftBlocksSize)
     {
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -108,7 +126,7 @@ public class JoinFilterFunctionCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        new JoinFilterFunctionCompiler(metadata).generateMethods(sqlFunctionProperties, classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
+        new JoinFilterFunctionCompiler(metadata).generateMethods(sqlFunctionProperties, sessionFunctions, classDefinition, callSiteBinder, filterExpression, leftBlocksSize);
 
         //
         // toString method
@@ -124,14 +142,27 @@ public class JoinFilterFunctionCompiler
         return defineClass(classDefinition, InternalJoinFilterFunction.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
-    private void generateMethods(SqlFunctionProperties sqlFunctionProperties, ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, int leftBlocksSize)
+    private void generateMethods(
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            ClassDefinition classDefinition,
+            CallSiteBinder callSiteBinder,
+            RowExpression filter,
+            int leftBlocksSize)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
         FieldDefinition propertiesField = classDefinition.declareField(a(PRIVATE, FINAL), "properties", SqlFunctionProperties.class);
 
-        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, metadata, sqlFunctionProperties);
-        generateFilterMethod(sqlFunctionProperties, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, propertiesField);
+        Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(
+                classDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                filter,
+                metadata,
+                sqlFunctionProperties,
+                sessionFunctions);
+        generateFilterMethod(sqlFunctionProperties, sessionFunctions, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, propertiesField);
 
         generateConstructor(classDefinition, propertiesField, cachedInstanceBinder);
     }
@@ -158,6 +189,7 @@ public class JoinFilterFunctionCompiler
 
     private void generateFilterMethod(
             SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
@@ -197,6 +229,7 @@ public class JoinFilterFunctionCompiler
                 fieldReferenceCompiler(callSiteBinder, leftPosition, leftPage, rightPosition, rightPage, leftBlocksSize),
                 metadata,
                 sqlFunctionProperties,
+                sessionFunctions,
                 compiledLambdaMap);
 
         BytecodeNode visitorBody = compiler.compile(filter, scope, Optional.empty());
@@ -246,12 +279,14 @@ public class JoinFilterFunctionCompiler
     private static final class JoinFilterCacheKey
     {
         private final SqlFunctionProperties sqlFunctionProperties;
+        private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
         private final RowExpression filter;
         private final int leftBlocksSize;
 
-        public JoinFilterCacheKey(SqlFunctionProperties sqlFunctionProperties, RowExpression filter, int leftBlocksSize)
+        public JoinFilterCacheKey(SqlFunctionProperties sqlFunctionProperties, Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions, RowExpression filter, int leftBlocksSize)
         {
             this.sqlFunctionProperties = requireNonNull(sqlFunctionProperties, "sqlFunctionProperties is null");
+            this.sessionFunctions = requireNonNull(sessionFunctions, "sessionFunctions is null");
             this.filter = requireNonNull(filter, "filter can not be null");
             this.leftBlocksSize = leftBlocksSize;
         }
@@ -259,6 +294,11 @@ public class JoinFilterFunctionCompiler
         public SqlFunctionProperties getSqlFunctionProperties()
         {
             return sqlFunctionProperties;
+        }
+
+        public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+        {
+            return sessionFunctions;
         }
 
         public RowExpression getFilter()

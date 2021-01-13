@@ -16,6 +16,8 @@ package com.facebook.presto.spi.function;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Collections;
 import java.util.List;
@@ -42,6 +44,24 @@ public class SqlInvokedFunction
     private final Signature signature;
     private final SqlFunctionId functionId;
     private final Optional<SqlFunctionHandle> functionHandle;
+
+    @JsonCreator
+    public SqlInvokedFunction(
+            @JsonProperty("parameters") List<Parameter> parameters,
+            @JsonProperty("description") String description,
+            @JsonProperty("routineCharacteristics") RoutineCharacteristics routineCharacteristics,
+            @JsonProperty("body") String body,
+            @JsonProperty("signature") Signature signature,
+            @JsonProperty("functionId") SqlFunctionId functionId)
+    {
+        this.parameters = parameters;
+        this.description = description;
+        this.routineCharacteristics = routineCharacteristics;
+        this.body = body;
+        this.signature = signature;
+        this.functionId = functionId;
+        this.functionHandle = Optional.empty();
+    }
 
     public SqlInvokedFunction(
             QualifiedObjectName functionName,
@@ -81,6 +101,7 @@ public class SqlInvokedFunction
     }
 
     @Override
+    @JsonProperty
     public Signature getSignature()
     {
         return signature;
@@ -105,26 +126,31 @@ public class SqlInvokedFunction
     }
 
     @Override
+    @JsonProperty
     public String getDescription()
     {
         return description;
     }
 
+    @JsonProperty
     public List<Parameter> getParameters()
     {
         return parameters;
     }
 
+    @JsonProperty
     public RoutineCharacteristics getRoutineCharacteristics()
     {
         return routineCharacteristics;
     }
 
+    @JsonProperty
     public String getBody()
     {
         return body;
     }
 
+    @JsonProperty
     public SqlFunctionId getFunctionId()
     {
         return functionId;
