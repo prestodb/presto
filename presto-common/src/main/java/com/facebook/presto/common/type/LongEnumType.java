@@ -23,7 +23,6 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -81,15 +80,15 @@ public class LongEnumType
     public static class LongEnumMap
     {
         private final Map<String, Long> enumMap;
-        private Map<Long, String> flippedEnumMap;
-        private final AtomicBoolean isFlippedEnumComputed = new AtomicBoolean();
+        private final Map<Long, String> flippedEnumMap;
 
         @JsonCreator
         public LongEnumMap(@JsonProperty("enumMap") Map<String, Long> enumMap)
         {
             validateEnumMap(enumMap);
             this.enumMap = normalizeEnumMap(enumMap);
-            this.flippedEnumMap = null;
+            this.flippedEnumMap = this.enumMap.entrySet().stream()
+                    .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
         }
 
         @JsonProperty
@@ -100,10 +99,6 @@ public class LongEnumType
 
         public Optional<String> getKeyForValue(Long value)
         {
-            if (!isFlippedEnumComputed.getAndSet(true)) {
-                this.flippedEnumMap = this.enumMap.entrySet().stream()
-                        .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
-            }
             return Optional.ofNullable(flippedEnumMap.get(value));
         }
 
