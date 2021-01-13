@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.HashCommon;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
@@ -35,8 +35,7 @@ public final class PagesHash
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesHash.class).instanceSize();
     private static final DataSize CACHE_SIZE = new DataSize(128, KILOBYTE);
-    private final AdaptiveLongBigArray addresses;
-    private final int positionCount;
+    private final LongArrayList addresses;
     private final PagesHashStrategy pagesHashStrategy;
 
     private final int channelCount;
@@ -52,33 +51,31 @@ public final class PagesHash
     private final double expectedHashCollisions;
 
     public PagesHash(
-            AdaptiveLongBigArray addresses,
-            int positionCount,
+            LongArrayList addresses,
             PagesHashStrategy pagesHashStrategy,
             PositionLinks.FactoryBuilder positionLinks)
     {
         this.addresses = requireNonNull(addresses, "addresses is null");
-        this.positionCount = positionCount;
         this.pagesHashStrategy = requireNonNull(pagesHashStrategy, "pagesHashStrategy is null");
         this.channelCount = pagesHashStrategy.getChannelCount();
 
         // reserve memory for the arrays
-        int hashSize = HashCommon.arraySize(positionCount, 0.75f);
+        int hashSize = HashCommon.arraySize(addresses.size(), 0.75f);
 
         mask = hashSize - 1;
         key = new int[hashSize];
         Arrays.fill(key, -1);
 
-        positionToHashes = new byte[positionCount];
+        positionToHashes = new byte[addresses.size()];
 
         // We will process addresses in batches, to save memory on array of hashes.
-        int positionsInStep = Math.min(positionCount + 1, (int) CACHE_SIZE.toBytes() / Integer.SIZE);
+        int positionsInStep = Math.min(addresses.size() + 1, (int) CACHE_SIZE.toBytes() / Integer.SIZE);
         long[] positionToFullHashes = new long[positionsInStep];
         long hashCollisionsLocal = 0;
 
-        for (int step = 0; step * positionsInStep <= positionCount; step++) {
+        for (int step = 0; step * positionsInStep <= addresses.size(); step++) {
             int stepBeginPosition = step * positionsInStep;
-            int stepEndPosition = Math.min((step + 1) * positionsInStep, positionCount);
+            int stepEndPosition = Math.min((step + 1) * positionsInStep, addresses.size());
             int stepSize = stepEndPosition - stepBeginPosition;
 
             // First extract all hashes from blocks to native array.
@@ -121,10 +118,10 @@ public final class PagesHash
             }
         }
 
-        size = addresses.getRetainedSizeInBytes() + pagesHashStrategy.getSizeInBytes() +
+        size = sizeOf(addresses.elements()) + pagesHashStrategy.getSizeInBytes() +
                 sizeOf(key) + sizeOf(positionToHashes);
         hashCollisions = hashCollisionsLocal;
-        expectedHashCollisions = estimateNumberOfHashCollisions(positionCount, hashSize);
+        expectedHashCollisions = estimateNumberOfHashCollisions(addresses.size(), hashSize);
     }
 
     public final int getChannelCount()
@@ -134,7 +131,7 @@ public final class PagesHash
 
     public int getPositionCount()
     {
-        return positionCount;
+        return addresses.size();
     }
 
     public long getInMemorySizeInBytes()
@@ -173,7 +170,7 @@ public final class PagesHash
 
     public void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset)
     {
-        long pageAddress = addresses.get(toIntExact(position));
+        long pageAddress = addresses.getLong(toIntExact(position));
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
@@ -182,7 +179,7 @@ public final class PagesHash
 
     private boolean isPositionNull(int position)
     {
-        long pageAddress = addresses.get(position);
+        long pageAddress = addresses.getLong(position);
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
@@ -191,7 +188,7 @@ public final class PagesHash
 
     private long readHashPosition(int position)
     {
-        long pageAddress = addresses.get(position);
+        long pageAddress = addresses.getLong(position);
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
@@ -204,7 +201,7 @@ public final class PagesHash
             return false;
         }
 
-        long pageAddress = addresses.get(leftPosition);
+        long pageAddress = addresses.getLong(leftPosition);
         int blockIndex = decodeSliceIndex(pageAddress);
         int blockPosition = decodePosition(pageAddress);
 
@@ -213,11 +210,11 @@ public final class PagesHash
 
     private boolean positionEqualsPositionIgnoreNulls(int leftPosition, int rightPosition)
     {
-        long leftPageAddress = addresses.get(leftPosition);
+        long leftPageAddress = addresses.getLong(leftPosition);
         int leftBlockIndex = decodeSliceIndex(leftPageAddress);
         int leftBlockPosition = decodePosition(leftPageAddress);
 
-        long rightPageAddress = addresses.get(rightPosition);
+        long rightPageAddress = addresses.getLong(rightPosition);
         int rightBlockIndex = decodeSliceIndex(rightPageAddress);
         int rightBlockPosition = decodePosition(rightPageAddress);
 

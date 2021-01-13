@@ -17,7 +17,6 @@ import com.esri.core.geometry.Operator;
 import com.esri.core.geometry.OperatorFactoryLocal;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.Session;
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.geospatial.Rectangle;
@@ -28,6 +27,7 @@ import com.facebook.presto.operator.SpatialIndexBuilderOperator.SpatialPredicate
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -55,7 +55,7 @@ public class PagesSpatialIndexSupplier
     private static final int MEMORY_USAGE_UPDATE_INCREMENT_BYTES = 100 * 1024 * 1024;   // 100 MB
 
     private final Session session;
-    private final AdaptiveLongBigArray addresses;
+    private final LongArrayList addresses;
     private final List<Type> types;
     private final List<Integer> outputChannels;
     private final List<List<Block>> channels;
@@ -68,8 +68,7 @@ public class PagesSpatialIndexSupplier
 
     public PagesSpatialIndexSupplier(
             Session session,
-            AdaptiveLongBigArray addresses,
-            int positionCount,
+            LongArrayList addresses,
             List<Type> types,
             List<Integer> outputChannels,
             List<List<Block>> channels,
@@ -91,19 +90,12 @@ public class PagesSpatialIndexSupplier
         this.filterFunctionFactory = filterFunctionFactory;
         this.partitions = partitions;
 
-        this.rtree = buildRTree(addresses, positionCount, channels, geometryChannel, radiusChannel, partitionChannel, localUserMemoryContext);
+        this.rtree = buildRTree(addresses, channels, geometryChannel, radiusChannel, partitionChannel, localUserMemoryContext);
         this.radiusChannel = radiusChannel;
         this.memorySizeInBytes = INSTANCE_SIZE + rtree.getEstimatedSizeInBytes();
     }
 
-    private static Flatbush<GeometryWithPosition> buildRTree(
-            AdaptiveLongBigArray addresses,
-            int positionCount,
-            List<List<Block>> channels,
-            int geometryChannel,
-            Optional<Integer> radiusChannel,
-            Optional<Integer> partitionChannel,
-            LocalMemoryContext localUserMemoryContext)
+    private static Flatbush<GeometryWithPosition> buildRTree(LongArrayList addresses, List<List<Block>> channels, int geometryChannel, Optional<Integer> radiusChannel, Optional<Integer> partitionChannel, LocalMemoryContext localUserMemoryContext)
     {
         Operator relateOperator = OperatorFactoryLocal.getInstance().getOperator(Operator.Type.Relate);
 
@@ -112,8 +104,8 @@ public class PagesSpatialIndexSupplier
         long recordedSizeInBytes = localUserMemoryContext.getBytes();
         long addedSizeInBytes = 0;
 
-        for (int position = 0; position < positionCount; position++) {
-            long pageAddress = addresses.get(position);
+        for (int position = 0; position < addresses.size(); position++) {
+            long pageAddress = addresses.getLong(position);
             int blockIndex = decodeSliceIndex(pageAddress);
             int blockPosition = decodePosition(pageAddress);
 
