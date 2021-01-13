@@ -14,11 +14,11 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +34,7 @@ public class JoinHashSupplier
 {
     private final Session session;
     private final PagesHash pagesHash;
-    private final AdaptiveLongBigArray addresses;
+    private final LongArrayList addresses;
     private final List<Page> pages;
     private final Optional<PositionLinks.Factory> positionLinks;
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
@@ -43,8 +43,7 @@ public class JoinHashSupplier
     public JoinHashSupplier(
             Session session,
             PagesHashStrategy pagesHashStrategy,
-            AdaptiveLongBigArray addresses,
-            int positionCount,
+            LongArrayList addresses,
             List<List<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
@@ -62,16 +61,16 @@ public class JoinHashSupplier
                 isFastInequalityJoin(session)) {
             checkArgument(filterFunctionFactory.isPresent(), "filterFunctionFactory not set while sortChannel set");
             positionLinksFactoryBuilder = SortedPositionLinks.builder(
-                    positionCount,
+                    addresses.size(),
                     pagesHashStrategy,
                     addresses);
         }
         else {
-            positionLinksFactoryBuilder = ArrayPositionLinks.builder(positionCount);
+            positionLinksFactoryBuilder = ArrayPositionLinks.builder(addresses.size());
         }
 
         this.pages = channelsToPages(channels);
-        this.pagesHash = new PagesHash(addresses, positionCount, pagesHashStrategy, positionLinksFactoryBuilder);
+        this.pagesHash = new PagesHash(addresses, pagesHashStrategy, positionLinksFactoryBuilder);
         this.positionLinks = positionLinksFactoryBuilder.isEmpty() ? Optional.empty() : Optional.of(positionLinksFactoryBuilder.build());
     }
 

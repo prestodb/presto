@@ -14,7 +14,6 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.array.AdaptiveLongBigArray;
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.ClassDefinition;
@@ -52,6 +51,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.openjdk.jol.info.ClassLayout;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -906,7 +906,7 @@ public class JoinCompiler
         {
             this.pagesHashStrategyFactory = pagesHashStrategyFactory;
             try {
-                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, AdaptiveLongBigArray.class, int.class, List.class, Optional.class, Optional.class, List.class);
+                constructor = joinHashSupplierClass.getConstructor(Session.class, PagesHashStrategy.class, LongArrayList.class, List.class, Optional.class, Optional.class, List.class);
             }
             catch (NoSuchMethodException e) {
                 throw new RuntimeException(e);
@@ -915,8 +915,7 @@ public class JoinCompiler
 
         public LookupSourceSupplier createLookupSourceSupplier(
                 Session session,
-                AdaptiveLongBigArray addresses,
-                int positionCount,
+                LongArrayList addresses,
                 List<List<Block>> channels,
                 OptionalInt hashChannel,
                 Optional<JoinFilterFunctionFactory> filterFunctionFactory,
@@ -925,7 +924,7 @@ public class JoinCompiler
         {
             PagesHashStrategy pagesHashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
             try {
-                return constructor.newInstance(session, pagesHashStrategy, addresses, positionCount, channels, filterFunctionFactory, sortChannel, searchFunctionFactories);
+                return constructor.newInstance(session, pagesHashStrategy, addresses, channels, filterFunctionFactory, sortChannel, searchFunctionFactories);
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
