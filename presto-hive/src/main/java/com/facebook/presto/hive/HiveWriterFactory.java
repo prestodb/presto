@@ -111,6 +111,7 @@ public class HiveWriterFactory
     private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final String schemaName;
     private final String tableName;
+    private final boolean isCreateTable;
 
     private final List<DataColumn> dataColumns;
 
@@ -182,6 +183,7 @@ public class HiveWriterFactory
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.isCreateTable = isCreateTable;
 
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
@@ -251,7 +253,10 @@ public class HiveWriterFactory
                 .collect(toImmutableMap(PropertyMetadata::getName,
                         entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
 
-        this.conf = configureCompression(hdfsEnvironment.getConfiguration(new HdfsContext(session, schemaName, tableName), writePath), compressionCodec);
+        this.conf = configureCompression(hdfsEnvironment.getConfiguration(
+                new HdfsContext(session, schemaName, tableName, locationHandle.getTargetPath().toString(), isCreateTable),
+                writePath),
+                compressionCodec);
 
         if (!sortedBy.isEmpty()) {
             List<Type> types = this.dataColumns.stream()
@@ -447,7 +452,8 @@ public class HiveWriterFactory
         if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
             // When target path is different from write path,
             // verify that the target directory for the partition does not already exist
-            if (MetastoreUtil.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, writeInfo.getTargetPath())) {
+            HdfsContext context = new HdfsContext(session, schemaName, tableName, locationHandle.getTargetPath().toString(), true);
+            if (MetastoreUtil.pathExists(context, hdfsEnvironment, writeInfo.getTargetPath())) {
                 throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format(
                         "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                         partitionName,
@@ -636,6 +642,16 @@ public class HiveWriterFactory
                     size.orElse(null),
                     hiveWriter.getRowCount()));
         };
+    }
+
+    public boolean isCreateTable()
+    {
+        return isCreateTable;
+    }
+
+    public LocationHandle getLocationHandle()
+    {
+        return locationHandle;
     }
 
     public static String computeBucketedFileName(String filePrefix, int bucket)
