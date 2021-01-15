@@ -337,7 +337,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
+    @Test(timeOut = 600_000, expectedExceptions = ExecutionException.class, expectedExceptionsMessageRegExp = ".*Query killed because the cluster is out of memory. Please try again in a few minutes.")
     public void testOutOfMemoryKillerMultiCoordinator()
             throws Exception
     {
@@ -433,7 +433,7 @@ public class TestMemoryManager
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test(timeOut = 600_000)
     public void testClusterPoolsMultiCoordinator()
             throws Exception
     {
