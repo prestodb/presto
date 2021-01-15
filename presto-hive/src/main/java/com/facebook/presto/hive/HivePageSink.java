@@ -388,7 +388,12 @@ public class HivePageSink
 
     private void renameFiles(String fileName, int writerIndex, SettableFuture<?> renamingFuture, List<Slice> partitionUpdatesWithRenamedFileNames)
     {
-        HdfsContext context = new HdfsContext(session, schemaName, tableName);
+        HdfsContext context = new HdfsContext(
+                session,
+                schemaName,
+                tableName,
+                writerFactory.getLocationHandle().getTargetPath().toString(),
+                writerFactory.isCreateTable());
         HiveWriter writer = writers.get(writerIndex);
         PartitionUpdate partitionUpdate = writer.getPartitionUpdate();
 

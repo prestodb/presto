@@ -128,7 +128,7 @@ public class StoragePartitionLoader
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
-        this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), false);
         this.fileIterators = requireNonNull(fileIterators, "fileIterators is null");
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
         this.hoodiePathFilterSupplier = Suppliers.memoize(HoodieROTablePathFilter::new)::get;

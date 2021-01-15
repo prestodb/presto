@@ -258,13 +258,13 @@ public class TestingSemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues)
+    public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, String tablePath, List<String> partitionValues)
     {
         throw new UnsupportedOperationException("method not implemented");
     }
 
     @Override
-    public synchronized void finishInsertIntoExistingPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues, Path currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
+    public synchronized void finishInsertIntoExistingPartition(ConnectorSession session, String databaseName, String tableName, String tablePath, List<String> partitionValues, Path currentLocation, List<String> fileNames, PartitionStatistics statisticsUpdate)
     {
         throw new UnsupportedOperationException("method not implemented");
     }
