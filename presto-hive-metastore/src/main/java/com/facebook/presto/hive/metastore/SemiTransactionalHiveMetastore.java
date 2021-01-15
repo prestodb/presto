@@ -373,7 +373,7 @@ public class SemiTransactionalHiveMetastore
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         TableAndMore tableAndMore = new TableAndMore(table, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics);
         if (oldTableAction == null) {
-            HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+            HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), true);
             tableActions.put(schemaTableName, new Action<>(ActionType.ADD, tableAndMore, context));
             return;
         }
@@ -455,7 +455,7 @@ public class SemiTransactionalHiveMetastore
             Table table = getTable(databaseName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
             PartitionStatistics currentStatistics = getTableStatistics(databaseName, tableName);
-            HdfsContext context = new HdfsContext(session, databaseName, tableName);
+            HdfsContext context = new HdfsContext(session, databaseName, tableName, table.getStorage().getLocation(), false);
             tableActions.put(
                     schemaTableName,
                     new Action<>(
@@ -500,7 +500,7 @@ public class SemiTransactionalHiveMetastore
         }
 
         Path path = new Path(table.get().getStorage().getLocation());
-        HdfsContext context = new HdfsContext(session, databaseName, tableName);
+        HdfsContext context = new HdfsContext(session, databaseName, tableName, table.get().getStorage().getLocation(), false);
         setExclusive((delegate, hdfsEnvironment) -> {
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableList.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
@@ -717,13 +717,18 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues)
+    public synchronized void dropPartition(
+            ConnectorSession session,
+            String databaseName,
+            String tableName,
+            String tablePath,
+            List<String> partitionValues)
     {
         setShared();
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
         if (oldPartitionAction == null) {
-            HdfsContext context = new HdfsContext(session, databaseName, tableName);
+            HdfsContext context = new HdfsContext(session, databaseName, tableName, tablePath, false);
             partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, context));
             return;
         }
@@ -745,6 +750,7 @@ public class SemiTransactionalHiveMetastore
             ConnectorSession session,
             String databaseName,
             String tableName,
+            String tablePath,
             List<String> partitionValues,
             Path currentLocation,
             List<String> fileNames,
@@ -762,7 +768,7 @@ public class SemiTransactionalHiveMetastore
             if (currentStatistics == null) {
                 throw new PrestoException(HIVE_METASTORE_ERROR, "currentStatistics is null");
             }
-            HdfsContext context = new HdfsContext(session, databaseName, tableName);
+            HdfsContext context = new HdfsContext(session, databaseName, tableName, tablePath, false);
             partitionActionsOfTable.put(
                     partitionValues,
                     new Action<>(

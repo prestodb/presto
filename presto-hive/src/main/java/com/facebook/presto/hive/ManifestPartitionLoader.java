@@ -88,7 +88,7 @@ public class ManifestPartitionLoader
         this.pathDomain = requireNonNull(pathDomain, "pathDomain is null");
         this.session = requireNonNull(session, "session is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName(), table.getStorage().getLocation(), false);
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.recursiveDirWalkerEnabled = recursiveDirWalkerEnabled;
