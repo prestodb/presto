@@ -88,12 +88,13 @@ public class TestFileFragmentResultCacheManager
             throws Exception
     {
         FragmentCacheStats stats = new FragmentCacheStats();
-        FragmentResultCacheManager cacheManager = fileFragmentResultCacheManager(stats);
+        FileFragmentResultCacheManager cacheManager = fileFragmentResultCacheManager(stats);
 
         // Test fetching new fragment. Current cache status: empty
         assertFalse(cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1).isPresent());
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 0);
+        assertEquals(stats.getCacheEntries(), 0);
 
         // Test empty page. Current cache status: empty
         cacheManager.put(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1, ImmutableList.of()).get();
@@ -102,6 +103,7 @@ public class TestFileFragmentResultCacheManager
         assertFalse(result.get().hasNext());
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 1);
+        assertEquals(stats.getCacheEntries(), 1);
 
         // Test non-empty page. Current cache status: { (plan1, split1) -> [] }
         List<Page> pages = ImmutableList.of(new Page(createStringsBlock("plan-1-split-2")));
@@ -111,14 +113,24 @@ public class TestFileFragmentResultCacheManager
         assertPagesEqual(result.get(), pages.iterator());
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 2);
+        assertEquals(stats.getCacheEntries(), 2);
 
         // Test cache miss for plan mismatch and split mismatch. Current cache status: { (plan1, split1) -> [], (plan2, split2) -> ["plan-1-split-2"] }
         cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_2);
         assertEquals(stats.getCacheMiss(), 2);
         assertEquals(stats.getCacheHit(), 2);
+        assertEquals(stats.getCacheEntries(), 2);
         cacheManager.get(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_1);
         assertEquals(stats.getCacheMiss(), 3);
         assertEquals(stats.getCacheHit(), 2);
+        assertEquals(stats.getCacheEntries(), 2);
+
+        // Test cache invalidation
+        cacheManager.invalidateAllCache();
+        assertEquals(stats.getCacheMiss(), 3);
+        assertEquals(stats.getCacheHit(), 2);
+        assertEquals(stats.getCacheEntries(), 0);
+        assertEquals(stats.getCacheRemoval(), 2);
     }
 
     private static void assertPagesEqual(Iterator<Page> pages1, Iterator<Page> pages2)
@@ -135,7 +147,7 @@ public class TestFileFragmentResultCacheManager
         assertFalse(pages2.hasNext());
     }
 
-    private FragmentResultCacheManager fileFragmentResultCacheManager(FragmentCacheStats fragmentCacheStats)
+    private FileFragmentResultCacheManager fileFragmentResultCacheManager(FragmentCacheStats fragmentCacheStats)
     {
         FileFragmentResultCacheConfig cacheConfig = new FileFragmentResultCacheConfig();
         return new FileFragmentResultCacheManager(
