@@ -14,6 +14,7 @@
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -66,7 +67,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static com.facebook.presto.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -76,6 +76,7 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchMetadata
         implements ConnectorMetadata
 {
+    private static final Logger log = Logger.get(ElasticsearchMetadata.class);
     private static final ObjectMapper JSON_PARSER = new JsonObjectMapperProvider().get();
 
     private static final String PASSTHROUGH_QUERY_SUFFIX = "$query";
@@ -320,11 +321,20 @@ public class ElasticsearchMetadata
         else if (type instanceof ObjectType) {
             ObjectType objectType = (ObjectType) type;
 
-            List<Field> fields = objectType.getFields().stream()
-                    .map(field -> RowType.field(field.getName(), toPrestoType(field)))
-                    .collect(toImmutableList());
-
-            return RowType.from(fields);
+            ImmutableList.Builder<Field> builder = ImmutableList.builder();
+            for (IndexMetadata.Field field : objectType.getFields()) {
+                Type prestoType = toPrestoType(field);
+                if (prestoType != null) {
+                    builder.add(RowType.field(field.getName(), prestoType));
+                }
+                else {
+                    log.warn("Type is not implemented: %s", field.getType());
+                }
+            }
+            List<Field> fields = builder.build();
+            if (!fields.isEmpty()) {
+                return RowType.from(fields);
+            }
         }
 
         return null;
