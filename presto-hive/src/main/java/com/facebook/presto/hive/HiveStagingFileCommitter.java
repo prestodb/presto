@@ -49,9 +49,15 @@ public class HiveStagingFileCommitter
     }
 
     @Override
-    public ListenableFuture<Void> commitFiles(ConnectorSession session, String schemaName, String tableName, List<PartitionUpdate> partitionUpdates)
+    public ListenableFuture<Void> commitFiles(
+            ConnectorSession session,
+            String schemaName,
+            String tableName,
+            String tablePath,
+            boolean isCreateTable,
+            List<PartitionUpdate> partitionUpdates)
     {
-        HdfsContext context = new HdfsContext(session, schemaName, tableName);
+        HdfsContext context = new HdfsContext(session, schemaName, tableName, tablePath, isCreateTable);
         List<ListenableFuture<Void>> commitFutures = new ArrayList<>();
 
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
