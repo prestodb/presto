@@ -3001,14 +3001,26 @@ public class HiveMetadata
     public CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments)
     {
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
-        return toCompletableFuture(stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments)));
+        return toCompletableFuture(stagingFileCommitter.commitFiles(
+                session,
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getLocationHandle().getTargetPath().toString(),
+                true,
+                getPartitionUpdates(fragments)));
     }
 
     @Override
     public CompletableFuture<Void> commitPageSinkAsync(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments)
     {
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
-        return toCompletableFuture(stagingFileCommitter.commitFiles(session, handle.getSchemaName(), handle.getTableName(), getPartitionUpdates(fragments)));
+        return toCompletableFuture(stagingFileCommitter.commitFiles(
+                session,
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getLocationHandle().getTargetPath().toString(),
+                false,
+                getPartitionUpdates(fragments)));
     }
 
     @Override
