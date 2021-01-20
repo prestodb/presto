@@ -13,20 +13,21 @@
  */
 package com.facebook.presto.operator;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.PrestoTransportException;
 
 import static com.facebook.presto.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 
 public class PageTransportErrorException
-        extends PrestoException
+        extends PrestoTransportException
 {
-    public PageTransportErrorException(String message)
+    public PageTransportErrorException(HostAddress remoteHost, String message)
     {
-        super(PAGE_TRANSPORT_ERROR, message);
+        super(PAGE_TRANSPORT_ERROR, remoteHost, message);
     }
 
-    public PageTransportErrorException(String message, Throwable cause)
+    public PageTransportErrorException(HostAddress remoteHost, String message, Throwable cause)
     {
-        super(PAGE_TRANSPORT_ERROR, message, cause);
+        super(PAGE_TRANSPORT_ERROR, remoteHost, message, cause);
     }
 }

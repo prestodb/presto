@@ -411,7 +411,7 @@ public class TestPageBufferClient
     public void testErrorCodes()
     {
         assertEquals(new PageTooLargeException(null).getErrorCode(), PAGE_TOO_LARGE.toErrorCode());
-        assertEquals(new PageTransportErrorException("").getErrorCode(), PAGE_TRANSPORT_ERROR.toErrorCode());
+        assertEquals(new PageTransportErrorException(HostAddress.fromParts("127.0.0.1", 8080), "").getErrorCode(), PAGE_TRANSPORT_ERROR.toErrorCode());
         assertEquals(new PageTransportTimeoutException(HostAddress.fromParts("127.0.0.1", 8080), "", null).getErrorCode(), PAGE_TRANSPORT_TIMEOUT.toErrorCode());
     }
 
