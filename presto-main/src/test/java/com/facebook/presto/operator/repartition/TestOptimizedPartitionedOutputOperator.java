@@ -115,10 +115,6 @@ public class TestOptimizedPartitionedOutputOperator
 
     private static final Random RANDOM = new Random(0);
 
-    private static final DataSize PARTITION_MAX_MEMORY = new DataSize(5, MEGABYTE);
-    private static final List<Type> TYPES = ImmutableList.of(BIGINT);
-    private static final List<Type> REPLICATION_TYPES = ImmutableList.of(BIGINT, BIGINT);
-
     private static final Block NULL_BLOCK = new RunLengthEncodedBlock(BIGINT.createBlockBuilder(null, 1).appendNull().build(), POSITION_COUNT);
     private static final Block TESTING_BLOCK = createLongSequenceBlock(0, POSITION_COUNT);
     private static final Block TESTING_DICTIONARY_BLOCK = createLongDictionaryBlock(0, POSITION_COUNT);
@@ -126,13 +122,11 @@ public class TestOptimizedPartitionedOutputOperator
     private static final Page TESTING_PAGE = new Page(TESTING_BLOCK);
     private static final Page TESTING_PAGE_WITH_DICTIONARY_BLOCK = new Page(TESTING_DICTIONARY_BLOCK);
     private static final Page TESTING_PAGE_WITH_RLE_BLOCK = new Page(TESTING_RLE_BLOCK);
-    private static final Page TESTING_PAGE_WITH_NULL_BLOCK = new Page(POSITION_COUNT, NULL_BLOCK, TESTING_BLOCK);
-    private static final Page TESTING_PAGE_WITH_NULL_AND_DICTIONARY_BLOCK = new Page(POSITION_COUNT, NULL_BLOCK, TESTING_DICTIONARY_BLOCK);
-    private static final Page TESTING_PAGE_WITH_NULL_AND_RLE_BLOCK = new Page(POSITION_COUNT, NULL_BLOCK, TESTING_RLE_BLOCK);
+    private static final Page TESTING_PAGE_WITH_NULL_BLOCK = new Page(POSITION_COUNT, TESTING_BLOCK, NULL_BLOCK);
+    private static final Page TESTING_PAGE_WITH_NULL_AND_DICTIONARY_BLOCK = new Page(POSITION_COUNT, TESTING_DICTIONARY_BLOCK, NULL_BLOCK);
+    private static final Page TESTING_PAGE_WITH_NULL_AND_RLE_BLOCK = new Page(POSITION_COUNT, TESTING_RLE_BLOCK, NULL_BLOCK);
 
-    private static final double SIMPLE_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE = 1.2;
-    private static final double DICTIONARY_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE = 2.0;
-    private static final long RLE_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE = POSITION_COUNT;
+    private static final double OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE = 1.2;
 
     @Test
     public void testPartitionedSinglePagePrimitiveTypes()
@@ -626,6 +620,63 @@ public class TestOptimizedPartitionedOutputOperator
         testPartitioned(types, ImmutableList.of(page), new DataSize(1, KILOBYTE));
     }
 
+    @Test
+    public void testOutputForSimplePage()
+    {
+        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperator(ImmutableList.of(BIGINT), false);
+        processPages(operator, TESTING_PAGE);
+
+        verifyOutputSizes(operator, PAGE_COUNT * TESTING_PAGE.getLogicalSizeInBytes(), PAGE_COUNT * TESTING_PAGE.getPositionCount());
+    }
+
+    @Test
+    public void testOutputSizeForPageWithDictionary()
+    {
+        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperator(ImmutableList.of(BIGINT), false);
+        processPages(operator, TESTING_PAGE_WITH_DICTIONARY_BLOCK);
+
+        verifyOutputSizes(operator, PAGE_COUNT * TESTING_PAGE_WITH_DICTIONARY_BLOCK.getLogicalSizeInBytes(), PAGE_COUNT * TESTING_PAGE_WITH_DICTIONARY_BLOCK.getPositionCount());
+    }
+
+    @Test
+    public void testOutputForPageWithRunLength()
+    {
+        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperator(ImmutableList.of(BIGINT), false);
+        processPages(operator, TESTING_PAGE_WITH_RLE_BLOCK);
+
+        verifyOutputSizes(operator, PAGE_COUNT * TESTING_PAGE_WITH_RLE_BLOCK.getLogicalSizeInBytes(), PAGE_COUNT * TESTING_PAGE_WITH_RLE_BLOCK.getPositionCount());
+    }
+
+    @Test
+    public void testOutputForSimplePageReplicated()
+    {
+        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperator(ImmutableList.of(BIGINT), true);
+        processPages(operator, TESTING_PAGE_WITH_NULL_BLOCK);
+
+        // Use TESTING_PAGE instead of TESTING_PAGE_WITH_NULL_BLOCK's logical size to estimate the output data size, because the null Block should not be sent over the wire.
+        verifyOutputSizes(operator, PARTITION_COUNT * PAGE_COUNT * TESTING_PAGE.getLogicalSizeInBytes(), PARTITION_COUNT * PAGE_COUNT * TESTING_PAGE_WITH_NULL_BLOCK.getPositionCount());
+    }
+
+    @Test
+    public void testOutputForPageWithDictionaryReplicated()
+    {
+        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperator(ImmutableList.of(BIGINT), true);
+        processPages(operator, TESTING_PAGE_WITH_NULL_AND_DICTIONARY_BLOCK);
+
+        // Use TESTING_PAGE_WITH_DICTIONARY_BLOCK instead of TESTING_PAGE_WITH_NULL_AND_DICTIONARY_BLOCK's logical size to estimate the output data size, because the null Block should not be sent over the wire.
+        verifyOutputSizes(operator, PARTITION_COUNT * PAGE_COUNT * TESTING_PAGE_WITH_DICTIONARY_BLOCK.getLogicalSizeInBytes(), PARTITION_COUNT * PAGE_COUNT * TESTING_PAGE_WITH_DICTIONARY_BLOCK.getPositionCount());
+    }
+
+    @Test
+    public void testOutputForPageWithRunLengthReplicated()
+    {
+        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperator(ImmutableList.of(BIGINT), true);
+        processPages(operator, TESTING_PAGE_WITH_NULL_AND_RLE_BLOCK);
+
+        // Use TESTING_PAGE_WITH_RLE_BLOCK instead of TESTING_PAGE_WITH_NULL_AND_RLE_BLOCK's logical size to estimate the output data size, because the null Block should not be sent over the wire.
+        verifyOutputSizes(operator, PARTITION_COUNT * PAGE_COUNT * TESTING_PAGE_WITH_RLE_BLOCK.getLogicalSizeInBytes(), PARTITION_COUNT * PAGE_COUNT * TESTING_PAGE_WITH_NULL_AND_RLE_BLOCK.getPositionCount());
+    }
+
     private void testPartitionedSinglePage(List<Type> targetTypes)
     {
         List<Type> types = updateBlockTypesWithHashBlockAndNullBlock(targetTypes, true, false);
@@ -712,8 +763,7 @@ public class TestOptimizedPartitionedOutputOperator
                 partitionFunction,
                 outputBuffer,
                 OptionalInt.empty(),
-                maxMemory,
-                false);
+                maxMemory);
 
         Map<Integer, List<Page>> expectedPageList = new HashMap<>();
 
@@ -757,8 +807,7 @@ public class TestOptimizedPartitionedOutputOperator
                 partitionFunction,
                 outputBuffer,
                 OptionalInt.of(types.size() - 1),
-                maxMemory,
-                false);
+                maxMemory);
 
         for (Page page : pages) {
             operator.addInput(page);
@@ -772,131 +821,6 @@ public class TestOptimizedPartitionedOutputOperator
         Page expectedPage = mergePages(types, pages);
 
         acutualPageLists.values().forEach(pageList -> assertPageEquals(types, mergePages(types, pageList), expectedPage));
-    }
-
-    private OptimizedPartitionedOutputOperator createOptimizedPartitionedOutputOperator()
-    {
-        TestingPartitionedOutputBuffer outputBuffer = createPartitionedOutputBuffer();
-        PartitionFunction partitionFunction = new LocalPartitionGenerator(new PrecomputedHashGenerator(0), PARTITION_COUNT);
-        return createOptimizedPartitionedOutputOperator(
-                TYPES,
-                ImmutableList.of(0),
-                partitionFunction,
-                outputBuffer,
-                OptionalInt.empty(),
-                MAX_MEMORY,
-                false);
-    }
-
-    private OptimizedPartitionedOutputOperator createOptimizedPartitionedOutputOperatorWithReplication()
-    {
-        TestingPartitionedOutputBuffer outputBuffer = createPartitionedOutputBuffer();
-        PartitionFunction partitionFunction = new LocalPartitionGenerator(new PrecomputedHashGenerator(0), PARTITION_COUNT);
-        return createOptimizedPartitionedOutputOperator(
-                REPLICATION_TYPES,
-                ImmutableList.of(0),
-                partitionFunction,
-                outputBuffer,
-                OptionalInt.of(TYPES.size() - 1),
-                MAX_MEMORY,
-                true);
-    }
-
-    @Test
-    public void testOutputForSimplePage()
-    {
-        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperator();
-
-        for (int i = 0; i < PAGE_COUNT; i++) {
-            operator.addInput(TESTING_PAGE);
-        }
-        operator.finish();
-
-        long pageSizeInBytes = TESTING_PAGE.getSizeInBytes();
-
-        OperatorContext operatorContext = operator.getOperatorContext();
-        assertBetweenInclusive(operatorContext.getOutputDataSize().getTotalCount(), (long) (PAGE_COUNT * pageSizeInBytes * 1.0 / SIMPLE_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE), (long) (PAGE_COUNT * pageSizeInBytes * SIMPLE_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE));
-        assertEquals(operatorContext.getOutputPositions().getTotalCount(), PAGE_COUNT * TESTING_PAGE.getPositionCount());
-    }
-
-    @Test
-    public void testOutputSizeForPageWithDictionary()
-    {
-        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperator();
-        for (int i = 0; i < PAGE_COUNT; i++) {
-            operator.addInput(TESTING_PAGE_WITH_DICTIONARY_BLOCK);
-        }
-        operator.finish();
-
-        long pageSizeInBytes = TESTING_PAGE_WITH_DICTIONARY_BLOCK.getSizeInBytes();
-
-        OperatorContext operatorContext = operator.getOperatorContext();
-        assertBetweenInclusive(operatorContext.getOutputDataSize().getTotalCount(), PAGE_COUNT * pageSizeInBytes, (long) (PAGE_COUNT * pageSizeInBytes * DICTIONARY_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE));
-        assertEquals(operatorContext.getOutputPositions().getTotalCount(), PAGE_COUNT * TESTING_PAGE_WITH_DICTIONARY_BLOCK.getPositionCount());
-    }
-
-    @Test
-    public void testOutputForPageWithRunLength()
-    {
-        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperator();
-        for (int i = 0; i < PAGE_COUNT; i++) {
-            operator.addInput(TESTING_PAGE_WITH_RLE_BLOCK);
-        }
-        operator.finish();
-
-        long pageSizeInBytes = TESTING_PAGE_WITH_RLE_BLOCK.getSizeInBytes();
-
-        OperatorContext operatorContext = operator.getOperatorContext();
-        assertBetweenInclusive(operatorContext.getOutputDataSize().getTotalCount(), PAGE_COUNT * pageSizeInBytes, PAGE_COUNT * pageSizeInBytes * RLE_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE);
-        assertEquals(operatorContext.getOutputPositions().getTotalCount(), PAGE_COUNT * TESTING_PAGE_WITH_RLE_BLOCK.getPositionCount());
-    }
-
-    @Test
-    public void testOutputForPageWithNullBlockAndReplication()
-    {
-        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperatorWithReplication();
-        for (int i = 0; i < PAGE_COUNT; i++) {
-            operator.addInput(TESTING_PAGE_WITH_NULL_BLOCK);
-        }
-        operator.finish();
-
-        long pageSizeInBytes = TESTING_PAGE_WITH_NULL_BLOCK.getSizeInBytes();
-
-        OperatorContext operatorContext = operator.getOperatorContext();
-        assertBetweenInclusive(operatorContext.getOutputDataSize().getTotalCount(), (long) (PAGE_COUNT * pageSizeInBytes * 1.0 / SIMPLE_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE), (long) (PAGE_COUNT * PARTITION_COUNT * pageSizeInBytes * SIMPLE_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE));
-        assertEquals(operatorContext.getOutputPositions().getTotalCount(), PAGE_COUNT * PARTITION_COUNT * TESTING_PAGE_WITH_NULL_BLOCK.getPositionCount());
-    }
-
-    @Test
-    public void testOutputForPageWithDictionaryAndNullBlockAndReplication()
-    {
-        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperatorWithReplication();
-        for (int i = 0; i < PAGE_COUNT; i++) {
-            operator.addInput(TESTING_PAGE_WITH_NULL_AND_DICTIONARY_BLOCK);
-        }
-        operator.finish();
-
-        long pageSizeInBytes = TESTING_PAGE_WITH_NULL_AND_DICTIONARY_BLOCK.getSizeInBytes();
-
-        OperatorContext operatorContext = operator.getOperatorContext();
-        assertBetweenInclusive(operatorContext.getOutputDataSize().getTotalCount(), PAGE_COUNT * pageSizeInBytes, (long) (PAGE_COUNT * PARTITION_COUNT * pageSizeInBytes * DICTIONARY_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE));
-        assertEquals(operatorContext.getOutputPositions().getTotalCount(), PAGE_COUNT * PARTITION_COUNT * TESTING_PAGE_WITH_NULL_AND_DICTIONARY_BLOCK.getPositionCount());
-    }
-
-    @Test
-    public void testOutputForPageWithRunLengthAndNullBlockAndReplication()
-    {
-        OptimizedPartitionedOutputOperator operator = createOptimizedPartitionedOutputOperatorWithReplication();
-        for (int i = 0; i < PAGE_COUNT; i++) {
-            operator.addInput(TESTING_PAGE_WITH_NULL_AND_RLE_BLOCK);
-        }
-        operator.finish();
-
-        long pageSizeInBytes = TESTING_PAGE_WITH_NULL_AND_RLE_BLOCK.getSizeInBytes();
-
-        OperatorContext operatorContext = operator.getOperatorContext();
-        assertBetweenInclusive(operatorContext.getOutputDataSize().getTotalCount(), PAGE_COUNT * pageSizeInBytes, PAGE_COUNT * PARTITION_COUNT * pageSizeInBytes * POSITION_COUNT * RLE_PAGE_OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE);
-        assertEquals(operatorContext.getOutputPositions().getTotalCount(), PAGE_COUNT * PARTITION_COUNT * TESTING_PAGE_WITH_NULL_AND_RLE_BLOCK.getPositionCount());
     }
 
     private Page copyPositions(Page page, List<Integer> positions)
@@ -922,34 +846,48 @@ public class TestOptimizedPartitionedOutputOperator
         return buffer;
     }
 
+    private OptimizedPartitionedOutputOperator createOptimizedPartitionedOutputOperator(List<Type> types, boolean replicateAllRows)
+    {
+        TestingPartitionedOutputBuffer outputBuffer = createPartitionedOutputBuffer();
+        PartitionFunction partitionFunction = new LocalPartitionGenerator(new PrecomputedHashGenerator(0), PARTITION_COUNT);
+
+        if (replicateAllRows) {
+            List<Type> replicatedTypes = updateBlockTypesWithHashBlockAndNullBlock(types, false, true);
+            return createOptimizedPartitionedOutputOperator(
+                    replicatedTypes,
+                    ImmutableList.of(0),
+                    partitionFunction,
+                    outputBuffer,
+                    OptionalInt.of(replicatedTypes.size() - 1),
+                    MAX_MEMORY);
+        }
+        else {
+            return createOptimizedPartitionedOutputOperator(
+                    types,
+                    ImmutableList.of(0),
+                    partitionFunction,
+                    outputBuffer,
+                    OptionalInt.empty(),
+                    MAX_MEMORY);
+        }
+    }
+
     private OptimizedPartitionedOutputOperator createOptimizedPartitionedOutputOperator(
             List<Type> types,
             List<Integer> partitionChannel,
             PartitionFunction partitionFunction,
             PartitionedOutputBuffer buffer,
             OptionalInt nullChannel,
-            DataSize maxMemory,
-            boolean shouldReplicate)
+            DataSize maxMemory)
     {
         PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), false);
 
-        OutputPartitioning outputPartitioning;
-        if (shouldReplicate) {
-            outputPartitioning = new OutputPartitioning(
-                    partitionFunction,
-                    partitionChannel,
-                    ImmutableList.of(Optional.empty()),
-                    true,
-                    OptionalInt.of(0));
-        }
-        else {
-            outputPartitioning = new OutputPartitioning(
-                    partitionFunction,
-                    partitionChannel,
-                    ImmutableList.of(Optional.empty(), Optional.empty()),
-                    false,
-                    nullChannel);
-        }
+        OutputPartitioning outputPartitioning = new OutputPartitioning(
+                partitionFunction,
+                partitionChannel,
+                ImmutableList.of(Optional.empty()),
+                false,
+                nullChannel);
 
         OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, maxMemory);
 
@@ -994,6 +932,23 @@ public class TestOptimizedPartitionedOutputOperator
 
         int[] offsets = IntStream.range(0, entries + 1).toArray();
         return new VariableWidthBlock(entries, slice, offsets, Optional.empty());
+    }
+
+    private static void processPages(OptimizedPartitionedOutputOperator operator, Page testingPageWithRleBlock)
+    {
+        for (int i = 0; i < PAGE_COUNT; i++) {
+            operator.addInput(testingPageWithRleBlock);
+        }
+        operator.finish();
+    }
+
+    private static void verifyOutputSizes(OptimizedPartitionedOutputOperator operator, long expectedSizeInBytes, long expectedPositionCount)
+    {
+        OperatorContext operatorContext = operator.getOperatorContext();
+        assertBetweenInclusive(operatorContext.getOutputDataSize().getTotalCount(),
+                (long) (expectedSizeInBytes / OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE),
+                (long) (expectedSizeInBytes * OUTPUT_SIZE_ESTIMATION_ERROR_ALLOWANCE));
+        assertEquals(operatorContext.getOutputPositions().getTotalCount(), expectedPositionCount);
     }
 
     private static class TestingPartitionedOutputBuffer
