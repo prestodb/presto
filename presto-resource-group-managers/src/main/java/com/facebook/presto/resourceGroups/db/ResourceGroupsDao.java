@@ -76,6 +76,8 @@ public interface ResourceGroupsDao
             "  query_type VARCHAR(512),\n" +
             "  client_tags VARCHAR(512),\n" +
             "  selector_resource_estimate VARCHAR(1024),\n" +
+            "  id BIGINT NOT NULL AUTO_INCREMENT,\n" +
+            "  PRIMARY KEY (id),\n" +
             "  FOREIGN KEY (resource_group_id) REFERENCES resource_groups (resource_group_id)\n" +
             ")")
     void createSelectorsTable();
