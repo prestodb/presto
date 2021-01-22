@@ -165,6 +165,7 @@ public class QueuedStatementResource
     @Path("/v1/statement")
     @Produces(APPLICATION_JSON)
     public Response postStatement(
+            @QueryParam("additionalSessionProperty") String additionalSessionProperty,
             String statement,
             @HeaderParam(X_FORWARDED_PROTO) String xForwardedProto,
             @Context HttpServletRequest servletRequest,
@@ -174,7 +175,7 @@ public class QueuedStatementResource
             throw badRequest(BAD_REQUEST, "SQL statement is empty");
         }
 
-        SessionContext sessionContext = new HttpRequestSessionContext(servletRequest, sqlParserOptions);
+        SessionContext sessionContext = new HttpRequestSessionContext(servletRequest, sqlParserOptions, Optional.ofNullable(additionalSessionProperty));
         Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, timeoutExecutor);
         queries.put(query.getQueryId(), query);
 

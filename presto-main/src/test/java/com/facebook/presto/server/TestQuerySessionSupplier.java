@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import javax.servlet.http.HttpServletRequest;
 
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -67,7 +68,7 @@ public class TestQuerySessionSupplier
     @Test
     public void testCreateSession()
     {
-        HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST, new SqlParserOptions());
+        HttpRequestSessionContext context = new HttpRequestSessionContext(TEST_REQUEST, new SqlParserOptions(), Optional.empty());
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),
@@ -104,7 +105,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_USER, "testUser")
                         .build(),
                 "remoteAddress");
-        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1, new SqlParserOptions());
+        HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1, new SqlParserOptions(), Optional.empty());
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
         HttpServletRequest request2 = new MockHttpServletRequest(
@@ -113,7 +114,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_CLIENT_TAGS, "")
                         .build(),
                 "remoteAddress");
-        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2, new SqlParserOptions());
+        HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2, new SqlParserOptions(), Optional.empty());
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
 
@@ -126,7 +127,7 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_TIME_ZONE, "unknown_timezone")
                         .build(),
                 "testRemote");
-        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions(), Optional.empty());
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
                 new AllowAllAccessControl(),

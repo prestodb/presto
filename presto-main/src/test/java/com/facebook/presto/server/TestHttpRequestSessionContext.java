@@ -27,6 +27,8 @@ import javax.ws.rs.WebApplicationException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
@@ -70,7 +72,7 @@ public class TestHttpRequestSessionContext
                         .build(),
                 "testRemote");
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions(), Optional.empty());
         assertEquals(context.getSource(), "testSource");
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
@@ -102,7 +104,7 @@ public class TestHttpRequestSessionContext
                         .put(PRESTO_PREPARED_STATEMENT, "query1=abcdefg")
                         .build(),
                 "testRemote");
-        new HttpRequestSessionContext(request, new SqlParserOptions());
+        new HttpRequestSessionContext(request, new SqlParserOptions(), Optional.empty());
     }
 
     @Test
@@ -123,7 +125,7 @@ public class TestHttpRequestSessionContext
         SqlParserOptions options = new SqlParserOptions();
         options.allowIdentifierSymbol(EnumSet.allOf(IdentifierSymbol.class));
 
-        new HttpRequestSessionContext(request, options);
+        new HttpRequestSessionContext(request, options, Optional.empty());
     }
 
     @Test
@@ -151,7 +153,7 @@ public class TestHttpRequestSessionContext
                         .build(),
                 "testRemote");
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions(), Optional.empty());
         assertEquals(
                 context.getIdentity().getExtraCredentials(),
                 ImmutableMap.builder()
@@ -160,6 +162,47 @@ public class TestHttpRequestSessionContext
                         .put("test.token.key3", "abc=cd")
                         .put("test.json", "{\"a\" : \"b\", \"c\" : \"d=\"}")
                         .put("test.token.abc", "xyz")
+                        .build());
+    }
+
+    @Test
+    public void testAdditionalSessionProperty()
+    {
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.<String, String>builder()
+                        .put(PRESTO_USER, "testUser")
+                        .put(PRESTO_SOURCE, "testSource")
+                        .put(PRESTO_CATALOG, "testCatalog")
+                        .put(PRESTO_SCHEMA, "testSchema")
+                        .put(PRESTO_LANGUAGE, "zh-TW")
+                        .put(PRESTO_TIME_ZONE, "Asia/Taipei")
+                        .put(PRESTO_CLIENT_INFO, "client-info")
+                        .put(PRESTO_SESSION, QUERY_MAX_MEMORY + "=1GB")
+                        .put(PRESTO_SESSION, JOIN_DISTRIBUTION_TYPE + "=partitioned," + HASH_PARTITION_COUNT + " = 43")
+                        .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
+                        .put(PRESTO_ROLE, "foo_connector=ALL")
+                        .put(PRESTO_ROLE, "bar_connector=NONE")
+                        .put(PRESTO_ROLE, "foobar_connector=ROLE{role}")
+                        .put(PRESTO_EXTRA_CREDENTIAL, "test.token.key1=" + urlEncode("bar=ab===,d"))
+                        .build(),
+                "testRemote");
+
+        HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions(), Optional.of("prism.node_selection= SOFT_AFFINITY:task_concurrency= 4: prism.orc_compression_codec = ZSTD"));
+        Map<String, String> prismSessionProperty = new HashMap<>();
+        prismSessionProperty.put("node_selection", "SOFT_AFFINITY");
+        prismSessionProperty.put("orc_compression_codec", "ZSTD");
+        assertEquals(
+                context.getCatalogSessionProperties(),
+                ImmutableMap.builder()
+                    .put("prism", prismSessionProperty)
+                    .build());
+        assertEquals(
+                context.getSystemProperties(),
+                ImmutableMap.builder()
+                        .put("task_concurrency", "4")
+                        .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                        .put(HASH_PARTITION_COUNT, "43")
+                        .put(QUERY_MAX_MEMORY, "1GB")
                         .build());
     }
 
