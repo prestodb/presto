@@ -171,6 +171,7 @@ public final class SystemSessionProperties
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
+    public static final String OPTIMIZE_UNION_OVER_VALUES = "optimize_union_over_values";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -890,6 +891,11 @@ public final class SystemSessionProperties
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
                         "Apply access control rules on only those columns that are required to produce the query output",
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_UNION_OVER_VALUES,
+                        "Merge values nodes under union operator",
+                        featuresConfig.isOptimizeUnionOverValues(),
                         false));
     }
 
@@ -1505,5 +1511,10 @@ public final class SystemSessionProperties
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)
     {
         return session.getSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, Boolean.class);
+    }
+
+    public static boolean isOptimizeUnionOverValues(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_UNION_OVER_VALUES, Boolean.class);
     }
 }

@@ -172,6 +172,7 @@ public class FeaturesConfig
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
     private boolean skipRedundantSort = true;
+    private boolean optimizeUnionOverValues = true;
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -1475,6 +1476,18 @@ public class FeaturesConfig
     public FeaturesConfig setSkipRedundantSort(boolean value)
     {
         this.skipRedundantSort = value;
+        return this;
+    }
+
+    public boolean isOptimizeUnionOverValues()
+    {
+        return optimizeUnionOverValues;
+    }
+
+    @Config("optimize-union-over-values")
+    public FeaturesConfig setOptimizeUnionOverValues(boolean optimizeUnionOverValues)
+    {
+        this.optimizeUnionOverValues = optimizeUnionOverValues;
         return this;
     }
 }

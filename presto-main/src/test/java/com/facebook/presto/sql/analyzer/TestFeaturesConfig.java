@@ -151,7 +151,8 @@ public class TestFeaturesConfig
                 .setSkipRedundantSort(true)
                 .setWarnOnNoTableLayoutFilter("")
                 .setInlineSqlFunctions(true)
-                .setCheckAccessControlOnUtilizedColumnsOnly(false));
+                .setCheckAccessControlOnUtilizedColumnsOnly(false)
+                .setOptimizeUnionOverValues(true));
     }
 
     @Test
@@ -256,6 +257,7 @@ public class TestFeaturesConfig
                 .put("inline-sql-functions", "false")
                 .put("check-access-control-on-utilized-columns-only", "true")
                 .put("optimizer.skip-redundant-sort", "false")
+                .put("optimize-union-over-values", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -357,7 +359,8 @@ public class TestFeaturesConfig
                 .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds")
                 .setInlineSqlFunctions(false)
                 .setCheckAccessControlOnUtilizedColumnsOnly(true)
-                .setSkipRedundantSort(false);
+                .setSkipRedundantSort(false)
+                .setOptimizeUnionOverValues(false);
         assertFullMapping(properties, expected);
     }
 

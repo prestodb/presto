@@ -3043,6 +3043,21 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUnionOptimizationOverConstantValuesNodes()
+    {
+        assertQuery("SELECT 123, 'foo' UNION ALL SELECT 999, 'bar'");
+        assertQuery("SELECT * FROM (SELECT 1, 2, 3 UNION ALL SELECT * FROM (VALUES (5,6,6),(10,20,30)))");
+    }
+
+    @Test
+    public void testUnionOptimizationOverConstantValuesNodes2()
+    {
+        String actualQuery = "SELECT * FROM ((SELECT orderkey, custkey FROM orders ORDER BY orderkey LIMIT 10) UNION ALL (SELECT 1, 2) UNION ALL (SELECT 2, 3))";
+        String expectedQuery = "SELECT * FROM ((SELECT orderkey, custkey FROM orders ORDER BY orderkey LIMIT 10) UNION ALL (SELECT * FROM (VALUES (1, 2), (2, 3))))";
+        assertQuery(actualQuery, expectedQuery);
+    }
+
+    @Test
     public void testTableQuery()
     {
         assertQuery("TABLE orders", "SELECT * FROM orders");
