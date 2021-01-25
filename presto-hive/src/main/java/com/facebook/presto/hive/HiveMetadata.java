@@ -1581,7 +1581,11 @@ public class HiveMetadata
         partitionUpdates = PartitionUpdate.mergePartitionUpdates(partitionUpdates);
 
         if (handle.getBucketProperty().isPresent()) {
-            ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, table, partitionUpdates);
+            ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(
+                    session,
+                    handle,
+                    table,
+                    partitionUpdates);
             // replace partitionUpdates before creating the zero-row files so that those files will be cleaned up if we end up rollback
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
@@ -1651,6 +1655,11 @@ public class HiveMetadata
                         .collect(Collectors.toList())));
     }
 
+    public static boolean shouldCreateFilesForMissingBuckets(Table table)
+    {
+        return !table.getTableType().equals(TEMPORARY_TABLE);
+    }
+
     private Properties getSchema(Optional<Partition> partition, Table table)
     {
         return partition.isPresent() ? getHiveSchema(partition.get(), table) : getHiveSchema(table);
@@ -1667,9 +1676,13 @@ public class HiveMetadata
             Table table,
             List<PartitionUpdate> partitionUpdates)
     {
+        // avoid creation of PartitionUpdate with empty list of files
+        if (!shouldCreateFilesForMissingBuckets(table)) {
+            return ImmutableList.of();
+        }
         HiveStorageFormat storageFormat = table.getPartitionColumns().isEmpty() ? handle.getTableStorageFormat() : handle.getPartitionStorageFormat();
 
-        // empty unpartitioned bucketed table
+        // empty un-partitioned bucketed table
         if (table.getPartitionColumns().isEmpty() && partitionUpdates.isEmpty()) {
             int bucketCount = handle.getBucketProperty().get().getBucketCount();
             LocationHandle locationHandle = handle.getLocationHandle();
@@ -1858,7 +1871,11 @@ public class HiveMetadata
         }
 
         if (handle.getBucketProperty().isPresent()) {
-            ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(session, handle, table.get(), partitionUpdates);
+            ImmutableList<PartitionUpdate> partitionUpdatesForMissingBuckets = computePartitionUpdatesForMissingBuckets(
+                    session,
+                    handle,
+                    table.get(),
+                    partitionUpdates);
             // replace partitionUpdates before creating the zero-row files so that those files will be cleaned up if we end up rollback
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(Iterables.concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             HdfsContext hdfsContext = new HdfsContext(session, table.get().getDatabaseName(), table.get().getTableName());
