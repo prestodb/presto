@@ -26,13 +26,20 @@ public class CacheQuota
 {
     public static final CacheQuota NO_CACHE_CONSTRAINTS = new CacheQuota("NO_IDENTITY", Optional.empty());
 
+    private final String identity;
     private final long identifier;
     private final Optional<DataSize> quota;
 
     public CacheQuota(String identity, Optional<DataSize> quota)
     {
+        this.identity = requireNonNull(identity, "identity is null");
         this.identifier = md5().hashString(identity, UTF_8).asLong();
         this.quota = requireNonNull(quota, "quota is null");
+    }
+
+    public String getIdentity()
+    {
+        return identity;
     }
 
     public long getIdentifier()
@@ -55,12 +62,12 @@ public class CacheQuota
             return false;
         }
         CacheQuota that = (CacheQuota) o;
-        return identifier == that.identifier && Objects.equals(quota, that.quota);
+        return identity.equals(that.identity) && identifier == that.identifier && Objects.equals(quota, that.quota);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(identifier, quota);
+        return Objects.hash(identity, identifier, quota);
     }
 }
