@@ -42,7 +42,8 @@ public class TestAlluxioCacheConfig
                 .setMetricsDomain("com.facebook.alluxio")
                 .setTimeoutDuration(new Duration(60, SECONDS))
                 .setTimeoutEnabled(false)
-                .setTimeoutThreads(64));
+                .setTimeoutThreads(64)
+                .setCacheQuotaEnabled(false));
     }
 
     @Test
@@ -59,6 +60,7 @@ public class TestAlluxioCacheConfig
                 .put("cache.alluxio.timeout-duration", "120s")
                 .put("cache.alluxio.timeout-enabled", "true")
                 .put("cache.alluxio.timeout-threads", "512")
+                .put("cache.alluxio.quota-enabled", "true")
                 .build();
 
         AlluxioCacheConfig expected = new AlluxioCacheConfig()
@@ -71,7 +73,8 @@ public class TestAlluxioCacheConfig
                 .setConfigValidationEnabled(true)
                 .setTimeoutDuration(new Duration(120, SECONDS))
                 .setTimeoutEnabled(true)
-                .setTimeoutThreads(512);
+                .setTimeoutThreads(512)
+                .setCacheQuotaEnabled(true);
 
         assertFullMapping(properties, expected);
     }
