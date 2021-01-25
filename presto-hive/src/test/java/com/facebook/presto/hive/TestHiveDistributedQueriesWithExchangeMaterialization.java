@@ -257,13 +257,13 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
             assertQuery(
                     getSession(),
                     "SELECT lineitem.partkey, lineitem.suppkey, lineitem.comment lineitem_comment, partsupp.comment partsupp_comment\n" +
-                    "FROM test_constant_folding_lineitem_bucketed lineitem JOIN test_constant_folding_partsupp_unbucketed partsupp\n" +
-                    "ON\n" +
-                    "  lineitem.partkey = partsupp.partkey AND\n" +
-                    "  lineitem.partkey_mod_9 = partsupp.partkey_mod_9 AND\n" +
-                    "  lineitem.suppkey = partsupp.suppkey AND\n" +
-                    "  lineitem.suppkey_varchar = partsupp.suppkey_varchar\n" +
-                    "WHERE lineitem.partkey_mod_9 = 7 AND lineitem.suppkey = 42",
+                            "FROM test_constant_folding_lineitem_bucketed lineitem JOIN test_constant_folding_partsupp_unbucketed partsupp\n" +
+                            "ON\n" +
+                            "  lineitem.partkey = partsupp.partkey AND\n" +
+                            "  lineitem.partkey_mod_9 = partsupp.partkey_mod_9 AND\n" +
+                            "  lineitem.suppkey = partsupp.suppkey AND\n" +
+                            "  lineitem.suppkey_varchar = partsupp.suppkey_varchar\n" +
+                            "WHERE lineitem.partkey_mod_9 = 7 AND lineitem.suppkey = 42",
                     "SELECT lineitem.partkey, lineitem.suppkey, lineitem.comment lineitem_comment, partsupp.comment partsupp_comment\n" +
                             "FROM lineitem JOIN partsupp\n" +
                             "ON lineitem.partkey = partsupp.partkey AND\n" +
@@ -275,13 +275,13 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
             assertQuery(
                     getSession(),
                     "SELECT lineitem.partkey, lineitem.suppkey, lineitem.comment lineitem_comment, partsupp.comment partsupp_comment\n" +
-                    "FROM test_constant_folding_lineitem_bucketed lineitem JOIN test_constant_folding_partsupp_unbucketed partsupp\n" +
-                    "ON\n" +
-                    "  lineitem.partkey = partsupp.partkey AND\n" +
-                    "  lineitem.partkey_mod_9 = partsupp.partkey_mod_9 AND\n" +
-                    "  lineitem.suppkey = partsupp.suppkey AND\n" +
-                    "  lineitem.suppkey_varchar = partsupp.suppkey_varchar\n" +
-                    "WHERE lineitem.partkey_mod_9 = 7 AND lineitem.suppkey_varchar = '42'",
+                            "FROM test_constant_folding_lineitem_bucketed lineitem JOIN test_constant_folding_partsupp_unbucketed partsupp\n" +
+                            "ON\n" +
+                            "  lineitem.partkey = partsupp.partkey AND\n" +
+                            "  lineitem.partkey_mod_9 = partsupp.partkey_mod_9 AND\n" +
+                            "  lineitem.suppkey = partsupp.suppkey AND\n" +
+                            "  lineitem.suppkey_varchar = partsupp.suppkey_varchar\n" +
+                            "WHERE lineitem.partkey_mod_9 = 7 AND lineitem.suppkey_varchar = '42'",
                     "SELECT lineitem.partkey, lineitem.suppkey, lineitem.comment lineitem_comment, partsupp.comment partsupp_comment\n" +
                             "FROM lineitem JOIN partsupp\n" +
                             "ON lineitem.partkey = partsupp.partkey AND\n" +
@@ -354,7 +354,7 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
                             "    ON t1.nationkey = t2.nationkey\n" +
                             "WHERE\n" +
                             "    \"$bucket\" < 20",
-                            "SELECT\n" +
+                    "SELECT\n" +
                             "    *\n" +
                             "FROM nation t1\n" +
                             "JOIN nation t2\n" +
@@ -380,5 +380,25 @@ public class TestHiveDistributedQueriesWithExchangeMaterialization
         return false;
     }
 
+    @Test
+    public void testEmptyBucketedTemporaryTable()
+    {
+        assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT(*) from lineitem where linenumber < 0");
+    }
+
+    @Test
+    public void testBucketedTemporaryTableWithMissingFiles()
+    {
+        testBucketedTemporaryTableWithMissingFiles(true);
+        testBucketedTemporaryTableWithMissingFiles(false);
+    }
+
+    private void testBucketedTemporaryTableWithMissingFiles(boolean isFileRenameEnabled)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "file_renaming_enabled", String.valueOf(isFileRenameEnabled))
+                .build();
+        assertQuery(session, "SELECT COUNT(DISTINCT linenumber), COUNT(*) from (SELECT * from lineitem LIMIT 1)");
+    }
     // Hive specific tests should normally go in TestHiveIntegrationSmokeTest
 }
