@@ -35,6 +35,7 @@ public class SessionMatchSpec
     private final Optional<Pattern> sourceRegex;
     private final Set<String> clientTags;
     private final Optional<String> queryType;
+    private final Optional<Pattern> clientInfoRegex;
     private final Optional<Pattern> resourceGroupRegex;
     private final Map<String, String> sessionProperties;
 
@@ -45,6 +46,7 @@ public class SessionMatchSpec
             @JsonProperty("clientTags") Optional<List<String>> clientTags,
             @JsonProperty("queryType") Optional<String> queryType,
             @JsonProperty("group") Optional<Pattern> resourceGroupRegex,
+            @JsonProperty("clientInfo") Optional<Pattern> clientInfoRegex,
             @JsonProperty("sessionProperties") Map<String, String> sessionProperties)
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
@@ -53,6 +55,7 @@ public class SessionMatchSpec
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.resourceGroupRegex = requireNonNull(resourceGroupRegex, "resourceGroupRegex is null");
+        this.clientInfoRegex = requireNonNull(clientInfoRegex, "clientInfoRegex is null");
         requireNonNull(sessionProperties, "sessionProperties is null");
         this.sessionProperties = ImmutableMap.copyOf(sessionProperties);
     }
@@ -75,6 +78,13 @@ public class SessionMatchSpec
         if (queryType.isPresent()) {
             String contextQueryType = context.getQueryType().orElse("");
             if (!queryType.get().equalsIgnoreCase(contextQueryType)) {
+                return ImmutableMap.of();
+            }
+        }
+
+        if (clientInfoRegex.isPresent()) {
+            String clientInfo = context.getClientInfo().orElse("");
+            if (!clientInfoRegex.get().matcher(clientInfo).matches()) {
                 return ImmutableMap.of();
             }
         }
@@ -117,6 +127,12 @@ public class SessionMatchSpec
     public Optional<Pattern> getResourceGroupRegex()
     {
         return resourceGroupRegex;
+    }
+
+    @JsonProperty
+    public Optional<Pattern> getClientInfoRegex()
+    {
+        return clientInfoRegex;
     }
 
     @JsonProperty
