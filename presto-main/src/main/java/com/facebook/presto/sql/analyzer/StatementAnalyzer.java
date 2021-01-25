@@ -94,9 +94,11 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.Literal;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
+import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.Prepare;
@@ -1345,6 +1347,13 @@ class StatementAnalyzer
                     analysis.addCoercion(expression, BOOLEAN, false);
                 }
 
+                if (expression instanceof LogicalBinaryExpression) {
+                    if (((LogicalBinaryExpression) expression).getOperator() == LogicalBinaryExpression.Operator.OR) {
+                        String warningMessage = createWarningMessage(expression, "JOIN conditions with an OR can cause performance issues as it may lead to a cross join with filter");
+                        warningCollector.add(new PrestoWarning(PERFORMANCE_WARNING, warningMessage));
+                    }
+                }
+
                 verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), expression, "JOIN clause");
 
                 analysis.recordSubqueries(node, expressionAnalysis);
@@ -1355,6 +1364,12 @@ class StatementAnalyzer
             }
 
             return output;
+        }
+
+        private String createWarningMessage(Node node, String description)
+        {
+            NodeLocation nodeLocation = node.getLocation().get();
+            return format("line %s:%s: %s", nodeLocation.getLineNumber(), nodeLocation.getColumnNumber(), description);
         }
 
         private Scope analyzeJoinUsing(Join node, List<Identifier> columns, Optional<Scope> scope, Scope left, Scope right)

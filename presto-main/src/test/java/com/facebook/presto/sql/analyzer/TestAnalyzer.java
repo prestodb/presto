@@ -93,6 +93,12 @@ public class TestAnalyzer
         assertTrue(warning.getMessage().startsWith(match));
     }
 
+    private static void assertNoWarning(WarningCollector warningCollector)
+    {
+        List<PrestoWarning> warnings = warningCollector.getWarnings();
+        assertTrue(warnings.isEmpty());
+    }
+
     @Test
     public void testNonComparableGroupBy()
     {
@@ -109,6 +115,29 @@ public class TestAnalyzer
     public void testNonComparableWindowOrder()
     {
         assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (ORDER BY t.x) FROM (VALUES(color('red'))) AS t(x)");
+    }
+
+    @Test
+    public void testORWarning()
+    {
+        assertHasWarning(analyzeWithWarnings("SELECT * FROM t1 JOIN t2 ON t1.a = t2.a OR t1.b = t2.b"),
+                PERFORMANCE_WARNING, "line 1:41: JOIN conditions with an OR can cause performance issues as it may lead to a cross join with filter");
+        assertHasWarning(analyzeWithWarnings("SELECT * FROM t1 JOIN t2 ON t1.a = t2.a OR t1.a != t2.b AND t1.b > t2.b"),
+                PERFORMANCE_WARNING, "line 1:41: JOIN conditions with an OR can cause performance issues as it may lead to a cross join with filter");
+        assertHasWarning(analyzeWithWarnings("SELECT * FROM t1 JOIN t2 ON t1.a = t2.a AND t1.a != t2.b OR t1.b > t2.b"),
+                PERFORMANCE_WARNING, "line 1:58: JOIN conditions with an OR can cause performance issues as it may lead to a cross join with filter");
+        assertHasWarning(analyzeWithWarnings("SELECT * FROM t1 JOIN t2 ON t1.a = t2.a OR IF(t2.b = t1.a OR t2.b = null, 'YES', 'NO') = 'YES'"),
+                PERFORMANCE_WARNING, "line 1:41: JOIN conditions with an OR can cause performance issues as it may lead to a cross join with filter");
+        assertHasWarning(analyzeWithWarnings("SELECT * FROM t1 JOIN t2 ON (t1.a = t2.a AND t1.b = t2.b) OR (t1.a > t1.b AND t1.b > t1.a)"),
+                PERFORMANCE_WARNING, "line 1:59: JOIN conditions with an OR can cause performance issues as it may lead to a cross join with filter");
+    }
+
+    @Test void testNoORWarning()
+    {
+        assertNoWarning(analyzeWithWarnings("SELECT * FROM t1 JOIN t2 ON t1.a = t2.a"));
+        assertNoWarning(analyzeWithWarnings("SELECT * FROM t1 JOIN t2 ON t1.a = t2.a AND t1.b = t2.b"));
+        assertNoWarning(analyzeWithWarnings("SELECT * FROM t1 JOIN t2 ON t1.a = t2.a AND IF(t2.b = t1.a OR t2.b = null, 'YES', 'NO') = 'YES'"));
+        assertNoWarning(analyzeWithWarnings("SELECT * FROM t1 JOIN t2 ON t1.a = t2.a \n" + "AND (t1.b = t2.b OR t1.b > t2.b)"));
     }
 
     @Test
