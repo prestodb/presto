@@ -58,9 +58,12 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.hive.HiveCompressionCodec.NONE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
@@ -86,6 +89,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.Integer.parseInt;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -102,6 +106,7 @@ public class HiveWriterFactory
 {
     private static final int MAX_BUCKET_COUNT = 100_000;
     private static final int BUCKET_NUMBER_PADDING = Integer.toString(MAX_BUCKET_COUNT - 1).length();
+    private static final Pattern BUCKET_FILE_NAME_PATTERN = Pattern.compile(".*_bucket-(\\d+)(\\..*)?");
 
     private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final String schemaName;
@@ -636,6 +641,21 @@ public class HiveWriterFactory
     public static String computeBucketedFileName(String filePrefix, int bucket)
     {
         return filePrefix + "_bucket-" + Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
+    }
+
+    public static int getBucketNumber(String fileName)
+    {
+        Matcher matcher = BUCKET_FILE_NAME_PATTERN.matcher(fileName);
+        if (matcher.matches()) {
+            return parseInt(matcher.group(1));
+        }
+        // Numerical file name when "file_renaming_enabled" is true
+        else if (fileName.matches("\\d+")) {
+            return parseInt(fileName);
+        }
+        else {
+            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format("invalid hive bucket file name: %s", fileName));
+        }
     }
 
     public static String getFileExtension(StorageFormat storageFormat, HiveCompressionCodec compressionCodec)

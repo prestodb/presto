@@ -3153,6 +3153,54 @@ public abstract class AbstractTestHiveClient
     }
 
     @Test
+    public void testCreateBucketedTemporaryTableWithMissingBuckets()
+    {
+        List<ColumnMetadata> columns = TEMPORARY_TABLE_COLUMNS;
+        List<String> bucketingColumns = TEMPORARY_TABLE_BUCKET_COLUMNS;
+        int bucketCount = TEMPORARY_TABLE_BUCKET_COUNT;
+        MaterializedResult singleRow = MaterializedResult.resultBuilder(SESSION, VARCHAR, VARCHAR)
+                .row("1", "value1")
+                .build();
+        ConnectorSession session = newSession();
+
+        HiveTableHandle tableHandle;
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+
+            // prepare temporary table schema
+            List<Type> types = columns.stream()
+                    .map(ColumnMetadata::getType)
+                    .collect(toImmutableList());
+            ConnectorPartitioningMetadata partitioning = new ConnectorPartitioningMetadata(
+                    metadata.getPartitioningHandleForExchange(session, bucketCount, types),
+                    bucketingColumns);
+
+            // create temporary table
+            tableHandle = (HiveTableHandle) metadata.createTemporaryTable(session, columns, Optional.of(partitioning));
+
+            // begin insert into temporary table
+            HiveInsertTableHandle insert = (HiveInsertTableHandle) metadata.beginInsert(session, tableHandle);
+
+            // insert into temporary table
+            ConnectorPageSink firstSink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, insert, TEST_HIVE_PAGE_SINK_CONTEXT);
+            firstSink.appendPage(singleRow.toPage());
+            Collection<Slice> fragments = getFutureValue(firstSink.finish());
+
+            if (singleRow.getRowCount() == 0) {
+                assertThat(fragments).isEmpty();
+            }
+
+            // finish insert
+            metadata.finishInsert(session, insert, fragments, ImmutableList.of());
+
+            // Only one split since there is only one non empty bucket
+            assertEquals(getAllSplits(transaction, tableHandle, TupleDomain.all()).size(), 1);
+
+            transaction.rollback();
+        }
+    }
+
+    @Test
     public void testCreateBucketedTemporaryTable()
             throws Exception
     {
@@ -3242,8 +3290,8 @@ public abstract class AbstractTestHiveClient
             // finish only second insert
             metadata.finishInsert(session, secondInsert, secondFragments, ImmutableList.of());
 
-            // check that there are splits for every bucket
-            assertEquals(getAllSplits(transaction, tableHandle, TupleDomain.all()).size(), bucketCount);
+            // no splits for empty buckets if zero row file is not created
+            assertLessThanOrEqual(getAllSplits(transaction, tableHandle, TupleDomain.all()).size(), bucketCount);
 
             // verify written data
             Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, tableHandle);

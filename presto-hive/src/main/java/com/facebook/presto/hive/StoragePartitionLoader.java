@@ -52,8 +52,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.IntPredicate;
@@ -64,12 +66,14 @@ import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_FILE_NAMES;
+import static com.facebook.presto.hive.HiveMetadata.shouldCreateFilesForMissingBuckets;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.getFooterCount;
 import static com.facebook.presto.hive.HiveUtil.getHeaderCount;
 import static com.facebook.presto.hive.HiveUtil.getInputFormat;
+import static com.facebook.presto.hive.HiveWriterFactory.getBucketNumber;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.FAIL;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.RECURSE;
@@ -146,7 +150,12 @@ public class StoragePartitionLoader
                 .map(p -> p.getColumns().size())
                 .orElse(table.getDataColumns().size());
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
-        Path path = new Path(getPartitionLocation(table, partition.getPartition()));
+        String location = getPartitionLocation(table, partition.getPartition());
+        if (location.isEmpty()) {
+            checkState(!shouldCreateFilesForMissingBuckets(table), "Empty location is only allowed for empty temporary table when zero-row file is not created");
+            return COMPLETED_FUTURE;
+        }
+        Path path = new Path(location);
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, inputFormatName, false);
         ExtendedFileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
@@ -337,33 +346,44 @@ public class StoragePartitionLoader
                             partitionName));
         }
 
-        // verify we found one file per bucket
-        if (fileInfos.size() != partitionBucketCount) {
-            throw new PrestoException(
-                    HIVE_INVALID_BUCKET_FILES,
-                    format("Hive table '%s' is corrupt. The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
-                            new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                            fileInfos.size(),
-                            partitionBucketCount,
-                            partitionName));
-        }
+        Map<Integer, HiveFileInfo> bucketToFileInfo = new HashMap<>();
 
-        if (fileInfos.get(0).getPath().getName().matches("\\d+")) {
-            try {
-                // File names are integer if they are created when file_renaming_enabled is set to true
-                fileInfos.sort(Comparator.comparingInt(fileInfo -> Integer.parseInt(fileInfo.getPath().getName())));
-            }
-            catch (NumberFormatException e) {
-                throw new PrestoException(
-                        HIVE_INVALID_FILE_NAMES,
-                        format("Hive table '%s' is corrupt. Some of the filenames in the partition: %s are not integers",
-                                new SchemaTableName(table.getDatabaseName(), table.getTableName()),
-                                partitionName));
-            }
+        if (!shouldCreateFilesForMissingBuckets(table)) {
+            fileInfos.stream()
+                    .forEach(fileInfo -> bucketToFileInfo.put(getBucketNumber(fileInfo.getPath().getName()), fileInfo));
         }
         else {
-            // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
-            fileInfos.sort(null);
+            // verify we found one file per bucket
+            if (fileInfos.size() != partitionBucketCount) {
+                throw new PrestoException(
+                        HIVE_INVALID_BUCKET_FILES,
+                        format("Hive table '%s' is corrupt. The number of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
+                                new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                                fileInfos.size(),
+                                partitionBucketCount,
+                                partitionName));
+            }
+
+            if (fileInfos.get(0).getPath().getName().matches("\\d+")) {
+                try {
+                    // File names are integer if they are created when file_renaming_enabled is set to true
+                    fileInfos.sort(Comparator.comparingInt(fileInfo -> Integer.parseInt(fileInfo.getPath().getName())));
+                }
+                catch (NumberFormatException e) {
+                    throw new PrestoException(
+                            HIVE_INVALID_FILE_NAMES,
+                            format("Hive table '%s' is corrupt. Some of the filenames in the partition: %s are not integers",
+                                    new SchemaTableName(table.getDatabaseName(), table.getTableName()),
+                                    partitionName));
+                }
+            }
+            else {
+                // Sort FileStatus objects (instead of, e.g., fileStatus.getPath().toString). This matches org.apache.hadoop.hive.ql.metadata.Table.getSortedPaths
+                fileInfos.sort(null);
+            }
+            for (int i = 0; i < fileInfos.size(); i++) {
+                bucketToFileInfo.put(i, fileInfos.get(i));
+            }
         }
 
         // convert files internal splits
@@ -371,6 +391,9 @@ public class StoragePartitionLoader
         for (int bucketNumber = 0; bucketNumber < max(readBucketCount, partitionBucketCount); bucketNumber++) {
             // Physical bucket #. This determine file name. It also determines the order of splits in the result.
             int partitionBucketNumber = bucketNumber % partitionBucketCount;
+            if (!bucketToFileInfo.containsKey(partitionBucketNumber)) {
+                continue;
+            }
             // Logical bucket #. Each logical bucket corresponds to a "bucket" from engine's perspective.
             int readBucketNumber = bucketNumber % readBucketCount;
 
@@ -397,7 +420,7 @@ public class StoragePartitionLoader
                                 "partition bucket count: " + partitionBucketCount + ", effective reading bucket count: " + readBucketCount + ")");
             }
             if (!eligibleTableBucketNumbers.isEmpty()) {
-                HiveFileInfo fileInfo = fileInfos.get(partitionBucketNumber);
+                HiveFileInfo fileInfo = bucketToFileInfo.get(partitionBucketNumber);
                 eligibleTableBucketNumbers.stream()
                         .map(tableBucketNumber -> splitFactory.createInternalHiveSplit(fileInfo, readBucketNumber, tableBucketNumber, splittable))
                         .forEach(optionalSplit -> optionalSplit.ifPresent(splitList::add));

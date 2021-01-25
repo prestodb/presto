@@ -71,6 +71,9 @@ public class HiveZeroRowFileCreator
     @Override
     public void createFiles(ConnectorSession session, HdfsContext hdfsContext, Path destinationDirectory, List<String> fileNames, StorageFormat format, HiveCompressionCodec compressionCodec, Properties schema)
     {
+        if (fileNames.isEmpty()) {
+            return;
+        }
         byte[] fileContent = generateZeroRowFile(session, hdfsContext, schema, format.getSerDe(), format.getOutputFormat(), compressionCodec);
 
         List<ListenableFuture<?>> commitFutures = new ArrayList<>();
