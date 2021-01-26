@@ -208,6 +208,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTemp
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUsePageFileForHiveUnsupportedType;
+import static com.facebook.presto.hive.HiveSessionProperties.shouldCreateEmptyBucketFilesForTemporaryTable;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -1655,9 +1656,9 @@ public class HiveMetadata
                         .collect(Collectors.toList())));
     }
 
-    public static boolean shouldCreateFilesForMissingBuckets(Table table)
+    public static boolean shouldCreateFilesForMissingBuckets(Table table, ConnectorSession session)
     {
-        return !table.getTableType().equals(TEMPORARY_TABLE);
+        return !table.getTableType().equals(TEMPORARY_TABLE) || shouldCreateEmptyBucketFilesForTemporaryTable(session);
     }
 
     private Properties getSchema(Optional<Partition> partition, Table table)
@@ -1677,7 +1678,7 @@ public class HiveMetadata
             List<PartitionUpdate> partitionUpdates)
     {
         // avoid creation of PartitionUpdate with empty list of files
-        if (!shouldCreateFilesForMissingBuckets(table)) {
+        if (!shouldCreateFilesForMissingBuckets(table, session)) {
             return ImmutableList.of();
         }
         HiveStorageFormat storageFormat = table.getPartitionColumns().isEmpty() ? handle.getTableStorageFormat() : handle.getPartitionStorageFormat();

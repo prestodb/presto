@@ -1009,7 +1009,8 @@ public abstract class AbstractTestHiveClient
         return new HiveClientConfig()
                 .setMaxOpenSortFiles(10)
                 .setWriterSortBufferSize(new DataSize(100, KILOBYTE))
-                .setTemporaryTableSchema(database);
+                .setTemporaryTableSchema(database)
+                .setCreateEmptyBucketFilesForTemporaryTable(false);
     }
 
     protected CacheConfig getCacheConfig()

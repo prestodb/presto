@@ -160,6 +160,7 @@ public class HiveClientConfig
     private String temporaryTableSchema = "default";
     private HiveStorageFormat temporaryTableStorageFormat = ORC;
     private HiveCompressionCodec temporaryTableCompressionCodec = HiveCompressionCodec.SNAPPY;
+    private boolean shouldCreateEmptyBucketFilesForTemporaryTable = true;
     private boolean usePageFileForHiveUnsupportedType = true;
 
     private boolean pushdownFilterEnabled;
@@ -1370,6 +1371,19 @@ public class HiveClientConfig
     public HiveClientConfig setTemporaryTableCompressionCodec(HiveCompressionCodec temporaryTableCompressionCodec)
     {
         this.temporaryTableCompressionCodec = temporaryTableCompressionCodec;
+        return this;
+    }
+
+    public boolean isCreateEmptyBucketFilesForTemporaryTable()
+    {
+        return shouldCreateEmptyBucketFilesForTemporaryTable;
+    }
+
+    @Config("hive.create-empty-bucket-files-for-temporary-table")
+    @ConfigDescription("Create empty files when there is no data for temporary table buckets")
+    public HiveClientConfig setCreateEmptyBucketFilesForTemporaryTable(boolean shouldCreateEmptyBucketFilesForTemporaryTable)
+    {
+        this.shouldCreateEmptyBucketFilesForTemporaryTable = shouldCreateEmptyBucketFilesForTemporaryTable;
         return this;
     }
 

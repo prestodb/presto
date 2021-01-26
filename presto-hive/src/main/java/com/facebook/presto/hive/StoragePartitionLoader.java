@@ -152,7 +152,7 @@ public class StoragePartitionLoader
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition());
         String location = getPartitionLocation(table, partition.getPartition());
         if (location.isEmpty()) {
-            checkState(!shouldCreateFilesForMissingBuckets(table), "Empty location is only allowed for empty temporary table when zero-row file is not created");
+            checkState(!shouldCreateFilesForMissingBuckets(table, session), "Empty location is only allowed for empty temporary table when zero-row file is not created");
             return COMPLETED_FUTURE;
         }
         Path path = new Path(location);
@@ -348,7 +348,7 @@ public class StoragePartitionLoader
 
         Map<Integer, HiveFileInfo> bucketToFileInfo = new HashMap<>();
 
-        if (!shouldCreateFilesForMissingBuckets(table)) {
+        if (!shouldCreateFilesForMissingBuckets(table, session)) {
             fileInfos.stream()
                     .forEach(fileInfo -> bucketToFileInfo.put(getBucketNumber(fileInfo.getPath().getName()), fileInfo));
         }
