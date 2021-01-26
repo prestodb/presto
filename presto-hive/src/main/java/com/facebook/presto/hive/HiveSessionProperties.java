@@ -95,6 +95,7 @@ public final class HiveSessionProperties
     private static final String TEMPORARY_TABLE_SCHEMA = "temporary_table_schema";
     private static final String TEMPORARY_TABLE_STORAGE_FORMAT = "temporary_table_storage_format";
     private static final String TEMPORARY_TABLE_COMPRESSION_CODEC = "temporary_table_compression_codec";
+    private static final String TEMPORARY_TABLE_CREATE_EMPTY_BUCKET_FILES = "temporary_table_create_empty_bucket_files";
     private static final String USE_PAGEFILE_FOR_HIVE_UNSUPPORTED_TYPE = "use_pagefile_for_hive_unsupported_type";
     public static final String PUSHDOWN_FILTER_ENABLED = "pushdown_filter_enabled";
     public static final String RANGE_FILTERS_ON_SUBSCRIPTS_ENABLED = "range_filters_on_subscripts_enabled";
@@ -425,6 +426,11 @@ public final class HiveSessionProperties
                         false,
                         value -> HiveCompressionCodec.valueOf(((String) value).toUpperCase()),
                         HiveCompressionCodec::name),
+                booleanProperty(
+                        TEMPORARY_TABLE_CREATE_EMPTY_BUCKET_FILES,
+                        "Create empty files when there is no data for temporary table buckets",
+                        hiveClientConfig.isCreateEmptyBucketFilesForTemporaryTable(),
+                        false),
                 booleanProperty(
                         USE_PAGEFILE_FOR_HIVE_UNSUPPORTED_TYPE,
                         "Automatically switch to PAGEFILE format for materialized exchange when encountering unsupported types",
@@ -816,6 +822,11 @@ public final class HiveSessionProperties
     public static HiveCompressionCodec getTemporaryTableCompressionCodec(ConnectorSession session)
     {
         return session.getProperty(TEMPORARY_TABLE_COMPRESSION_CODEC, HiveCompressionCodec.class);
+    }
+
+    public static boolean shouldCreateEmptyBucketFilesForTemporaryTable(ConnectorSession session)
+    {
+        return session.getProperty(TEMPORARY_TABLE_CREATE_EMPTY_BUCKET_FILES, Boolean.class);
     }
 
     public static boolean isUsePageFileForHiveUnsupportedType(ConnectorSession session)

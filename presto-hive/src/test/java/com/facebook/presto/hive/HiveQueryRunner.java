@@ -216,6 +216,8 @@ public final class HiveQueryRunner
                         "query.hash-partition-count", "11",
                         "colocated-joins-enabled", "true",
                         "grouped-execution-enabled", "true"),
+                "sql-standard",
+                ImmutableMap.of("hive.create-empty-bucket-files-for-temporary-table", "false"),
                 Optional.empty());
     }
 
