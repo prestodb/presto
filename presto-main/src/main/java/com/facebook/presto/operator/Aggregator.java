@@ -28,11 +28,11 @@ class Aggregator
     private final AggregationNode.Step step;
     private final int intermediateChannel;
 
-    Aggregator(AccumulatorFactory accumulatorFactory, AggregationNode.Step step)
+    Aggregator(AccumulatorFactory accumulatorFactory, AggregationNode.Step step, UpdateMemory updateMemory)
     {
         if (step.isInputRaw()) {
             intermediateChannel = -1;
-            aggregation = accumulatorFactory.createAccumulator();
+            aggregation = accumulatorFactory.createAccumulator(updateMemory);
         }
         else {
             checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");

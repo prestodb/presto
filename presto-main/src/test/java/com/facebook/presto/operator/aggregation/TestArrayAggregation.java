@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.SqlDate;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
@@ -136,7 +137,7 @@ public class TestArrayAggregation
     {
         InternalAggregationFunction bigIntAgg = getAggregation(BIGINT);
         GroupedAccumulator groupedAccumulator = bigIntAgg.bind(Ints.asList(new int[] {}), Optional.empty())
-                .createGroupedAccumulator();
+                .createGroupedAccumulator(UpdateMemory.NOOP);
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAccumulator.evaluateFinal(0, blockBuilder);
@@ -218,7 +219,7 @@ public class TestArrayAggregation
         int[] args = GroupByAggregationTestUtils.createArgs(function);
 
         return function.bind(Ints.asList(args), Optional.empty())
-                .createGroupedAccumulator();
+                .createGroupedAccumulator(UpdateMemory.NOOP);
     }
 
     private InternalAggregationFunction getAggregation(Type... arguments)

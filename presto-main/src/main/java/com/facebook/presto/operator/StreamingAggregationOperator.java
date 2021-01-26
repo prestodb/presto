@@ -125,7 +125,7 @@ public class StreamingAggregationOperator
     {
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
         for (AccumulatorFactory factory : accumulatorFactories) {
-            builder.add(new Aggregator(factory, step));
+            builder.add(new Aggregator(factory, step, this::updateMemoryUsage));
         }
         return builder.build();
     }
@@ -162,7 +162,7 @@ public class StreamingAggregationOperator
         updateMemoryUsage();
     }
 
-    private void updateMemoryUsage()
+    private boolean updateMemoryUsage()
     {
         long memorySize = pageBuilder.getRetainedSizeInBytes();
         for (Page output : outputPages) {
@@ -182,6 +182,8 @@ public class StreamingAggregationOperator
         else {
             userMemoryContext.setBytes(memorySize);
         }
+        // If memory is not available, inform the caller that we cannot proceed for allocation.
+        return operatorContext.isWaitingForMemory().isDone();
     }
 
     private void processInput(Page page)

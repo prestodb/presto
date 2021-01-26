@@ -145,7 +145,7 @@ public class InMemoryHashAggregationBuilder
             if (overwriteIntermediateChannelOffset.isPresent()) {
                 overwriteIntermediateChannel = Optional.of(overwriteIntermediateChannelOffset.get() + i);
             }
-            builder.add(new Aggregator(accumulatorFactory, step, overwriteIntermediateChannel));
+            builder.add(new Aggregator(accumulatorFactory, step, overwriteIntermediateChannel, updateMemory));
         }
         aggregators = builder.build();
     }
@@ -390,20 +390,24 @@ public class InMemoryHashAggregationBuilder
         private AggregationNode.Step step;
         private final int intermediateChannel;
 
-        private Aggregator(AccumulatorFactory accumulatorFactory, AggregationNode.Step step, Optional<Integer> overwriteIntermediateChannel)
+        private Aggregator(
+                AccumulatorFactory accumulatorFactory,
+                AggregationNode.Step step,
+                Optional<Integer> overwriteIntermediateChannel,
+                UpdateMemory updateMemory)
         {
             if (step.isInputRaw()) {
                 this.intermediateChannel = -1;
-                this.aggregation = accumulatorFactory.createGroupedAccumulator();
+                this.aggregation = accumulatorFactory.createGroupedAccumulator(updateMemory);
             }
             else if (overwriteIntermediateChannel.isPresent()) {
                 this.intermediateChannel = overwriteIntermediateChannel.get();
-                this.aggregation = accumulatorFactory.createGroupedIntermediateAccumulator();
+                this.aggregation = accumulatorFactory.createGroupedIntermediateAccumulator(updateMemory);
             }
             else {
                 checkArgument(accumulatorFactory.getInputChannels().size() == 1, "expected 1 input channel for intermediate aggregation");
                 this.intermediateChannel = accumulatorFactory.getInputChannels().get(0);
-                this.aggregation = accumulatorFactory.createGroupedIntermediateAccumulator();
+                this.aggregation = accumulatorFactory.createGroupedIntermediateAccumulator(updateMemory);
             }
             this.step = step;
         }
@@ -467,7 +471,9 @@ public class InMemoryHashAggregationBuilder
             types.add(BIGINT);
         }
         for (AccumulatorFactory factory : factories) {
-            types.add(new Aggregator(factory, step, Optional.empty()).getType());
+            // Create an aggregator just to figure out the output type
+            // It is fine not to specify a memory reservation callback as it doesn't accept any input
+            types.add(new Aggregator(factory, step, Optional.empty(), UpdateMemory.NOOP).getType());
         }
         return types.build();
     }
