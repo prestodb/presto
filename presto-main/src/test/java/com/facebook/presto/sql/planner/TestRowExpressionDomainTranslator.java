@@ -1139,6 +1139,13 @@ public class TestRowExpressionDomainTranslator
         assertTrue(tupleDomain.isAll());
     }
 
+    @Test
+    public void testFromPredicateBoolean()
+    {
+        testSimpleComparison(C_BOOLEAN, C_BOOLEAN, Domain.singleValue(BOOLEAN, Boolean.TRUE));
+        testSimpleComparison(not(C_BOOLEAN), C_BOOLEAN, Domain.singleValue(BOOLEAN, Boolean.FALSE));
+    }
+
     private void assertPredicateTranslates(RowExpression expression, TupleDomain<VariableReferenceExpression> tupleDomain)
     {
         ExtractionResult result = fromPredicate(expression);
