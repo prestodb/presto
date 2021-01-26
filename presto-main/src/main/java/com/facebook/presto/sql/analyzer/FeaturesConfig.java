@@ -173,6 +173,7 @@ public class FeaturesConfig
     private boolean checkAccessControlOnUtilizedColumnsOnly;
     private boolean skipRedundantSort = true;
     private boolean optimizeUnionOverValues = true;
+    private boolean isAllowWindowOrderByLiterals = true;
 
     private String warnOnNoTableLayoutFilter = "";
 
@@ -1488,6 +1489,18 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeUnionOverValues(boolean optimizeUnionOverValues)
     {
         this.optimizeUnionOverValues = optimizeUnionOverValues;
+        return this;
+    }
+
+    public boolean isAllowWindowOrderByLiterals()
+    {
+        return isAllowWindowOrderByLiterals;
+    }
+
+    @Config("is-allow-window-order-by-literals")
+    public FeaturesConfig setAllowWindowOrderByLiterals(boolean value)
+    {
+        this.isAllowWindowOrderByLiterals = value;
         return this;
     }
 }

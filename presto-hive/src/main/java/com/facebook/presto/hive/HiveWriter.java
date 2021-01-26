@@ -128,7 +128,8 @@ public class HiveWriter
                 ImmutableList.of(new FileWriteInfo(fileWriteInfo.getWriteFileName(), fileWriteInfo.getTargetFileName(), fileStatistics.map(statisticsPage -> getFileSize(statisticsPage, 0)))),
                 rowCount,
                 inputSizeInBytes,
-                fileWriter.getWrittenBytes());
+                fileWriter.getWrittenBytes(),
+                fileWriteInfo.getWriteFileName().matches("\\d+"));
     }
 
     @Override

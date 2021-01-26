@@ -81,6 +81,42 @@ public class TestAdaptiveLongBigArray
         array.set(MAX_SEGMENT_LENGTH + 3 * INITIAL_SEGMENT_LENGTH, 0xBEAFDEAD);
         assertEquals(array.get(MAX_SEGMENT_LENGTH + 3 * INITIAL_SEGMENT_LENGTH), 0xBEAFDEAD);
         assertEquals(array.getRetainedSizeInBytes(), expectedRetainedMemorySize(2, MAX_SEGMENT_LENGTH));
+
+        array = new AdaptiveLongBigArray();
+        array.ensureCapacity(1);
+        array.set(0, 0xDEADBEAF);
+        assertEquals(array.get(0), 0xDEADBEAF);
+        assertEquals(array.getRetainedSizeInBytes(), expectedRetainedMemorySize(1, INITIAL_SEGMENT_LENGTH));
+        array.ensureCapacity(MAX_SEGMENT_LENGTH + 3 * INITIAL_SEGMENT_LENGTH + 1);
+        array.set(MAX_SEGMENT_LENGTH + 3 * INITIAL_SEGMENT_LENGTH, 0xBEAFDEAD);
+        assertEquals(array.get(MAX_SEGMENT_LENGTH + 3 * INITIAL_SEGMENT_LENGTH), 0xBEAFDEAD);
+        array.set(INITIAL_SEGMENT_LENGTH + 1, 0xDEADBEAF);
+        assertEquals(array.get(INITIAL_SEGMENT_LENGTH + 1), 0xDEADBEAF);
+        assertEquals(array.getRetainedSizeInBytes(), expectedRetainedMemorySize(2, MAX_SEGMENT_LENGTH));
+    }
+
+    @Test
+    public void testSwap()
+    {
+        AdaptiveLongBigArray array = new AdaptiveLongBigArray();
+        // swap within a segment
+        array.ensureCapacity(10);
+        array.set(1, 0xDEADBEAF);
+        assertEquals(array.get(1), 0xDEADBEAF);
+        array.set(9, 0xBEAFDEAD);
+        assertEquals(array.get(9), 0xBEAFDEAD);
+        array.swap(1, 9);
+        assertEquals(array.get(1), 0xBEAFDEAD);
+        assertEquals(array.get(9), 0xDEADBEAF);
+        // swap between segments
+        array.ensureCapacity(MAX_SEGMENT_LENGTH + 1);
+        array.set(1, 0xDEADBEAF);
+        assertEquals(array.get(1), 0xDEADBEAF);
+        array.set(MAX_SEGMENT_LENGTH + 9, 0xBEAFDEAD);
+        assertEquals(array.get(MAX_SEGMENT_LENGTH + 9), 0xBEAFDEAD);
+        array.swap(1, MAX_SEGMENT_LENGTH + 9);
+        assertEquals(array.get(1), 0xBEAFDEAD);
+        assertEquals(array.get(MAX_SEGMENT_LENGTH + 9), 0xDEADBEAF);
     }
 
     private static long expectedRetainedMemorySize(int segments, int lastSegmentLength)

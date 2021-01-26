@@ -30,6 +30,7 @@ import com.facebook.presto.orc.stream.ByteArrayInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -39,6 +40,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.array.Arrays.ExpansionFactor.SMALL;
+import static com.facebook.presto.orc.array.Arrays.ExpansionOption.INITIALIZE;
 import static com.facebook.presto.orc.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -409,6 +412,10 @@ public class SliceDirectSelectiveStreamReader
             if (filter.testLength(lengthVector[position])) {
                 outputPositions[positionsIndex++] = position;  // compact positions on the fly
             }
+            else {
+                i += filter.getSucceedingPositionsToFail();
+                positionsIndex -= filter.getPrecedingPositionsToFail();
+            }
         }
 
         int filteredPositionCount = 0;
@@ -434,15 +441,17 @@ public class SliceDirectSelectiveStreamReader
             convertLengthVectorToOffsetVector(lengthVector, isNullVector, totalPositionCount, offsets);
         }
 
-        boolean testNull = (nonDeterministicFilter && filter.testNull()) || nullsAllowed;
-
         int positionsIndex = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
 
             if (isNullVector[position]) {
-                if (testNull) {
+                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
                     outputPositions[positionsIndex++] = position;
+                }
+                else {
+                    i += filter.getSucceedingPositionsToFail();
+                    positionsIndex -= filter.getPrecedingPositionsToFail();
                 }
             }
             else {
@@ -451,6 +460,10 @@ public class SliceDirectSelectiveStreamReader
 
                 if (filter.testLength(length) && filter.testBytes(data, dataOffset, length)) {
                     outputPositions[positionsIndex++] = position;  // compact positions on the fly
+                }
+                else {
+                    i += filter.getSucceedingPositionsToFail();
+                    positionsIndex -= filter.getPrecedingPositionsToFail();
                 }
             }
         }
@@ -468,6 +481,10 @@ public class SliceDirectSelectiveStreamReader
             int length = offsets[position + 1] - dataOffset;
             if (filter.testBytes(data, dataOffset, length)) {
                 positions[positionsIndex++] = position;
+            }
+            else {
+                i += filter.getSucceedingPositionsToFail();
+                positionsIndex -= filter.getPrecedingPositionsToFail();
             }
         }
         return positionsIndex;
@@ -626,6 +643,12 @@ public class SliceDirectSelectiveStreamReader
         return INSTANCE_SIZE + sizeOf(offsets) + sizeOf(outputPositions) + sizeOf(data) + sizeOf(nulls) + sizeOf(lengthVector) + sizeOf(isNullVector);
     }
 
+    @VisibleForTesting
+    public void resetDataStream()
+    {
+        dataStream = null;
+    }
+
     private int prepareForNextRead(int positionCount, int[] positions)
             throws IOException
     {
@@ -688,13 +711,13 @@ public class SliceDirectSelectiveStreamReader
             }
             dataLength = totalLength;
             data = ensureCapacity(data, totalLength);
-            offsets = ensureCapacity(offsets, totalPositions + 1);
+            offsets = ensureCapacity(offsets, totalPositions + 1, SMALL, INITIALIZE);
         }
         else {
             if (useBatchMode(positionCount, totalPositions)) {
                 dataLength = totalLength;
                 if (filter != null) {
-                    offsets = ensureCapacity(offsets, totalPositions + 1);
+                    offsets = ensureCapacity(offsets, totalPositions + 1, SMALL, INITIALIZE);
                 }
             }
             else {
@@ -710,31 +733,30 @@ public class SliceDirectSelectiveStreamReader
 
     private boolean useBatchMode(int positionCount, int totalPositionCount)
     {
-        return true;
         // maxCodePointCount < 0 means it's unbounded varchar VARCHAR.
         // If the types are VARCHAR(N) or CHAR(N), the length of the string need to be calculated and truncated.
-//        if (lengthStream == null || maxCodePointCount >= 0) {
-//            return false;
-//        }
-//
-//        double inputFilterRate = (double) (totalPositionCount - positionCount) / totalPositionCount;
-//        if (filter == null) {  // readNoFilter
-//            // When there is no filter, batch mode performs better for almost all inputFilterRate.
-//            // But to limit data buffer size, we enable it for the range of [0.0f, 0.5f]
-//            if (inputFilterRate >= 0.0f && inputFilterRate <= 0.5f) {
-//                return true;
-//            }
-//
-//            return false;
-//        }
-//        else { // readWithFilter
-//            // When there is filter, batch mode performs better for almost all inputFilterRate except when inputFilterRate is around 0.1f.
-//            // To limit data buffer size, we enable it for the range of [0.0f, 0.05f] and [0.15f, 0.5f]
-//            if (inputFilterRate >= 0.0f && inputFilterRate <= 0.05f || inputFilterRate >= 0.15f && inputFilterRate <= 0.5f) {
-//                return true;
-//            }
-//
-//            return false;
-//        }
+        if (lengthStream == null || maxCodePointCount >= 0) {
+            return false;
+        }
+
+        double inputFilterRate = (double) (totalPositionCount - positionCount) / totalPositionCount;
+        if (filter == null) {  // readNoFilter
+            // When there is no filter, batch mode performs better for almost all inputFilterRate.
+            // But to limit data buffer size, we enable it for the range of [0.0f, 0.5f]
+            if (inputFilterRate >= 0.0f && inputFilterRate <= 0.5f) {
+                return true;
+            }
+
+            return false;
+        }
+        else { // readWithFilter
+            // When there is filter, batch mode performs better for almost all inputFilterRate except when inputFilterRate is around 0.1f.
+            // To limit data buffer size, we enable it for the range of [0.0f, 0.05f] and [0.15f, 0.5f]
+            if (inputFilterRate >= 0.0f && inputFilterRate <= 0.05f || inputFilterRate >= 0.15f && inputFilterRate <= 0.5f) {
+                return true;
+            }
+
+            return false;
+        }
     }
 }

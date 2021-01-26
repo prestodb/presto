@@ -172,6 +172,7 @@ public final class SystemSessionProperties
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
     public static final String OPTIMIZE_UNION_OVER_VALUES = "optimize_union_over_values";
+    public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -896,12 +897,22 @@ public final class SystemSessionProperties
                         OPTIMIZE_UNION_OVER_VALUES,
                         "Merge values nodes under union operator",
                         featuresConfig.isOptimizeUnionOverValues(),
+                        false),
+                booleanProperty(
+                        ALLOW_WINDOW_ORDER_BY_LITERALS,
+                        "Allow ORDER BY literals in window functions",
+                        featuresConfig.isAllowWindowOrderByLiterals(),
                         false));
     }
 
     public static boolean isSkipRedundantSort(Session session)
     {
         return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
+    }
+
+    public static boolean isAllowWindowOrderByLiterals(Session session)
+    {
+        return session.getSystemProperty(ALLOW_WINDOW_ORDER_BY_LITERALS, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

@@ -398,6 +398,7 @@ public class OrcWriter
             stripeStartOffset += MAGIC.length();
         }
 
+        flushColumnWriters(flushReason);
         try {
             // add stripe data
             outputData.addAll(bufferStripeData(stripeStartOffset, flushReason));
@@ -419,6 +420,23 @@ public class OrcWriter
         }
     }
 
+    private void flushColumnWriters(FlushReason flushReason)
+    {
+        if (stripeRowCount == 0) {
+            verify(flushReason == CLOSED, "An empty stripe is not allowed");
+        }
+        else {
+            if (rowGroupRowCount > 0) {
+                finishRowGroup();
+            }
+
+            // convert any dictionary encoded column with a low compression ratio to direct
+            dictionaryCompressionOptimizer.finalOptimize(bufferedBytes);
+        }
+
+        columnWriters.forEach(ColumnWriter::close);
+    }
+
     /**
      * Collect the data for for the stripe.  This is not the actual data, but
      * instead are functions that know how to write the data.
@@ -427,20 +445,8 @@ public class OrcWriter
             throws IOException
     {
         if (stripeRowCount == 0) {
-            verify(flushReason == CLOSED, "An empty stripe is not allowed");
-            // column writers must be closed or the reset call will fail
-            columnWriters.forEach(ColumnWriter::close);
             return ImmutableList.of();
         }
-
-        if (rowGroupRowCount > 0) {
-            finishRowGroup();
-        }
-
-        // convert any dictionary encoded column with a low compression ratio to direct
-        dictionaryCompressionOptimizer.finalOptimize(bufferedBytes);
-
-        columnWriters.forEach(ColumnWriter::close);
 
         List<DataOutput> outputData = new ArrayList<>();
         List<Stream> unencryptedStreams = new ArrayList<>(columnWriters.size() * 3);

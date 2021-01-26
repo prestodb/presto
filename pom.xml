@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.246-SNAPSHOT</version>
+    <version>0.247-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -164,6 +164,7 @@
         <module>presto-druid</module>
         <module>presto-common</module>
         <module>presto-thrift-testing-udf-server</module>
+        <module>presto-thrift-spec</module>
     </modules>
 
     <dependencyManagement>
@@ -1692,13 +1693,13 @@
             <dependency>
                 <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
-                <version>1.17.0</version>
+                <version>1.18.0</version>
             </dependency>
 
             <dependency>
                 <groupId>org.locationtech.jts.io</groupId>
                 <artifactId>jts-io-common</artifactId>
-                <version>1.17.0</version>
+                <version>1.18.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>junit</groupId>

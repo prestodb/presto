@@ -14,7 +14,7 @@
 
 package com.facebook.presto.type;
 
-import com.facebook.presto.common.type.LongEnumType;
+import com.facebook.presto.common.type.BigintEnumType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharEnumType;
@@ -58,7 +58,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType("T")
     public static long castBigintToEnum(@TypeParameter("T") Type enumType, @SqlType(BIGINT) long value)
     {
@@ -66,7 +66,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType("T")
     public static long castIntegerToEnum(@TypeParameter("T") Type enumType, @SqlType(StandardTypes.INTEGER) long value)
     {
@@ -74,7 +74,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType("T")
     public static long castSmallintToEnum(@TypeParameter("T") Type enumType, @SqlType(StandardTypes.SMALLINT) long value)
     {
@@ -82,7 +82,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType("T")
     public static long castTinyintToEnum(@TypeParameter("T") Type enumType, @SqlType(StandardTypes.TINYINT) long value)
     {
@@ -91,7 +91,7 @@ public final class EnumCasts
 
     private static long castLongToEnum(Type enumType, long value)
     {
-        if (!((LongEnumType) enumType).getEnumMap().values().contains(value)) {
+        if (!((BigintEnumType) enumType).getEnumMap().values().contains(value)) {
             throw new PrestoException(INVALID_CAST_ARGUMENT,
                     String.format(
                             "No value '%d' in enum '%s'",
@@ -102,7 +102,7 @@ public final class EnumCasts
     }
 
     @ScalarOperator(CAST)
-    @TypeParameter(value = "T", boundedBy = LongEnumType.class)
+    @TypeParameter(value = "T", boundedBy = BigintEnumType.class)
     @SqlType(BIGINT)
     public static long castEnumToBigint(@SqlType("T") long value)
     {

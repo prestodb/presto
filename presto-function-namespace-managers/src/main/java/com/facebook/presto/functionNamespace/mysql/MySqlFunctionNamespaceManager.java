@@ -13,12 +13,10 @@
  */
 package com.facebook.presto.functionNamespace.mysql;
 
-import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.type.LongEnumParametricType;
-import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.common.type.VarcharEnumParametricType;
+import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.AbstractSqlInvokedFunctionNamespaceManager;
 import com.facebook.presto.functionNamespace.InvalidFunctionHandleException;
 import com.facebook.presto.functionNamespace.ServingCatalog;
@@ -35,7 +33,6 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.google.common.collect.ImmutableList;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.PostConstruct;
@@ -46,7 +43,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -71,7 +67,6 @@ public class MySqlFunctionNamespaceManager
     private static final int MAX_PARAMETER_NAME_LENGTH = 100;
     private static final int MAX_PARAMETER_TYPES_LENGTH = 30000;
     private static final int MAX_RETURN_TYPE_LENGTH = 30000;
-    private static final JsonCodec<List<String>> TYPE_PARAMETERS_CODEC = listJsonCodec(String.class);
     private final Jdbi jdbi;
     private final FunctionNamespaceDao functionNamespaceDao;
     private final Class<? extends FunctionNamespaceDao> functionNamespaceDaoClass;
@@ -106,33 +101,28 @@ public class MySqlFunctionNamespaceManager
     }
 
     @Override
-    public void addParametricType(ParametricType type)
+    public void addUserDefinedType(UserDefinedType type)
     {
-        checkArgument(type instanceof LongEnumParametricType || type instanceof VarcharEnumParametricType, format("Expect enum types, get %s", type.getClass().getName()));
-        String typeParameter;
-        if (type instanceof LongEnumParametricType) {
-            typeParameter = ((LongEnumParametricType) type).getEnumMap().toString();
-        }
-        else {
-            typeParameter = ((VarcharEnumParametricType) type).getEnumMap().toString();
-        }
-        QualifiedObjectName typeName = type.getTypeSignatureBase().getQualifiedObjectName();
+        TypeSignature physicalType = type.getPhysicalTypeSignature();
+        checkArgument(physicalType.getParameters().size() == 1, "Expect enum types to only have 1 type parameter");
+        TypeSignatureParameter parameter = physicalType.getParameters().get(0);
+        checkArgument(parameter.isLongEnum() || parameter.isVarcharEnum(), format("Expect enum type but get %s", parameter.getKind()));
         jdbi.useTransaction(handle -> {
             FunctionNamespaceDao transactionDao = handle.attach(functionNamespaceDaoClass);
+            QualifiedObjectName typeName = type.getUserDefinedTypeName();
             if (functionNamespaceDao.enumTypeExists(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName())) {
                 throw new PrestoException(ALREADY_EXISTS, format("Type %s already exists", typeName));
             }
-            transactionDao.insertEnumType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName(), TYPE_PARAMETERS_CODEC.toJson(ImmutableList.of(typeParameter)));
+            transactionDao.insertEnumType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName(), type.getPhysicalTypeSignature().toString());
         });
     }
 
     @Override
-    public ParametricType fetchParametricTypeDirect(TypeSignature typeSignature)
+    public UserDefinedType fetchUserDefinedTypeDirect(QualifiedObjectName typeName)
     {
-        QualifiedObjectName typeName = typeSignature.getTypeSignatureBase().getQualifiedObjectName();
-        Optional<ParametricType> type = functionNamespaceDao.getEnumParametricType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName());
+        Optional<UserDefinedType> type = functionNamespaceDao.getEnumType(typeName.getCatalogName(), typeName.getSchemaName(), typeName.getObjectName());
         if (!type.isPresent()) {
-            throw new PrestoException(NOT_FOUND, format("Type %s not found", typeSignature));
+            throw new PrestoException(NOT_FOUND, format("Type %s not found", typeName));
         }
         return type.get();
     }

@@ -80,7 +80,7 @@ public class AdaptiveLongBigArray
         long[] firstSegment = array[segment(first)];
         int firstOffset = offset(first);
 
-        long[] secondSegment = array[segment(first)];
+        long[] secondSegment = array[segment(second)];
         int secondOffset = offset(second);
 
         long tmp = firstSegment[firstOffset];
@@ -100,7 +100,11 @@ public class AdaptiveLongBigArray
 
         // expand segments array if needed
         if (segment >= array.length) {
-            array = Arrays.copyOf(array, array.length * 2);
+            int segmentsArrayCapacity = array.length;
+            while (segment >= segmentsArrayCapacity) {
+                segmentsArrayCapacity *= 2;
+            }
+            array = Arrays.copyOf(array, segmentsArrayCapacity);
         }
 
         if (segment == 0) {
@@ -120,6 +124,9 @@ public class AdaptiveLongBigArray
             for (int i = 0; i <= segment; i++) {
                 if (array[i] == null) {
                     array[i] = new long[MAX_SEGMENT_LENGTH];
+                }
+                if (i == 0 && array[0].length < MAX_SEGMENT_LENGTH) {
+                    array[0] = Arrays.copyOf(array[0], MAX_SEGMENT_LENGTH);
                 }
             }
         }

@@ -316,6 +316,11 @@ public class SqlTaskManager
         return ImmutableList.copyOf(tasks.asMap().values());
     }
 
+    public SqlTask getTask(TaskId taskId)
+    {
+        return tasks.getUnchecked(taskId);
+    }
+
     @Override
     public List<TaskInfo> getAllTaskInfo()
     {
@@ -524,7 +529,7 @@ public class SqlTaskManager
         // already merged the final stats, we could miss the stats from this task
         // which would result in an under-count, but we will not get an over-count.
         tasks.asMap().values().stream()
-                .filter(task -> !task.getTaskStatus().getState().isDone())
+                .filter(task -> !task.getTaskState().isDone())
                 .forEach(task -> tempIoStats.merge(task.getIoStats()));
 
         cachedStats.resetTo(tempIoStats);

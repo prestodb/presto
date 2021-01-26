@@ -127,7 +127,7 @@ final class FixJsonDataUtils
         if (signature.isVarcharEnum()) {
             return String.class.cast(value);
         }
-        if (signature.isLongEnum()) {
+        if (signature.isBigintEnum()) {
             if (value instanceof String) {
                 return Long.parseLong((String) value);
             }

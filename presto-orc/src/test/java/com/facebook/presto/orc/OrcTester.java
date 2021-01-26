@@ -919,20 +919,21 @@ public class OrcTester
                 assertEquals(block.getPositionCount(), positionCount);
                 checkNullValues(type, block);
 
-                List<Object> data = new ArrayList<>(positionCount);
-                for (int position = 0; position < positionCount; position++) {
-                    data.add(type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position));
-                }
-
-                for (int position = 0; position < positionCount; position++) {
-                    assertColumnValueEquals(type, data.get(position), expectedValues.get(i).get(rowsProcessed + position));
-                }
+                assertBlockEquals(type, block, expectedValues.get(i), rowsProcessed);
             }
 
             rowsProcessed += positionCount;
         }
 
         assertEquals(rowsProcessed, expectedValues.get(0).size());
+    }
+
+    static void assertBlockEquals(Type type, Block block, List<?> expectedValues, int offset)
+    {
+        int positionCount = block.getPositionCount();
+        for (int position = 0; position < positionCount; position++) {
+            assertColumnValueEquals(type, type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position), expectedValues.get(offset + position));
+        }
     }
 
     private static Map<Integer, Map<Subfield, TupleDomainFilter>> addOrderTracking(Map<Integer, Map<Subfield, TupleDomainFilter>> filters, TupleDomainFilterOrderChecker orderChecker)
@@ -1042,14 +1043,7 @@ public class OrcTester
                         assertEquals(block.getPositionCount(), batchSize);
                         checkNullValues(type, block);
 
-                        List<Object> data = new ArrayList<>(block.getPositionCount());
-                        for (int position = 0; position < block.getPositionCount(); position++) {
-                            data.add(type.getObjectValue(SESSION.getSqlFunctionProperties(), block, position));
-                        }
-
-                        for (int position = 0; position < block.getPositionCount(); position++) {
-                            assertColumnValueEquals(type, data.get(position), expectedValues.get(i).get(rowsProcessed + position));
-                        }
+                        assertBlockEquals(type, block, expectedValues.get(i), rowsProcessed);
                     }
                 }
                 assertEquals(recordReader.getReaderPosition(), rowsProcessed);
@@ -1107,7 +1101,7 @@ public class OrcTester
             if (nestedType instanceof ArrayType) {
                 assertTrue(pathElement instanceof Subfield.LongSubscript);
                 if (nestedValue == null) {
-                    return filter == IS_NULL;
+                    return filter.testNull();
                 }
                 int index = toIntExact(((Subfield.LongSubscript) pathElement).getIndex()) - 1;
                 nestedType = ((ArrayType) nestedType).getElementType();
@@ -1350,7 +1344,7 @@ public class OrcTester
         return builder.build();
     }
 
-    private static void assertColumnValueEquals(Type type, Object actual, Object expected)
+    public static void assertColumnValueEquals(Type type, Object actual, Object expected)
     {
         if (actual == null) {
             assertEquals(actual, expected);

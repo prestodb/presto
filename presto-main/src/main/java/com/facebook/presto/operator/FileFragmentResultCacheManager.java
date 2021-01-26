@@ -29,6 +29,7 @@ import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
+import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
@@ -153,6 +154,7 @@ public class FileFragmentResultCacheManager
             try (SliceOutput output = new OutputStreamSliceOutput(newOutputStream(path, APPEND))) {
                 writePages(pagesSerde, output, pages.iterator());
                 cache.put(key, path);
+                fragmentCacheStats.incrementCacheEntries();
             }
             catch (UncheckedIOException | IOException e) {
                 log.warn(e, "%s encountered an error while writing to path %s", Thread.currentThread().getName(), path);
@@ -202,6 +204,12 @@ public class FileFragmentResultCacheManager
             fragmentCacheStats.incrementCacheMiss();
             return Optional.empty();
         }
+    }
+
+    @Managed
+    public void invalidateAllCache()
+    {
+        cache.invalidateAll();
     }
 
     private static <T> Iterator<T> closeWhenExhausted(Iterator<T> iterator, Closeable resource)
@@ -277,6 +285,8 @@ public class FileFragmentResultCacheManager
         public void onRemoval(RemovalNotification<CacheKey, Path> notification)
         {
             removalExecutor.submit(() -> tryDeleteFile(notification.getValue()));
+            fragmentCacheStats.incrementCacheRemoval();
+            fragmentCacheStats.decrementCacheEntries();
         }
     }
 }

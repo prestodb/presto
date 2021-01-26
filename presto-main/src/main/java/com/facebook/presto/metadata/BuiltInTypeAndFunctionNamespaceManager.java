@@ -23,7 +23,10 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFunction;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
@@ -206,6 +209,7 @@ import com.facebook.presto.type.IpAddressOperators;
 import com.facebook.presto.type.IpPrefixOperators;
 import com.facebook.presto.type.LikeFunctions;
 import com.facebook.presto.type.LongEnumOperators;
+import com.facebook.presto.type.MapParametricType;
 import com.facebook.presto.type.QuantileDigestOperators;
 import com.facebook.presto.type.RealOperators;
 import com.facebook.presto.type.SmallintOperators;
@@ -242,6 +246,7 @@ import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -253,6 +258,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.common.function.OperatorType.tryGetOperatorType;
+import static com.facebook.presto.common.type.BigintEnumParametricType.BIGINT_ENUM;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -272,6 +278,7 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.common.type.VarcharEnumParametricType.VARCHAR_ENUM;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
@@ -424,6 +431,7 @@ import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -445,6 +453,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
+    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
     private final MagicLiteralFunction magicLiteralFunction;
 
     private volatile FunctionMap functions = new FunctionMap();
@@ -501,6 +510,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
                             .specialize(key.getBoundVariables(), key.getArity(), functionAndTypeManager);
                 }));
 
+        parametricTypeCache = CacheBuilder.newBuilder()
+                .maximumSize(1000)
+                .build(CacheLoader.from(this::instantiateParametricType));
+
         registerBuiltInFunctions(getBuildInFunctions(featuresConfig));
         registerBuiltInTypes();
 
@@ -552,6 +565,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addParametricType(FUNCTION);
         addParametricType(QDIGEST);
         addParametricType(TDIGEST);
+        addParametricType(BIGINT_ENUM);
+        addParametricType(VARCHAR_ENUM);
     }
 
     private List<? extends SqlFunction> getBuildInFunctions(FeaturesConfig featuresConfig)
@@ -724,7 +739,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalar(ArrayNotEqualOperator.class)
                 .scalar(ArrayEqualOperator.class)
                 .scalar(ArrayHashCodeOperator.class)
-                .scalar(ArrayIntersectFunction.class)
+                .scalars(ArrayIntersectFunction.class)
                 .scalar(ArraysOverlapFunction.class)
                 .scalar(ArrayDistinctFromOperator.class)
                 .scalar(ArrayUnionFunction.class)
@@ -817,6 +832,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .function(MergeTDigestFunction.MERGE)
                 .sqlInvokedScalar(MapNormalizeFunction.class)
                 .sqlInvokedScalars(ArrayArithmeticFunctions.class)
+                .sqlInvokedScalars(ArrayIntersectFunction.class)
                 .scalar(DynamicFilterPlaceholderFunction.class)
                 .scalars(EnumCasts.class)
                 .scalars(LongEnumOperators.class)
@@ -847,6 +863,12 @@ public class BuiltInTypeAndFunctionNamespaceManager
             }
         }
         this.functions = new FunctionMap(this.functions, functions);
+    }
+
+    @Override
+    public void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde)
+    {
+        // Do not need to do anything here since BlockEncodingSerde is passed in constructor
     }
 
     @Override
@@ -963,6 +985,18 @@ public class BuiltInTypeAndFunctionNamespaceManager
         throw new IllegalStateException("Builtin function execution should be handled by the engine.");
     }
 
+    @Override
+    public void addUserDefinedType(UserDefinedType userDefinedType)
+    {
+        throw new UnsupportedOperationException("User defined type is not supported");
+    }
+
+    @Override
+    public Optional<UserDefinedType> getUserDefinedType(QualifiedObjectName typeName)
+    {
+        throw new UnsupportedOperationException("User defined type is not supported");
+    }
+
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
     {
         checkArgument(functionHandle instanceof BuiltInFunctionHandle, "Expect BuiltInFunctionHandle");
@@ -1018,13 +1052,17 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     public Optional<Type> getType(TypeSignature typeSignature)
     {
-        return Optional.ofNullable(types.get(typeSignature));
-    }
-
-    @Override
-    public Optional<ParametricType> getParametricType(TypeSignature typeSignature)
-    {
-        return Optional.ofNullable(parametricTypes.get(typeSignature.getBase().toLowerCase(Locale.ENGLISH)));
+        Type type = types.get(typeSignature);
+        if (type != null) {
+            return Optional.of(type);
+        }
+        try {
+            return Optional.ofNullable(parametricTypeCache.getUnchecked(typeSignature));
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfUnchecked(e.getCause());
+            throw new RuntimeException(e.getCause());
+        }
     }
 
     public List<Type> getTypes()
@@ -1048,7 +1086,32 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     public Collection<ParametricType> getParametricTypes()
     {
-        return ImmutableList.copyOf(parametricTypes.values());
+        return parametricTypes.values();
+    }
+
+    private Type instantiateParametricType(TypeSignature signature)
+    {
+        List<TypeParameter> parameters = new ArrayList<>();
+
+        for (TypeSignatureParameter parameter : signature.getParameters()) {
+            TypeParameter typeParameter = TypeParameter.of(parameter, functionAndTypeManager);
+            parameters.add(typeParameter);
+        }
+
+        ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
+        if (parametricType == null) {
+            throw new IllegalArgumentException("Unknown type " + signature);
+        }
+
+        if (parametricType instanceof MapParametricType) {
+            return ((MapParametricType) parametricType).createType(functionAndTypeManager, parameters);
+        }
+
+        Type instantiatedType = parametricType.createType(parameters);
+
+        // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
+        //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
+        return instantiatedType;
     }
 
     private SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)

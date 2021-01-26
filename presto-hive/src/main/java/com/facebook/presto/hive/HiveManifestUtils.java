@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.github.luben.zstd.Zstd;
 import com.google.common.base.Joiner;
@@ -31,11 +32,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.stream.LongStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveErrorCode.MALFORMED_HIVE_FILE_STATISTICS;
+import static com.facebook.presto.hive.HiveSessionProperties.isFileRenamingEnabled;
 import static com.facebook.presto.hive.PartitionUpdate.FileWriteInfo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -112,21 +115,55 @@ public class HiveManifestUtils
         ImmutableMap.Builder<String, String> partitionMetadata = ImmutableMap.builder();
         List<FileWriteInfo> fileWriteInfos = new ArrayList<>(partitionUpdate.getFileWriteInfos());
 
+        if (!partitionUpdate.containsNumberedFileNames()) {
+            // Filenames starting with ".tmp.presto" will be renamed in TableFinishOperator. So it doesn't make sense to store the filenames in manifest
+            return metadata;
+        }
+
         // Sort the file infos based on fileName
         fileWriteInfos.sort(Comparator.comparing(info -> Integer.valueOf(info.getWriteFileName())));
 
+        List<String> fileNames = fileWriteInfos.stream().map(FileWriteInfo::getWriteFileName).collect(toImmutableList());
+        List<Long> fileSizes = fileWriteInfos.stream().map(FileWriteInfo::getFileSize).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
+
+        if (fileSizes.size() < fileNames.size()) {
+            if (fileSizes.isEmpty()) {
+                // These files may not have been written by OrcFileWriter. So file sizes not available.
+                return metadata;
+            }
+            throw new PrestoException(
+                    MALFORMED_HIVE_FILE_STATISTICS,
+                    format(
+                            "During manifest creation for partition= %s, filename count= %s is not equal to filesizes count= %s",
+                            partitionUpdate.getName(),
+                            fileNames.size(),
+                            fileSizes.size()));
+        }
+
         // Compress the file names into a consolidated string
-        String fileNames = compressFileNames(fileWriteInfos.stream().map(FileWriteInfo::getWriteFileName).collect(toImmutableList()));
+        partitionMetadata.put(FILE_NAMES, compressFileNames(fileNames));
 
         // Compress the file sizes
-        String fileSizes = compressFileSizes(fileWriteInfos.stream().map(FileWriteInfo::getFileSize).map(Optional::get).collect(toImmutableList()));
+        partitionMetadata.put(FILE_SIZES, compressFileSizes(fileSizes));
 
-        partitionMetadata.put(FILE_NAMES, fileNames);
-        partitionMetadata.put(FILE_SIZES, fileSizes);
         partitionMetadata.put(MANIFEST_VERSION, VERSION_1);
         partitionMetadata.putAll(metadata);
 
         return partitionMetadata.build();
+    }
+
+    public static OptionalLong getManifestSizeInBytes(ConnectorSession session, PartitionUpdate partitionUpdate, Map<String, String> parameters)
+    {
+        if (isFileRenamingEnabled(session) && partitionUpdate.containsNumberedFileNames()) {
+            if (parameters.containsKey(MANIFEST_VERSION)) {
+                return OptionalLong.of(parameters.get(FILE_NAMES).length() + parameters.get(FILE_SIZES).length());
+            }
+            List<FileWriteInfo> fileWriteInfos = partitionUpdate.getFileWriteInfos();
+            return OptionalLong.of(compressFileNames(fileWriteInfos.stream().map(FileWriteInfo::getWriteFileName).collect(toImmutableList())).length()
+                    + compressFileSizes(fileWriteInfos.stream().map(FileWriteInfo::getFileSize).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList())).length());
+        }
+
+        return OptionalLong.empty();
     }
 
     static String compressFileNames(List<String> fileNames)
