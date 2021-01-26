@@ -508,7 +508,8 @@ public class HashAggregationOperator
     private Page getGlobalAggregationOutput()
     {
         List<Accumulator> accumulators = accumulatorFactories.stream()
-                .map(AccumulatorFactory::createAccumulator)
+                // No input will be added to the accumulators, it is ok not to specify the memory callback
+                .map(accumulatorFactory -> accumulatorFactory.createAccumulator(UpdateMemory.NOOP))
                 .collect(Collectors.toList());
 
         // global aggregation output page will only be constructed once,

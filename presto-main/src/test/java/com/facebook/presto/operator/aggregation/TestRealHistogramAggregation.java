@@ -18,6 +18,7 @@ import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
@@ -54,15 +55,15 @@ public class TestRealHistogramAggregation
     @Test
     public void test()
     {
-        Accumulator singleStep = factory.createAccumulator();
+        Accumulator singleStep = factory.createAccumulator(UpdateMemory.NOOP);
         singleStep.addInput(input);
         Block expected = getFinalBlock(singleStep);
 
-        Accumulator partialStep = factory.createAccumulator();
+        Accumulator partialStep = factory.createAccumulator(UpdateMemory.NOOP);
         partialStep.addInput(input);
         Block partialBlock = getIntermediateBlock(partialStep);
 
-        Accumulator finalStep = factory.createAccumulator();
+        Accumulator finalStep = factory.createAccumulator(UpdateMemory.NOOP);
         finalStep.addIntermediate(partialBlock);
         Block actual = getFinalBlock(finalStep);
 
@@ -72,15 +73,15 @@ public class TestRealHistogramAggregation
     @Test
     public void testMerge()
     {
-        Accumulator singleStep = factory.createAccumulator();
+        Accumulator singleStep = factory.createAccumulator(UpdateMemory.NOOP);
         singleStep.addInput(input);
         Block singleStepResult = getFinalBlock(singleStep);
 
-        Accumulator partialStep = factory.createAccumulator();
+        Accumulator partialStep = factory.createAccumulator(UpdateMemory.NOOP);
         partialStep.addInput(input);
         Block intermediate = getIntermediateBlock(partialStep);
 
-        Accumulator finalStep = factory.createAccumulator();
+        Accumulator finalStep = factory.createAccumulator(UpdateMemory.NOOP);
 
         finalStep.addIntermediate(intermediate);
         finalStep.addIntermediate(intermediate);
@@ -94,7 +95,7 @@ public class TestRealHistogramAggregation
     @Test
     public void testNull()
     {
-        Accumulator accumulator = factory.createAccumulator();
+        Accumulator accumulator = factory.createAccumulator(UpdateMemory.NOOP);
         Block result = getFinalBlock(accumulator);
 
         assertTrue(result.getPositionCount() == 1);
@@ -104,7 +105,7 @@ public class TestRealHistogramAggregation
     @Test(expectedExceptions = PrestoException.class)
     public void testBadNumberOfBuckets()
     {
-        Accumulator singleStep = factory.createAccumulator();
+        Accumulator singleStep = factory.createAccumulator(UpdateMemory.NOOP);
         singleStep.addInput(makeInput(0));
         getFinalBlock(singleStep);
     }

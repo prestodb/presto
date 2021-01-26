@@ -125,7 +125,7 @@ public class GenericAccumulatorFactory
     }
 
     @Override
-    public Accumulator createAccumulator()
+    public Accumulator createAccumulator(UpdateMemory updateMemory)
     {
         Accumulator accumulator;
 
@@ -141,7 +141,7 @@ public class GenericAccumulatorFactory
                     .map(sourceTypes::get)
                     .collect(Collectors.toList());
 
-            accumulator = new DistinctingAccumulator(accumulator, argumentTypes, inputChannels, maskChannel, session, joinCompiler);
+            accumulator = new DistinctingAccumulator(accumulator, argumentTypes, inputChannels, maskChannel, session, joinCompiler, updateMemory);
         }
         else {
             accumulator = instantiateAccumulator(inputChannels, maskChannel);
@@ -166,9 +166,9 @@ public class GenericAccumulatorFactory
     }
 
     @Override
-    public GroupedAccumulator createGroupedAccumulator()
+    public GroupedAccumulator createGroupedAccumulator(UpdateMemory updateMemory)
     {
-        GroupedAccumulator accumulator = createGenericGroupedAccumulator();
+        GroupedAccumulator accumulator = createGenericGroupedAccumulator(updateMemory);
         if (!spillEnabled || (!hasDistinct() && !hasOrderBy())) {
             return accumulator;
         }
@@ -178,7 +178,7 @@ public class GenericAccumulatorFactory
     }
 
     @Override
-    public GroupedAccumulator createGroupedIntermediateAccumulator()
+    public GroupedAccumulator createGroupedIntermediateAccumulator(UpdateMemory updateMemory)
     {
         if (!hasOrderBy() && !hasDistinct()) {
             try {
@@ -188,7 +188,7 @@ public class GenericAccumulatorFactory
                 throw new RuntimeException(e);
             }
         }
-        return createGroupedAccumulator();
+        return createGroupedAccumulator(updateMemory);
     }
 
     @Override
@@ -203,7 +203,7 @@ public class GenericAccumulatorFactory
         return distinct;
     }
 
-    private GroupedAccumulator createGenericGroupedAccumulator()
+    private GroupedAccumulator createGenericGroupedAccumulator(UpdateMemory updateMemory)
     {
         GroupedAccumulator accumulator;
 
@@ -220,7 +220,7 @@ public class GenericAccumulatorFactory
                 argumentTypes.add(sourceTypes.get(input));
             }
 
-            accumulator = new DistinctingGroupedAccumulator(accumulator, argumentTypes, inputChannels, maskChannel, session, joinCompiler);
+            accumulator = new DistinctingGroupedAccumulator(accumulator, argumentTypes, inputChannels, maskChannel, session, joinCompiler, updateMemory);
         }
         else {
             accumulator = instantiateGroupedAccumulator(inputChannels, maskChannel);
@@ -266,12 +266,24 @@ public class GenericAccumulatorFactory
                 List<Integer> inputs,
                 Optional<Integer> maskChannel,
                 Session session,
-                JoinCompiler joinCompiler)
+                JoinCompiler joinCompiler,
+                UpdateMemory updateMemory)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
 
-            hash = new MarkDistinctHash(session, inputTypes, Ints.toArray(inputs), Optional.empty(), joinCompiler, UpdateMemory.NOOP);
+            hash = new MarkDistinctHash(
+                    session,
+                    inputTypes,
+                    Ints.toArray(inputs),
+                    Optional.empty(),
+                    joinCompiler,
+                    () -> {
+                        // enforce task memory limits for fast throw
+                        updateMemory.update();
+                        // never block, as addInput doesn't support yield semantics
+                        return true;
+                    });
         }
 
         @Override
@@ -364,7 +376,8 @@ public class GenericAccumulatorFactory
                 List<Integer> inputChannels,
                 Optional<Integer> maskChannel,
                 Session session,
-                JoinCompiler joinCompiler)
+                JoinCompiler joinCompiler,
+                UpdateMemory updateMemory)
         {
             this.accumulator = requireNonNull(accumulator, "accumulator is null");
             this.maskChannel = requireNonNull(maskChannel, "maskChannel is null");
@@ -380,7 +393,18 @@ public class GenericAccumulatorFactory
                 inputs[i + 1] = inputChannels.get(i) + 1;
             }
 
-            hash = new MarkDistinctHash(session, types, inputs, Optional.empty(), joinCompiler, UpdateMemory.NOOP);
+            hash = new MarkDistinctHash(
+                    session,
+                    types,
+                    inputs,
+                    Optional.empty(),
+                    joinCompiler,
+                    () -> {
+                        // enforce task memory limits for fast throw
+                        updateMemory.update();
+                        // never block, as addInput doesn't support yield semantics
+                        return true;
+                    });
         }
 
         @Override

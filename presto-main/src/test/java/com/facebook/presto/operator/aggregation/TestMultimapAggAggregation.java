@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
@@ -166,7 +167,7 @@ public class TestMultimapAggAggregation
     public void testEmptyStateOutputIsNull()
     {
         InternalAggregationFunction aggregationFunction = getInternalAggregationFunction(BIGINT, BIGINT);
-        GroupedAccumulator groupedAccumulator = aggregationFunction.bind(Ints.asList(), Optional.empty()).createGroupedAccumulator();
+        GroupedAccumulator groupedAccumulator = aggregationFunction.bind(Ints.asList(), Optional.empty()).createGroupedAccumulator(UpdateMemory.NOOP);
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1);
         groupedAccumulator.evaluateFinal(0, blockBuilder);
         assertTrue(blockBuilder.isNull(0));
@@ -229,6 +230,6 @@ public class TestMultimapAggAggregation
 
     private GroupedAccumulator getGroupedAccumulator(InternalAggregationFunction aggFunction)
     {
-        return aggFunction.bind(Ints.asList(GroupByAggregationTestUtils.createArgs(aggFunction)), Optional.empty()).createGroupedAccumulator();
+        return aggFunction.bind(Ints.asList(GroupByAggregationTestUtils.createArgs(aggFunction)), Optional.empty()).createGroupedAccumulator(UpdateMemory.NOOP);
     }
 }
