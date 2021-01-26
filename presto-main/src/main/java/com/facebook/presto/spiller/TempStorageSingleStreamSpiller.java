@@ -99,12 +99,10 @@ public class TempStorageSingleStreamSpiller
 
         Session session = spillContext.getSession();
         this.tempDataOperationContext = new TempDataOperationContext(
-                // Only return the user if there is a principal attached.
-                // This avoids returning a delegated user in the case of views.
-                session.getIdentity().getPrincipal().map(ignored -> session.getIdentity().getUser()),
                 session.getSource(),
                 session.getQueryId().getId(),
-                session.getClientInfo());
+                session.getClientInfo(),
+                session.getIdentity());
 
         try {
             dataSink = tempStorage.create(tempDataOperationContext);

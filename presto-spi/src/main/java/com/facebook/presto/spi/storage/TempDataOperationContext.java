@@ -13,28 +13,25 @@
  */
 package com.facebook.presto.spi.storage;
 
+import com.facebook.presto.spi.security.Identity;
+
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class TempDataOperationContext
 {
-    private final Optional<String> user;
     private final Optional<String> source;
     private final String queryId;
     private final Optional<String> clientInfo;
+    private final Identity identity;
 
-    public TempDataOperationContext(Optional<String> user, Optional<String> source, String queryId, Optional<String> clientInfo)
+    public TempDataOperationContext(Optional<String> source, String queryId, Optional<String> clientInfo, Identity identity)
     {
-        this.user = requireNonNull(user, "user is null");
         this.source = requireNonNull(source, "source is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
-    }
-
-    public Optional<String> getUser()
-    {
-        return user;
+        this.identity = requireNonNull(identity, "identity is null");
     }
 
     public Optional<String> getSource()
@@ -50,5 +47,10 @@ public class TempDataOperationContext
     public Optional<String> getClientInfo()
     {
         return clientInfo;
+    }
+
+    public Identity getIdentity()
+    {
+        return identity;
     }
 }
