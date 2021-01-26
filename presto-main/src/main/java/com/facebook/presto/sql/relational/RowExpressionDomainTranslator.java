@@ -386,6 +386,11 @@ public final class RowExpressionDomainTranslator
         @Override
         public ExtractionResult<T> visitVariableReference(VariableReferenceExpression node, Boolean complement)
         {
+            if (node.getType() == BOOLEAN) {
+                Domain domain = createComparisonDomain(EQUAL, BOOLEAN, !complement, Boolean.FALSE);
+                Optional<T> column = columnExtractor.extract(node, domain);
+                return new ExtractionResult<>(TupleDomain.withColumnDomains(ImmutableMap.of(column.get(), domain)), TRUE_CONSTANT);
+            }
             return visitRowExpression(node, complement);
         }
 
