@@ -27,6 +27,7 @@ import com.facebook.presto.ml.type.ClassifierParametricType;
 import com.facebook.presto.ml.type.ClassifierType;
 import com.facebook.presto.ml.type.ModelType;
 import com.facebook.presto.ml.type.RegressorType;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AggregationFromAnnotationsParser;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -62,7 +63,7 @@ public class TestLearnAggregations
     {
         Type mapType = functionAndTypeManager.getParameterizedType("map", ImmutableList.of(TypeSignatureParameter.of(parseTypeSignature(StandardTypes.BIGINT)), TypeSignatureParameter.of(parseTypeSignature(StandardTypes.DOUBLE))));
         InternalAggregationFunction aggregation = generateInternalAggregationFunction(LearnClassifierAggregation.class, ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(), ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature()), functionAndTypeManager);
-        assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator());
+        assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator(UpdateMemory.NOOP));
     }
 
     @Test
@@ -74,7 +75,7 @@ public class TestLearnAggregations
                 ClassifierType.BIGINT_CLASSIFIER.getTypeSignature(),
                 ImmutableList.of(BIGINT.getTypeSignature(), mapType.getTypeSignature(), VarcharType.getParametrizedVarcharSignature("x"))
         ).specialize(BoundVariables.builder().setLongVariable("x", (long) Integer.MAX_VALUE).build(), 3, functionAndTypeManager);
-        assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.empty()).createAccumulator());
+        assertLearnClassifer(aggregation.bind(ImmutableList.of(0, 1, 2), Optional.empty()).createAccumulator(UpdateMemory.NOOP));
     }
 
     private static void assertLearnClassifer(Accumulator accumulator)

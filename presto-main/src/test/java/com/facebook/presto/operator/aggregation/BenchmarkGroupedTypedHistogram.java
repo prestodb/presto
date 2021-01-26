@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.GroupByIdBlock;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.groupByAggregations.GroupByAggregationTestUtils;
 import com.facebook.presto.operator.aggregation.histogram.HistogramGroupImplementation;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -134,7 +135,7 @@ public class BenchmarkGroupedTypedHistogram
             int[] args = GroupByAggregationTestUtils.createArgs(function);
 
             return function.bind(Ints.asList(args), Optional.empty())
-                    .createGroupedAccumulator();
+                    .createGroupedAccumulator(UpdateMemory.NOOP);
         }
     }
 

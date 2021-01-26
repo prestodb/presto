@@ -103,7 +103,7 @@ public class AggregationOperator
         requireNonNull(accumulatorFactories, "accumulatorFactories is null");
         ImmutableList.Builder<Aggregator> builder = ImmutableList.builder();
         for (AccumulatorFactory accumulatorFactory : accumulatorFactories) {
-            builder.add(new Aggregator(accumulatorFactory, step));
+            builder.add(new Aggregator(accumulatorFactory, step, this::updateMemory));
         }
         aggregates = builder.build();
     }
@@ -147,17 +147,10 @@ public class AggregationOperator
         checkState(needsInput(), "Operator is already finishing");
         requireNonNull(page, "page is null");
 
-        long memorySize = 0;
         for (Aggregator aggregate : aggregates) {
             aggregate.processPage(page);
-            memorySize += aggregate.getEstimatedSize();
         }
-        if (useSystemMemory) {
-            systemMemoryContext.setBytes(memorySize);
-        }
-        else {
-            userMemoryContext.setBytes(memorySize);
-        }
+        updateMemory();
     }
 
     @Override
@@ -183,5 +176,21 @@ public class AggregationOperator
 
         state = State.FINISHED;
         return pageBuilder.build();
+    }
+
+    private boolean updateMemory()
+    {
+        long memorySize = 0;
+        for (Aggregator aggregate : aggregates) {
+            memorySize += aggregate.getEstimatedSize();
+        }
+        if (useSystemMemory) {
+            systemMemoryContext.setBytes(memorySize);
+        }
+        else {
+            userMemoryContext.setBytes(memorySize);
+        }
+        // If memory is not available, inform the caller that we cannot proceed for allocation.
+        return operatorContext.isWaitingForMemory().isDone();
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.window;
 
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
@@ -82,7 +83,10 @@ public class AggregateWindowFunction
     private void resetAccumulator()
     {
         if (currentStart >= 0) {
-            accumulator = accumulatorFactory.createAccumulator();
+            // updateMemory callback is used by distinct and ordering accumulators
+            // since window functions do not support distinct and ordering accumulators
+            // it is ok not to provide the memory reservation callback
+            accumulator = accumulatorFactory.createAccumulator(UpdateMemory.NOOP);
             currentStart = -1;
             currentEnd = -1;
         }

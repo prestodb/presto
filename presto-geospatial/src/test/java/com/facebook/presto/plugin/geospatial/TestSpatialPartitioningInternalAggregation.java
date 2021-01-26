@@ -24,6 +24,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.geospatial.KdbTreeUtils;
 import com.facebook.presto.geospatial.Rectangle;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.Accumulator;
 import com.facebook.presto.operator.aggregation.AccumulatorFactory;
 import com.facebook.presto.operator.aggregation.GroupedAccumulator;
@@ -84,12 +85,12 @@ public class TestSpatialPartitioningInternalAggregation
         AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1, 2), Optional.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
 
-        Accumulator accumulator = accumulatorFactory.createAccumulator();
+        Accumulator accumulator = accumulatorFactory.createAccumulator(UpdateMemory.NOOP);
         accumulator.addInput(page);
         String aggregation = (String) BlockAssertions.getOnlyValue(accumulator.getFinalType(), getFinalBlock(accumulator));
         assertEquals(aggregation, expectedValue);
 
-        GroupedAccumulator groupedAggregation = accumulatorFactory.createGroupedAccumulator();
+        GroupedAccumulator groupedAggregation = accumulatorFactory.createGroupedAccumulator(UpdateMemory.NOOP);
         groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
         String groupValue = (String) getGroupValue(groupedAggregation, 0);
         assertEquals(groupValue, expectedValue);
@@ -105,7 +106,7 @@ public class TestSpatialPartitioningInternalAggregation
         Page page = new Page(geometryBlock, partitionCountBlock);
 
         AccumulatorFactory accumulatorFactory = function.bind(Ints.asList(0, 1, 2), Optional.empty());
-        Accumulator accumulator = accumulatorFactory.createAccumulator();
+        Accumulator accumulator = accumulatorFactory.createAccumulator(UpdateMemory.NOOP);
         accumulator.addInput(page);
         try {
             getFinalBlock(accumulator);
