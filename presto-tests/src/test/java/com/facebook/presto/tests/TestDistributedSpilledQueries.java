@@ -96,4 +96,11 @@ public class TestDistributedSpilledQueries
     {
         // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.
     }
+
+    @Test(enabled = false)
+    @Override
+    public void testCorrelatedNonAggregationScalarSubqueries()
+    {
+        // TODO: disable until https://github.com/prestodb/presto/issues/15542 is resolved
+    }
 }
