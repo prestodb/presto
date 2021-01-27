@@ -236,6 +236,8 @@ public class CoordinatorModule
 
         binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
 
+        jaxrsBinder(binder).bind(TaskInfoResource.class);
+
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
