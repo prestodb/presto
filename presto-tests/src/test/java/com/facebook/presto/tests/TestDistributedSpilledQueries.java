@@ -72,29 +72,11 @@ public class TestDistributedSpilledQueries
     }
 
     @Test(enabled = false)
-    public void testJoinPredicatePushdown()
-    {
-        // TODO: disabled until join spilling is reworked
-    }
-
-    @Test(enabled = false)
     @Override
     public void testAssignUniqueId()
     {
         // TODO: disabled until https://github.com/prestodb/presto/issues/8926 is resolved
         //       due to long running query test created many spill files on disk.
-    }
-
-    @Test(enabled = false)
-    public void testLimitWithJoin()
-    {
-        // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.
-    }
-
-    @Test(enabled = false)
-    public void testJoinDoubleClauseWithRightOverlap()
-    {
-        // TODO: disable until https://github.com/prestodb/presto/issues/13859 is resolved.
     }
 
     @Test(enabled = false)
