@@ -307,7 +307,7 @@ public class HiveClientConfig
 
     public DateTimeZone getDateTimeZone()
     {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZone));
+        return DateTimeZone.forID(timeZone);
     }
 
     @NotNull
