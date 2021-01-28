@@ -139,6 +139,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -902,7 +903,7 @@ public abstract class AbstractTestHiveClient
                 "layout",
                 Optional.empty(),
                 false));
-        timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
+        timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(timeZoneId)));
     }
 
     protected final void setup(String host, int port, String databaseName, String timeZone)
