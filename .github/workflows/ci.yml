@@ -1,0 +1,201 @@
+name: ci
+
+on:
+  pull_request:
+
+env:
+  # An envar that signals to tests we are executing in the CI environment
+  CONTINUOUS_INTEGRATION: true
+  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+  RETRY: .github/bin/retry
+
+jobs:
+  maven-checks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    timeout-minutes: 45
+    steps:
+      - name: Free Disk Space
+        run: |
+          df -h
+          sudo apt-get clean
+          df -h
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Maven Checks
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!:presto-server-rpm'
+      - name: Test Server RPM
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY ./mvnw verify -B -P ci -pl :presto-server-rpm
+      - name: Clean Maven Output
+        run: ./mvnw clean -pl '!:presto-server,!:presto-cli'
+
+  web-ui-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Web UI Checks
+        run: presto-main/bin/check_webui.sh
+
+  hive-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Install Hive Module
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive-hadoop2
+      - name: Run Hive Tests
+        run: presto-hive-hadoop2/bin/run_hive_tests.sh
+      - name: Run Hive S3 Tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.HIVE_AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.HIVE_AWS_SECRETKEY }}
+          S3_BUCKET: "presto-ci-test"
+          S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
+        run: |
+          if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
+              presto-hive-hadoop2/bin/run_hive_s3_tests.sh
+          fi
+      - name: Run Hive Glue Tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.HIVE_AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.HIVE_AWS_SECRETKEY }}
+        run: |
+          if [ "${HIVE_AWS_ACCESS_KEY_ID}" != "" ]; then
+              ./mvnw test ${MAVEN_TEST} -pl :presto-hive -P test-hive-glue
+          fi
+
+  test-other-modules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!:presto-server-rpm'
+      - name: Maven Tests
+        run: |
+          ./mvnw test ${MAVEN_TEST} -pl '
+            !presto-tests,
+            !presto-raptor,
+            !presto-accumulo,
+            !presto-cassandra,
+            !presto-hive,
+            !presto-kudu,
+            !presto-docs,
+            !presto-server,
+            !presto-server-rpm,
+            !presto-main,
+            !presto-mongodb,
+            !presto-spark-package,
+            !presto-spark-launcher,
+            !presto-spark-testing,
+            !presto-spark-base,
+            !presto-redis,
+            !presto-elasticsearch,
+            !presto-orc,
+            !presto-thrift-connector'
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        modules:
+          - ":presto-docs"
+          - ":presto-tests -P presto-tests-execution-memory"
+          - ":presto-tests -P presto-tests-general"
+          - ":presto-tests -P ci-only-distributed-non-hash-gen"
+          - ":presto-tests -P ci-only-tpch-distributed-queries"
+          - ":presto-tests -P ci-only-local-queries"
+          - ":presto-tests -P ci-only-distributed-queries"
+          - ":presto-tests -P ci-only-aggregation-queries"
+          - ":presto-tests -P ci-only-plan-determinism"
+          - ":presto-raptor"
+          - ":presto-accumulo"
+          - ":presto-cassandra -P test-cassandra-integration-smoke-test"
+          - ":presto-hive"
+          - ":presto-hive -P test-hive-materialized-queries"
+          - ":presto-hive -P test-hive-materialized-aggregations"
+          - ":presto-hive -P test-hive-recoverable-execution"
+          - ":presto-hive -P test-hive-pushdown-filter-queries-basic"
+          - ":presto-hive -P test-hive-pushdown-filter-queries-advanced"
+          - ":presto-hive -P test-hive-repartitioning"
+          - ":presto-hive -P test-hive-parquet"
+          - ":presto-main"
+          - ":presto-mongodb -P test-mongo-distributed-queries"
+          - ":presto-redis -P test-redis-integration-smoke-test"
+          - ":presto-elasticsearch"
+          - ":presto-orc"
+          - ":presto-thrift-connector"
+          - ":presto-spark-base"
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+      - name: Maven Tests
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}
+
+  kudu:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
+      - name: Kudu Tests
+        run: |
+          presto-kudu/bin/run_kudu_tests.sh 3 null
+          presto-kudu/bin/run_kudu_tests.sh 1 ""
+          presto-kudu/bin/run_kudu_tests.sh 1 presto::
+
+  spark-integration:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
+      - name: Maven Tests
+        run: $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-spark-launcher,presto-spark-package,presto-spark-testing -P test-presto-spark-integration-smoke-test
