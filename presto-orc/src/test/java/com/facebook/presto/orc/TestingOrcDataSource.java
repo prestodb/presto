@@ -16,6 +16,7 @@ package com.facebook.presto.orc;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -25,13 +26,14 @@ class TestingOrcDataSource
         implements OrcDataSource
 {
     private final OrcDataSource delegate;
+    private final List<ReadType> readTypes;
 
-    private int readCount;
     private List<DiskRange> lastReadRanges;
 
     public TestingOrcDataSource(OrcDataSource delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.readTypes = new ArrayList<>();
     }
 
     @Override
@@ -40,14 +42,20 @@ class TestingOrcDataSource
         return delegate.getId();
     }
 
+    @Override
     public int getReadCount()
     {
-        return readCount;
+        return delegate.getReadCount();
     }
 
     public List<DiskRange> getLastReadRanges()
     {
         return lastReadRanges;
+    }
+
+    public List<ReadType> getReadTypes()
+    {
+        return this.readTypes;
     }
 
     @Override
@@ -69,29 +77,29 @@ class TestingOrcDataSource
     }
 
     @Override
-    public void readFully(long position, byte[] buffer)
+    public void readFully(long position, byte[] buffer, ReadType readType)
             throws IOException
     {
-        readCount++;
+        readTypes.add(readType);
         lastReadRanges = ImmutableList.of(new DiskRange(position, buffer.length));
-        delegate.readFully(position, buffer);
+        delegate.readFully(position, buffer, readType);
     }
 
     @Override
-    public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength, ReadType readType)
             throws IOException
     {
-        readCount++;
+        readTypes.add(readType);
         lastReadRanges = ImmutableList.of(new DiskRange(position, bufferLength));
-        delegate.readFully(position, buffer, bufferOffset, bufferLength);
+        delegate.readFully(position, buffer, bufferOffset, bufferLength, readType);
     }
 
     @Override
-    public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+    public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges, ReadType readType)
             throws IOException
     {
-        readCount += diskRanges.size();
+        readTypes.add(readType);
         lastReadRanges = ImmutableList.copyOf(diskRanges.values());
-        return delegate.readFully(diskRanges);
+        return delegate.readFully(diskRanges, readType);
     }
 }

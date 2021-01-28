@@ -56,7 +56,7 @@ public class StorageOrcFileTailSource
 
         // Read the tail of the file
         byte[] buffer = new byte[toIntExact(min(size, EXPECTED_FOOTER_SIZE))];
-        orcDataSource.readFully(size - buffer.length, buffer);
+        orcDataSource.readFully(size - buffer.length, buffer, OrcDataSource.ReadType.Tail);
 
         // get length of PostScript - last byte of the file
         int postScriptSize = buffer[buffer.length - SIZE_OF_BYTE] & 0xff;
@@ -101,7 +101,7 @@ public class StorageOrcFileTailSource
             completeFooterSlice = Slices.wrappedBuffer(newBuffer);
 
             // initial read was not large enough, so read missing section
-            orcDataSource.readFully(size - completeFooterSize, newBuffer, 0, completeFooterSize - buffer.length);
+            orcDataSource.readFully(size - completeFooterSize, newBuffer, 0, completeFooterSize - buffer.length, OrcDataSource.ReadType.FileFooter);
 
             // copy already read bytes into the new buffer
             completeFooterSlice.setBytes(completeFooterSize - buffer.length, buffer);
@@ -124,7 +124,7 @@ public class StorageOrcFileTailSource
             throws IOException
     {
         byte[] headerMagic = new byte[MAGIC.length()];
-        source.readFully(0, headerMagic);
+        source.readFully(0, headerMagic, OrcDataSource.ReadType.Header);
 
         return MAGIC.equals(Slices.wrappedBuffer(headerMagic));
     }

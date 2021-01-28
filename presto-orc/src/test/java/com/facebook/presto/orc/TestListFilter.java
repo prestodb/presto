@@ -251,17 +251,23 @@ public class TestListFilter
         }
 
         @Override
-        public void readFully(long position, byte[] buffer)
+        public final int getReadCount()
+        {
+            return 0;
+        }
+
+        @Override
+        public void readFully(long position, byte[] buffer, ReadType readType)
         {
         }
 
         @Override
-        public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+        public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength, ReadType readType)
         {
         }
 
         @Override
-        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges, ReadType readType)
         {
             return null;
         }

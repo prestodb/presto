@@ -65,11 +65,11 @@ public class CachingStripeMetadataSource
     }
 
     @Override
-    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges, boolean cacheable)
+    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges, boolean cacheable, OrcDataSource.ReadType readType)
             throws IOException
     {
         if (!cacheable) {
-            return delegate.getInputs(orcDataSource, stripeId, diskRanges, cacheable);
+            return delegate.getInputs(orcDataSource, stripeId, diskRanges, cacheable, readType);
         }
 
         // Fetch existing stream slice from cache
@@ -91,7 +91,7 @@ public class CachingStripeMetadataSource
         }
 
         // read ranges and update cache
-        Map<StreamId, OrcDataSourceInput> uncachedInputs = delegate.getInputs(orcDataSource, stripeId, uncachedDiskRangesBuilder.build(), cacheable);
+        Map<StreamId, OrcDataSourceInput> uncachedInputs = delegate.getInputs(orcDataSource, stripeId, uncachedDiskRangesBuilder.build(), cacheable, readType);
         for (Entry<StreamId, OrcDataSourceInput> entry : uncachedInputs.entrySet()) {
             if (isCachedStream(entry.getKey().getStreamKind())) {
                 // We need to rewind the input after eagerly reading the slice.

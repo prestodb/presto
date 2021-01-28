@@ -66,8 +66,14 @@ public class CachingOrcDataSource
         return dataSource.getSize();
     }
 
+    @Override
+    public final int getReadCount()
+    {
+        return dataSource.getReadCount();
+    }
+
     @VisibleForTesting
-    void readCacheAt(long offset)
+    void readCacheAt(long offset, ReadType readType)
             throws IOException
     {
         DiskRange newCacheRange = regionFinder.getRangeFor(offset);
@@ -77,25 +83,25 @@ public class CachingOrcDataSource
             cache = new byte[cacheLength];
             systemMemoryContext.setBytes(cacheLength);
         }
-        dataSource.readFully(newCacheRange.getOffset(), cache, 0, cacheLength);
+        dataSource.readFully(newCacheRange.getOffset(), cache, 0, cacheLength, readType);
     }
 
     @Override
-    public void readFully(long position, byte[] buffer)
+    public void readFully(long position, byte[] buffer, ReadType readType)
             throws IOException
     {
-        readFully(position, buffer, 0, buffer.length);
+        readFully(position, buffer, 0, buffer.length, readType);
     }
 
     @Override
-    public void readFully(long position, byte[] buffer, int bufferOffset, int length)
+    public void readFully(long position, byte[] buffer, int bufferOffset, int length, ReadType readType)
             throws IOException
     {
         if (position < cachePosition) {
             throw new IllegalArgumentException(String.format("read request (offset %d length %d) is before cache (offset %d length %d)", position, length, cachePosition, cacheLength));
         }
         if (position >= cachePosition + cacheLength) {
-            readCacheAt(position);
+            readCacheAt(position, readType);
         }
         if (position + length > cachePosition + cacheLength) {
             throw new IllegalArgumentException(String.format("read request (offset %d length %d) partially overlaps cache (offset %d length %d)", position, length, cachePosition, cacheLength));
@@ -104,7 +110,7 @@ public class CachingOrcDataSource
     }
 
     @Override
-    public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+    public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges, ReadType readType)
             throws IOException
     {
         ImmutableMap.Builder<K, OrcDataSourceInput> builder = ImmutableMap.builder();
@@ -114,7 +120,7 @@ public class CachingOrcDataSource
         for (Map.Entry<K, DiskRange> entry : diskRanges.entrySet()) {
             DiskRange diskRange = entry.getValue();
             byte[] buffer = new byte[diskRange.getLength()];
-            readFully(diskRange.getOffset(), buffer);
+            readFully(diskRange.getOffset(), buffer, readType);
             builder.put(entry.getKey(), new OrcDataSourceInput(Slices.wrappedBuffer(buffer).getInput(), buffer.length));
         }
         return builder.build();

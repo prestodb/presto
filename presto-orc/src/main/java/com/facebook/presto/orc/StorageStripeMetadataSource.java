@@ -29,12 +29,12 @@ public class StorageStripeMetadataSource
             throws IOException
     {
         byte[] tailBuffer = new byte[footerLength];
-        orcDataSource.readFully(footerOffset, tailBuffer);
+        orcDataSource.readFully(footerOffset, tailBuffer, OrcDataSource.ReadType.StripeFooter);
         return Slices.wrappedBuffer(tailBuffer);
     }
 
     @Override
-    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges, boolean cacheable)
+    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges, boolean cacheable, OrcDataSource.ReadType readType)
             throws IOException
     {
         //
@@ -50,6 +50,6 @@ public class StorageStripeMetadataSource
         diskRanges = diskRangesBuilder.build();
 
         // read ranges
-        return orcDataSource.readFully(diskRanges);
+        return orcDataSource.readFully(diskRanges, readType);
     }
 }

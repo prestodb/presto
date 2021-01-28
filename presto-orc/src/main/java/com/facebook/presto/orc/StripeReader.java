@@ -121,7 +121,7 @@ public class StripeReader
         this.metadataReader = requireNonNull(metadataReader, "metadataReader is null");
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.stripeMetadataSource = requireNonNull(stripeMetadataSource, "stripeMetadataSource is null");
-        this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
+        this.cacheable = cacheable;
         this.dwrfEncryptionGroupColumns = invertEncryptionGroupMap(requireNonNull(dwrfEncryptionGroupMap, "dwrfEncryptionGroupMap is null"));
     }
 
@@ -181,7 +181,7 @@ public class StripeReader
             diskRanges = Maps.filterKeys(diskRanges, Predicates.in(includedStreams.keySet()));
 
             // read the file regions
-            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors, sharedDecompressionBuffer);
+            Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors, sharedDecompressionBuffer, OrcDataSource.ReadType.Stream);
 
             // read the bloom filter for each column
             Map<Integer, List<HiveBloomFilter>> bloomFilterIndexes = readBloomFilterIndexes(includedStreams, streamsData);
@@ -242,7 +242,7 @@ public class StripeReader
         ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.build();
 
         // read the file regions
-        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors, sharedDecompressionBuffer);
+        Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripeId, diskRanges, systemMemoryUsage, decryptors, sharedDecompressionBuffer, OrcDataSource.ReadType.Stream);
 
         long minAverageRowBytes = 0;
         for (Entry<StreamId, Stream> entry : includedStreams.entrySet()) {
@@ -331,7 +331,8 @@ public class StripeReader
             Map<StreamId, DiskRange> diskRanges,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<DwrfEncryptionInfo> decryptors,
-            SharedBuffer sharedDecompressionBuffer)
+            SharedBuffer sharedDecompressionBuffer,
+            OrcDataSource.ReadType readType)
             throws IOException
     {
         //
@@ -339,7 +340,7 @@ public class StripeReader
         //
 
         // read ranges
-        Map<StreamId, OrcDataSourceInput> streamsData = stripeMetadataSource.getInputs(orcDataSource, stripeId, diskRanges, cacheable);
+        Map<StreamId, OrcDataSourceInput> streamsData = stripeMetadataSource.getInputs(orcDataSource, stripeId, diskRanges, cacheable, readType);
 
         // transform streams to OrcInputStream
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();

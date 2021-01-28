@@ -40,7 +40,7 @@ public class FileOrcDataSource
     }
 
     @Override
-    protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength, ReadType type)
             throws IOException
     {
         input.seek(position);

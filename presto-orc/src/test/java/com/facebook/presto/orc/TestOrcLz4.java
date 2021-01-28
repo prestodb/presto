@@ -113,7 +113,7 @@ public class TestOrcLz4
         }
 
         @Override
-        protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
+        protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength, ReadType type)
         {
             System.arraycopy(data, toIntExact(position), buffer, bufferOffset, bufferLength);
         }

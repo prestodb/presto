@@ -20,6 +20,14 @@ import java.util.Map;
 public interface OrcDataSource
         extends Closeable
 {
+    enum ReadType{
+        Header,
+        Stream,
+        StripeFooter,
+        FileFooter,
+        Tail
+    };
+
     OrcDataSourceId getId();
 
     long getReadBytes();
@@ -28,13 +36,15 @@ public interface OrcDataSource
 
     long getSize();
 
-    void readFully(long position, byte[] buffer)
+    int getReadCount();
+
+    void readFully(long position, byte[] buffer, ReadType readType)
             throws IOException;
 
-    void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength, ReadType readType)
             throws IOException;
 
-    <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+    <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges, ReadType readType)
             throws IOException;
 
     @Override

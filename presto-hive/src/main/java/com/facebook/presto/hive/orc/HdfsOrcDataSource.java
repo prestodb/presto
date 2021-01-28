@@ -57,7 +57,7 @@ public class HdfsOrcDataSource
     }
 
     @Override
-    protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength)
+    protected void readInternal(long position, byte[] buffer, int bufferOffset, int bufferLength, ReadType type)
     {
         try {
             long readStart = System.nanoTime();

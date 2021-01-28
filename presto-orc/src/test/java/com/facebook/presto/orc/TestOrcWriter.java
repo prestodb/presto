@@ -124,7 +124,7 @@ public class TestOrcWriter
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer
                 byte[] tailBuffer = new byte[toIntExact(stripe.getFooterLength())];
-                orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), tailBuffer);
+                orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), tailBuffer, OrcDataSource.ReadType.StripeFooter);
                 try (InputStream inputStream = new OrcInputStream(
                         orcDataSource.getId(),
                         new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),

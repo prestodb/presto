@@ -185,7 +185,7 @@ public class OrcReader
             writeValidation.get().validateStripeStatistics(orcDataSource.getId(), footer.getStripes(), metadata.getStripeStatsList());
         }
 
-        this.cacheable = requireNonNull(cacheable, "hiveFileContext is null");
+        this.cacheable = cacheable;
     }
 
     @VisibleForTesting

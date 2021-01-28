@@ -166,9 +166,9 @@ public class TestCachingOrcDataSource
                         maxMergeDistance,
                         tinyStripeThreshold),
                 systemMemoryContext.newOrcLocalMemoryContext(CachingOrcDataSource.class.getSimpleName()));
-        cachingOrcDataSource.readCacheAt(3);
+        cachingOrcDataSource.readCacheAt(3, OrcDataSource.ReadType.Stream);
         assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(3, 60)));
-        cachingOrcDataSource.readCacheAt(63);
+        cachingOrcDataSource.readCacheAt(63, OrcDataSource.ReadType.Stream);
         // The allocated cache size is the length of the merged disk range 1048576 * 8.
         assertEquals(systemMemoryContext.getBytes(), 8 * 1048576);
         assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(63, 8 * 1048576)));
@@ -184,9 +184,9 @@ public class TestCachingOrcDataSource
                         maxMergeDistance,
                         tinyStripeThreshold),
                 systemMemoryContext.newOrcLocalMemoryContext(CachingOrcDataSource.class.getSimpleName()));
-        cachingOrcDataSource.readCacheAt(62); // read at the end of a stripe
+        cachingOrcDataSource.readCacheAt(62, OrcDataSource.ReadType.Stream); // read at the end of a stripe
         assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(3, 60)));
-        cachingOrcDataSource.readCacheAt(63);
+        cachingOrcDataSource.readCacheAt(63, OrcDataSource.ReadType.Stream);
         // The newly allocated cache size is the length of the merged disk range 1048576 * 8 so the total size is 8 * 1048576 * 2.
         assertEquals(systemMemoryContext.getBytes(), 8 * 1048576 * 2);
         assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(63, 8 * 1048576)));
@@ -202,9 +202,9 @@ public class TestCachingOrcDataSource
                         maxMergeDistance,
                         tinyStripeThreshold),
                 systemMemoryContext.newOrcLocalMemoryContext(CachingOrcDataSource.class.getSimpleName()));
-        cachingOrcDataSource.readCacheAt(3);
+        cachingOrcDataSource.readCacheAt(3, OrcDataSource.ReadType.Stream);
         assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(3, 1 + 1048576 * 5)));
-        cachingOrcDataSource.readCacheAt(4 + 1048576 * 5);
+        cachingOrcDataSource.readCacheAt(4 + 1048576 * 5, OrcDataSource.ReadType.Stream);
         // The newly allocated cache size is the length of the first merged disk range 1048576 * 5 + 1.
         assertEquals(systemMemoryContext.getBytes(), 8 * 1048576 * 2 + 1048576 * 5 + 1);
         assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(4 + 1048576 * 5, 3 * 1048576)));
@@ -219,12 +219,16 @@ public class TestCachingOrcDataSource
                 new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
         doIntegration(orcDataSource, new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE));
         assertEquals(orcDataSource.getReadCount(), 1); // read entire file at once
+        assertEquals(orcDataSource.getReadTypes(), ImmutableList.of(OrcDataSource.ReadType.Tail));
 
         // tiny stripes
         orcDataSource = new TestingOrcDataSource(
                 new FileOrcDataSource(tempFile.getFile(), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), new DataSize(1, Unit.MEGABYTE), true));
         doIntegration(orcDataSource, new DataSize(400, Unit.KILOBYTE), new DataSize(400, Unit.KILOBYTE), new DataSize(400, Unit.KILOBYTE));
         assertEquals(orcDataSource.getReadCount(), 3); // footer, first few stripes, last few stripes
+
+        List<OrcDataSource.ReadType> expectedReadTypes = ImmutableList.of(OrcDataSource.ReadType.Tail, OrcDataSource.ReadType.StripeFooter, OrcDataSource.ReadType.StripeFooter);
+        assertEquals(orcDataSource.getReadTypes(), expectedReadTypes);
     }
 
     public void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize maxReadSize, DataSize tinyStripeThreshold)
@@ -244,6 +248,7 @@ public class TestCachingOrcDataSource
                 DwrfKeyProvider.EMPTY);
         // 1 for reading file footer
         assertEquals(orcDataSource.getReadCount(), 1);
+        assertEquals(orcDataSource.getReadTypes(), ImmutableList.of(OrcDataSource.ReadType.Tail));
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();
         // Sanity check number of stripes. This can be three or higher because of orc writer low memory mode.
         assertGreaterThanOrEqual(stripes.size(), 3);
@@ -328,19 +333,25 @@ public class TestCachingOrcDataSource
         }
 
         @Override
-        public void readFully(long position, byte[] buffer)
+        public int getReadCount()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void readFully(long position, byte[] buffer, ReadType readType)
         {
             // do nothing
         }
 
         @Override
-        public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
+        public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength, ReadType readType)
         {
             // do nothing
         }
 
         @Override
-        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges)
+        public <K> Map<K, OrcDataSourceInput> readFully(Map<K, DiskRange> diskRanges, ReadType readType)
         {
             throw new UnsupportedOperationException();
         }

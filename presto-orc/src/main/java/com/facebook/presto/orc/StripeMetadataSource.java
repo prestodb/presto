@@ -28,6 +28,7 @@ public interface StripeMetadataSource
             OrcDataSource orcDataSource,
             StripeId stripeId,
             Map<StreamId, DiskRange> diskRanges,
-            boolean cacheable)
+            boolean cacheable,
+            OrcDataSource.ReadType readType)
             throws IOException;
 }
