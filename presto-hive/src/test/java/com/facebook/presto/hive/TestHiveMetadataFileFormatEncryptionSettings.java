@@ -40,6 +40,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -105,7 +106,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 metastore,
                 HDFS_ENVIRONMENT,
                 new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, HIVE_CLIENT_CONFIG),
-                DateTimeZone.forTimeZone(TimeZone.getTimeZone(HIVE_CLIENT_CONFIG.getTimeZone())),
+                DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(HIVE_CLIENT_CONFIG.getTimeZone()))),
                 true,
                 false,
                 false,
