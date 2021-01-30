@@ -41,6 +41,7 @@ public class InternalCommunicationModule
             config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
             config.setTrustStorePath(internalCommunicationConfig.getTrustStorePath());
+            config.setTrustStorePassword(internalCommunicationConfig.getTrustStorePassword());
             if (internalCommunicationConfig.getIncludedCipherSuites().isPresent()) {
                 config.setHttpsIncludedCipherSuites(internalCommunicationConfig.getIncludedCipherSuites().get());
             }
