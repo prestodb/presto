@@ -31,6 +31,7 @@ public class InternalCommunicationConfig
     private String keyStorePath;
     private String keyStorePassword;
     private String trustStorePath;
+    private String trustStorePassword;
     private Optional<String> excludeCipherSuites = Optional.empty();
     private Optional<String> includedCipherSuites = Optional.empty();
     private boolean kerberosEnabled;
@@ -88,6 +89,18 @@ public class InternalCommunicationConfig
     public InternalCommunicationConfig setTrustStorePath(String trustStorePath)
     {
         this.trustStorePath = trustStorePath;
+        return this;
+    }
+
+    public String getTrustStorePassword()
+    {
+        return trustStorePassword;
+    }
+
+    @Config("internal-communication.https.trust-store-password")
+    public InternalCommunicationConfig setTrustStorePassword(String trustStorePassword)
+    {
+        this.trustStorePassword = trustStorePassword;
         return this;
     }
 
