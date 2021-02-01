@@ -156,7 +156,7 @@ public class HiveFileIterator
         {
             namenodeStats.getRemoteIteratorNext().recordException(exception);
             if (exception instanceof FileNotFoundException) {
-                return new PrestoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + path);
+                return new PrestoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + path, exception);
             }
             if (exception instanceof AccessControlException) {
                 throw new PrestoException(PERMISSION_DENIED, exception.getMessage(), exception);
