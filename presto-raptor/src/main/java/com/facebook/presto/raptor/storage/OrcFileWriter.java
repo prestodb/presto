@@ -22,7 +22,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.orc.OrcWriter;
 import com.facebook.presto.orc.OrcWriterOptions;
-import com.facebook.presto.orc.OrcWriterStats;
+import com.facebook.presto.orc.WriterStats;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
@@ -59,7 +59,7 @@ public class OrcFileWriter
     private long rowCount;
     private long uncompressedSize;
 
-    public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, DataSink target, boolean validate, OrcWriterStats stats, TypeManager typeManager, CompressionKind compression)
+    public OrcFileWriter(List<Long> columnIds, List<Type> columnTypes, DataSink target, boolean validate, WriterStats stats, TypeManager typeManager, CompressionKind compression)
     {
         this(columnIds, columnTypes, target, true, validate, stats, typeManager, compression);
     }
@@ -71,7 +71,7 @@ public class OrcFileWriter
             DataSink target,
             boolean writeMetadata,
             boolean validate,
-            OrcWriterStats stats,
+            WriterStats stats,
             TypeManager typeManager,
             CompressionKind compression)
     {
