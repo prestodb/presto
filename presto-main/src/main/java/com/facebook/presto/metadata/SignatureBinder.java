@@ -37,9 +37,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -320,10 +320,7 @@ public class SignatureBinder
             resultBuilder.add(new TypeParameterSolver(
                     formalTypeSignature.getBase(),
                     actualType,
-                    typeVariableConstraint.isComparableRequired(),
-                    typeVariableConstraint.isOrderableRequired(),
-                    Optional.ofNullable(typeVariableConstraint.getVariadicBound()),
-                    typeVariableConstraint.getTypeBound()));
+                    typeVariableConstraint));
             return true;
         }
 
@@ -597,32 +594,23 @@ public class SignatureBinder
     {
         private final String typeParameter;
         private final Type actualType;
-        private final boolean comparableRequired;
-        private final boolean orderableRequired;
-        private final Optional<String> requiredBaseName;
-        private final Class<? extends Type> typeBound;
+        private final TypeVariableConstraint typeVariableConstraint;
 
         public TypeParameterSolver(
                 String typeParameter,
                 Type actualType,
-                boolean comparableRequired,
-                boolean orderableRequired,
-                Optional<String> requiredBaseName,
-                Class<? extends Type> typeBound)
+                TypeVariableConstraint typeVariableConstraint)
         {
             this.typeParameter = typeParameter;
             this.actualType = actualType;
-            this.comparableRequired = comparableRequired;
-            this.orderableRequired = orderableRequired;
-            this.requiredBaseName = requiredBaseName;
-            this.typeBound = typeBound;
+            this.typeVariableConstraint = typeVariableConstraint;
         }
 
         @Override
         public SolverReturnStatus update(BoundVariables.Builder bindings)
         {
             if (!bindings.containsTypeVariable(typeParameter)) {
-                if (!satisfiesConstraints(actualType)) {
+                if (!typeVariableConstraint.canBind(actualType)) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
                 bindings.setTypeVariable(typeParameter, actualType);
@@ -633,7 +621,7 @@ public class SignatureBinder
             if (!commonSuperType.isPresent()) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (!satisfiesConstraints(commonSuperType.get())) {
+            if (!typeVariableConstraint.canBind(commonSuperType.get())) {
                 // This check must not be skipped even if commonSuperType is equal to originalType
                 return SolverReturnStatus.UNSOLVABLE;
             }
@@ -642,25 +630,6 @@ public class SignatureBinder
             }
             bindings.setTypeVariable(typeParameter, commonSuperType.get());
             return SolverReturnStatus.CHANGED;
-        }
-
-        private boolean satisfiesConstraints(Type type)
-        {
-            if (comparableRequired && !type.isComparable()) {
-                return false;
-            }
-            if (orderableRequired && !type.isOrderable()) {
-                return false;
-            }
-            if (!typeBound.isInstance(type)) {
-                return false;
-            }
-            if (requiredBaseName.isPresent() && !UNKNOWN.equals(type) && !requiredBaseName.get().equals(type.getTypeSignature().getBase())) {
-                // TODO: the case below should be properly handled:
-                // * `type` does not have the `requiredBaseName` but can be coerced to some type that has the `requiredBaseName`.
-                return false;
-            }
-            return true;
         }
     }
 

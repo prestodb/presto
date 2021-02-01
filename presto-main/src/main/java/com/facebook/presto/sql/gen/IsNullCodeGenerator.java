@@ -25,8 +25,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
 import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.sql.gen.SpecialFormBytecodeGenerator.generateWrite;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 
 public class IsNullCodeGenerator
         implements SpecialFormBytecodeGenerator
