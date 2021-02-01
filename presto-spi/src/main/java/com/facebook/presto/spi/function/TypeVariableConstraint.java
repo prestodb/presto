@@ -21,6 +21,8 @@ import javax.annotation.Nullable;
 
 import java.util.Objects;
 
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+
 public class TypeVariableConstraint
 {
     private final String name;
@@ -94,7 +96,7 @@ public class TypeVariableConstraint
         if (!typeBound.isInstance(type)) {
             return false;
         }
-        if (variadicBound != null && !type.getTypeSignature().getBase().equals(variadicBound)) {
+        if (variadicBound != null && !UNKNOWN.equals(type) && !variadicBound.equals(type.getTypeSignature().getBase())) {
             return false;
         }
         return true;
