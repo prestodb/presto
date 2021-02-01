@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.type;
+package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -19,11 +19,6 @@ import com.facebook.presto.common.block.BlockBuilderStatus;
 import com.facebook.presto.common.block.ByteArrayBlockBuilder;
 import com.facebook.presto.common.block.PageBuilderStatus;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.AbstractType;
-import com.facebook.presto.common.type.FixedWidthType;
-import com.facebook.presto.common.type.TypeSignature;
-
-import static com.google.common.base.Preconditions.checkArgument;
 
 public final class UnknownType
         extends AbstractType
@@ -38,6 +33,13 @@ public final class UnknownType
         // The actual native container type does not matter here.
         // We choose boolean to represent UNKNOWN because it's the smallest primitive type.
         super(new TypeSignature(NAME), boolean.class);
+    }
+
+    private static void checkArgument(boolean condition, String message)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(message);
+        }
     }
 
     @Override
@@ -130,7 +132,10 @@ public final class UnknownType
     {
         // Ideally, this function should never be invoked for unknown type.
         // However, some logic rely on having a default value before the null check.
-        checkArgument(block.isNull(position));
+        if (!block.isNull(position)) {
+            throw new UnsupportedOperationException();
+        }
+
         return false;
     }
 
@@ -140,7 +145,10 @@ public final class UnknownType
     {
         // Ideally, this function should never be invoked for unknown type.
         // However, some logic (e.g. AbstractMinMaxBy) rely on writing a default value before the null check.
-        checkArgument(!value);
+        if (value) {
+            throw new UnsupportedOperationException();
+        }
+
         blockBuilder.appendNull();
     }
 }
