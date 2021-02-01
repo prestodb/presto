@@ -20,7 +20,7 @@ import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationBuilder;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
-import com.facebook.presto.orc.OrcWriterStats.FlushReason;
+import com.facebook.presto.orc.WriterStats.FlushReason;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
@@ -71,10 +71,10 @@ import static com.facebook.presto.common.io.DataOutput.createDataOutput;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.UNENCRYPTED;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
 import static com.facebook.presto.orc.OrcReader.validateFile;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.CLOSED;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_ROWS;
+import static com.facebook.presto.orc.WriterStats.FlushReason.CLOSED;
+import static com.facebook.presto.orc.WriterStats.FlushReason.DICTIONARY_FULL;
+import static com.facebook.presto.orc.WriterStats.FlushReason.MAX_BYTES;
+import static com.facebook.presto.orc.WriterStats.FlushReason.MAX_ROWS;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toFileStatistics;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStripeEncryptionGroup;
@@ -101,7 +101,7 @@ public class OrcWriter
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
-    private final OrcWriterStats stats;
+    private final WriterStats stats;
 
     static {
         String version = OrcWriter.class.getPackage().getImplementationVersion();
@@ -130,6 +130,7 @@ public class OrcWriter
     private final List<OrcType> orcTypes;
 
     private final List<ColumnWriter> columnWriters;
+    private final int dictionaryMaxMemoryBytes;
     private final DictionaryCompressionOptimizer dictionaryCompressionOptimizer;
     private int stripeRowCount;
     private int rowGroupRowCount;
@@ -155,7 +156,7 @@ public class OrcWriter
             DateTimeZone hiveStorageTimeZone,
             boolean validate,
             OrcWriteValidationMode validationMode,
-            OrcWriterStats stats)
+            WriterStats stats)
     {
         this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validationMode, types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
@@ -254,12 +255,14 @@ public class OrcWriter
             }
         }
         this.columnWriters = columnWriters.build();
+        this.dictionaryMaxMemoryBytes = toIntExact(
+                requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes());
         this.dictionaryCompressionOptimizer = new DictionaryCompressionOptimizer(
                 sliceColumnWriters.build(),
                 stripeMinBytes,
                 stripeMaxBytes,
                 stripeMaxRowCount,
-                toIntExact(requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes()));
+                dictionaryMaxMemoryBytes);
 
         for (Entry<String, String> entry : this.userMetadata.entrySet()) {
             recordValidation(validation -> validation.addMetadataProperty(entry.getKey(), utf8Slice(entry.getValue())));
@@ -542,7 +545,7 @@ public class OrcWriter
         closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
 
         recordValidation(validation -> validation.addStripe(stripeInformation.getNumberOfRows()));
-        stats.recordStripeWritten(flushReason, stripeInformation.getTotalLength(), stripeInformation.getNumberOfRows(), dictionaryCompressionOptimizer.getDictionaryMemoryBytes());
+        stats.recordStripeWritten(stripeMinBytes, stripeMaxBytes, dictionaryMaxMemoryBytes, flushReason, dictionaryCompressionOptimizer.getDictionaryMemoryBytes(), stripeInformation);
 
         return outputData;
     }
