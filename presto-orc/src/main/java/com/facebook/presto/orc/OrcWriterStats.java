@@ -13,24 +13,21 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.metadata.StripeInformation;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.CLOSED;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_ROWS;
+import static com.facebook.presto.orc.WriterStats.FlushReason.CLOSED;
+import static com.facebook.presto.orc.WriterStats.FlushReason.DICTIONARY_FULL;
+import static com.facebook.presto.orc.WriterStats.FlushReason.MAX_BYTES;
+import static com.facebook.presto.orc.WriterStats.FlushReason.MAX_ROWS;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class OrcWriterStats
+        implements WriterStats
 {
-    public enum FlushReason
-    {
-        MAX_ROWS, MAX_BYTES, DICTIONARY_FULL, CLOSED
-    }
-
     private final OrcWriterFlushStats allFlush = new OrcWriterFlushStats("ALL");
     private final OrcWriterFlushStats maxRowsFlush = new OrcWriterFlushStats(MAX_ROWS.name());
     private final OrcWriterFlushStats maxBytesFlush = new OrcWriterFlushStats(MAX_BYTES.name());
@@ -38,12 +35,22 @@ public class OrcWriterStats
     private final OrcWriterFlushStats closedFlush = new OrcWriterFlushStats(CLOSED.name());
     private final AtomicLong writerSizeInBytes = new AtomicLong();
 
-    public void recordStripeWritten(FlushReason flushReason, long stripeBytes, int stripeRows, int dictionaryBytes)
+    @Override
+    public void recordStripeWritten(
+            int stripeMinBytes,
+            int stripeMaxBytes,
+            int dictionaryMaxMemoryBytes,
+            FlushReason flushReason,
+            int dictionaryBytes,
+            StripeInformation stripeInformation)
     {
+        long stripeBytes = stripeInformation.getTotalLength();
+        int stripeRows = stripeInformation.getNumberOfRows();
         getFlushStats(flushReason).recordStripeWritten(stripeBytes, stripeRows, dictionaryBytes);
         allFlush.recordStripeWritten(stripeBytes, stripeRows, dictionaryBytes);
     }
 
+    @Override
     public void updateSizeInBytes(long deltaInBytes)
     {
         writerSizeInBytes.addAndGet(deltaInBytes);
