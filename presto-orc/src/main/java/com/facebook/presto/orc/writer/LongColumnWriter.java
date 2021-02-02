@@ -21,7 +21,7 @@ import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -77,29 +77,29 @@ public class LongColumnWriter
     public LongColumnWriter(
             int column,
             Type type,
-            CompressionKind compression,
+            CompressionParameters compressionParameters,
             Optional<DwrfDataEncryptor> dwrfEncryptor,
-            int bufferSize,
             OrcEncoding orcEncoding,
             Supplier<LongValueStatisticsBuilder> statisticsBuilderSupplier,
             MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        requireNonNull(compressionParameters, "compressionParameters is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
-        this.compressed = requireNonNull(compression, "compression is null") != NONE;
+        this.compressed = compressionParameters.getKind() != NONE;
         if (orcEncoding == DWRF) {
             this.columnEncoding = new ColumnEncoding(DIRECT, 0);
-            this.dataStream = new LongOutputStreamDwrf(compression, dwrfEncryptor, bufferSize, true, DATA);
+            this.dataStream = new LongOutputStreamDwrf(compressionParameters, dwrfEncryptor, true, DATA);
         }
         else {
             this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
-            this.dataStream = new LongOutputStreamV2(compression, bufferSize, true, DATA);
+            this.dataStream = new LongOutputStreamV2(compressionParameters, true, DATA);
         }
-        this.presentStream = new PresentOutputStream(compression, dwrfEncryptor, bufferSize);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compression, dwrfEncryptor, bufferSize);
+        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
         this.statisticsBuilderSupplier = requireNonNull(statisticsBuilderSupplier, "statisticsBuilderSupplier is null");
         this.statisticsBuilder = statisticsBuilderSupplier.get();
     }

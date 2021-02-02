@@ -21,7 +21,7 @@ import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -80,26 +80,27 @@ public class TimestampColumnWriter
 
     private boolean closed;
 
-    public TimestampColumnWriter(int column, Type type, CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize, OrcEncoding orcEncoding, DateTimeZone hiveStorageTimeZone, MetadataWriter metadataWriter)
+    public TimestampColumnWriter(int column, Type type, CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, OrcEncoding orcEncoding, DateTimeZone hiveStorageTimeZone, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        requireNonNull(compressionParameters, "compression is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
-        this.compressed = requireNonNull(compression, "compression is null") != NONE;
+        this.compressed = compressionParameters.getKind() != NONE;
         if (orcEncoding == DWRF) {
             this.columnEncoding = new ColumnEncoding(DIRECT, 0);
-            this.secondsStream = new LongOutputStreamV1(compression, dwrfEncryptor, bufferSize, true, DATA);
-            this.nanosStream = new LongOutputStreamV1(compression, dwrfEncryptor, bufferSize, false, SECONDARY);
+            this.secondsStream = new LongOutputStreamV1(compressionParameters, dwrfEncryptor, true, DATA);
+            this.nanosStream = new LongOutputStreamV1(compressionParameters, dwrfEncryptor, false, SECONDARY);
         }
         else {
             this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
-            this.secondsStream = new LongOutputStreamV2(compression, bufferSize, true, DATA);
-            this.nanosStream = new LongOutputStreamV2(compression, bufferSize, false, SECONDARY);
+            this.secondsStream = new LongOutputStreamV2(compressionParameters, true, DATA);
+            this.nanosStream = new LongOutputStreamV2(compressionParameters, false, SECONDARY);
         }
-        this.presentStream = new PresentOutputStream(compression, dwrfEncryptor, bufferSize);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compression, dwrfEncryptor, bufferSize);
+        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
         this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
     }
 

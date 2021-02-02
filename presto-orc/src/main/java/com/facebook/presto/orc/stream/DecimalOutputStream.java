@@ -16,7 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.Stream;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -44,9 +44,9 @@ public class DecimalOutputStream
 
     private boolean closed;
 
-    public DecimalOutputStream(CompressionKind compression, int bufferSize)
+    public DecimalOutputStream(CompressionParameters compressionParameters)
     {
-        this.buffer = new OrcOutputBuffer(compression, Optional.empty(), bufferSize);
+        this.buffer = new OrcOutputBuffer(compressionParameters, Optional.empty());
     }
 
     // todo rewrite without BigInteger

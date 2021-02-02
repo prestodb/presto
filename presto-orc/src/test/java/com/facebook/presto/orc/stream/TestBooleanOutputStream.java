@@ -16,6 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -23,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static org.testng.Assert.assertEquals;
@@ -42,7 +44,8 @@ public class TestBooleanOutputStream
                 ImmutableList.of(14000, 1, 2));
 
         for (List<Integer> counts : testGroups) {
-            OrcOutputBuffer buffer = new OrcOutputBuffer(NONE, Optional.empty(), 1024);
+            CompressionParameters compressionParameters = new CompressionParameters(NONE, OptionalInt.empty(), 1024);
+            OrcOutputBuffer buffer = new OrcOutputBuffer(compressionParameters, Optional.empty());
             BooleanOutputStream output = new BooleanOutputStream(buffer);
 
             // write multiple booleans together

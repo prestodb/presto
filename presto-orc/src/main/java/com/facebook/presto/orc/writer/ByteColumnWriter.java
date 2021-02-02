@@ -20,7 +20,7 @@ import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.ByteStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -66,17 +66,18 @@ public class ByteColumnWriter
 
     private boolean closed;
 
-    public ByteColumnWriter(int column, Type type, CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize, MetadataWriter metadataWriter)
+    public ByteColumnWriter(int column, Type type, CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        requireNonNull(compressionParameters, "compressionParameters is null");
         requireNonNull(dwrfEncryptor, "dwrfEncryptor is null");
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
         this.type = requireNonNull(type, "type is null");
-        this.compressed = requireNonNull(compression, "compression is null") != NONE;
-        this.dataStream = new ByteOutputStream(compression, dwrfEncryptor, bufferSize);
-        this.presentStream = new PresentOutputStream(compression, dwrfEncryptor, bufferSize);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compression, dwrfEncryptor, bufferSize);
+        this.compressed = compressionParameters.getKind() != NONE;
+        this.dataStream = new ByteOutputStream(compressionParameters, dwrfEncryptor);
+        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
     }
 
     @Override

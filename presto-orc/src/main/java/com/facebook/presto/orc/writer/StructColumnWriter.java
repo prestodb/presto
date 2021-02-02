@@ -19,7 +19,7 @@ import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.checkpoint.BooleanStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -64,14 +64,15 @@ public class StructColumnWriter
 
     private boolean closed;
 
-    public StructColumnWriter(int column, CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize, List<ColumnWriter> structFields, MetadataWriter metadataWriter)
+    public StructColumnWriter(int column, CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, List<ColumnWriter> structFields, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        requireNonNull(compressionParameters, "compressionParameters is null");
         this.column = column;
-        this.compressed = requireNonNull(compression, "compression is null") != NONE;
+        this.compressed = compressionParameters.getKind() != NONE;
         this.structFields = ImmutableList.copyOf(requireNonNull(structFields, "structFields is null"));
-        this.presentStream = new PresentOutputStream(compression, dwrfEncryptor, bufferSize);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compression, dwrfEncryptor, bufferSize);
+        this.presentStream = new PresentOutputStream(compressionParameters, dwrfEncryptor);
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, dwrfEncryptor);
     }
 
     @Override
