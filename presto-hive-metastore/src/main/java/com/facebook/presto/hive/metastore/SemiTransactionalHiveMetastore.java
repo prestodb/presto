@@ -389,7 +389,7 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    public synchronized void dropTable(ConnectorSession session, String databaseName, String tableName)
+    public synchronized void dropTable(HdfsContext context, String databaseName, String tableName)
     {
         setShared();
         // Dropping table with partition actions requires cleaning up staging data, which is not implemented yet.
@@ -397,7 +397,6 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         if (oldTableAction == null || oldTableAction.getType() == ActionType.ALTER) {
-            HdfsContext context = new HdfsContext(session, databaseName, tableName);
             tableActions.put(schemaTableName, new Action<>(ActionType.DROP, null, context));
             return;
         }
