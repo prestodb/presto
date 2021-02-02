@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.BoundVariables;
@@ -21,13 +22,16 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlAggregationFunction;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
+import com.facebook.presto.operator.aggregation.state.BlockState;
+import com.facebook.presto.operator.aggregation.state.BlockStateSerializer;
 import com.facebook.presto.operator.aggregation.state.NullableBooleanState;
 import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.operator.aggregation.state.NullableLongState;
-import com.facebook.presto.operator.aggregation.state.StateCompiler;
+import com.facebook.presto.operator.aggregation.state.SliceState;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.gen.lambda.BinaryFunctionInterface;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -36,6 +40,8 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
+import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateFactory;
+import static com.facebook.presto.operator.aggregation.state.StateCompiler.generateStateSerializer;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -44,22 +50,29 @@ import static java.lang.String.format;
 public class ReduceAggregationFunction
         extends SqlAggregationFunction
 {
-    public static final ReduceAggregationFunction REDUCE_AGG = new ReduceAggregationFunction();
     private static final String NAME = "reduce_agg";
 
     private static final MethodHandle LONG_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", NullableLongState.class, Object.class, long.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
     private static final MethodHandle DOUBLE_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", NullableDoubleState.class, Object.class, double.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
     private static final MethodHandle BOOLEAN_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", NullableBooleanState.class, Object.class, boolean.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
+    private static final MethodHandle SLICE_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", SliceState.class, Object.class, Slice.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
+    private static final MethodHandle BLOCK_STATE_INPUT_FUNCTION = methodHandle(ReduceAggregationFunction.class, "input", BlockState.class, Object.class, Block.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
 
     private static final MethodHandle LONG_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", NullableLongState.class, NullableLongState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
     private static final MethodHandle DOUBLE_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", NullableDoubleState.class, NullableDoubleState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
     private static final MethodHandle BOOLEAN_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", NullableBooleanState.class, NullableBooleanState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
+    private static final MethodHandle SLICE_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", SliceState.class, SliceState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
+    private static final MethodHandle BLOCK_STATE_COMBINE_FUNCTION = methodHandle(ReduceAggregationFunction.class, "combine", BlockState.class, BlockState.class, BinaryFunctionInterface.class, BinaryFunctionInterface.class);
 
     private static final MethodHandle LONG_STATE_OUTPUT_FUNCTION = methodHandle(NullableLongState.class, "write", Type.class, NullableLongState.class, BlockBuilder.class);
     private static final MethodHandle DOUBLE_STATE_OUTPUT_FUNCTION = methodHandle(NullableDoubleState.class, "write", Type.class, NullableDoubleState.class, BlockBuilder.class);
     private static final MethodHandle BOOLEAN_STATE_OUTPUT_FUNCTION = methodHandle(NullableBooleanState.class, "write", Type.class, NullableBooleanState.class, BlockBuilder.class);
+    private static final MethodHandle SLICE_STATE_OUTPUT_FUNCTION = methodHandle(SliceState.class, "write", Type.class, SliceState.class, BlockBuilder.class);
+    private static final MethodHandle BLOCK_STATE_OUTPUT_FUNCTION = methodHandle(BlockState.class, "write", Type.class, BlockState.class, BlockBuilder.class);
 
-    public ReduceAggregationFunction()
+    private final boolean supportsComplexTypes;
+
+    public ReduceAggregationFunction(boolean supportsComplexTypes)
     {
         super(NAME,
                 ImmutableList.of(typeVariable("T"), typeVariable("S")),
@@ -70,6 +83,8 @@ public class ReduceAggregationFunction
                         parseTypeSignature("S"),
                         parseTypeSignature("function(S,T,S)"),
                         parseTypeSignature("function(S,S,S)")));
+
+        this.supportsComplexTypes = supportsComplexTypes;
     }
 
     @Override
@@ -101,8 +116,8 @@ public class ReduceAggregationFunction
             outputMethodHandle = LONG_STATE_OUTPUT_FUNCTION.bindTo(stateType);
             stateDescriptor = new AccumulatorStateDescriptor(
                     NullableLongState.class,
-                    StateCompiler.generateStateSerializer(NullableLongState.class, classLoader),
-                    StateCompiler.generateStateFactory(NullableLongState.class, classLoader));
+                    generateStateSerializer(NullableLongState.class, classLoader),
+                    generateStateFactory(NullableLongState.class, classLoader));
         }
         else if (stateType.getJavaType() == double.class) {
             inputMethodHandle = DOUBLE_STATE_INPUT_FUNCTION;
@@ -110,8 +125,8 @@ public class ReduceAggregationFunction
             outputMethodHandle = DOUBLE_STATE_OUTPUT_FUNCTION.bindTo(stateType);
             stateDescriptor = new AccumulatorStateDescriptor(
                     NullableDoubleState.class,
-                    StateCompiler.generateStateSerializer(NullableDoubleState.class, classLoader),
-                    StateCompiler.generateStateFactory(NullableDoubleState.class, classLoader));
+                    generateStateSerializer(NullableDoubleState.class, classLoader),
+                    generateStateFactory(NullableDoubleState.class, classLoader));
         }
         else if (stateType.getJavaType() == boolean.class) {
             inputMethodHandle = BOOLEAN_STATE_INPUT_FUNCTION;
@@ -119,14 +134,37 @@ public class ReduceAggregationFunction
             outputMethodHandle = BOOLEAN_STATE_OUTPUT_FUNCTION.bindTo(stateType);
             stateDescriptor = new AccumulatorStateDescriptor(
                     NullableBooleanState.class,
-                    StateCompiler.generateStateSerializer(NullableBooleanState.class, classLoader),
-                    StateCompiler.generateStateFactory(NullableBooleanState.class, classLoader));
+                    generateStateSerializer(NullableBooleanState.class, classLoader),
+                    generateStateFactory(NullableBooleanState.class, classLoader));
         }
         else {
-            // State with Slice or Block as native container type is intentionally not supported yet,
-            // as it may result in excessive JVM memory usage of remembered set.
-            // See JDK-8017163.
-            throw new PrestoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
+            if (!supportsComplexTypes) {
+                // For large heap, State with Slice or Block may result in excessive JVM memory usage of remembered set.
+                // See JDK-8017163.
+                throw new PrestoException(NOT_SUPPORTED, format("State type not enabled for %s: %s", NAME, stateType.getDisplayName()));
+            }
+
+            if (stateType.getJavaType() == Slice.class) {
+                inputMethodHandle = SLICE_STATE_INPUT_FUNCTION;
+                combineMethodHandle = SLICE_STATE_COMBINE_FUNCTION;
+                outputMethodHandle = SLICE_STATE_OUTPUT_FUNCTION.bindTo(stateType);
+                stateDescriptor = new AccumulatorStateDescriptor(
+                        SliceState.class,
+                        generateStateSerializer(SliceState.class, classLoader),
+                        generateStateFactory(SliceState.class, classLoader));
+            }
+            else if ((stateType.getJavaType() == Block.class)) {
+                inputMethodHandle = BLOCK_STATE_INPUT_FUNCTION;
+                combineMethodHandle = BLOCK_STATE_COMBINE_FUNCTION;
+                outputMethodHandle = BLOCK_STATE_OUTPUT_FUNCTION.bindTo(stateType);
+                stateDescriptor = new AccumulatorStateDescriptor(
+                        BlockState.class,
+                        new BlockStateSerializer(stateType),
+                        generateStateFactory(BlockState.class, classLoader));
+            }
+            else {
+                throw new PrestoException(NOT_SUPPORTED, format("Unknown state java type: %s", stateType.getJavaType()));
+            }
         }
 
         AggregationMetadata metadata = new AggregationMetadata(
@@ -188,6 +226,22 @@ public class ReduceAggregationFunction
         state.setBoolean((boolean) inputFunction.apply(state.getBoolean(), value));
     }
 
+    public static void input(SliceState state, Object value, Slice initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
+    {
+        if (state.getSlice() == null) {
+            state.setSlice(initialStateValue);
+        }
+        state.setSlice((Slice) inputFunction.apply(state.getSlice(), value));
+    }
+
+    public static void input(BlockState state, Object value, Block initialStateValue, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
+    {
+        if (state.getBlock() == null) {
+            state.setBlock(initialStateValue);
+        }
+        state.setBlock((Block) inputFunction.apply(state.getBlock(), value));
+    }
+
     public static void combine(NullableLongState state, NullableLongState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
     {
         if (state.isNull()) {
@@ -216,5 +270,23 @@ public class ReduceAggregationFunction
             return;
         }
         state.setBoolean((boolean) combineFunction.apply(state.getBoolean(), otherState.getBoolean()));
+    }
+
+    public static void combine(SliceState state, SliceState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
+    {
+        if (state.getSlice() == null) {
+            state.setSlice(otherState.getSlice());
+            return;
+        }
+        state.setSlice((Slice) combineFunction.apply(state.getSlice(), otherState.getSlice()));
+    }
+
+    public static void combine(BlockState state, BlockState otherState, BinaryFunctionInterface inputFunction, BinaryFunctionInterface combineFunction)
+    {
+        if (state.getBlock() == null) {
+            state.setBlock(otherState.getBlock());
+            return;
+        }
+        state.setBlock((Block) combineFunction.apply(state.getBlock(), otherState.getBlock()));
     }
 }

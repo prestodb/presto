@@ -97,6 +97,7 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
     private boolean legacyArrayAgg;
+    private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
     private boolean groupByUsesEqualTo;
     private boolean legacyTimestamp = true;
@@ -388,6 +389,18 @@ public class FeaturesConfig
     public boolean isLegacyMapSubscript()
     {
         return legacyMapSubscript;
+    }
+
+    @Config("reduce-agg-for-complex-types-enabled")
+    public FeaturesConfig setReduceAggForComplexTypesEnabled(boolean reduceAggForComplexTypesEnabled)
+    {
+        this.reduceAggForComplexTypesEnabled = reduceAggForComplexTypesEnabled;
+        return this;
+    }
+
+    public boolean isReduceAggForComplexTypesEnabled()
+    {
+        return reduceAggForComplexTypesEnabled;
     }
 
     public JoinDistributionType getJoinDistributionType()
