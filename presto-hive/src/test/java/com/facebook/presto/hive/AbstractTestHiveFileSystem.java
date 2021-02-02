@@ -461,7 +461,7 @@ public abstract class AbstractTestHiveFileSystem
     private void dropTable(SchemaTableName table)
     {
         try (Transaction transaction = newTransaction()) {
-            transaction.getMetastore().dropTable(newSession(), table.getSchemaName(), table.getTableName());
+            transaction.getMetastore().dropTable(new HdfsContext(newSession()), table.getSchemaName(), table.getTableName());
             transaction.commit();
         }
     }

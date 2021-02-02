@@ -1385,7 +1385,10 @@ public class HiveMetadata
         if (!target.isPresent()) {
             throw new TableNotFoundException(tableName);
         }
-        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
+        metastore.dropTable(
+                new HdfsContext(session, handle.getSchemaName(), handle.getTableName(), target.get().getStorage().getLocation(), false),
+                handle.getSchemaName(),
+                handle.getTableName());
     }
 
     @Override
@@ -2149,7 +2152,10 @@ public class HiveMetadata
         }
 
         try {
-            metastore.dropTable(session, viewName.getSchemaName(), viewName.getTableName());
+            metastore.dropTable(
+                    new HdfsContext(session, viewName.getSchemaName()),
+                    viewName.getSchemaName(),
+                    viewName.getTableName());
         }
         catch (TableNotFoundException e) {
             throw new ViewNotFoundException(e.getTableName());
