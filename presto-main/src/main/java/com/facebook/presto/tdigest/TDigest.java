@@ -61,6 +61,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedDoubleArray;
 import static java.lang.Double.isNaN;
+import static java.lang.Double.sum;
 import static java.lang.Math.ceil;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -98,6 +99,7 @@ public class TDigest
 
     private double min = Double.POSITIVE_INFINITY;
     private double max = Double.NEGATIVE_INFINITY;
+    private double sum;
 
     private final Random gen = ThreadLocalRandom.current();
 
@@ -166,14 +168,16 @@ public class TDigest
         SliceInput sliceInput = new BasicSliceInput(slice);
         try {
             byte format = sliceInput.readByte();
-            checkArgument(format == 0, "Invalid serialization format for TDigest; expected '0'");
+            checkArgument(format == 0 || format == 1, "Invalid serialization format for TDigest; expected '0' or '1'");
             byte type = sliceInput.readByte();
             checkArgument(type == 0, "Invalid type for TDigest; expected '0' (type double)");
             double min = sliceInput.readDouble();
             double max = sliceInput.readDouble();
+            double sum = format == 1 ? sliceInput.readDouble() : 0.0;
             double publicCompression = max(10, sliceInput.readDouble());
             TDigest r = new TDigest(publicCompression);
             r.setMinMax(min, max);
+            r.setSum(sum);
             r.totalWeight = sliceInput.readDouble();
             r.activeCentroids = sliceInput.readInt();
             r.weight = new double[r.activeCentroids];
@@ -218,6 +222,7 @@ public class TDigest
         if (x > max) {
             max = x;
         }
+        sum += (x * w);
     }
 
     public void merge(TDigest other)
@@ -324,12 +329,12 @@ public class TDigest
         }
 
         // sanity check
-        double sum = 0;
+        double sumWeights = 0;
         for (int i = 0; i < activeCentroids; i++) {
-            sum += weight[i];
+            sumWeights += weight[i];
         }
 
-        checkArgument(sum == totalWeight, "Sum must equal the total weight, but sum:%s != totalWeight:%s", sum, totalWeight);
+        checkArgument(sumWeights == totalWeight, "Sum must equal the total weight, but sum:%s != totalWeight:%s", sumWeights, totalWeight);
         if (runBackwards) {
             reverse(mean, 0, activeCentroids);
             reverse(weight, 0, activeCentroids);
@@ -621,6 +626,7 @@ public class TDigest
                 + SIZE_OF_BYTE                          // type (e.g double, float, bigint)
                 + SIZE_OF_DOUBLE                        // min
                 + SIZE_OF_DOUBLE                        // max
+                + SIZE_OF_DOUBLE                        // sum
                 + SIZE_OF_DOUBLE                        // compression factor
                 + SIZE_OF_DOUBLE                        // total weight
                 + SIZE_OF_INT                           // number of centroids
@@ -637,10 +643,11 @@ public class TDigest
     {
         SliceOutput sliceOutput = new DynamicSliceOutput(toIntExact(estimatedSerializedSizeInBytes()));
 
-        sliceOutput.writeByte(0); // version 0 of T-Digest serialization
+        sliceOutput.writeByte(1); // version 1 of T-Digest serialization
         sliceOutput.writeByte(0); // represents the underlying data type of the distribution
         sliceOutput.writeDouble(min);
         sliceOutput.writeDouble(max);
+        sliceOutput.writeDouble(sum);
         sliceOutput.writeDouble(publicCompression);
         sliceOutput.writeDouble(totalWeight);
         sliceOutput.writeInt(activeCentroids);
@@ -655,6 +662,11 @@ public class TDigest
         this.max = max;
     }
 
+    private void setSum(double sum)
+    {
+        this.sum = sum;
+    }
+
     public double getMin()
     {
         return min;
@@ -663,6 +675,11 @@ public class TDigest
     public double getMax()
     {
         return max;
+    }
+
+    public double getSum()
+    {
+        return sum;
     }
 
     /**
