@@ -702,6 +702,32 @@ public abstract class AbstractTestQueries
                         "FROM (VALUES (1, CAST(5 AS DOUBLE)), (1, 6), (1, 7), (2, 8), (2, 9), (3, 10)) AS t(x, y) " +
                         "GROUP BY x",
                 "VALUES (1, CAST(5 AS DOUBLE) + 6 + 7), (2, 8 + 9), (3, 10)");
+
+        assertQuery(
+                "SELECT " +
+                        "x, " +
+                        "array_join(" +
+                        "   array_sort(" +
+                        "       split(reduce_agg(y, '', (a, b) -> a || b, (a, b) -> a || b), '')" +
+                        "   ), " +
+                        "   ''" +
+                        ") " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (1, 'c'), (2, 'd'), (2, 'e'), (3, 'f')) AS t(x, y) " +
+                        "GROUP BY x",
+                "VALUES (1, 'abc'), (2, 'de'), (3, 'f')");
+
+        assertQuery(
+                "SELECT " +
+                        "x, " +
+                        "array_join(" +
+                        "   array_sort(" +
+                        "       reduce_agg(y, ARRAY['x'], (a, b) -> a || b, (a, b) -> a || b)" +
+                        "   ), " +
+                        "   ''" +
+                        ") " +
+                        "FROM (VALUES (1, ARRAY['a']), (1, ARRAY['b']), (1, ARRAY['c']), (2, ARRAY['d']), (2, ARRAY['e']), (3, ARRAY['f'])) AS t(x, y) " +
+                        "GROUP BY x",
+                "VALUES (1, 'abcx'), (2, 'dex'), (3, 'fx')");
     }
 
     @Test
