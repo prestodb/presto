@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.SqlVarbinary;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeParameter;
@@ -34,8 +35,10 @@ import java.util.List;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TDigestParametricType.TDIGEST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.operator.scalar.TDigestFunctions.TDIGEST_CENTROIDS_ROW_TYPE;
 import static com.facebook.presto.tdigest.TDigest.createTDigest;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -408,6 +411,72 @@ public class TestTDigestFunctions
         for (int i = 0; i < quantiles.length; i++) {
             assertContinuousQuantileWithinBound(quantiles[i], STANDARD_ERROR, list, tDigest);
         }
+    }
+
+    @Test
+    public void testDestructureTDigest()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        ImmutableList<Double> values = ImmutableList.of(0.0d, 1.0d, 2.0d, 3.0d, 4.0d, 5.0d, 6.0d, 7.0d, 8.0d, 9.0d);
+        values.stream().forEach(tDigest::add);
+
+        List<Integer> weights = Collections.nCopies(values.size(), 1);
+        double compression = Double.valueOf(STANDARD_COMPRESSION_FACTOR);
+        double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
+        double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
+        double sum = values.stream().reduce(0.0d, Double::sum);
+        int count = values.size();
+
+        String sql = format("destructure_tdigest(CAST(X'%s' AS tdigest(%s)))",
+                new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " "),
+                DOUBLE);
+
+        functionAssertions.assertFunction(
+                sql,
+                TDIGEST_CENTROIDS_ROW_TYPE,
+                ImmutableList.of(values, weights, compression, min, max, sum, count));
+
+        functionAssertions.assertFunction(format("%s.compression", sql), DOUBLE, compression);
+        functionAssertions.assertFunction(format("%s.min", sql), DOUBLE, min);
+        functionAssertions.assertFunction(format("%s.max", sql), DOUBLE, max);
+        functionAssertions.assertFunction(format("%s.sum", sql), DOUBLE, sum);
+        functionAssertions.assertFunction(format("%s.count", sql), INTEGER, count);
+        functionAssertions.assertFunction(
+                format("%s.centroid_means", sql),
+                new ArrayType(DOUBLE),
+                values);
+        functionAssertions.assertFunction(
+                format("%s.centroid_weights", sql),
+                new ArrayType(INTEGER),
+                weights);
+    }
+
+    @Test
+    public void testDestructureTDigestLarge()
+    {
+        TDigest tDigest = createTDigest(STANDARD_COMPRESSION_FACTOR);
+        List<Double> values = new ArrayList<>();
+        for (int i = 0; i < NUMBER_OF_ENTRIES; i++) {
+            values.add((double) i);
+        }
+
+        values.stream().forEach(tDigest::add);
+
+        double compression = Double.valueOf(STANDARD_COMPRESSION_FACTOR);
+        double min = values.stream().reduce(Double.POSITIVE_INFINITY, Double::min);
+        double max = values.stream().reduce(Double.NEGATIVE_INFINITY, Double::max);
+        double sum = values.stream().reduce(0.0d, Double::sum);
+        int count = values.size();
+
+        String sql = format("destructure_tdigest(CAST(X'%s' AS tdigest(%s)))",
+                new SqlVarbinary(tDigest.serialize().getBytes()).toString().replaceAll("\\s+", " "),
+                DOUBLE);
+
+        functionAssertions.assertFunction(format("%s.compression", sql), DOUBLE, compression);
+        functionAssertions.assertFunction(format("%s.min", sql), DOUBLE, min);
+        functionAssertions.assertFunction(format("%s.max", sql), DOUBLE, max);
+        functionAssertions.assertFunction(format("%s.sum", sql), DOUBLE, sum);
+        functionAssertions.assertFunction(format("%s.count", sql), INTEGER, count);
     }
 
     // disabled because test takes almost 10s

@@ -31,6 +31,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
 
 public class TestMergeTDigestFunction
         extends TestMergeStatisticalDigestFunction
@@ -52,6 +53,8 @@ public class TestMergeTDigestFunction
                 return false;
             }
         }
+
+        assertEquals(actual.getSum(), expected.getSum(), 0.0001);
 
         return actual.getSize() == expected.getSize() &&
                 actual.getMin() == expected.getMin() &&
