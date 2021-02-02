@@ -15,23 +15,40 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.zstd.ZstdJniCompressor;
 import com.facebook.presto.testing.assertions.Assert;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.OptionalInt;
 import java.util.Random;
 
 public class TestZstdJniDecompression
 {
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(4, DataSize.Unit.MEGABYTE);
-    private final ZstdJniCompressor compressor = new ZstdJniCompressor();
+    private static final int MIN_ZSTD_LEVEL = -5;
+    private static final int MAX_ZSTD_LEVEL = 10;
+
     private final OrcZstdDecompressor decompressor = new OrcZstdDecompressor(new OrcDataSourceId("test"), (int) MAX_BUFFER_SIZE.toBytes(), true);
 
-    @Test
-    public void testDecompression()
+    @DataProvider(name = "zstdCompressionLevels")
+    public static Object[][] zstdCompressionLevels()
+    {
+        ImmutableList.Builder<Object[]> levels = new ImmutableList.Builder<>();
+        levels.add(new Object[]{OptionalInt.empty()});
+        for (int level = MIN_ZSTD_LEVEL; level <= MAX_ZSTD_LEVEL; level++) {
+            levels.add(new Object[]{OptionalInt.of(level)});
+        }
+        return levels.build().toArray(new Object[0][]);
+    }
+
+    @Test(dataProvider = "zstdCompressionLevels")
+    public void testDecompression(OptionalInt level)
             throws OrcCorruptionException
     {
         byte[] sourceBytes = generateRandomBytes();
         byte[] compressedBytes = new byte[1024 * 1024];
+        ZstdJniCompressor compressor = new ZstdJniCompressor(level);
         int size = compressor.compress(sourceBytes, 0, sourceBytes.length, compressedBytes, 0, compressedBytes.length);
         byte[] output = new byte[sourceBytes.length];
         int outputSize = decompressor.decompress(

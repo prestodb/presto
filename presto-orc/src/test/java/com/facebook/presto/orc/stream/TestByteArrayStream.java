@@ -17,6 +17,7 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.TestingHiveOrcAggregatedMemoryContext;
 import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -26,6 +27,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -55,7 +57,11 @@ public class TestByteArrayStream
     @Override
     protected ByteArrayOutputStream createValueOutputStream()
     {
-        return new ByteArrayOutputStream(SNAPPY, Optional.empty(), COMPRESSION_BLOCK_SIZE);
+        CompressionParameters compressionParameters = new CompressionParameters(
+                SNAPPY,
+                OptionalInt.empty(),
+                COMPRESSION_BLOCK_SIZE);
+        return new ByteArrayOutputStream(compressionParameters, Optional.empty());
     }
 
     @Override

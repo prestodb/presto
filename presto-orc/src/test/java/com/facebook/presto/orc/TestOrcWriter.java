@@ -21,6 +21,7 @@ import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
+import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.orc.metadata.Footer;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.StripeFooter;
@@ -31,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.FileOutputStream;
@@ -38,44 +40,63 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.facebook.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
+import static com.facebook.presto.orc.OrcDecompressor.createOrcDecompressor;
+import static com.facebook.presto.orc.OrcEncoding.DWRF;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.StripeReader.isIndexStream;
 import static com.facebook.presto.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
 import static com.facebook.presto.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZLIB;
+import static com.facebook.presto.orc.metadata.CompressionKind.ZSTD;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;
 
 public class TestOrcWriter
 {
-    @Test
-    public void testWriteOutputStreamsInOrder()
+    @DataProvider(name = "compressionLevels")
+    public static Object[][] zstdCompressionLevels()
+    {
+        ImmutableList.Builder<Object[]> parameters = new ImmutableList.Builder<>();
+        parameters.add(new Object[]{ORC, NONE, OptionalInt.empty()});
+        parameters.add(new Object[]{DWRF, ZSTD, OptionalInt.of(7)});
+        parameters.add(new Object[]{DWRF, ZSTD, OptionalInt.empty()});
+        parameters.add(new Object[]{DWRF, ZLIB, OptionalInt.of(5)});
+        parameters.add(new Object[]{DWRF, ZLIB, OptionalInt.empty()});
+        return parameters.build().toArray(new Object[0][]);
+    }
+
+    @Test(dataProvider = "compressionLevels")
+    public void testWriteOutputStreamsInOrder(OrcEncoding encoding, CompressionKind kind, OptionalInt level)
             throws IOException
     {
+        OrcWriterOptions orcWriterOptions = new OrcWriterOptions()
+                .withStripeMinSize(new DataSize(0, MEGABYTE))
+                .withStripeMaxSize(new DataSize(32, MEGABYTE))
+                .withStripeMaxRowCount(ORC_STRIPE_SIZE)
+                .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
+                .withDictionaryMaxMemory(new DataSize(32, MEGABYTE))
+                .withCompressionLevel(level);
         for (OrcWriteValidationMode validationMode : OrcWriteValidationMode.values()) {
             TempFile tempFile = new TempFile();
             OrcWriter writer = new OrcWriter(
                     new OutputStreamDataSink(new FileOutputStream(tempFile.getFile())),
                     ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
                     ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR),
-                    ORC,
-                    NONE,
+                    encoding,
+                    kind,
                     Optional.empty(),
                     NO_ENCRYPTION,
-                    new OrcWriterOptions()
-                            .withStripeMinSize(new DataSize(0, MEGABYTE))
-                            .withStripeMaxSize(new DataSize(32, MEGABYTE))
-                            .withStripeMaxRowCount(ORC_STRIPE_SIZE)
-                            .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
-                            .withDictionaryMaxMemory(new DataSize(32, MEGABYTE)),
+                    orcWriterOptions,
                     ImmutableMap.of(),
                     HIVE_STORAGE_TIME_ZONE,
                     true,
@@ -103,11 +124,12 @@ public class TestOrcWriter
             writer.close();
 
             // read the footer and verify the streams are ordered by size
+            boolean isZstdJniCompressorEnabled = true;
             DataSize dataSize = new DataSize(1, MEGABYTE);
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
             Footer footer = new OrcReader(
                     orcDataSource,
-                    ORC,
+                    encoding,
                     new StorageOrcFileTailSource(),
                     new StorageStripeMetadataSource(),
                     NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
@@ -115,11 +137,14 @@ public class TestOrcWriter
                             dataSize,
                             dataSize,
                             dataSize,
-                            false),
+                            isZstdJniCompressorEnabled),
                     false,
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY
             ).getFooter();
+
+            int bufferSize = toIntExact(orcWriterOptions.getMaxCompressionBufferSize().toBytes());
+            Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), kind, bufferSize, isZstdJniCompressorEnabled);
 
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer
@@ -129,11 +154,11 @@ public class TestOrcWriter
                         orcDataSource.getId(),
                         new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
                         Slices.wrappedBuffer(tailBuffer).getInput(),
-                        Optional.empty(),
+                        decompressor,
                         Optional.empty(),
                         new TestingHiveOrcAggregatedMemoryContext(),
                         tailBuffer.length)) {
-                    StripeFooter stripeFooter = ORC.createMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
+                    StripeFooter stripeFooter = encoding.createMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
 
                     int size = 0;
                     boolean dataStreamStarted = false;

@@ -23,7 +23,7 @@ import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.MetadataWriter;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
@@ -77,19 +77,20 @@ public class DecimalColumnWriter
 
     private boolean closed;
 
-    public DecimalColumnWriter(int column, Type type, CompressionKind compression, int bufferSize, OrcEncoding orcEncoding, MetadataWriter metadataWriter)
+    public DecimalColumnWriter(int column, Type type, CompressionParameters compressionParameters, OrcEncoding orcEncoding, MetadataWriter metadataWriter)
     {
         checkArgument(column >= 0, "column is negative");
+        requireNonNull(compressionParameters, "compressionParameters is null");
         checkArgument(orcEncoding != DWRF, "DWRF does not support %s type", type);
         requireNonNull(metadataWriter, "metadataWriter is null");
         this.column = column;
         this.type = (DecimalType) requireNonNull(type, "type is null");
-        this.compressed = requireNonNull(compression, "compression is null") != NONE;
+        this.compressed = compressionParameters.getKind() != NONE;
         this.columnEncoding = new ColumnEncoding(DIRECT_V2, 0);
-        this.dataStream = new DecimalOutputStream(compression, bufferSize);
-        this.scaleStream = new LongOutputStreamV2(compression, bufferSize, true, SECONDARY);
-        this.presentStream = new PresentOutputStream(compression, Optional.empty(), bufferSize);
-        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compression, Optional.empty(), bufferSize);
+        this.dataStream = new DecimalOutputStream(compressionParameters);
+        this.scaleStream = new LongOutputStreamV2(compressionParameters, true, SECONDARY);
+        this.presentStream = new PresentOutputStream(compressionParameters, Optional.empty());
+        this.metadataWriter = new CompressedMetadataWriter(metadataWriter, compressionParameters, Optional.empty());
         if (this.type.isShort()) {
             shortDecimalStatisticsBuilder = new ShortDecimalStatisticsBuilder(this.type.getScale());
         }
