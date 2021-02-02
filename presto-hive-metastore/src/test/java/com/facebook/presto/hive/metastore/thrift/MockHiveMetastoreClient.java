@@ -56,8 +56,9 @@ public class MockHiveMetastoreClient
     public static final String TEST_PARTITION2 = "key=testpartition2";
     public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
     public static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
-    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION1 = new PartitionNameWithVersion(TEST_PARTITION1, 1);
-    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION2 = new PartitionNameWithVersion(TEST_PARTITION2, 2);
+    public static final int PARTITION_VERSION = 1000;
+    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION1 = new PartitionNameWithVersion(TEST_PARTITION1, PARTITION_VERSION);
+    public static final PartitionNameWithVersion TEST_PARTITION_NAME_WITH_VERSION2 = new PartitionNameWithVersion(TEST_PARTITION2, PARTITION_VERSION);
     public static final List<String> TEST_ROLES = ImmutableList.of("testrole");
     public static final List<RolePrincipalGrant> TEST_ROLE_GRANTS = ImmutableList.of(
             new RolePrincipalGrant("role1", "user", USER, false, 0, "grantor1", USER),
