@@ -180,7 +180,7 @@ public class TestingSemiTransactionalHiveMetastore
     }
 
     @Override
-    public synchronized void dropTable(ConnectorSession session, String databaseName, String tableName)
+    public synchronized void dropTable(HdfsContext context, String databaseName, String tableName)
     {
         throw new UnsupportedOperationException("method not implemented");
     }
