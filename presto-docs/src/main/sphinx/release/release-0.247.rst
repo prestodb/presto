@@ -12,28 +12,18 @@ General Changes
 _______________
 * Fix a bug for reporting output data sizes for optimized repartitioning.
 * Fix accounting for revocable memory that could cause some queries not to spill when they should.
-* Fix accounting for revocable memory that could cause some queries not to spill when they should.
-* Fix accounting for revocable memory that could cause some queries not to spill when they should.
-* Fix accounting for revocable memory that could cause some queries not to spill when they should.
 * Fixed a race condition in enum key lookup which caused queries using the `ENUM_KEY` UDF to crash occasionally with an internal error #15607.
 * Add function ``array_intersect`` that takes an array of array as input.
-* Add support for temporary (session-scoped) functions.
-* Add support for temporary (session-scoped) functions.
-* Add support for temporary (session-scoped) functions.
-* Add support for temporary (session-scoped) functions.
-* Add support for temporary (session-scoped) functions.
 * Add support for temporary (session-scoped) functions.
 * Adding retry behavior for verifier requests in case of throttling error.
 
 SPI Changes
 ___________
 * Change `ConnectorTableLayoutHandle#getIdentifier` to accept a new field `Optional<ConnectorSplit> split`.
-* Change `ConnectorTableLayoutHandle#getIdentifier` to accept a new field `Optional<ConnectorSplit> split`.
 
 Hive Changes
 ____________
 * Fixed a bug that query would fail with HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT when scanning large bucketed table using grouped execution.
-* Support partition stats based optimization, including partition pruning and column domain stripping for fragment result caching.
 * Support partition stats based optimization, including partition pruning and column domain stripping for fragment result caching.
 
 JDBC Changes
