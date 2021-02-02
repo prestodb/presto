@@ -17,7 +17,7 @@ import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.LongStreamCheckpoint;
 import com.facebook.presto.orc.checkpoint.LongStreamV1Checkpoint;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
@@ -57,10 +57,10 @@ public class LongOutputStreamV1
 
     private boolean closed;
 
-    public LongOutputStreamV1(CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize, boolean signed, StreamKind streamKind)
+    public LongOutputStreamV1(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, boolean signed, StreamKind streamKind)
     {
         this.streamKind = requireNonNull(streamKind, "streamKind is null");
-        this.buffer = new OrcOutputBuffer(compression, dwrfEncryptor, bufferSize);
+        this.buffer = new OrcOutputBuffer(compressionParameters, dwrfEncryptor);
         this.signed = signed;
     }
 

@@ -45,6 +45,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 
@@ -150,11 +151,11 @@ public class PageFileWriterFactory
                 pageDecompressor = new AirliftDecompressorAdapter(new Lz4Decompressor());
                 break;
             case GZIP:
-                pageCompressor = new AirliftCompressorAdapter(new DeflateCompressor());
+                pageCompressor = new AirliftCompressorAdapter(new DeflateCompressor(OptionalInt.empty()));
                 pageDecompressor = new AirliftDecompressorAdapter(new InflateDecompressor());
                 break;
             case ZSTD:
-                pageCompressor = new AirliftCompressorAdapter(new ZstdJniCompressor());
+                pageCompressor = new AirliftCompressorAdapter(new ZstdJniCompressor(OptionalInt.empty()));
                 pageDecompressor = new AirliftDecompressorAdapter(new ZstdJniDecompressor());
                 break;
             default:

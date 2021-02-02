@@ -16,7 +16,7 @@ package com.facebook.presto.orc.stream;
 import com.facebook.presto.orc.DwrfDataEncryptor;
 import com.facebook.presto.orc.OrcOutputBuffer;
 import com.facebook.presto.orc.checkpoint.ByteArrayStreamCheckpoint;
-import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
 import com.google.common.collect.ImmutableList;
@@ -44,14 +44,14 @@ public class ByteArrayOutputStream
 
     private boolean closed;
 
-    public ByteArrayOutputStream(CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize)
+    public ByteArrayOutputStream(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor)
     {
-        this(compression, dwrfEncryptor, bufferSize, DATA);
+        this(compressionParameters, dwrfEncryptor, DATA);
     }
 
-    public ByteArrayOutputStream(CompressionKind compression, Optional<DwrfDataEncryptor> dwrfEncryptor, int bufferSize, StreamKind streamKind)
+    public ByteArrayOutputStream(CompressionParameters compressionParameters, Optional<DwrfDataEncryptor> dwrfEncryptor, StreamKind streamKind)
     {
-        this.buffer = new OrcOutputBuffer(compression, dwrfEncryptor, bufferSize);
+        this.buffer = new OrcOutputBuffer(compressionParameters, dwrfEncryptor);
         this.streamKind = streamKind;
     }
 

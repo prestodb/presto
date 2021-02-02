@@ -16,12 +16,14 @@ package com.facebook.presto.orc;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -36,12 +38,15 @@ public class TestSliceDictionaryColumnWriter
     @Test
     public void testDirectConversion()
     {
+        CompressionParameters compressionParameters = new CompressionParameters(
+                CompressionKind.NONE,
+                OptionalInt.empty(),
+                toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()));
         SliceDictionaryColumnWriter writer = new SliceDictionaryColumnWriter(
                 0,
                 VARCHAR,
-                CompressionKind.NONE,
+                compressionParameters,
                 Optional.empty(),
-                toIntExact(DEFAULT_MAX_COMPRESSION_BUFFER_SIZE.toBytes()),
                 OrcEncoding.ORC,
                 DEFAULT_MAX_STRING_STATISTICS_LIMIT,
                 OrcEncoding.ORC.createMetadataWriter());
