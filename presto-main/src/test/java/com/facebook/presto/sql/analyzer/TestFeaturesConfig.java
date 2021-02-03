@@ -156,7 +156,9 @@ public class TestFeaturesConfig
                 .setCheckAccessControlOnUtilizedColumnsOnly(false)
                 .setAllowWindowOrderByLiterals(true)
                 .setEnforceFixedDistributionForOutputOperator(false)
-                .setEmptyJoinOptimization(false));
+                .setEmptyJoinOptimization(false)
+                .setSpoolingOutputBufferThreshold(new DataSize(8, MEGABYTE))
+                .setSpoolingOutputBufferTempStorage("local"));
     }
 
     @Test
@@ -266,6 +268,8 @@ public class TestFeaturesConfig
                 .put("is-allow-window-order-by-literals", "false")
                 .put("enforce-fixed-distribution-for-output-operator", "true")
                 .put("optimizer.optimize-joins-with-empty-sources", "true")
+                .put("spooling-output-buffer-threshold", "16MB")
+                .put("spooling-output-buffer-tempstorage", "tempfs")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -372,7 +376,9 @@ public class TestFeaturesConfig
                 .setSkipRedundantSort(false)
                 .setAllowWindowOrderByLiterals(false)
                 .setEnforceFixedDistributionForOutputOperator(true)
-                .setEmptyJoinOptimization(true);
+                .setEmptyJoinOptimization(true)
+                .setSpoolingOutputBufferThreshold(new DataSize(16, MEGABYTE))
+                .setSpoolingOutputBufferTempStorage("tempfs");
         assertFullMapping(properties, expected);
     }
 
