@@ -884,7 +884,7 @@ public class SemiTransactionalHiveMetastore
     }
 
     public synchronized void declareIntentionToWrite(
-            ConnectorSession session,
+            HdfsContext context,
             WriteMode writeMode,
             Path stagingPathRoot,
             Optional<Path> tempPathRoot,
@@ -899,7 +899,6 @@ public class SemiTransactionalHiveMetastore
                 throw new PrestoException(NOT_SUPPORTED, "Can not insert into a table with a partition that has been modified in the same transaction when Presto is configured to skip temporary directories.");
             }
         }
-        HdfsContext context = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, context, stagingPathRoot, tempPathRoot, filePrefix, schemaTableName, temporaryTable));
     }
 
