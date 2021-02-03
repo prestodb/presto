@@ -51,10 +51,12 @@ public class LazyOutputBuffer
         implements OutputBuffer
 {
     private final StateMachine<BufferState> state;
+    private final TaskId taskId;
     private final String taskInstanceId;
     private final DataSize maxBufferSize;
     private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
     private final Executor executor;
+    private final SpoolingOutputBufferFactory spoolingOutputBufferFactory;
 
     // Note: this is a write once field, so an unsynchronized volatile read that returns a non-null value is safe, but if a null value is observed instead
     // a subsequent synchronized read is required to ensure the writing thread can complete any in-flight initialization
@@ -72,15 +74,17 @@ public class LazyOutputBuffer
             String taskInstanceId,
             Executor executor,
             DataSize maxBufferSize,
-            Supplier<LocalMemoryContext> systemMemoryContextSupplier)
+            Supplier<LocalMemoryContext> systemMemoryContextSupplier,
+            SpoolingOutputBufferFactory spoolingOutputBufferFactory)
     {
-        requireNonNull(taskId, "taskId is null");
+        this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.executor = requireNonNull(executor, "executor is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
+        this.spoolingOutputBufferFactory = requireNonNull(spoolingOutputBufferFactory, "spoolingOutputBufferFactory is null");
     }
 
     @Override
@@ -167,6 +171,9 @@ public class LazyOutputBuffer
                             break;
                         case DISCARDING:
                             outputBuffer = new DiscardingOutputBuffer(newOutputBuffers, state);
+                            break;
+                        case SPOOLING:
+                            outputBuffer = spoolingOutputBufferFactory.createSpoolingOutputBuffer(taskId, taskInstanceId, newOutputBuffers, state);
                             break;
                     }
 
