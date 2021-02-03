@@ -1513,9 +1513,10 @@ public class HiveMetadata
 
         LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns));
 
+        HdfsContext context = new HdfsContext(session, schemaName, tableName, locationHandle.getTargetPath().toString(), true);
         Map<String, String> tableProperties = getEmptyTableProperties(
                 tableMetadata,
-                new HdfsContext(session, schemaName, tableName, locationHandle.getTargetPath().toString(), true),
+                context,
                 tableStorageFormat,
                 tableEncryptionProperties);
         HiveOutputTableHandle result = new HiveOutputTableHandle(
@@ -1538,7 +1539,7 @@ public class HiveMetadata
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(
-                session,
+                context,
                 writeInfo.getWriteMode(),
                 writeInfo.getWritePath(),
                 writeInfo.getTempPath(),
@@ -1830,7 +1831,7 @@ public class HiveMetadata
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(
-                session,
+                new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName(), table.get().getStorage().getLocation(), false),
                 writeInfo.getWriteMode(),
                 writeInfo.getWritePath(),
                 writeInfo.getTempPath(),
