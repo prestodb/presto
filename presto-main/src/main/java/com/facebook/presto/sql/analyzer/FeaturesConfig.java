@@ -177,6 +177,9 @@ public class FeaturesConfig
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
 
+    private DataSize spoolingOutputBufferThreshold = new DataSize(8, MEGABYTE);
+    private String spoolingOutputBufferTempStorage = "local";
+
     private String warnOnNoTableLayoutFilter = "";
 
     private PartitioningPrecisionStrategy partitioningPrecisionStrategy = PartitioningPrecisionStrategy.AUTOMATIC;
@@ -1541,6 +1544,30 @@ public class FeaturesConfig
     public FeaturesConfig setEmptyJoinOptimization(boolean value)
     {
         this.optimizeJoinsWithEmptySources = value;
+        return this;
+    }
+
+    public DataSize getSpoolingOutputBufferThreshold()
+    {
+        return spoolingOutputBufferThreshold;
+    }
+
+    @Config("spooling-output-buffer-threshold")
+    public FeaturesConfig setSpoolingOutputBufferThreshold(DataSize spoolingOutputBufferThreshold)
+    {
+        this.spoolingOutputBufferThreshold = spoolingOutputBufferThreshold;
+        return this;
+    }
+
+    public String getSpoolingOutputBufferTempStorage()
+    {
+        return spoolingOutputBufferTempStorage;
+    }
+
+    @Config("spooling-output-buffer-temp-storage")
+    public FeaturesConfig setSpoolingOutputBufferTempStorage(String spoolingOutputBufferTempStorage)
+    {
+        this.spoolingOutputBufferTempStorage = spoolingOutputBufferTempStorage;
         return this;
     }
 }

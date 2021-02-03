@@ -25,6 +25,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
+import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
 import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.LocalMemoryManager;
@@ -136,7 +137,8 @@ public class SqlTaskManager
             BlockEncodingSerde blockEncodingSerde,
             OrderingCompiler orderingCompiler,
             FragmentResultCacheManager fragmentResultCacheManager,
-            ObjectMapper objectMapper)
+            ObjectMapper objectMapper,
+            SpoolingOutputBufferFactory spoolingOutputBufferFactory)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -170,6 +172,8 @@ public class SqlTaskManager
         queryContexts = CacheBuilder.newBuilder().weakValues().build(CacheLoader.from(
                 queryId -> createQueryContext(queryId, localMemoryManager, localSpillManager, gcMonitor, maxQueryUserMemoryPerNode, maxQueryTotalMemoryPerNode, maxRevocableMemoryPerNode, maxQuerySpillPerNode, maxQueryBroadcastMemory)));
 
+        requireNonNull(spoolingOutputBufferFactory, "spoolingOutputBufferFactory is null");
+
         tasks = CacheBuilder.newBuilder().build(CacheLoader.from(
                 taskId -> createSqlTask(
                         taskId,
@@ -184,7 +188,8 @@ public class SqlTaskManager
                             return null;
                         },
                         maxBufferSize,
-                        failedTasks)));
+                        failedTasks,
+                        spoolingOutputBufferFactory)));
     }
 
     private QueryContext createQueryContext(
