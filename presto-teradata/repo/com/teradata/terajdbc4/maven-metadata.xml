@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.teradata</groupId>
+  <artifactId>terajdbc4</artifactId>
+  <versioning>
+    <release>16.20</release>
+    <versions>
+      <version>16.20</version>
+    </versions>
+    <lastUpdated>20210204061001</lastUpdated>
+  </versioning>
+</metadata>

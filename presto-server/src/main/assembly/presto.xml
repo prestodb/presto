@@ -129,6 +129,10 @@
             <outputDirectory>plugin/postgresql</outputDirectory>
         </fileSet>
         <fileSet>
+            <directory>${project.build.directory}/dependency/presto-teradata-${project.version}</directory>
+            <outputDirectory>plugin/teradata</outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/dependency/presto-redshift-${project.version}</directory>
             <outputDirectory>plugin/redshift</outputDirectory>
         </fileSet>

@@ -53,6 +53,7 @@
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
+        <dep.terdata.version>16.20</dep.terdata.version>
         <dep.drift.version>1.32</dep.drift.version>
         <dep.joda.version>2.10.5</dep.joda.version>
         <dep.tempto.version>1.50</dep.tempto.version>
@@ -114,6 +115,7 @@
         <module>presto-testing-docker</module>
         <module>presto-mysql</module>
         <module>presto-oracle</module>
+        <module>presto-teradata</module>
         <module>presto-postgresql</module>
         <module>presto-redshift</module>
         <module>presto-sqlserver</module>
@@ -357,6 +359,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-oracle</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-teradata</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
