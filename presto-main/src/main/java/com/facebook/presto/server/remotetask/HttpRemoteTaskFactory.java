@@ -21,7 +21,7 @@ import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.LocationFactory;
-import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
@@ -181,7 +181,7 @@ public class HttpRemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            NodeTaskMap.NodeStatsTracker nodeStatsTracker,
+            PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
@@ -208,7 +208,7 @@ public class HttpRemoteTaskFactory
                 taskUpdateRequestCodec,
                 planFragmentCodec,
                 metadataUpdatesCodec,
-                nodeStatsTracker,
+                partitionedSplitCountTracker,
                 stats,
                 binaryTransportEnabled,
                 thriftTransportEnabled,
