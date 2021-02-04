@@ -177,7 +177,7 @@ public class PagesRTreeIndex
             }
         });
 
-        return matchingPositions.toIntArray(null);
+        return matchingPositions.toIntArray();
     }
 
     private boolean testReferencePoint(Rectangle probeEnvelope, Rectangle buildEnvelope, int partition)

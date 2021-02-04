@@ -202,6 +202,10 @@ public final class FastutilSetHelper
         @Override
         public boolean equals(Object a, Object b)
         {
+            if (a == null || b == null) {
+                return a == b;
+            }
+
             try {
                 Boolean result = (Boolean) equalsHandle.invokeExact(a, b);
                 return TRUE.equals(result);
