@@ -773,6 +773,7 @@ public abstract class AbstractTestHiveClient
         invalidTableHandle = new HiveTableHandle(database, INVALID_TABLE);
         invalidTableLayoutHandle = new HiveTableLayoutHandle(
                 invalidTable,
+                "path",
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
@@ -833,6 +834,7 @@ public abstract class AbstractTestHiveClient
         tableLayout = new ConnectorTableLayout(
                 new HiveTableLayoutHandle(
                         tablePartitionFormat,
+                        "path",
                         partitionColumns,
                         ImmutableList.of(
                                 new Column("t_string", HIVE_STRING, Optional.empty()),
@@ -883,6 +885,7 @@ public abstract class AbstractTestHiveClient
         List<HivePartition> unpartitionedPartitions = ImmutableList.of(new HivePartition(tableUnpartitioned));
         unpartitionedTableLayout = new ConnectorTableLayout(new HiveTableLayoutHandle(
                 tableUnpartitioned,
+                "path",
                 ImmutableList.of(),
                 ImmutableList.of(
                         new Column("t_string", HIVE_STRING, Optional.empty()),
@@ -2057,6 +2060,7 @@ public abstract class AbstractTestHiveClient
 
             HiveTableLayoutHandle modifiedReadBucketCountLayoutHandle = new HiveTableLayoutHandle(
                     layoutHandle.getSchemaTableName(),
+                    layoutHandle.getTablePath(),
                     layoutHandle.getPartitionColumns(),
                     layoutHandle.getDataColumns(),
                     layoutHandle.getTableParameters(),
