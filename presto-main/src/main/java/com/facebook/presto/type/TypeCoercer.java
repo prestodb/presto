@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -77,7 +78,7 @@ public class TypeCoercer
 
     public boolean canCoerce(Type fromType, Type toType)
     {
-        TypeCompatibility typeCompatibility = compatibility(fromType, toType);
+        TypeCompatibility typeCompatibility = compatibility(toStandardType(fromType), toStandardType(toType));
         return typeCompatibility.isCoercible();
     }
 
@@ -486,6 +487,14 @@ public class TypeCoercer
         }
         String typeBase = fromType.getTypeSignature().getBase();
         return TypeCompatibility.compatible(functionAndTypeManager.getType(new TypeSignature(typeBase, commonParameterTypes.build())), coercible);
+    }
+
+    private Type toStandardType(Type type)
+    {
+        if (type instanceof TypeWithName) {
+            return ((TypeWithName) type).getType();
+        }
+        return type;
     }
 
     private static class TypeCompatibility

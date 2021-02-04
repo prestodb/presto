@@ -15,6 +15,7 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeUtils;
+import com.facebook.presto.common.type.TypeWithName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -104,7 +105,7 @@ public class TypeVariableConstraint
         if (orderableRequired && !type.isOrderable()) {
             return false;
         }
-        if (!typeBound.isInstance(type)) {
+        if (!typeBound.isInstance(type) && !(type instanceof TypeWithName && typeBound.isInstance(((TypeWithName) type).getType()))) {
             return false;
         }
         if (variadicBound != null && !UNKNOWN.equals(type) && !variadicBound.equals(type.getTypeSignature().getBase())) {

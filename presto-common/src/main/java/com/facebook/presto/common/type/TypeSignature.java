@@ -36,8 +36,10 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
 import static java.lang.Character.isDigit;
+import static java.lang.Integer.min;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Locale.ENGLISH;
 
@@ -66,14 +68,14 @@ public class TypeSignature
         SIMPLE_TYPE_WITH_SPACES.add("double precision");
     }
 
-    public TypeSignature(QualifiedObjectName base, TypeSignatureParameter... parameters)
+    public TypeSignature(UserDefinedType userDefinedType)
     {
-        this(base, asList(parameters));
+        this(TypeSignatureBase.of(userDefinedType), userDefinedType.getPhysicalTypeSignature().getParameters());
     }
 
-    public TypeSignature(QualifiedObjectName base, List<TypeSignatureParameter> parameters)
+    public TypeSignature(QualifiedObjectName base)
     {
-        this(TypeSignatureBase.of(base), parameters);
+        this(TypeSignatureBase.of(base), emptyList());
     }
 
     public TypeSignature(String base, TypeSignatureParameter... parameters)
@@ -93,6 +95,11 @@ public class TypeSignature
         this.parameters = unmodifiableList(new ArrayList<>(parameters));
 
         this.calculated = parameters.stream().anyMatch(TypeSignatureParameter::isCalculated);
+    }
+
+    public TypeSignature getStandardTypeSignature()
+    {
+        return new TypeSignature(base.getStandardTypeBase(), parameters);
     }
 
     public TypeSignatureBase getTypeSignatureBase()
@@ -151,14 +158,30 @@ public class TypeSignature
 
     public static TypeSignature parseTypeSignature(String signature, Set<String> literalCalculationParameters)
     {
-        if (!signature.contains("<") && !signature.contains("(")) {
+        int posOfLessThan = signature.indexOf("<");
+        int posOfParent = signature.indexOf("(");
+        int posOfColon = signature.indexOf(":");
+        if (posOfLessThan < 0 && posOfParent < 0 && posOfColon < 0) {
+            // non-parametric standard type
             if (signature.equalsIgnoreCase(StandardTypes.VARCHAR)) {
                 return VarcharType.createUnboundedVarcharType().getTypeSignature();
             }
             checkArgument(!literalCalculationParameters.contains(signature), "Bad type signature: '%s'", signature);
             return new TypeSignature(canonicalizeBaseName(signature), new ArrayList<>());
         }
+
         String lowerCaseSignature = signature.toLowerCase(ENGLISH);
+        if (posOfColon > 0) {
+            if (posOfLessThan < 0 && posOfParent < 0) {
+                // unresolved named type: catalog.schema.type
+                return new TypeSignature(canonicalizeBaseName(signature));
+            }
+            int startOfParams = min(posOfLessThan < 0 ? Integer.MAX_VALUE : posOfLessThan, posOfParent < 0 ? Integer.MAX_VALUE : posOfParent);
+            if (posOfColon < startOfParams) {
+                // resolved name type: catalog.schema.type:basetype
+                return new TypeSignature(signature.substring(0, startOfParams), parseTypeSignature(signature.substring(posOfColon + 1)).getParameters());
+            }
+        }
         if (lowerCaseSignature.startsWith(StandardTypes.ROW + "(")) {
             return parseRowTypeSignature(signature, literalCalculationParameters);
         }
