@@ -44,6 +44,7 @@ public final class HiveTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final SchemaTableName schemaTableName;
+    private final String tablePath;
     private final List<HiveColumnHandle> partitionColumns;
     private final List<Column> dataColumns;
     private final Map<String, String> tableParameters;
@@ -65,6 +66,7 @@ public final class HiveTableLayoutHandle
     @JsonCreator
     public HiveTableLayoutHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("tablePath") String tablePath,
             @JsonProperty("partitionColumns") List<HiveColumnHandle> partitionColumns,
             @JsonProperty("dataColumns") List<Column> dataColumns,
             @JsonProperty("tableParameters") Map<String, String> tableParameters,
@@ -80,6 +82,7 @@ public final class HiveTableLayoutHandle
             @JsonProperty("partialAggregationsPushedDown") boolean partialAggregationsPushedDown)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
+        this.tablePath = requireNonNull(tablePath, "tablePath is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
@@ -98,6 +101,7 @@ public final class HiveTableLayoutHandle
 
     public HiveTableLayoutHandle(
             SchemaTableName schemaTableName,
+            String tablePath,
             List<HiveColumnHandle> partitionColumns,
             List<Column> dataColumns,
             Map<String, String> tableParameters,
@@ -114,6 +118,7 @@ public final class HiveTableLayoutHandle
             boolean partialAggregationsPushedDown)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
+        this.tablePath = requireNonNull(tablePath, "tablePath is null");
         this.partitionColumns = ImmutableList.copyOf(requireNonNull(partitionColumns, "partitionColumns is null"));
         this.dataColumns = ImmutableList.copyOf(requireNonNull(dataColumns, "dataColumns is null"));
         this.tableParameters = ImmutableMap.copyOf(requireNonNull(tableParameters, "tableProperties is null"));
@@ -134,6 +139,12 @@ public final class HiveTableLayoutHandle
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName;
+    }
+
+    @JsonProperty
+    public String getTablePath()
+    {
+        return tablePath;
     }
 
     @JsonProperty

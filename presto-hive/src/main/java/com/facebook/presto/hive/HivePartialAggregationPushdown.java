@@ -247,7 +247,9 @@ public class HivePartialAggregationPushdown
             }
 
             HiveTableLayoutHandle oldTableLayoutHandle = (HiveTableLayoutHandle) oldTableHandle.getLayout().get();
-            HiveTableLayoutHandle newTableLayoutHandle = new HiveTableLayoutHandle(oldTableLayoutHandle.getSchemaTableName(),
+            HiveTableLayoutHandle newTableLayoutHandle = new HiveTableLayoutHandle(
+                    oldTableLayoutHandle.getSchemaTableName(),
+                    oldTableLayoutHandle.getTablePath(),
                     oldTableLayoutHandle.getPartitionColumns(),
                     oldTableLayoutHandle.getDataColumns(),
                     oldTableLayoutHandle.getTableParameters(),
