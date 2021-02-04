@@ -18,9 +18,9 @@ import static java.util.Objects.requireNonNull;
 public class PartitionNameWithVersion
 {
     private final String partitionName;
-    private final int partitionVersion;
+    private final long partitionVersion;
 
-    public PartitionNameWithVersion(String partitionName, int partitionVersion)
+    public PartitionNameWithVersion(String partitionName, long partitionVersion)
     {
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.partitionVersion = partitionVersion;
@@ -31,7 +31,7 @@ public class PartitionNameWithVersion
         return partitionName;
     }
 
-    public int getPartitionVersion()
+    public long getPartitionVersion()
     {
         return partitionVersion;
     }

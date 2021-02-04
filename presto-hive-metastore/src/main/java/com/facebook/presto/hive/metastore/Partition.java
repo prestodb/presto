@@ -38,7 +38,7 @@ public class Partition
     private final Storage storage;
     private final List<Column> columns;
     private final Map<String, String> parameters;
-    private final Optional<Integer> partitionVersion;
+    private final Optional<Long> partitionVersion;
     private final boolean eligibleToIgnore;
     private final boolean sealedPartition;
 
@@ -50,7 +50,7 @@ public class Partition
             @JsonProperty("storage") Storage storage,
             @JsonProperty("columns") List<Column> columns,
             @JsonProperty("parameters") Map<String, String> parameters,
-            @JsonProperty("partitionVersion") Optional<Integer> partitionVersion,
+            @JsonProperty("partitionVersion") Optional<Long> partitionVersion,
             @JsonProperty("eligibleToIgnore") boolean eligibleToIgnore,
             @JsonProperty("sealedPartition") boolean sealedPartition)
     {
@@ -102,7 +102,7 @@ public class Partition
     }
 
     @JsonProperty
-    public Optional<Integer> getPartitionVersion()
+    public Optional<Long> getPartitionVersion()
     {
         return partitionVersion;
     }
@@ -175,7 +175,7 @@ public class Partition
         private List<String> values;
         private List<Column> columns;
         private Map<String, String> parameters = ImmutableMap.of();
-        private Optional<Integer> partitionVersion = Optional.empty();
+        private Optional<Long> partitionVersion = Optional.empty();
         private boolean isEligibleToIgnore;
         private boolean isSealedPartition = true;
 
@@ -237,7 +237,7 @@ public class Partition
             return this;
         }
 
-        public Builder setPartitionVersion(int partitionVersion)
+        public Builder setPartitionVersion(long partitionVersion)
         {
             this.partitionVersion = Optional.of(partitionVersion);
             return this;
