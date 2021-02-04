@@ -15,7 +15,7 @@ package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
-import com.facebook.presto.execution.NodeTaskMap;
+import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.metadata.InternalNode;
@@ -63,7 +63,7 @@ public class TestFixedCountScheduler
                 (node, partition) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 0, 1),
                         node, ImmutableList.of(),
-                        new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}))),
+                        new PartitionedSplitCountTracker(delta -> {}))),
                 generateRandomNodes(1));
 
         ScheduleResult result = nodeScheduler.schedule();
@@ -80,7 +80,7 @@ public class TestFixedCountScheduler
                 (node, partition) -> Optional.of(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 0, 1),
                         node, ImmutableList.of(),
-                        new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}))),
+                        new PartitionedSplitCountTracker(delta -> {}))),
                 generateRandomNodes(5));
 
         ScheduleResult result = nodeScheduler.schedule();
