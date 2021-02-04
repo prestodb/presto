@@ -64,7 +64,7 @@ public final class ReferenceCountMap
      */
     public long sizeOf()
     {
-        return INSTANCE_SIZE + SizeOf.sizeOf(key) + SizeOf.sizeOf(value) + SizeOf.sizeOf(used);
+        return INSTANCE_SIZE + SizeOf.sizeOf(key) + SizeOf.sizeOf(value);
     }
 
     /**
