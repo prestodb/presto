@@ -20,12 +20,12 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalParseResult;
 import com.facebook.presto.common.type.Decimals;
-import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -446,7 +446,7 @@ public class ExpressionAnalyzer
                 }
                 // otherwise, try to match it to an enum literal (eg Mood.HAPPY)
                 if (!scope.isColumnReference(qualifiedName)) {
-                    Optional<EnumType> enumType = tryResolveEnumLiteralType(qualifiedName, functionAndTypeManager);
+                    Optional<TypeWithName> enumType = tryResolveEnumLiteralType(qualifiedName, functionAndTypeManager);
                     if (enumType.isPresent()) {
                         setExpressionType(node.getBase(), enumType.get());
                         return setExpressionType(node, enumType.get());
@@ -1380,7 +1380,7 @@ public class ExpressionAnalyzer
             for (Expression expression : expressions) {
                 Optional<Type> newSuperType = functionAndTypeManager.getCommonSuperType(superType, process(expression, context));
                 if (!newSuperType.isPresent()) {
-                    throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
+                    throw new SemanticException(TYPE_MISMATCH, expression, message, superType.getDisplayName());
                 }
                 superType = newSuperType.get();
             }
@@ -1390,7 +1390,7 @@ public class ExpressionAnalyzer
                 Type type = process(expression, context);
                 if (!type.equals(superType)) {
                     if (!functionAndTypeManager.canCoerce(type, superType)) {
-                        throw new SemanticException(TYPE_MISMATCH, expression, message, superType);
+                        throw new SemanticException(TYPE_MISMATCH, expression, message, superType.getDisplayName());
                     }
                     addOrReplaceExpressionCoercion(expression, type, superType);
                 }
