@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.cache.alluxio;
 
+import alluxio.client.quota.CacheQuota;
+import alluxio.client.quota.CacheScope;
 import alluxio.hadoop.LocalCacheFileSystem;
 import alluxio.wire.FileInfo;
 import com.facebook.presto.cache.CachingFileSystem;
 import com.facebook.presto.hive.HiveFileContext;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
@@ -25,6 +28,7 @@ import org.apache.hadoop.fs.Path;
 import java.io.IOException;
 import java.net.URI;
 
+import static alluxio.conf.PropertyKey.USER_CLIENT_CACHE_QUOTA_ENABLED;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.hash.Hashing.md5;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -34,6 +38,7 @@ public class AlluxioCachingFileSystem
 {
     private static final int BUFFER_SIZE = 65536;
     private final boolean cacheValidationEnabled;
+    private boolean cacheQuotaEnabled;
     private LocalCacheFileSystem localCacheFileSystem;
 
     public AlluxioCachingFileSystem(ExtendedFileSystem dataTier, URI uri)
@@ -63,6 +68,7 @@ public class AlluxioCachingFileSystem
                 throw new IOException("Failed to open file", e);
             }
         });
+        this.cacheQuotaEnabled = configuration.getBoolean(USER_CLIENT_CACHE_QUOTA_ENABLED.getName(), false);
         localCacheFileSystem.initialize(uri, configuration);
     }
 
@@ -79,6 +85,16 @@ public class AlluxioCachingFileSystem
                     .setPath(path.toString())
                     .setFolder(false)
                     .setLength(hiveFileContext.getFileSize().get());
+            if (cacheQuotaEnabled) {
+                CacheScope scope = CacheScope.create(hiveFileContext.getCacheQuota().getIdentity());
+                info.setCacheScope(scope);
+                if (hiveFileContext.getCacheQuota().getQuota().isPresent()) {
+                    info.setCacheQuota(new CacheQuota(ImmutableMap.of(scope.level(), hiveFileContext.getCacheQuota().getQuota().get().toBytes())));
+                }
+                else {
+                    info.setCacheQuota(CacheQuota.UNLIMITED);
+                }
+            }
             // URIStatus is the mechanism to pass the hiveFileContext to the source filesystem
             AlluxioURIStatus alluxioURIStatus = new AlluxioURIStatus(info, hiveFileContext);
             FSDataInputStream cachingInputStream = localCacheFileSystem.open(alluxioURIStatus, BUFFER_SIZE);
