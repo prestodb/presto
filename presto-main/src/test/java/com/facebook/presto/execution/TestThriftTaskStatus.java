@@ -74,8 +74,6 @@ public class TestThriftTaskStatus
     public static final int PEAK_NODE_TOTAL_MEMORY_RESERVATION_IN_BYTES = 42 * 1024 * 1024;
     public static final int FULL_GC_COUNT = 10;
     public static final int FULL_GC_TIME_IN_MILLIS = 1001;
-    public static final int TOTAL_CPU_TIME_IN_NANOS = 1002;
-    public static final int TASK_AGE = 1003;
     public static final HostAddress REMOTE_HOST = HostAddress.fromParts("www.fake.invalid", 8080);
     private TaskStatus taskStatus;
 
@@ -137,8 +135,6 @@ public class TestThriftTaskStatus
         assertEquals(taskStatus.getPeakNodeTotalMemoryReservationInBytes(), PEAK_NODE_TOTAL_MEMORY_RESERVATION_IN_BYTES);
         assertEquals(taskStatus.getFullGcCount(), FULL_GC_COUNT);
         assertEquals(taskStatus.getFullGcTimeInMillis(), FULL_GC_TIME_IN_MILLIS);
-        assertEquals(taskStatus.getTotalCpuTimeInNanos(), TOTAL_CPU_TIME_IN_NANOS);
-        assertEquals(taskStatus.getTaskAgeInMillis(), TASK_AGE);
 
         List<ExecutionFailureInfo> failures = taskStatus.getFailures();
         assertEquals(failures.size(), 3);
@@ -199,9 +195,7 @@ public class TestThriftTaskStatus
                 SYSTEM_MEMORY_RESERVATION_IN_BYTES,
                 PEAK_NODE_TOTAL_MEMORY_RESERVATION_IN_BYTES,
                 FULL_GC_COUNT,
-                FULL_GC_TIME_IN_MILLIS,
-                TOTAL_CPU_TIME_IN_NANOS,
-                TASK_AGE);
+                FULL_GC_TIME_IN_MILLIS);
     }
 
     private List<ExecutionFailureInfo> getExecutionFailureInfos()
