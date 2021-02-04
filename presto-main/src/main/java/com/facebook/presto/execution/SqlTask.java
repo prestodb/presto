@@ -65,7 +65,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class SqlTask
 {
@@ -87,7 +86,6 @@ public class SqlTask
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
-    private final long creationTime = System.nanoTime();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -249,7 +247,6 @@ public class SqlTask
 
     private TaskStatus createTaskStatus(TaskHolder taskHolder)
     {
-        long taskStatusAgeInMilis = NANOSECONDS.toMillis(System.nanoTime() - creationTime);
         // Always return a new TaskInfo with a larger version number;
         // otherwise a client will not accept the update
         long versionNumber = nextTaskInfoVersion.getAndIncrement();
@@ -269,7 +266,6 @@ public class SqlTask
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         long fullGcTimeInMillis = 0L;
-        long totalCpuTimeInNanos = 0L;
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskStats taskStats = taskHolder.getFinalTaskInfo().getStats();
             queuedPartitionedDrivers = taskStats.getQueuedPartitionedDrivers();
@@ -279,7 +275,6 @@ public class SqlTask
             systemMemoryReservationInBytes = taskStats.getSystemMemoryReservationInBytes();
             fullGcCount = taskStats.getFullGcCount();
             fullGcTimeInMillis = taskStats.getFullGcTimeInMillis();
-            totalCpuTimeInNanos = taskStats.getTotalCpuTimeInNanos();
         }
         else if (taskHolder.getTaskExecution() != null) {
             long physicalWrittenBytes = 0;
@@ -289,7 +284,6 @@ public class SqlTask
                 queuedPartitionedDrivers += pipelineStatus.getQueuedPartitionedDrivers();
                 runningPartitionedDrivers += pipelineStatus.getRunningPartitionedDrivers();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
-                totalCpuTimeInNanos += pipelineContext.getPipelineStats().getTotalCpuTimeInNanos();
             }
             physicalWrittenDataSizeInBytes = physicalWrittenBytes;
             userMemoryReservationInBytes = taskContext.getMemoryReservation().toBytes();
@@ -316,9 +310,7 @@ public class SqlTask
                 systemMemoryReservationInBytes,
                 queryContext.getPeakNodeTotalMemory(),
                 fullGcCount,
-                fullGcTimeInMillis,
-                totalCpuTimeInNanos,
-                taskStatusAgeInMilis);
+                fullGcTimeInMillis);
     }
 
     private TaskStats getTaskStats(TaskHolder taskHolder)
