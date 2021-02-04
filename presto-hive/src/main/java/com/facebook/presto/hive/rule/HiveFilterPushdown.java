@@ -33,6 +33,7 @@ import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorSession;
@@ -43,6 +44,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
@@ -259,11 +261,14 @@ public class HiveFilterPushdown
         RowExpression remainingExpression = extractStaticConjuncts(conjuncts, logicalRowExpressions);
         remainingExpression = removeNestedDynamicFilters(remainingExpression);
 
+        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
         return new ConnectorPushdownFilterResult(
                 metadata.getTableLayout(
                         session,
                         new HiveTableLayoutHandle(
                                 tableName,
+                                table.getStorage().getLocation(),
                                 hivePartitionResult.getPartitionColumns(),
                                 // remove comments to optimize serialization costs
                                 pruneColumnComments(hivePartitionResult.getDataColumns()),

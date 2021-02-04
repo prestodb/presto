@@ -140,7 +140,14 @@ public class HivePageSourceProvider
         HiveSplit hiveSplit = (HiveSplit) split;
         Path path = new Path(hiveSplit.getPath());
 
-        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
+        Configuration configuration = hdfsEnvironment.getConfiguration(
+                new HdfsContext(
+                        session,
+                        hiveSplit.getDatabase(),
+                        hiveSplit.getTable(),
+                        hiveLayout.getTablePath(),
+                        false),
+                path);
 
         Optional<EncryptionInformation> encryptionInformation = hiveSplit.getEncryptionInformation();
         if (hiveLayout.isPushdownFilterEnabled()) {
@@ -643,10 +650,10 @@ public class HivePageSourceProvider
         }
 
         /**
-         * @param columns                   columns that need to be returned to engine
-         * @param requiredInterimColumns    columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
+         * @param columns columns that need to be returned to engine
+         * @param requiredInterimColumns columns that are needed for processing, but shouldn't be returned to engine (may overlaps with columns)
          * @param partitionSchemaDifference map from hive column index to hive type
-         * @param bucketNumber              empty if table is not bucketed, a number within [0, # bucket in table) otherwise
+         * @param bucketNumber empty if table is not bucketed, a number within [0, # bucket in table) otherwise
          */
         public static List<ColumnMapping> buildColumnMappings(
                 List<HivePartitionKey> partitionKeys,

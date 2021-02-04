@@ -158,6 +158,7 @@ public class TestDynamicPruning
                 transaction,
                 Optional.of(new HiveTableLayoutHandle(
                         new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
+                        "path",
                         ImmutableList.of(PARTITION_HIVE_COLUMN_HANDLE),
                         getColumnHandles().stream()
                                 .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty()))

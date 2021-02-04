@@ -74,6 +74,7 @@ public class HiveAddRequestedColumnsToLayout
             HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout.get();
             HiveTableLayoutHandle hiveLayoutWithDesiredColumns = new HiveTableLayoutHandle(
                     hiveLayout.getSchemaTableName(),
+                    hiveLayout.getTablePath(),
                     hiveLayout.getPartitionColumns(),
                     hiveLayout.getDataColumns(),
                     hiveLayout.getTableParameters(),

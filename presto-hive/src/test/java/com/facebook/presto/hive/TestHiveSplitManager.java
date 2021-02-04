@@ -548,6 +548,7 @@ public class TestHiveSplitManager
                 new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig()).getSessionProperties()),
                 new HiveTableLayoutHandle(
                         new SchemaTableName("test_schema", "test_table"),
+                        "test_path",
                         ImmutableList.of(partitionColumn),
                         COLUMNS,
                         ImmutableMap.of(),
