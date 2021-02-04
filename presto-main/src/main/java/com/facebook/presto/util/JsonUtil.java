@@ -20,7 +20,6 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
-import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
@@ -134,7 +133,7 @@ public final class JsonUtil
 
     public static boolean canCastToJson(Type type)
     {
-        String baseType = type.getTypeSignature().getBase();
+        String baseType = type.getTypeSignature().getStandardTypeSignature().getBase();
         if (baseType.equals(UnknownType.NAME) ||
                 baseType.equals(StandardTypes.BOOLEAN) ||
                 baseType.equals(StandardTypes.TINYINT) ||
@@ -147,10 +146,9 @@ public final class JsonUtil
                 baseType.equals(StandardTypes.VARCHAR) ||
                 baseType.equals(StandardTypes.JSON) ||
                 baseType.equals(StandardTypes.TIMESTAMP) ||
-                baseType.equals(StandardTypes.DATE)) {
-            return true;
-        }
-        if (type instanceof EnumType) {
+                baseType.equals(StandardTypes.DATE) ||
+                baseType.equals(StandardTypes.VARCHAR_ENUM) ||
+                baseType.equals(StandardTypes.BIGINT_ENUM)) {
             return true;
         }
         if (type instanceof ArrayType) {

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -125,7 +126,7 @@ public final class ExpressionTreeUtils
         return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
-    static Optional<EnumType> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
+    static Optional<TypeWithName> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
     {
         Optional<QualifiedName> prefix = qualifiedName.getPrefix();
         if (!prefix.isPresent()) {
@@ -134,8 +135,8 @@ public final class ExpressionTreeUtils
         }
         try {
             Type baseType = functionAndTypeManager.getType(parseTypeSignature(prefix.get().toString()));
-            if (baseType instanceof EnumType) {
-                return Optional.of((EnumType) baseType);
+            if (baseType instanceof TypeWithName && ((TypeWithName) baseType).getType() instanceof EnumType) {
+                return Optional.of((TypeWithName) baseType);
             }
         }
         catch (IllegalArgumentException e) {
@@ -147,10 +148,10 @@ public final class ExpressionTreeUtils
     public static Optional<Object> tryResolveEnumLiteral(DereferenceExpression node, Type nodeType)
     {
         QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
-        if (!(nodeType instanceof EnumType) || qualifiedName == null) {
+        if (!(nodeType instanceof TypeWithName && ((TypeWithName) nodeType).getType() instanceof EnumType) || qualifiedName == null) {
             return Optional.empty();
         }
-        EnumType enumType = (EnumType) nodeType;
+        EnumType enumType = (EnumType) ((TypeWithName) nodeType).getType();
         String enumKey = qualifiedName.getSuffix().toUpperCase(ENGLISH);
         checkArgument(enumType.getEnumMap().containsKey(enumKey), format("No key '%s' in enum '%s'", enumKey, nodeType.getDisplayName()));
         Object enumValue = enumType.getEnumMap().get(enumKey);

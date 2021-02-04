@@ -27,6 +27,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureBase;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.operator.aggregation.InternalAggregationFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
@@ -194,21 +195,24 @@ public class FunctionAndTypeManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        if (signature.getTypeSignatureBase().isStandardType()) {
-            Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature);
+        if (signature.getTypeSignatureBase().hasStandardType()) {
+            Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
+                if (signature.getTypeSignatureBase().hasTypeName()) {
+                    return new TypeWithName(signature.getTypeSignatureBase().getTypeName(), type.get());
+                }
                 return type.get();
             }
         }
 
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(signature.getTypeSignatureBase());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for type '%s'", signature.getBase());
-        Optional<UserDefinedType> userDefinedType = functionNamespaceManager.get().getUserDefinedType(signature.getTypeSignatureBase().getQualifiedObjectName());
+        Optional<UserDefinedType> userDefinedType = functionNamespaceManager.get().getUserDefinedType(signature.getTypeSignatureBase().getTypeName());
         if (!userDefinedType.isPresent()) {
             throw new IllegalArgumentException("Unknown type " + signature);
         }
-        checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().isStandardType(), "UserDefinedType must be based on static types.");
-        return getType(userDefinedType.get().getPhysicalTypeSignature());
+        checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "UserDefinedType must be based on static types.");
+        return getType(new TypeSignature(userDefinedType.get()));
     }
 
     @Override
@@ -354,14 +358,14 @@ public class FunctionAndTypeManager
     public void addType(Type type)
     {
         TypeSignatureBase typeSignatureBase = type.getTypeSignature().getTypeSignatureBase();
-        checkArgument(typeSignatureBase.isStandardType(), "Expect standard types");
+        checkArgument(typeSignatureBase.hasStandardType(), "Expect standard types");
         builtInTypeAndFunctionNamespaceManager.addType(type);
     }
 
     public void addParametricType(ParametricType parametricType)
     {
         TypeSignatureBase typeSignatureBase = parametricType.getTypeSignatureBase();
-        checkArgument(typeSignatureBase.isStandardType(), "Expect standard types");
+        checkArgument(typeSignatureBase.hasStandardType(), "Expect standard types");
         builtInTypeAndFunctionNamespaceManager.addParametricType(parametricType);
     }
 
@@ -558,7 +562,7 @@ public class FunctionAndTypeManager
 
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(TypeSignatureBase typeSignatureBase)
     {
-        return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getQualifiedObjectName().getCatalogName()));
+        return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getTypeName().getCatalogName()));
     }
 
     private static class FunctionResolutionCacheKey

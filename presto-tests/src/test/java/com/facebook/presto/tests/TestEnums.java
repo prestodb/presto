@@ -185,10 +185,10 @@ public class TestEnums
         assertSingleValue("test.enum.country.\"भारत\" between test.enum.country.FRANCE and test.enum.country.BAHAMAS", true);
         assertSingleValue("test.enum.country.US between test.enum.country.FRANCE and test.enum.country.\"भारत\"", false);
 
-        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to VarcharEnum\\(test.enum.country.*\\), BigintEnum\\(test.enum.mood.*\\)");
+        assertQueryFails("select test.enum.country.US = test.enum.mood.HAPPY", ".* '=' cannot be applied to test.enum.country:VarcharEnum\\(test.enum.country.*\\), test.enum.mood:BigintEnum\\(test.enum.mood.*\\)");
         assertQueryFails("select test.enum.country.US IN (test.enum.country.CHINA, test.enum.mood.SAD)", ".* All IN list values must be the same type.*");
         assertQueryFails("select test.enum.country.US IN (test.enum.mood.HAPPY, test.enum.mood.SAD)", ".* IN value and list items must be the same type: test.enum.country");
-        assertQueryFails("select test.enum.country.US > 2", ".* '>' cannot be applied to VarcharEnum\\(test.enum.country.*\\), integer");
+        assertQueryFails("select test.enum.country.US > 2", ".* '>' cannot be applied to test.enum.country:VarcharEnum\\(test.enum.country.*\\), integer");
     }
 
     @Test
@@ -196,6 +196,7 @@ public class TestEnums
     {
         assertSingleValue("test.enum.mood.HAPPY = CAST(0 AS test.enum.mood)", true);
         assertSingleValue("test.enum.mood.HAPPY = test.enum.mood.SAD", false);
+        assertSingleValue("array[test.enum.mood.HAPPY, test.enum.mood.SAD] = array[test.enum.mood.HAPPY, test.enum.mood.SAD]", true);
 
         assertSingleValue("test.enum.mood.SAD != test.enum.mood.MELLOW", true);
         assertSingleValue("array[test.enum.mood.HAPPY, test.enum.mood.SAD] != array[test.enum.mood.SAD, test.enum.mood.HAPPY]", true);
@@ -218,7 +219,7 @@ public class TestEnums
         assertSingleValue("test.enum.mood.HAPPY between test.enum.mood.CURIOUS and test.enum.mood.SAD ", true);
         assertSingleValue("test.enum.mood.MELLOW between test.enum.mood.SAD and test.enum.mood.HAPPY", false);
 
-        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to BigintEnum\\(test.enum.mood.*, integer");
+        assertQueryFails("select test.enum.mood.HAPPY = 3", ".* '=' cannot be applied to test.enum.mood:BigintEnum\\(test.enum.mood.*, integer");
     }
 
     @Test

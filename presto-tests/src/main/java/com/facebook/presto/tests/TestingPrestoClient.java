@@ -27,6 +27,7 @@ import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -265,6 +266,9 @@ public class TestingPrestoClient
         }
         else if (type instanceof BigintEnumType) {
             return ((Number) value).longValue();
+        }
+        else if (type instanceof TypeWithName) {
+            return convertToRowValue(((TypeWithName) type).getType(), value);
         }
         else if (type.getTypeSignature().getBase().equals("ObjectId")) {
             return value;

@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
@@ -190,7 +191,11 @@ public class SignatureBinder
         String baseType = typeSignature.getBase();
         if (boundVariables.containsTypeVariable(baseType)) {
             checkState(typeSignature.getParameters().isEmpty(), "Type parameters cannot have parameters");
-            return boundVariables.getTypeVariable(baseType);
+            Type type = boundVariables.getTypeVariable(baseType);
+            if (type instanceof TypeWithName) {
+                return ((TypeWithName) type).getType();
+            }
+            return type;
         }
 
         List<TypeSignatureParameter> parameters = typeSignature.getParameters().stream()
