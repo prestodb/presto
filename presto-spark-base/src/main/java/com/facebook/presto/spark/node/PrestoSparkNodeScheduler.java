@@ -44,7 +44,7 @@ public class PrestoSparkNodeScheduler
                 new InMemoryNodeManager(),
                 new NodeSelectionStats(),
                 new NodeSchedulerConfig(),
-                new NodeTaskMap(new FinalizerService(), Duration.valueOf("10s")),
+                new NodeTaskMap(new FinalizerService()),
                 new Duration(5, SECONDS));
     }
 

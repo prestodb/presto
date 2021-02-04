@@ -24,7 +24,7 @@ import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
+import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.ScheduledSplit;
@@ -188,7 +188,7 @@ public final class HttpRemoteTask
     private final AtomicBoolean needsUpdate = new AtomicBoolean(true);
     private final AtomicBoolean sendPlan = new AtomicBoolean(true);
 
-    private final NodeStatsTracker nodeStatsTracker;
+    private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
     private final AtomicBoolean aborting = new AtomicBoolean(false);
 
@@ -222,7 +222,7 @@ public final class HttpRemoteTask
             Codec<TaskUpdateRequest> taskUpdateRequestCodec,
             Codec<PlanFragment> planFragmentCodec,
             Codec<MetadataUpdates> metadataUpdatesCodec,
-            NodeStatsTracker nodeStatsTracker,
+            PartitionedSplitCountTracker partitionedSplitCountTracker,
             RemoteTaskStats stats,
             boolean binaryTransportEnabled,
             boolean thriftTransportEnabled,
@@ -245,7 +245,7 @@ public final class HttpRemoteTask
         requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         requireNonNull(planFragmentCodec, "planFragmentCodec is null");
-        requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
+        requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(taskInfoRefreshMaxWait, "taskInfoRefreshMaxWait is null");
@@ -270,7 +270,7 @@ public final class HttpRemoteTask
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.planFragmentCodec = planFragmentCodec;
             this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
-            this.nodeStatsTracker = requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
+            this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
             this.maxErrorDuration = maxErrorDuration;
             this.stats = stats;
             this.binaryTransportEnabled = binaryTransportEnabled;
@@ -340,12 +340,12 @@ public final class HttpRemoteTask
                     cleanUpTask();
                 }
                 else {
-                    updateTaskStats();
+                    partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
                     updateSplitQueueSpace();
                 }
             });
 
-            updateTaskStats();
+            partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
         }
     }
@@ -416,7 +416,7 @@ public final class HttpRemoteTask
             }
             if (tableScanPlanNodeIds.contains(sourceId)) {
                 pendingSourceSplitCount += added;
-                updateTaskStats();
+                partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             }
             needsUpdate = true;
         }
@@ -602,21 +602,6 @@ public final class HttpRemoteTask
         }
     }
 
-    private void updateTaskStats()
-    {
-        TaskStatus taskStatus = getTaskStatus();
-        if (taskStatus.getState().isDone()) {
-            nodeStatsTracker.setPartitionedSplitCount(0);
-            nodeStatsTracker.setMemoryUsage(0);
-            nodeStatsTracker.setCpuUsage(taskStatus.getTaskAgeInMillis(), 0);
-        }
-        else {
-            nodeStatsTracker.setPartitionedSplitCount(getPartitionedSplitCount());
-            nodeStatsTracker.setMemoryUsage(taskStatus.getMemoryReservationInBytes() + taskStatus.getSystemMemoryReservationInBytes());
-            nodeStatsTracker.setCpuUsage(taskStatus.getTaskAgeInMillis(), taskStatus.getTotalCpuTimeInNanos());
-        }
-    }
-
     private synchronized void processTaskUpdate(TaskInfo newValue, List<TaskSource> sources)
     {
         updateTaskInfo(newValue);
@@ -642,7 +627,7 @@ public final class HttpRemoteTask
         }
         updateSplitQueueSpace();
 
-        updateTaskStats();
+        partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
     }
 
     private void updateTaskInfo(TaskInfo taskInfo)
@@ -780,7 +765,7 @@ public final class HttpRemoteTask
         // clear pending splits to free memory
         pendingSplits.clear();
         pendingSourceSplitCount = 0;
-        updateTaskStats();
+        partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
         splitQueueHasSpace = true;
         whenSplitQueueHasSpace.complete(null, executor);
 

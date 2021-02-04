@@ -14,7 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
+import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
@@ -47,7 +47,7 @@ public class TrackingRemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            NodeStatsTracker nodeStatsTracker,
+            PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
@@ -57,7 +57,7 @@ public class TrackingRemoteTaskFactory
                 fragment,
                 initialSplits,
                 outputBuffers,
-                nodeStatsTracker,
+                partitionedSplitCountTracker,
                 summarizeTaskInfo,
                 tableWriteInfo);
 
