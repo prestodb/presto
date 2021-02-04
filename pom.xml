@@ -635,7 +635,7 @@
             <dependency>
                 <groupId>com.facebook.hive</groupId>
                 <artifactId>hive-dwrf</artifactId>
-                <version>0.8.3</version>
+                <version>0.8.5</version>
             </dependency>
 
             <dependency>
@@ -923,7 +923,7 @@
             <dependency>
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
-                <version>6.5.9</version>
+                <version>8.5.2</version>
             </dependency>
 
             <dependency>
