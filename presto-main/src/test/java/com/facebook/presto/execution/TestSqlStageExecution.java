@@ -33,7 +33,6 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.Duration;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -96,7 +95,7 @@ public class TestSqlStageExecution
     private void testFinalStageInfoInternal()
             throws Exception
     {
-        NodeTaskMap nodeTaskMap = new NodeTaskMap(new FinalizerService(), Duration.valueOf("10s"));
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(new FinalizerService());
 
         StageId stageId = new StageId(new QueryId("query"), 0);
         SqlStageExecution stage = createSqlStageExecution(

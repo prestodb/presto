@@ -326,7 +326,7 @@ public class LocalQueryRunner
                 nodeManager,
                 new NodeSelectionStats(),
                 nodeSchedulerConfig,
-                new NodeTaskMap(finalizerService, Duration.valueOf("10s")));
+                new NodeTaskMap(finalizerService));
         this.pageSinkManager = new PageSinkManager();
         CatalogManager catalogManager = new CatalogManager();
         this.transactionManager = InMemoryTransactionManager.create(
