@@ -445,5 +445,28 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>long-running-flaky-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestDistributedQueriesNoHashGeneration.java</include>
+                                <include>**/TestTpchDistributedQueries.java</include>
+                                <include>**/TestLocalQueries.java</include>
+                                <include>**/TestNonIterativeDistributedQueries.java</include>
+                                <include>**/TestAggregations.java</include>
+                                <include>**/TestOptimizeMixedDistinctAggregations.java</include>
+                                <include>**/TestSpilledAggregations.java</include>
+                                <include>**/TestQueryPlanDeterminism.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>

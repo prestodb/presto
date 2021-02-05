@@ -9,10 +9,7 @@ env:
     - ARTIFACTS_UPLOAD_PATH_PR=travis_build_artifacts_pr/${TRAVIS_REPO_SLUG}/${TRAVIS_BRANCH}/${TRAVIS_BUILD_NUMBER}
     - TEST_FLAGS=""
   matrix:
-    - MAVEN_CHECKS=true
-    - WEBUI_CHECKS=true
-    - TEST_SPECIFIC_MODULES=presto-docs
-    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-execution-memory"
+    - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P long-running-flaky-tests"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-general"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-distributed-non-hash-gen"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-tpch-distributed-queries"
@@ -28,7 +25,7 @@ env:
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-materialized-aggregations"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-recoverable-execution"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-basic"
-    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-advanced" 
+    - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-pushdown-filter-queries-advanced"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-repartitioning"
     - TEST_SPECIFIC_MODULES=presto-hive TEST_FLAGS="-P test-hive-parquet"
     - TEST_SPECIFIC_MODULES=presto-main
