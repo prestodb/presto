@@ -50,6 +50,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.hash.Hashing.sha256;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
@@ -247,12 +248,16 @@ public class MySqlFunctionNamespaceManager
             FunctionNamespaceDao transactionDao = handle.attach(functionNamespaceDaoClass);
             List<SqlInvokedFunction> functions = getSqlFunctions(transactionDao, functionName, parameterTypes);
 
-            checkUnique(functions, functionName);
             checkExists(functions, functionName, parameterTypes);
 
-            SqlInvokedFunction latest = functions.get(0);
-            checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
-            transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), true);
+            if (!parameterTypes.isPresent()) {
+                transactionDao.setDeleted(functionName.getCatalogName(), functionName.getSchemaName(), functionName.getObjectName());
+            }
+            else {
+                SqlInvokedFunction latest = getOnlyElement(functions);
+                checkState(latest.getVersion().isPresent(), "Function version missing: %s", latest.getFunctionId());
+                transactionDao.setDeletionStatus(hash(latest.getFunctionId()), latest.getFunctionId(), getLongVersion(latest), true);
+            }
         });
 
         refreshFunctionsCache(functionName);
