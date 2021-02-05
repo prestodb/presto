@@ -40,6 +40,11 @@ public class TestingPagesSerdeFactory
 
     public static PagesSerde testingPagesSerde()
     {
+        return testingPagesSerde(false);
+    }
+
+    public static PagesSerde testingPagesSerde(boolean checksumEnabled)
+    {
         return new SynchronizedPagesSerde(
                 new BlockEncodingManager(),
                 Optional.of(new PageCompressor()
@@ -90,15 +95,15 @@ public class TestingPagesSerdeFactory
                         decompressor.decompress(input, output);
                     }
                 }),
-                Optional.empty());
+                Optional.empty(), checksumEnabled);
     }
 
     private static class SynchronizedPagesSerde
             extends PagesSerde
     {
-        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<PageCompressor> compressor, Optional<PageDecompressor> decompressor, Optional<SpillCipher> spillCipher)
+        public SynchronizedPagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<PageCompressor> compressor, Optional<PageDecompressor> decompressor, Optional<SpillCipher> spillCipher, boolean checksumEnabled)
         {
-            super(blockEncodingSerde, compressor, decompressor, spillCipher);
+            super(blockEncodingSerde, compressor, decompressor, spillCipher, checksumEnabled);
         }
 
         @Override

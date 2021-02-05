@@ -16,16 +16,23 @@ package com.facebook.presto.spi.page;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.spi.PrestoException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.net.Inet6Address;
+import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
 import static com.facebook.presto.common.block.BlockSerdeUtil.readBlock;
 import static com.facebook.presto.common.block.BlockSerdeUtil.writeBlock;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.page.PageCodecMarker.CHECKSUMMED;
 import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -60,6 +67,17 @@ public class PagesSerdeUtil
         output.writeByte(page.getPageCodecMarkers());
         output.writeInt(page.getUncompressedSizeInBytes());
         output.writeInt(page.getSizeInBytes());
+        if (CHECKSUMMED.isSet(page.getPageCodecMarkers())) {
+            output.writeLong(page.getChecksum());
+            try {
+                String host = Inet6Address.getLocalHost().getHostAddress();
+                output.writeInt(host.length());
+                output.writeBytes(host.getBytes(StandardCharsets.UTF_8));
+            }
+            catch (UnknownHostException e) {
+                throw new RuntimeException(e);
+            }
+        }
         output.writeBytes(page.getSlice());
     }
 
@@ -69,8 +87,24 @@ public class PagesSerdeUtil
         byte codecMarker = sliceInput.readByte();
         int uncompressedSizeInBytes = sliceInput.readInt();
         int sizeInBytes = sliceInput.readInt();
+        long checksum = 0;
+        String host = "";
+        if (CHECKSUMMED.isSet(codecMarker)) {
+            checksum = sliceInput.readLong();
+            int length = sliceInput.readInt();
+            byte[] hostAddress = new byte[length];
+            sliceInput.read(hostAddress);
+            host = new String(hostAddress);
+        }
         Slice slice = sliceInput.readSlice(toIntExact((sizeInBytes)));
-        return new SerializedPage(slice, codecMarker, positionCount, uncompressedSizeInBytes);
+        SerializedPage page = new SerializedPage(slice, codecMarker, positionCount, uncompressedSizeInBytes);
+
+        if (CHECKSUMMED.isSet(codecMarker)) {
+            if (checksum != page.getChecksum()) {
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Incorrect checksum reading serialized page from host %s", host));
+            }
+        }
+        return page;
     }
 
     public static long writeSerializedPages(SliceOutput sliceOutput, Iterable<SerializedPage> pages)

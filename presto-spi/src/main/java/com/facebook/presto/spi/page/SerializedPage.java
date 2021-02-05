@@ -17,7 +17,9 @@ import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
+import java.util.zip.CRC32;
 
+import static com.facebook.presto.spi.page.PageCodecMarker.CHECKSUMMED;
 import static com.facebook.presto.spi.page.PageCodecMarker.COMPRESSED;
 import static com.facebook.presto.spi.page.PageCodecMarker.ENCRYPTED;
 import static java.lang.String.format;
@@ -31,6 +33,7 @@ public class SerializedPage
     private final int positionCount;
     private final int uncompressedSizeInBytes;
     private final byte pageCodecMarkers;
+    private final long checksum;
 
     public SerializedPage(
             Slice slice,
@@ -51,6 +54,18 @@ public class SerializedPage
             else {
                 checkArgument(uncompressedSizeInBytes == slice.length(), "uncompressed size must be equal to slice length when uncompressed");
             }
+        }
+        if (CHECKSUMMED.isSet(pageCodecMarkers)) {
+            CRC32 crc32 = new CRC32();
+            crc32.update(slice.byteArray());
+            crc32.update(pageCodecMarkers);
+            crc32.update(positionCount);
+            crc32.update(uncompressedSizeInBytes);
+
+            checksum = crc32.getValue();
+        }
+        else {
+            checksum = 0;
         }
     }
 
@@ -82,6 +97,11 @@ public class SerializedPage
     public Slice getSlice()
     {
         return slice;
+    }
+
+    public long getChecksum()
+    {
+        return checksum;
     }
 
     @Override
