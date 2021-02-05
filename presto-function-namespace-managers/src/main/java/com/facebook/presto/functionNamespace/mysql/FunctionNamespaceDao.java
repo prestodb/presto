@@ -297,6 +297,21 @@ public interface FunctionNamespaceDao
             @Bind("version") long version,
             @Bind("deleted") boolean deleted);
 
+    @SqlUpdate("UPDATE\n" +
+            "    <sql_functions_table>\n" +
+            "SET\n" +
+            "    deleted = true\n," +
+            "    delete_time = NOW()\n" +
+            "WHERE\n" +
+            "    catalog_name = :catalog_name\n" +
+            "    AND schema_name = :schema_name\n" +
+            "    AND function_name = :function_name\n" +
+            "    AND not deleted")
+    int setDeleted(
+            @Bind("catalog_name") String catalogName,
+            @Bind("schema_name") String schemaName,
+            @Bind("function_name") String functionName);
+
     @SqlQuery("SELECT\n" +
             "   count(1) > 0\n" +
             "FROM <enum_types_table>\n" +
