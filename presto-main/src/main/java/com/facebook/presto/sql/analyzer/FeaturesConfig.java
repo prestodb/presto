@@ -96,6 +96,7 @@ public class FeaturesConfig
     private boolean enableIntermediateAggregations;
     private boolean pushTableWriteThroughUnion = true;
     private boolean exchangeCompressionEnabled;
+    private boolean exchangeChecksumEnabled;
     private boolean legacyArrayAgg;
     private boolean reduceAggForComplexTypesEnabled = true;
     private boolean legacyLogFunction;
@@ -1089,10 +1090,22 @@ public class FeaturesConfig
         return exchangeCompressionEnabled;
     }
 
+    public boolean isExchangeChecksumEnabled()
+    {
+        return exchangeChecksumEnabled;
+    }
+
     @Config("exchange.compression-enabled")
     public FeaturesConfig setExchangeCompressionEnabled(boolean exchangeCompressionEnabled)
     {
         this.exchangeCompressionEnabled = exchangeCompressionEnabled;
+        return this;
+    }
+
+    @Config("exchange.checksum-enabled")
+    public FeaturesConfig setExchangeChecksumEnabled(boolean exchangeChecksumEnabled)
+    {
+        this.exchangeChecksumEnabled = exchangeChecksumEnabled;
         return this;
     }
 
