@@ -359,12 +359,12 @@ public class TestMySqlFunctionNamespaceManager
         dropFunction(POWER_TOWER, Optional.empty(), false);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function 'unittest\\.memory\\.power_tower' has multiple signatures: unittest\\.memory\\.power_tower(\\(integer\\):integer|\\(double\\):double); unittest\\.memory\\.power_tower(\\(double\\):double|\\(integer\\):integer)\\. Please specify parameter types\\.")
-    public void testDropFunctionAmbiguous()
+    public void testDropFunctionMultiple()
     {
         createFunction(FUNCTION_POWER_TOWER_DOUBLE, false);
         createFunction(FUNCTION_POWER_TOWER_INT, false);
         dropFunction(POWER_TOWER, Optional.empty(), false);
+        assertGetFunctions(POWER_TOWER);
     }
 
     @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Function not found: unittest\\.memory\\.power_tower\\(\\)")
