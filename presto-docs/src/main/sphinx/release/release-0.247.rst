@@ -19,7 +19,6 @@ _______________
 * Add support for specifying session properties via regex matching on client info using :doc:`/admin/session-property-managers`
 * Add maven plugin for drift to generate the Thrift spec for a list of classes, current class list is TaskStatus
 * Change theme of the Presto docs site (https://prestodb.io/docs/), adding a table of contents, page navigation, Sphinx search, ability to copy code to clipboard, and a new color scheme.
-* CPU and Memory stats are added to NodeTaskMap. CPU and Memory stats will be used in planed new feature "workload placement".
 
 SPI Changes
 ___________
