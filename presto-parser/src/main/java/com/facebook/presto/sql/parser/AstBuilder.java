@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateFunction;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.CreateRole;
 import com.facebook.presto.sql.tree.CreateSchema;
 import com.facebook.presto.sql.tree.CreateTable;
@@ -443,6 +444,28 @@ class AstBuilder
     }
 
     @Override
+    public Node visitCreateMaterializedView(SqlBaseParser.CreateMaterializedViewContext context)
+    {
+        Optional<String> comment = Optional.empty();
+        if (context.COMMENT() != null) {
+            comment = Optional.of(((StringLiteral) visit(context.string())).getValue());
+        }
+
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
+        return new CreateMaterializedView(
+                Optional.of(getLocation(context)),
+                getQualifiedName(context.qualifiedName()),
+                (Query) visit(context.query()),
+                context.EXISTS() != null,
+                properties,
+                comment);
+    }
+
+    @Override
     public Node visitCreateFunction(SqlBaseParser.CreateFunctionContext context)
     {
         Optional<String> comment = Optional.empty();
@@ -453,6 +476,7 @@ class AstBuilder
         return new CreateFunction(
                 getQualifiedName(context.functionName),
                 context.REPLACE() != null,
+                context.TEMPORARY() != null,
                 context.sqlParameterDeclaration().stream()
                         .map(this::getParameterDeclarations)
                         .collect(toImmutableList()),
@@ -477,7 +501,12 @@ class AstBuilder
     public Node visitDropFunction(SqlBaseParser.DropFunctionContext context)
     {
         Optional<List<String>> parameterTypes = context.types() == null ? Optional.empty() : Optional.of(getTypes(context.types()));
-        return new DropFunction(getLocation(context), getQualifiedName(context.qualifiedName()), parameterTypes, context.EXISTS() != null);
+        return new DropFunction(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                parameterTypes,
+                context.TEMPORARY() != null,
+                context.EXISTS() != null);
     }
 
     @Override

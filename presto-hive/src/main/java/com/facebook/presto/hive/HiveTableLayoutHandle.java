@@ -15,9 +15,11 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.TupleDomain.ColumnDomain;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -34,6 +36,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveTableLayoutHandle
@@ -228,8 +232,22 @@ public final class HiveTableLayoutHandle
     }
 
     @Override
-    public Object getIdentifier()
+    public Object getIdentifier(Optional<ConnectorSplit> split)
     {
+        TupleDomain<Subfield> domainPredicate = this.domainPredicate;
+
+        // If split is provided, we would update the identifier based on split runtime information.
+        if (split.isPresent() && domainPredicate.getColumnDomains().isPresent()) {
+            HiveSplit hiveSplit = (HiveSplit) split.get();
+            Set<Subfield> subfields = hiveSplit.getRedundantColumnDomains().stream()
+                    .map(column -> new Subfield(((HiveColumnHandle) column).getName()))
+                    .collect(toImmutableSet());
+            List<ColumnDomain<Subfield>> columnDomains = domainPredicate.getColumnDomains().get().stream()
+                    .filter(columnDomain -> !subfields.contains(columnDomain.getColumn()))
+                    .collect(toImmutableList());
+            domainPredicate = TupleDomain.fromColumnDomains(Optional.of(columnDomains));
+        }
+
         // Identifier is used to identify if the table layout is providing the same set of data.
         // To achieve this, we need table name, data column predicates and bucket filter.
         // We did not include other fields because they are either table metadata or partition column predicate,

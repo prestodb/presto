@@ -14,6 +14,7 @@
 package com.facebook.presto.block;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.DictionaryBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;

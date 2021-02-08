@@ -127,15 +127,21 @@ public class NodePartitioningManager
 
         List<InternalNode> bucketToNode;
         NodeSelectionStrategy nodeSelectionStrategy = connectorBucketNodeMap.getNodeSelectionStrategy();
+        boolean cacheable;
         switch (nodeSelectionStrategy) {
             case HARD_AFFINITY:
+                bucketToNode = getFixedMapping(connectorBucketNodeMap);
+                cacheable = false;
+                break;
             case SOFT_AFFINITY:
                 bucketToNode = getFixedMapping(connectorBucketNodeMap);
+                cacheable = true;
                 break;
             case NO_PREFERENCE:
                 bucketToNode = createArbitraryBucketToNode(
                         nodeScheduler.createNodeSelector(connectorId).selectRandomNodes(getMaxTasksPerStage(session)),
                         connectorBucketNodeMap.getBucketCount());
+                cacheable = false;
                 break;
             default:
                 throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection strategy %s", nodeSelectionStrategy));
@@ -158,7 +164,7 @@ public class NodePartitioningManager
                 .mapToObj(partitionId -> nodeToPartition.inverse().get(partitionId))
                 .collect(toImmutableList());
 
-        return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle));
+        return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle), cacheable);
     }
 
     public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, boolean preferDynamic)

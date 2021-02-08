@@ -29,6 +29,7 @@ import static com.facebook.presto.common.block.BlockUtil.countUsedPositions;
 import static com.facebook.presto.common.block.BlockUtil.ensureCapacity;
 import static com.facebook.presto.common.block.BlockUtil.internalPositionInRange;
 import static io.airlift.slice.SizeOf.sizeOf;
+import static java.lang.String.format;
 
 public class IntArrayBlock
         implements Block
@@ -224,10 +225,7 @@ public class IntArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("IntArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return format("IntArrayBlock(%d){positionCount=%d}", hashCode(), getPositionCount());
     }
 
     private void checkReadablePosition(int position)

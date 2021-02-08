@@ -47,7 +47,7 @@ public abstract class AbstractBenchmarkCommand
 
         Injector injector = null;
         try {
-            injector = app.strictConfig().initialize();
+            injector = app.initialize();
         }
         catch (Exception e) {
             throwIfUnchecked(e);

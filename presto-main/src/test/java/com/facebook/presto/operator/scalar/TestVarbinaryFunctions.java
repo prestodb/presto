@@ -511,4 +511,15 @@ public class TestVarbinaryFunctions
         }
         return new SqlVarbinary(bytes);
     }
+
+    @Test
+    public void testReverse()
+    {
+        assertFunction("REVERSE(CAST(null AS VARBINARY))", VARBINARY, null);
+        assertFunction("REVERSE(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinary(""));
+        assertFunction("REVERSE(CAST('hello' AS VARBINARY))", VARBINARY, sqlVarbinary("olleh"));
+        assertFunction("REVERSE(CAST('Quadratically' AS VARBINARY))", VARBINARY, sqlVarbinary("yllacitardauQ"));
+        assertFunction("REVERSE(CAST('racecar' AS VARBINARY))", VARBINARY, sqlVarbinary("racecar"));
+        assertFunction("REVERSE(REVERSE(CAST('hello' AS VARBINARY)))", VARBINARY, sqlVarbinary("hello"));
+    }
 }

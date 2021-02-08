@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
@@ -54,7 +55,7 @@ public abstract class AbstractSimpleOperatorBenchmark
 
         operatorFactories.add(new NullOutputOperatorFactory(999, new PlanNodeId("test")));
 
-        return new DriverFactory(0, true, true, operatorFactories, OptionalInt.empty(), UNGROUPED_EXECUTION);
+        return new DriverFactory(0, true, true, operatorFactories, OptionalInt.empty(), UNGROUPED_EXECUTION, Optional.empty());
     }
 
     @Override

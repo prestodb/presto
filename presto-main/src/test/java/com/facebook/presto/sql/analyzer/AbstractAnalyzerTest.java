@@ -15,8 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.StandardTypes;
@@ -25,7 +24,6 @@ import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
-import com.facebook.presto.functionNamespace.execution.thrift.ThriftSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
@@ -107,7 +105,7 @@ public class AbstractAnalyzerTest
             .build();
 
     protected static final SqlInvokedFunction SQL_FUNCTION_SQUARE = new SqlInvokedFunction(
-            QualifiedFunctionName.of(new CatalogSchemaName("unittest", "memory"), "square"),
+            QualifiedObjectName.valueOf("unittest", "memory", "square"),
             ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
             parseTypeSignature(StandardTypes.BIGINT),
             "square",
@@ -139,7 +137,7 @@ public class AbstractAnalyzerTest
                         "unittest",
                         new SqlFunctionExecutors(
                                 ImmutableMap.of(SQL, FunctionImplementationType.SQL),
-                                new ThriftSqlFunctionExecutor(null)),
+                                null),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         metadata.getFunctionAndTypeManager().createFunction(SQL_FUNCTION_SQUARE, true);

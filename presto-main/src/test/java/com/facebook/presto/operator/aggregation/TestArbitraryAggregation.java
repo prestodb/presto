@@ -47,7 +47,7 @@ public class TestArbitraryAggregation
     @Test
     public void testAllRegistered()
     {
-        Set<Type> allTypes = metadata.getTypeManager().getTypes().stream().collect(toImmutableSet());
+        Set<Type> allTypes = metadata.getFunctionAndTypeManager().getTypes().stream().collect(toImmutableSet());
 
         for (Type valueType : allTypes) {
             assertNotNull(getAggregation(valueType));

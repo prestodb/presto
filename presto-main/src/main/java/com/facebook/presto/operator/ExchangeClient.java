@@ -25,7 +25,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
@@ -58,6 +57,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.Math.max;
@@ -82,6 +82,7 @@ public class ExchangeClient
         implements Closeable
 {
     private static final SerializedPage NO_MORE_PAGES = new SerializedPage(EMPTY_SLICE, PageCodecMarker.none(), 0, 0);
+    private static final ListenableFuture<?> NOT_BLOCKED = immediateFuture(null);
 
     private final long bufferCapacity;
     private final DataSize maxResponseSize;
@@ -293,13 +294,6 @@ public class ExchangeClient
         }
 
         SerializedPage page = pageBuffer.poll();
-        return postProcessPage(page);
-    }
-
-    private SerializedPage postProcessPage(SerializedPage page)
-    {
-        checkState(!Thread.holdsLock(this), "Can not get next page while holding a lock on this");
-
         if (page == null) {
             return null;
         }
@@ -318,12 +312,10 @@ public class ExchangeClient
             if (!closed.get()) {
                 bufferRetainedSizeInBytes -= page.getRetainedSizeInBytes();
                 systemMemoryContext.setBytes(bufferRetainedSizeInBytes);
-                if (pageBuffer.peek() == NO_MORE_PAGES) {
-                    close();
-                }
             }
+            scheduleRequestIfNecessary();
         }
-        scheduleRequestIfNecessary();
+
         return page;
     }
 
@@ -404,51 +396,73 @@ public class ExchangeClient
         }
     }
 
-    public synchronized ListenableFuture<?> isBlocked()
+    public ListenableFuture<?> isBlocked()
     {
+        // Fast path return without synchronizing
         if (isClosed() || isFailed() || pageBuffer.peek() != null) {
-            return Futures.immediateFuture(true);
+            return NOT_BLOCKED;
         }
-        SettableFuture<?> future = SettableFuture.create();
-        blockedCallers.add(future);
-        return future;
+        synchronized (this) {
+            // Re-check after synchronizing
+            if (isClosed() || isFailed() || pageBuffer.peek() != null) {
+                return NOT_BLOCKED;
+            }
+            SettableFuture<?> future = SettableFuture.create();
+            blockedCallers.add(future);
+            return future;
+        }
     }
 
-    private synchronized boolean addPages(List<SerializedPage> pages)
+    private boolean addPages(List<SerializedPage> pages)
     {
-        if (isClosed() || isFailed()) {
-            return false;
+        // Compute stats before acquiring the lock
+        long pagesRetainedSizeInBytes = 0;
+        long responseSize = 0;
+        for (SerializedPage page : pages) {
+            pagesRetainedSizeInBytes += page.getRetainedSizeInBytes();
+            responseSize += page.getSizeInBytes();
         }
 
-        pageBuffer.addAll(pages);
+        List<SettableFuture<?>> notify = ImmutableList.of();
+        synchronized (this) {
+            if (isClosed() || isFailed()) {
+                return false;
+            }
 
-        if (!pages.isEmpty()) {
-            // notify all blocked callers
-            notifyBlockedCallers();
+            if (!pages.isEmpty()) {
+                pageBuffer.addAll(pages);
+
+                bufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
+                maxBufferRetainedSizeInBytes = max(maxBufferRetainedSizeInBytes, bufferRetainedSizeInBytes);
+                systemMemoryContext.setBytes(bufferRetainedSizeInBytes);
+
+                // Notify pending listeners that a page has been added
+                notify = ImmutableList.copyOf(blockedCallers);
+                blockedCallers.clear();
+            }
+
+            successfulRequests++;
+            responseSizeExponentialMovingAverage.update(responseSize);
         }
-
-        long pagesRetainedSizeInBytes = pages.stream()
-                .mapToLong(SerializedPage::getRetainedSizeInBytes)
-                .sum();
-
-        bufferRetainedSizeInBytes += pagesRetainedSizeInBytes;
-        maxBufferRetainedSizeInBytes = max(maxBufferRetainedSizeInBytes, bufferRetainedSizeInBytes);
-        systemMemoryContext.setBytes(bufferRetainedSizeInBytes);
-        successfulRequests++;
-
-        long responseSize = pages.stream()
-                .mapToLong(SerializedPage::getSizeInBytes)
-                .sum();
-        responseSizeExponentialMovingAverage.update(responseSize);
+        // Trigger notifications after releasing the lock
+        notifyListeners(notify);
 
         return true;
     }
 
-    private synchronized void notifyBlockedCallers()
+    private void notifyBlockedCallers()
     {
-        List<SettableFuture<?>> callers = ImmutableList.copyOf(blockedCallers);
-        blockedCallers.clear();
-        for (SettableFuture<?> blockedCaller : callers) {
+        List<SettableFuture<?>> callers;
+        synchronized (this) {
+            callers = ImmutableList.copyOf(blockedCallers);
+            blockedCallers.clear();
+        }
+        notifyListeners(callers);
+    }
+
+    private void notifyListeners(List<SettableFuture<?>> blockedCallers)
+    {
+        for (SettableFuture<?> blockedCaller : blockedCallers) {
             // Notify callers in a separate thread to avoid callbacks while holding a lock
             scheduler.execute(() -> blockedCaller.set(null));
         }

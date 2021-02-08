@@ -16,12 +16,12 @@ package com.facebook.presto.hive;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.hive.TestHiveEventListenerPlugin.TestingHiveEventListenerPlugin;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.spi.security.SelectedRole;
@@ -38,6 +38,7 @@ import org.joda.time.DateTimeZone;
 import java.io.File;
 import java.net.URI;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -215,6 +216,27 @@ public final class HiveQueryRunner
                         "query.hash-partition-count", "11",
                         "colocated-joins-enabled", "true",
                         "grouped-execution-enabled", "true"),
+                Optional.empty());
+    }
+
+    public static DistributedQueryRunner createMaterializingAndSpillingQueryRunner(Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createQueryRunner(
+                tables,
+                ImmutableMap.<String, String>builder()
+                        .put("query.partitioning-provider-catalog", "hive")
+                        .put("query.exchange-materialization-strategy", "ALL")
+                        .put("query.hash-partition-count", "11")
+                        .put("colocated-joins-enabled", "true")
+                        .put("grouped-execution-enabled", "true")
+                        .put("experimental.spill-enabled", "true")
+                        .put("experimental.join-spill-enabled", "true")
+                        .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
+                        .put("experimental.spiller-max-used-space-threshold", "1.0")
+                        .put("experimental.memory-revoking-threshold", "0.0") // revoke always
+                        .put("experimental.memory-revoking-target", "0.0")
+                        .build(),
                 Optional.empty());
     }
 

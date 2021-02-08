@@ -125,10 +125,15 @@ public class TestPinotSplitManager
     private void assertSegmentSplitWellFormed(PinotSplit split, boolean expectFilter)
     {
         assertEquals(split.getSplitType(), SEGMENT);
-        assertTrue(split.getSegmentPql().isPresent());
+        assertTrue(split.getSegmentPinotQuery().isPresent());
         assertTrue(split.getSegmentHost().isPresent());
+        assertTrue(split.getGrpcHost().isPresent());
+        assertTrue(split.getGrpcHost().get().length() > 0);
+        assertEquals(split.getGrpcHost().get(), split.getSegmentHost().get());
+        assertTrue(split.getGrpcPort().isPresent());
+        assertEquals(split.getGrpcPort().get().intValue(), MockPinotClusterInfoFetcher.DEFAULT_GRPC_PORT);
         assertFalse(split.getSegments().isEmpty());
-        String pql = split.getSegmentPql().get();
+        String pql = split.getSegmentPinotQuery().get();
         assertFalse(pql.contains("__")); // templates should be fully resolved
         List<String> splitOnWhere = Splitter.on(" WHERE ").splitToList(pql);
         // There should be exactly one WHERE clause and it should partition the pql into two
@@ -151,7 +156,9 @@ public class TestPinotSplitManager
                         PinotSessionProperties.FORBID_SEGMENT_QUERIES,
                         forbidSegmentQueries),
                 new FeaturesConfig().isLegacyTimestamp(),
-                Optional.empty());
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of());
     }
 
     private List<PinotSplit> getSplitsHelper(PinotTableHandle pinotTable, int numSegmentsPerSplit, boolean forbidSegmentQueries)

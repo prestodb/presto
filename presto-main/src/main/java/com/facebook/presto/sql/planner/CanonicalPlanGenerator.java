@@ -57,6 +57,9 @@ public class CanonicalPlanGenerator
     {
         Map<VariableReferenceExpression, VariableReferenceExpression> originalToNewVariableNames = new HashMap<>();
         Optional<PlanNode> canonicalPlan = root.accept(new CanonicalPlanGenerator(), originalToNewVariableNames);
+        if (!originalToNewVariableNames.keySet().containsAll(partitioningScheme.getOutputLayout())) {
+            return Optional.empty();
+        }
         return canonicalPlan.map(planNode -> new CanonicalPlanFragment(planNode, getCanonicalPartitioningScheme(partitioningScheme, originalToNewVariableNames)));
     }
 

@@ -16,7 +16,6 @@ package com.facebook.presto.orc;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.orc.metadata.DwrfEncryption;
 import com.facebook.presto.orc.metadata.MetadataReader;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.PostScript.HiveWriterVersion;
@@ -55,7 +54,6 @@ public class OrcBatchRecordReader
             Optional<EncryptionLibrary> encryptionLibrary,
             Map<Integer, Integer> dwrfEncryptionGroupMap,
             Map<Integer, Slice> intermediateKeyMetadata,
-            Optional<DwrfEncryption> dwrfEncryption,
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
@@ -91,7 +89,6 @@ public class OrcBatchRecordReader
                 encryptionLibrary,
                 dwrfEncryptionGroupMap,
                 intermediateKeyMetadata,
-                dwrfEncryption,
                 rowsInRowGroup,
                 hiveStorageTimeZone,
                 hiveWriterVersion,

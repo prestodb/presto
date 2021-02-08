@@ -15,7 +15,6 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -126,7 +125,7 @@ public final class ExpressionTreeUtils
         return expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == ComparisonExpression.Operator.EQUAL;
     }
 
-    static Optional<EnumType> tryResolveEnumLiteralType(QualifiedName qualifiedName, TypeManager typeManager)
+    static Optional<EnumType> tryResolveEnumLiteralType(QualifiedName qualifiedName, FunctionAndTypeManager functionAndTypeManager)
     {
         Optional<QualifiedName> prefix = qualifiedName.getPrefix();
         if (!prefix.isPresent()) {
@@ -134,7 +133,7 @@ public final class ExpressionTreeUtils
             return Optional.empty();
         }
         try {
-            Type baseType = typeManager.getType(parseTypeSignature(prefix.get().toString()));
+            Type baseType = functionAndTypeManager.getType(parseTypeSignature(prefix.get().toString()));
             if (baseType instanceof EnumType) {
                 return Optional.of((EnumType) baseType);
             }
@@ -145,24 +144,10 @@ public final class ExpressionTreeUtils
         return Optional.empty();
     }
 
-    private static boolean isEnumLiteral(DereferenceExpression node, Type nodeType)
-    {
-        if (!(nodeType instanceof EnumType)) {
-            return false;
-        }
-        QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
-        if (qualifiedName == null) {
-            return false;
-        }
-        Optional<QualifiedName> prefix = qualifiedName.getPrefix();
-        return prefix.isPresent()
-                && prefix.get().toString().equalsIgnoreCase(nodeType.getTypeSignature().getBase());
-    }
-
     public static Optional<Object> tryResolveEnumLiteral(DereferenceExpression node, Type nodeType)
     {
         QualifiedName qualifiedName = DereferenceExpression.getQualifiedName(node);
-        if (!isEnumLiteral(node, nodeType)) {
+        if (!(nodeType instanceof EnumType) || qualifiedName == null) {
             return Optional.empty();
         }
         EnumType enumType = (EnumType) nodeType;

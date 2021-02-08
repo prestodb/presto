@@ -208,7 +208,7 @@ public class ScalarStatsCalculator
             double lowValue = sourceStats.getLowValue();
             double highValue = sourceStats.getHighValue();
 
-            if (TypeUtils.isIntegralType(call.getType().getTypeSignature(), metadata.getTypeManager())) {
+            if (TypeUtils.isIntegralType(call.getType().getTypeSignature(), metadata.getFunctionAndTypeManager())) {
                 // todo handle low/high value changes if range gets narrower due to cast (e.g. BIGINT -> SMALLINT)
                 if (isFinite(lowValue)) {
                     lowValue = Math.round(lowValue);
@@ -395,7 +395,6 @@ public class ScalarStatsCalculator
         {
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                     metadata.getFunctionAndTypeManager(),
-                    metadata.getTypeManager(),
                     session,
                     types,
                     emptyList(),
@@ -417,7 +416,7 @@ public class ScalarStatsCalculator
             double lowValue = sourceStats.getLowValue();
             double highValue = sourceStats.getHighValue();
 
-            if (TypeUtils.isIntegralType(targetType, metadata.getTypeManager())) {
+            if (TypeUtils.isIntegralType(targetType, metadata.getFunctionAndTypeManager())) {
                 // todo handle low/high value changes if range gets narrower due to cast (e.g. BIGINT -> SMALLINT)
                 if (isFinite(lowValue)) {
                     lowValue = Math.round(lowValue);

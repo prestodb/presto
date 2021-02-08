@@ -95,9 +95,9 @@ public class TestFeaturesConfig
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
                 .setTaskSpillingStrategy(ORDER_BY_CREATE_TIME)
-                .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.FILE)
+                .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.LOCAL_FILE)
                 .setSpillerTempStorage("local")
-                .setMaxRevocableMemoryPerTask(500000L)
+                .setMaxRevocableMemoryPerTask(new DataSize(500, MEGABYTE))
                 .setOptimizeMixedDistinctAggregations(false)
                 .setLegacyLogFunction(false)
                 .setIterativeOptimizerEnabled(true)
@@ -148,9 +148,11 @@ public class TestFeaturesConfig
                 .setOptimizeCommonSubExpressions(true)
                 .setPreferDistributedUnion(true)
                 .setOptimizeNullsInJoin(false)
+                .setSkipRedundantSort(true)
                 .setWarnOnNoTableLayoutFilter("")
                 .setInlineSqlFunctions(true)
-                .setCheckAccessControlOnUtilizedColumnsOnly(false));
+                .setCheckAccessControlOnUtilizedColumnsOnly(false)
+                .setAllowWindowOrderByLiterals(true));
     }
 
     @Test
@@ -218,7 +220,7 @@ public class TestFeaturesConfig
                 .put("experimental.spiller.task-spilling-strategy", "PER_TASK_MEMORY_THRESHOLD")
                 .put("experimental.spiller.single-stream-spiller-choice", "TEMP_STORAGE")
                 .put("experimental.spiller.spiller-temp-storage", "crail")
-                .put("experimental.spiller.max-revocable-task-memory", "100000")
+                .put("experimental.spiller.max-revocable-task-memory", "1GB")
                 .put("exchange.compression-enabled", "true")
                 .put("deprecated.legacy-timestamp", "false")
                 .put("optimizer.enable-intermediate-aggregations", "true")
@@ -254,6 +256,8 @@ public class TestFeaturesConfig
                 .put("warn-on-no-table-layout-filter", "ry@nlikestheyankees,ds")
                 .put("inline-sql-functions", "false")
                 .put("check-access-control-on-utilized-columns-only", "true")
+                .put("optimizer.skip-redundant-sort", "false")
+                .put("is-allow-window-order-by-literals", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -313,7 +317,7 @@ public class TestFeaturesConfig
                 .setTaskSpillingStrategy(PER_TASK_MEMORY_THRESHOLD)
                 .setSingleStreamSpillerChoice(SingleStreamSpillerChoice.TEMP_STORAGE)
                 .setSpillerTempStorage("crail")
-                .setMaxRevocableMemoryPerTask(100000L)
+                .setMaxRevocableMemoryPerTask(new DataSize(1, GIGABYTE))
                 .setLegacyLogFunction(true)
                 .setExchangeCompressionEnabled(true)
                 .setLegacyTimestamp(false)
@@ -351,9 +355,12 @@ public class TestFeaturesConfig
                 .setOptimizeCommonSubExpressions(false)
                 .setPreferDistributedUnion(false)
                 .setOptimizeNullsInJoin(true)
+                .setSkipRedundantSort(false)
                 .setWarnOnNoTableLayoutFilter("ry@nlikestheyankees,ds")
                 .setInlineSqlFunctions(false)
-                .setCheckAccessControlOnUtilizedColumnsOnly(true);
+                .setCheckAccessControlOnUtilizedColumnsOnly(true)
+                .setSkipRedundantSort(false)
+                .setAllowWindowOrderByLiterals(false);
         assertFullMapping(properties, expected);
     }
 

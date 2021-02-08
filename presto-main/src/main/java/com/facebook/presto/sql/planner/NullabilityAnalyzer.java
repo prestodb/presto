@@ -105,7 +105,7 @@ public final class NullabilityAnalyzer
 
         private boolean functionReturnsNullForNotNullInput(FunctionMetadata function)
         {
-            return (function.getName().getFunctionName().equalsIgnoreCase("like"));
+            return (function.getName().getObjectName().equalsIgnoreCase("like"));
         }
 
         @Override

@@ -27,8 +27,10 @@ import io.airlift.slice.Slice;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
-import org.joda.time.chrono.ISOChronology;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -56,7 +58,7 @@ import static java.util.stream.Collectors.toList;
 public class MongoPageSource
         implements ConnectorPageSource
 {
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
+    private static final ZoneId UTC_ZONE_ID = ZoneId.of("UTC");
     private static final int ROWS_PER_REQUEST = 1024;
 
     private final MongoCursor<Document> cursor;
@@ -164,7 +166,7 @@ public class MongoPageSource
                     type.writeLong(output, TimeUnit.MILLISECONDS.toDays(utcMillis));
                 }
                 else if (type.equals(TIME)) {
-                    type.writeLong(output, UTC_CHRONOLOGY.millisOfDay().get(((Date) value).getTime()));
+                    type.writeLong(output, ZonedDateTime.ofInstant(((Date) value).toInstant(), UTC_ZONE_ID).get(ChronoField.MILLI_OF_DAY));
                 }
                 else if (type.equals(TIMESTAMP)) {
                     type.writeLong(output, ((Date) value).getTime());

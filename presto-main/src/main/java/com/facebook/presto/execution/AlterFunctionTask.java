@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
@@ -31,7 +31,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
@@ -65,7 +65,7 @@ public class AlterFunctionTask
         Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.empty(), parameters, stateMachine.getWarningCollector());
         analyzer.analyze(statement);
 
-        QualifiedFunctionName functionName = qualifyFunctionName(statement.getFunctionName());
+        QualifiedObjectName functionName = qualifyObjectName(statement.getFunctionName());
         AlterRoutineCharacteristics alterRoutineCharacteristics = new AlterRoutineCharacteristics(
                 statement.getCharacteristics().getNullCallClause()
                         .map(com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause::name)

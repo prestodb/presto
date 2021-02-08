@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -58,7 +58,7 @@ public final class WindowAnnotationsParser
                 .collect(toImmutableList());
 
         Signature signature = new Signature(
-                QualifiedFunctionName.of(DEFAULT_NAMESPACE, window.name()),
+                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, window.name()),
                 WINDOW,
                 typeVariables,
                 ImmutableList.of(),

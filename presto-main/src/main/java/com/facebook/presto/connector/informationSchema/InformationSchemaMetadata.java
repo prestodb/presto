@@ -15,12 +15,12 @@ package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.FullConnectorSession;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.EquatableValueSet;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -295,7 +295,7 @@ public class InformationSchemaMetadata
                             .map(table -> table.toLowerCase(ENGLISH))
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
-                    .map(QualifiedObjectName::asQualifiedTablePrefix)
+                    .map(QualifiedTablePrefix::toQualifiedTablePrefix)
                     .collect(toImmutableSet());
         }
 
@@ -304,7 +304,7 @@ public class InformationSchemaMetadata
                         metadata.listTables(session, prefix).stream(),
                         metadata.listViews(session, prefix).stream()))
                 .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
-                .map(QualifiedObjectName::asQualifiedTablePrefix)
+                .map(QualifiedTablePrefix::toQualifiedTablePrefix)
                 .collect(toImmutableSet());
     }
 

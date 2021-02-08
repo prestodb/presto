@@ -14,26 +14,35 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CustomFunctions;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.Parameter;
+import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
+import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.SystemSessionProperties.EXPERIMENTAL_FUNCTIONS_ENABLED;
@@ -45,7 +54,7 @@ import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -109,7 +118,11 @@ public class TestFunctionAndTypeManager
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
 
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        BuiltInFunctionHandle functionHandle = (BuiltInFunctionHandle) functionAndTypeManager.resolveFunction(TEST_SESSION.getTransactionId(), signature.getName(), fromTypeSignatures(signature.getArgumentTypes()));
+        BuiltInFunctionHandle functionHandle = (BuiltInFunctionHandle) functionAndTypeManager.resolveFunction(
+                Optional.empty(),
+                TEST_SESSION.getTransactionId(),
+                signature.getName(),
+                fromTypeSignatures(signature.getArgumentTypes()));
         assertEquals(functionAndTypeManager.getFunctionMetadata(functionHandle).getArgumentTypes(), ImmutableList.of(parseTypeSignature(StandardTypes.BIGINT)));
         assertEquals(signature.getReturnType().getBase(), StandardTypes.TIMESTAMP_WITH_TIME_ZONE);
     }
@@ -190,6 +203,56 @@ public class TestFunctionAndTypeManager
         assertTrue(functionAndTypeManager.getFunctionMetadata(functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT)).getOperatorType().map(OperatorType::isComparisonOperator).orElse(false));
         assertFalse(functionAndTypeManager.getFunctionMetadata(functionResolution.comparisonFunction(GREATER_THAN, BIGINT, BIGINT)).getOperatorType().map(OperatorType::isArithmeticOperator).orElse(true));
         assertFalse(functionAndTypeManager.getFunctionMetadata(functionResolution.notFunction()).getOperatorType().isPresent());
+    }
+
+    @Test
+    public void testSessionFunctions()
+    {
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+
+        SqlFunctionId bigintSignature = new SqlFunctionId(QualifiedObjectName.valueOf("presto.default.foo"), ImmutableList.of(parseTypeSignature("bigint")));
+        SqlInvokedFunction bigintFunction = new SqlInvokedFunction(
+                bigintSignature.getFunctionName(),
+                ImmutableList.of(new Parameter("x", parseTypeSignature("bigint"))),
+                parseTypeSignature("bigint"),
+                "",
+                RoutineCharacteristics.builder().build(),
+                "",
+                Optional.empty());
+
+        SqlFunctionId varcharSignature = new SqlFunctionId(QualifiedObjectName.valueOf("presto.default.foo"), ImmutableList.of(parseTypeSignature("varchar")));
+        SqlInvokedFunction varcharFunction = new SqlInvokedFunction(
+                bigintSignature.getFunctionName(),
+                ImmutableList.of(new Parameter("x", parseTypeSignature("varchar"))),
+                parseTypeSignature("varchar"),
+                "",
+                RoutineCharacteristics.builder().build(),
+                "",
+                Optional.empty());
+
+        Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions = ImmutableMap.of(bigintSignature, bigintFunction, varcharSignature, varcharFunction);
+
+        assertEquals(
+                functionAndTypeManager.resolveFunction(
+                        Optional.of(sessionFunctions),
+                        Optional.empty(),
+                        bigintSignature.getFunctionName(),
+                        ImmutableList.of(new TypeSignatureProvider(parseTypeSignature("bigint")))),
+                new SessionFunctionHandle(bigintFunction));
+        assertEquals(
+                functionAndTypeManager.resolveFunction(
+                        Optional.of(sessionFunctions),
+                        Optional.empty(),
+                        varcharSignature.getFunctionName(),
+                        ImmutableList.of(new TypeSignatureProvider(parseTypeSignature("varchar")))),
+                new SessionFunctionHandle(varcharFunction));
+        assertEquals(
+                functionAndTypeManager.resolveFunction(
+                        Optional.of(sessionFunctions),
+                        Optional.empty(),
+                        bigintSignature.getFunctionName(),
+                        ImmutableList.of(new TypeSignatureProvider(parseTypeSignature("int")))),
+                new SessionFunctionHandle(bigintFunction));
     }
 
     @Test
@@ -347,10 +410,10 @@ public class TestFunctionAndTypeManager
     {
         ImmutableSet<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
         List<TypeSignature> argumentSignatures = arguments.stream()
-                .map((signature) -> TypeSignature.parseTypeSignature(signature, literalParameters))
+                .map((signature) -> parseTypeSignature(signature, literalParameters))
                 .collect(toImmutableList());
         return new SignatureBuilder()
-                .returnType(TypeSignature.parseTypeSignature(returnType, literalParameters))
+                .returnType(parseTypeSignature(returnType, literalParameters))
                 .argumentTypes(argumentSignatures)
                 .typeVariableConstraints(typeVariableConstraints)
                 .kind(SCALAR);
@@ -409,7 +472,11 @@ public class TestFunctionAndTypeManager
         {
             FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
             functionAndTypeManager.registerBuiltInFunctions(createFunctionsFromSignatures());
-            return functionAndTypeManager.resolveFunction(TEST_SESSION.getTransactionId(), qualifyFunctionName(QualifiedName.of(TEST_FUNCTION_NAME)), fromTypeSignatures(parameterTypes));
+            return functionAndTypeManager.resolveFunction(
+                    Optional.empty(),
+                    TEST_SESSION.getTransactionId(),
+                    qualifyObjectName(QualifiedName.of(TEST_FUNCTION_NAME)),
+                    fromTypeSignatures(parameterTypes));
         }
 
         private List<BuiltInFunction> createFunctionsFromSignatures()

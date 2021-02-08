@@ -15,15 +15,14 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
@@ -187,7 +186,7 @@ public class TestCreateTableTask
     private static class MockMetadata
             extends AbstractMockMetadata
     {
-        private final TypeManager typeManager;
+        private final FunctionAndTypeManager functionAndTypeManager;
         private final TablePropertyManager tablePropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
         private final ConnectorId catalogHandle;
@@ -195,13 +194,13 @@ public class TestCreateTableTask
         private Set<ConnectorCapabilities> connectorCapabilities;
 
         public MockMetadata(
-                TypeManager typeManager,
+                FunctionAndTypeManager functionAndTypeManager,
                 TablePropertyManager tablePropertyManager,
                 ColumnPropertyManager columnPropertyManager,
                 ConnectorId catalogHandle,
                 Set<ConnectorCapabilities> connectorCapabilities)
         {
-            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
@@ -232,7 +231,7 @@ public class TestCreateTableTask
         @Override
         public Type getType(TypeSignature signature)
         {
-            return typeManager.getType(signature);
+            return functionAndTypeManager.getType(signature);
         }
 
         @Override

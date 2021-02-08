@@ -20,12 +20,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.TypeUtils.normalizeEnumMap;
 import static com.facebook.presto.common.type.TypeUtils.validateEnumMap;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 public class VarcharEnumType
         extends AbstractVarcharType
@@ -33,9 +37,9 @@ public class VarcharEnumType
 {
     private final VarcharEnumMap enumMap;
 
-    public VarcharEnumType(String name, VarcharEnumMap enumMap)
+    public VarcharEnumType(VarcharEnumMap enumMap)
     {
-        super(VarcharType.UNBOUNDED_LENGTH, new TypeSignature(name, TypeSignatureParameter.of(enumMap)));
+        super(VarcharType.UNBOUNDED_LENGTH, new TypeSignature(StandardTypes.VARCHAR_ENUM, TypeSignatureParameter.of(enumMap)));
         this.enumMap = enumMap;
     }
 
@@ -43,6 +47,12 @@ public class VarcharEnumType
     public Map<String, String> getEnumMap()
     {
         return enumMap.getEnumMap();
+    }
+
+    @Override
+    public Optional<String> getEnumKeyForValue(String value)
+    {
+        return enumMap.getKeyForValue(value);
     }
 
     @Override
@@ -54,24 +64,40 @@ public class VarcharEnumType
     @Override
     public String getDisplayName()
     {
-        return getTypeSignature().getBase();
+        return enumMap.getTypeName();
     }
 
     public static class VarcharEnumMap
     {
+        private final String typeName;
         private final Map<String, String> enumMap;
+        private final Map<String, String> flippedEnumMap;
 
         @JsonCreator
-        public VarcharEnumMap(@JsonProperty("enumMap") Map<String, String> enumMap)
+        public VarcharEnumMap(@JsonProperty("typeName") String typeName, @JsonProperty("enumMap") Map<String, String> enumMap)
         {
-            validateEnumMap(enumMap);
+            validateEnumMap(requireNonNull(enumMap, "enumMap is null"));
+            this.typeName = requireNonNull(typeName.toLowerCase(ENGLISH), "typeName is null");
             this.enumMap = normalizeEnumMap(enumMap);
+            this.flippedEnumMap = this.enumMap.entrySet().stream()
+                    .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
+        }
+
+        @JsonProperty
+        public String getTypeName()
+        {
+            return typeName;
         }
 
         @JsonProperty
         public Map<String, String> getEnumMap()
         {
             return enumMap;
+        }
+
+        public Optional<String> getKeyForValue(String value)
+        {
+            return Optional.ofNullable(flippedEnumMap.get(value));
         }
 
         @Override
@@ -86,7 +112,7 @@ public class VarcharEnumType
 
             VarcharEnumMap other = (VarcharEnumMap) o;
 
-            return Objects.equals(this.enumMap, other.enumMap);
+            return Objects.equals(typeName, other.typeName) && Objects.equals(enumMap, other.enumMap);
         }
 
         @Override
@@ -94,19 +120,16 @@ public class VarcharEnumType
         {
             // Varchar enum values are base32-encoded so that they are case-insensitive, which is expected of TypeSigntures
             Base32 base32 = new Base32();
-            return "enum:varchar{"
-                    + enumMap.entrySet()
-                    .stream()
+            return format("%s{%s}", typeName, enumMap.entrySet().stream()
                     .sorted(Comparator.comparing(Map.Entry::getKey))
                     .map(e -> format("\"%s\": \"%s\"", e.getKey().replaceAll("\"", "\"\""), base32.encodeAsString(e.getValue().getBytes())))
-                    .collect(Collectors.joining(", "))
-                    + "}";
+                    .collect(Collectors.joining(", ")));
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(enumMap);
+            return Objects.hash(typeName, enumMap);
         }
     }
 

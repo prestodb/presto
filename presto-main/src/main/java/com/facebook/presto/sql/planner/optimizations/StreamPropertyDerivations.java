@@ -81,6 +81,7 @@ import static com.facebook.presto.sql.planner.optimizations.PropertyDerivations.
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.MULTIPLE;
 import static com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -296,6 +297,11 @@ public final class StreamPropertyDerivations
         {
             if (node.isEnsureSourceOrdering() || node.getOrderingScheme().isPresent()) {
                 return StreamProperties.ordered();
+            }
+
+            if (node.getScope() == REMOTE_MATERIALIZED) {
+                // remote materialized exchanges get converted to table scans. Return the properties that the table scan would have
+                return new StreamProperties(MULTIPLE, Optional.empty(), false);
             }
 
             if (node.getScope().isRemote()) {

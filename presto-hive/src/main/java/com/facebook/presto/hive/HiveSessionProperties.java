@@ -86,6 +86,7 @@ public final class HiveSessionProperties
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
     public static final String COLLECT_COLUMN_STATISTICS_ON_WRITE = "collect_column_statistics_on_write";
+    public static final String PARTITION_STATISTICS_BASED_OPTIMIZATION_ENABLED = "partition_stats_based_optimization_enabled";
     private static final String OPTIMIZE_MISMATCHED_BUCKET_COUNT = "optimize_mismatched_bucket_count";
     private static final String S3_SELECT_PUSHDOWN_ENABLED = "s3_select_pushdown_enabled";
     public static final String SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE = "shuffle_partitioned_columns_for_table_write";
@@ -111,6 +112,8 @@ public final class HiveSessionProperties
     public static final String PARTIAL_AGGREGATION_PUSHDOWN_ENABLED = "partial_aggregation_pushdown_enabled";
     public static final String PARTIAL_AGGREGATION_PUSHDOWN_FOR_VARIABLE_LENGTH_DATATYPES_ENABLED = "partial_aggregation_pushdown_for_variable_length_datatypes_enabled";
     public static final String FILE_RENAMING_ENABLED = "file_renaming_enabled";
+    public static final String PREFER_MANIFESTS_TO_LIST_FILES = "prefer_manifests_to_list_files";
+    public static final String MANIFEST_VERIFICATION_ENABLED = "manifest_verification_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -375,6 +378,11 @@ public final class HiveSessionProperties
                         hiveClientConfig.isCollectColumnStatisticsOnWrite(),
                         false),
                 booleanProperty(
+                        PARTITION_STATISTICS_BASED_OPTIMIZATION_ENABLED,
+                        "Enables partition stats based optimization, including partition pruning and predicate stripping",
+                        hiveClientConfig.isPartitionStatisticsBasedOptimizationEnabled(),
+                        false),
+                booleanProperty(
                         OPTIMIZE_MISMATCHED_BUCKET_COUNT,
                         "Experimental: Enable optimization to avoid shuffle when bucket count is compatible but not the same",
                         hiveClientConfig.isOptimizeMismatchedBucketCount(),
@@ -520,6 +528,16 @@ public final class HiveSessionProperties
                         FILE_RENAMING_ENABLED,
                         "Enable renaming the files written by writers",
                         hiveClientConfig.isFileRenamingEnabled(),
+                        false),
+                booleanProperty(
+                        PREFER_MANIFESTS_TO_LIST_FILES,
+                        "Prefer to fetch the list of file names and sizes from manifest",
+                        hiveClientConfig.isPreferManifestsToListFiles(),
+                        false),
+                booleanProperty(
+                        MANIFEST_VERIFICATION_ENABLED,
+                        "Enable manifest verification",
+                        hiveClientConfig.isManifestVerificationEnabled(),
                         false));
     }
 
@@ -764,6 +782,11 @@ public final class HiveSessionProperties
         return session.getProperty(COLLECT_COLUMN_STATISTICS_ON_WRITE, Boolean.class);
     }
 
+    public static boolean isPartitionStatisticsBasedOptimizationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(PARTITION_STATISTICS_BASED_OPTIMIZATION_ENABLED, Boolean.class);
+    }
+
     @Deprecated
     public static boolean isOptimizedMismatchedBucketCount(ConnectorSession session)
     {
@@ -909,5 +932,15 @@ public final class HiveSessionProperties
     public static boolean isFileRenamingEnabled(ConnectorSession session)
     {
         return session.getProperty(FILE_RENAMING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPreferManifestsToListFiles(ConnectorSession session)
+    {
+        return session.getProperty(PREFER_MANIFESTS_TO_LIST_FILES, Boolean.class);
+    }
+
+    public static boolean isManifestVerificationEnabled(ConnectorSession session)
+    {
+        return session.getProperty(MANIFEST_VERIFICATION_ENABLED, Boolean.class);
     }
 }

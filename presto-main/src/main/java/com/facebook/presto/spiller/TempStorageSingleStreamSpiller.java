@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spiller;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -21,8 +22,8 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageDataOutput;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
-import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.spiller.SpillCipher;
+import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempDataSink;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageHandle;
@@ -45,6 +46,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -61,6 +64,7 @@ public class TempStorageSingleStreamSpiller
     private final LocalMemoryContext memoryContext;
     private final Optional<SpillCipher> spillCipher;
     private final int maxBufferSizeInBytes;
+    private final TempDataOperationContext tempDataOperationContext;
 
     private final Closer closer = Closer.create();
 
@@ -93,8 +97,15 @@ public class TempStorageSingleStreamSpiller
         this.spillCipher.ifPresent(cipher -> closer.register(cipher::destroy));
         this.maxBufferSizeInBytes = maxBufferSizeInBytes;
 
+        Session session = spillContext.getSession();
+        this.tempDataOperationContext = new TempDataOperationContext(
+                session.getSource(),
+                session.getQueryId().getId(),
+                session.getClientInfo(),
+                session.getIdentity());
+
         try {
-            dataSink = tempStorage.create();
+            dataSink = tempStorage.create(tempDataOperationContext);
             memoryContext.setBytes(dataSink.getRetainedSizeInBytes());
         }
         catch (IOException e) {
@@ -137,17 +148,20 @@ public class TempStorageSingleStreamSpiller
         while (pageIterator.hasNext()) {
             Page page = pageIterator.next();
             spilledPagesInMemorySize += page.getSizeInBytes();
-            SerializedPage serializedPage = serde.serialize(page);
-            long pageSize = serializedPage.getSizeInBytes();
-            localSpillContext.updateBytes(pageSize);
-            spillerStats.addToTotalSpilledBytes(pageSize);
-
-            PageDataOutput pageDataOutput = new PageDataOutput(serializedPage);
-            bufferedBytes += pageDataOutput.size();
-            bufferedPages.add(pageDataOutput);
-            if (bufferedBytes > maxBufferSizeInBytes) {
-                flushBufferedPages();
-            }
+            // page serialization requires  page.getSizeInBytes() + Integer.BYTES to fit in an integer
+            splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES).stream()
+                    .map(serde::serialize)
+                    .forEach(serializedPage -> {
+                        long pageSize = serializedPage.getSizeInBytes();
+                        localSpillContext.updateBytes(pageSize);
+                        spillerStats.addToTotalSpilledBytes(pageSize);
+                        PageDataOutput pageDataOutput = new PageDataOutput(serializedPage);
+                        bufferedBytes += pageDataOutput.size();
+                        bufferedPages.add(pageDataOutput);
+                        if (bufferedBytes > maxBufferSizeInBytes) {
+                            flushBufferedPages();
+                        }
+                    });
         }
 
         memoryContext.setBytes(bufferedBytes + dataSink.getRetainedSizeInBytes());
@@ -164,7 +178,7 @@ public class TempStorageSingleStreamSpiller
             }
             tempStorageHandle = dataSink.commit();
 
-            InputStream input = closer.register(tempStorage.open(tempStorageHandle));
+            InputStream input = closer.register(tempStorage.open(tempDataOperationContext, tempStorageHandle));
             Iterator<Page> pages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input));
             return closeWhenExhausted(pages, input);
         }
@@ -180,7 +194,7 @@ public class TempStorageSingleStreamSpiller
             closer.register(() -> dataSink.rollback());
         }
         if (tempStorageHandle != null) {
-            closer.register(() -> tempStorage.remove(tempStorageHandle));
+            closer.register(() -> tempStorage.remove(tempDataOperationContext, tempStorageHandle));
         }
 
         closer.register(localSpillContext);

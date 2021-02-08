@@ -17,7 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ScheduledSplit;
@@ -72,6 +72,7 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.planPrinter.PlanPrinter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -99,7 +100,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
-import static com.facebook.presto.execution.FragmentResultCacheContext.createFragmentResultCacheContext;
 import static com.facebook.presto.execution.TaskState.FAILED;
 import static com.facebook.presto.execution.TaskStatus.STARTING_VERSION;
 import static com.facebook.presto.execution.buffer.BufferState.FINISHED;
@@ -142,10 +142,10 @@ public class PrestoSparkTaskExecutorFactory
 
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
 
-    private final FragmentResultCacheManager fragmentResultCacheManager;
-
     private final DataSize maxUserMemory;
     private final DataSize maxTotalMemory;
+    private final DataSize maxBroadcastMemory;
+    private final DataSize maxRevocableMemory;
     private final DataSize maxSpillMemory;
     private final DataSize sinkMaxBufferSize;
 
@@ -172,6 +172,7 @@ public class PrestoSparkTaskExecutorFactory
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             FragmentResultCacheManager fragmentResultCacheManager,
+            ObjectMapper objectMapper,
             TaskManagerConfig taskManagerConfig,
             NodeMemoryConfig nodeMemoryConfig,
             NodeSpillConfig nodeSpillConfig)
@@ -191,9 +192,10 @@ public class PrestoSparkTaskExecutorFactory
                 taskExecutor,
                 splitMonitor,
                 authenticatorProviders,
-                fragmentResultCacheManager,
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryMemoryPerNode(),
                 requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null").getMaxQueryTotalMemoryPerNode(),
+                requireNonNull(nodeMemoryConfig, "nodeSpillConfig is null").getMaxQueryBroadcastMemory(),
+                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxRevocableMemoryPerNode(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorCpuTimerEnabled(),
@@ -217,9 +219,10 @@ public class PrestoSparkTaskExecutorFactory
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
-            FragmentResultCacheManager fragmentResultCacheManager,
             DataSize maxUserMemory,
             DataSize maxTotalMemory,
+            DataSize maxBroadcastMemory,
+            DataSize maxRevocableMemory,
             DataSize maxSpillMemory,
             DataSize sinkMaxBufferSize,
             boolean perOperatorCpuTimerEnabled,
@@ -241,9 +244,11 @@ public class PrestoSparkTaskExecutorFactory
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
-        this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
+        // Ordering is needed to make sure serialized plans are consistent for the same map
         this.maxUserMemory = requireNonNull(maxUserMemory, "maxUserMemory is null");
         this.maxTotalMemory = requireNonNull(maxTotalMemory, "maxTotalMemory is null");
+        this.maxBroadcastMemory = requireNonNull(maxBroadcastMemory, "maxBroadcastMemory is null");
+        this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null");
         this.maxSpillMemory = requireNonNull(maxSpillMemory, "maxSpillMemory is null");
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -326,7 +331,8 @@ public class PrestoSparkTaskExecutorFactory
                 session.getQueryId(),
                 maxUserMemory,
                 maxTotalMemory,
-                maxUserMemory,
+                maxBroadcastMemory,
+                maxRevocableMemory,
                 memoryPool,
                 new TestingGcMonitor(),
                 notificationExecutor,
@@ -342,8 +348,7 @@ public class PrestoSparkTaskExecutorFactory
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
                 allocationTrackingEnabled,
-                false,
-                createFragmentResultCacheContext(fragmentResultCacheManager, fragment.getRoot(), fragment.getPartitioningScheme(), session));
+                false);
 
         ImmutableMap.Builder<PlanNodeId, List<PrestoSparkShuffleInput>> shuffleInputs = ImmutableMap.builder();
         ImmutableMap.Builder<PlanNodeId, List<java.util.Iterator<PrestoSparkSerializedPage>>> pageInputs = ImmutableMap.builder();

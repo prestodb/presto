@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spiller;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -26,6 +26,7 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.testing.TestingTempStorageManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.InputStreamSliceInput;
@@ -34,11 +35,11 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.io.InputStream;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -61,7 +62,7 @@ public class TestTempStorageSingleStreamSpiller
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, DOUBLE, VARBINARY);
 
     private ListeningExecutorService executor;
-    private final Path spillPath = Paths.get(System.getProperty("java.io.tmpdir"), "presto", "temp_storage");
+    private final File tempDirectory = Files.createTempDir();
 
     @BeforeClass
     public void setUp()
@@ -74,7 +75,7 @@ public class TestTempStorageSingleStreamSpiller
             throws Exception
     {
         executor.shutdown();
-        deleteRecursively(spillPath, ALLOW_INSECURE);
+        deleteRecursively(tempDirectory.toPath(), ALLOW_INSECURE);
     }
 
     @Test
@@ -109,8 +110,10 @@ public class TestTempStorageSingleStreamSpiller
     private void assertSpill(boolean compression, boolean encryption)
             throws Exception
     {
+        File spillPath = new File(tempDirectory, UUID.randomUUID().toString());
+
         TempStorageSingleStreamSpillerFactory spillerFactory = new TempStorageSingleStreamSpillerFactory(
-                new TestingTempStorageManager(spillPath.toAbsolutePath().toString()),
+                new TestingTempStorageManager(spillPath.toString()),
                 executor, // executor won't be closed, because we don't call destroy() on the spiller factory
                 new BlockEncodingManager(),
                 new SpillerStats(),
@@ -119,7 +122,7 @@ public class TestTempStorageSingleStreamSpiller
                 toIntExact(new DataSize(4, KILOBYTE).toBytes()),
                 LocalTempStorage.NAME);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
-        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
+        SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, new TestingSpillContext(), memoryContext);
         assertTrue(singleStreamSpiller instanceof TempStorageSingleStreamSpiller);
         TempStorageSingleStreamSpiller spiller = (TempStorageSingleStreamSpiller) singleStreamSpiller;
 
@@ -130,7 +133,7 @@ public class TestTempStorageSingleStreamSpiller
         assertEquals(memoryContext.getBytes(), retainedSizeForEmptyDataSink);
         spiller.spill(page).get();
         spiller.spill(Iterators.forArray(page, page, page)).get();
-        assertEquals(listFiles(spillPath).size(), 1);
+        assertEquals(listFiles(spillPath.toPath()).size(), 1);
 
         // The spillers release their memory reservations when they are closed, therefore at this point
         // they will have non-zero memory reservation.
@@ -149,7 +152,7 @@ public class TestTempStorageSingleStreamSpiller
         }
 
         // Assert the spill codec flags match the expected configuration
-        try (InputStream is = newInputStream(listFiles(spillPath).get(0))) {
+        try (InputStream is = newInputStream(listFiles(spillPath.toPath()).get(0))) {
             Iterator<SerializedPage> serializedPages = PagesSerdeUtil.readSerializedPages(new InputStreamSliceInput(is));
             assertTrue(serializedPages.hasNext(), "at least one page should be successfully read back");
             byte markers = serializedPages.next().getPageCodecMarkers();
@@ -158,7 +161,7 @@ public class TestTempStorageSingleStreamSpiller
         }
 
         spiller.close();
-        assertEquals(listFiles(spillPath).size(), 0);
+        assertEquals(listFiles(spillPath.toPath()).size(), 0);
         assertEquals(memoryContext.getBytes(), 0);
     }
 

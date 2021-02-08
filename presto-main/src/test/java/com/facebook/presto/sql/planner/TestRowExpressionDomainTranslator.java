@@ -63,6 +63,7 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
@@ -80,7 +81,6 @@ import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.type.ColorType.COLOR;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToIntBits;
@@ -976,7 +976,7 @@ public class TestRowExpressionDomainTranslator
     {
         Type columnType = columnValues.getInput().getType();
         Type literalType = literalValues.getInput().getType();
-        Type superType = metadata.getTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
+        Type superType = metadata.getFunctionAndTypeManager().getCommonSuperType(columnType, literalType).orElseThrow(() -> new IllegalArgumentException("incompatible types in test (" + columnType + ", " + literalType + ")"));
 
         RowExpression max = toRowExpression(literalValues.getMax(), literalType);
         RowExpression min = toRowExpression(literalValues.getMin(), literalType);
@@ -1137,6 +1137,13 @@ public class TestRowExpressionDomainTranslator
         ExtractionResult result = fromPredicate(rowExpression);
         TupleDomain tupleDomain = result.getTupleDomain();
         assertTrue(tupleDomain.isAll());
+    }
+
+    @Test
+    public void testFromPredicateBoolean()
+    {
+        testSimpleComparison(C_BOOLEAN, C_BOOLEAN, Domain.singleValue(BOOLEAN, Boolean.TRUE));
+        testSimpleComparison(not(C_BOOLEAN), C_BOOLEAN, Domain.singleValue(BOOLEAN, Boolean.FALSE));
     }
 
     private void assertPredicateTranslates(RowExpression expression, TupleDomain<VariableReferenceExpression> tupleDomain)

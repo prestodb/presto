@@ -14,8 +14,8 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.TestingGcMonitor;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
@@ -169,7 +169,8 @@ public class TestSqlTaskExecution
                             true,
                             ImmutableList.of(testingScanOperatorFactory, taskOutputOperatorFactory),
                             OptionalInt.empty(),
-                            executionStrategy)),
+                            executionStrategy,
+                            Optional.empty())),
                     ImmutableList.of(TABLE_SCAN_NODE_ID),
                     executionStrategy == GROUPED_EXECUTION
                             ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(TABLE_SCAN_NODE_ID), 8)
@@ -406,28 +407,32 @@ public class TestSqlTaskExecution
                                     true,
                                     ImmutableList.of(scanOperatorFactory0, joinOperatorFactoryA, joinOperatorFactoryC, taskOutputOperatorFactory),
                                     OptionalInt.empty(),
-                                    executionStrategy),
+                                    executionStrategy,
+                                    Optional.empty()),
                             new DriverFactory(
                                     1,
                                     false,
                                     false,
                                     ImmutableList.of(valuesOperatorFactory1, joinOperatorFactoryB, buildOperatorFactoryA),
                                     OptionalInt.empty(),
-                                    executionStrategy),
+                                    executionStrategy,
+                                    Optional.empty()),
                             new DriverFactory(
                                     2,
                                     true,
                                     false,
                                     ImmutableList.of(scanOperatorFactory2, buildOperatorFactoryB),
                                     OptionalInt.empty(),
-                                    executionStrategy),
+                                    executionStrategy,
+                                    Optional.empty()),
                             new DriverFactory(
                                     3,
                                     false,
                                     false,
                                     ImmutableList.of(valuesOperatorFactory3, buildOperatorFactoryC),
                                     OptionalInt.empty(),
-                                    UNGROUPED_EXECUTION)),
+                                    UNGROUPED_EXECUTION,
+                                    Optional.empty())),
                     ImmutableList.of(scan2NodeId, scan0NodeId),
                     executionStrategy == GROUPED_EXECUTION
                             ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(scan0NodeId, scan2NodeId), 4)
@@ -614,13 +619,14 @@ public class TestSqlTaskExecution
                 new DataSize(1, MEGABYTE),
                 new DataSize(2, MEGABYTE),
                 new DataSize(1, MEGABYTE),
+                new DataSize(1, GIGABYTE),
                 new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,
                 new DataSize(1, MEGABYTE),
                 new SpillSpaceTracker(new DataSize(1, GIGABYTE)));
-        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false, false, false, Optional.empty());
+        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, false, false, false, false, false);
     }
 
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)

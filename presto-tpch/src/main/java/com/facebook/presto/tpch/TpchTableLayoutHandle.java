@@ -15,10 +15,13 @@ package com.facebook.presto.tpch;
 
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+
+import java.util.Optional;
 
 public class TpchTableLayoutHandle
         implements ConnectorTableLayoutHandle
@@ -52,7 +55,7 @@ public class TpchTableLayoutHandle
     }
 
     @Override
-    public Object getIdentifier()
+    public Object getIdentifier(Optional<ConnectorSplit> split)
     {
         return ImmutableMap.builder()
                 .put("table", table)

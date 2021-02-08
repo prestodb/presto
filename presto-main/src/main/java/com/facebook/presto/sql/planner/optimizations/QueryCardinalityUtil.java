@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.google.common.collect.Range;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
@@ -114,6 +115,15 @@ public final class QueryCardinalityUtil
         {
             if (node.getSources().size() == 1) {
                 return getOnlyElement(node.getSources()).accept(this, null);
+            }
+            return Range.atLeast(0L);
+        }
+
+        @Override
+        public Range<Long> visitSample(SampleNode node, Void context)
+        {
+            if (node.getSampleRatio() == 0.0) {
+                return Range.atMost(0L);
             }
             return Range.atLeast(0L);
         }

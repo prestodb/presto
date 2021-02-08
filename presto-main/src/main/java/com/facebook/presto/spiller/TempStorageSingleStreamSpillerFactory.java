@@ -23,6 +23,7 @@ import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.spiller.SpillCipher;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.storage.TempStorageManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;

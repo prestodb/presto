@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -44,7 +44,7 @@ import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
@@ -88,7 +88,7 @@ public final class FunctionResolution
 
     public boolean isLikeFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "LIKE"));
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "LIKE"));
     }
 
     public FunctionHandle likePatternFunction()
@@ -104,18 +104,18 @@ public final class FunctionResolution
 
     public boolean isTryCastFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "TRY_CAST"));
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "TRY_CAST"));
     }
 
     public boolean isArrayConstructor(FunctionHandle functionHandle)
     {
-        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, ARRAY_CONSTRUCTOR));
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, ARRAY_CONSTRUCTOR));
     }
 
     @Override
     public FunctionHandle betweenFunction(Type valueType, Type lowerBoundType, Type upperBoundType)
     {
-        return functionAndTypeManager.lookupFunction(BETWEEN.getFunctionName().getFunctionName(), fromTypes(valueType, lowerBoundType, upperBoundType));
+        return functionAndTypeManager.lookupFunction(BETWEEN.getFunctionName().getObjectName(), fromTypes(valueType, lowerBoundType, upperBoundType));
     }
 
     @Override
@@ -166,7 +166,7 @@ public final class FunctionResolution
     @Override
     public FunctionHandle negateFunction(Type type)
     {
-        return functionAndTypeManager.lookupFunction(NEGATION.getFunctionName().getFunctionName(), fromTypes(type));
+        return functionAndTypeManager.lookupFunction(NEGATION.getFunctionName().getObjectName(), fromTypes(type));
     }
 
     @Override
@@ -230,7 +230,7 @@ public final class FunctionResolution
     @Override
     public FunctionHandle subscriptFunction(Type baseType, Type indexType)
     {
-        return functionAndTypeManager.lookupFunction(SUBSCRIPT.getFunctionName().getFunctionName(), fromTypes(baseType, indexType));
+        return functionAndTypeManager.lookupFunction(SUBSCRIPT.getFunctionName().getObjectName(), fromTypes(baseType, indexType));
     }
 
     @Override
@@ -251,13 +251,13 @@ public final class FunctionResolution
 
     public boolean isFailFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "fail"));
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "fail"));
     }
 
     @Override
     public boolean isCountFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "count"));
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "count"));
     }
 
     @Override
@@ -275,7 +275,7 @@ public final class FunctionResolution
     @Override
     public boolean isMaxFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "max"));
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "max"));
     }
 
     @Override
@@ -287,7 +287,7 @@ public final class FunctionResolution
     @Override
     public boolean isMinFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedFunctionName.of(DEFAULT_NAMESPACE, "min"));
+        return functionAndTypeManager.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "min"));
     }
 
     @Override

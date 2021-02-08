@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.DropFunction;
@@ -28,9 +30,12 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
+import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 public class DropFunctionTask
@@ -53,7 +58,7 @@ public class DropFunctionTask
     @Override
     public String explain(DropFunction statement, List<Expression> parameters)
     {
-        return "DROP FUNCTION " + statement.getFunctionName();
+        return format("DROP %sFUNCTION %s", statement.isTemporary() ? "TEMPORARY " : "", statement.getFunctionName());
     }
 
     @Override
@@ -61,11 +66,22 @@ public class DropFunctionTask
     {
         Analyzer analyzer = new Analyzer(stateMachine.getSession(), metadata, sqlParser, accessControl, Optional.empty(), parameters, stateMachine.getWarningCollector());
         analyzer.analyze(statement);
+        Optional<List<TypeSignature>> parameterTypes = statement.getParameterTypes().map(types -> types.stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList()));
 
-        metadata.getFunctionAndTypeManager().dropFunction(
-                qualifyFunctionName(statement.getFunctionName()),
-                statement.getParameterTypes().map(types -> types.stream().map(TypeSignature::parseTypeSignature).collect(toImmutableList())),
-                statement.isExists());
+        if (statement.isTemporary()) {
+            stateMachine.removeSessionFunction(
+                    new SqlFunctionId(
+                            QualifiedObjectName.valueOf(SESSION_NAMESPACE, statement.getFunctionName().getSuffix()),
+                            parameterTypes.orElse(emptyList())),
+                    statement.isExists());
+        }
+        else {
+            metadata.getFunctionAndTypeManager().dropFunction(
+                    qualifyObjectName(statement.getFunctionName()),
+                    parameterTypes,
+                    statement.isExists());
+        }
+
         return immediateFuture(null);
     }
 }

@@ -18,8 +18,10 @@ import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.io.OutputStreamDataSink;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempDataSink;
 import com.facebook.presto.spi.storage.TempStorage;
+import com.facebook.presto.spi.storage.TempStorageContext;
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.google.common.base.Splitter;
@@ -96,7 +98,7 @@ public class LocalTempStorage
     }
 
     @Override
-    public TempDataSink create()
+    public TempDataSink create(TempDataOperationContext context)
             throws IOException
     {
         Path path = Files.createTempFile(getNextSpillPath(), SPILL_FILE_PREFIX, SPILL_FILE_SUFFIX);
@@ -104,14 +106,14 @@ public class LocalTempStorage
     }
 
     @Override
-    public InputStream open(TempStorageHandle handle)
+    public InputStream open(TempDataOperationContext context, TempStorageHandle handle)
             throws IOException
     {
         return Files.newInputStream(((LocalTempStorageHandle) handle).getFilePath());
     }
 
     @Override
-    public void remove(TempStorageHandle handle)
+    public void remove(TempDataOperationContext context, TempStorageHandle handle)
             throws IOException
     {
         Files.delete(((LocalTempStorageHandle) handle).getFilePath());
@@ -245,7 +247,7 @@ public class LocalTempStorage
         }
 
         @Override
-        public TempStorage create(Map<String, String> config)
+        public TempStorage create(Map<String, String> config, TempStorageContext context)
         {
             String configPaths = config.get(TEMP_STORAGE_PATH);
             checkState(configPaths != null, "Local temp storage configuration must contain the '%s' property", TEMP_STORAGE_PATH);

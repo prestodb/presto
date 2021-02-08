@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.type.ArrayType;
@@ -547,7 +547,7 @@ public abstract class AbstractTestHiveFileFormats
         hiveFileWriter.appendRows(page);
         Optional<Page> fileStatistics = hiveFileWriter.commit();
 
-        assertFileStatistics(fileStatistics, hiveFileWriter.getWrittenBytes(), storageFormat);
+        assertFileStatistics(fileStatistics, hiveFileWriter.getFileSizeInBytes(), storageFormat);
 
         return new FileSplit(new Path(filePath), 0, new File(filePath).length(), new String[0]);
     }

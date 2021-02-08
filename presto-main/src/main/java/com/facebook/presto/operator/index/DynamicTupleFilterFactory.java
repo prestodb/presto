@@ -19,6 +19,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjectionWithOutputs;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.relational.Expressions;
@@ -28,6 +30,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
@@ -58,6 +61,7 @@ public class DynamicTupleFilterFactory
             int[] outputFilterChannels,
             List<Type> outputTypes,
             SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             PageFunctionCompiler pageFunctionCompiler)
     {
         requireNonNull(planNodeId, "planNodeId is null");
@@ -81,6 +85,7 @@ public class DynamicTupleFilterFactory
         this.outputTypes = ImmutableList.copyOf(outputTypes);
         this.outputProjections = pageFunctionCompiler.compileProjections(
                 sqlFunctionProperties,
+                sessionFunctions,
                 IntStream.range(0, outputTypes.size())
                         .mapToObj(field -> Expressions.field(field, outputTypes.get(field)))
                         .collect(toImmutableList()),

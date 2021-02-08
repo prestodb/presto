@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -37,7 +37,7 @@ import static com.facebook.presto.common.function.OperatorType.IS_DISTINCT_FROM;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -45,18 +45,18 @@ import static java.util.Locale.ENGLISH;
 
 public class SpatialJoinUtils
 {
-    public static final QualifiedFunctionName ST_CONTAINS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_contains");
-    public static final QualifiedFunctionName ST_CROSSES = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_crosses");
-    public static final QualifiedFunctionName ST_EQUALS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_equals");
-    public static final QualifiedFunctionName ST_INTERSECTS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_intersects");
-    public static final QualifiedFunctionName ST_OVERLAPS = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_overlaps");
-    public static final QualifiedFunctionName ST_TOUCHES = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_touches");
-    public static final QualifiedFunctionName ST_WITHIN = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_within");
-    public static final QualifiedFunctionName ST_DISTANCE = QualifiedFunctionName.of(DEFAULT_NAMESPACE, "st_distance");
+    public static final QualifiedObjectName ST_CONTAINS = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "st_contains");
+    public static final QualifiedObjectName ST_CROSSES = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "st_crosses");
+    public static final QualifiedObjectName ST_EQUALS = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "st_equals");
+    public static final QualifiedObjectName ST_INTERSECTS = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "st_intersects");
+    public static final QualifiedObjectName ST_OVERLAPS = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "st_overlaps");
+    public static final QualifiedObjectName ST_TOUCHES = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "st_touches");
+    public static final QualifiedObjectName ST_WITHIN = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "st_within");
+    public static final QualifiedObjectName ST_DISTANCE = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "st_distance");
 
     private static final Set<String> ALLOWED_SPATIAL_JOIN_FUNCTIONS = Stream.of(
             ST_CONTAINS, ST_CROSSES, ST_EQUALS, ST_INTERSECTS, ST_OVERLAPS, ST_TOUCHES, ST_WITHIN)
-            .map(QualifiedFunctionName::getFunctionName)
+            .map(QualifiedObjectName::getObjectName)
             .map(String::toLowerCase)
             .collect(Collectors.toSet());
 
@@ -81,7 +81,7 @@ public class SpatialJoinUtils
 
     private static boolean isSupportedSpatialFunction(CallExpression call, FunctionAndTypeManager functionAndTypeManager)
     {
-        String functionName = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle()).getName().getFunctionName().toLowerCase(ENGLISH);
+        String functionName = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle()).getName().getObjectName().toLowerCase(ENGLISH);
         return ALLOWED_SPATIAL_JOIN_FUNCTIONS.contains(functionName);
     }
 

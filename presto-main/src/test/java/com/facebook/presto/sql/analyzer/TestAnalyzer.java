@@ -22,6 +22,7 @@ import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import org.testng.annotations.Test;
 
@@ -36,6 +37,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNK
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_FUNCTION_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_ORDINAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
@@ -71,6 +73,7 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_ANALYSIS_E
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_RECURSIVE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.VIEW_IS_STALE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WILDCARD_WITHOUT_FROM;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_FUNCTION_ORDERBY_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
@@ -81,6 +84,15 @@ import static org.testng.Assert.assertTrue;
 public class TestAnalyzer
         extends AbstractAnalyzerTest
 {
+    private static void assertHasWarning(WarningCollector warningCollector, StandardWarningCode code, String match)
+    {
+        List<PrestoWarning> warnings = warningCollector.getWarnings();
+        assertEquals(warnings.size(), 1);
+        PrestoWarning warning = warnings.get(0);
+        assertEquals(warning.getWarningCode(), code.toWarningCode());
+        assertTrue(warning.getMessage().startsWith(match));
+    }
+
     @Test
     public void testNonComparableGroupBy()
     {
@@ -97,6 +109,34 @@ public class TestAnalyzer
     public void testNonComparableWindowOrder()
     {
         assertFails(TYPE_MISMATCH, "SELECT row_number() OVER (ORDER BY t.x) FROM (VALUES(color('red'))) AS t(x)");
+    }
+
+    @Test
+    public void testWindowOrderByAnalysis()
+    {
+        assertHasWarning(analyzeWithWarnings("SELECT SUM(x) OVER (PARTITION BY y ORDER BY 1) AS s\n" +
+                "FROM (values (1,10), (2, 10)) AS T(x, y)"), PERFORMANCE_WARNING, "ORDER BY literals/constants with window function:");
+
+        assertHasWarning(analyzeWithWarnings("SELECT SUM(x) OVER (ORDER BY 1) AS s\n" +
+                "FROM (values (1,10), (2, 10)) AS T(x, y)"), PERFORMANCE_WARNING, "ORDER BY literals/constants with window function:");
+
+        // Now test for error when the session param is set to disallow this.
+        Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
+                new QueryManagerConfig(),
+                new TaskManagerConfig(),
+                new MemoryManagerConfig(),
+                new FeaturesConfig().setAllowWindowOrderByLiterals(false),
+                new NodeMemoryConfig(),
+                new WarningCollectorConfig()))).build();
+        assertFails(session, WINDOW_FUNCTION_ORDERBY_LITERAL,
+                "SELECT SUM(x) OVER (PARTITION BY y ORDER BY 1) AS s\n" +
+                        "FROM (values (1,10), (2, 10)) AS T(x, y)");
+        assertFails(session, WINDOW_FUNCTION_ORDERBY_LITERAL,
+                "SELECT SUM(x) OVER (ORDER BY 1) AS s\n" +
+                        "FROM (values (1,10), (2, 10)) AS T(x, y)");
+
+        analyze(session, "SELECT SUM(x) OVER (PARTITION BY y ORDER BY y) AS s\n" +
+                        "FROM (values (1,10), (2, 10)) AS T(x, y)");
     }
 
     @Test
@@ -1514,5 +1554,18 @@ public class TestAnalyzer
     public void testEmptySchemaName()
     {
         assertFails(MISSING_SCHEMA, "SELECT * FROM \"\".foo");
+    }
+
+    @Test
+    public void testReplaceTemporaryFunctionFails()
+    {
+        assertFails(NOT_SUPPORTED, "CREATE OR REPLACE TEMPORARY FUNCTION foo() RETURNS INT RETURN 1");
+    }
+
+    @Test
+    public void testInvalidTemporaryFunctionName()
+    {
+        assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION sum() RETURNS INT RETURN 1");
+        assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION dev.test.foo() RETURNS INT RETURN 1");
     }
 }

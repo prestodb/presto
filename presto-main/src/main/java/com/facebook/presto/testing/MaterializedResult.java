@@ -416,10 +416,7 @@ public class MaterializedResult
         MaterializedResult.Builder builder = resultBuilder(session, types);
         while (!pageSource.isFinished()) {
             Page outputPage = pageSource.getNextPage();
-            if (outputPage == null) {
-                break;
-            }
-            if (outputPage.getPositionCount() == 0) {
+            if (outputPage == null || outputPage.getPositionCount() == 0) {
                 continue;
             }
             builder.page(outputPage);

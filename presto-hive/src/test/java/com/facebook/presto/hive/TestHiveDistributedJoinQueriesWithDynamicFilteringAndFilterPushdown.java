@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.tests.AbstractTestJoinQueries;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -42,5 +43,19 @@ public class TestHiveDistributedJoinQueriesWithDynamicFilteringAndFilterPushdown
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
                 .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
+    }
+
+    @Test
+    public void testMixedJoin()
+    {
+        // Mixed join could produce conjunction dynamic filters, we should be able to extract them out when integrating with filter pushdown
+        assertQuery("SELECT * FROM\n" +
+                "lineitem l1 LEFT OUTER JOIN part p1\n" +
+                "ON l1.orderkey = p1.partkey AND p1.size = 47\n" +
+                "INNER JOIN orders o1 ON l1.orderkey = o1.orderkey\n" +
+                "AND o1.custkey = 397\n" +
+                "LEFT OUTER JOIN part p2\n" +
+                "ON p1.name = p2.name AND p1.partkey = p2.partkey\n" +
+                "WHERE o1.shippriority = 0");
     }
 }

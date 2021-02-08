@@ -312,13 +312,13 @@ public class PinotFilterExpressionConverter
                 return handleLogicalBinary(operatorType.getOperator(), call, context);
             }
         }
-        if ("contains".equals(functionMetadata.getName().getFunctionName())) {
+        if ("contains".equals(functionMetadata.getName().getObjectName())) {
             return handleContains(call, context);
         }
         // Handle queries like `eventTimestamp < 1391126400000`.
         // Otherwise TypeManager.canCoerce(...) will return false and directly fail this query.
-        if (functionMetadata.getName().getFunctionName().equalsIgnoreCase("$literal$timestamp") ||
-                    functionMetadata.getName().getFunctionName().equalsIgnoreCase("$literal$date")) {
+        if (functionMetadata.getName().getObjectName().equalsIgnoreCase("$literal$timestamp") ||
+                    functionMetadata.getName().getObjectName().equalsIgnoreCase("$literal$date")) {
             return handleDateAndTimestampMagicLiteralFunction(call, context);
         }
         throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("function %s not supported in filter", call));

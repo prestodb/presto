@@ -54,6 +54,7 @@ import static com.facebook.presto.orc.DwrfEncryptionProvider.NO_ENCRYPTION;
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.ALL;
+import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.ALL_EXCEPT_FIRST;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.NONE;
 import static com.facebook.presto.orc.TestMapFlatBatchStreamReader.ExpectedValuesBuilder.Frequency.SOME;
 import static com.facebook.presto.orc.TestingOrcPredicate.createOrcPredicate;
@@ -315,6 +316,17 @@ public class TestMapFlatBatchStreamReader
     }
 
     @Test
+    public void testWithAllNullsExceptFirst()
+            throws Exception
+    {
+        // A test case where every flat map is null except the first one
+        runTest(
+                "test_flat_map/flat_map_all_null_maps_except_first.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setNullRowsFrequency(ALL_EXCEPT_FIRST));
+    }
+
+    @Test
     public void testWithEmptyMaps()
             throws Exception
     {
@@ -332,6 +344,17 @@ public class TestMapFlatBatchStreamReader
         // A test case where all of the flat maps are empty
         runTest(
                 "test_flat_map/flat_map_all_empty_maps.dwrf",
+                IntegerType.INTEGER,
+                ExpectedValuesBuilder.get(Function.identity()).setEmptyMapsFrequency(ALL));
+    }
+
+    // All maps are empty and encoding is not present
+    @Test
+    public void testWithAllEmptyMapsWithNoEncoding()
+            throws Exception
+    {
+        runTest(
+                "test_flat_map/flat_map_all_empty_maps_no_encoding.dwrf",
                 IntegerType.INTEGER,
                 ExpectedValuesBuilder.get(Function.identity()).setEmptyMapsFrequency(ALL));
     }
@@ -475,7 +498,8 @@ public class TestMapFlatBatchStreamReader
         {
             NONE,
             SOME,
-            ALL
+            ALL,
+            ALL_EXCEPT_FIRST,
         }
 
         private final Function<Integer, K> keyConverter;
@@ -589,6 +613,8 @@ public class TestMapFlatBatchStreamReader
                     return true;
                 case SOME:
                     return i % 5 == 0;
+                case ALL_EXCEPT_FIRST:
+                    return i != 0;
                 default:
                     throw new IllegalArgumentException("Got unexpected Frequency: " + frequency);
             }

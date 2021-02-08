@@ -14,8 +14,7 @@
 package com.facebook.presto.functionNamespace.mysql;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -52,7 +51,7 @@ public class SqlInvokedFunctionRowMapper
         String version = String.valueOf(rs.getLong("version"));
 
         return new SqlInvokedFunction(
-                QualifiedFunctionName.of(new CatalogSchemaName(catalog, schema), functionName),
+                QualifiedObjectName.valueOf(catalog, schema, functionName),
                 parameters,
                 parseTypeSignature(returnType),
                 description,

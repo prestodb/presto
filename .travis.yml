@@ -11,6 +11,7 @@ env:
   matrix:
     - MAVEN_CHECKS=true
     - WEBUI_CHECKS=true
+    - TEST_SPECIFIC_MODULES=presto-docs
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-execution-memory"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P presto-tests-general"
     - TEST_SPECIFIC_MODULES=presto-tests TEST_FLAGS="-P ci-only-distributed-non-hash-gen"
@@ -59,6 +60,16 @@ services:
 
 git:
   quiet: true
+
+before_install:
+  - sudo add-apt-repository ppa:deadsnakes/ppa -y
+  - sudo apt-get update
+  - sudo apt-get install python3.6
+  - sudo apt-get install python3.6-venv
+  - pyenv versions
+  - pyenv shell 3.6
+  - pyenv global 3.6
+  - python3 --version
 
 install:
   - ./mvnw -v

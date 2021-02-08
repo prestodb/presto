@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.244-SNAPSHOT</version>
+        <version>0.248-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-pinot-toolkit</artifactId>
@@ -22,6 +22,16 @@
         <dependency>
             <groupId>com.facebook.presto.pinot</groupId>
             <artifactId>pinot-driver</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>animal-sniffer-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

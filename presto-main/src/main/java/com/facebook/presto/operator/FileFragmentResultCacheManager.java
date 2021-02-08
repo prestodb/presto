@@ -21,7 +21,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.metadata.Split.SplitIdentifier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PagesSerde;
-import com.facebook.presto.sql.planner.CanonicalPlanFragment;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
@@ -30,6 +29,7 @@ import com.google.common.collect.AbstractIterator;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.SliceOutput;
+import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
 
@@ -126,9 +126,9 @@ public class FileFragmentResultCacheManager
     }
 
     @Override
-    public Future<?> put(CanonicalPlanFragment plan, Split split, List<Page> result)
+    public Future<?> put(String serializedPlan, Split split, List<Page> result)
     {
-        CacheKey key = new CacheKey(plan, split.getSplitIdentifier());
+        CacheKey key = new CacheKey(serializedPlan, split.getSplitIdentifier());
         long resultSize = getPagesSize(result);
         if (fragmentCacheStats.getInFlightBytes() + resultSize > maxInFlightBytes || cache.getIfPresent(key) != null) {
             return immediateFuture(null);
@@ -154,6 +154,7 @@ public class FileFragmentResultCacheManager
             try (SliceOutput output = new OutputStreamSliceOutput(newOutputStream(path, APPEND))) {
                 writePages(pagesSerde, output, pages.iterator());
                 cache.put(key, path);
+                fragmentCacheStats.incrementCacheEntries();
             }
             catch (UncheckedIOException | IOException e) {
                 log.warn(e, "%s encountered an error while writing to path %s", Thread.currentThread().getName(), path);
@@ -183,9 +184,9 @@ public class FileFragmentResultCacheManager
     }
 
     @Override
-    public Optional<Iterator<Page>> get(CanonicalPlanFragment plan, Split split)
+    public Optional<Iterator<Page>> get(String serializedPlan, Split split)
     {
-        CacheKey key = new CacheKey(plan, split.getSplitIdentifier());
+        CacheKey key = new CacheKey(serializedPlan, split.getSplitIdentifier());
         Path path = cache.getIfPresent(key);
         if (path == null) {
             fragmentCacheStats.incrementCacheMiss();
@@ -203,6 +204,12 @@ public class FileFragmentResultCacheManager
             fragmentCacheStats.incrementCacheMiss();
             return Optional.empty();
         }
+    }
+
+    @Managed
+    public void invalidateAllCache()
+    {
+        cache.invalidateAll();
     }
 
     private static <T> Iterator<T> closeWhenExhausted(Iterator<T> iterator, Closeable resource)
@@ -231,18 +238,18 @@ public class FileFragmentResultCacheManager
 
     public static class CacheKey
     {
-        private final CanonicalPlanFragment plan;
+        private final String serializedPlan;
         private final SplitIdentifier splitIdentifier;
 
-        public CacheKey(CanonicalPlanFragment plan, SplitIdentifier splitIdentifier)
+        public CacheKey(String serializedPlan, SplitIdentifier splitIdentifier)
         {
-            this.plan = requireNonNull(plan, "plan is null");
+            this.serializedPlan = requireNonNull(serializedPlan, "serializedPlan is null");
             this.splitIdentifier = requireNonNull(splitIdentifier, "splitIdentifier is null");
         }
 
-        public CanonicalPlanFragment getPlan()
+        public String getSerializedPlan()
         {
-            return plan;
+            return serializedPlan;
         }
 
         public SplitIdentifier getSplitIdentifier()
@@ -260,14 +267,14 @@ public class FileFragmentResultCacheManager
                 return false;
             }
             CacheKey cacheKey = (CacheKey) o;
-            return Objects.equals(plan, cacheKey.plan) &&
+            return Objects.equals(serializedPlan, cacheKey.serializedPlan) &&
                     Objects.equals(splitIdentifier, cacheKey.splitIdentifier);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(plan, splitIdentifier);
+            return Objects.hash(serializedPlan, splitIdentifier);
         }
     }
 
@@ -278,6 +285,8 @@ public class FileFragmentResultCacheManager
         public void onRemoval(RemovalNotification<CacheKey, Path> notification)
         {
             removalExecutor.submit(() -> tryDeleteFile(notification.getValue()));
+            fragmentCacheStats.incrementCacheRemoval();
+            fragmentCacheStats.decrementCacheEntries();
         }
     }
 }

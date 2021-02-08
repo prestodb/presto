@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
-
 import java.util.List;
 
 import static java.lang.String.format;
@@ -22,33 +20,25 @@ import static java.lang.String.format;
 public final class VarcharEnumParametricType
         implements ParametricType
 {
-    private final String name;
-    private final VarcharEnumMap enumMap;
+    public static final VarcharEnumParametricType VARCHAR_ENUM = new VarcharEnumParametricType();
 
-    public VarcharEnumParametricType(String name, VarcharEnumMap enumMap)
-    {
-        this.name = name;
-        this.enumMap = enumMap;
-    }
+    private VarcharEnumParametricType() {}
 
     @Override
     public String getName()
     {
-        return name;
+        return StandardTypes.VARCHAR_ENUM;
     }
 
     @Override
     public Type createType(List<TypeParameter> parameters)
     {
-        if (parameters.isEmpty()) {
-            return new VarcharEnumType(name, enumMap);
-        }
         checkArgument(parameters.size() == 1, "Enum type expects exactly one parameter, got %s", parameters);
         checkArgument(
                 parameters.get(0).getKind() == ParameterKind.VARCHAR_ENUM,
                 "Enum definition expected, got %s",
                 parameters);
-        return new VarcharEnumType(name, parameters.get(0).getVarcharEnumMap());
+        return new VarcharEnumType(parameters.get(0).getVarcharEnumMap());
     }
 
     private static void checkArgument(boolean argument, String format, Object... args)

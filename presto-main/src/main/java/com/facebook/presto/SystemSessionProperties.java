@@ -170,6 +170,8 @@ public final class SystemSessionProperties
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
+    public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
+    public static final String ALLOW_WINDOW_ORDER_BY_LITERALS = "allow_window_order_by_literals";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -547,7 +549,7 @@ public final class SystemSessionProperties
                         value -> {
                             boolean spillEnabled = (Boolean) value;
                             if (spillEnabled
-                                    && featuresConfig.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.FILE
+                                    && featuresConfig.getSingleStreamSpillerChoice() == SingleStreamSpillerChoice.LOCAL_FILE
                                     && featuresConfig.getSpillerSpillPaths().isEmpty()) {
                                 throw new PrestoException(
                                         INVALID_SESSION_PROPERTY,
@@ -556,23 +558,11 @@ public final class SystemSessionProperties
                             return spillEnabled;
                         },
                         value -> value),
-                new PropertyMetadata<>(
+                booleanProperty(
                         JOIN_SPILL_ENABLED,
-                        "Experimental: Enable join spilling",
-                        BOOLEAN,
-                        Boolean.class,
+                        "Enable join spilling",
                         featuresConfig.isJoinSpillingEnabled(),
-                        false,
-                        value -> {
-                            boolean joinSpillEnabled = (Boolean) value;
-                            if (joinSpillEnabled && !featuresConfig.isSpillEnabled()) {
-                                throw new PrestoException(
-                                        INVALID_SESSION_PROPERTY,
-                                        format("%s cannot be set to true; spilling is not configured", JOIN_SPILL_ENABLED));
-                            }
-                            return joinSpillEnabled;
-                        },
-                        value -> value),
+                        false),
                 new PropertyMetadata<>(
                         AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT,
                         "Experimental: How much memory can should be allocated per aggragation operator in unspilling process",
@@ -883,6 +873,11 @@ public final class SystemSessionProperties
                         featuresConfig.isLegacyDateTimestampToVarcharCoercion(),
                         true),
                 booleanProperty(
+                        SKIP_REDUNDANT_SORT,
+                        "Skip redundant sort operations",
+                        featuresConfig.isSkipRedundantSort(),
+                        false),
+                booleanProperty(
                         INLINE_SQL_FUNCTIONS,
                         "Inline SQL function definition at plan time",
                         featuresConfig.isInlineSqlFunctions(),
@@ -896,7 +891,22 @@ public final class SystemSessionProperties
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
                         "Apply access control rules on only those columns that are required to produce the query output",
                         featuresConfig.isCheckAccessControlOnUtilizedColumnsOnly(),
+                        false),
+                booleanProperty(
+                        ALLOW_WINDOW_ORDER_BY_LITERALS,
+                        "Allow ORDER BY literals in window functions",
+                        featuresConfig.isAllowWindowOrderByLiterals(),
                         false));
+    }
+
+    public static boolean isSkipRedundantSort(Session session)
+    {
+        return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
+    }
+
+    public static boolean isAllowWindowOrderByLiterals(Session session)
+    {
+        return session.getSystemProperty(ALLOW_WINDOW_ORDER_BY_LITERALS, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1185,7 +1195,7 @@ public final class SystemSessionProperties
 
     public static boolean isJoinSpillingEnabled(Session session)
     {
-        return session.getSystemProperty(JOIN_SPILL_ENABLED, Boolean.class);
+        return session.getSystemProperty(JOIN_SPILL_ENABLED, Boolean.class) && isSpillEnabled(session);
     }
 
     public static DataSize getAggregationOperatorUnspillMemoryLimit(Session session)

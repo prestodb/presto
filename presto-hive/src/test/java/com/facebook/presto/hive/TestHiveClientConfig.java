@@ -120,7 +120,7 @@ public class TestHiveClientConfig
                 .setPartitionStatisticsSampleSize(100)
                 .setIgnoreCorruptedStatistics(false)
                 .setCollectColumnStatisticsOnWrite(false)
-                .setCollectColumnStatisticsOnWrite(false)
+                .setPartitionStatisticsBasedOptimizationEnabled(false)
                 .setS3SelectPushdownEnabled(false)
                 .setS3SelectPushdownMaxConnections(500)
                 .setTemporaryStagingDirectoryEnabled(true)
@@ -145,7 +145,9 @@ public class TestHiveClientConfig
                 .setMaxMetadataUpdaterThreads(100)
                 .setPartialAggregationPushdownEnabled(false)
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(false)
-                .setFileRenamingEnabled(false));
+                .setFileRenamingEnabled(false)
+                .setPreferManifestsToListFiles(false)
+                .setManifestVerificationEnabled(false));
     }
 
     @Test
@@ -227,6 +229,7 @@ public class TestHiveClientConfig
                 .put("hive.partition-statistics-sample-size", "1234")
                 .put("hive.ignore-corrupted-statistics", "true")
                 .put("hive.collect-column-statistics-on-write", "true")
+                .put("hive.partition-statistics-based-optimization-enabled", "true")
                 .put("hive.s3select-pushdown.enabled", "true")
                 .put("hive.s3select-pushdown.max-connections", "1234")
                 .put("hive.temporary-staging-directory-enabled", "false")
@@ -252,6 +255,8 @@ public class TestHiveClientConfig
                 .put("hive.partial_aggregation_pushdown_enabled", "true")
                 .put("hive.partial_aggregation_pushdown_for_variable_length_datatypes_enabled", "true")
                 .put("hive.file_renaming_enabled", "true")
+                .put("hive.prefer-manifests-to-list-files", "true")
+                .put("hive.manifest-verification-enabled", "true")
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
@@ -330,7 +335,7 @@ public class TestHiveClientConfig
                 .setIgnoreCorruptedStatistics(true)
                 .setMinBucketCountToNotIgnoreTableBucketing(1024)
                 .setCollectColumnStatisticsOnWrite(true)
-                .setCollectColumnStatisticsOnWrite(true)
+                .setPartitionStatisticsBasedOptimizationEnabled(true)
                 .setS3SelectPushdownEnabled(true)
                 .setS3SelectPushdownMaxConnections(1234)
                 .setTemporaryStagingDirectoryEnabled(false)
@@ -355,7 +360,9 @@ public class TestHiveClientConfig
                 .setMaxMetadataUpdaterThreads(1000)
                 .setPartialAggregationPushdownEnabled(true)
                 .setPartialAggregationPushdownForVariableLengthDatatypesEnabled(true)
-                .setFileRenamingEnabled(true);
+                .setFileRenamingEnabled(true)
+                .setPreferManifestsToListFiles(true)
+                .setManifestVerificationEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

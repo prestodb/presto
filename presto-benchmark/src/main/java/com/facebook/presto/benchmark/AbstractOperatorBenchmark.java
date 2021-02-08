@@ -16,6 +16,7 @@ package com.facebook.presto.benchmark;
 import com.facebook.airlift.stats.CpuTimer;
 import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Lifespan;
@@ -24,7 +25,6 @@ import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.Driver;
 import com.facebook.presto.operator.DriverContext;
@@ -276,6 +276,7 @@ public abstract class AbstractOperatorBenchmark
                 new DataSize(256, MEGABYTE),
                 new DataSize(512, MEGABYTE),
                 new DataSize(256, MEGABYTE),
+                new DataSize(1, GIGABYTE),
                 memoryPool,
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
@@ -288,8 +289,7 @@ public abstract class AbstractOperatorBenchmark
                         false,
                         false,
                         false,
-                        false,
-                        Optional.empty());
+                        false);
 
         CpuTimer cpuTimer = new CpuTimer();
         Map<String, Long> executionStats = execute(taskContext);

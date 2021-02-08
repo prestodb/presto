@@ -15,7 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TestingGcMonitor;
-import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.BufferState;
@@ -25,7 +25,6 @@ import com.facebook.presto.execution.executor.TaskExecutor;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
-import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -99,7 +98,6 @@ public class TestSqlTask
                 new BlockEncodingManager(),
                 new OrderingCompiler(),
                 createTestSplitMonitor(),
-                new NoOpFragmentResultCacheManager(),
                 new TaskManagerConfig());
     }
 
@@ -313,6 +311,7 @@ public class TestSqlTask
                 new DataSize(1, MEGABYTE),
                 new DataSize(2, MEGABYTE),
                 new DataSize(1, MEGABYTE),
+                new DataSize(1, GIGABYTE),
                 new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
@@ -320,7 +319,7 @@ public class TestSqlTask
                 new DataSize(1, MEGABYTE),
                 new SpillSpaceTracker(new DataSize(1, GIGABYTE)));
 
-        queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), false, false, false, false, false, Optional.empty());
+        queryContext.addTaskContext(new TaskStateMachine(taskId, taskNotificationExecutor), testSessionBuilder().build(), false, false, false, false, false);
 
         return createSqlTask(
                 taskId,

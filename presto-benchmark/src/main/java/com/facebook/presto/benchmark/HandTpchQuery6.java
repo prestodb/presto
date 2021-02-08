@@ -75,6 +75,7 @@ public class HandTpchQuery6
         List<Supplier<PageProjectionWithOutputs>> projection = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0)
                 .compileProjections(
                         session.getSqlFunctionProperties(),
+                        session.getSessionFunctions(),
                         ImmutableList.of(field(0, BIGINT)),
                         false,
                         Optional.empty());

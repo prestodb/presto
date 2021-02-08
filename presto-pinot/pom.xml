@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.244-SNAPSHOT</version>
+        <version>0.248-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-pinot</artifactId>
@@ -22,6 +22,16 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-pinot-toolkit</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.errorprone</groupId>
+                    <artifactId>error_prone_annotations</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

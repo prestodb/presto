@@ -15,6 +15,7 @@ package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.server.ForStatementResource;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -59,14 +60,17 @@ public class ExecutingStatementResource
 
     private final BoundedExecutor responseExecutor;
     private final LocalQueryProvider queryProvider;
+    private final boolean compressionEnabled;
 
     @Inject
     public ExecutingStatementResource(
             @ForStatementResource BoundedExecutor responseExecutor,
-            LocalQueryProvider queryProvider)
+            LocalQueryProvider queryProvider,
+            ServerConfig serverConfig)
     {
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.queryProvider = requireNonNull(queryProvider, "queryProvider is null");
+        this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
     }
 
     @GET
@@ -96,7 +100,7 @@ public class ExecutingStatementResource
         Query query = queryProvider.getQuery(queryId, slug);
         ListenableFuture<Response> queryResultsFuture = transform(
                 query.waitForResults(token, uriInfo, proto, wait, targetResultSize),
-                results -> toResponse(query, results),
+                results -> toResponse(query, results, compressionEnabled),
                 directExecutor());
         bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);
     }

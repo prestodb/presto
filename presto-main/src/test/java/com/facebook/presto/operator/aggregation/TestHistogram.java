@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.UpdateMemory;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInput;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestInputBuilder;
 import com.facebook.presto.operator.aggregation.groupByAggregations.AggregationTestOutput;
@@ -222,7 +223,7 @@ public class TestHistogram
     {
         InternalAggregationFunction function = getInternalDefaultVarCharAggregationn();
         GroupedAccumulator groupedAccumulator = function.bind(Ints.asList(new int[] {}), Optional.empty())
-                .createGroupedAccumulator();
+                .createGroupedAccumulator(UpdateMemory.NOOP);
         BlockBuilder blockBuilder = groupedAccumulator.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAccumulator.evaluateFinal(0, blockBuilder);
@@ -313,7 +314,7 @@ public class TestHistogram
         int[] args = GroupByAggregationTestUtils.createArgs(function);
 
         return function.bind(Ints.asList(args), Optional.empty())
-                .createGroupedAccumulator();
+                .createGroupedAccumulator(UpdateMemory.NOOP);
     }
 
     private void testSharedGroupByWithOverlappingValuesPerGroupRunner(InternalAggregationFunction aggregationFunction)

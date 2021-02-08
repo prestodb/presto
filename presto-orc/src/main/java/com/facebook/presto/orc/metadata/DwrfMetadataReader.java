@@ -35,6 +35,7 @@ import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.protobuf.ByteString;
 import com.facebook.presto.orc.protobuf.CodedInputStream;
 import com.facebook.presto.orc.stream.OrcInputStream;
+import com.facebook.presto.orc.stream.SharedBuffer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,6 +54,7 @@ import java.util.Optional;
 import java.util.SortedMap;
 
 import static com.facebook.presto.orc.NoopOrcAggregatedMemoryContext.NOOP_ORC_AGGREGATED_MEMORY_CONTEXT;
+import static com.facebook.presto.orc.NoopOrcLocalMemoryContext.NOOP_ORC_LOCAL_MEMORY_CONTEXT;
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
 import static com.facebook.presto.orc.metadata.CompressionKind.NONE;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
@@ -194,6 +196,8 @@ public class DwrfMetadataReader
                 Slice encryptedFileStats = encryptionGroup.getStatistics().get(i);
                 try (OrcInputStream inputStream = new OrcInputStream(
                         orcDataSource.getId(),
+                        // Memory is not accounted as the buffer is expected to be tiny and will be immediately discarded
+                        new SharedBuffer(NOOP_ORC_LOCAL_MEMORY_CONTEXT),
                         new BasicSliceInput(encryptedFileStats),
                         decompressor,
                         Optional.of(decryptor),
@@ -248,22 +252,33 @@ public class DwrfMetadataReader
         }
     }
 
-    private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> types)
+    private static List<StripeInformation> toStripeInformation(List<DwrfProto.StripeInformation> stripeInformationList)
     {
-        return ImmutableList.copyOf(Iterables.transform(types, DwrfMetadataReader::toStripeInformation));
+        ImmutableList.Builder<StripeInformation> stripeInfoBuilder = ImmutableList.builder();
+        List<byte[]> previousKeyMetadata = ImmutableList.of();
+        for (DwrfProto.StripeInformation dwrfStripeInfo : stripeInformationList) {
+            StripeInformation prestoStripeInfo = toStripeInformation(dwrfStripeInfo, previousKeyMetadata);
+            stripeInfoBuilder.add(prestoStripeInfo);
+            previousKeyMetadata = prestoStripeInfo.getKeyMetadata();
+        }
+        return stripeInfoBuilder.build();
     }
 
-    private static StripeInformation toStripeInformation(DwrfProto.StripeInformation stripeInformation)
+    private static StripeInformation toStripeInformation(DwrfProto.StripeInformation stripeInformation, List<byte[]> previousKeyMetadata)
     {
+        List<byte[]> keyMetadata = stripeInformation.getKeyMetadataList().stream()
+                .map(ByteString::toByteArray)
+                .collect(toImmutableList());
+        if (keyMetadata.isEmpty()) {
+            keyMetadata = previousKeyMetadata;
+        }
         return new StripeInformation(
                 toIntExact(stripeInformation.getNumberOfRows()),
                 stripeInformation.getOffset(),
                 stripeInformation.getIndexLength(),
                 stripeInformation.getDataLength(),
                 stripeInformation.getFooterLength(),
-                stripeInformation.getKeyMetadataList().stream()
-                        .map(ByteString::toByteArray)
-                        .collect(toImmutableList()));
+                keyMetadata);
     }
 
     @Override

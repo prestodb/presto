@@ -39,6 +39,7 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.slice.Slices;
 import io.airlift.tpch.LineItem;
@@ -251,7 +252,8 @@ public class TestHivePageSink
                 Optional.empty(),
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                ImmutableSet.of());
 
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),

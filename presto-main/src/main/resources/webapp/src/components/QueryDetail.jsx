@@ -117,7 +117,7 @@ class TaskList extends React.Component {
             return (
                 <Tr key={task.taskId}>
                     <Td column="id" value={task.taskId}>
-                        <a href={task.taskStatus.self + "?pretty"}>
+                        <a href={"/v1/taskInfo/" + task.taskId + "?pretty"}>
                             {getTaskIdSuffix(task.taskId)}
                         </a>
                     </Td>

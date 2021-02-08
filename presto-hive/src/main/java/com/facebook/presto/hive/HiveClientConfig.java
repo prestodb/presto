@@ -150,6 +150,7 @@ public class HiveClientConfig
     private int partitionStatisticsSampleSize = 100;
     private boolean ignoreCorruptedStatistics;
     private boolean collectColumnStatisticsOnWrite;
+    private boolean partitionStatisticsBasedOptimizationEnabled;
 
     private boolean s3SelectPushdownEnabled;
     private int s3SelectPushdownMaxConnections = 500;
@@ -182,6 +183,8 @@ public class HiveClientConfig
     private boolean isPartialAggregationPushdownForVariableLengthDatatypesEnabled;
 
     private boolean fileRenamingEnabled;
+    private boolean preferManifestToListFiles;
+    private boolean manifestVerificationEnabled;
 
     public int getMaxInitialSplits()
     {
@@ -1279,6 +1282,19 @@ public class HiveClientConfig
         return this;
     }
 
+    public boolean isPartitionStatisticsBasedOptimizationEnabled()
+    {
+        return partitionStatisticsBasedOptimizationEnabled;
+    }
+
+    @Config("hive.partition-statistics-based-optimization-enabled")
+    @ConfigDescription("Enables partition statistics based optimization, including partition pruning and predicate stripping")
+    public HiveClientConfig setPartitionStatisticsBasedOptimizationEnabled(boolean partitionStatisticsBasedOptimizationEnabled)
+    {
+        this.partitionStatisticsBasedOptimizationEnabled = partitionStatisticsBasedOptimizationEnabled;
+        return this;
+    }
+
     public boolean isS3SelectPushdownEnabled()
     {
         return s3SelectPushdownEnabled;
@@ -1523,5 +1539,31 @@ public class HiveClientConfig
     public boolean isFileRenamingEnabled()
     {
         return this.fileRenamingEnabled;
+    }
+
+    @Config("hive.prefer-manifests-to-list-files")
+    @ConfigDescription("Prefer to fetch the list of file names and sizes from manifests rather than storage")
+    public HiveClientConfig setPreferManifestsToListFiles(boolean preferManifestToListFiles)
+    {
+        this.preferManifestToListFiles = preferManifestToListFiles;
+        return this;
+    }
+
+    public boolean isPreferManifestsToListFiles()
+    {
+        return this.preferManifestToListFiles;
+    }
+
+    @Config("hive.manifest-verification-enabled")
+    @ConfigDescription("Enable verification of file names and sizes in manifest / partition parameters")
+    public HiveClientConfig setManifestVerificationEnabled(boolean manifestVerificationEnabled)
+    {
+        this.manifestVerificationEnabled = manifestVerificationEnabled;
+        return this;
+    }
+
+    public boolean isManifestVerificationEnabled()
+    {
+        return this.manifestVerificationEnabled;
     }
 }

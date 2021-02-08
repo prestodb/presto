@@ -109,13 +109,13 @@ public class FunctionsParserHelper
         for (TypeParameter typeParameter : typeParameters) {
             String name = typeParameter.value();
             if (orderableRequired.contains(name)) {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, false, true, null, typeParameter.boundedBy()));
+                typeVariableConstraints.add(new TypeVariableConstraint(name, false, true, null, false, typeParameter.boundedBy()));
             }
             else if (comparableRequired.contains(name)) {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, true, false, null, typeParameter.boundedBy()));
+                typeVariableConstraints.add(new TypeVariableConstraint(name, true, false, null, false, typeParameter.boundedBy()));
             }
             else {
-                typeVariableConstraints.add(new TypeVariableConstraint(name, false, false, null, typeParameter.boundedBy()));
+                typeVariableConstraints.add(new TypeVariableConstraint(name, false, false, null, false, typeParameter.boundedBy()));
             }
         }
         return typeVariableConstraints.build();

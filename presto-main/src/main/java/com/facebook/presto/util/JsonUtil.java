@@ -27,11 +27,11 @@ import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.DoubleOperators;
-import com.facebook.presto.type.UnknownType;
 import com.facebook.presto.type.VarcharOperators;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -223,7 +223,7 @@ public final class JsonUtil
         {
             TypeSignature signature = type.getTypeSignature();
             String baseType = signature.getBase();
-            if (signature.isLongEnum()) {
+            if (signature.isBigintEnum()) {
                 return (block, position) -> String.valueOf(type.getLong(block, position));
             }
             if (signature.isVarcharEnum()) {
@@ -272,7 +272,7 @@ public final class JsonUtil
         {
             TypeSignature signature = type.getTypeSignature();
             String baseType = signature.getBase();
-            if (signature.isLongEnum()) {
+            if (signature.isBigintEnum()) {
                 return new LongJsonGeneratorWriter(type);
             }
             if (signature.isVarcharEnum()) {
@@ -890,7 +890,7 @@ public final class JsonUtil
         {
             TypeSignature signature = type.getTypeSignature();
             String baseType = signature.getBase();
-            if (signature.isLongEnum()) {
+            if (signature.isBigintEnum()) {
                 return new BigintBlockBuilderAppender();
             }
             if (signature.isVarcharEnum()) {

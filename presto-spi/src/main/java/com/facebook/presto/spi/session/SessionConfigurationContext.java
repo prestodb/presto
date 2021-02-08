@@ -28,15 +28,23 @@ public final class SessionConfigurationContext
     private final Optional<String> source;
     private final Set<String> clientTags;
     private final Optional<String> queryType;
-    private final ResourceGroupId resourceGroupId;
+    private final Optional<ResourceGroupId> resourceGroupId;
+    private final Optional<String> clientInfo;
 
-    public SessionConfigurationContext(String user, Optional<String> source, Set<String> clientTags, Optional<String> queryType, ResourceGroupId resourceGroupId)
+    public SessionConfigurationContext(
+            String user,
+            Optional<String> source,
+            Set<String> clientTags,
+            Optional<String> queryType,
+            Optional<ResourceGroupId> resourceGroupId,
+            Optional<String> clientInfo)
     {
         this.user = requireNonNull(user, "user is null");
         this.source = requireNonNull(source, "source is null");
         this.clientTags = unmodifiableSet(new HashSet<>(requireNonNull(clientTags, "clientTags is null")));
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId");
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
     }
 
     public String getUser()
@@ -59,8 +67,13 @@ public final class SessionConfigurationContext
         return queryType;
     }
 
-    public ResourceGroupId getResourceGroupId()
+    public Optional<ResourceGroupId> getResourceGroupId()
     {
         return resourceGroupId;
+    }
+
+    public Optional<String> getClientInfo()
+    {
+        return clientInfo;
     }
 }

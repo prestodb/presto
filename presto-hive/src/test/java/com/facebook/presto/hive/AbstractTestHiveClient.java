@@ -101,6 +101,8 @@ import com.facebook.presto.spi.connector.ConnectorPartitioningMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.ConnectorIdentity;
@@ -1086,6 +1088,12 @@ public abstract class AbstractTestHiveClient
             }
 
             @Override
+            public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+            {
+                return session.getSessionFunctions();
+            }
+
+            @Override
             public <T> T getProperty(String name, Class<T> type)
             {
                 Object value = extraProperties.get(name);
@@ -1094,6 +1102,12 @@ public abstract class AbstractTestHiveClient
                 }
 
                 return session.getProperty(name, type);
+            }
+
+            @Override
+            public Optional<String> getSchema()
+            {
+                return Optional.empty();
             }
         };
     }

@@ -44,10 +44,10 @@ import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.server.smile.SmileModule;
-import com.facebook.presto.spiller.TempStorageManager;
-import com.facebook.presto.spiller.TempStorageModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.storage.TempStorageManager;
+import com.facebook.presto.storage.TempStorageModule;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -131,7 +131,7 @@ public class PrestoServer
         Bootstrap app = new Bootstrap(modules.build());
 
         try {
-            Injector injector = app.strictConfig().initialize();
+            Injector injector = app.initialize();
 
             injector.getInstance(PluginManager.class).loadPlugins();
 

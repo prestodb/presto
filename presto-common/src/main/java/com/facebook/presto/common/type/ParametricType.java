@@ -19,5 +19,10 @@ public interface ParametricType
 {
     String getName();
 
+    default TypeSignatureBase getTypeSignatureBase()
+    {
+        return TypeSignatureBase.of(getName());
+    }
+
     Type createType(List<TypeParameter> parameters);
 }

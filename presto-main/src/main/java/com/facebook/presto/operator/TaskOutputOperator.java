@@ -101,6 +101,7 @@ public class TaskOutputOperator
     private final OutputBuffer outputBuffer;
     private final Function<Page, Page> pagePreprocessor;
     private final PagesSerde serde;
+    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
     private boolean finished;
 
     public TaskOutputOperator(OperatorContext operatorContext, OutputBuffer outputBuffer, Function<Page, Page> pagePreprocessor, PagesSerdeFactory serdeFactory)
@@ -132,8 +133,14 @@ public class TaskOutputOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ListenableFuture<?> blocked = outputBuffer.isFull();
-        return blocked.isDone() ? NOT_BLOCKED : blocked;
+        // Avoid re-synchronizing on the output buffer when operator is already blocked
+        if (isBlocked.isDone()) {
+            isBlocked = outputBuffer.isFull();
+            if (isBlocked.isDone()) {
+                isBlocked = NOT_BLOCKED;
+            }
+        }
+        return isBlocked;
     }
 
     @Override

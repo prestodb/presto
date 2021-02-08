@@ -44,7 +44,7 @@ import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.AUTOMATIC;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
@@ -336,7 +336,11 @@ public class TestReorderJoins
                                 ImmutableList.of(p.variable("A1"), p.variable("B1")),
                                 Optional.of(comparisonRowExpression(LESS_THAN, variable("A1", BIGINT), call(
                                         RANDOM.toString(),
-                                        tester.getMetadata().getFunctionAndTypeManager().resolveFunction(Optional.empty(), qualifyFunctionName(RANDOM), ImmutableList.of()),
+                                        tester.getMetadata().getFunctionAndTypeManager().resolveFunction(
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                qualifyObjectName(RANDOM),
+                                                ImmutableList.of()),
                                         BIGINT,
                                         ImmutableList.of())))))
                 .doesNotFire();

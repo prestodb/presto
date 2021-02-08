@@ -18,15 +18,16 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.OperatorType;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
+import com.facebook.presto.execution.FragmentResultCacheContext;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskMetadataContext;
@@ -56,6 +57,7 @@ import com.facebook.presto.operator.DynamicFilterSourceOperator;
 import com.facebook.presto.operator.EnforceSingleRowOperator;
 import com.facebook.presto.operator.ExplainAnalyzeOperator.ExplainAnalyzeOperatorFactory;
 import com.facebook.presto.operator.FilterAndProjectOperator.FilterAndProjectOperatorFactory;
+import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.GroupIdOperator;
 import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import com.facebook.presto.operator.HashBuilderOperator.HashBuilderOperatorFactory;
@@ -131,6 +133,8 @@ import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
@@ -199,6 +203,7 @@ import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SymbolReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ContiguousSet;
@@ -254,6 +259,7 @@ import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
+import static com.facebook.presto.execution.FragmentResultCacheContext.createFragmentResultCacheContext;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.sphericalDistance;
@@ -348,6 +354,8 @@ public class LocalExecutionPlanner
     private final OrderingCompiler orderingCompiler;
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final LogicalRowExpressions logicalRowExpressions;
+    private final FragmentResultCacheManager fragmentResultCacheManager;
+    private final ObjectMapper objectMapper;
 
     private static final TypeSignature SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE = parseTypeSignature("SphericalGeography");
 
@@ -375,7 +383,9 @@ public class LocalExecutionPlanner
             LookupJoinOperators lookupJoinOperators,
             OrderingCompiler orderingCompiler,
             JsonCodec<TableCommitContext> tableCommitContextCodec,
-            DeterminismEvaluator determinismEvaluator)
+            DeterminismEvaluator determinismEvaluator,
+            FragmentResultCacheManager fragmentResultCacheManager,
+            ObjectMapper objectMapper)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -406,6 +416,8 @@ public class LocalExecutionPlanner
                 requireNonNull(determinismEvaluator, "determinismEvaluator is null"),
                 new FunctionResolution(metadata.getFunctionAndTypeManager()),
                 metadata.getFunctionAndTypeManager());
+        this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
     }
 
     public LocalExecutionPlan plan(
@@ -445,7 +457,7 @@ public class LocalExecutionPlanner
                 taskContext,
                 stageExecutionDescriptor,
                 plan,
-                partitioningScheme.getOutputLayout(),
+                partitioningScheme,
                 partitionedSourceOrder,
                 outputFactory,
                 createOutputPartitioning(taskContext, partitioningScheme),
@@ -536,7 +548,7 @@ public class LocalExecutionPlanner
             TaskContext taskContext,
             StageExecutionDescriptor stageExecutionDescriptor,
             PlanNode plan,
-            List<VariableReferenceExpression> outputLayout,
+            PartitioningScheme partitioningScheme,
             List<PlanNodeId> partitionedSourceOrder,
             OutputFactory outputOperatorFactory,
             Optional<OutputPartitioning> outputPartitioning,
@@ -544,6 +556,7 @@ public class LocalExecutionPlanner
             TableWriteInfo tableWriteInfo,
             boolean pageSinkCommitRequired)
     {
+        List<VariableReferenceExpression> outputLayout = partitioningScheme.getOutputLayout();
         Session session = taskContext.getSession();
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, tableWriteInfo);
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session, stageExecutionDescriptor, remoteSourceFactory, pageSinkCommitRequired), context);
@@ -568,7 +581,8 @@ public class LocalExecutionPlanner
                                 new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))))
                         .build(),
                 context.getDriverInstanceCount(),
-                physicalOperation.getPipelineExecutionStrategy());
+                physicalOperation.getPipelineExecutionStrategy(),
+                createFragmentResultCacheContext(fragmentResultCacheManager, plan, partitioningScheme, session, objectMapper));
 
         addLookupOuterDrivers(context);
 
@@ -581,16 +595,6 @@ public class LocalExecutionPlanner
                 .forEach(LocalPlannerAware::localPlannerComplete);
 
         return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder, stageExecutionDescriptor);
-    }
-
-    private static boolean isOnlyScanFilterProject(PlanNode planNode)
-    {
-        if (planNode instanceof TableScanNode ||
-                planNode instanceof FilterNode ||
-                planNode instanceof ProjectNode) {
-            return planNode.getSources().stream().allMatch(LocalExecutionPlanner::isOnlyScanFilterProject);
-        }
-        return false;
     }
 
     private static void addLookupOuterDrivers(LocalExecutionPlanContext context)
@@ -617,7 +621,7 @@ public class LocalExecutionPlanner
                             .map(OperatorFactory::duplicate)
                             .forEach(newOperators::add);
 
-                    context.addDriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.get().getBuildExecutionStrategy());
+                    context.addDriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.get().getBuildExecutionStrategy(), Optional.empty());
                 }
             }
         }
@@ -662,7 +666,13 @@ public class LocalExecutionPlanner
             this.tableWriteInfo = tableWriteInfo;
         }
 
-        public void addDriverFactory(boolean inputDriver, boolean outputDriver, List<OperatorFactory> operatorFactories, OptionalInt driverInstances, PipelineExecutionStrategy pipelineExecutionStrategy)
+        public void addDriverFactory(
+                boolean inputDriver,
+                boolean outputDriver,
+                List<OperatorFactory> operatorFactories,
+                OptionalInt driverInstances,
+                PipelineExecutionStrategy pipelineExecutionStrategy,
+                Optional<FragmentResultCacheContext> fragmentResultCacheContext)
         {
             if (pipelineExecutionStrategy == GROUPED_EXECUTION) {
                 OperatorFactory firstOperatorFactory = operatorFactories.get(0);
@@ -673,7 +683,7 @@ public class LocalExecutionPlanner
                     checkArgument(firstOperatorFactory instanceof LocalExchangeSourceOperatorFactory || firstOperatorFactory instanceof LookupOuterOperatorFactory);
                 }
             }
-            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy));
+            driverFactories.add(new DriverFactory(getNextPipelineId(), inputDriver, outputDriver, operatorFactories, driverInstances, pipelineExecutionStrategy, fragmentResultCacheContext));
         }
 
         private List<DriverFactory> getDriverFactories()
@@ -1364,8 +1374,20 @@ public class LocalExecutionPlanner
 
             try {
                 if (columns != null) {
-                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(session.getSqlFunctionProperties(), filterExpression, projections, sourceNode.getId(), isOptimizeCommonSubExpressions(session));
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(
+                            session.getSqlFunctionProperties(),
+                            filterExpression,
+                            projections,
+                            sourceNode.getId(),
+                            isOptimizeCommonSubExpressions(session),
+                            session.getSessionFunctions());
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                            session.getSqlFunctionProperties(),
+                            filterExpression,
+                            projections,
+                            isOptimizeCommonSubExpressions(session),
+                            session.getSessionFunctions(),
+                            Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     SourceOperatorFactory operatorFactory = new ScanFilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1384,7 +1406,13 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
                 else if (locality.equals(LOCAL)) {
-                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(session.getSqlFunctionProperties(), filterExpression, projections, isOptimizeCommonSubExpressions(session), Optional.of(context.getStageExecutionId() + "_" + planNodeId));
+                    Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(
+                            session.getSqlFunctionProperties(),
+                            filterExpression,
+                            projections,
+                            isOptimizeCommonSubExpressions(session),
+                            session.getSessionFunctions(),
+                            Optional.of(context.getStageExecutionId() + "_" + planNodeId));
 
                     OperatorFactory operatorFactory = new FilterAndProjectOperatorFactory(
                             context.getNextOperatorId(),
@@ -1677,6 +1705,7 @@ public class LocalExecutionPlanner
                         nonLookupOutputChannels,
                         indexSource.getTypes(),
                         session.getSqlFunctionProperties(),
+                        session.getSessionFunctions(),
                         pageFunctionCompiler));
             }
 
@@ -1709,7 +1738,7 @@ public class LocalExecutionPlanner
                     false,
                     UNGROUPED_EXECUTION,
                     UNGROUPED_EXECUTION,
-                    lifespan -> indexLookupSourceFactory,
+                    () -> indexLookupSourceFactory,
                     indexLookupSourceFactory.getOutputTypes());
 
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
@@ -1858,7 +1887,7 @@ public class LocalExecutionPlanner
         private SpatialPredicate spatialTest(CallExpression functionCall, boolean probeFirst, Optional<OperatorType> comparisonOperator)
         {
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(functionCall.getFunctionHandle());
-            QualifiedFunctionName functionName = functionMetadata.getName();
+            QualifiedObjectName functionName = functionMetadata.getName();
             List<TypeSignature> argumentTypes = functionMetadata.getArgumentTypes();
             Predicate<TypeSignature> isSpherical = (typeSignature)
                     -> typeSignature.equals(SPHERICAL_GEOGRAPHY_TYPE_SIGNATURE);
@@ -1873,7 +1902,7 @@ public class LocalExecutionPlanner
             }
         }
 
-        private SpatialPredicate euclideanSpatialTest(QualifiedFunctionName functionName, Optional<OperatorType> comparisonOperator, boolean probeFirst)
+        private SpatialPredicate euclideanSpatialTest(QualifiedObjectName functionName, Optional<OperatorType> comparisonOperator, boolean probeFirst)
         {
             if (functionName.equals(ST_CONTAINS)) {
                 if (probeFirst) {
@@ -1920,7 +1949,7 @@ public class LocalExecutionPlanner
             throw new UnsupportedOperationException("Unsupported spatial function: " + functionName);
         }
 
-        private SpatialPredicate sphericalSpatialTest(QualifiedFunctionName functionName, Optional<OperatorType> comparisonOperator)
+        private SpatialPredicate sphericalSpatialTest(QualifiedObjectName functionName, Optional<OperatorType> comparisonOperator)
         {
             if (functionName.equals(ST_DISTANCE)) {
                 if (comparisonOperator.get() == OperatorType.LESS_THAN) {
@@ -1957,7 +1986,7 @@ public class LocalExecutionPlanner
                     false,
                     probeSource.getPipelineExecutionStrategy(),
                     buildSource.getPipelineExecutionStrategy(),
-                    lifespan -> new NestedLoopJoinPagesSupplier(),
+                    () -> new NestedLoopJoinPagesSupplier(),
                     buildSource.getTypes());
             NestedLoopBuildOperatorFactory nestedLoopBuildOperatorFactory = new NestedLoopBuildOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -1973,7 +2002,8 @@ public class LocalExecutionPlanner
                             .add(nestedLoopBuildOperatorFactory)
                             .build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
             outputMappings.putAll(probeSource.getLayout());
@@ -2076,6 +2106,7 @@ public class LocalExecutionPlanner
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = joinFilter
                     .map(filterExpression -> compileJoinFilterFunction(
                             session.getSqlFunctionProperties(),
+                            session.getSessionFunctions(),
                             filterExpression,
                             probeLayout,
                             buildLayout));
@@ -2104,7 +2135,8 @@ public class LocalExecutionPlanner
                             .add(builderOperatorFactory)
                             .build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             return builderOperatorFactory.getPagesSpatialIndexFactory();
         }
@@ -2172,6 +2204,7 @@ public class LocalExecutionPlanner
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = node.getFilter()
                     .map(filterExpression -> compileJoinFilterFunction(
                             session.getSqlFunctionProperties(),
+                            session.getSessionFunctions(),
                             filterExpression,
                             probeSource.getLayout(),
                             buildSource.getLayout()));
@@ -2190,6 +2223,7 @@ public class LocalExecutionPlanner
                     .map(searchExpressions -> searchExpressions.stream()
                             .map(searchExpression -> compileJoinFilterFunction(
                                     session.getSqlFunctionProperties(),
+                                    session.getSessionFunctions(),
                                     searchExpression,
                                     probeSource.getLayout(),
                                     buildSource.getLayout()))
@@ -2203,7 +2237,7 @@ public class LocalExecutionPlanner
                     buildOuter,
                     probeSource.getPipelineExecutionStrategy(),
                     buildSource.getPipelineExecutionStrategy(),
-                    lifespan -> new PartitionedLookupSourceFactory(
+                    () -> new PartitionedLookupSourceFactory(
                             buildSource.getTypes(),
                             buildOutputTypes,
                             buildChannels.stream()
@@ -2220,6 +2254,9 @@ public class LocalExecutionPlanner
             createDynamicFilter(buildSource, node, context, partitionCount).ifPresent(
                     filter -> factoriesBuilder.add(createDynamicFilterSourceOperatorFactory(filter, node.getId(), buildSource, buildContext)));
 
+            // spill does not work for probe only grouped execution because PartitionedLookupSourceFactory.finishProbe() expects a defined number of probe operators
+            boolean isProbeOnlyGroupedExecution = probeSource.getPipelineExecutionStrategy() == GROUPED_EXECUTION && buildSource.getPipelineExecutionStrategy() != GROUPED_EXECUTION;
+
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
                     node.getId(),
@@ -2232,7 +2269,7 @@ public class LocalExecutionPlanner
                     searchFunctionFactories,
                     10_000,
                     pagesIndexFactory,
-                    spillEnabled && !buildOuter && partitionCount > 1,
+                    spillEnabled && !buildOuter && partitionCount > 1 && !isProbeOnlyGroupedExecution,
                     singleStreamSpillerFactory,
                     isBroadcastJoin);
 
@@ -2243,7 +2280,8 @@ public class LocalExecutionPlanner
                     false,
                     factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             return lookupSourceFactoryManager;
         }
@@ -2295,12 +2333,13 @@ public class LocalExecutionPlanner
 
         private JoinFilterFunctionFactory compileJoinFilterFunction(
                 SqlFunctionProperties sqlFunctionProperties,
+                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
                 RowExpression filterExpression,
                 Map<VariableReferenceExpression, Integer> probeLayout,
                 Map<VariableReferenceExpression, Integer> buildLayout)
         {
             Map<VariableReferenceExpression, Integer> joinSourcesLayout = createJoinSourcesLayout(buildLayout, probeLayout);
-            return joinFilterFunctionCompiler.compileJoinFilterFunction(sqlFunctionProperties, bindChannels(filterExpression, joinSourcesLayout), buildLayout.size());
+            return joinFilterFunctionCompiler.compileJoinFilterFunction(sqlFunctionProperties, sessionFunctions, bindChannels(filterExpression, joinSourcesLayout), buildLayout.size());
         }
 
         private int sortExpressionAsSortChannel(
@@ -2407,7 +2446,8 @@ public class LocalExecutionPlanner
                     false,
                     factoriesBuilder.build(),
                     buildContext.getDriverInstanceCount(),
-                    buildSource.getPipelineExecutionStrategy());
+                    buildSource.getPipelineExecutionStrategy(),
+                    Optional.empty());
 
             // Source channels are always laid out first, followed by the boolean output variable
             Map<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.<VariableReferenceExpression, Integer>builder()
@@ -2739,7 +2779,13 @@ public class LocalExecutionPlanner
                     node.getId(),
                     exchangeFactory.newSinkFactoryId(),
                     pagePreprocessor));
-            context.addDriverFactory(subContext.isInputDriver(), false, operatorFactories, subContext.getDriverInstanceCount(), source.getPipelineExecutionStrategy());
+            context.addDriverFactory(
+                    subContext.isInputDriver(),
+                    false,
+                    operatorFactories,
+                    subContext.getDriverInstanceCount(),
+                    source.getPipelineExecutionStrategy(),
+                    createFragmentResultCacheContext(fragmentResultCacheManager, sourceNode, node.getPartitioningScheme(), session, objectMapper));
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
 
@@ -2827,7 +2873,8 @@ public class LocalExecutionPlanner
                         false,
                         operatorFactories,
                         subContext.getDriverInstanceCount(),
-                        exchangeSourcePipelineExecutionStrategy);
+                        source.getPipelineExecutionStrategy(),
+                        createFragmentResultCacheContext(fragmentResultCacheManager, node.getSources().get(i), node.getPartitioningScheme(), session, objectMapper));
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan
@@ -2881,7 +2928,12 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             for (int i = 0; i < lambdas.size(); i++) {
                 List<Class> lambdaInterfaces = internalAggregationFunction.getLambdaInterfaces();
-                Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(lambdas.get(i), metadata, session.getSqlFunctionProperties(), lambdaInterfaces.get(i));
+                Class<? extends LambdaProvider> lambdaProviderClass = compileLambdaProvider(
+                        lambdas.get(i),
+                        metadata,
+                        session.getSqlFunctionProperties(),
+                        session.getSessionFunctions(),
+                        lambdaInterfaces.get(i));
                 try {
                     lambdaProviders.add((LambdaProvider) constructorMethodHandle(lambdaProviderClass, SqlFunctionProperties.class).invoke(session.getSqlFunctionProperties()));
                 }

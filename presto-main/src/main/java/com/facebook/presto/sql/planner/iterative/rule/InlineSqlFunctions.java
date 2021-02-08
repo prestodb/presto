@@ -31,10 +31,11 @@ import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isInlineSqlFunctions;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionExpression;
@@ -116,8 +117,9 @@ public class InlineSqlFunctions
                 }
 
                 FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
+                        Optional.of(session.getSessionFunctions()),
                         session.getTransactionId(),
-                        qualifyFunctionName(node.getName()),
+                        qualifyObjectName(node.getName()),
                         fromTypes(argumentTypes));
                 FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle);
 

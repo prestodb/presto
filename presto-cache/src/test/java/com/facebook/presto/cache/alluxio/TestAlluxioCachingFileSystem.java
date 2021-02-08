@@ -374,6 +374,13 @@ public class TestAlluxioCachingFileSystem
             configuration.set("alluxio.user.client.cache.async.restore.enabled", String.valueOf(false));
             configuration.set("sink.jmx.class", alluxioCacheConfig.getJmxClass());
             configuration.set("sink.jmx.domain", alluxioCacheConfig.getMetricsDomain());
+            if (alluxioCacheConfig.getTimeoutEnabled()) {
+                configuration.set("alluxio.user.client.cache.timeout.duration", String.valueOf(alluxioCacheConfig.getTimeoutDuration().toMillis()));
+                configuration.set("alluxio.user.client.cache.timeout.threads", String.valueOf(alluxioCacheConfig.getTimeoutThreads()));
+            }
+            else {
+                configuration.set("alluxio.user.client.cache.timeout.duration", "-1");
+            }
         }
         return configuration;
     }

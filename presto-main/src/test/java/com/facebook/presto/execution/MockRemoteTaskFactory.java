@@ -200,6 +200,7 @@ public class MockRemoteTaskFactory
                     new DataSize(1, MEGABYTE),
                     new DataSize(2, MEGABYTE),
                     new DataSize(1, MEGABYTE),
+                    new DataSize(1, GIGABYTE),
                     memoryPool,
                     new TestingGcMonitor(),
                     executor,
@@ -213,8 +214,7 @@ public class MockRemoteTaskFactory
                     true,
                     true,
                     true,
-                    false,
-                    Optional.empty());
+                    false);
 
             this.location = URI.create("fake://task/" + taskId);
 

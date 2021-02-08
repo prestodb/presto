@@ -30,8 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.airlift.concurrent.MoreFutures.checkSuccess;
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
+import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.facebook.presto.util.MergeSortedPages.mergeSortedPages;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -203,7 +202,7 @@ public class OrderByOperator
         if (!spillInProgress.isDone()) {
             return;
         }
-        checkSuccess(spillInProgress, "spilling failed");
+        checkSpillSucceeded(spillInProgress);
 
         if (state == State.NEEDS_INPUT) {
             state = State.HAS_OUTPUT;
@@ -218,7 +217,7 @@ public class OrderByOperator
                     revocableMemoryContext.setBytes(currentRevocableBytes);
                     // spill since revocable memory could not be converted to user memory immediately
                     // TODO: this should be asynchronous
-                    getFutureValue(spillToDisk());
+                    checkSpillSucceeded(spillToDisk());
                     finishMemoryRevoke.run();
                 }
             }
@@ -253,7 +252,7 @@ public class OrderByOperator
     {
         checkState(state == State.NEEDS_INPUT, "Operator is already finishing");
         requireNonNull(page, "page is null");
-        checkSuccess(spillInProgress, "spilling failed");
+        checkSpillSucceeded(spillInProgress);
 
         pageIndex.addPage(page);
         updateMemoryUsage();
@@ -262,7 +261,7 @@ public class OrderByOperator
     @Override
     public Page getOutput()
     {
-        checkSuccess(spillInProgress, "spilling failed");
+        checkSpillSucceeded(spillInProgress);
         if (state != State.HAS_OUTPUT) {
             return null;
         }
@@ -294,7 +293,7 @@ public class OrderByOperator
 
     private ListenableFuture<?> spillToDisk()
     {
-        checkSuccess(spillInProgress, "spilling failed");
+        checkSpillSucceeded(spillInProgress);
 
         if (revocableMemoryContext.getBytes() == 0) {
             verify(pageIndex.getPositionCount() == 0 || state == State.HAS_OUTPUT);

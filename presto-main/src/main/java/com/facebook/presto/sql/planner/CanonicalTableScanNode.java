@@ -21,6 +21,10 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.plan.InternalPlanNode;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.HashMap;
 import java.util.List;
@@ -35,17 +39,18 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class CanonicalTableScanNode
-        extends PlanNode
+        extends InternalPlanNode
 {
     private final CanonicalTableHandle table;
     private final Map<VariableReferenceExpression, ColumnHandle> assignments;
     private final List<VariableReferenceExpression> outputVariables;
 
+    @JsonCreator
     public CanonicalTableScanNode(
-            PlanNodeId id,
-            CanonicalTableHandle table,
-            List<VariableReferenceExpression> outputVariables,
-            Map<VariableReferenceExpression, ColumnHandle> assignments)
+            @JsonProperty("id") PlanNodeId id,
+            @JsonProperty("table") CanonicalTableHandle table,
+            @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
+            @JsonProperty("assignments") Map<VariableReferenceExpression, ColumnHandle> assignments)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
@@ -61,6 +66,7 @@ public class CanonicalTableScanNode
     }
 
     @Override
+    @JsonProperty
     public List<VariableReferenceExpression> getOutputVariables()
     {
         return outputVariables;
@@ -73,14 +79,22 @@ public class CanonicalTableScanNode
         return this;
     }
 
+    @JsonProperty
     public CanonicalTableHandle getTable()
     {
         return table;
     }
 
+    @JsonProperty
     public Map<VariableReferenceExpression, ColumnHandle> getAssignments()
     {
         return assignments;
+    }
+
+    @Override
+    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    {
+        return visitor.visitCanonicalTableScan(this, context);
     }
 
     @Override
@@ -107,38 +121,64 @@ public class CanonicalTableScanNode
     public static class CanonicalTableHandle
     {
         private final ConnectorId connectorId;
-        private final ConnectorTableHandle connectorHandle;
-
+        private final ConnectorTableHandle tableHandle;
         private final Optional<Object> layoutIdentifier;
+
+        // This field is only used for plan rewrite but not participate in fragment result caching, so
+        // we do not serialize this field.
+        private final Optional<ConnectorTableLayoutHandle> layoutHandle;
 
         public static CanonicalTableHandle getCanonicalTableHandle(TableHandle tableHandle)
         {
-            return new CanonicalTableHandle(tableHandle.getConnectorId(), tableHandle.getConnectorHandle(), tableHandle.getLayout());
+            return new CanonicalTableHandle(
+                    tableHandle.getConnectorId(),
+                    tableHandle.getConnectorHandle(),
+                    tableHandle.getLayout().map(layout -> layout.getIdentifier(Optional.empty())),
+                    tableHandle.getLayout());
         }
 
-        private CanonicalTableHandle(
+        @JsonCreator
+        public CanonicalTableHandle(
+                @JsonProperty("connectorId") ConnectorId connectorId,
+                @JsonProperty("tableHandle") ConnectorTableHandle tableHandle,
+                @JsonProperty("layoutIdentifier") Optional<Object> layoutIdentifier)
+        {
+            this(connectorId, tableHandle, layoutIdentifier, Optional.empty());
+        }
+
+        public CanonicalTableHandle(
                 ConnectorId connectorId,
-                ConnectorTableHandle connectorHandle,
-                Optional<ConnectorTableLayoutHandle> layout)
+                ConnectorTableHandle tableHandle,
+                Optional<Object> layoutIdentifier,
+                Optional<ConnectorTableLayoutHandle> layoutHandle)
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
-            this.connectorHandle = requireNonNull(connectorHandle, "connectorHandle is null");
-            this.layoutIdentifier = requireNonNull(layout, "layout is null").map(ConnectorTableLayoutHandle::getIdentifier);
+            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+            this.layoutIdentifier = requireNonNull(layoutIdentifier, "layoutIdentifier is null");
+            this.layoutHandle = requireNonNull(layoutHandle, "layoutHandle is null");
         }
 
+        @JsonProperty
         public ConnectorId getConnectorId()
         {
             return connectorId;
         }
 
-        public ConnectorTableHandle getConnectorHandle()
+        @JsonProperty
+        public ConnectorTableHandle getTableHandle()
         {
-            return connectorHandle;
+            return tableHandle;
         }
 
+        @JsonProperty
         public Optional<Object> getLayoutIdentifier()
         {
             return layoutIdentifier;
+        }
+
+        public Optional<ConnectorTableLayoutHandle> getLayoutHandle()
+        {
+            return layoutHandle;
         }
 
         @Override
@@ -152,14 +192,14 @@ public class CanonicalTableScanNode
             }
             CanonicalTableHandle that = (CanonicalTableHandle) o;
             return Objects.equals(connectorId, that.connectorId) &&
-                    Objects.equals(connectorHandle, that.connectorHandle) &&
+                    Objects.equals(tableHandle, that.tableHandle) &&
                     Objects.equals(layoutIdentifier, that.layoutIdentifier);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(connectorId, connectorHandle, layoutIdentifier);
+            return Objects.hash(connectorId, tableHandle, layoutIdentifier);
         }
     }
 }

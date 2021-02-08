@@ -14,7 +14,7 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;

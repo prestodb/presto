@@ -38,8 +38,8 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Queue;
 
-import static com.facebook.airlift.concurrent.MoreFutures.checkSuccess;
 import static com.facebook.airlift.concurrent.MoreFutures.getDone;
+import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -360,7 +360,7 @@ public class HashBuilderOperator
     private void spillInput(Page page)
     {
         checkState(spillInProgress.isDone(), "Previous spill still in progress");
-        checkSuccess(spillInProgress, "spilling failed");
+        checkSpillSucceeded(spillInProgress);
         spillInProgress = getSpiller().spill(page);
     }
 
@@ -525,7 +525,7 @@ public class HashBuilderOperator
             // Not ready to handle finish() yet
             return;
         }
-        checkSuccess(spillInProgress, "spilling failed");
+        checkSpillSucceeded(spillInProgress);
         state = State.INPUT_SPILLED;
     }
 

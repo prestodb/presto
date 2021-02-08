@@ -21,8 +21,11 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.RowType.Field;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -79,7 +82,6 @@ import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.transaction.TransactionId;
-import com.facebook.presto.type.UnknownType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
@@ -108,7 +110,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
@@ -154,7 +156,15 @@ public final class SqlToRowExpressionTranslator
             FunctionAndTypeManager functionAndTypeManager,
             Session session)
     {
-        return translate(expression, types, layout, functionAndTypeManager, Optional.of(session.getUser()), session.getTransactionId(), session.getSqlFunctionProperties());
+        return translate(
+                expression,
+                types,
+                layout,
+                functionAndTypeManager,
+                Optional.of(session.getUser()),
+                session.getTransactionId(),
+                session.getSqlFunctionProperties(),
+                session.getSessionFunctions());
     }
 
     public static RowExpression translate(
@@ -164,7 +174,8 @@ public final class SqlToRowExpressionTranslator
             FunctionAndTypeManager functionAndTypeManager,
             Optional<String> user,
             Optional<TransactionId> transactionId,
-            SqlFunctionProperties sqlFunctionProperties)
+            SqlFunctionProperties sqlFunctionProperties,
+            Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
     {
         Visitor visitor = new Visitor(
                 types,
@@ -172,7 +183,8 @@ public final class SqlToRowExpressionTranslator
                 functionAndTypeManager,
                 user,
                 transactionId,
-                sqlFunctionProperties);
+                sqlFunctionProperties,
+                sessionFunctions);
         RowExpression result = visitor.process(expression, null);
         requireNonNull(result, "translated expression is null");
         return result;
@@ -187,6 +199,7 @@ public final class SqlToRowExpressionTranslator
         private final Optional<String> user;
         private final Optional<TransactionId> transactionId;
         private final SqlFunctionProperties sqlFunctionProperties;
+        private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
         private final FunctionResolution functionResolution;
 
         private Visitor(
@@ -195,7 +208,8 @@ public final class SqlToRowExpressionTranslator
                 FunctionAndTypeManager functionAndTypeManager,
                 Optional<String> user,
                 Optional<TransactionId> transactionId,
-                SqlFunctionProperties sqlFunctionProperties)
+                SqlFunctionProperties sqlFunctionProperties,
+                Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions)
         {
             this.types = ImmutableMap.copyOf(requireNonNull(types, "types is null"));
             this.layout = layout;
@@ -204,6 +218,7 @@ public final class SqlToRowExpressionTranslator
             this.transactionId = transactionId;
             this.sqlFunctionProperties = sqlFunctionProperties;
             this.functionResolution = new FunctionResolution(functionAndTypeManager);
+            this.sessionFunctions = sessionFunctions;
         }
 
         private Type getType(Expression node)
@@ -415,7 +430,14 @@ public final class SqlToRowExpressionTranslator
                     .map(TypeSignatureProvider::new)
                     .collect(toImmutableList());
 
-            return call(node.getName().toString(), functionAndTypeManager.resolveFunction(transactionId, qualifyFunctionName(node.getName()), argumentTypes), getType(node), arguments);
+            return call(node.getName().toString(),
+                    functionAndTypeManager.resolveFunction(
+                            Optional.of(sessionFunctions),
+                            transactionId,
+                            qualifyObjectName(node.getName()),
+                            argumentTypes),
+                    getType(node),
+                    arguments);
         }
 
         @Override

@@ -14,9 +14,9 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.presto.RowPagesBuilder;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
@@ -87,7 +87,7 @@ public class TestBinaryFileSpiller
     public void testFileSpiller()
             throws Exception
     {
-        try (Spiller spiller = factory.create(TYPES, bytes -> {}, memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, new TestingSpillContext(), memoryContext)) {
             testSimpleSpiller(spiller);
         }
     }
@@ -108,7 +108,7 @@ public class TestBinaryFileSpiller
 
         Page page = new Page(col1.build(), col2.build(), col3.build());
 
-        try (Spiller spiller = factory.create(TYPES, bytes -> {}, memoryContext)) {
+        try (Spiller spiller = factory.create(TYPES, new TestingSpillContext(), memoryContext)) {
             testSpiller(types, spiller, ImmutableList.of(page));
         }
     }

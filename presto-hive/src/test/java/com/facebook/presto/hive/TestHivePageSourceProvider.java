@@ -17,6 +17,7 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
@@ -67,7 +68,8 @@ public class TestHivePageSourceProvider
                 Optional.empty(),
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                ImmutableSet.of());
 
         CacheQuota cacheQuota = HivePageSourceProvider.generateCacheQuota(split);
         CacheQuota expectedCacheQuota = new CacheQuota(".", Optional.empty());
@@ -100,7 +102,8 @@ public class TestHivePageSourceProvider
                 Optional.empty(),
                 new CacheQuotaRequirement(PARTITION, Optional.of(DataSize.succinctDataSize(1, DataSize.Unit.MEGABYTE))),
                 Optional.empty(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                ImmutableSet.of());
 
         cacheQuota = HivePageSourceProvider.generateCacheQuota(split);
         expectedCacheQuota = new CacheQuota(SCHEMA_NAME + "." + TABLE_NAME + "." + PARTITION_NAME, Optional.of(DataSize.succinctDataSize(1, DataSize.Unit.MEGABYTE)));

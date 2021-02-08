@@ -47,8 +47,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.facebook.presto.util.MoreUninterruptibles.tryLockUninterruptibly;
@@ -71,7 +71,7 @@ public class Driver
     private static final Logger log = Logger.get(Driver.class);
 
     private final DriverContext driverContext;
-    private final Optional<FragmentResultCacheContext> fragmentResultCacheContext;
+    private final AtomicReference<Optional<FragmentResultCacheContext>> fragmentResultCacheContext;
     private final List<Operator> activeOperators;
     // this is present only for debugging
     @SuppressWarnings("unused")
@@ -129,7 +129,7 @@ public class Driver
     private Driver(DriverContext driverContext, List<Operator> operators)
     {
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
-        this.fragmentResultCacheContext = driverContext.getPipelineContext().getTaskContext().getFragmentResultCacheContext();
+        this.fragmentResultCacheContext = new AtomicReference<>(driverContext.getFragmentResultCacheContext());
         this.allOperators = ImmutableList.copyOf(requireNonNull(operators, "operators is null"));
         checkArgument(allOperators.size() > 1, "At least two operators are required");
         this.activeOperators = new ArrayList<>(operators);
@@ -258,9 +258,10 @@ public class Driver
         for (ScheduledSplit newSplit : newSplits) {
             Split split = newSplit.getSplit();
 
-            if (fragmentResultCacheContext.isPresent() && !(split.getConnectorSplit() instanceof RemoteSplit)) {
+            if (fragmentResultCacheContext.get().isPresent() && !(split.getConnectorSplit() instanceof RemoteSplit)) {
                 checkState(!this.cachedResult.get().isPresent());
-                this.cachedResult.set(fragmentResultCacheContext.get().getFragmentResultCacheManager().get(fragmentResultCacheContext.get().getCanonicalPlanFragment(), split));
+                this.fragmentResultCacheContext.set(this.fragmentResultCacheContext.get().map(context -> context.updateRuntimeInformation(split.getConnectorSplit())));
+                this.cachedResult.set(fragmentResultCacheContext.get().get().getFragmentResultCacheManager().get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split));
                 this.split.set(split);
             }
 
@@ -364,7 +365,7 @@ public class Driver
 
     private boolean shouldUseFragmentResultCache()
     {
-        return fragmentResultCacheContext.isPresent() && split.get() != null && split.get().getConnectorSplit().getNodeSelectionStrategy() != NO_PREFERENCE;
+        return fragmentResultCacheContext.get().isPresent() && split.get() != null && split.get().getConnectorSplit().getNodeSelectionStrategy() != NO_PREFERENCE;
     }
 
     @GuardedBy("exclusiveLock")
@@ -457,8 +458,8 @@ public class Driver
 
                     if (shouldUseFragmentResultCache() && outputOperatorFinished && !cachedResult.get().isPresent()) {
                         checkState(split.get() != null);
-                        checkState(fragmentResultCacheContext.isPresent());
-                        fragmentResultCacheContext.get().getFragmentResultCacheManager().put(fragmentResultCacheContext.get().getCanonicalPlanFragment(), split.get(), outputPages);
+                        checkState(fragmentResultCacheContext.get().isPresent());
+                        fragmentResultCacheContext.get().get().getFragmentResultCacheManager().put(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split.get(), outputPages);
                     }
 
                     // Finish the next operator, which is now the first operator.
@@ -539,7 +540,7 @@ public class Driver
     {
         ListenableFuture<?> future = revokingOperators.get(operator);
         if (future.isDone()) {
-            getFutureValue(future); // propagate exception if there was some
+            checkSpillSucceeded(future); // propagate exception if there was some
             revokingOperators.remove(operator);
             operator.finishMemoryRevoke();
             operator.getOperatorContext().resetMemoryRevokingRequested();

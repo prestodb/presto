@@ -14,11 +14,10 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.spiller.LocalTempStorage;
-import com.facebook.presto.spiller.TempStorageManager;
+import com.facebook.presto.storage.TempStorageManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
-import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.UUID;
 
@@ -28,7 +27,6 @@ public class TestingTempStorageManager
         extends TempStorageManager
 {
     public TestingTempStorageManager()
-            throws IOException
     {
         // For tests like TestSpilled{Aggregations, Window, OrderBy}WithTemporaryStorage, TestDistributedSpilledQueriesWithTempStorage
         // Each of them will create their own TempStorage
@@ -41,7 +39,7 @@ public class TestingTempStorageManager
     @VisibleForTesting
     public TestingTempStorageManager(String tempStoragePath)
     {
-        super();
+        super(new TestingNodeManager());
         loadTempStorage(
                 LocalTempStorage.NAME,
                 ImmutableMap.of(TEMP_STORAGE_PATH, tempStoragePath));

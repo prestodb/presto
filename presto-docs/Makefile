@@ -2,21 +2,21 @@
 #
 
 # You can set these variables from the command line.
+PYTHON3       = python3
 SPHINXOPTS    = -j auto
-SPHINXBUILD   = sphinx-build
-PAPER         =
+SPHINXBUILD   = $(PYTHON3) -m sphinx
 BUILDDIR      = target
 SOURCEDIR     = src/main/sphinx
 
 # User-friendly check for sphinx-build
-ifeq ($(shell which $(SPHINXBUILD) >/dev/null 2>&1; echo $$?), 1)
-$(error The '$(SPHINXBUILD)' command was not found. Make sure you have Sphinx installed, then set the SPHINXBUILD environment variable to point to the full path of the '$(SPHINXBUILD)' executable. Alternatively you can add the directory with the executable to your PATH. If you don't have Sphinx installed, grab it from http://sphinx-doc.org/)
+ifeq ($(shell which $(PYTHON3) >/dev/null 2>&1; echo $$?), 1)
+$(error The '$(PYTHON3)' command was not found. Make sure you have Python3 instaled. You can grab it from https://www.python.org/)
 endif
 
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
 PAPEROPT_letter = -D latex_paper_size=letter
-ALLSPHINXOPTS   = -n -W -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(SOURCEDIR)
+ALLSPHINXOPTS   = -n -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(SOURCEDIR)
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(SOURCEDIR)
 

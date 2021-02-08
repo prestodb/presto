@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.type.ArrayType;
@@ -1722,7 +1722,7 @@ public class TestExpressionInterpreter
                 new FunctionResolution(METADATA.getFunctionAndTypeManager()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
             Type targetType = ((CallExpression) value).getType();
             Type sourceType = ((CallExpression) value).getArguments().get(0).getType();
-            return METADATA.getTypeManager().canCoerce(sourceType, targetType);
+            return METADATA.getFunctionAndTypeManager().canCoerce(sourceType, targetType);
         }
         return false;
     }

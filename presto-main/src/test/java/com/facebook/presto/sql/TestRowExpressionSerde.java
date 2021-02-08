@@ -17,10 +17,10 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.stats.cardinality.HyperLogLog;
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncoding;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.function.OperatorType;
@@ -260,7 +260,6 @@ public class TestRowExpressionSerde
         };
         Bootstrap app = new Bootstrap(ImmutableList.of(module));
         Injector injector = app
-                .strictConfig()
                 .doNotInitializeLogging()
                 .quiet()
                 .initialize();
@@ -281,7 +280,6 @@ public class TestRowExpressionSerde
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
-                metadata.getTypeManager(),
                 TEST_SESSION,
                 TypeProvider.empty(),
                 emptyList(),

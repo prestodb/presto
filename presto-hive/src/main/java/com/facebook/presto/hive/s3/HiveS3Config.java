@@ -39,6 +39,7 @@ public class HiveS3Config
     private boolean s3PathStyleAccess;
     private boolean s3UseInstanceCredentials;
     private String s3IamRole;
+    private String s3IamRoleSessionName = "presto-session";
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
     private PrestoS3SseType s3SseType = PrestoS3SseType.S3;
@@ -144,6 +145,19 @@ public class HiveS3Config
     public HiveS3Config setS3IamRole(String s3IamRole)
     {
         this.s3IamRole = s3IamRole;
+        return this;
+    }
+
+    public String getS3IamRoleSessionName()
+    {
+        return s3IamRoleSessionName;
+    }
+
+    @Config("hive.s3.iam-role-session-name")
+    @ConfigDescription("AWS STS session name when IAM role to assume to access S3 buckets")
+    public HiveS3Config setS3IamRoleSessionName(String s3IamRoleSessionName)
+    {
+        this.s3IamRoleSessionName = s3IamRoleSessionName;
         return this;
     }
 

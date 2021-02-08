@@ -19,8 +19,6 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
-import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ResetSession;
@@ -30,13 +28,12 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.net.URI;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.execution.TaskTestUtils.createQueryStateMachine;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
@@ -90,19 +87,7 @@ public class TestResetSessionTask
                 .setSystemProperty("foo", "bar")
                 .setCatalogSessionProperty(CATALOG_NAME, "baz", "blah")
                 .build();
-
-        QueryStateMachine stateMachine = QueryStateMachine.begin(
-                "reset foo",
-                session,
-                URI.create("fake://uri"),
-                new ResourceGroupId("test"),
-                Optional.empty(),
-                false,
-                transactionManager,
-                accessControl,
-                executor,
-                metadata,
-                WarningCollector.NOOP);
+        QueryStateMachine stateMachine = createQueryStateMachine("reset foo", session, false, transactionManager, executor, metadata);
 
         getFutureValue(new ResetSessionTask().execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),

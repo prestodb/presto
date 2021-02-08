@@ -22,6 +22,8 @@ import java.util.Map;
 
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_BROADCAST_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_RUN_TIME;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
@@ -36,7 +38,8 @@ public class QueryActionUtil
     public static Map<String, String> mangleSessionProperties(
             Map<String, String> mainQuerySessionProperty,
             QueryStage queryStage,
-            Duration queryTimeout)
+            Duration queryTimeout,
+            boolean removeMemoryRelatedSessionProperty)
     {
         // configure session properties
         Map<String, String> sessionProperties = queryStage.isMain() || queryStage == DETERMINISM_ANALYSIS_MAIN
@@ -49,11 +52,17 @@ public class QueryActionUtil
         // Remove query max run time to respect execution time limit.
         sessionProperties.remove(QUERY_MAX_RUN_TIME);
 
-        // Allow verifier clusters to provide their own memory limits to reduce noise from
-        // CBO making different decisions based on cluster size
-        sessionProperties.remove(QUERY_MAX_BROADCAST_MEMORY);
-        sessionProperties.remove(QUERY_MAX_TOTAL_MEMORY_PER_NODE);
-        sessionProperties.remove(QUERY_MAX_TOTAL_MEMORY);
+        if (removeMemoryRelatedSessionProperty) {
+            // Allow verifier clusters to provide their own memory limits to reduce noise from
+            // CBO making different decisions based on cluster size
+            sessionProperties.remove(QUERY_MAX_BROADCAST_MEMORY);
+
+            sessionProperties.remove(QUERY_MAX_MEMORY_PER_NODE);
+            sessionProperties.remove(QUERY_MAX_TOTAL_MEMORY_PER_NODE);
+
+            sessionProperties.remove(QUERY_MAX_MEMORY);
+            sessionProperties.remove(QUERY_MAX_TOTAL_MEMORY);
+        }
 
         return ImmutableMap.copyOf(sessionProperties);
     }

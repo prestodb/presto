@@ -104,7 +104,7 @@ public class BenchmarkArrayHashCodeOperator
     public static class BenchmarkData
     {
         @Param({"$operator$hash_code", "old_hash", "another_hash"})
-        private String name = HASH_CODE.getFunctionName().getFunctionName();
+        private String name = HASH_CODE.getFunctionName().getObjectName();
 
         @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";

@@ -183,6 +183,12 @@ public class RcFileFileWriter
     }
 
     @Override
+    public long getFileSizeInBytes()
+    {
+        return getWrittenBytes();
+    }
+
+    @Override
     public String toString()
     {
         return toStringHelper(this)

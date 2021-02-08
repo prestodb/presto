@@ -26,6 +26,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
 import java.util.List;
+import java.util.OptionalInt;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
@@ -40,7 +41,7 @@ import static org.testng.Assert.assertEquals;
 
 public class BenchmarkZstdJniDecompression
 {
-    private static final ZstdJniCompressor compressor = new ZstdJniCompressor();
+    private static final ZstdJniCompressor compressor = new ZstdJniCompressor(OptionalInt.empty());
     private static final List<Unit> list = generateWorkload();
     private static final int sourceLength = 256 * 1024;
     private static byte[] decompressedBytes = new byte[sourceLength];

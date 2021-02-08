@@ -34,7 +34,7 @@ public final class DoubleBigArray
     private final double initialValue;
 
     private double[][] array;
-    private int capacity;
+    private long capacity;
     private int segments;
 
     /**

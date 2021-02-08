@@ -34,7 +34,7 @@ public final class LongBigArray
     private final long initialValue;
 
     private long[][] array;
-    private int capacity;
+    private long capacity;
     private int segments;
 
     /**

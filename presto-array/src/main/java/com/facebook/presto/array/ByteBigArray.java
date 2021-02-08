@@ -34,7 +34,7 @@ public final class ByteBigArray
     private final byte initialValue;
 
     private byte[][] array;
-    private int capacity;
+    private long capacity;
     private int segments;
 
     /**

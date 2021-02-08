@@ -14,11 +14,15 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.memory.QueryContext;
+import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.memory.MemoryPool;
+import com.facebook.presto.memory.TaskRevocableMemoryListener;
 import com.facebook.presto.memory.VoidTraversingQueryContextVisitor;
 import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
@@ -27,12 +31,15 @@ import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.execution.MemoryRevokingUtils.getMemoryPools;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -40,7 +47,8 @@ public class TaskThresholdMemoryRevokingScheduler
 {
     private static final Logger log = Logger.get(TaskThresholdMemoryRevokingScheduler.class);
 
-    private final Supplier<List<SqlTask>> currentTasksSupplier;
+    private final Supplier<List<SqlTask>> allTasksSupplier;
+    private final Function<TaskId, SqlTask> taskSupplier;
     private final ScheduledExecutorService taskManagementExecutor;
     private final long maxRevocableMemoryPerTask;
 
@@ -50,27 +58,36 @@ public class TaskThresholdMemoryRevokingScheduler
     private ScheduledFuture<?> scheduledFuture;
 
     private final AtomicBoolean checkPending = new AtomicBoolean();
+    private final List<MemoryPool> memoryPools;
+    private final TaskRevocableMemoryListener taskRevocableMemoryListener = TaskRevocableMemoryListener.onMemoryReserved(this::onMemoryReserved);
 
     @Inject
     public TaskThresholdMemoryRevokingScheduler(
+            LocalMemoryManager localMemoryManager,
             SqlTaskManager sqlTaskManager,
             TaskManagementExecutor taskManagementExecutor,
             FeaturesConfig config)
     {
         this(
+                ImmutableList.copyOf(getMemoryPools(localMemoryManager)),
                 requireNonNull(sqlTaskManager, "sqlTaskManager cannot be null")::getAllTasks,
+                requireNonNull(sqlTaskManager, "sqlTaskManager cannot be null")::getTask,
                 requireNonNull(taskManagementExecutor, "taskManagementExecutor cannot be null").getExecutor(),
-                config.getMaxRevocableMemoryPerTask());
+                requireNonNull(config.getMaxRevocableMemoryPerTask(), "maxRevocableMemoryPerTask cannot be null").toBytes());
         log.debug("Using TaskThresholdMemoryRevokingScheduler spilling strategy");
     }
 
     @VisibleForTesting
     TaskThresholdMemoryRevokingScheduler(
-            Supplier<List<SqlTask>> currentTasksSupplier,
+            List<MemoryPool> memoryPools,
+            Supplier<List<SqlTask>> allTasksSupplier,
+            Function<TaskId, SqlTask> taskSupplier,
             ScheduledExecutorService taskManagementExecutor,
             long maxRevocableMemoryPerTask)
     {
-        this.currentTasksSupplier = requireNonNull(currentTasksSupplier, "currentTasksSupplier is null");
+        this.memoryPools = ImmutableList.copyOf(requireNonNull(memoryPools, "memoryPools is null"));
+        this.allTasksSupplier = requireNonNull(allTasksSupplier, "allTasksSupplier is null");
+        this.taskSupplier = requireNonNull(taskSupplier, "taskSupplier is null");
         this.taskManagementExecutor = requireNonNull(taskManagementExecutor, "taskManagementExecutor is null");
         this.maxRevocableMemoryPerTask = maxRevocableMemoryPerTask;
     }
@@ -79,6 +96,7 @@ public class TaskThresholdMemoryRevokingScheduler
     public void start()
     {
         registerTaskMemoryPeriodicCheck();
+        registerPoolListeners();
     }
 
     private void registerTaskMemoryPeriodicCheck()
@@ -100,6 +118,14 @@ public class TaskThresholdMemoryRevokingScheduler
             scheduledFuture.cancel(true);
             scheduledFuture = null;
         }
+
+        memoryPools.forEach(memoryPool -> memoryPool.removeTaskRevocableMemoryListener(taskRevocableMemoryListener));
+    }
+
+    @VisibleForTesting
+    void registerPoolListeners()
+    {
+        memoryPools.forEach(memoryPool -> memoryPool.addTaskRevocableMemoryListener(taskRevocableMemoryListener));
     }
 
     @VisibleForTesting
@@ -110,29 +136,58 @@ public class TaskThresholdMemoryRevokingScheduler
         }
     }
 
+    private void onMemoryReserved(TaskId taskId, MemoryPool memoryPool)
+    {
+        try {
+            SqlTask task = taskSupplier.apply(taskId);
+            if (!memoryRevokingNeeded(task)) {
+                return;
+            }
+
+            if (checkPending.compareAndSet(false, true)) {
+                log.debug("Scheduling check for %s", memoryPool);
+                scheduleRevoking();
+            }
+        }
+        catch (Throwable e) {
+            log.error(e, "Error when acting on memory pool reservation");
+        }
+    }
+
+    private void scheduleRevoking()
+    {
+        taskManagementExecutor.execute(() -> {
+            try {
+                revokeHighMemoryTasks();
+            }
+            catch (Throwable e) {
+                log.error(e, "Error requesting memory revoking");
+            }
+        });
+    }
+
+    private boolean memoryRevokingNeeded(SqlTask task)
+    {
+        return task.getTaskContext().filter(taskContext -> taskContext.getTaskMemoryContext().getRevocableMemory() >= maxRevocableMemoryPerTask).isPresent();
+    }
+
     private synchronized void revokeHighMemoryTasks()
     {
         if (checkPending.getAndSet(false)) {
-            Collection<SqlTask> sqlTasks = requireNonNull(currentTasksSupplier.get());
+            Collection<SqlTask> sqlTasks = requireNonNull(allTasksSupplier.get());
             for (SqlTask task : sqlTasks) {
-                long currentTaskRevocableMemory = task.getTaskInfo().getStats().getRevocableMemoryReservationInBytes();
+                Optional<TaskContext> taskContext = task.getTaskContext();
+                if (!taskContext.isPresent()) {
+                    continue;
+                }
+                long currentTaskRevocableMemory = taskContext.get().getTaskMemoryContext().getRevocableMemory();
                 if (currentTaskRevocableMemory < maxRevocableMemoryPerTask) {
                     continue;
                 }
 
                 AtomicLong remainingBytesToRevokeAtomic = new AtomicLong(currentTaskRevocableMemory - maxRevocableMemoryPerTask);
-                task.getQueryContext().accept(new VoidTraversingQueryContextVisitor<AtomicLong>()
+                taskContext.get().accept(new VoidTraversingQueryContextVisitor<AtomicLong>()
                 {
-                    @Override
-                    public Void visitQueryContext(QueryContext queryContext, AtomicLong remainingBytesToRevoke)
-                    {
-                        if (remainingBytesToRevoke.get() < 0) {
-                            // exit immediately if no work needs to be done
-                            return null;
-                        }
-                        return super.visitQueryContext(queryContext, remainingBytesToRevoke);
-                    }
-
                     @Override
                     public Void visitOperatorContext(OperatorContext operatorContext, AtomicLong remainingBytesToRevoke)
                     {
@@ -140,7 +195,7 @@ public class TaskThresholdMemoryRevokingScheduler
                             long revokedBytes = operatorContext.requestMemoryRevoking();
                             if (revokedBytes > 0) {
                                 remainingBytesToRevoke.addAndGet(-revokedBytes);
-                                log.debug("taskId=%s: requested revoking %s; remaining %s", task.getTaskInfo().getTaskId(), revokedBytes, remainingBytesToRevoke.get());
+                                log.debug("taskId=%s: requested revoking %s; remaining %s", task.getTaskId(), revokedBytes, remainingBytesToRevoke.get());
                             }
                         }
                         return null;

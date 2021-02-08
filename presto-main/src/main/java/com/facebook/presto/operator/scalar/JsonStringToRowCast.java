@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -23,7 +23,7 @@ import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonToRowCast.JSON_TO_ROW;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.Signature.withVariadicBound;
@@ -38,7 +38,7 @@ public final class JsonStringToRowCast
     private JsonStringToRowCast()
     {
         super(new Signature(
-                QualifiedFunctionName.of(DEFAULT_NAMESPACE, JSON_STRING_TO_ROW_NAME),
+                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, JSON_STRING_TO_ROW_NAME),
                 SCALAR,
                 ImmutableList.of(withVariadicBound("T", "row")),
                 ImmutableList.of(),

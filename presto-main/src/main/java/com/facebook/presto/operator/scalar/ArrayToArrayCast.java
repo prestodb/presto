@@ -117,7 +117,7 @@ public class ArrayToArrayCast
         Type fromElementType = typeManager.getType(elementCastFunctionMetadata.getArgumentTypes().get(0));
         Type toElementType = typeManager.getType(elementCastFunctionMetadata.getReturnType());
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
-        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCastFunctionMetadata.getName().getFunctionName(), elementCast);
+        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCastFunctionMetadata.getName().getObjectName(), elementCast);
 
         // return the block
         body.append(newArray.ret());

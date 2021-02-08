@@ -14,10 +14,12 @@
 package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.spi.api.Experimental;
 
 import java.util.Collection;
@@ -28,6 +30,11 @@ import java.util.concurrent.CompletableFuture;
 @Experimental
 public interface FunctionNamespaceManager<F extends SqlFunction>
 {
+    /**
+     * BlockEncodingSerde might be needed to serialize/deserialize Presto pages when running external functions.
+     */
+    void setBlockEncodingSerde(BlockEncodingSerde blockEncodingSerde);
+
     /**
      * Start a transaction.
      */
@@ -55,13 +62,13 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
      * Alter the specified function.
      * TODO: Support transaction
      */
-    void alterFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics);
+    void alterFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, AlterRoutineCharacteristics alterRoutineCharacteristics);
 
     /**
      * Drop the specified function.
      * TODO: Support transaction
      */
-    void dropFunction(QualifiedFunctionName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists);
+    void dropFunction(QualifiedObjectName functionName, Optional<List<TypeSignature>> parameterTypes, boolean exists);
 
     /**
      * List all functions managed by the {@link FunctionNamespaceManager}.
@@ -69,7 +76,7 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
      */
     Collection<F> listFunctions();
 
-    Collection<F> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedFunctionName functionName);
+    Collection<F> getFunctions(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, QualifiedObjectName functionName);
 
     FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature);
 
@@ -78,4 +85,8 @@ public interface FunctionNamespaceManager<F extends SqlFunction>
     ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle);
 
     CompletableFuture<Block> executeFunction(FunctionHandle functionHandle, Page input, List<Integer> channels, TypeManager typeManager);
+
+    void addUserDefinedType(UserDefinedType userDefinedType);
+
+    Optional<UserDefinedType> getUserDefinedType(QualifiedObjectName typeName);
 }

@@ -99,7 +99,6 @@ public class TestingRowExpressionTranslator
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
-                metadata.getTypeManager(),
                 TEST_SESSION,
                 typeProvider,
                 emptyList(),

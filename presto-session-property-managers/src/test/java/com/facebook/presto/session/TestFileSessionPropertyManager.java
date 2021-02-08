@@ -42,7 +42,8 @@ public class TestFileSessionPropertyManager
             Optional.of("source"),
             ImmutableSet.of("tag1", "tag2"),
             Optional.of(QueryType.DATA_DEFINITION.toString()),
-            new ResourceGroupId(ImmutableList.of("global", "pipeline", "user_foo", "bar")));
+            Optional.of(new ResourceGroupId(ImmutableList.of("global", "pipeline", "user_foo", "bar"))),
+            Optional.of("bar"));
 
     @Test
     public void testResourceGroupMatch()
@@ -55,6 +56,7 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(Pattern.compile("global.pipeline.user_.*")),
+                Optional.empty(),
                 properties);
 
         assertProperties(properties, spec);
@@ -69,6 +71,7 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(ImmutableList.of("tag2")),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 properties);
@@ -86,11 +89,13 @@ public class TestFileSessionPropertyManager
                 Optional.of(ImmutableList.of("tag2")),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 ImmutableMap.of("PROPERTY1", "VALUE1"));
         SessionMatchSpec spec2 = new SessionMatchSpec(
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(ImmutableList.of("tag1", "tag2")),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of("PROPERTY1", "VALUE1", "PROPERTY2", "VALUE2"));
@@ -108,9 +113,27 @@ public class TestFileSessionPropertyManager
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(Pattern.compile("global.interactive.user_.*")),
+                Optional.empty(),
                 ImmutableMap.of("PROPERTY", "VALUE"));
 
         assertProperties(ImmutableMap.of(), spec);
+    }
+
+    @Test
+    public void testClientInfoMatch()
+            throws IOException
+    {
+        ImmutableMap<String, String> properties = ImmutableMap.of("PROPERTY", "VALUE");
+        SessionMatchSpec spec = new SessionMatchSpec(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(Pattern.compile("bar")),
+                properties);
+
+        assertProperties(properties, spec);
     }
 
     private static void assertProperties(Map<String, String> properties, SessionMatchSpec... spec)

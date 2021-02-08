@@ -22,6 +22,8 @@ public class FragmentCacheStats
     private final AtomicLong hit = new AtomicLong();
     private final AtomicLong miss = new AtomicLong();
     private final AtomicLong inFlightBytes = new AtomicLong();
+    private final AtomicLong cacheRemoval = new AtomicLong();
+    private final AtomicLong cacheEntries = new AtomicLong();
 
     public void incrementCacheHit()
     {
@@ -36,6 +38,21 @@ public class FragmentCacheStats
     public void addInFlightBytes(long bytes)
     {
         inFlightBytes.addAndGet(bytes);
+    }
+
+    public void incrementCacheRemoval()
+    {
+        cacheRemoval.getAndIncrement();
+    }
+
+    public void incrementCacheEntries()
+    {
+        cacheEntries.getAndIncrement();
+    }
+
+    public void decrementCacheEntries()
+    {
+        cacheEntries.getAndDecrement();
     }
 
     @Managed
@@ -54,5 +71,17 @@ public class FragmentCacheStats
     public long getInFlightBytes()
     {
         return inFlightBytes.get();
+    }
+
+    @Managed
+    public long getCacheRemoval()
+    {
+        return cacheRemoval.get();
+    }
+
+    @Managed
+    public long getCacheEntries()
+    {
+        return cacheEntries.get();
     }
 }

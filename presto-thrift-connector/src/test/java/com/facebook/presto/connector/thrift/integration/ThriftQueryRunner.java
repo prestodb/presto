@@ -23,12 +23,12 @@ import com.facebook.drift.transport.netty.server.DriftNettyServerConfig;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.connector.thrift.ThriftPlugin;
 import com.facebook.presto.connector.thrift.server.ThriftIndexedTpchService;
 import com.facebook.presto.connector.thrift.server.ThriftTpchService;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -284,9 +284,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public void loadFunctionNamespaceManager(String catalogName, String connectorName, Map<String, String> properties)
+        public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
         {
-            source.loadFunctionNamespaceManager(catalogName, connectorName, properties);
+            source.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
         }
 
         @Override

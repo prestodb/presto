@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.function;
 
-import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -47,16 +47,16 @@ public enum OperatorType
     XX_HASH_64("XX HASH 64", false),
     INDETERMINATE("INDETERMINATE", true);
 
-    private static final Map<QualifiedFunctionName, OperatorType> OPERATOR_TYPES = Arrays.stream(OperatorType.values()).collect(toMap(OperatorType::getFunctionName, Function.identity()));
+    private static final Map<QualifiedObjectName, OperatorType> OPERATOR_TYPES = Arrays.stream(OperatorType.values()).collect(toMap(OperatorType::getFunctionName, Function.identity()));
 
     private final String operator;
-    private final QualifiedFunctionName functionName;
+    private final QualifiedObjectName functionName;
     private final boolean calledOnNullInput;
 
     OperatorType(String operator, boolean calledOnNullInput)
     {
         this.operator = operator;
-        this.functionName = QualifiedFunctionName.of(new CatalogSchemaName("presto", "default"), "$operator$" + name());
+        this.functionName = QualifiedObjectName.valueOf("presto", "default", "$operator$" + name());
         this.calledOnNullInput = calledOnNullInput;
     }
 
@@ -65,7 +65,7 @@ public enum OperatorType
         return operator;
     }
 
-    public QualifiedFunctionName getFunctionName()
+    public QualifiedObjectName getFunctionName()
     {
         return functionName;
     }
@@ -75,7 +75,7 @@ public enum OperatorType
         return calledOnNullInput;
     }
 
-    public static Optional<OperatorType> tryGetOperatorType(QualifiedFunctionName operatorName)
+    public static Optional<OperatorType> tryGetOperatorType(QualifiedObjectName operatorName)
     {
         return Optional.ofNullable(OPERATOR_TYPES.get(operatorName));
     }

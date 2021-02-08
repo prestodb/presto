@@ -270,7 +270,8 @@ public class Console
         }
     }
 
-    private static boolean executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean ignoreErrors)
+    @VisibleForTesting
+    static boolean executeCommand(QueryRunner queryRunner, String query, OutputFormat outputFormat, boolean ignoreErrors)
     {
         boolean success = true;
         StatementSplitter splitter = new StatementSplitter(query);
@@ -354,6 +355,14 @@ public class Console
                 preparedStatements.putAll(query.getAddedPreparedStatements());
                 preparedStatements.keySet().removeAll(query.getDeallocatedPreparedStatements());
                 builder = builder.withPreparedStatements(preparedStatements);
+            }
+
+            // update session functions if present
+            if (!query.getAddedSessionFunctions().isEmpty() || !query.getRemovedSessionFunctions().isEmpty()) {
+                Map<String, String> sessionFunctions = new HashMap<>(session.getSessionFunctions());
+                sessionFunctions.putAll(query.getAddedSessionFunctions());
+                sessionFunctions.keySet().removeAll(query.getRemovedSessionFunctions());
+                builder = builder.withSessionFunctions(sessionFunctions);
             }
 
             session = builder.build();

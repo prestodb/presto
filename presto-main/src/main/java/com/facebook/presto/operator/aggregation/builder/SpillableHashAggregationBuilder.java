@@ -35,8 +35,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -151,7 +151,7 @@ public class SpillableHashAggregationBuilder
     {
         if (spillInProgress.isDone()) {
             // check for exception from previous spill for early failure
-            getFutureValue(spillInProgress);
+            checkSpillSucceeded(spillInProgress);
             return true;
         }
         else {
@@ -200,7 +200,7 @@ public class SpillableHashAggregationBuilder
                 localRevocableMemoryContext.setBytes(currentRevocableBytes);
                 // spill since revocable memory could not be converted to user memory immediately
                 // TODO: this should be asynchronous
-                getFutureValue(spillToDisk());
+                checkSpillSucceeded(spillToDisk());
                 updateMemory();
             }
         }
@@ -213,7 +213,7 @@ public class SpillableHashAggregationBuilder
             return mergeFromDiskAndMemory();
         }
         else {
-            getFutureValue(spillToDisk());
+            checkSpillSucceeded(spillToDisk());
             return mergeFromDisk();
         }
     }

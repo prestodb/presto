@@ -255,7 +255,7 @@ public class OperatorContext
     // caller shouldn't close this context as it's managed by the OperatorContext
     public LocalMemoryContext localRevocableMemoryContext()
     {
-        return new InternalLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture, () -> {}, false);
+        return new InternalLocalMemoryContext(operatorMemoryContext.localRevocableMemoryContext(), revocableMemoryFuture, this::updateTaskRevocableMemoryReservation, false);
     }
 
     // caller shouldn't close this context as it's managed by the OperatorContext
@@ -267,7 +267,7 @@ public class OperatorContext
     // caller shouldn't close this context as it's managed by the OperatorContext
     public AggregatedMemoryContext aggregateRevocableMemoryContext()
     {
-        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), memoryFuture, () -> {}, false);
+        return new InternalAggregatedMemoryContext(operatorMemoryContext.aggregateRevocableMemoryContext(), memoryFuture, this::updateTaskRevocableMemoryReservation, false);
     }
 
     // caller should close this context as it's a new context
@@ -285,6 +285,12 @@ public class OperatorContext
         peakUserMemoryReservation.accumulateAndGet(userMemory, Math::max);
         peakSystemMemoryReservation.accumulateAndGet(systemMemory, Math::max);
         peakTotalMemoryReservation.accumulateAndGet(totalMemory, Math::max);
+    }
+
+    // listen to revocable memory allocations and call any listeners waiting on task memory allocation
+    private void updateTaskRevocableMemoryReservation()
+    {
+        driverContext.getPipelineContext().getTaskContext().getQueryContext().getMemoryPool().onTaskMemoryReserved(driverContext.getTaskId());
     }
 
     public long getReservedRevocableBytes()
@@ -554,6 +560,12 @@ public class OperatorContext
                 reservedBytes.accumulateAndGet(-bytes, this::decrementSpilledReservation);
                 driverContext.freeSpill(-bytes);
             }
+        }
+
+        @Override
+        public Session getSession()
+        {
+            return driverContext.getSession();
         }
 
         public long getSpilledBytes()

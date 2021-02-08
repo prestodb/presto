@@ -38,6 +38,7 @@ public final class MetadataUtil
     public static final JsonCodec<PinotColumnHandle> COLUMN_CODEC;
     public static final JsonCodec<PinotClusterInfoFetcher.GetTables> TABLES_JSON_CODEC;
     public static final JsonCodec<PinotClusterInfoFetcher.BrokersForTable> BROKERS_FOR_TABLE_JSON_CODEC;
+    public static final JsonCodec<PinotClusterInfoFetcher.Instance> INSTANCE_JSON_CODEC;
     public static final JsonCodec<PinotClusterInfoFetcher.RoutingTables> ROUTING_TABLES_JSON_CODEC;
     public static final JsonCodec<PinotClusterInfoFetcher.RoutingTablesV2> ROUTING_TABLES_V2_JSON_CODEC;
     public static final JsonCodec<PinotClusterInfoFetcher.TimeBoundary> TIME_BOUNDARY_JSON_CODEC;
@@ -74,6 +75,7 @@ public final class MetadataUtil
         COLUMN_CODEC = codecFactory.jsonCodec(PinotColumnHandle.class);
         TABLES_JSON_CODEC = codecFactory.jsonCodec(PinotClusterInfoFetcher.GetTables.class);
         BROKERS_FOR_TABLE_JSON_CODEC = codecFactory.jsonCodec(PinotClusterInfoFetcher.BrokersForTable.class);
+        INSTANCE_JSON_CODEC = codecFactory.jsonCodec(PinotClusterInfoFetcher.Instance.class);
         ROUTING_TABLES_JSON_CODEC = codecFactory.jsonCodec(PinotClusterInfoFetcher.RoutingTables.class);
         ROUTING_TABLES_V2_JSON_CODEC = codecFactory.jsonCodec(PinotClusterInfoFetcher.RoutingTablesV2.class);
         TIME_BOUNDARY_JSON_CODEC = codecFactory.jsonCodec(PinotClusterInfoFetcher.TimeBoundary.class);

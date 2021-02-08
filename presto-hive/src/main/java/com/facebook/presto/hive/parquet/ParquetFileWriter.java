@@ -155,4 +155,10 @@ public class ParquetFileWriter
     {
         return Optional.empty();
     }
+
+    @Override
+    public long getFileSizeInBytes()
+    {
+        return getWrittenBytes();
+    }
 }

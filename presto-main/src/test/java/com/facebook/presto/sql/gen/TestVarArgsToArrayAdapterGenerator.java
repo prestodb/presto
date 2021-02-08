@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
-import com.facebook.presto.common.function.QualifiedFunctionName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
@@ -80,7 +80,7 @@ public class TestVarArgsToArrayAdapterGenerator
         private TestVarArgsSum()
         {
             super(new Signature(
-                    QualifiedFunctionName.of(DEFAULT_NAMESPACE, "var_args_sum"),
+                    QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "var_args_sum"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(),
                     ImmutableList.of(),

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spark.execution;
 
-import com.facebook.presto.block.BlockEncodingManager;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.operator.DriverContext;
@@ -130,6 +130,8 @@ public class PrestoSparkPageOutputOperator
     private final Function<Page, Page> pagePreprocessor;
     private final PagesSerde pagesSerde;
 
+    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
+
     private boolean finished;
 
     public PrestoSparkPageOutputOperator(
@@ -153,7 +155,13 @@ public class PrestoSparkPageOutputOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        return outputBuffer.isFull();
+        if (isBlocked.isDone()) {
+            isBlocked = outputBuffer.isFull();
+            if (isBlocked.isDone()) {
+                isBlocked = NOT_BLOCKED;
+            }
+        }
+        return isBlocked;
     }
 
     @Override

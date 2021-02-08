@@ -13,13 +13,17 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session.ResourceEstimateBuilder;
+import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
@@ -45,6 +49,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
@@ -55,6 +60,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_RESOURCE_ESTIMATE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION_FUNCTION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
@@ -74,6 +80,8 @@ public final class HttpRequestSessionContext
         implements SessionContext
 {
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
+    private static final JsonCodec<SqlFunctionId> SQL_FUNCTION_ID_JSON_CODEC = jsonCodec(SqlFunctionId.class);
+    private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
 
     private final String catalog;
     private final String schema;
@@ -97,8 +105,9 @@ public final class HttpRequestSessionContext
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final String clientInfo;
+    private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
-    public HttpRequestSessionContext(HttpServletRequest servletRequest)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -157,11 +166,13 @@ public final class HttpRequestSessionContext
         this.catalogSessionProperties = catalogSessionProperties.entrySet().stream()
                 .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
 
-        preparedStatements = parsePreparedStatementsHeaders(servletRequest);
+        preparedStatements = parsePreparedStatementsHeaders(servletRequest, sqlParserOptions);
 
         String transactionIdHeader = servletRequest.getHeader(PRESTO_TRANSACTION_ID);
         clientTransactionSupport = transactionIdHeader != null;
         transactionId = parseTransactionId(transactionIdHeader);
+
+        this.sessionFunctions = parseSessionFunctionHeader(servletRequest);
     }
 
     private static List<String> splitSessionHeader(Enumeration<String> headers)
@@ -223,7 +234,7 @@ public final class HttpRequestSessionContext
         }
     }
 
-    private static Map<String, String> parsePreparedStatementsHeaders(HttpServletRequest servletRequest)
+    private static Map<String, String> parsePreparedStatementsHeaders(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
         ImmutableMap.Builder<String, String> preparedStatements = ImmutableMap.builder();
         for (String header : splitSessionHeader(servletRequest.getHeaders(PRESTO_PREPARED_STATEMENT))) {
@@ -241,7 +252,7 @@ public final class HttpRequestSessionContext
             }
 
             // Validate statement
-            SqlParser sqlParser = new SqlParser();
+            SqlParser sqlParser = new SqlParser(sqlParserOptions);
             try {
                 sqlParser.createStatement(sqlString, new ParsingOptions(AS_DOUBLE /* anything */));
             }
@@ -266,6 +277,27 @@ public final class HttpRequestSessionContext
         catch (Exception e) {
             throw badRequest(e.getMessage());
         }
+    }
+
+    private static Map<SqlFunctionId, SqlInvokedFunction> parseSessionFunctionHeader(HttpServletRequest req)
+    {
+        ImmutableMap.Builder<SqlFunctionId, SqlInvokedFunction> sessionFunctions = ImmutableMap.builder();
+        for (String header : splitSessionHeader(req.getHeaders(PRESTO_SESSION_FUNCTION))) {
+            List<String> nameValue = Splitter.on('=').limit(2).trimResults().splitToList(header);
+            assertRequest(nameValue.size() == 2, "Invalid %s header", PRESTO_SESSION_FUNCTION);
+
+            String serializedFunctionSignature;
+            String serializedFunctionDefinition;
+            try {
+                serializedFunctionSignature = urlDecode(nameValue.get(0));
+                serializedFunctionDefinition = urlDecode(nameValue.get(1));
+            }
+            catch (IllegalArgumentException e) {
+                throw badRequest(format("Invalid %s header: %s", PRESTO_SESSION_FUNCTION, e.getMessage()));
+            }
+            sessionFunctions.put(SQL_FUNCTION_ID_JSON_CODEC.fromJson(serializedFunctionSignature), SQL_INVOKED_FUNCTION_JSON_CODEC.fromJson(serializedFunctionDefinition));
+        }
+        return sessionFunctions.build();
     }
 
     private static WebApplicationException badRequest(String message)
@@ -386,6 +418,12 @@ public final class HttpRequestSessionContext
     public boolean supportClientTransaction()
     {
         return clientTransactionSupport;
+    }
+
+    @Override
+    public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
+    {
+        return sessionFunctions;
     }
 
     @Override

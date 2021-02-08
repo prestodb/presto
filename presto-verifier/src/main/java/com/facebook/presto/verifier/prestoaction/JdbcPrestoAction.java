@@ -24,6 +24,7 @@ import com.facebook.presto.verifier.framework.QueryConfiguration;
 import com.facebook.presto.verifier.framework.QueryException;
 import com.facebook.presto.verifier.framework.QueryResult;
 import com.facebook.presto.verifier.framework.QueryStage;
+import com.facebook.presto.verifier.framework.ThrottlingException;
 import com.facebook.presto.verifier.framework.VerificationContext;
 import com.facebook.presto.verifier.framework.VerifierConfig;
 import com.facebook.presto.verifier.retry.ForClusterConnection;
@@ -64,6 +65,7 @@ public class JdbcPrestoAction
     private final String testId;
     private final Optional<String> testName;
     private final String applicationName;
+    private final boolean removeMemoryRelatedSessionProperties;
 
     private final RetryDriver<QueryException> networkRetry;
     private final RetryDriver<QueryException> prestoRetry;
@@ -87,6 +89,7 @@ public class JdbcPrestoAction
 
         this.queryTimeout = requireNonNull(prestoActionConfig.getQueryTimeout(), "queryTimeout is null");
         this.applicationName = requireNonNull(prestoActionConfig.getApplicationName(), "applicationName is null");
+        this.removeMemoryRelatedSessionProperties = prestoActionConfig.isRemoveMemoryRelatedSessionProperties();
         this.metadataTimeout = requireNonNull(metadataTimeout, "metadataTimeout is null");
         this.checksumTimeout = requireNonNull(checksumTimeout, "checksumTimeout is null");
         this.testId = requireNonNull(verifierConfig.getTestId(), "testId is null");
@@ -94,7 +97,7 @@ public class JdbcPrestoAction
 
         this.networkRetry = new RetryDriver<>(
                 networkRetryConfig,
-                queryException -> queryException instanceof ClusterConnectionException && queryException.isRetryable(),
+                queryException -> (queryException instanceof ClusterConnectionException || queryException instanceof ThrottlingException) && queryException.isRetryable(),
                 QueryException.class,
                 verificationContext::addException);
         this.prestoRetry = new RetryDriver<>(
@@ -165,7 +168,11 @@ public class JdbcPrestoAction
             // Do nothing
         }
 
-        Map<String, String> sessionProperties = mangleSessionProperties(queryConfiguration.getSessionProperties(), queryStage, getTimeout(queryStage));
+        Map<String, String> sessionProperties = mangleSessionProperties(
+                queryConfiguration.getSessionProperties(),
+                queryStage,
+                getTimeout(queryStage),
+                removeMemoryRelatedSessionProperties);
         for (Entry<String, String> entry : sessionProperties.entrySet()) {
             connection.setSessionProperty(entry.getKey(), entry.getValue());
         }

@@ -239,10 +239,10 @@ public class SingleRowBlockWriter
     public String toString()
     {
         if (!fieldBlockBuilderReturned) {
-            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=false, positionCount=%d}", fieldBlockBuilders.length, getPositionCount());
+            return format("SingleRowBlockWriter(%d){numFields=%d, fieldBlockBuilderReturned=false, positionCount=%d}", hashCode(), fieldBlockBuilders.length, getPositionCount());
         }
         else {
-            return format("SingleRowBlockWriter{numFields=%d, fieldBlockBuilderReturned=true}", fieldBlockBuilders.length);
+            return format("SingleRowBlockWriter(%d){numFields=%d, fieldBlockBuilderReturned=true}", hashCode(), fieldBlockBuilders.length);
         }
     }
 

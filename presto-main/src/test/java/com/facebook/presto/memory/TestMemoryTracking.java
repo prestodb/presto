@@ -37,7 +37,6 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
@@ -59,6 +58,7 @@ public class TestMemoryTracking
 {
     private static final DataSize queryMaxMemory = new DataSize(1, GIGABYTE);
     private static final DataSize queryMaxTotalMemory = new DataSize(1, GIGABYTE);
+    private static final DataSize queryMaxRevocableMemory = new DataSize(2, GIGABYTE);
     private static final DataSize memoryPoolSize = new DataSize(1, GIGABYTE);
     private static final DataSize maxSpillSize = new DataSize(1, GIGABYTE);
     private static final DataSize queryMaxSpillSize = new DataSize(1, GIGABYTE);
@@ -102,6 +102,7 @@ public class TestMemoryTracking
                 queryMaxMemory,
                 queryMaxTotalMemory,
                 queryMaxMemory,
+                queryMaxRevocableMemory,
                 memoryPool,
                 new TestingGcMonitor(),
                 notificationExecutor,
@@ -115,8 +116,7 @@ public class TestMemoryTracking
                 true,
                 true,
                 true,
-                false,
-                Optional.empty());
+                false);
         pipelineContext = taskContext.addPipelineContext(0, true, true, false);
         driverContext = pipelineContext.addDriverContext();
         operatorContext = driverContext.addOperatorContext(1, new PlanNodeId("a"), "test-operator");
@@ -160,6 +160,23 @@ public class TestMemoryTracking
         }
         catch (ExceededMemoryLimitException e) {
             assertEquals(e.getMessage(), format("Query exceeded per-node total memory limit of %1$s [Allocated: %1$s, Delta: 1B, Top Consumers: {test=%1$s}]", queryMaxTotalMemory));
+        }
+    }
+
+    @Test
+    public void testLocalRevocableMemoryLimitExceeded()
+    {
+        LocalMemoryContext revocableMemoryContext = operatorContext.localRevocableMemoryContext();
+        revocableMemoryContext.setBytes(100);
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0, 100);
+        revocableMemoryContext.setBytes(queryMaxRevocableMemory.toBytes());
+        assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 0, queryMaxRevocableMemory.toBytes());
+        try {
+            revocableMemoryContext.setBytes(queryMaxRevocableMemory.toBytes() + 1);
+            fail("allocation should hit the per-node revocable memory limit");
+        }
+        catch (ExceededMemoryLimitException e) {
+            assertEquals(e.getMessage(), format("Query exceeded per-node revocable memory limit of %1$s [Allocated: %1$s, Delta: 1B]", queryMaxRevocableMemory));
         }
     }
 

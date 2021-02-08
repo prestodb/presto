@@ -14,13 +14,14 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.aggregation.TypedSet;
+import com.facebook.presto.operator.aggregation.OptimizedTypedSet;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
+
+import static java.lang.Math.max;
 
 @ScalarFunction("array_except")
 @Description("Returns an array of elements that are in the first array but not the second, without duplicates.")
@@ -41,16 +42,11 @@ public final class ArrayExceptFunction
         if (leftPositionCount == 0) {
             return leftArray;
         }
-        TypedSet typedSet = new TypedSet(type, leftPositionCount + rightPositionCount, "array_except");
-        BlockBuilder distinctElementBlockBuilder = type.createBlockBuilder(null, leftPositionCount);
-        for (int i = 0; i < rightPositionCount; i++) {
-            typedSet.add(rightArray, i);
-        }
-        for (int i = 0; i < leftPositionCount; i++) {
-            if (typedSet.add(leftArray, i)) {
-                type.appendTo(leftArray, i, distinctElementBlockBuilder);
-            }
-        }
-        return distinctElementBlockBuilder.build();
+
+        OptimizedTypedSet typedSet = new OptimizedTypedSet(type, max(leftPositionCount, rightPositionCount));
+        typedSet.union(rightArray);
+        typedSet.except(leftArray);
+
+        return typedSet.getBlock();
     }
 }

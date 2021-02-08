@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.FragmentResultCacheContext;
+import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -25,23 +26,22 @@ import com.facebook.presto.operator.FileFragmentResultCacheManager.CacheKey;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.split.PageSourceProvider;
-import com.facebook.presto.sql.planner.CanonicalPlanFragment;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.PageConsumerOperator;
+import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -58,6 +58,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -96,8 +97,8 @@ public class TestDriver
 {
     private static final TableHandle TESTING_TABLE_HANDLE = new TableHandle(
             new ConnectorId("test"),
-            new ConnectorTableHandle() {},
-            new ConnectorTransactionHandle() {},
+            new TestingTableHandle(),
+            new TestingTransactionHandle(UUID.randomUUID()),
             Optional.empty());
 
     private static final FragmentResultCacheContext TESTING_FRAGMENT_RESULT_CACHE_CONTEXT = createFragmentResultCacheContext(
@@ -117,7 +118,8 @@ public class TestDriver
                     Optional.empty(),
                     Optional.empty()),
             new PartitioningScheme(Partitioning.create(FIXED_HASH_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
-            testSessionBuilder().setSystemProperty(FRAGMENT_RESULT_CACHING_ENABLED, "true").build()).get();
+            testSessionBuilder().setSystemProperty(FRAGMENT_RESULT_CACHING_ENABLED, "true").build(),
+            new ObjectMapper()).get();
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
@@ -133,7 +135,7 @@ public class TestDriver
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, TESTING_FRAGMENT_RESULT_CACHE_CONTEXT)
+        driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
     }
@@ -417,9 +419,9 @@ public class TestDriver
         processSourceDriver(driverContextWithFragmentResultCacheContext);
 
         // Create a new driver and test cache hit
-        driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, TESTING_FRAGMENT_RESULT_CACHE_CONTEXT)
+        driverContextWithFragmentResultCacheContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
-                .addDriverContext();
+                .addDriverContext(Lifespan.taskWide(), Optional.of(TESTING_FRAGMENT_RESULT_CACHE_CONTEXT));
         processSourceDriver(driverContextWithFragmentResultCacheContext);
     }
 
@@ -668,14 +670,14 @@ public class TestDriver
         private final Map<CacheKey, List<Page>> cache = new HashMap<>();
 
         @Override
-        public Future<?> put(CanonicalPlanFragment plan, Split split, List<Page> result)
+        public Future<?> put(String plan, Split split, List<Page> result)
         {
             cache.put(new CacheKey(plan, split.getSplitIdentifier()), result);
             return immediateFuture(null);
         }
 
         @Override
-        public Optional<Iterator<Page>> get(CanonicalPlanFragment plan, Split split)
+        public Optional<Iterator<Page>> get(String plan, Split split)
         {
             CacheKey key = new CacheKey(plan, split.getSplitIdentifier());
             if (cache.containsKey(key)) {

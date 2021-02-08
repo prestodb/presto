@@ -23,7 +23,6 @@ import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.sql.relational.OriginalExpressionUtils.castToRowExpression;
@@ -32,18 +31,15 @@ import static java.util.Objects.requireNonNull;
 class PlanBuilder
 {
     private final TranslationMap translations;
-    private final List<Expression> parameters;
     private final PlanNode root;
 
-    public PlanBuilder(TranslationMap translations, PlanNode root, List<Expression> parameters)
+    public PlanBuilder(TranslationMap translations, PlanNode root)
     {
         requireNonNull(translations, "translations is null");
         requireNonNull(root, "root is null");
-        requireNonNull(parameters, "parameterRewriter is null");
 
         this.translations = translations;
         this.root = root;
-        this.parameters = parameters;
     }
 
     public TranslationMap copyTranslations()
@@ -60,7 +56,7 @@ class PlanBuilder
 
     public PlanBuilder withNewRoot(PlanNode root)
     {
-        return new PlanBuilder(translations, root, parameters);
+        return new PlanBuilder(translations, root);
     }
 
     public RelationPlan getRelationPlan()
@@ -120,6 +116,6 @@ class PlanBuilder
             translations.put(entry.getValue(), entry.getKey());
         }
 
-        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()), parameters);
+        return new PlanBuilder(translations, new ProjectNode(idAllocator.getNextId(), getRoot(), projections.build()));
     }
 }

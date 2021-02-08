@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 
 import static com.facebook.presto.mongodb.MongoQueryRunner.createMongoQueryRunner;
@@ -105,6 +106,7 @@ public class TestMongoIntegrationSmokeTest
                 ", b boolean" +
                 ", dt  date" +
                 ", ts  timestamp" +
+                ", tm time" +
                 ", objid objectid" +
                 ")";
         getQueryRunner().execute(getSession(), createSql);
@@ -119,6 +121,7 @@ public class TestMongoIntegrationSmokeTest
                 ", true _boolean" +
                 ", DATE '1980-05-07' _date" +
                 ", TIMESTAMP '1980-05-07 11:22:33.456' _timestamp" +
+                ", TIME '11:22:33.456' _time" +
                 ", ObjectId('ffffffffffffffffffffffff') _objectid";
         getQueryRunner().execute(getSession(), insertSql);
 
@@ -132,6 +135,7 @@ public class TestMongoIntegrationSmokeTest
         assertEquals(row.getField(4), true);
         assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
         assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
+        assertEquals(row.getField(7), LocalTime.of(11, 22, 33, 456_000_000));
         assertUpdate("DROP TABLE test_insert_types_table");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_insert_types_table"));
     }

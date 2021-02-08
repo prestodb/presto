@@ -16,13 +16,28 @@ package com.facebook.presto.client;
 public class ClientException
         extends RuntimeException
 {
+    private final boolean retryable;
+
     public ClientException(String message)
     {
         super(message);
+        this.retryable = false;
+    }
+
+    public ClientException(String message, boolean retryable)
+    {
+        super(message);
+        this.retryable = retryable;
     }
 
     public ClientException(String message, Throwable cause)
     {
         super(message, cause);
+        this.retryable = false;
+    }
+
+    public boolean isRetryable()
+    {
+        return retryable;
     }
 }

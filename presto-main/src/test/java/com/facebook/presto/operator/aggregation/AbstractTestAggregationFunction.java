@@ -30,9 +30,10 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyFunctionName;
+import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
@@ -83,7 +84,11 @@ public abstract class AbstractTestAggregationFunction
     protected final InternalAggregationFunction getFunction()
     {
         List<TypeSignatureProvider> parameterTypes = fromTypeSignatures(Lists.transform(getFunctionParameterTypes(), TypeSignature::parseTypeSignature));
-        FunctionHandle functionHandle = functionAndTypeManager.resolveFunction(session.getTransactionId(), qualifyFunctionName(QualifiedName.of(getFunctionName())), parameterTypes);
+        FunctionHandle functionHandle = functionAndTypeManager.resolveFunction(
+                Optional.empty(),
+                session.getTransactionId(),
+                qualifyObjectName(QualifiedName.of(getFunctionName())),
+                parameterTypes);
         return functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
     }
 

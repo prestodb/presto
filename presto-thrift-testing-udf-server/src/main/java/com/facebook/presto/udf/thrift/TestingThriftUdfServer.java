@@ -33,7 +33,7 @@ public class TestingThriftUdfServer
                         .add(new DriftNettyServerModule())
                         .add(new TestingThriftUdfServerModule())
                         .build());
-        app.strictConfig().setRequiredConfigurationProperties(properties).initialize();
+        app.setRequiredConfigurationProperties(properties).initialize();
     }
 
     public static void main(String[] args)

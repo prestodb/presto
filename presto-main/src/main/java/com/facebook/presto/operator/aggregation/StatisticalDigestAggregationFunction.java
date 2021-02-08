@@ -14,8 +14,8 @@
 package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.bytecode.DynamicClassLoader;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockBuilder;
-import com.facebook.presto.common.function.QualifiedFunctionName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
@@ -40,7 +40,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.QDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static com.facebook.presto.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
@@ -107,7 +107,7 @@ public abstract class StatisticalDigestAggregationFunction
     StatisticalDigestAggregationFunction(String name, String type, StatisticalDigestStateFactory factory, SqlFunctionVisibility visibility, TypeSignature... typeSignatures)
     {
         super(new Signature(
-                        QualifiedFunctionName.of(DEFAULT_NAMESPACE, name),
+                        QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
                         AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("V")),
                         ImmutableList.of(),

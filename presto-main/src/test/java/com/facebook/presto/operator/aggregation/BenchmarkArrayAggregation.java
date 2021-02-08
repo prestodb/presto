@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.operator.UpdateMemory;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -105,7 +106,7 @@ public class BenchmarkArrayAggregation
 
             InternalAggregationFunction function = functionAndTypeManager.getAggregateFunctionImplementation(
                     functionAndTypeManager.lookupFunction(name, fromTypes(elementType)));
-            accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator();
+            accumulator = function.bind(ImmutableList.of(0), Optional.empty()).createAccumulator(UpdateMemory.NOOP);
 
             block = createChannel(ARRAY_SIZE, elementType);
             page = new Page(block);

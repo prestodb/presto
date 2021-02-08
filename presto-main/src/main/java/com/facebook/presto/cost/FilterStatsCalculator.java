@@ -178,7 +178,6 @@ public class FilterStatsCalculator
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager(),
-                metadata.getTypeManager(),
                 session,
                 types,
                 emptyList(),
@@ -461,7 +460,6 @@ public class FilterStatsCalculator
 
             ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                     metadata.getFunctionAndTypeManager(),
-                    metadata.getTypeManager(),
                     session,
                     types,
                     ImmutableList.of(),
