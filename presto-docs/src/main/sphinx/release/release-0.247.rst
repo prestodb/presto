@@ -4,34 +4,37 @@ Release 0.247
 
 **Highlights**
 ==============
+* Add the interface `QueryInterceptor` to allow for custom logic to be executed before or after query execution. (:pr:`15565`)
+* Add support for temporary (session-scoped) functions
 
 **Details**
 ===========
 
 General Changes
 _______________
-* Fix a bug for reporting output data sizes for optimized repartitioning.
-* Fix accounting for revocable memory that could cause some queries not to spill when they should.
-* Fixed a race condition in enum key lookup which caused queries using the `ENUM_KEY` UDF to crash occasionally with an internal error #15607.
-* Add function ``array_intersect`` that takes an array of array as input.
-* Add support for temporary (session-scoped) functions.
-* Adding retry behavior for verifier requests in case of throttling error.
+* Fix a bug for reporting output data sizes for optimized repartitioning
+* Fix accounting for revocable memory that could cause some queries not to spill when they should
+* Fix a race condition in enum key lookup which caused queries using :func:`ENUM_KEY` to crash occasionally with an internal error. (:pr:`15607`)
+* Add an implementation of :func:`array_intersect` that takes an array of arrays as input
+* Add support for temporary (session-scoped) functions
 * Add support for specifying session properties via regex matching on client info using :doc:`/admin/session-property-managers`
-* Add maven plugin for drift to generate the Thrift spec for a list of classes, current class list is TaskStatus
-* Change theme of the Presto docs site (https://prestodb.io/docs/), adding a table of contents, page navigation, Sphinx search, ability to copy code to clipboard, and a new color scheme.
 
 SPI Changes
 ___________
-* Change `ConnectorTableLayoutHandle#getIdentifier` to accept a new field `Optional<ConnectorSplit> split`.
+* Add a new field `Optional<ConnectorSplit> split` to `ConnectorTableLayoutHandle#getIdentifier`
 
 Hive Changes
 ____________
-* Fixed a bug that query would fail with HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT when scanning large bucketed table using grouped execution.
-* Support partition stats based optimization, including partition pruning and column domain stripping for fragment result caching.
+* Fix a bug that could cause queries to fail with ``HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT`` error when scanning large bucketed tables using grouped execution
+* Add support for partition stats based optimization, including partition pruning and column domain stripping for fragment result caching
 
 JDBC Changes
 ____________
-* Add the interface `QueryInterceptor` to allow for custom logic to be executed before or after query execution. (:pr:`15565`).
+* Add the interface `QueryInterceptor` to allow for custom logic to be executed before or after query execution. (:pr:`15565`)
+
+Verifier changes
+----------------
+* Add retries for verifier queries that fail due to HTTP Error 429 (Too many requests)
 
 **Contributors**
 ================
