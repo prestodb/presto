@@ -124,6 +124,13 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
 
     protected void updateQueryInfo(QueryInfo.Builder queryInfo, Optional<QueryResult<V>> queryResult) {}
 
+    protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<B> queryBundle)
+    {
+        queryInfo.setQuery(queryBundle.map(B::getQuery).map(AbstractVerification::formatSql))
+                .setSetupQueries(queryBundle.map(B::getSetupQueries).map(AbstractVerification::formatSqls))
+                .setTeardownQueries(queryBundle.map(B::getTeardownQueries).map(AbstractVerification::formatSqls));
+    }
+
     protected PrestoAction getHelperAction()
     {
         return queryActions.getHelperAction();
@@ -360,11 +367,9 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 .setSetupQueryIds(queryContext.getSetupQueryIds())
                 .setTeardownQueryIds(queryContext.getTeardownQueryIds())
                 .setChecksumQueryId(checksumQueryContext.getChecksumQueryId())
-                .setQuery(queryBundle.map(B::getQuery).map(AbstractVerification::formatSql))
-                .setSetupQueries(queryBundle.map(B::getSetupQueries).map(AbstractVerification::formatSqls))
-                .setTeardownQueries(queryBundle.map(B::getTeardownQueries).map(AbstractVerification::formatSqls))
                 .setChecksumQuery(checksumQueryContext.getChecksumQuery())
                 .setQueryActionStats(queryContext.getMainQueryStats());
+        updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
         updateQueryInfo(queryInfo, queryResult);
         return queryInfo.build();
     }

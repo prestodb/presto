@@ -360,6 +360,8 @@ public class TestDataVerification
             assertEquals(queryInfo.getSetupQueryIds().size(), 1);
         }
 
+        assertNotNull(queryInfo.getOutputTableName());
+
         assertNotNull(queryInfo.getCpuTimeSecs());
         assertNotNull(queryInfo.getWallTimeSecs());
         assertNotNull(queryInfo.getPeakTotalMemoryBytes());
