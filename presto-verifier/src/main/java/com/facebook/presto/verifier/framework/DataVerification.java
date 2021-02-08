@@ -15,10 +15,12 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.jdbc.QueryStats;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
+import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
 import com.facebook.presto.verifier.resolver.FailureResolverManager;
@@ -69,6 +71,13 @@ public class DataVerification
     protected QueryObjectBundle getQueryRewrite(ClusterType clusterType)
     {
         return queryRewriter.rewriteQuery(getSourceQuery().getQuery(clusterType), clusterType);
+    }
+
+    @Override
+    protected void updateQueryInfoWithQueryBundle(QueryInfo.Builder queryInfo, Optional<QueryObjectBundle> queryBundle)
+    {
+        super.updateQueryInfoWithQueryBundle(queryInfo, queryBundle);
+        queryInfo.setOutputTableName(queryBundle.map(QueryObjectBundle::getObjectName).map(QualifiedName::toString));
     }
 
     @Override
