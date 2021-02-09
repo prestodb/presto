@@ -172,6 +172,8 @@ public class QueryContext
     {
         if (delta >= 0) {
             enforceUserMemoryLimit(queryMemoryContext.getUserMemory(), delta, maxUserMemory);
+            long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
+            enforceTotalMemoryLimit(totalMemory, delta, maxTotalMemory);
             return memoryPool.reserve(queryId, allocationTag, delta);
         }
         memoryPool.free(queryId, allocationTag, -delta);
@@ -255,6 +257,11 @@ public class QueryContext
             return true;
         }
         if (queryMemoryContext.getUserMemory() + delta > maxUserMemory) {
+            return false;
+        }
+
+        long totalMemory = memoryPool.getQueryMemoryReservation(queryId);
+        if (totalMemory + delta > maxTotalMemory) {
             return false;
         }
         return memoryPool.tryReserve(queryId, allocationTag, delta);
