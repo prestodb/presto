@@ -21,7 +21,7 @@ _______________
 
 SPI Changes
 ___________
-* Add a new field `Optional<ConnectorSplit> split` to ``ConnectorTableLayoutHandle#getIdentifier``.
+* Add a new field ``Optional<ConnectorSplit> split`` to ``ConnectorTableLayoutHandle#getIdentifier``.
 
 Hive Changes
 ____________
