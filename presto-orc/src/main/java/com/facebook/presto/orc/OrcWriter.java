@@ -20,10 +20,11 @@ import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationBuilder;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
-import com.facebook.presto.orc.OrcWriterStats.FlushReason;
+import com.facebook.presto.orc.WriterStats.FlushReason;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.CompressedMetadataWriter;
 import com.facebook.presto.orc.metadata.CompressionKind;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import com.facebook.presto.orc.metadata.DwrfEncryption;
 import com.facebook.presto.orc.metadata.EncryptionGroup;
 import com.facebook.presto.orc.metadata.Footer;
@@ -71,10 +72,10 @@ import static com.facebook.presto.common.io.DataOutput.createDataOutput;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.UNENCRYPTED;
 import static com.facebook.presto.orc.DwrfEncryptionInfo.createNodeToGroupMap;
 import static com.facebook.presto.orc.OrcReader.validateFile;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.CLOSED;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.DICTIONARY_FULL;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_BYTES;
-import static com.facebook.presto.orc.OrcWriterStats.FlushReason.MAX_ROWS;
+import static com.facebook.presto.orc.WriterStats.FlushReason.CLOSED;
+import static com.facebook.presto.orc.WriterStats.FlushReason.DICTIONARY_FULL;
+import static com.facebook.presto.orc.WriterStats.FlushReason.MAX_BYTES;
+import static com.facebook.presto.orc.WriterStats.FlushReason.MAX_ROWS;
 import static com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toFileStatistics;
 import static com.facebook.presto.orc.metadata.DwrfMetadataWriter.toStripeEncryptionGroup;
@@ -101,7 +102,7 @@ public class OrcWriter
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
-    private final OrcWriterStats stats;
+    private final WriterStats stats;
 
     static {
         String version = OrcWriter.class.getPackage().getImplementationVersion();
@@ -111,13 +112,12 @@ public class OrcWriter
     private final DataSink dataSink;
     private final List<Type> types;
     private final OrcEncoding orcEncoding;
-    private final CompressionKind compression;
+    private final CompressionParameters compressionParameters;
     private final int stripeMinBytes;
     private final int stripeMaxBytes;
     private final int chunkMaxLogicalBytes;
     private final int stripeMaxRowCount;
     private final int rowGroupMaxRowCount;
-    private final int maxCompressionBufferSize;
     private final Map<String, String> userMetadata;
     private final CompressedMetadataWriter metadataWriter;
     private final DateTimeZone hiveStorageTimeZone;
@@ -130,6 +130,7 @@ public class OrcWriter
     private final List<OrcType> orcTypes;
 
     private final List<ColumnWriter> columnWriters;
+    private final int dictionaryMaxMemoryBytes;
     private final DictionaryCompressionOptimizer dictionaryCompressionOptimizer;
     private int stripeRowCount;
     private int rowGroupRowCount;
@@ -147,7 +148,7 @@ public class OrcWriter
             List<String> columnNames,
             List<Type> types,
             OrcEncoding orcEncoding,
-            CompressionKind compression,
+            CompressionKind compressionKind,
             Optional<DwrfWriterEncryption> encryption,
             DwrfEncryptionProvider dwrfEncryptionProvider,
             OrcWriterOptions options,
@@ -155,15 +156,18 @@ public class OrcWriter
             DateTimeZone hiveStorageTimeZone,
             boolean validate,
             OrcWriteValidationMode validationMode,
-            OrcWriterStats stats)
+            WriterStats stats)
     {
         this.validationBuilder = validate ? new OrcWriteValidation.OrcWriteValidationBuilder(validationMode, types).setStringStatisticsLimitInBytes(toIntExact(options.getMaxStringStatisticsLimit().toBytes())) : null;
 
         this.dataSink = requireNonNull(dataSink, "dataSink is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.orcEncoding = requireNonNull(orcEncoding, "orcEncoding is null");
-        this.compression = requireNonNull(compression, "compression is null");
-        recordValidation(validation -> validation.setCompression(compression));
+
+        requireNonNull(compressionKind, "compressionKind is null");
+        int maxCompressionBufferSize = toIntExact(options.getMaxCompressionBufferSize().toBytes());
+        this.compressionParameters = new CompressionParameters(compressionKind, options.getCompressionLevel(), maxCompressionBufferSize);
+        recordValidation(validation -> validation.setCompression(compressionKind));
 
         requireNonNull(options, "options is null");
         checkArgument(options.getStripeMaxSize().compareTo(options.getStripeMinSize()) >= 0, "stripeMaxSize must be greater than stripeMinSize");
@@ -173,13 +177,12 @@ public class OrcWriter
         this.stripeMaxRowCount = options.getStripeMaxRowCount();
         this.rowGroupMaxRowCount = options.getRowGroupMaxRowCount();
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
-        this.maxCompressionBufferSize = toIntExact(options.getMaxCompressionBufferSize().toBytes());
 
         this.userMetadata = ImmutableMap.<String, String>builder()
                 .putAll(requireNonNull(userMetadata, "userMetadata is null"))
                 .put(PRESTO_ORC_WRITER_VERSION_METADATA_KEY, PRESTO_ORC_WRITER_VERSION)
                 .build();
-        this.metadataWriter = new CompressedMetadataWriter(orcEncoding.createMetadataWriter(), compression, Optional.empty(), maxCompressionBufferSize);
+        this.metadataWriter = new CompressedMetadataWriter(orcEncoding.createMetadataWriter(), compressionParameters, Optional.empty());
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.stats = requireNonNull(stats, "stats is null");
 
@@ -233,8 +236,7 @@ public class OrcWriter
                     fieldColumnIndex,
                     orcTypes,
                     fieldType,
-                    compression,
-                    maxCompressionBufferSize,
+                    compressionParameters,
                     orcEncoding,
                     hiveStorageTimeZone,
                     options.getMaxStringStatisticsLimit(),
@@ -254,12 +256,14 @@ public class OrcWriter
             }
         }
         this.columnWriters = columnWriters.build();
+        this.dictionaryMaxMemoryBytes = toIntExact(
+                requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes());
         this.dictionaryCompressionOptimizer = new DictionaryCompressionOptimizer(
                 sliceColumnWriters.build(),
                 stripeMinBytes,
                 stripeMaxBytes,
                 stripeMaxRowCount,
-                toIntExact(requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes()));
+                dictionaryMaxMemoryBytes);
 
         for (Entry<String, String> entry : this.userMetadata.entrySet()) {
             recordValidation(validation -> validation.addMetadataProperty(entry.getKey(), utf8Slice(entry.getValue())));
@@ -542,7 +546,7 @@ public class OrcWriter
         closedStripesRetainedBytes += closedStripe.getRetainedSizeInBytes();
 
         recordValidation(validation -> validation.addStripe(stripeInformation.getNumberOfRows()));
-        stats.recordStripeWritten(flushReason, stripeInformation.getTotalLength(), stripeInformation.getNumberOfRows(), dictionaryCompressionOptimizer.getDictionaryMemoryBytes());
+        stats.recordStripeWritten(stripeMinBytes, stripeMaxBytes, dictionaryMaxMemoryBytes, flushReason, dictionaryCompressionOptimizer.getDictionaryMemoryBytes(), stripeInformation);
 
         return outputData;
     }
@@ -557,7 +561,7 @@ public class OrcWriter
                     .filter(entry -> dwrfEncryptionInfo.getGroupByNodeId(entry.getKey()).orElseThrow(() -> new VerifyError("missing group for encryptedColumn")) == groupId)
                     .collect(toImmutableMap(Entry::getKey, Entry::getValue));
             DwrfDataEncryptor dwrfDataEncryptor = dwrfEncryptionInfo.getEncryptorByGroupId(i);
-            OrcOutputBuffer buffer = new OrcOutputBuffer(compression, Optional.of(dwrfDataEncryptor), maxCompressionBufferSize);
+            OrcOutputBuffer buffer = new OrcOutputBuffer(compressionParameters, Optional.of(dwrfDataEncryptor));
             toStripeEncryptionGroup(
                     new StripeEncryptionGroup(
                             ImmutableList.copyOf(encryptedStreams.get(i)),
@@ -661,7 +665,7 @@ public class OrcWriter
         outputData.add(createDataOutput(footerSlice));
 
         recordValidation(validation -> validation.setVersion(metadataWriter.getOrcMetadataVersion()));
-        Slice postscriptSlice = metadataWriter.writePostscript(footerSlice.length(), metadataSlice.length(), compression, maxCompressionBufferSize);
+        Slice postscriptSlice = metadataWriter.writePostscript(footerSlice.length(), metadataSlice.length(), compressionParameters.getKind(), compressionParameters.getMaxBufferSize());
         outputData.add(createDataOutput(postscriptSlice));
         outputData.add(createDataOutput(Slices.wrappedBuffer((byte) postscriptSlice.length())));
         return outputData;
@@ -712,7 +716,7 @@ public class OrcWriter
     {
         DwrfProto.FileStatistics fileStatistics = toFileStatistics(statsFromRoot);
         DwrfDataEncryptor dwrfDataEncryptor = dwrfEncryptionInfo.getEncryptorByGroupId(groupId);
-        OrcOutputBuffer buffer = new OrcOutputBuffer(compression, Optional.of(dwrfDataEncryptor), maxCompressionBufferSize);
+        OrcOutputBuffer buffer = new OrcOutputBuffer(compressionParameters, Optional.of(dwrfDataEncryptor));
         fileStatistics.writeTo(buffer);
         buffer.close();
         DynamicSliceOutput output = new DynamicSliceOutput(toIntExact(buffer.getOutputDataSize()));

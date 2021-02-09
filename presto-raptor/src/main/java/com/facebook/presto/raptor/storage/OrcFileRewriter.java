@@ -27,8 +27,8 @@ import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcReader;
 import com.facebook.presto.orc.OrcReaderOptions;
 import com.facebook.presto.orc.OrcWriter;
-import com.facebook.presto.orc.OrcWriterStats;
 import com.facebook.presto.orc.StripeMetadataSource;
+import com.facebook.presto.orc.WriterStats;
 import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.orc.metadata.CompressionKind;
 import com.facebook.presto.raptor.RaptorOrcAggregatedMemoryContext;
@@ -74,7 +74,7 @@ public final class OrcFileRewriter
 
     private final ReaderAttributes readerAttributes;
     private final boolean validate;
-    private final OrcWriterStats stats;
+    private final WriterStats stats;
     private final TypeManager typeManager;
     private final CompressionKind compression;
     private final OrcDataEnvironment orcDataEnvironment;
@@ -84,7 +84,7 @@ public final class OrcFileRewriter
     OrcFileRewriter(
             ReaderAttributes readerAttributes,
             boolean validate,
-            OrcWriterStats stats,
+            WriterStats stats,
             TypeManager typeManager,
             OrcDataEnvironment orcDataEnvironment,
             CompressionKind compression,

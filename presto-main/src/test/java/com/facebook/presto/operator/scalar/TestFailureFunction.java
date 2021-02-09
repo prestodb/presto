@@ -21,9 +21,9 @@ import com.facebook.presto.util.Failures;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
 import static org.testng.Assert.assertTrue;
 
 public class TestFailureFunction

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.type;
 
-import static com.facebook.presto.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 
 public class TestUnknownType
         extends AbstractTestType

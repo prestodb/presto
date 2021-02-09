@@ -17,6 +17,7 @@ import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.TestingHiveOrcAggregatedMemoryContext;
 import com.facebook.presto.orc.checkpoint.DecimalStreamCheckpoint;
+import com.facebook.presto.orc.metadata.CompressionParameters;
 import io.airlift.slice.Slice;
 import org.testng.annotations.Test;
 
@@ -25,6 +26,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Random;
 
 import static com.facebook.presto.common.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
@@ -54,7 +56,11 @@ public class TestLongDecimalStream
     @Override
     protected DecimalOutputStream createValueOutputStream()
     {
-        return new DecimalOutputStream(SNAPPY, COMPRESSION_BLOCK_SIZE);
+        CompressionParameters compressionParameters = new CompressionParameters(
+                SNAPPY,
+                OptionalInt.empty(),
+                COMPRESSION_BLOCK_SIZE);
+        return new DecimalOutputStream(compressionParameters);
     }
 
     @Override

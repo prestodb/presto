@@ -161,32 +161,37 @@ public final class Signature
      */
     public static TypeVariableConstraint withVariadicBound(String name, String variadicBound)
     {
-        return new TypeVariableConstraint(name, false, false, variadicBound);
+        return new TypeVariableConstraint(name, false, false, variadicBound, false);
     }
 
     public static TypeVariableConstraint comparableWithVariadicBound(String name, String variadicBound)
     {
-        return new TypeVariableConstraint(name, true, false, variadicBound);
+        return new TypeVariableConstraint(name, true, false, variadicBound, false);
     }
 
     public static TypeVariableConstraint typeVariable(String name)
     {
-        return new TypeVariableConstraint(name, false, false, null);
+        return new TypeVariableConstraint(name, false, false, null, false);
     }
 
     public static TypeVariableConstraint comparableTypeParameter(String name)
     {
-        return new TypeVariableConstraint(name, true, false, null);
+        return new TypeVariableConstraint(name, true, false, null, false);
     }
 
     public static TypeVariableConstraint orderableWithVariadicBound(String name, String variadicBound)
     {
-        return new TypeVariableConstraint(name, false, true, variadicBound);
+        return new TypeVariableConstraint(name, false, true, variadicBound, false);
     }
 
     public static TypeVariableConstraint orderableTypeParameter(String name)
     {
-        return new TypeVariableConstraint(name, false, true, null);
+        return new TypeVariableConstraint(name, false, true, null, false);
+    }
+
+    public static TypeVariableConstraint nonDecimalNumericTypeParameter(String name)
+    {
+        return new TypeVariableConstraint(name, false, false, null, true);
     }
 
     public static LongVariableConstraint longVariableExpression(String variable, String expression)

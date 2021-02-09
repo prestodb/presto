@@ -17,7 +17,7 @@ import com.facebook.airlift.stats.TestingGcMonitor;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
-import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
+import com.facebook.presto.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffer;
 import com.facebook.presto.execution.buffer.OutputBuffers;
@@ -104,7 +104,7 @@ public class MockRemoteTaskFactory
         this.scheduledExecutor = scheduledExecutor;
     }
 
-    public MockRemoteTask createTableScanTask(TaskId taskId, InternalNode newNode, List<Split> splits, NodeTaskMap.NodeStatsTracker nodeStatsTracker)
+    public MockRemoteTask createTableScanTask(TaskId taskId, InternalNode newNode, List<Split> splits, PartitionedSplitCountTracker partitionedSplitCountTracker)
     {
         VariableReferenceExpression variable = new VariableReferenceExpression("column", VARCHAR);
         PlanNodeId sourceId = new PlanNodeId("sourceId");
@@ -137,7 +137,7 @@ public class MockRemoteTaskFactory
                 testFragment,
                 initialSplits.build(),
                 createInitialEmptyOutputBuffers(BROADCAST),
-                nodeStatsTracker,
+                partitionedSplitCountTracker,
                 true,
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
     }
@@ -150,18 +150,17 @@ public class MockRemoteTaskFactory
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
-            NodeTaskMap.NodeStatsTracker nodeStatsTracker,
+            PartitionedSplitCountTracker partitionedSplitCountTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo)
     {
-        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, nodeStatsTracker);
+        return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, partitionedSplitCountTracker);
     }
 
     public static final class MockRemoteTask
             implements RemoteTask
     {
         private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
-        private final AtomicLong nextAgeOffset = new AtomicLong(0);
 
         private final URI location;
         private final TaskStateMachine taskStateMachine;
@@ -183,7 +182,7 @@ public class MockRemoteTaskFactory
         @GuardedBy("this")
         private SettableFuture<?> whenSplitQueueHasSpace = SettableFuture.create();
 
-        private final NodeStatsTracker nodeStatsTracker;
+        private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
         public MockRemoteTask(TaskId taskId,
                 PlanFragment fragment,
@@ -191,7 +190,7 @@ public class MockRemoteTaskFactory
                 Executor executor,
                 ScheduledExecutorService scheduledExecutor,
                 Multimap<PlanNodeId, Split> initialSplits,
-                NodeTaskMap.NodeStatsTracker nodeStatsTracker)
+                PartitionedSplitCountTracker partitionedSplitCountTracker)
         {
             this.taskStateMachine = new TaskStateMachine(requireNonNull(taskId, "taskId is null"), requireNonNull(executor, "executor is null"));
 
@@ -229,8 +228,8 @@ public class MockRemoteTaskFactory
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.nodeId = requireNonNull(nodeId, "nodeId is null");
             splits.putAll(initialSplits);
-            this.nodeStatsTracker = requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
-            updateTaskStats();
+            this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
+            partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
         }
 
@@ -249,7 +248,6 @@ public class MockRemoteTaskFactory
         @Override
         public TaskInfo getTaskInfo()
         {
-            TaskStats stats = taskContext.getTaskStats();
             TaskState state = taskStateMachine.getState();
             List<ExecutionFailureInfo> failures = ImmutableList.of();
             if (state == TaskState.FAILED) {
@@ -275,9 +273,7 @@ public class MockRemoteTaskFactory
                             0,
                             0,
                             0,
-                            0,
-                            0,
-                            System.currentTimeMillis() + 100 - stats.getCreateTime().getMillis()),
+                            0),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -313,27 +309,7 @@ public class MockRemoteTaskFactory
                     stats.getSystemMemoryReservationInBytes(),
                     stats.getPeakNodeTotalMemoryInBytes(),
                     0,
-                    0,
-                    stats.getTotalCpuTimeInNanos(),
-                    // Adding 100 millis to make sure task age > 0 for testing
-                    System.currentTimeMillis() + 100 - stats.getCreateTime().getMillis());
-        }
-
-        private void updateTaskStats()
-        {
-            TaskStatus taskStatus = getTaskStatus();
-            if (taskStatus.getState().isDone()) {
-                nodeStatsTracker.setPartitionedSplitCount(0);
-                nodeStatsTracker.setMemoryUsage(0);
-                nodeStatsTracker.setCpuUsage(taskStatus.getTaskAgeInMillis(), 0);
-            }
-            else {
-                nodeStatsTracker.setPartitionedSplitCount(getPartitionedSplitCount());
-                // setting some values for testing
-                nodeStatsTracker.setMemoryUsage(100);
-                long ageOffset = nextAgeOffset.addAndGet(1);
-                nodeStatsTracker.setCpuUsage(taskStatus.getTaskAgeInMillis() + ageOffset, taskStatus.getTaskAgeInMillis() + ageOffset);
-            }
+                    0);
         }
 
         private synchronized void updateSplitQueueSpace()
@@ -366,7 +342,7 @@ public class MockRemoteTaskFactory
         public synchronized void clearSplits()
         {
             splits.clear();
-            updateTaskStats();
+            partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             runningDrivers = 0;
             updateSplitQueueSpace();
         }
@@ -394,7 +370,7 @@ public class MockRemoteTaskFactory
             synchronized (this) {
                 this.splits.putAll(splits);
             }
-            updateTaskStats();
+            partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
             updateSplitQueueSpace();
         }
 

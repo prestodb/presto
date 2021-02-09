@@ -428,8 +428,8 @@ public class TestSignatureBinder
                 .returnType(parseTypeSignature("T2"))
                 .argumentTypes(parseTypeSignature("T1"))
                 .typeVariableConstraints(ImmutableList.of(
-                        new TypeVariableConstraint("T1", true, false, "varchar"),
-                        new TypeVariableConstraint("T2", true, false, "varchar")))
+                        new TypeVariableConstraint("T1", true, false, "varchar", false),
+                        new TypeVariableConstraint("T2", true, false, "varchar", false)))
                 .build();
 
         assertThat(function)

@@ -49,7 +49,7 @@ public class TestKafkaIntegrationSmokeTest
         this.embeddedKafka = embeddedKafka;
     }
 
-    @Test(dataProvider = "testRoundTripAllFormatsDataProvider")
+    @Test(dataProvider = "roundTripAllFormatsDataProvider")
     public void testRoundTripAllFormats(RoundTripTestCase testCase)
     {
         assertUpdate("INSERT into write_test." + testCase.getTableName() +
@@ -60,14 +60,14 @@ public class TestKafkaIntegrationSmokeTest
                 "VALUES " + testCase.getRowValues());
     }
 
-    @DataProvider(name = "testRoundTripAllFormatsDataProvider")
-    public final Object[][] testRoundTripAllFormatsDataProvider()
+    @DataProvider
+    public final Object[][] roundTripAllFormatsDataProvider()
     {
-        return testRoundTripAllFormatsData().stream()
+        return roundTripAllFormatsData().stream()
                 .collect(toDataProvider());
     }
 
-    private List<RoundTripTestCase> testRoundTripAllFormatsData()
+    private List<RoundTripTestCase> roundTripAllFormatsData()
     {
         return ImmutableList.<RoundTripTestCase>builder()
                 .add(new RoundTripTestCase(
@@ -80,12 +80,18 @@ public class TestKafkaIntegrationSmokeTest
                         "all_datatypes_csv",
                         ImmutableList.of("f_bigint", "f_int", "f_double", "f_boolean", "f_varchar"),
                         ImmutableList.of(
-                                ImmutableList.of(100000, 1000, 1000.001, true, "'test'"),
-                                ImmutableList.of(123456, 1234, 12345.123, false, "'abcd'"))))
+                                ImmutableList.of(100000, 1000, 100, 10, 1000.001, true, "'test'"),
+                                ImmutableList.of(123456, 1234, 123, 12, 12345.123, false, "'abcd'"))))
+                .add(new RoundTripTestCase(
+                        "all_datatypes_json",
+                        ImmutableList.of("f_bigint", "f_int", "f_double", "f_boolean", "f_varchar"),
+                        ImmutableList.of(
+                                ImmutableList.of(100000, 1000, 100, 10, 1000.001, true, "'test'"),
+                                ImmutableList.of(123748, 1234, 123, 12, 12345.123, false, "'abcd'"))))
                 .build();
     }
 
-    protected static final class RoundTripTestCase
+    private static final class RoundTripTestCase
     {
         private final String tableName;
         private final List<String> fieldNames;

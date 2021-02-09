@@ -15,3 +15,4 @@ This guide is intended for Presto contributors and plugin developers.
     develop/system-access-control
     develop/password-authenticator
     develop/event-listener
+    develop/client-protocol

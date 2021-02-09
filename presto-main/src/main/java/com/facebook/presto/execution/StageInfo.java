@@ -126,4 +126,15 @@ public class StageInfo
     {
         return stageInfo.map(StageInfo::getAllStages).orElse(ImmutableList.of());
     }
+
+    public Optional<StageInfo> getStageWithStageId(StageId stageId)
+    {
+        Iterable<StageInfo> iterableStageInfo = forTree(StageInfo::getSubStages).depthFirstPreOrder(this);
+        for (StageInfo stageInfo : iterableStageInfo) {
+            if (stageInfo.getStageId().equals(stageId)) {
+                return Optional.of(stageInfo);
+            }
+        }
+        return Optional.empty();
+    }
 }
