@@ -14,6 +14,7 @@
 package com.facebook.presto.memory;
 
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.context.LocalMemoryContext;
@@ -103,6 +104,31 @@ public class TestQueryContext
             // Free memory
             userMemoryContext.close();
             revocableMemoryContext.close();
+        }
+    }
+
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = ".*Query exceeded per-node total memory limit of 20B.*")
+    public void testChecksTotalMemoryOnUserMemoryAllocation()
+    {
+        try (LocalQueryRunner localQueryRunner = new LocalQueryRunner(TEST_SESSION)) {
+            QueryContext queryContext = new QueryContext(
+                    new QueryId("query"),
+                    new DataSize(10, BYTE), // user memory limit
+                    new DataSize(20, BYTE), // total memory limit
+                    new DataSize(10, BYTE),
+                    new DataSize(1, GIGABYTE),
+                    new MemoryPool(GENERAL_POOL, new DataSize(10, BYTE)),
+                    new TestingGcMonitor(),
+                    localQueryRunner.getExecutor(),
+                    localQueryRunner.getScheduler(),
+                    new DataSize(0, BYTE),
+                    new SpillSpaceTracker(new DataSize(0, BYTE)));
+
+            queryContext.getQueryMemoryContext().initializeLocalMemoryContexts("test");
+            LocalMemoryContext systemMemoryContext = queryContext.getQueryMemoryContext().localSystemMemoryContext();
+            LocalMemoryContext userMemoryContext = queryContext.getQueryMemoryContext().localUserMemoryContext();
+            systemMemoryContext.setBytes(15);
+            userMemoryContext.setBytes(6);
         }
     }
 
