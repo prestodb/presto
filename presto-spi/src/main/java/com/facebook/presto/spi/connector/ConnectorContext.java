@@ -15,6 +15,7 @@ package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.spi.IConnectorManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -66,6 +67,16 @@ public interface ConnectorContext
     }
 
     default BlockEncodingSerde getBlockEncodingSerde()
+    {
+        throw new UnsupportedOperationException();
+    }
+    
+    default IConnectorManager getConnectorManager()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void setConnectorManager(IConnectorManager value)
     {
         throw new UnsupportedOperationException();
     }

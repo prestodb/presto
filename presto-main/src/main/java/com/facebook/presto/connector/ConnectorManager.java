@@ -34,6 +34,7 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.IConnectorManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.SystemTable;
@@ -90,7 +91,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class ConnectorManager
+public class ConnectorManager implements IConnectorManager
 {
     private static final Logger log = Logger.get(ConnectorManager.class);
 
@@ -374,7 +375,7 @@ public class ConnectorManager
                         new RowExpressionFormatter(metadataManager.getFunctionAndTypeManager())),
                 new ConnectorFilterStatsCalculatorService(filterStatsCalculator),
                 blockEncodingSerde);
-
+        context.setConnectorManager(this);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             return factory.create(connectorId.getCatalogName(), properties, context);
         }

@@ -15,6 +15,7 @@ package com.facebook.presto.connector;
 
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.spi.IConnectorManager;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
@@ -38,6 +39,7 @@ public class ConnectorContextInstance
     private final RowExpressionService rowExpressionService;
     private final FilterStatsCalculatorService filterStatsCalculatorService;
     private final BlockEncodingSerde blockEncodingSerde;
+    private IConnectorManager connectorManager;
 
     public ConnectorContextInstance(
             NodeManager nodeManager,
@@ -113,5 +115,17 @@ public class ConnectorContextInstance
     public BlockEncodingSerde getBlockEncodingSerde()
     {
         return blockEncodingSerde;
+    }
+    
+    @Override
+    public IConnectorManager getConnectorManager()
+    {
+        return connectorManager;
+    }
+
+    @Override
+    public void setConnectorManager(IConnectorManager value)
+    {
+    	connectorManager=value;
     }
 }
