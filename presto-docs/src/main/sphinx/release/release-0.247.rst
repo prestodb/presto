@@ -33,7 +33,7 @@ ____________
 * Add the interface ``QueryInterceptor`` to allow for custom logic to be executed before or after query execution. (:pr:`15565`).
 
 Verifier changes
-----------------
+________________
 * Add retries for verifier queries that fail due to HTTP Error 429 (Too many requests).
 
 **Contributors**
