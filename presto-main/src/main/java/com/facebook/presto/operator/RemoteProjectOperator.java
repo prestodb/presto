@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -116,9 +118,9 @@ public class RemoteProjectOperator
                 Throwable cause = e.getCause();
                 if (cause != null) {
                     throwIfUnchecked(cause);
-                    throw new RuntimeException(cause);
+                    throw new PrestoException(GENERIC_INTERNAL_ERROR, cause);
                 }
-                throw new RuntimeException(e);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
             }
         }
         return null;
@@ -174,6 +176,7 @@ public class RemoteProjectOperator
             this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
             this.projections = ImmutableList.copyOf(requireNonNull(projections, "projections is null"));
         }
+
         @Override
         public Operator createOperator(DriverContext driverContext)
         {
