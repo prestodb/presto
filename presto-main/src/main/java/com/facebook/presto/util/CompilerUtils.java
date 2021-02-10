@@ -46,7 +46,7 @@ public final class CompilerUtils
 
     public static ParameterizedType makeClassName(String baseName, Optional<String> suffix)
     {
-        String className = baseName
+        String className = baseName.length() > 100 ? baseName.substring(0, 100) : baseName
                 + "_" + suffix.orElseGet(() -> Instant.now().atZone(UTC).format(TIMESTAMP_FORMAT))
                 + "_" + CLASS_ID.incrementAndGet();
         return typeFromJavaClassName("com.facebook.presto.$gen." + toJavaIdentifierString(className));
