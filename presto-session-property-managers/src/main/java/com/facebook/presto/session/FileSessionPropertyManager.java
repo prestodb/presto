@@ -29,8 +29,10 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
 import static java.lang.String.format;
@@ -79,15 +81,26 @@ public class FileSessionPropertyManager
     }
 
     @Override
-    public Map<String, String> getSystemSessionProperties(SessionConfigurationContext context)
+    public SystemSessionPropertyConfiguration getSystemSessionProperties(SessionConfigurationContext context)
     {
         // later properties override earlier properties
-        Map<String, String> combinedProperties = new HashMap<>();
+        Map<String, String> defaultProperties = new HashMap<>();
+        Set<String> overridePropertyNames = new HashSet<String>();
         for (SessionMatchSpec sessionMatchSpec : sessionMatchSpecs) {
-            combinedProperties.putAll(sessionMatchSpec.match(context));
+            Map<String, String> newProperties = sessionMatchSpec.match(context);
+            defaultProperties.putAll(newProperties);
+            if (sessionMatchSpec.getOverrideSessionProperties().orElse(false)) {
+                overridePropertyNames.addAll(newProperties.keySet());
+            }
         }
 
-        return ImmutableMap.copyOf(combinedProperties);
+        // Once a property has been overridden it stays that way and the value is updated by any rule
+        Map<String, String> overrideProperties = new HashMap<>();
+        for (String propertyName : overridePropertyNames) {
+            overrideProperties.put(propertyName, defaultProperties.get(propertyName));
+        }
+
+        return new SystemSessionPropertyConfiguration(ImmutableMap.copyOf(defaultProperties), ImmutableMap.copyOf(overrideProperties));
     }
 
     @Override
