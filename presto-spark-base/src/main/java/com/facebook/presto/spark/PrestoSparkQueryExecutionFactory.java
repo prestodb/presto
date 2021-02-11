@@ -116,11 +116,7 @@ import scala.Tuple2;
 
 import javax.inject.Inject;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -181,7 +177,6 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.nio.file.Files.notExists;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -198,6 +193,7 @@ public class PrestoSparkQueryExecutionFactory
     private final PrestoSparkQueryPlanner queryPlanner;
     private final PrestoSparkPlanFragmenter planFragmenter;
     private final PrestoSparkRddFactory rddFactory;
+    private final PrestoSparkMetadataStorage metadataStorage;
     private final QueryMonitor queryMonitor;
     private final JsonCodec<TaskInfo> taskInfoJsonCodec;
     private final JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec;
@@ -227,6 +223,7 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkQueryPlanner queryPlanner,
             PrestoSparkPlanFragmenter planFragmenter,
             PrestoSparkRddFactory rddFactory,
+            PrestoSparkMetadataStorage metadataStorage,
             QueryMonitor queryMonitor,
             JsonCodec<TaskInfo> taskInfoJsonCodec,
             JsonCodec<PrestoSparkTaskDescriptor> sparkTaskDescriptorJsonCodec,
@@ -253,6 +250,7 @@ public class PrestoSparkQueryExecutionFactory
         this.queryPlanner = requireNonNull(queryPlanner, "queryPlanner is null");
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.rddFactory = requireNonNull(rddFactory, "rddFactory is null");
+        this.metadataStorage = requireNonNull(metadataStorage, "metadataStorage is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.taskInfoJsonCodec = requireNonNull(taskInfoJsonCodec, "taskInfoJsonCodec is null");
         this.sparkTaskDescriptorJsonCodec = requireNonNull(sparkTaskDescriptorJsonCodec, "sparkTaskDescriptorJsonCodec is null");
@@ -281,13 +279,10 @@ public class PrestoSparkQueryExecutionFactory
             String sql,
             Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
-            Optional<Path> queryStatusInfoOutputPath,
-            Optional<Path> queryDataOutputPath)
+            Optional<String> queryStatusInfoOutputLocation,
+            Optional<String> queryDataOutputLocation)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
-
-        queryStatusInfoOutputPath.ifPresent(path -> checkArgument(notExists(path), "File already exist: %s", path));
-        queryDataOutputPath.ifPresent(path -> checkArgument(notExists(path), "File already exist: %s", path));
 
         QueryStateTimer queryStateTimer = new QueryStateTimer(systemTicker());
 
@@ -375,8 +370,9 @@ public class PrestoSparkQueryExecutionFactory
                     executionExceptionFactory,
                     queryTimeout,
                     queryCompletionDeadline,
-                    queryStatusInfoOutputPath,
-                    queryDataOutputPath,
+                    metadataStorage,
+                    queryStatusInfoOutputLocation,
+                    queryDataOutputLocation,
                     tempStorage,
                     nodeMemoryConfig);
         }
@@ -411,16 +407,15 @@ public class PrestoSparkQueryExecutionFactory
                         Optional.empty(),
                         warningCollector);
                 queryMonitor.queryCompletedEvent(queryInfo);
-                if (queryStatusInfoOutputPath.isPresent()) {
+                if (queryStatusInfoOutputLocation.isPresent()) {
                     PrestoSparkQueryStatusInfo prestoSparkQueryStatusInfo = createPrestoSparkQueryInfo(
                             queryInfo,
                             Optional.ofNullable(planAndMore),
                             warningCollector,
                             OptionalLong.empty());
-                    writeJsonFile(
-                            queryStatusInfoOutputPath.get(),
-                            prestoSparkQueryStatusInfo,
-                            queryStatusInfoJsonCodec);
+                    metadataStorage.write(
+                            queryStatusInfoOutputLocation.get(),
+                            queryStatusInfoJsonCodec.toJsonBytes(prestoSparkQueryStatusInfo));
                 }
             }
             catch (RuntimeException eventFailure) {
@@ -688,16 +683,6 @@ public class PrestoSparkQueryExecutionFactory
                 executionFailureInfo.toFailureInfo());
     }
 
-    private static <T> void writeJsonFile(Path outputPath, T object, JsonCodec<T> codec)
-    {
-        try {
-            Files.write(outputPath, codec.toJsonBytes(object));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     public static class PrestoSparkQueryExecution
             implements IPrestoSparkQueryExecution
     {
@@ -727,8 +712,9 @@ public class PrestoSparkQueryExecutionFactory
         private final PagesSerde pagesSerde;
         private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
         private final Duration queryTimeout;
-        private final Optional<Path> queryStatusInfoOutputPath;
-        private final Optional<Path> queryDataOutputPath;
+        private final PrestoSparkMetadataStorage metadataStorage;
+        private final Optional<String> queryStatusInfoOutputLocation;
+        private final Optional<String> queryDataOutputLocation;
 
         private final long queryCompletionDeadline;
         private final TempStorage tempStorage;
@@ -759,8 +745,9 @@ public class PrestoSparkQueryExecutionFactory
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
                 Duration queryTimeout,
                 long queryCompletionDeadline,
-                Optional<Path> queryStatusInfoOutputPath,
-                Optional<Path> queryDataOutputPath,
+                PrestoSparkMetadataStorage metadataStorage,
+                Optional<String> queryStatusInfoOutputLocation,
+                Optional<String> queryDataOutputLocation,
                 TempStorage tempStorage,
                 NodeMemoryConfig nodeMemoryConfig)
         {
@@ -789,8 +776,9 @@ public class PrestoSparkQueryExecutionFactory
             this.executionExceptionFactory = requireNonNull(executionExceptionFactory, "executionExceptionFactory is null");
             this.queryTimeout = requireNonNull(queryTimeout, "queryTimeout is null");
             this.queryCompletionDeadline = queryCompletionDeadline;
-            this.queryStatusInfoOutputPath = requireNonNull(queryStatusInfoOutputPath, "queryStatusInfoOutputPath is null");
-            this.queryDataOutputPath = requireNonNull(queryDataOutputPath, "queryDataOutputPath is null");
+            this.metadataStorage = requireNonNull(metadataStorage, "metadataStorage is null");
+            this.queryStatusInfoOutputLocation = requireNonNull(queryStatusInfoOutputLocation, "queryStatusInfoOutputLocation is null");
+            this.queryDataOutputLocation = requireNonNull(queryDataOutputLocation, "queryDataOutputLocation is null");
             this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
             this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         }
@@ -900,12 +888,11 @@ public class PrestoSparkQueryExecutionFactory
                 log.error(eventFailure, "Error publishing query completed event");
             }
 
-            queryDataOutputPath.ifPresent(path -> writeJsonFile(
-                    path,
-                    new PrestoSparkQueryData(
-                            getOutputColumns(planAndMore),
-                            results),
-                    queryDataJsonCodec));
+            if (queryDataOutputLocation.isPresent()) {
+                metadataStorage.write(
+                        queryDataOutputLocation.get(),
+                        queryDataJsonCodec.toJsonBytes(new PrestoSparkQueryData(getOutputColumns(planAndMore), results)));
+            }
 
             return results;
         }
@@ -1058,16 +1045,15 @@ public class PrestoSparkQueryExecutionFactory
                     warningCollector);
 
             queryMonitor.queryCompletedEvent(queryInfo);
-            if (queryStatusInfoOutputPath.isPresent()) {
+            if (queryStatusInfoOutputLocation.isPresent()) {
                 PrestoSparkQueryStatusInfo prestoSparkQueryStatusInfo = createPrestoSparkQueryInfo(
                         queryInfo,
                         Optional.of(planAndMore),
                         warningCollector,
                         updateCount);
-                writeJsonFile(
-                        queryStatusInfoOutputPath.get(),
-                        prestoSparkQueryStatusInfo,
-                        queryStatusInfoJsonCodec);
+                metadataStorage.write(
+                        queryStatusInfoOutputLocation.get(),
+                        queryStatusInfoJsonCodec.toJsonBytes(prestoSparkQueryStatusInfo));
             }
         }
 
