@@ -15,6 +15,8 @@ package com.facebook.presto.spi.session;
 
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * This interface is used to provide default session property overrides for
  * sessions, thus providing a way to dynamically configure default session
@@ -25,7 +27,19 @@ import java.util.Map;
  */
 public interface SessionPropertyConfigurationManager
 {
-    Map<String, String> getSystemSessionProperties(SessionConfigurationContext context);
+    class SystemSessionPropertyConfiguration
+    {
+        public final Map<String, String> systemPropertyDefaults;
+        public final Map<String, String> systemPropertyOverrides;
+
+        public SystemSessionPropertyConfiguration(Map<String, String> sessionPropertyDefaults, Map<String, String> sessionPropertyOverrides)
+        {
+            this.systemPropertyDefaults = requireNonNull(sessionPropertyDefaults, "sessionPropertyDefaults is null");
+            this.systemPropertyOverrides = requireNonNull(sessionPropertyOverrides, "sessionPropertyOverrides is null");
+        }
+    }
+
+    SystemSessionPropertyConfiguration getSystemSessionProperties(SessionConfigurationContext context);
 
     Map<String, Map<String, String>> getCatalogSessionProperties(SessionConfigurationContext context);
 }

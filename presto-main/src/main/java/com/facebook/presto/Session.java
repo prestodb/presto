@@ -27,6 +27,7 @@ import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
@@ -385,9 +386,11 @@ public final class Session
                 sessionFunctions);
     }
 
-    public Session withDefaultProperties(Map<String, String> systemPropertyDefaults, Map<String, Map<String, String>> catalogPropertyDefaults)
+    public Session withDefaultProperties(
+            SystemSessionPropertyConfiguration systemPropertyConfiguration,
+            Map<String, Map<String, String>> catalogPropertyDefaults)
     {
-        requireNonNull(systemPropertyDefaults, "systemPropertyDefaults is null");
+        requireNonNull(systemPropertyConfiguration, "systemPropertyConfiguration is null");
         requireNonNull(catalogPropertyDefaults, "catalogPropertyDefaults is null");
 
         // to remove this check properties must be authenticated and validated as in beginTransactionId
@@ -396,8 +399,9 @@ public final class Session
                 "Session properties cannot be overridden once a transaction is active");
 
         Map<String, String> systemProperties = new HashMap<>();
-        systemProperties.putAll(systemPropertyDefaults);
+        systemProperties.putAll(systemPropertyConfiguration.systemPropertyDefaults);
         systemProperties.putAll(this.systemProperties);
+        systemProperties.putAll(systemPropertyConfiguration.systemPropertyOverrides);
 
         Map<String, Map<String, String>> connectorProperties = catalogPropertyDefaults.entrySet().stream()
                 .map(entry -> Maps.immutableEntry(entry.getKey(), new HashMap<>(entry.getValue())))
