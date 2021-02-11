@@ -20,6 +20,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.google.common.annotations.VisibleForTesting;
 
@@ -119,8 +120,8 @@ public class SessionPropertyDefaults
                 resourceGroupId,
                 session.getClientInfo());
 
-        Map<String, String> systemPropertyOverrides = configurationManager.getSystemSessionProperties(context);
+        SystemSessionPropertyConfiguration systemPropertyConfiguration = configurationManager.getSystemSessionProperties(context);
         Map<String, Map<String, String>> catalogPropertyOverrides = configurationManager.getCatalogSessionProperties(context);
-        return session.withDefaultProperties(systemPropertyOverrides, catalogPropertyOverrides);
+        return session.withDefaultProperties(systemPropertyConfiguration, catalogPropertyOverrides);
     }
 }

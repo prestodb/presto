@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.session;
 
 import com.facebook.presto.spi.resourceGroups.SessionPropertyConfigurationManagerContext;
+import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 
 import java.util.Map;
 
@@ -22,10 +23,10 @@ import static java.util.Objects.requireNonNull;
 public class TestingSessionPropertyConfigurationManagerFactory
         implements SessionPropertyConfigurationManagerFactory
 {
-    private final Map<String, String> systemProperties;
+    private final SystemSessionPropertyConfiguration systemProperties;
     private final Map<String, Map<String, String>> catalogProperties;
 
-    public TestingSessionPropertyConfigurationManagerFactory(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties)
+    public TestingSessionPropertyConfigurationManagerFactory(SystemSessionPropertyConfiguration systemProperties, Map<String, Map<String, String>> catalogProperties)
     {
         this.systemProperties = requireNonNull(systemProperties, "systemProperties is null");
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");
