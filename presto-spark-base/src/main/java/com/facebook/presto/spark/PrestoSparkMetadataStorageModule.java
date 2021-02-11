@@ -11,20 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.classloader_interface;
+package com.facebook.presto.spark;
 
-import org.apache.spark.SparkContext;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 
-import java.util.Optional;
-
-public interface IPrestoSparkQueryExecutionFactory
+public class PrestoSparkMetadataStorageModule
+        implements Module
 {
-    IPrestoSparkQueryExecution create(
-            SparkContext sparkContext,
-            PrestoSparkSession session,
-            String sql,
-            Optional<String> sparkQueueName,
-            PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
-            Optional<String> queryStatusInfoOutputLocation,
-            Optional<String> queryDataOutputLocation);
+    @Override
+    public void configure(Binder binder)
+    {
+        binder.bind(PrestoSparkLocalMetadataStorage.class).in(Scopes.SINGLETON);
+        binder.bind(PrestoSparkMetadataStorage.class).to(PrestoSparkLocalMetadataStorage.class);
+    }
 }
