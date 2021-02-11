@@ -205,7 +205,7 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 new SqlParserOptions(),
-                ImmutableList.of(),
+                ImmutableList.of(new PrestoSparkLocalMetadataStorageModule()),
                 true);
 
         Injector injector = injectorFactory.create();
