@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.StreamLayout.ByStreamSize;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.units.DataSize;
 
@@ -47,6 +48,7 @@ public class OrcWriterOptions
     private final DataSize maxStringStatisticsLimit;
     private final DataSize maxCompressionBufferSize;
     private final OptionalInt compressionLevel;
+    private final StreamLayout streamLayout;
 
     public OrcWriterOptions()
     {
@@ -58,7 +60,8 @@ public class OrcWriterOptions
                 DEFAULT_DICTIONARY_MAX_MEMORY,
                 DEFAULT_MAX_STRING_STATISTICS_LIMIT,
                 DEFAULT_MAX_COMPRESSION_BUFFER_SIZE,
-                OptionalInt.empty());
+                OptionalInt.empty(),
+                new ByStreamSize());
     }
 
     private OrcWriterOptions(
@@ -69,7 +72,8 @@ public class OrcWriterOptions
             DataSize dictionaryMaxMemory,
             DataSize maxStringStatisticsLimit,
             DataSize maxCompressionBufferSize,
-            OptionalInt compressionLevel)
+            OptionalInt compressionLevel,
+            StreamLayout streamLayout)
     {
         requireNonNull(stripeMinSize, "stripeMinSize is null");
         requireNonNull(stripeMaxSize, "stripeMaxSize is null");
@@ -78,7 +82,8 @@ public class OrcWriterOptions
         requireNonNull(dictionaryMaxMemory, "dictionaryMaxMemory is null");
         requireNonNull(maxStringStatisticsLimit, "maxStringStatisticsLimit is null");
         requireNonNull(maxCompressionBufferSize, "maxCompressionBufferSize is null");
-        requireNonNull(compressionLevel, "zstdCompressionLevel is null");
+        requireNonNull(compressionLevel, "compressionLevel is null");
+        requireNonNull(streamLayout, "streamLayout is null");
 
         this.stripeMinSize = stripeMinSize;
         this.stripeMaxSize = stripeMaxSize;
@@ -88,6 +93,7 @@ public class OrcWriterOptions
         this.maxStringStatisticsLimit = maxStringStatisticsLimit;
         this.maxCompressionBufferSize = maxCompressionBufferSize;
         this.compressionLevel = compressionLevel;
+        this.streamLayout = streamLayout;
     }
 
     public DataSize getStripeMinSize()
@@ -130,6 +136,11 @@ public class OrcWriterOptions
         return compressionLevel;
     }
 
+    public StreamLayout getStreamLayout()
+    {
+        return streamLayout;
+    }
+
     public OrcWriterOptions withStripeMinSize(DataSize stripeMinSize)
     {
         return new OrcWriterOptions(
@@ -140,7 +151,8 @@ public class OrcWriterOptions
                 dictionaryMaxMemory,
                 maxStringStatisticsLimit,
                 maxCompressionBufferSize,
-                compressionLevel);
+                compressionLevel,
+                streamLayout);
     }
 
     public OrcWriterOptions withStripeMaxSize(DataSize stripeMaxSize)
@@ -153,7 +165,8 @@ public class OrcWriterOptions
                 dictionaryMaxMemory,
                 maxStringStatisticsLimit,
                 maxCompressionBufferSize,
-                compressionLevel);
+                compressionLevel,
+                streamLayout);
     }
 
     public OrcWriterOptions withStripeMaxRowCount(int stripeMaxRowCount)
@@ -166,7 +179,8 @@ public class OrcWriterOptions
                 dictionaryMaxMemory,
                 maxStringStatisticsLimit,
                 maxCompressionBufferSize,
-                compressionLevel);
+                compressionLevel,
+                streamLayout);
     }
 
     public OrcWriterOptions withRowGroupMaxRowCount(int rowGroupMaxRowCount)
@@ -179,7 +193,8 @@ public class OrcWriterOptions
                 dictionaryMaxMemory,
                 maxStringStatisticsLimit,
                 maxCompressionBufferSize,
-                compressionLevel);
+                compressionLevel,
+                streamLayout);
     }
 
     public OrcWriterOptions withDictionaryMaxMemory(DataSize dictionaryMaxMemory)
@@ -192,7 +207,8 @@ public class OrcWriterOptions
                 dictionaryMaxMemory,
                 maxStringStatisticsLimit,
                 maxCompressionBufferSize,
-                compressionLevel);
+                compressionLevel,
+                streamLayout);
     }
 
     public OrcWriterOptions withMaxStringStatisticsLimit(DataSize maxStringStatisticsLimit)
@@ -205,7 +221,8 @@ public class OrcWriterOptions
                 dictionaryMaxMemory,
                 maxStringStatisticsLimit,
                 maxCompressionBufferSize,
-                compressionLevel);
+                compressionLevel,
+                streamLayout);
     }
 
     public OrcWriterOptions withMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
@@ -218,7 +235,8 @@ public class OrcWriterOptions
                 dictionaryMaxMemory,
                 maxStringStatisticsLimit,
                 maxCompressionBufferSize,
-                compressionLevel);
+                compressionLevel,
+                streamLayout);
     }
 
     public OrcWriterOptions withCompressionLevel(OptionalInt compressionLevel)
@@ -231,7 +249,22 @@ public class OrcWriterOptions
                 dictionaryMaxMemory,
                 maxStringStatisticsLimit,
                 maxCompressionBufferSize,
-                compressionLevel);
+                compressionLevel,
+                streamLayout);
+    }
+
+    public OrcWriterOptions withStreamLayout(StreamLayout streamLayout)
+    {
+        return new OrcWriterOptions(
+                stripeMinSize,
+                stripeMaxSize,
+                stripeMaxRowCount,
+                rowGroupMaxRowCount,
+                dictionaryMaxMemory,
+                maxStringStatisticsLimit,
+                maxCompressionBufferSize,
+                compressionLevel,
+                streamLayout);
     }
 
     @Override
@@ -246,6 +279,7 @@ public class OrcWriterOptions
                 .add("maxStringStatisticsLimit", maxStringStatisticsLimit)
                 .add("maxCompressionBufferSize", maxCompressionBufferSize)
                 .add("compressionLevel", compressionLevel)
+                .add("streamLayout", streamLayout)
                 .toString();
     }
 }
