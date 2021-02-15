@@ -177,6 +177,7 @@ import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -276,13 +277,26 @@ public class PrestoSparkQueryExecutionFactory
     public IPrestoSparkQueryExecution create(
             SparkContext sparkContext,
             PrestoSparkSession prestoSparkSession,
-            String sql,
+            Optional<String> sqlText,
+            Optional<String> sqlLocation,
             Optional<String> sparkQueueName,
             PrestoSparkTaskExecutorFactoryProvider executorFactoryProvider,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation)
     {
         PrestoSparkConfInitializer.checkInitialized(sparkContext);
+
+        String sql;
+        if (sqlText.isPresent()) {
+            checkArgument(!sqlLocation.isPresent(), "sqlText and sqlLocation should not be set at the same time");
+            sql = sqlText.get();
+        }
+        else {
+            checkArgument(sqlLocation.isPresent(), "sqlText or sqlLocation must be present");
+            sql = new String(metadataStorage.read(sqlLocation.get()), UTF_8);
+        }
+
+        log.info("Query: {}", sql);
 
         QueryStateTimer queryStateTimer = new QueryStateTimer(systemTicker());
 
