@@ -16,4 +16,5 @@ package com.facebook.presto.spark;
 public interface PrestoSparkMetadataStorage
 {
     void write(String outputPath, byte[] data);
+    byte[] read(String inputPath);
 }
