@@ -124,7 +124,7 @@ public class TestOrcWriter
             writer.close();
 
             // read the footer and verify the streams are ordered by size
-            boolean isZstdJniCompressorEnabled = true;
+            boolean zstdJniDecompressionEnabled = true;
             DataSize dataSize = new DataSize(1, MEGABYTE);
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), dataSize, dataSize, dataSize, true);
             Footer footer = new OrcReader(
@@ -137,14 +137,14 @@ public class TestOrcWriter
                             dataSize,
                             dataSize,
                             dataSize,
-                            isZstdJniCompressorEnabled),
+                            zstdJniDecompressionEnabled),
                     false,
                     NO_ENCRYPTION,
                     DwrfKeyProvider.EMPTY
             ).getFooter();
 
             int bufferSize = toIntExact(orcWriterOptions.getMaxCompressionBufferSize().toBytes());
-            Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), kind, bufferSize, isZstdJniCompressorEnabled);
+            Optional<OrcDecompressor> decompressor = createOrcDecompressor(orcDataSource.getId(), kind, bufferSize, zstdJniDecompressionEnabled);
 
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer
