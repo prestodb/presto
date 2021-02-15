@@ -57,7 +57,6 @@ import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,6 +117,7 @@ public class OrcWriter
     private final int chunkMaxLogicalBytes;
     private final int stripeMaxRowCount;
     private final int rowGroupMaxRowCount;
+    private final StreamLayout streamLayout;
     private final Map<String, String> userMetadata;
     private final CompressedMetadataWriter metadataWriter;
     private final DateTimeZone hiveStorageTimeZone;
@@ -177,6 +177,7 @@ public class OrcWriter
         this.stripeMaxRowCount = options.getStripeMaxRowCount();
         this.rowGroupMaxRowCount = options.getRowGroupMaxRowCount();
         recordValidation(validation -> validation.setRowGroupMaxRowCount(rowGroupMaxRowCount));
+        this.streamLayout = requireNonNull(options.getStreamLayout(), "streamLayout is null");
 
         this.userMetadata = ImmutableMap.<String, String>builder()
                 .putAll(requireNonNull(userMetadata, "userMetadata is null"))
@@ -491,7 +492,7 @@ public class OrcWriter
                     .mapToLong(StreamDataOutput::size)
                     .sum();
         }
-        Collections.sort(dataStreams);
+        streamLayout.reorder(dataStreams);
 
         // add data streams
         for (StreamDataOutput dataStream : dataStreams) {
