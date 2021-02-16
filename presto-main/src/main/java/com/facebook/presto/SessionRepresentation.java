@@ -284,6 +284,7 @@ public final class SessionRepresentation
         return preparedStatements;
     }
 
+    @ThriftField(23)
     @JsonProperty
     public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
     {
