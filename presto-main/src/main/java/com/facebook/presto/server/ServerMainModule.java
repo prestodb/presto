@@ -118,6 +118,7 @@ import com.facebook.presto.server.thrift.ThriftTaskService;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -325,6 +326,11 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(TaskExecutorResource.class);
         newExporter(binder).export(TaskExecutorResource.class).withGeneratedName();
         binder.bind(TaskManagementExecutor.class).in(Scopes.SINGLETON);
+
+        install(new DefaultThriftCodecsModule());
+        thriftCodecBinder(binder).bindCustomThriftCodec(SqlInvokedFunctionCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(SqlFunctionIdCodec.class);
+
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
         binder.bind(TaskManager.class).to(Key.get(SqlTaskManager.class));
         binder.bind(SpoolingOutputBufferFactory.class).in(Scopes.SINGLETON);
@@ -383,6 +389,7 @@ public class ServerMainModule
         jsonCodecBinder(binder).bindJsonCodec(OperatorStats.class);
         jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TableCommitContext.class);
+        jsonCodecBinder(binder).bindJsonCodec(SqlInvokedFunction.class);
         smileCodecBinder(binder).bindSmileCodec(TaskStatus.class);
         smileCodecBinder(binder).bindSmileCodec(TaskInfo.class);
         thriftCodecBinder(binder).bindThriftCodec(TaskStatus.class);
