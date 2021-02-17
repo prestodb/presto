@@ -44,6 +44,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.sql.SqlFormatterUtil;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
@@ -124,6 +125,7 @@ import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetOperation;
 import com.facebook.presto.sql.tree.SetSession;
+import com.facebook.presto.sql.tree.ShowStats;
 import com.facebook.presto.sql.tree.SimpleGroupBy;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
@@ -1053,21 +1055,57 @@ class StatementAnalyzer
             }
 
             Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, name);
+
+            //TODO: We need an exit clause, how do we exit?
             if (optionalMaterializedView.isPresent()) {
                 Statement statement = analysis.getStatement();
 
-                final List<Class<? extends Statement>> statementNotSupported = ImmutableList.of(
-                        AddColumn.class,
-                        DropColumn.class,
-                        RenameColumn.class,
-                        RenameTable.class);
-                if (statementNotSupported.stream().anyMatch(notSupported -> notSupported.isInstance(statement))) {
+                final List<Class<? extends Statement>> statementInSupport = ImmutableList.of(
+                        Explain.class,
+                        Prepare.class,
+                        Query.class,
+                        ShowStats.class);
+                if (statementInSupport.stream().noneMatch(support -> support.isInstance(statement))) {
                     throw new SemanticException(NOT_SUPPORTED, table, "Materialized view is not supported in this statement.");
                 }
 
+                //TODO: add a validation logic for MV recursion.
                 if (analysis.hasTableInView(table)) {
                     throw new SemanticException(MATERIALIZED_VIEW_IS_RECURSIVE, table, "Materialized view is recursive");
                 }
+
+                ConnectorMaterializedViewDefinition view = optionalMaterializedView.get();
+                String originalMVSql = view.getOriginalSql();
+                String originalSql = SqlFormatterUtil.getFormattedSql(statement, sqlParser, Optional.empty());
+                String newSql = originalSql + " Union " + originalMVSql;
+                System.out.println("New generated SQL is: " + newSql);
+                Query query = parseView(newSql, name, table);
+
+                analysis.registerNamedQuery(table, query);
+
+                analysis.registerTableForView(table);
+                RelationType descriptor = analyzeView(query, name, view.getCatalog(), Optional.of(view.getSchema()), view.getOwner(), table);
+                analysis.unregisterTableForView();
+
+                ImmutableList.Builder<Field> fields = ImmutableList.builder();
+
+                List<ViewDefinition.ViewColumn> columns = analysis.getOutputDescriptor(query)
+                        .getVisibleFields().stream()
+                        .map(field -> new ViewDefinition.ViewColumn(field.getName().get(), field.getType()))
+                        .collect(toImmutableList());
+
+                List<Field> outputFields = columns.stream()
+                        .map(column -> Field.newQualified(
+                                table.getName(),
+                                Optional.of(column.getName()),
+                                column.getType(),
+                                false,
+                                Optional.of(name),
+                                Optional.of(column.getName()),
+                                false))
+                        .collect(toImmutableList());
+
+                return createAndAssignScope(table, scope, outputFields);
             }
 
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, name);

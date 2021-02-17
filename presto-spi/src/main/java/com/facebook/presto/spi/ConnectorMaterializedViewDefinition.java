@@ -105,7 +105,6 @@ public final class ConnectorMaterializedViewDefinition
         this.viewToBaseColumnMap = Optional.of(unmodifiableMap(new HashMap<>(requireNonNull(viewToBaseColumnMap, "viewToBaseColumnMap is null"))));
     }
 
-
     @Override
     public String toString()
     {

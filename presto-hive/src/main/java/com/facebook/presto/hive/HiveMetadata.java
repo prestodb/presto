@@ -269,6 +269,7 @@ import static com.facebook.presto.hive.PartitionUpdate.UpdateMode.OVERWRITE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.toHivePrivilege;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.AVRO_SCHEMA_URL_KEY;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_DEPENDENT_MATERIALIZED_VIEW_LIST;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZED_VIEW_DATA;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_MATERIALIZED_VIEW_FLAG;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VIEW_FLAG;
@@ -2249,6 +2250,7 @@ public class HiveMetadata
         if (table.isPresent() && MetastoreUtil.isPrestoMaterializedView(table.get())) {
             try {
                 JsonCodec<ConnectorMaterializedViewDefinition> codec = JsonCodec.jsonCodec(ConnectorMaterializedViewDefinition.class);
+//                return Optional.of(codec.fromJson(decodeViewData(table.get().getParameters().get(PRESTO_MATERIALIZED_VIEW_DATA))));
                 return Optional.of(codec.fromJson(decodeViewData(table.get().getViewOriginalText().get())));
             }
             catch (IllegalArgumentException e) {

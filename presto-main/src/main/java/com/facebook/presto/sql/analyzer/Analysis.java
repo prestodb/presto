@@ -658,6 +658,12 @@ public class Analysis
         return tablesForView.contains(tableReference);
     }
 
+    public boolean hasTableInMaterializedView(Table tableReference)
+    {
+        return tablesForView.contains(tableReference);
+    }
+
+
     public void setSampleRatio(SampledRelation relation, double ratio)
     {
         sampleRatios.put(NodeRef.of(relation), ratio);
