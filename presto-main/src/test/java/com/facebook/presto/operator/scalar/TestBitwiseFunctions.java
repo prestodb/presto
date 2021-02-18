@@ -16,6 +16,9 @@ package com.facebook.presto.operator.scalar;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
@@ -130,5 +133,78 @@ public class TestBitwiseFunctions
         assertFunction(format("bitwise_arithmetic_shift_right(%s, 62)", 0xF0000F0000F00000L), BIGINT, -1L);
 
         assertInvalidFunction("bitwise_arithmetic_shift_right(7, -3)", INVALID_FUNCTION_ARGUMENT);
+    }
+
+    @Test
+    public void testBitwiseLeftShift()
+    {
+        assertFunction("bitwise_left_shift(TINYINT'7', 2)", TINYINT, (byte) (7 << 2));
+        assertFunction("bitwise_left_shift(TINYINT '-7', 2)", TINYINT, (byte) (-7 << 2));
+        assertFunction("bitwise_left_shift(TINYINT '1', 7)", TINYINT, (byte) (1 << 7));
+        assertFunction("bitwise_left_shift(TINYINT '-128', 1)", TINYINT, (byte) 0);
+        assertFunction("bitwise_left_shift(TINYINT '-65', 1)", TINYINT, (byte) (-65 << 1));
+        assertFunction("bitwise_left_shift(TINYINT '-7', 64)", TINYINT, (byte) 0);
+        assertFunction("bitwise_left_shift(TINYINT '-128', 0)", TINYINT, (byte) -128);
+        assertFunction("bitwise_left_shift(SMALLINT '7', 2)", SMALLINT, (short) (7 << 2));
+        assertFunction("bitwise_left_shift(SMALLINT '-7', 2)", SMALLINT, (short) (-7 << 2));
+        assertFunction("bitwise_left_shift(SMALLINT '1', 7)", SMALLINT, (short) (1 << 7));
+        assertFunction("bitwise_left_shift(SMALLINT '-32768', 1)", SMALLINT, (short) 0);
+        assertFunction("bitwise_left_shift(SMALLINT '-65', 1)", SMALLINT, (short) (-65 << 1));
+        assertFunction("bitwise_left_shift(SMALLINT '-7', 64)", SMALLINT, (short) 0);
+        assertFunction("bitwise_left_shift(SMALLINT '-32768', 0)", SMALLINT, (short) -32768);
+        assertFunction("bitwise_left_shift(INTEGER '7', 2)", INTEGER, 7 << 2);
+        assertFunction("bitwise_left_shift(INTEGER '-7', 2)", INTEGER, -7 << 2);
+        assertFunction("bitwise_left_shift(INTEGER '1', 7)", INTEGER, 1 << 7);
+        assertFunction("bitwise_left_shift(INTEGER '-2147483648', 1)", INTEGER, 0);
+        assertFunction("bitwise_left_shift(INTEGER '-65', 1)", INTEGER, -65 << 1);
+        assertFunction("bitwise_left_shift(INTEGER '-7', 64)", INTEGER, 0);
+        assertFunction("bitwise_left_shift(INTEGER '-2147483648', 0)", INTEGER, -2147483648);
+        assertFunction("bitwise_left_shift(BIGINT '7', 2)", BIGINT, 7L << 2);
+        assertFunction("bitwise_left_shift(BIGINT '-7', 2)", BIGINT, -7L << 2);
+        assertFunction("bitwise_left_shift(BIGINT '-7', 64)", BIGINT, 0L);
+    }
+
+    @Test
+    public void testBitwiseRightShift()
+    {
+        assertFunction("bitwise_right_shift(TINYINT '7', 2)", TINYINT, (byte) (7 >>> 2));
+        assertFunction("bitwise_right_shift(TINYINT '-7', 2)", TINYINT, (byte) 62);
+        assertFunction("bitwise_right_shift(TINYINT '-7', 64)", TINYINT, (byte) 0);
+        assertFunction("bitwise_right_shift(TINYINT '-128', 0)", TINYINT, (byte) -128);
+        assertFunction("bitwise_right_shift(SMALLINT '7', 2)", SMALLINT, (short) (7 >>> 2));
+        assertFunction("bitwise_right_shift(SMALLINT '-7', 2)", SMALLINT, (short) 16382);
+        assertFunction("bitwise_right_shift(SMALLINT '-7', 64)", SMALLINT, (short) 0);
+        assertFunction("bitwise_right_shift(SMALLINT '-32768', 0)", SMALLINT, (short) -32768);
+        assertFunction("bitwise_right_shift(INTEGER '7', 2)", INTEGER, 7 >>> 2);
+        assertFunction("bitwise_right_shift(INTEGER '-7', 2)", INTEGER, 1073741822);
+        assertFunction("bitwise_right_shift(INTEGER '-7', 64)", INTEGER, 0);
+        assertFunction("bitwise_right_shift(INTEGER '-2147483648', 0)", INTEGER, -2147483648);
+        assertFunction("bitwise_right_shift(BIGINT '7', 2)", BIGINT, 7L >>> 2);
+        assertFunction("bitwise_right_shift(BIGINT '-7', 2)", BIGINT, -7L >>> 2);
+        assertFunction("bitwise_right_shift(BIGINT '-7', 64)", BIGINT, 0L);
+    }
+
+    @Test
+    public void testBitwiseRightShiftArithmetic()
+    {
+        assertFunction("bitwise_right_shift_arithmetic(TINYINT '7', 2)", TINYINT, (byte) (7 >> 2));
+        assertFunction("bitwise_right_shift_arithmetic(TINYINT '-7', 2)", TINYINT, (byte) (-7 >> 2));
+        assertFunction("bitwise_right_shift_arithmetic(TINYINT '7', 64)", TINYINT, (byte) 0);
+        assertFunction("bitwise_right_shift_arithmetic(TINYINT '-7', 64)", TINYINT, (byte) -1);
+        assertFunction("bitwise_right_shift_arithmetic(TINYINT '-128', 0)", TINYINT, (byte) -128);
+        assertFunction("bitwise_right_shift_arithmetic(SMALLINT '7', 2)", SMALLINT, (short) (7 >> 2));
+        assertFunction("bitwise_right_shift_arithmetic(SMALLINT '-7', 2)", SMALLINT, (short) (-7 >> 2));
+        assertFunction("bitwise_right_shift_arithmetic(SMALLINT '7', 64)", SMALLINT, (short) 0);
+        assertFunction("bitwise_right_shift_arithmetic(SMALLINT '-7', 64)", SMALLINT, (short) -1);
+        assertFunction("bitwise_right_shift_arithmetic(SMALLINT '-32768', 0)", SMALLINT, (short) -32768);
+        assertFunction("bitwise_right_shift_arithmetic(INTEGER '7', 2)", INTEGER, (7 >> 2));
+        assertFunction("bitwise_right_shift_arithmetic(INTEGER '-7', 2)", INTEGER, -7 >> 2);
+        assertFunction("bitwise_right_shift_arithmetic(INTEGER '7', 64)", INTEGER, 0);
+        assertFunction("bitwise_right_shift_arithmetic(INTEGER '-7', 64)", INTEGER, -1);
+        assertFunction("bitwise_right_shift_arithmetic(INTEGER '-2147483648', 0)", INTEGER, -2147483648);
+        assertFunction("bitwise_right_shift_arithmetic(BIGINT '7', 2)", BIGINT, 7L >> 2);
+        assertFunction("bitwise_right_shift_arithmetic(BIGINT '-7', 2)", BIGINT, -7L >> 2);
+        assertFunction("bitwise_right_shift_arithmetic(BIGINT '7', 64)", BIGINT, 0L);
+        assertFunction("bitwise_right_shift_arithmetic(BIGINT '-7', 64)", BIGINT, -1L);
     }
 }
