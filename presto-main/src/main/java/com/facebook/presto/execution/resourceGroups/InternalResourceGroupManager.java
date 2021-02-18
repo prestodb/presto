@@ -303,7 +303,7 @@ public final class InternalResourceGroupManager<C>
     private static int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
     {
         if (resourceGroup.subGroups().isEmpty()) {
-            return Math.min(resourceGroup.getQueuedQueries(), resourceGroup.getSoftConcurrencyLimit() - resourceGroup.getRunningQueries());
+            return Math.max(Math.min(resourceGroup.getQueuedQueries(), resourceGroup.getSoftConcurrencyLimit() - resourceGroup.getRunningQueries()), 0);
         }
 
         int queriesQueuedInternal = 0;
