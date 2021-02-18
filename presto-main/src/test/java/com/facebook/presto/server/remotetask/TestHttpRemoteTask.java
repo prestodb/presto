@@ -502,7 +502,8 @@ public class TestHttpRemoteTask
                     initialTaskInfo.getNoMoreSplits(),
                     initialTaskInfo.getStats(),
                     initialTaskInfo.isNeedsPlan(),
-                    initialTaskInfo.getMetadataUpdates());
+                    initialTaskInfo.getMetadataUpdates(),
+                    initialTaskInfo.getNodeId());
         }
 
         private TaskStatus buildTaskStatus()

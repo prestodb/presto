@@ -374,7 +374,8 @@ public class SqlTask
                 noMoreSplits,
                 taskStats,
                 needsPlan.get(),
-                metadataRequests);
+                metadataRequests,
+                nodeId);
     }
 
     public ListenableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)
