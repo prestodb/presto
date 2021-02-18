@@ -279,7 +279,8 @@ public class MockRemoteTaskFactory
                     ImmutableSet.of(),
                     taskContext.getTaskStats(),
                     true,
-                    DEFAULT_METADATA_UPDATES);
+                    DEFAULT_METADATA_UPDATES,
+                    nodeId);
         }
 
         @Override
