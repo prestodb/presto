@@ -698,7 +698,8 @@ public class PrestoSparkTaskExecutorFactory
                     ImmutableSet.of(),
                     taskStats,
                     false,
-                    DEFAULT_METADATA_UPDATES);
+                    DEFAULT_METADATA_UPDATES,
+                    "");
         }
     }
 
