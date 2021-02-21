@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import org.objectweb.asm.Type;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,7 +33,7 @@ public class Scope
 {
     private final Map<String, Variable> variables = new TreeMap<>();
     private final List<Variable> allVariables = new ArrayList<>();
-
+    private final Map<Class<?>, Variable> singletonVariables = new HashMap<>();
     private final Variable thisVariable;
 
     private int nextTempVariableId;
@@ -67,6 +68,18 @@ public class Scope
         nextTempVariableId += Type.getType(type(type).getType()).getSize();
 
         allVariables.add(variable);
+
+        return variable;
+    }
+
+    public Variable getSingletonVariable(BytecodeBlock block, Class<?> clazz)
+    {
+        Variable variable = singletonVariables.get(clazz);
+        if (variable == null) {
+            variable = createTempVariable(clazz);
+            block.initializeVariable(variable);
+            singletonVariables.put(clazz, variable);
+        }
 
         return variable;
     }
