@@ -1210,10 +1210,6 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("IF(false, 1.01, 1.02)", "1.02");
         assertOptimizedEquals("IF(true, 1234567890.123, 1.02)", "1234567890.123");
         assertOptimizedEquals("IF(false, 1.01, 1234567890.123)", "1234567890.123");
-
-        // todo optimize case statement
-        assertOptimizedEquals("IF(unbound_boolean, 1 + 2, 3 + 4)", "CASE WHEN unbound_boolean THEN (1 + 2) ELSE (3 + 4) END");
-        assertOptimizedEquals("IF(unbound_boolean, BIGINT '1' + 2, 3 + 4)", "CASE WHEN unbound_boolean THEN (BIGINT '1' + 2) ELSE (3 + 4) END");
     }
 
     @Test
@@ -1351,9 +1347,6 @@ public class TestExpressionInterpreter
     @Test
     public void testFailedExpressionOptimization()
     {
-        assertOptimizedEquals("if(unbound_boolean, 1, 0 / 0)", "CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0 END");
-        assertOptimizedEquals("if(unbound_boolean, 0 / 0, 1)", "CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END");
-
         assertOptimizedMatches("CASE unbound_long WHEN 1 THEN 1 WHEN 0 / 0 THEN 2 END",
                 "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN cast(fail(8, 'ignored failure message') as bigint) THEN 2 END");
 
