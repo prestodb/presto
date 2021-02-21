@@ -24,7 +24,7 @@
         <process-name>${project.artifactId}</process-name>
 
         <beanutils.version>1.9.4</beanutils.version>
-        <netty.version>4.1.44.Final</netty.version>
+        <netty.version>4.1.50.Final</netty.version>
         <plexus.version>3.0.24</plexus.version>
     </properties>
 
@@ -290,17 +290,11 @@
             <scope>provided</scope>
         </dependency>
 
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
-            <version>${netty.version}</version>
-        </dependency>
-
         <!-- Force newer version of netty because older 4.1.x versions have some CVEs -->
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
-            <version>4.1.50.Final</version>
+            <version>${netty.version}</version>
         </dependency>
 
         <dependency>

@@ -65,7 +65,7 @@
         <dep.alluxio.version>2.1.2</dep.alluxio.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.druid.version>0.17.0</dep.druid.version>
-        <dep.jackson.version>2.10.1</dep.jackson.version>
+        <dep.jackson.version>2.10.5</dep.jackson.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -162,6 +162,32 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- The packaged version of slf4j at 1.7.25 has some
+                 CVEs, so update to latest in the 1.7.x line -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-jdk14</artifactId>
+                <version>1.7.30</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>log4j-over-slf4j</artifactId>
+                <version>1.7.30</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jcl-over-slf4j</artifactId>
+                <version>1.7.30</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>1.7.30</version>
+            </dependency>
+
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-testing-docker</artifactId>
@@ -674,6 +700,29 @@
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>jaxrs</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <!-- Exclude jersey because this version has some CVEs -->
+                    <exclusion>
+                        <groupId>org.glassfish.jersey.core</groupId>
+                        <artifactId>jersey-common</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.glassfish.jersey.core</groupId>
+                        <artifactId>jersey-server</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.glassfish.jersey.core</groupId>
+                        <artifactId>jersey-client</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.glassfish.jersey.media</groupId>
+                        <artifactId>jersey-media-jaxb</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.glassfish.hk2</groupId>
+                        <artifactId>osgi-resource-locator</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1015,6 +1064,14 @@
                         <artifactId>kryo-shaded</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <!-- Explicitly fetch a newer version of databind
+                 to fix a CVE -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>2.10.5.1</version>
             </dependency>
 
             <dependency>

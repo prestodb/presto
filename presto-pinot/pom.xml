@@ -20,6 +20,25 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-pinot-toolkit</artifactId>
+            <exclusions>
+                <!-- Exclude jersey because this version has some CVEs -->
+                <exclusion>
+                    <groupId>org.glassfish.jersey.core</groupId>
+                    <artifactId>jersey-common</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.core</groupId>
+                    <artifactId>jersey-server</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.core</groupId>
+                    <artifactId>jersey-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jersey.media</groupId>
+                    <artifactId>jersey-media-jaxb</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
