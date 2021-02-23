@@ -39,7 +39,8 @@ import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.orc.writer.ColumnWriter;
-import com.facebook.presto.orc.writer.SliceDictionaryColumnWriter;
+import com.facebook.presto.orc.writer.DictionaryColumnWriter;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -229,7 +230,7 @@ public class OrcWriter
         OrcType rootType = orcTypes.get(0);
         checkArgument(rootType.getFieldCount() == types.size());
         ImmutableList.Builder<ColumnWriter> columnWriters = ImmutableList.builder();
-        ImmutableSet.Builder<SliceDictionaryColumnWriter> sliceColumnWriters = ImmutableSet.builder();
+        ImmutableSet.Builder<DictionaryColumnWriter> dictionaryColumnWriters = ImmutableSet.builder();
         for (int fieldId = 0; fieldId < types.size(); fieldId++) {
             int fieldColumnIndex = rootType.getFieldTypeIndex(fieldId);
             Type fieldType = types.get(fieldId);
@@ -242,16 +243,17 @@ public class OrcWriter
                     hiveStorageTimeZone,
                     options.getMaxStringStatisticsLimit(),
                     dwrfEncryptionInfo,
-                    orcEncoding.createMetadataWriter());
+                    orcEncoding.createMetadataWriter(),
+                    options.isIntegerDictionaryEncodingEnabled());
             columnWriters.add(columnWriter);
 
-            if (columnWriter instanceof SliceDictionaryColumnWriter) {
-                sliceColumnWriters.add((SliceDictionaryColumnWriter) columnWriter);
+            if (columnWriter instanceof DictionaryColumnWriter) {
+                dictionaryColumnWriters.add((DictionaryColumnWriter) columnWriter);
             }
             else {
                 for (ColumnWriter nestedColumnWriter : columnWriter.getNestedColumnWriters()) {
-                    if (nestedColumnWriter instanceof SliceDictionaryColumnWriter) {
-                        sliceColumnWriters.add((SliceDictionaryColumnWriter) nestedColumnWriter);
+                    if (nestedColumnWriter instanceof DictionaryColumnWriter) {
+                        dictionaryColumnWriters.add((DictionaryColumnWriter) nestedColumnWriter);
                     }
                 }
             }
@@ -260,7 +262,7 @@ public class OrcWriter
         this.dictionaryMaxMemoryBytes = toIntExact(
                 requireNonNull(options.getDictionaryMaxMemory(), "dictionaryMaxMemory is null").toBytes());
         this.dictionaryCompressionOptimizer = new DictionaryCompressionOptimizer(
-                sliceColumnWriters.build(),
+                dictionaryColumnWriters.build(),
                 stripeMinBytes,
                 stripeMaxBytes,
                 stripeMaxRowCount,
@@ -272,6 +274,18 @@ public class OrcWriter
 
         this.previouslyRecordedSizeInBytes = getRetainedBytes();
         stats.updateSizeInBytes(previouslyRecordedSizeInBytes);
+    }
+
+    @VisibleForTesting
+    List<ColumnWriter> getColumnWriters()
+    {
+        return columnWriters;
+    }
+
+    @VisibleForTesting
+    DictionaryCompressionOptimizer getDictionaryCompressionOptimizer()
+    {
+        return dictionaryCompressionOptimizer;
     }
 
     /**

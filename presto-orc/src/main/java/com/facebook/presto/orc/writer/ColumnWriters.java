@@ -47,7 +47,8 @@ public final class ColumnWriters
             DateTimeZone hiveStorageTimeZone,
             DataSize stringStatisticsLimit,
             DwrfEncryptionInfo dwrfEncryptors,
-            MetadataWriter metadataWriter)
+            MetadataWriter metadataWriter,
+            boolean integerDictionaryEncodingEnabled)
     {
         requireNonNull(type, "type is null");
         OrcType orcType = orcTypes.get(columnIndex);
@@ -70,8 +71,13 @@ public final class ColumnWriters
                 return new LongColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, DateStatisticsBuilder::new, metadataWriter);
 
             case SHORT:
+                return new LongColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
             case INT:
             case LONG:
+                if (integerDictionaryEncodingEnabled && orcEncoding == DWRF) {
+                    // ORC V1 does not support Integer Dictionary encoding. DWRF supports Integer dictionary encoding.
+                    return new LongDictionaryColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, metadataWriter);
+                }
                 return new LongColumnWriter(columnIndex, type, compressionParameters, dwrfEncryptor, orcEncoding, IntegerStatisticsBuilder::new, metadataWriter);
 
             case DECIMAL:
@@ -103,7 +109,8 @@ public final class ColumnWriters
                         hiveStorageTimeZone,
                         stringStatisticsLimit,
                         dwrfEncryptors,
-                        metadataWriter);
+                        metadataWriter,
+                        integerDictionaryEncodingEnabled);
                 return new ListColumnWriter(columnIndex, compressionParameters, dwrfEncryptor, orcEncoding, elementWriter, metadataWriter);
             }
 
@@ -117,7 +124,8 @@ public final class ColumnWriters
                         hiveStorageTimeZone,
                         stringStatisticsLimit,
                         dwrfEncryptors,
-                        metadataWriter);
+                        metadataWriter,
+                        integerDictionaryEncodingEnabled);
                 ColumnWriter valueWriter = createColumnWriter(
                         orcType.getFieldTypeIndex(1),
                         orcTypes,
@@ -127,7 +135,8 @@ public final class ColumnWriters
                         hiveStorageTimeZone,
                         stringStatisticsLimit,
                         dwrfEncryptors,
-                        metadataWriter);
+                        metadataWriter,
+                        integerDictionaryEncodingEnabled);
                 return new MapColumnWriter(columnIndex, compressionParameters, dwrfEncryptor, orcEncoding, keyWriter, valueWriter, metadataWriter);
             }
 
@@ -145,7 +154,8 @@ public final class ColumnWriters
                             hiveStorageTimeZone,
                             stringStatisticsLimit,
                             dwrfEncryptors,
-                            metadataWriter));
+                            metadataWriter,
+                            integerDictionaryEncodingEnabled));
                 }
                 return new StructColumnWriter(columnIndex, compressionParameters, dwrfEncryptor, fieldWriters.build(), metadataWriter);
             }
