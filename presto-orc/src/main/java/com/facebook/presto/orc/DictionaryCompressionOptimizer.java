@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.orc;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Longs;
@@ -177,7 +178,8 @@ public class DictionaryCompressionOptimizer
         }
     }
 
-    private int convertLowCompressionStreams(int bufferedBytes)
+    @VisibleForTesting
+    int convertLowCompressionStreams(int bufferedBytes)
     {
         // convert all low compression column to direct
         for (DictionaryColumnManager dictionaryWriter : ImmutableList.copyOf(directConversionCandidates)) {
@@ -332,12 +334,13 @@ public class DictionaryCompressionOptimizer
         OptionalInt tryConvertToDirect(int maxDirectBytes);
 
         long getBufferedBytes();
+
+        boolean isDirectEncoded();
     }
 
     private static class DictionaryColumnManager
     {
         private final DictionaryColumn dictionaryColumn;
-        private boolean directEncoded;
 
         private int rowCount;
 
@@ -354,17 +357,11 @@ public class DictionaryCompressionOptimizer
 
         OptionalInt tryConvertToDirect(int maxDirectBytes)
         {
-            OptionalInt directBytes = dictionaryColumn.tryConvertToDirect(maxDirectBytes);
-            if (directBytes.isPresent()) {
-                directEncoded = true;
-            }
-            return directBytes;
+            return dictionaryColumn.tryConvertToDirect(maxDirectBytes);
         }
 
         void reset()
         {
-            directEncoded = false;
-
             pastValueCount = 0;
             pastDictionaryEntries = 0;
 
@@ -387,25 +384,25 @@ public class DictionaryCompressionOptimizer
 
         public long getRawBytes()
         {
-            checkState(!directEncoded);
+            checkState(!isDirectEncoded());
             return dictionaryColumn.getRawBytes();
         }
 
         public double getRawBytesPerRow()
         {
-            checkState(!directEncoded);
+            checkState(!isDirectEncoded());
             return 1.0 * getRawBytes() / rowCount;
         }
 
         public int getDictionaryBytes()
         {
-            checkState(!directEncoded);
+            checkState(!isDirectEncoded());
             return dictionaryColumn.getDictionaryBytes();
         }
 
         public double getDictionaryBytesPerFutureRow()
         {
-            checkState(!directEncoded);
+            checkState(!isDirectEncoded());
 
             int currentDictionaryEntries = dictionaryColumn.getDictionaryEntries();
             long currentValueCount = dictionaryColumn.getValueCount();
@@ -422,20 +419,24 @@ public class DictionaryCompressionOptimizer
 
         public int getIndexBytes()
         {
-            checkState(!directEncoded);
+            checkState(!isDirectEncoded());
             return dictionaryColumn.getIndexBytes();
         }
 
         public double getIndexBytesPerRow()
         {
-            checkState(!directEncoded);
+            checkState(!isDirectEncoded());
             return 1.0 * getIndexBytes() / rowCount;
         }
 
         public double getCompressionRatio()
         {
-            checkState(!directEncoded);
-            return 1.0 * getRawBytes() / getBufferedBytes();
+            checkState(!isDirectEncoded());
+            long bufferedBytes = getBufferedBytes();
+            if (bufferedBytes == 0) {
+                return 0;
+            }
+            return 1.0 * getRawBytes() / bufferedBytes;
         }
 
         public long getBufferedBytes()
@@ -445,7 +446,7 @@ public class DictionaryCompressionOptimizer
 
         public boolean isDirectEncoded()
         {
-            return directEncoded;
+            return dictionaryColumn.isDirectEncoded();
         }
     }
 
