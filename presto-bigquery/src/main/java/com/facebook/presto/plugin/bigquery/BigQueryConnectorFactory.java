@@ -48,19 +48,24 @@ public class BigQueryConnectorFactory
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
 
-        Bootstrap app = new Bootstrap(
-                new JsonModule(),
-                new BigQueryConnectorModule(context.getNodeManager()),
-                binder -> {
-                    binder.bind(TypeManager.class).toInstance(context.getTypeManager());
-                    binder.bind(NodeManager.class).toInstance(context.getNodeManager());
-                });
+        try {
+            Bootstrap app = new Bootstrap(
+                    new JsonModule(),
+                    new BigQueryConnectorModule(context.getNodeManager()),
+                    binder -> {
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                    });
 
-        Injector injector = app.noStrictConfig()
-                .doNotInitializeLogging()
-                .setRequiredConfigurationProperties(config)
-                .initialize();
+            Injector injector = app.noStrictConfig()
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(config)
+                    .initialize();
 
-        return injector.getInstance(BigQueryConnector.class);
+            return injector.getInstance(BigQueryConnector.class);
+        }
+        catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
     }
 }
