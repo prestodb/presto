@@ -525,10 +525,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private void registerBuiltInTypes()
     {
-        // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
-        this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
-
         // always add the built-in types; Presto will not function without these
+        addType(UNKNOWN);
         addType(BOOLEAN);
         addType(BIGINT);
         addType(INTEGER);
