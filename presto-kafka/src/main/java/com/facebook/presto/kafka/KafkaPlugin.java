@@ -18,6 +18,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
+import com.google.inject.util.Modules;
 
 import java.util.Map;
 import java.util.Optional;
@@ -31,7 +33,18 @@ import static java.util.Objects.requireNonNull;
 public class KafkaPlugin
         implements Plugin
 {
+    private final Module extension;
     private Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier = Optional.empty();
+
+    public KafkaPlugin()
+    {
+        this(Modules.EMPTY_MODULE);
+    }
+
+    public KafkaPlugin(Module extension)
+    {
+        this.extension = requireNonNull(extension, "extension is null");
+    }
 
     @VisibleForTesting
     public synchronized void setTableDescriptionSupplier(Supplier<Map<SchemaTableName, KafkaTopicDescription>> tableDescriptionSupplier)
@@ -42,6 +55,6 @@ public class KafkaPlugin
     @Override
     public synchronized Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new KafkaConnectorFactory(tableDescriptionSupplier));
+        return ImmutableList.of(new KafkaConnectorFactory(extension, tableDescriptionSupplier));
     }
 }
