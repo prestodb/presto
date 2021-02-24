@@ -23,6 +23,7 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.inject.Injector;
+import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 
@@ -39,10 +40,12 @@ import static java.util.Objects.requireNonNull;
 public class KafkaConnectorFactory
         implements ConnectorFactory
 {
+    private final Module extension;
     private final Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier;
 
-    KafkaConnectorFactory(Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier)
+    KafkaConnectorFactory(Module extension, Optional<Supplier<Map<SchemaTableName, KafkaTopicDescription>>> tableDescriptionSupplier)
     {
+        this.extension = requireNonNull(extension, "extension is null");
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
     }
 
@@ -68,6 +71,7 @@ public class KafkaConnectorFactory
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
                     new KafkaConnectorModule(),
+                    extension,
                     binder -> {
                         binder.bind(KafkaConnectorId.class).toInstance(new KafkaConnectorId(catalogName));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
