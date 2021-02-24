@@ -281,4 +281,3 @@ jobs:
           $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
       - name: Maven Tests
         run: $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-spark-launcher,presto-spark-package,presto-spark-testing -P test-presto-spark-integration-smoke-test
-
