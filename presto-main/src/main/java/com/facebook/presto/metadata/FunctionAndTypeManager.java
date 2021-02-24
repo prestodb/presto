@@ -196,12 +196,12 @@ public class FunctionAndTypeManager
     public Type getType(TypeSignature signature)
     {
         if (signature.getTypeSignatureBase().hasStandardType()) {
-            Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
+            Optional<TypeWithName> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
                 if (signature.getTypeSignatureBase().hasTypeName()) {
-                    return new TypeWithName(signature.getTypeSignatureBase().getTypeName(), type.get());
+                    return new TypeWithName(signature.getTypeSignatureBase().getTypeName(), type.get().getType());
                 }
-                return type.get();
+                return type.get().getType();
             }
         }
 

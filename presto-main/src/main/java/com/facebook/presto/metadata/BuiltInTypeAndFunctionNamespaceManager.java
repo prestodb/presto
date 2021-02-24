@@ -21,11 +21,14 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.ParametricType;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeWithName;
+import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFunction;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
@@ -447,14 +450,14 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private final FunctionAndTypeManager functionAndTypeManager;
 
-    private final ConcurrentMap<TypeSignature, Type> types = new ConcurrentHashMap<>();
+    private final ConcurrentMap<TypeSignature, TypeWithName> types = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, ParametricType> parametricTypes = new ConcurrentHashMap<>();
 
     private final LoadingCache<Signature, SpecializedFunctionKey> specializedFunctionKeyCache;
     private final LoadingCache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final LoadingCache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
     private final LoadingCache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
-    private final LoadingCache<TypeSignature, Type> parametricTypeCache;
+    private final LoadingCache<TypeSignature, TypeWithName> parametricTypeCache;
     private final MagicLiteralFunction magicLiteralFunction;
 
     private volatile FunctionMap functions = new FunctionMap();
@@ -525,10 +528,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private void registerBuiltInTypes()
     {
-        // Manually register UNKNOWN type without a verifyTypeClass call since it is a special type that can not be used by functions
-        this.types.put(UNKNOWN.getTypeSignature(), UNKNOWN);
-
         // always add the built-in types; Presto will not function without these
+        addType(UNKNOWN);
         addType(BOOLEAN);
         addType(BIGINT);
         addType(INTEGER);
@@ -1051,9 +1052,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
     }
 
-    public Optional<Type> getType(TypeSignature typeSignature)
+    public Optional<TypeWithName> getType(TypeSignature typeSignature)
     {
-        Type type = types.get(typeSignature);
+        TypeWithName type = types.get(typeSignature);
         if (type != null) {
             return Optional.of(type);
         }
@@ -1074,7 +1075,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
     public void addType(Type type)
     {
         requireNonNull(type, "type is null");
-        Type existingType = types.putIfAbsent(type.getTypeSignature(), type);
+        if (types.containsKey(type.getTypeSignature())) {
+            throw new IllegalStateException(format("Type %s is already registered", type));
+        }
+        Type existingType = types.putIfAbsent(type.getTypeSignature(), new TypeWithName(type));
         checkState(existingType == null || existingType.equals(type), "Type %s is already registered", type);
     }
 
@@ -1090,7 +1094,16 @@ public class BuiltInTypeAndFunctionNamespaceManager
         return parametricTypes.values();
     }
 
-    private Type instantiateParametricType(TypeSignature signature)
+    private TypeWithName toTypeWithName(Type type)
+    {
+        if (type.getTypeParameters().isEmpty()) {
+            return new TypeWithName(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, type.getTypeSignature().toString()), type);
+        }
+        String name = type.getTypeSignature().toString().replaceAll("[\\(\\),]", "_");
+        return new TypeWithName(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name), type);
+    }
+
+    private TypeWithName instantiateParametricType(TypeSignature signature)
     {
         List<TypeParameter> parameters = new ArrayList<>();
 
@@ -1105,14 +1118,14 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
 
         if (parametricType instanceof MapParametricType) {
-            return ((MapParametricType) parametricType).createType(functionAndTypeManager, parameters);
+            return new TypeWithName(((MapParametricType) parametricType).createType(functionAndTypeManager, parameters));
         }
 
         Type instantiatedType = parametricType.createType(parameters);
 
         // TODO: reimplement this check? Currently "varchar(Integer.MAX_VALUE)" fails with "varchar"
         //checkState(instantiatedType.equalsSignature(signature), "Instantiated parametric type name (%s) does not match expected name (%s)", instantiatedType, signature);
-        return instantiatedType;
+        return new TypeWithName(instantiatedType);
     }
 
     private SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)

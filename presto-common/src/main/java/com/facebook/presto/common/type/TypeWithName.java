@@ -29,17 +29,24 @@ import static java.util.Objects.requireNonNull;
 public class TypeWithName
         implements Type
 {
-    private final QualifiedObjectName name;
+    private final String name;
     private final Type type;
     private final TypeSignature typeSignature;
 
     public TypeWithName(QualifiedObjectName name, Type type)
     {
-        this.name = requireNonNull(name, "name is null");
+        this.name = requireNonNull(name, "name is null").toString();
         this.type = requireNonNull(type, "type is null");
         this.typeSignature = new TypeSignature(new UserDefinedType(name, type.getTypeSignature()));
     }
 
+    public TypeWithName(Type type)
+    {
+        this.type = requireNonNull(type, "type is null");
+        this.name = type.getTypeSignature().toString();
+        this.typeSignature = type.getTypeSignature();
+
+    }
     @Override
     public TypeSignature getTypeSignature()
     {
@@ -49,7 +56,7 @@ public class TypeWithName
     @Override
     public String getDisplayName()
     {
-        return name.toString();
+        return name;
     }
 
     public Type getType()
