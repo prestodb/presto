@@ -121,7 +121,7 @@ jobs:
         run: presto-product-tests/bin/run_on_docker.sh singlenode-mysql -g mysql_connector,mysql
       - name: Product Tests Specific 2.4
         run: presto-product-tests/bin/run_on_docker.sh singlenode-postgresql -g postgresql_connector
-# Fails currently
+# Fails currently https://github.com/prestodb/presto/issues/15749
 #      - name: Product Tests Specific 2.5
 #        run: presto-product-tests/bin/run_on_docker.sh singlenode-cassandra -g cassandra
       - name: Product Tests Specific 2.6
