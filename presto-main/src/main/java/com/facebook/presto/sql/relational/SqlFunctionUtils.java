@@ -199,7 +199,10 @@ public final class SqlFunctionUtils
             @Override
             public Expression rewriteIdentifier(Identifier node, Map<Identifier, VariableReferenceExpression> context, ExpressionTreeRewriter<Map<Identifier, VariableReferenceExpression>> treeRewriter)
             {
-                return new SymbolReference(context.get(node).getName());
+                if (context.containsKey(node)) {
+                    return new SymbolReference(context.get(node).getName());
+                }
+                return node;
             }
         }, sqlFunction, variableMap);
     }

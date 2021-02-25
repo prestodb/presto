@@ -136,7 +136,7 @@ public class TestEnums
                 "SELECT MAP(ARRAY[test.enum.mood.HAPPY], ARRAY[1])",
                 singletonList(ImmutableList.of(ImmutableMap.of(0L, 1))));
 
-        assertQueryFails("SELECT test.enum.mood.hello", ".*No key 'HELLO' in enum 'test.enum.mood'");
+        assertQueryFails("SELECT test.enum.mood.hello", ".*'test.enum.mood.hello' cannot be resolved");
     }
 
     @Test
