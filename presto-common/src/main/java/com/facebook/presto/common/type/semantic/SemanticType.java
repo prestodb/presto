@@ -41,6 +41,11 @@ public abstract class SemanticType
         return new DistinctType(name, type);
     }
 
+    public static SemanticType from(Type type)
+    {
+        return new BuiltInType(type);
+    }
+
     @Override
     public TypeSignature getTypeSignature()
     {
