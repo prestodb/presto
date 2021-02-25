@@ -134,9 +134,9 @@ public final class ExpressionTreeUtils
             return Optional.empty();
         }
         try {
-            Type baseType = functionAndTypeManager.getType(parseTypeSignature(prefix.get().toString()));
-            if (baseType instanceof TypeWithName && ((TypeWithName) baseType).getType() instanceof EnumType) {
-                return Optional.of((TypeWithName) baseType);
+            TypeWithName baseType = functionAndTypeManager.getTypeWithName(parseTypeSignature(prefix.get().toString()));
+            if (baseType.getType() instanceof EnumType) {
+                return Optional.of(baseType);
             }
         }
         catch (IllegalArgumentException e) {
