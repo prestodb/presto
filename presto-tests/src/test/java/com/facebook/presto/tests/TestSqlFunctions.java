@@ -15,6 +15,9 @@ package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -32,7 +35,11 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
+import static com.facebook.presto.common.type.StandardTypes.BIGINT_ENUM;
+import static com.facebook.presto.common.type.StandardTypes.VARCHAR_ENUM;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -43,6 +50,22 @@ import static org.testng.Assert.assertEquals;
 public class TestSqlFunctions
         extends AbstractTestQueryFramework
 {
+    private static final UserDefinedType MOOD_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("testing.enum.mood"), new TypeSignature(
+            BIGINT_ENUM,
+            TypeSignatureParameter.of(new LongEnumMap("testing.enum.mood", ImmutableMap.of(
+                    "HAPPY", 0L,
+                    "SAD", 1L,
+                    "MELLOW", Long.MAX_VALUE,
+                    "curious", -2L)))));
+    private static final UserDefinedType COUNTRY_ENUM = new UserDefinedType(QualifiedObjectName.valueOf("testing.enum.country"), new TypeSignature(
+            VARCHAR_ENUM,
+            TypeSignatureParameter.of(new VarcharEnumMap("testing.enum.country", ImmutableMap.of(
+                    "US", "United States",
+                    "BAHAMAS", "The Bahamas",
+                    "FRANCE", "France",
+                    "CHINA", "中国",
+                    "भारत", "India")))));
+
     protected TestSqlFunctions()
     {
         super(TestSqlFunctions::createQueryRunner);
@@ -71,6 +94,9 @@ public class TestSqlFunctions
             queryRunner.createTestFunctionNamespace("testing", "common");
             queryRunner.createTestFunctionNamespace("testing", "test");
             queryRunner.createTestFunctionNamespace("example", "example");
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(MOOD_ENUM);
+            queryRunner.getMetadata().getFunctionAndTypeManager().addUserDefinedType(COUNTRY_ENUM);
+
             return queryRunner;
         }
         catch (Exception e) {
@@ -119,6 +145,26 @@ public class TestSqlFunctions
     {
         assertQuerySucceeds("CREATE FUNCTION TESTING.TEST.TAN (x int) RETURNS double RETURN sin(x) / cos(x)");
         assertQuerySucceeds("CREATE FUNCTION testing.test.tan (x double) RETURNS double LANGUAGE JAVA RETURN sin(x) / cos(x)");
+
+        // function with enums
+        assertQuerySucceeds("CREATE FUNCTION testing.test.is_china(country testing.enum.country) RETURNS boolean RETURN country = testing.enum.country.CHINA");
+        assertQuery("SELECT testing.test.is_china(testing.enum.country.CHINA)", "SELECT true");
+        assertQuery("SELECT testing.test.is_china(testing.enum.country.\"भारत\")", "SELECT false");
+
+        assertQuerySucceeds("CREATE FUNCTION testing.test.has_china(countries array<testing.enum.country>) RETURNS boolean RETURN any_match(countries, x -> x = testing.enum.country.CHINA)");
+        assertQuery("SELECT testing.test.has_china(array[testing.enum.country.US, testing.enum.country.FRANCE])", "SELECT false");
+        assertQuery("SELECT testing.test.has_china(array[testing.enum.country.US, testing.enum.country.FRANCE, testing.enum.country.china])", "SELECT true");
+
+        assertQuerySucceeds("CREATE FUNCTION testing.test.get_mood(x varchar) RETURNS testing.enum.mood RETURN if(x='foo', testing.enum.mood.happy, testing.enum.mood.curious)");
+        MaterializedResult rows = computeActual("SELECT testing.test.get_mood('foo')");
+        assertEquals(rows.getTypes().get(0).getDisplayName(), "testing.enum.mood");
+        assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), 0L);
+        rows = computeActual("SELECT testing.test.get_mood('bar')");
+        assertEquals(rows.getTypes().get(0).getDisplayName(), "testing.enum.mood");
+        assertEquals(rows.getMaterializedRows().get(0).getFields().get(0), -2L);
+
+        assertQueryFails("CREATE FUNCTION testing.test.invalid(e testing.enum.not_exist) RETURNS boolean RETURN e IS NOT NULL", ".*Type testing.enum.not_exist not found");
+        assertQueryFails("CREATE FUNCTION testing.test.is_uk(country testing.enum.country) RETURNS boolean RETURN country = testing.enum.country.UK", ".*'testing.enum.country.uk' cannot be resolved");
 
         // external function
         assertQuerySucceeds("CREATE FUNCTION testing.test.foo(x varchar) RETURNS varchar LANGUAGE JAVA EXTERNAL");

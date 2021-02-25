@@ -135,7 +135,9 @@ public final class ExpressionTreeUtils
         }
         try {
             Type baseType = functionAndTypeManager.getType(parseTypeSignature(prefix.get().toString()));
-            if (baseType instanceof TypeWithName && ((TypeWithName) baseType).getType() instanceof EnumType) {
+            if (baseType instanceof TypeWithName
+                    && ((TypeWithName) baseType).getType() instanceof EnumType
+                    && ((EnumType<?>) ((TypeWithName) baseType).getType()).getEnumMap().containsKey(qualifiedName.getSuffix().toUpperCase(ENGLISH))) {
                 return Optional.of((TypeWithName) baseType);
             }
         }
