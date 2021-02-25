@@ -215,6 +215,16 @@ public class FunctionAndTypeManager
         return getType(new TypeSignature(userDefinedType.get()));
     }
 
+    public SemanticType getSemanticType(TypeSignature signature)
+    {
+        Type type = getType(signature);
+        if (signature.getTypeSignatureBase().hasTypeName()) {
+            checkState(type instanceof SemanticType, "Expected SemanticType, get %s", type);
+            return (SemanticType) type;
+        }
+        return SemanticType.from(type);
+    }
+
     @Override
     public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
