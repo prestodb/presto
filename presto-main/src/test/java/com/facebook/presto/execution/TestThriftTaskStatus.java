@@ -31,7 +31,7 @@ import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -77,13 +77,7 @@ public class TestThriftTaskStatus
     public static final int TOTAL_CPU_TIME_IN_NANOS = 1002;
     public static final int TASK_AGE = 1003;
     public static final HostAddress REMOTE_HOST = HostAddress.fromParts("www.fake.invalid", 8080);
-    private TaskStatus taskStatus;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        taskStatus = getTaskStatus();
-    }
+    private static TaskStatus taskStatus;
 
     @DataProvider
     public Object[][] codecCombinations()
@@ -94,6 +88,12 @@ public class TestThriftTaskStatus
                 {REFLECTION_READ_CODEC, COMPILER_WRITE_CODEC},
                 {REFLECTION_READ_CODEC, REFLECTION_WRITE_CODEC}
         };
+    }
+
+    @BeforeTest
+    public void setup()
+    {
+        taskStatus = getTaskStatus();
     }
 
     @Test(dataProvider = "codecCombinations")

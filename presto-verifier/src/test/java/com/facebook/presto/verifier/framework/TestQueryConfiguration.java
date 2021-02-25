@@ -14,7 +14,7 @@
 package com.facebook.presto.verifier.framework;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -50,9 +50,9 @@ public class TestQueryConfiguration
             Optional.of(PASSWORD_OVERRIDE),
             Optional.of(SESSION_PROPERTIES_OVERRIDE));
 
-    private QueryConfigurationOverridesConfig overrides;
+    private static QueryConfigurationOverridesConfig overrides;
 
-    @BeforeMethod
+    @BeforeTest
     public void setup()
     {
         overrides = new QueryConfigurationOverridesConfig()

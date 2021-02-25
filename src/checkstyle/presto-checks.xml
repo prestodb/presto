@@ -91,6 +91,10 @@
         <property name="format" value="^[ \t]*import static org\.testng\.AssertJUnit\." />
         <property name="message" value="Use org.testng.Assert instead of org.testng.AssertJUnit" />
     </module>
+    <module name="RegexpMultiline">
+        <property name="format" value="(?&lt;!@Test\(singleThreaded[ ]?=[ ]?true\))\npublic class \w+\n\{\n(.*\n){0,200}\s+@BeforeMethod\n" />
+        <property name="message" value="@BeforeMethod cannot be used in a class that is not @Test(singleThreaded=true)" />
+    </module>
 
     <module name="SuppressWarningsFilter" />
 

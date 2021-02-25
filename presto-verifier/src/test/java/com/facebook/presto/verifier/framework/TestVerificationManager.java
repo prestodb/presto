@@ -29,7 +29,6 @@ import com.facebook.presto.verifier.rewrite.QueryRewriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -120,19 +119,13 @@ public class TestVerificationManager
             QUERY_CONFIGURATION);
     private static final VerifierConfig VERIFIER_CONFIG = new VerifierConfig().setTestId("test");
 
-    private MockEventClient eventClient;
-
-    @BeforeMethod
-    public void setup()
-    {
-        this.eventClient = new MockEventClient();
-    }
-
     // TODO(leiqing): Add a test where the first submission fails but resubmission succeeds.
     @Test
     public void testFailureResubmitted()
     {
-        VerificationManager manager = getVerificationManager(ImmutableList.of(SOURCE_QUERY), new MockPrestoAction(HIVE_PARTITION_DROPPED_DURING_QUERY), VERIFIER_CONFIG);
+        MockEventClient eventClient = new MockEventClient();
+        VerificationManager manager = getVerificationManager(ImmutableList.of(SOURCE_QUERY), new MockPrestoAction(HIVE_PARTITION_DROPPED_DURING_QUERY),
+                VERIFIER_CONFIG, eventClient);
         manager.start();
         assertEquals(manager.getQueriesSubmitted().get(), 3);
         assertEquals(eventClient.getEvents().size(), 1);
@@ -142,7 +135,9 @@ public class TestVerificationManager
     @Test
     public void testFailureNotSubmitted()
     {
-        VerificationManager manager = getVerificationManager(ImmutableList.of(SOURCE_QUERY), new MockPrestoAction(GENERIC_INTERNAL_ERROR), VERIFIER_CONFIG);
+        MockEventClient eventClient = new MockEventClient();
+        VerificationManager manager = getVerificationManager(ImmutableList.of(SOURCE_QUERY), new MockPrestoAction(GENERIC_INTERNAL_ERROR),
+                VERIFIER_CONFIG, eventClient);
         manager.start();
         assertEquals(manager.getQueriesSubmitted().get(), 1);
         assertEquals(eventClient.getEvents().size(), 1);
@@ -152,6 +147,7 @@ public class TestVerificationManager
     @Test
     public void testFilters()
     {
+        MockEventClient eventClient = new MockEventClient();
         List<SourceQuery> queries = ImmutableList.of(
                 createSourceQuery("q1", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
                 createSourceQuery("q2", "CREATE TABLE t1 (x int)", "CREATE TABLE t1 (x int)"),
@@ -165,7 +161,8 @@ public class TestVerificationManager
                 new VerifierConfig()
                         .setTestId("test")
                         .setWhitelist("q2,q3,q4,q5,q6")
-                        .setBlacklist("q2"));
+                        .setBlacklist("q2"),
+                eventClient);
         manager.start();
         assertEquals(manager.getQueriesSubmitted().get(), 0);
 
@@ -180,7 +177,9 @@ public class TestVerificationManager
     @Test
     public void testVerifierError()
     {
-        VerificationManager manager = getVerificationManager(ImmutableList.of(SOURCE_QUERY), new MockPrestoAction(new RuntimeException()), VERIFIER_CONFIG);
+        MockEventClient eventClient = new MockEventClient();
+        VerificationManager manager = getVerificationManager(ImmutableList.of(SOURCE_QUERY), new MockPrestoAction(new RuntimeException()),
+                VERIFIER_CONFIG, eventClient);
         manager.start();
 
         List<VerifierQueryEvent> events = eventClient.getEvents();
@@ -202,7 +201,8 @@ public class TestVerificationManager
         assertEquals(event.getSkippedReason(), skippedReason.name());
     }
 
-    private VerificationManager getVerificationManager(List<SourceQuery> sourceQueries, PrestoAction prestoAction, VerifierConfig verifierConfig)
+    private VerificationManager getVerificationManager(List<SourceQuery> sourceQueries, PrestoAction prestoAction,
+                                                       VerifierConfig verifierConfig, MockEventClient eventClient)
     {
         return new VerificationManager(
                 () -> sourceQueries,

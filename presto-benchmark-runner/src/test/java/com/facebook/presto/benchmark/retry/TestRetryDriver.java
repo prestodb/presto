@@ -16,7 +16,6 @@ package com.facebook.presto.benchmark.retry;
 import com.facebook.airlift.log.Logging;
 import com.facebook.presto.benchmark.framework.QueryException;
 import io.airlift.units.Duration;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.SocketTimeoutException;
@@ -64,23 +63,10 @@ public class TestRetryDriver
     private static final QueryException RETRYABLE_EXCEPTION = QueryException.forClusterConnection(new SocketTimeoutException());
     private static final QueryException NON_RETRYABLE_EXCEPTION = QueryException.forPresto(new RuntimeException(), Optional.of(REMOTE_HOST_GONE), Optional.empty());
 
-    private RetryDriver retryDriver;
-
-    @BeforeMethod
-    public void setup()
-    {
-        retryDriver = new RetryDriver(
-                new RetryConfig()
-                        .setMaxAttempts(5)
-                        .setMinBackoffDelay(new Duration(10, MILLISECONDS))
-                        .setMaxBackoffDelay(new Duration(100, MILLISECONDS))
-                        .setScaleFactor(2),
-                exception -> (exception instanceof QueryException) ? (((QueryException) exception).getType() == CLUSTER_CONNECTION) : FALSE);
-    }
-
     @Test
     public void testSuccess()
     {
+        RetryDriver retryDriver = getRetryDriverForMethods();
         assertEquals(
                 retryDriver.run("test", new MockOperation(5, RETRYABLE_EXCEPTION)),
                 Integer.valueOf(5));
@@ -89,12 +75,14 @@ public class TestRetryDriver
     @Test(expectedExceptions = QueryException.class)
     public void testMaxAttemptsExceeded()
     {
+        RetryDriver retryDriver = getRetryDriverForMethods();
         retryDriver.run("test", new MockOperation(6, RETRYABLE_EXCEPTION));
     }
 
     @Test(expectedExceptions = QueryException.class)
     public void testNonRetryableFailure()
     {
+        RetryDriver retryDriver = getRetryDriverForMethods();
         retryDriver.run("test", new MockOperation(3, NON_RETRYABLE_EXCEPTION));
     }
 
@@ -109,5 +97,18 @@ public class TestRetryDriver
                         .setScaleFactor(1000),
                 exception -> (exception instanceof QueryException) ? (((QueryException) exception).getType() == CLUSTER_CONNECTION) : FALSE);
         retryDriver.run("test", new MockOperation(5, RETRYABLE_EXCEPTION));
+    }
+
+    private RetryDriver getRetryDriverForMethods()
+    {
+        RetryDriver retryDriver = new RetryDriver(
+                new RetryConfig()
+                        .setMaxAttempts(5)
+                        .setMinBackoffDelay(new Duration(10, MILLISECONDS))
+                        .setMaxBackoffDelay(new Duration(100, MILLISECONDS))
+                        .setScaleFactor(2),
+                exception -> (exception instanceof QueryException) ? (((QueryException) exception).getType() == CLUSTER_CONNECTION) : FALSE);
+
+        return retryDriver;
     }
 }

@@ -14,17 +14,17 @@
 package com.facebook.presto.sql.parser;
 
 import com.facebook.presto.sql.tree.NodeLocation;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
 public class ParsingExceptionTest
 {
-    private ParsingException parsingException;
+    private static ParsingException parsingException;
 
-    @BeforeMethod
-    public void setUp()
+    @BeforeTest
+    public void setup()
     {
         parsingException = new ParsingException("ParsingException", new NodeLocation(100, 1));
     }
