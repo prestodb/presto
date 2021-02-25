@@ -28,14 +28,25 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!:presto-server-rpm'
+          ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!:presto-server-rpm'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw verify -B -P ci -pl :presto-server-rpm
+          ./mvnw verify -B -P ci -pl :presto-server-rpm
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!:presto-server,!:presto-cli'
 
@@ -57,10 +68,21 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
       - name: Maven install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
       - name: Run Product Tests Basic Environment
         run: presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds,cassandra,mysql_connector,postgresql_connector,mysql,kafka,avro
 
@@ -74,10 +96,21 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
       - name: Mave install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
       - name: Product Tests Specific 1.1
         run: presto-product-tests/bin/run_on_docker.sh singlenode -g hdfs_no_impersonation,avro
       - name: Product Tests Specific 1.2
@@ -101,10 +134,21 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
       - name: Maven install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
       - name: Product Tests Specific 2.1
         run: presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap -x simba_jdbc
 # SQL server image sporadically hangs during the startup
@@ -139,10 +183,21 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
       - name: Install Hive Module
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive-hadoop2
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-hive-hadoop2
       - name: Run Hive Tests
         run: presto-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
@@ -172,10 +227,21 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!:presto-server-rpm'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!:presto-server-rpm'
       - name: Maven Tests
         run: |
           ./mvnw test ${MAVEN_TEST} -pl '
@@ -238,10 +304,21 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
         run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}
 
@@ -255,10 +332,21 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
       - name: Kudu Tests
         run: |
           presto-kudu/bin/run_kudu_tests.sh 3 null
@@ -275,9 +363,20 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-kudu
       - name: Maven Tests
-        run: $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-spark-launcher,presto-spark-package,presto-spark-testing -P test-presto-spark-integration-smoke-test
+        run: ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-spark-launcher,presto-spark-package,presto-spark-testing -P test-presto-spark-integration-smoke-test
