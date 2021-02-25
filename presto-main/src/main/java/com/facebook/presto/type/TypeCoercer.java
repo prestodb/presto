@@ -503,7 +503,7 @@ public class TypeCoercer
     private Type toSemanticType(Type originalType, Type standardType)
     {
         if (originalType instanceof TypeWithName) {
-            return new TypeWithName(((TypeWithName) originalType).getName(), standardType);
+            return new TypeWithName(((TypeWithName) originalType).getQualifiedObjectName(), standardType);
         }
         return standardType;
     }
@@ -553,7 +553,7 @@ public class TypeCoercer
         private TypeCompatibility toSemanticTypeCompatibility(Type type)
         {
             if (commonSuperType.isPresent() && type instanceof TypeWithName) {
-                return new TypeCompatibility(Optional.of(new TypeWithName(((TypeWithName) type).getName(), commonSuperType.get())), coercible);
+                return new TypeCompatibility(Optional.of(new TypeWithName(((TypeWithName) type).getQualifiedObjectName(), commonSuperType.get())), coercible);
             }
             return this;
         }
