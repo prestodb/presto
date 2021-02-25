@@ -72,11 +72,10 @@ public class LocalTempStorage
     {
         this.spillPaths = ImmutableList.copyOf(requireNonNull(spillPaths, "spillPaths is null"));
         this.maxUsedSpaceThreshold = maxUsedSpaceThreshold;
+        initialize();
     }
 
-    @Override
-    public void initialize()
-            throws IOException
+    private void initialize()
     {
         // From FileSingleStreamSpillerFactory constructor
         spillPaths.forEach(path -> {

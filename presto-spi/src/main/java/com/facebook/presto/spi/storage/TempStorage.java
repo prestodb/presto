@@ -18,9 +18,6 @@ import java.io.InputStream;
 
 public interface TempStorage
 {
-    void initialize()
-            throws IOException;
-
     TempDataSink create(TempDataOperationContext context)
             throws IOException;
 
