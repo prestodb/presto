@@ -47,6 +47,17 @@ jobs:
       - name: Web UI Checks
         run: presto-main/bin/check_webui.sh
 
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Build docs
+        run: ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-docs
+
   product-tests-basic-environment:
     runs-on: ubuntu-latest
     strategy:
@@ -74,7 +85,7 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 8
-      - name: Mave install
+      - name: Maven install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
@@ -205,7 +216,6 @@ jobs:
       fail-fast: false
       matrix:
         modules:
-          - ":presto-docs"
           - ":presto-tests -P presto-tests-execution-memory"
           - ":presto-tests -P presto-tests-general"
           - ":presto-tests -P ci-only-distributed-non-hash-gen"
