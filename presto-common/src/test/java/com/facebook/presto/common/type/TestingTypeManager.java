@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -40,6 +41,12 @@ public class TestingTypeManager
             }
         }
         return null;
+    }
+
+    @Override
+    public SemanticType getSemanticType(TypeSignature signature)
+    {
+        return SemanticType.from(getType(signature));
     }
 
     @Override
