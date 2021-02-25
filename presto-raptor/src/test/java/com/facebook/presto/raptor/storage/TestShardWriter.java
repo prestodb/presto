@@ -102,6 +102,30 @@ public class TestShardWriter
         deleteRecursively(directory.toPath(), ALLOW_INSECURE);
     }
 
+    @SuppressWarnings("EmptyTryBlock")
+    @Test
+    public void testWriterZeroRows()
+            throws Exception
+    {
+        List<Long> columnIds = ImmutableList.of(1L);
+        List<Type> columnTypes = ImmutableList.of(BIGINT);
+
+        File file = new File(directory, System.nanoTime() + ".orc");
+
+        // optimized ORC writer will flush metadata on close	
+        try (FileWriter ignored = createFileWriter(columnIds, columnTypes, file)) {
+            // no rows	
+        }
+
+        try (OrcDataSource dataSource = fileOrcDataSource(file)) {
+            OrcBatchRecordReader reader = createReader(dataSource, columnIds, columnTypes);
+            assertEquals(reader.getReaderRowCount(), 0);
+            assertEquals(reader.getReaderPosition(), 0);
+
+            assertEquals(reader.nextBatch(), -1);
+        }
+    }
+
     @Test(dataProvider = "useOptimizedOrcWriter")
     public void testWriter(boolean useOptimizedOrcWriter)
             throws Exception

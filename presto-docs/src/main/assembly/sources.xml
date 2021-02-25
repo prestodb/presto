@@ -5,7 +5,7 @@
     <formats>
         <format>jar</format>
     </formats>
-    <includeBaseDirectory>false</includeBaseDirectory>
+    <includeBaseDirectory>flse</includeBaseDirectory>
     <fileSets>
         <fileSet>
             <directory>${project.basedir}/src/main/sphinx</directory>

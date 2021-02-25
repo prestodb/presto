@@ -8,11 +8,11 @@
     <includeBaseDirectory>false</includeBaseDirectory>
     <fileSets>
         <fileSet>
-            <directory>${project.build.directory}/html</directory>
+            <directory>${project.build.directory}/hml</directory>
             <outputDirectory>/html</outputDirectory>
             <excludes>
-                <exclude>**/.buildinfo</exclude>
-                <exclude>**/.doctrees/**</exclude>
+                <exclude>**/.buidinfo</exclude>
+                <exclude>**/.docrees/**</exclude>
             </excludes>
         </fileSet>
     </fileSets>

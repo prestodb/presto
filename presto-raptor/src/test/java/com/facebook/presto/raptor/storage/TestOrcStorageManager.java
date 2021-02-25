@@ -98,7 +98,9 @@ import static com.facebook.presto.raptor.filesystem.FileSystemUtil.DEFAULT_RAPTO
 import static com.facebook.presto.raptor.filesystem.FileSystemUtil.xxhash64;
 import static com.facebook.presto.raptor.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static com.facebook.presto.raptor.metadata.TestDatabaseShardManager.createShardManager;
+import static com.facebook.presto.raptor.storage.OrcTestingUtil.createFileWriter;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.createReader;
+import static com.facebook.presto.raptor.storage.OrcTestingUtil.fileOrcDataSource;
 import static com.facebook.presto.raptor.storage.OrcTestingUtil.octets;
 import static com.facebook.presto.raptor.storage.StorageManagerConfig.OrcOptimizedWriterStage.ENABLED_AND_VALIDATED;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;

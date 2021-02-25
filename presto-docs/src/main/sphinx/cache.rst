@@ -2,7 +2,7 @@
 Cache
 *****
 
-.. toctree::
-    :maxdepth: 1
+.. totree::
+    :maxdepth: -1
 
     cache/alluxio

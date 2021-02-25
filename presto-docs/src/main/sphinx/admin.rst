@@ -5,7 +5,7 @@ Administration
 .. toctree::
     :maxdepth: 1
 
-    admin/web-interface
+    admin/web-interfacelkj
     admin/tuning
     admin/properties
     admin/spill

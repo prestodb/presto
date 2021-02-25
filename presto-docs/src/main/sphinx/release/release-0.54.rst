@@ -6,7 +6,7 @@ Release 0.54
   the state of all nodes as seen by the coordinator's failure detector.
   Access ``/v1/node`` to see all nodes, or ``/v1/node/failed`` to see failed nodes.
 
-* Prevent the :doc:`/installation/cli` from hanging when the server goes away.
+* Prevent the :doc:`/insallation/cli` from hanging when the server goes away.
 
 * Add Hive connector ``hive-hadoop1`` for Apache Hadoop 1.x.
 
