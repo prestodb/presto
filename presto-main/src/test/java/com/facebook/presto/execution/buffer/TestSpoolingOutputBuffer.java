@@ -84,7 +84,7 @@ public class TestSpoolingOutputBuffer
         }
     }
 
-    @Test
+    @Test(enabled = false)
     public void testSimpleInMemory()
     {
         DataSize threshold = sizeOfPages(5);
@@ -110,7 +110,7 @@ public class TestSpoolingOutputBuffer
         compareTotalBuffered(buffer, 0);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testSimple()
     {
         DataSize threshold = sizeOfPages(3);
@@ -171,7 +171,7 @@ public class TestSpoolingOutputBuffer
         assertEquals(buffer.getInfo().getTotalPagesSent(), 9);
     }
 
-    @Test
+    @Test(enabled = false)
     void testUnevenMaxSize()
     {
         DataSize threshold = sizeOfPages(5);
@@ -196,7 +196,7 @@ public class TestSpoolingOutputBuffer
         compareTotalBuffered(buffer, 8);
     }
 
-    @Test
+    @Test(enabled = false)
     void testGetOutOfOrder()
     {
         DataSize threshold = sizeOfPages(3);
@@ -219,7 +219,7 @@ public class TestSpoolingOutputBuffer
         compareTotalBuffered(buffer, 5);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testSimplePendingRead()
     {
         DataSize threshold = sizeOfPages(3);
@@ -256,7 +256,7 @@ public class TestSpoolingOutputBuffer
         assertFalse(future.isDone());
     }
 
-    @Test
+    @Test(enabled = false)
     public void testMultiplePendingReads()
     {
         DataSize threshold = sizeOfPages(3);
@@ -281,7 +281,7 @@ public class TestSpoolingOutputBuffer
         assertBufferResultEquals(TYPES, getFuture(newPendingRead, MAX_WAIT), createBufferResult(TASK_INSTANCE_ID, 0, pages));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testAddAfterPendingRead()
     {
         DataSize threshold = sizeOfPages(3);
@@ -309,7 +309,7 @@ public class TestSpoolingOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, BUFFER_ID, 5, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 5, true));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testNoMorePagesAfterPendingRead()
     {
         DataSize threshold = sizeOfPages(3);
@@ -323,7 +323,7 @@ public class TestSpoolingOutputBuffer
         assertBufferResultEquals(TYPES, getFuture(pendingRead, NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testDestroyAfterPendingRead()
     {
         DataSize threshold = sizeOfPages(3);
@@ -338,7 +338,7 @@ public class TestSpoolingOutputBuffer
         assertBufferResultEquals(TYPES, getFuture(pendingRead, NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, false));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testAcknowledgeSimple()
     {
         DataSize threshold = sizeOfPages(3);
@@ -378,7 +378,7 @@ public class TestSpoolingOutputBuffer
         compareTotalBuffered(buffer, 3);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testAcknowledgeStorageAndMemory()
     {
         DataSize threshold = sizeOfPages(3);
@@ -399,7 +399,7 @@ public class TestSpoolingOutputBuffer
         compareTotalBuffered(buffer, 1);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testDuplicateGet()
     {
         DataSize threshold = sizeOfPages(3);
@@ -427,7 +427,7 @@ public class TestSpoolingOutputBuffer
         compareTotalBuffered(buffer, 0);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testAddAfterNoMorePages()
     {
         DataSize threshold = sizeOfPages(3);
@@ -450,7 +450,7 @@ public class TestSpoolingOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, BUFFER_ID, 2, sizeOfPages(3), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 2, true));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testAddAfterDestroy()
     {
         DataSize threshold = sizeOfPages(3);
@@ -473,7 +473,7 @@ public class TestSpoolingOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, BUFFER_ID, 0, sizeOfPages(3), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testAbort()
     {
         DataSize threshold = sizeOfPages(3);
@@ -501,7 +501,7 @@ public class TestSpoolingOutputBuffer
         compareTotalBuffered(buffer, 0);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testSetOutputBuffers()
     {
         DataSize threshold = sizeOfPages(3);
@@ -519,7 +519,7 @@ public class TestSpoolingOutputBuffer
         }
     }
 
-    @Test
+    @Test(enabled = false)
     public void testBufferCompletion()
     {
         DataSize threshold = sizeOfPages(3);

@@ -177,6 +177,7 @@ public final class SystemSessionProperties
     public static final String ENFORCE_FIXED_DISTRIBUTION_FOR_OUTPUT_OPERATOR = "enforce_fixed_distribution_for_output_operator";
     public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
     public static final String OPTIMIZE_JOINS_WITH_EMPTY_SOURCES = "optimize_joins_with_empty_sources";
+    public static final String SPOOLING_OUTPUT_BUFFER_ENABLED = "spooling_output_buffer_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -926,12 +927,22 @@ public final class SystemSessionProperties
                         OPTIMIZE_JOINS_WITH_EMPTY_SOURCES,
                         "Simplify joins with one or more empty sources",
                         featuresConfig.isEmptyJoinOptimization(),
+                        false),
+                booleanProperty(
+                        SPOOLING_OUTPUT_BUFFER_ENABLED,
+                        "Enable spooling output buffer for terminal task",
+                        featuresConfig.isSpoolingOutputBufferEnabled(),
                         false));
     }
 
     public static boolean isEmptyJoinOptimization(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_JOINS_WITH_EMPTY_SOURCES, Boolean.class);
+    }
+
+    public static boolean isSpoolingOutputBufferEnabled(Session session)
+    {
+        return session.getSystemProperty(SPOOLING_OUTPUT_BUFFER_ENABLED, Boolean.class);
     }
 
     public static boolean isSkipRedundantSort(Session session)
