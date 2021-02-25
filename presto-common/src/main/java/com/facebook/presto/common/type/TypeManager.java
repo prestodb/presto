@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.type.semantic.SemanticType;
+
 import java.util.List;
 
 public interface TypeManager
@@ -22,6 +24,10 @@ public interface TypeManager
      */
     Type getType(TypeSignature signature);
 
+    /**
+     * Gets the semantic type with the specified signature, or null if not found.
+     */
+    SemanticType getSemanticType(TypeSignature signature);
     /**
      * Gets the type with the specified base type, and the given parameters, or null if not found.
      */

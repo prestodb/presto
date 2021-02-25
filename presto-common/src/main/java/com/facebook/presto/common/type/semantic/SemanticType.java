@@ -47,11 +47,28 @@ public abstract class SemanticType
         return new DistinctType(name, type);
     }
 
+    public static SemanticType from(Type type)
+    {
+        if (type instanceof DistinctType) {
+            return (SemanticType) type;
+        }
+        else if (type.getTypeSignature().getTypeSignatureBase().hasTypeName()) {
+            return new DistinctType(type.getTypeSignature().getTypeSignatureBase().getTypeName(), type);
+        }
+        return new BuiltInType(type);
+    }
+
     public abstract String getName();
 
     public Type getType()
     {
         return type;
+    }
+
+    @Override
+    public String getDisplayName()
+    {
+        return type.getDisplayName();
     }
 
     @Override

@@ -198,9 +198,6 @@ public class FunctionAndTypeManager
         if (signature.getTypeSignatureBase().hasStandardType()) {
             Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
             if (type.isPresent()) {
-                if (signature.getTypeSignatureBase().hasTypeName()) {
-                    return SemanticType.from(signature.getTypeSignatureBase().getTypeName(), type.get());
-                }
                 return type.get();
             }
         }
@@ -213,6 +210,16 @@ public class FunctionAndTypeManager
         }
         checkArgument(userDefinedType.get().getPhysicalTypeSignature().getTypeSignatureBase().hasStandardType(), "UserDefinedType must be based on static types.");
         return getType(new TypeSignature(userDefinedType.get()));
+    }
+
+    @Override
+    public SemanticType getSemanticType(TypeSignature signature)
+    {
+        Type type = getType(signature);
+        if (signature.getTypeSignatureBase().hasTypeName()) {
+            return SemanticType.from(signature.getTypeSignatureBase().getTypeName(), type);
+        }
+        return SemanticType.from(type);
     }
 
     @Override
