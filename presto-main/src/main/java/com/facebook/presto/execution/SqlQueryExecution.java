@@ -77,9 +77,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseLegacyScheduler;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -464,9 +466,15 @@ public class SqlQueryExecution
         stateMachine.setColumns(((OutputNode) outputStagePlan.getFragment().getRoot()).getColumnNames(), outputStagePlan.getFragment().getTypes());
 
         PartitioningHandle partitioningHandle = outputStagePlan.getFragment().getPartitioningScheme().getPartitioning().getHandle();
-        OutputBuffers rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)
-                .withBuffer(OUTPUT_BUFFER_ID, BROADCAST_PARTITION_ID)
-                .withNoMoreBufferIds();
+        OutputBuffers rootOutputBuffers;
+        if (isSpoolingOutputBufferEnabled(getSession())) {
+            rootOutputBuffers = createSpoolingOutputBuffers();
+        }
+        else {
+            rootOutputBuffers = createInitialEmptyOutputBuffers(partitioningHandle)
+                    .withBuffer(OUTPUT_BUFFER_ID, BROADCAST_PARTITION_ID)
+                    .withNoMoreBufferIds();
+        }
 
         SplitSourceFactory splitSourceFactory = new SplitSourceFactory(splitSourceProvider, stateMachine.getWarningCollector());
         // build the stage execution objects (this doesn't schedule execution)
