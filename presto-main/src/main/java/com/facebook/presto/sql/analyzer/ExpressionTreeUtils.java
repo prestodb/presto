@@ -134,11 +134,10 @@ public final class ExpressionTreeUtils
             return Optional.empty();
         }
         try {
-            Type baseType = functionAndTypeManager.getType(parseTypeSignature(prefix.get().toString()));
-            if (baseType instanceof TypeWithName
-                    && ((TypeWithName) baseType).getType() instanceof EnumType
-                    && ((EnumType<?>) ((TypeWithName) baseType).getType()).getEnumMap().containsKey(qualifiedName.getSuffix().toUpperCase(ENGLISH))) {
-                return Optional.of((TypeWithName) baseType);
+            TypeWithName baseType = functionAndTypeManager.getSemanticType(parseTypeSignature(prefix.get().toString()));
+            if (baseType.getType() instanceof EnumType
+                    && ((EnumType<?>) baseType.getType()).getEnumMap().containsKey(qualifiedName.getSuffix().toUpperCase(ENGLISH))) {
+                return Optional.of(baseType);
             }
         }
         catch (IllegalArgumentException e) {
