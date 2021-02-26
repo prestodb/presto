@@ -85,9 +85,9 @@ public final class ZipWithFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type leftElementType = boundVariables.getTypeVariable("T");
-        Type rightElementType = boundVariables.getTypeVariable("U");
-        Type outputElementType = boundVariables.getTypeVariable("R");
+        Type leftElementType = boundVariables.getPhysicalType("T");
+        Type rightElementType = boundVariables.getPhysicalType("U");
+        Type outputElementType = boundVariables.getPhysicalType("R");
         ArrayType outputArrayType = new ArrayType(outputElementType);
         return new BuiltInScalarFunctionImplementation(
                 false,

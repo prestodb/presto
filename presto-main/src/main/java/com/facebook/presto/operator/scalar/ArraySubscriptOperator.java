@@ -60,7 +60,7 @@ public class ArraySubscriptOperator
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(boundVariables.getTypeVariables().size() == 1, "Expected one type, got %s", boundVariables.getTypeVariables());
-        Type elementType = boundVariables.getTypeVariable("E");
+        Type elementType = boundVariables.getPhysicalType("E");
 
         MethodHandle methodHandle;
         if (elementType.getJavaType() == boolean.class) {

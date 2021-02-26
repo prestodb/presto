@@ -49,7 +49,7 @@ public final class CastFromUnknownOperator
             BoundVariables boundVariables, int arity,
             FunctionAndTypeManager functionAndTypeManager)
     {
-        Type toType = boundVariables.getTypeVariable("E");
+        Type toType = boundVariables.getPhysicalType("E");
         MethodHandle methodHandle = METHOD_HANDLE_NON_NULL.asType(METHOD_HANDLE_NON_NULL.type().changeReturnType(toType.getJavaType()));
         return new BuiltInScalarFunctionImplementation(
                 false,

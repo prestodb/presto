@@ -51,8 +51,8 @@ public class MapHashCodeOperator
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
+        Type keyType = boundVariables.getPhysicalType("K");
+        Type valueType = boundVariables.getPhysicalType("V");
 
         MethodHandle keyHashCodeFunction = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(keyType))).getMethodHandle();
         MethodHandle valueHashCodeFunction = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(HASH_CODE, fromTypes(valueType))).getMethodHandle();

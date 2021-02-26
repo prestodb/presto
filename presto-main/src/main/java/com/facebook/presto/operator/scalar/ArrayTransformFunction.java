@@ -106,8 +106,8 @@ public final class ArrayTransformFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type inputType = boundVariables.getTypeVariable("T");
-        Type outputType = boundVariables.getTypeVariable("U");
+        Type inputType = boundVariables.getPhysicalType("T");
+        Type outputType = boundVariables.getPhysicalType("U");
         Class<?> generatedClass = generateTransform(inputType, outputType);
         return new BuiltInScalarFunctionImplementation(
                 false,

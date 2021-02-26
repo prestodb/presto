@@ -78,8 +78,8 @@ public class TryCastFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type fromType = boundVariables.getTypeVariable("F");
-        Type toType = boundVariables.getTypeVariable("T");
+        Type fromType = boundVariables.getPhysicalType("F");
+        Type toType = boundVariables.getPhysicalType("T");
 
         Class<?> returnType = Primitives.wrap(toType.getJavaType());
         List<ArgumentProperty> argumentProperties;

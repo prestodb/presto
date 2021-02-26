@@ -73,8 +73,8 @@ public class ArrayToArrayCast
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
-        Type fromType = boundVariables.getTypeVariable("F");
-        Type toType = boundVariables.getTypeVariable("T");
+        Type fromType = boundVariables.getPhysicalType("F");
+        Type toType = boundVariables.getPhysicalType("T");
 
         FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CastType.CAST, fromType.getTypeSignature(), toType.getTypeSignature());
         BuiltInScalarFunctionImplementation function = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionHandle);

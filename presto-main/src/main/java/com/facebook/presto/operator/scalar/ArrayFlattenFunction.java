@@ -77,7 +77,7 @@ public class ArrayFlattenFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type elementType = boundVariables.getTypeVariable("E");
+        Type elementType = boundVariables.getPhysicalType("E");
         Type arrayType = functionAndTypeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(elementType).bindTo(arrayType);
         return new BuiltInScalarFunctionImplementation(

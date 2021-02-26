@@ -83,7 +83,7 @@ public class ArbitraryAggregationFunction
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type valueType = boundVariables.getTypeVariable("T");
+        Type valueType = boundVariables.getPhysicalType("T");
         return generateAggregation(valueType);
     }
 
