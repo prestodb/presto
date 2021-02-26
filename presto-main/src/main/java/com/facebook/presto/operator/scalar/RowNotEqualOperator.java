@@ -50,7 +50,7 @@ public class RowNotEqualOperator
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        RowType type = (RowType) boundVariables.getTypeVariable("T");
+        RowType type = (RowType) boundVariables.getPhysicalType("T");
         return new BuiltInScalarFunctionImplementation(
                 true,
                 ImmutableList.of(

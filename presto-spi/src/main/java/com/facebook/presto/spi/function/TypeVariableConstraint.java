@@ -15,6 +15,7 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeUtils;
+import com.facebook.presto.common.type.semantic.SemanticType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -77,8 +78,9 @@ public class TypeVariableConstraint
         return nonDecimalNumericRequired;
     }
 
-    public boolean canBind(Type type)
+    public boolean canBind(SemanticType semanticType)
     {
+        Type type = semanticType.getType();
         if (comparableRequired && !type.isComparable()) {
             return false;
         }

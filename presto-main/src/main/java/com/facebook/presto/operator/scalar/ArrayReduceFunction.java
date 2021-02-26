@@ -86,9 +86,9 @@ public final class ArrayReduceFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type inputType = boundVariables.getTypeVariable("T");
-        Type intermediateType = boundVariables.getTypeVariable("S");
-        Type outputType = boundVariables.getTypeVariable("R");
+        Type inputType = boundVariables.getPhysicalType("T");
+        Type intermediateType = boundVariables.getPhysicalType("S");
+        Type outputType = boundVariables.getPhysicalType("R");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(inputType);
         return new BuiltInScalarFunctionImplementation(
                 true,

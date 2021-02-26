@@ -228,10 +228,20 @@ public class FunctionAndTypeManager
         return getType(new TypeSignature(baseTypeName, typeParameters));
     }
 
+    public SemanticType getParameterizedSemanticType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    {
+        return SemanticType.from(getParameterizedType(baseTypeName, typeParameters));
+    }
+
     @Override
     public boolean canCoerce(Type actualType, Type expectedType)
     {
         return typeCoercer.canCoerce(actualType, expectedType);
+    }
+
+    public boolean canCoerce(SemanticType actualType, SemanticType expectedType)
+    {
+        return typeCoercer.canCoerce(actualType.getType(), expectedType.getType());
     }
 
     public FunctionInvokerProvider getFunctionInvokerProvider()
@@ -408,14 +418,19 @@ public class FunctionAndTypeManager
         return typeCoercer.getCommonSuperType(firstType, secondType);
     }
 
+    public Optional<SemanticType> getCommonSuperType(SemanticType firstType, SemanticType secondType)
+    {
+        return typeCoercer.getCommonSuperType(firstType, secondType);
+    }
+
     public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
     {
         return typeCoercer.isTypeOnlyCoercion(actualType, expectedType);
     }
 
-    public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
+    public Optional<SemanticType> coerceTypeBase(SemanticType sourceType, String resultTypeBase)
     {
-        return typeCoercer.coerceTypeBase(sourceType, resultTypeBase);
+        return typeCoercer.coerceTypeBase(sourceType.getType(), resultTypeBase).map(SemanticType::from);
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)

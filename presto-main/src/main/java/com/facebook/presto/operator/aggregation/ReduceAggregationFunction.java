@@ -96,8 +96,8 @@ public class ReduceAggregationFunction
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type inputType = boundVariables.getTypeVariable("T");
-        Type stateType = boundVariables.getTypeVariable("S");
+        Type inputType = boundVariables.getPhysicalType("T");
+        Type stateType = boundVariables.getPhysicalType("S");
         return generateAggregation(inputType, stateType);
     }
 

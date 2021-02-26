@@ -74,7 +74,7 @@ public class Histogram
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type keyType = boundVariables.getTypeVariable("K");
+        Type keyType = boundVariables.getPhysicalType("K");
         Type outputType = functionAndTypeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.of(keyType.getTypeSignature()),
                 TypeSignatureParameter.of(BIGINT.getTypeSignature())));

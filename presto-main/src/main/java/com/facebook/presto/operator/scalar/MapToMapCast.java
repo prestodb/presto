@@ -81,10 +81,10 @@ public final class MapToMapCast
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
-        Type fromKeyType = boundVariables.getTypeVariable("FK");
-        Type fromValueType = boundVariables.getTypeVariable("FV");
-        Type toKeyType = boundVariables.getTypeVariable("TK");
-        Type toValueType = boundVariables.getTypeVariable("TV");
+        Type fromKeyType = boundVariables.getPhysicalType("FK");
+        Type fromValueType = boundVariables.getPhysicalType("FV");
+        Type toKeyType = boundVariables.getPhysicalType("TK");
+        Type toValueType = boundVariables.getPhysicalType("TV");
         Type toMapType = functionAndTypeManager.getParameterizedType(
                 "map",
                 ImmutableList.of(

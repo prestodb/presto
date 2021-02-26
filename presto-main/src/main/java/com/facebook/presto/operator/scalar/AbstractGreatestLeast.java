@@ -101,7 +101,7 @@ public abstract class AbstractGreatestLeast
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type type = boundVariables.getTypeVariable("E");
+        Type type = boundVariables.getPhysicalType("E");
         checkArgument(type.isOrderable(), "Type must be orderable");
 
         MethodHandle compareMethod = functionAndTypeManager.getBuiltInScalarFunctionImplementation(

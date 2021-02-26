@@ -81,7 +81,7 @@ public abstract class MergeStatisticalDigestFunction
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type valueType = boundVariables.getTypeVariable("T");
+        Type valueType = boundVariables.getPhysicalType("T");
         Type outputType = functionAndTypeManager.getParameterizedType(type,
                 ImmutableList.of(TypeSignatureParameter.of(valueType.getTypeSignature())));
         return generateAggregation(outputType);

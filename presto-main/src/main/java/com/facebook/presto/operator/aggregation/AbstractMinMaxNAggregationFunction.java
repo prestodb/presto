@@ -73,7 +73,7 @@ public abstract class AbstractMinMaxNAggregationFunction
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type type = boundVariables.getTypeVariable("E");
+        Type type = boundVariables.getPhysicalType("E");
         return generateAggregation(type);
     }
 

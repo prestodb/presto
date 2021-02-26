@@ -69,7 +69,7 @@ public class CountColumn
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type type = boundVariables.getTypeVariable("T");
+        Type type = boundVariables.getPhysicalType("T");
         return generateAggregation(type);
     }
 

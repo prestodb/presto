@@ -234,7 +234,7 @@ public class BenchmarkArrayFilter
         @Override
         public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
         {
-            Type type = boundVariables.getTypeVariable("T");
+            Type type = boundVariables.getPhysicalType("T");
             return new BuiltInScalarFunctionImplementation(
                     false,
                     ImmutableList.of(

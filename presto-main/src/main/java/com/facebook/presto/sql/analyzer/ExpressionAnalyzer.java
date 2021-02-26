@@ -925,7 +925,7 @@ public class ExpressionAnalyzer
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
                                     }
                                 }
-                                Type type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types));
+                                Type type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types.stream().map(SemanticType::getType).collect(toImmutableList())));
                                 if (expression instanceof LambdaExpression) {
                                     verifyNoAggregateWindowOrGroupingFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeManager, ((LambdaExpression) expression).getBody(), "Lambda expression");
                                     verifyNoExternalFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeManager, ((LambdaExpression) expression).getBody(), "Lambda expression");

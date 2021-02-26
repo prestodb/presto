@@ -168,7 +168,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
         @Override
         public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
         {
-            Type type = boundVariables.getTypeVariable("T");
+            Type type = boundVariables.getPhysicalType("T");
             MethodHandle methodHandleStack = MethodHandles.identity(type.getJavaType());
             MethodHandle methodHandleProvidedBlock;
             if (type.getJavaType() == long.class) {
@@ -288,7 +288,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
         @Override
         public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
         {
-            Type type = boundVariables.getTypeVariable("T");
+            Type type = boundVariables.getPhysicalType("T");
             MethodHandle methodHandleStack = MethodHandles.identity(wrap(type.getJavaType()));
             MethodHandle methodHandleProvidedBlock;
             if (type.getJavaType() == long.class) {
