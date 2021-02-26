@@ -94,10 +94,10 @@ public final class MapZipWithFunction
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type inputValueType1 = boundVariables.getTypeVariable("V1");
-        Type inputValueType2 = boundVariables.getTypeVariable("V2");
-        Type outputValueType = boundVariables.getTypeVariable("V3");
+        Type keyType = boundVariables.getPhysicalType("K");
+        Type inputValueType1 = boundVariables.getPhysicalType("V1");
+        Type inputValueType2 = boundVariables.getPhysicalType("V2");
+        Type outputValueType = boundVariables.getPhysicalType("V3");
         Type outputMapType = functionAndTypeManager.getParameterizedType(
                 StandardTypes.MAP,
                 ImmutableList.of(

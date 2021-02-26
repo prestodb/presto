@@ -26,6 +26,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFunction;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
@@ -1130,7 +1131,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
     {
         Iterable<SqlFunction> candidates = getFunctions(null, signature.getName());
         // search for exact match
-        Type returnType = functionAndTypeManager.getType(signature.getReturnType());
+        TypeWithName returnType = functionAndTypeManager.getSemanticType(signature.getReturnType());
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
         for (SqlFunction candidate : candidates) {
             Optional<BoundVariables> boundVariables = new SignatureBinder(functionAndTypeManager, candidate.getSignature(), false)
@@ -1151,7 +1152,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
             }
             Signature boundSignature = applyBoundVariables(candidate.getSignature(), boundVariables.get(), argumentTypes.size());
 
-            if (!functionAndTypeManager.isTypeOnlyCoercion(functionAndTypeManager.getType(boundSignature.getReturnType()), returnType)) {
+            if (!functionAndTypeManager.isTypeOnlyCoercion(functionAndTypeManager.getSemanticType(boundSignature.getReturnType()), returnType)) {
                 continue;
             }
             boolean nonTypeOnlyCoercion = false;
@@ -1176,11 +1177,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
             String typeName = signature.getNameSuffix().substring(MAGIC_LITERAL_FUNCTION_PREFIX.length());
 
             // lookup the type
-            Type type = functionAndTypeManager.getType(parseTypeSignature(typeName));
+            TypeWithName type = functionAndTypeManager.getSemanticType(parseTypeSignature(typeName));
 
             // verify we have one parameter of the proper type
             checkArgument(parameterTypes.size() == 1, "Expected one argument to literal function, but got %s", parameterTypes);
-            Type parameterType = functionAndTypeManager.getType(parameterTypes.get(0));
+            TypeWithName parameterType = functionAndTypeManager.getSemanticType(parameterTypes.get(0));
             requireNonNull(parameterType, format("Type %s not found", parameterTypes.get(0)));
 
             return new SpecializedFunctionKey(
@@ -1270,8 +1271,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
         @Override
         public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
         {
-            Type parameterType = boundVariables.getTypeVariable("T");
-            Type type = boundVariables.getTypeVariable("R");
+            Type parameterType = boundVariables.getPhysicalType("T");
+            Type type = boundVariables.getPhysicalType("R");
 
             MethodHandle methodHandle = null;
             if (parameterType.getJavaType() == type.getJavaType()) {

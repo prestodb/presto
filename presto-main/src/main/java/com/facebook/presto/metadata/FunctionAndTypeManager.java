@@ -215,7 +215,7 @@ public class FunctionAndTypeManager
         return getType(new TypeSignature(userDefinedType.get()));
     }
 
-    public TypeWithName getTypeWithName(TypeSignature signature)
+    public TypeWithName getSemanticType(TypeSignature signature)
     {
         Type type = getType(signature);
         if (signature.getTypeSignatureBase().hasTypeName()) {
@@ -231,10 +231,20 @@ public class FunctionAndTypeManager
         return getType(new TypeSignature(baseTypeName, typeParameters));
     }
 
+    public TypeWithName getParameterizedSemanticType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    {
+        return new TypeWithName(getParameterizedType(baseTypeName, typeParameters));
+    }
+
     @Override
     public boolean canCoerce(Type actualType, Type expectedType)
     {
         return typeCoercer.canCoerce(actualType, expectedType);
+    }
+
+    public boolean canCoerce(TypeWithName actualType, TypeWithName expectedType)
+    {
+        return typeCoercer.canCoerce(actualType.getType(), expectedType.getType());
     }
 
     public FunctionInvokerProvider getFunctionInvokerProvider()
@@ -402,14 +412,19 @@ public class FunctionAndTypeManager
         return typeCoercer.getCommonSuperType(firstType, secondType);
     }
 
+    public Optional<TypeWithName> getCommonSuperType(TypeWithName firstType, TypeWithName secondType)
+    {
+        return typeCoercer.getCommonSuperType(firstType, secondType);
+    }
+
     public boolean isTypeOnlyCoercion(Type actualType, Type expectedType)
     {
         return typeCoercer.isTypeOnlyCoercion(actualType, expectedType);
     }
 
-    public Optional<Type> coerceTypeBase(Type sourceType, String resultTypeBase)
+    public Optional<TypeWithName> coerceTypeBase(TypeWithName sourceType, String resultTypeBase)
     {
-        return typeCoercer.coerceTypeBase(sourceType, resultTypeBase);
+        return typeCoercer.coerceTypeBase(sourceType.getType(), resultTypeBase).map(TypeWithName::new);
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(FunctionHandle functionHandle)

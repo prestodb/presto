@@ -76,6 +76,18 @@ public class TypeCoercer
         return Optional.of(compatibility.getCommonSuperType());
     }
 
+    public Optional<TypeWithName> getCommonSuperType(TypeWithName firstType, TypeWithName secondType)
+    {
+        TypeCompatibility compatibility = compatibility(firstType.getType(), secondType.getType());
+        if (!compatibility.isCompatible()) {
+            return Optional.empty();
+        }
+        if (firstType.getTypeSignature().getTypeSignatureBase().hasTypeName()) {
+            return Optional.of(new TypeWithName(firstType.getTypeSignature().getTypeSignatureBase().getTypeName(), compatibility.getCommonSuperType()));
+        }
+        return Optional.of(new TypeWithName(compatibility.getCommonSuperType()));
+    }
+
     public boolean canCoerce(Type fromType, Type toType)
     {
         TypeCompatibility typeCompatibility = compatibility(toStandardType(fromType), toStandardType(toType));

@@ -162,7 +162,7 @@ public final class PolymorphicScalarFunctionBuilder
 
         public Type getType(String name)
         {
-            return boundVariables.getTypeVariable(name);
+            return boundVariables.getPhysicalType(name);
         }
 
         public Long getLiteral(String name)

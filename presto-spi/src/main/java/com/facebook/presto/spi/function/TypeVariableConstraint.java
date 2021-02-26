@@ -97,15 +97,16 @@ public class TypeVariableConstraint
         return typeBound;
     }
 
-    public boolean canBind(Type type)
+    public boolean canBind(TypeWithName semanticType)
     {
+        Type type = semanticType.getType();
         if (comparableRequired && !type.isComparable()) {
             return false;
         }
         if (orderableRequired && !type.isOrderable()) {
             return false;
         }
-        if (!typeBound.isInstance(type) && !(type instanceof TypeWithName && typeBound.isInstance(((TypeWithName) type).getType()))) {
+        if (!typeBound.isInstance(type)) {
             return false;
         }
         if (variadicBound != null && !UNKNOWN.equals(type) && !variadicBound.equals(type.getTypeSignature().getBase())) {

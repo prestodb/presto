@@ -134,7 +134,7 @@ public final class ExpressionTreeUtils
             return Optional.empty();
         }
         try {
-            TypeWithName baseType = functionAndTypeManager.getTypeWithName(parseTypeSignature(prefix.get().toString()));
+            TypeWithName baseType = functionAndTypeManager.getSemanticType(parseTypeSignature(prefix.get().toString()));
             if (baseType.getType() instanceof EnumType) {
                 return Optional.of(baseType);
             }
