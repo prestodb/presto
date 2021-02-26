@@ -745,7 +745,7 @@ public class SignatureBinder
 
             SemanticType actualLambdaType = functionAndTypeManager.getSemanticType(actualLambdaTypeSignature);
             // TODO FunctionType should use SemanticType
-            SemanticType actualReturnType = SemanticType.from(((FunctionType) actualLambdaType.getType()).getReturnType());
+            SemanticType actualReturnType = ((FunctionType) actualLambdaType.getType()).getReturnType();
 
             ImmutableList.Builder<TypeConstraintSolver> constraintsBuilder = ImmutableList.builder();
             // Coercion on function type is not supported yet.

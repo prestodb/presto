@@ -960,7 +960,7 @@ public class ExpressionAnalyzer
                 }
                 if (argumentTypes.get(i).hasDependency()) {
                     FunctionType expectedFunctionType = (FunctionType) expectedType;
-                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes())));
+                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentPysicalTypes())));
                 }
                 else {
                     Type actualType = functionAndTypeManager.getType(argumentTypes.get(i).getTypeSignature());
@@ -1239,7 +1239,7 @@ public class ExpressionAnalyzer
             }
 
             Type returnType = process(node.getBody(), new StackableAstVisitorContext<>(Context.inLambda(lambdaScope, fieldToLambdaArgumentDeclaration.build())));
-            FunctionType functionType = new FunctionType(types, returnType);
+            FunctionType functionType = new FunctionType(types.stream().map(SemanticType::from).collect(toImmutableList()), SemanticType.from(returnType));
             return setExpressionType(node, functionType);
         }
 
@@ -1258,11 +1258,11 @@ public class ExpressionAnalyzer
 
             FunctionType functionType = (FunctionType) process(node.getFunction(), new StackableAstVisitorContext<>(context.getContext().expectingLambda(functionInputTypes)));
 
-            List<Type> argumentTypes = functionType.getArgumentTypes();
+            List<SemanticType> argumentTypes = functionType.getArgumentTypes();
             int numCapturedValues = node.getValues().size();
             verify(argumentTypes.size() == functionInputTypes.size());
             for (int i = 0; i < numCapturedValues; i++) {
-                verify(functionInputTypes.get(i).equals(argumentTypes.get(i)));
+                verify(functionInputTypes.get(i).equals(argumentTypes.get(i).getType()));
             }
 
             FunctionType result = new FunctionType(argumentTypes.subList(numCapturedValues, argumentTypes.size()), functionType.getReturnType());

@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.common.function.OperatorType.ADD;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BigintType.BIGINT_TYPE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -48,7 +49,7 @@ public class TestSubExpressions
         RowExpression c = call(ADD, a, b);
         RowExpression d = new LambdaDefinitionExpression(ImmutableList.of(BIGINT), ImmutableList.of("a"), c);
         RowExpression e = constant(1L, BIGINT);
-        RowExpression f = specialForm(BIND, new FunctionType(ImmutableList.of(BIGINT), BIGINT), e, d);
+        RowExpression f = specialForm(BIND, new FunctionType(ImmutableList.of(BIGINT_TYPE), BIGINT_TYPE), e, d);
         assertEquals(subExpressions(a), ImmutableList.of(a));
         assertEquals(subExpressions(b), ImmutableList.of(b));
         assertEquals(subExpressions(c), ImmutableList.of(c, a, b));

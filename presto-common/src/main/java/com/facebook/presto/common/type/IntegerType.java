@@ -17,6 +17,7 @@ import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static java.lang.String.format;
@@ -25,6 +26,7 @@ public final class IntegerType
         extends AbstractIntType
 {
     public static final IntegerType INTEGER = new IntegerType();
+    public static final SemanticType INTEGER_TYPE = SemanticType.from(INTEGER);
 
     private IntegerType()
     {

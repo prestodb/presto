@@ -34,42 +34,42 @@ public class FunctionType
     public static final String NAME = "function";
 
     private final TypeSignature signature;
-    private final Type returnType;
-    private final List<Type> argumentTypes;
+    private final SemanticType returnType;
+    private final List<SemanticType> argumentTypes;
 
-    public FunctionType(List<Type> argumentTypes, Type returnType)
+    public FunctionType(List<SemanticType> argumentTypes, SemanticType returnType)
     {
         this.signature = new TypeSignature(NAME, typeParameters(argumentTypes, returnType));
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = unmodifiableList(new ArrayList<>(requireNonNull(argumentTypes, "argumentTypes is null")));
     }
 
-    public FunctionType(List<SemanticType> argumentTypes, SemanticType returnType)
-    {
-        this(argumentTypes.stream().map(SemanticType::getType).collect(toList()), returnType.getType());
-    }
-
-    private static List<TypeSignatureParameter> typeParameters(List<Type> argumentTypes, Type returnType)
+    private static List<TypeSignatureParameter> typeParameters(List<SemanticType> argumentTypes, SemanticType returnType)
     {
         requireNonNull(returnType, "returnType is null");
         requireNonNull(argumentTypes, "argumentTypes is null");
         List<TypeSignatureParameter> parameters = new ArrayList<>(argumentTypes.size() + 1);
         argumentTypes.stream()
-                .map(Type::getTypeSignature)
+                .map(SemanticType::getTypeSignature)
                 .map(TypeSignatureParameter::of)
                 .forEach(parameters::add);
         parameters.add(TypeSignatureParameter.of(returnType.getTypeSignature()));
         return unmodifiableList(parameters);
     }
 
-    public Type getReturnType()
+    public SemanticType getReturnType()
     {
         return returnType;
     }
 
-    public List<Type> getArgumentTypes()
+    public List<SemanticType> getArgumentTypes()
     {
         return argumentTypes;
+    }
+
+    public List<Type> getArgumentPysicalTypes()
+    {
+        return argumentTypes.stream().map(SemanticType::getType).collect(toList());
     }
 
     @Override

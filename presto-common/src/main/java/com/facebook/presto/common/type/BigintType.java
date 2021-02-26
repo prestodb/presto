@@ -15,6 +15,7 @@ package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.semantic.SemanticType;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
@@ -22,6 +23,7 @@ public final class BigintType
         extends AbstractLongType
 {
     public static final BigintType BIGINT = new BigintType();
+    public static final SemanticType BIGINT_TYPE = SemanticType.from(BIGINT);
 
     private BigintType()
     {

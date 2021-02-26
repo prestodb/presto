@@ -34,6 +34,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.IntegerType.INTEGER_TYPE;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
@@ -55,8 +56,8 @@ public class TestTranslateExpressions
             fromTypes(
                     INTEGER,
                     INTEGER,
-                    new FunctionType(ImmutableList.of(INTEGER, INTEGER), INTEGER),
-                    new FunctionType(ImmutableList.of(INTEGER, INTEGER), INTEGER)));
+                    new FunctionType(ImmutableList.of(INTEGER_TYPE, INTEGER_TYPE), INTEGER_TYPE),
+                    new FunctionType(ImmutableList.of(INTEGER_TYPE, INTEGER_TYPE), INTEGER_TYPE)));
 
     @Test
     public void testTranslateAggregationWithLambda()
@@ -90,11 +91,11 @@ public class TestTranslateExpressions
                                 variable("input", INTEGER),
                                 constant(0L, INTEGER),
                                 new LambdaDefinitionExpression(
-                                        ImmutableList.of(INTEGER, INTEGER),
+                                        ImmutableList.of(INTEGER_TYPE, INTEGER_TYPE),
                                         ImmutableList.of("x", "y"),
                                         multiply(variable("x", INTEGER), variable("y", INTEGER))),
                                 new LambdaDefinitionExpression(
-                                        ImmutableList.of(INTEGER, INTEGER),
+                                        ImmutableList.of(INTEGER_TYPE, INTEGER_TYPE),
                                         ImmutableList.of("a", "b"),
                                         multiply(variable("a", INTEGER), variable("b", INTEGER))))),
                 Optional.of(greaterThan(variable("input", INTEGER), constant(10L, INTEGER))),
@@ -133,11 +134,11 @@ public class TestTranslateExpressions
                         ImmutableList.of(
                                 variable("input", INTEGER),
                                 new LambdaDefinitionExpression(
-                                        ImmutableList.of(INTEGER, INTEGER),
+                                        ImmutableList.of(INTEGER_TYPE, INTEGER_TYPE),
                                         ImmutableList.of("x", "y"),
                                         multiply(variable("x", INTEGER), variable("y", INTEGER))),
                                 new LambdaDefinitionExpression(
-                                        ImmutableList.of(INTEGER, INTEGER),
+                                        ImmutableList.of(INTEGER_TYPE, INTEGER_TYPE),
                                         ImmutableList.of("a", "b"),
                                         multiply(variable("a", INTEGER), variable("b", INTEGER))))),
                 Optional.of(greaterThan(variable("input", INTEGER), constant(10L, INTEGER))),
