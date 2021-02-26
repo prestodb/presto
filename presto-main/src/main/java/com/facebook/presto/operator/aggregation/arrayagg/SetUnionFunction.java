@@ -76,7 +76,7 @@ public class SetUnionFunction
     @Override
     public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type elementType = boundVariables.getTypeVariable("T");
+        Type elementType = boundVariables.getPhysicalType("T");
         ArrayType arrayType = (ArrayType) functionAndTypeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(elementType.getTypeSignature())));
 
         DynamicClassLoader classLoader = new DynamicClassLoader(SetUnionFunction.class.getClassLoader());

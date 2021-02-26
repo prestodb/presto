@@ -67,7 +67,7 @@ public class RowToJsonCast
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
-        Type type = boundVariables.getTypeVariable("T");
+        Type type = boundVariables.getPhysicalType("T");
         checkCondition(canCastToJson(type), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", type);
 
         List<Type> fieldTypes = type.getTypeParameters();

@@ -91,7 +91,7 @@ public final class ArrayConcatFunction
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments to " + FUNCTION_NAME);
         }
 
-        Type elementType = boundVariables.getTypeVariable("E");
+        Type elementType = boundVariables.getPhysicalType("E");
 
         VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                 Block.class,

@@ -71,7 +71,7 @@ public class RowIndeterminateOperator
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
-        Type type = boundVariables.getTypeVariable("T");
+        Type type = boundVariables.getPhysicalType("T");
         Class<?> indeterminateOperatorClass = generateIndeterminate(type, functionAndTypeManager);
         MethodHandle indeterminateMethod = methodHandle(indeterminateOperatorClass, "indeterminate", type.getJavaType(), boolean.class);
         return new BuiltInScalarFunctionImplementation(

@@ -22,6 +22,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -207,13 +208,13 @@ public final class ArrayJoin
     }
 
     private static BuiltInScalarFunctionImplementation specializeArrayJoin(
-            Map<String, Type> types,
+            Map<String, TypeWithName> types,
             FunctionAndTypeManager functionAndTypeManager,
             List<Boolean> nullableArguments,
             MethodHandle methodHandleStack,
             MethodHandle methodHandleProvidedBlock)
     {
-        Type type = types.get("T");
+        Type type = types.get("T").getType();
         List<ArgumentProperty> argumentProperties = nullableArguments.stream()
                 .map(nullable -> nullable
                         ? valueTypeArgumentProperty(USE_BOXED_TYPE)

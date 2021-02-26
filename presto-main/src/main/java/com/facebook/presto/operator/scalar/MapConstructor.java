@@ -111,8 +111,8 @@ public final class MapConstructor
     @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
+        Type keyType = boundVariables.getPhysicalType("K");
+        Type valueType = boundVariables.getPhysicalType("V");
 
         Type mapType = functionAndTypeManager.getParameterizedType(MAP, ImmutableList.of(TypeSignatureParameter.of(keyType.getTypeSignature()), TypeSignatureParameter.of(valueType.getTypeSignature())));
         MethodHandle keyNativeHashCode = functionAndTypeManager.getBuiltInScalarFunctionImplementation(functionAndTypeManager.resolveOperator(OperatorType.HASH_CODE, fromTypes(keyType))).getMethodHandle();

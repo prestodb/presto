@@ -43,6 +43,11 @@ public class FunctionType
         this.argumentTypes = unmodifiableList(new ArrayList<>(requireNonNull(argumentTypes, "argumentTypes is null")));
     }
 
+    public FunctionType(List<TypeWithName> argumentTypes, TypeWithName returnType)
+    {
+        this(argumentTypes.stream().map(TypeWithName::getType).collect(toList()), returnType.getType());
+    }
+
     private static List<TypeSignatureParameter> typeParameters(List<Type> argumentTypes, Type returnType)
     {
         requireNonNull(returnType, "returnType is null");

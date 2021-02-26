@@ -122,7 +122,7 @@ public class ParametricScalarImplementation
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
-            if (entry.getValue() != boundVariables.getTypeVariable(entry.getKey()).getJavaType()) {
+            if (entry.getValue() != boundVariables.getPhysicalType(entry.getKey()).getJavaType()) {
                 return Optional.empty();
             }
         }

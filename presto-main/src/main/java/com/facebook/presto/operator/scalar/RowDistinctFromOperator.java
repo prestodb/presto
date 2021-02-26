@@ -63,7 +63,7 @@ public class RowDistinctFromOperator
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
-        Type type = boundVariables.getTypeVariable("T");
+        Type type = boundVariables.getPhysicalType("T");
         for (Type parameterType : type.getTypeParameters()) {
             FunctionHandle operatorHandle = functionAndTypeManager.resolveOperator(IS_DISTINCT_FROM, fromTypes(parameterType, parameterType));
             FunctionInvoker functionInvoker = functionAndTypeManager.getFunctionInvokerProvider().createFunctionInvoker(

@@ -79,8 +79,8 @@ public class RowToRowCast
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(arity == 1, "Expected arity to be 1");
-        Type fromType = boundVariables.getTypeVariable("F");
-        Type toType = boundVariables.getTypeVariable("T");
+        Type fromType = boundVariables.getPhysicalType("F");
+        Type toType = boundVariables.getPhysicalType("T");
         if (fromType.getTypeParameters().size() != toType.getTypeParameters().size()) {
             throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
         }
